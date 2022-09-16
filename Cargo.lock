@@ -729,6 +729,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -746,7 +748,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "sha3",
  "stm32h7",
  "tlvc",
  "userlib",
@@ -772,10 +773,13 @@ dependencies = [
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [
+ "drv-auxflash-api",
  "drv-spi-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -1169,11 +1173,11 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",
  "ringbuf",
- "sha2",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
@@ -1186,6 +1190,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",

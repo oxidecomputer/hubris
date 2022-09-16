@@ -651,9 +651,9 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
 
     if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
         let file = cfg.dist_file("auxi.tlvc");
-        std::fs::write(&file, &auxflash.1)
+        std::fs::write(&file, &auxflash.data)
             .context(format!("Failed to write auxi to {:?}", file))?;
-        archive.copy(&file, img_dir.join("auxi.tlvc"))?;
+        archive.copy(cfg.dist_file("auxi.tlvc"), img_dir.join("auxi.tlvc"))?;
     }
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for

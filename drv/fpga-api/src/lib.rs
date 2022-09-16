@@ -12,6 +12,9 @@ use drv_spi_api::SpiError;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
+#[cfg(feature = "auxflash")]
+use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FpgaError {
     ImplError(u8),
@@ -22,6 +25,9 @@ pub enum FpgaError {
     BadDevice,
     NotLocked,
     AlreadyLocked,
+    AuxChecksumMismatch,
+    AuxReadError,
+    AuxMissingBlob,
 }
 
 impl From<FpgaError> for u16 {
@@ -37,6 +43,9 @@ impl From<FpgaError> for u16 {
             FpgaError::BadDevice => 0x0500,
             FpgaError::NotLocked => 0x0501,
             FpgaError::AlreadyLocked => 0x0502,
+            FpgaError::AuxChecksumMismatch => 0x0503,
+            FpgaError::AuxReadError => 0x0504,
+            FpgaError::AuxMissingBlob => 0x0505,
         }
     }
 }
@@ -67,6 +76,9 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0500 => Ok(FpgaError::BadDevice),
                 0x0501 => Ok(FpgaError::NotLocked),
                 0x0502 => Ok(FpgaError::AlreadyLocked),
+                0x0503 => Ok(FpgaError::AuxChecksumMismatch),
+                0x0504 => Ok(FpgaError::AuxReadError),
+                0x0505 => Ok(FpgaError::AuxMissingBlob),
                 _ => Err(()),
             },
         }
@@ -208,6 +220,10 @@ impl Bitstream {
     pub fn finish_load(&mut self) -> Result<(), FpgaError> {
         (*self.0).finish_bitstream_load()
     }
+
+    pub fn cancel_load(&mut self) -> Result<(), FpgaError> {
+        (*self.0).reset_device(self.0.device_index)
+    }
 }
 
 pub struct FpgaUserDesign {
@@ -300,7 +316,59 @@ pub fn load_bitstream(
     let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
 
     for chunk in data.chunks(chunk_len) {
-        bitstream.continue_load(chunk)?;
+        if let Err(e) = bitstream.continue_load(chunk) {
+            bitstream.cancel_load().unwrap_lite();
+            return Err(e);
+        }
+    }
+
+    bitstream.finish_load()
+}
+
+/// Load a bitstream from auxiliary flash
+#[cfg(feature = "auxflash")]
+pub fn load_bitstream_from_auxflash(
+    fpga: &mut Fpga,
+    auxflash: &mut AuxFlash,
+    blob: AuxFlashBlob,
+    bitstream_type: BitstreamType,
+    expected_checksum: [u8; 32],
+) -> Result<(), FpgaError> {
+    use sha3::{Digest, Sha3_256};
+
+    // At this point, we have already verified the checksum of the entire blob
+    // in auxiliary flash, so we trust the bitstream to be correct.
+    //
+    // We stream the data into the FPGA, recalculating the checksum (of just the
+    // bitstream this time) to protect against TOCTOU attacks.
+    let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
+
+    let mut scratch_buf = [0u8; 128];
+    let mut pos = blob.start;
+    let mut sha = Sha3_256::new();
+    while pos < blob.end {
+        let amount = (blob.end - pos).min(scratch_buf.len() as u32);
+        let chunk = &mut scratch_buf[0..(amount as usize)];
+
+        let r = auxflash.read_slot_with_offset(blob.slot, pos, chunk);
+        if r.is_err() {
+            // Drop any errors from cancel_load, since we don't want to mask the
+            // auxflash error.
+            let _ = bitstream.cancel_load();
+            return Err(FpgaError::AuxReadError);
+        }
+
+        if let Err(e) = bitstream.continue_load(&chunk) {
+            let _ = bitstream.cancel_load();
+            return Err(e);
+        }
+        sha.update(&chunk);
+        pos += amount;
+    }
+    let sha_out: [u8; 32] = sha.finalize().into();
+    if sha_out != expected_checksum {
+        let _ = bitstream.cancel_load();
+        return Err(FpgaError::AuxChecksumMismatch);
     }
 
     bitstream.finish_load()
