@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    AliasCert, AliasOkm, DeviceIdSelfCert, RngSeed, SpMeasureCert, SpMeasureOkm,
+    AliasCert, AliasOkm, DeviceIdSelfCert, RngSeed, SpMeasureCert,
+    SpMeasureOkm, TrustQuorumDheCert, TrustQuorumDheOkm,
 };
 use hubpack::SerializedSize;
 use lpc55_pac::syscon::RegisterBlock;
@@ -108,8 +109,10 @@ pub trait HandoffData {
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct AliasData {
     pub magic: [u8; 16],
-    pub seed: AliasOkm,
+    pub alias_seed: AliasOkm,
     pub alias_cert: AliasCert,
+    pub tqdhe_seed: TrustQuorumDheOkm,
+    pub tqdhe_cert: TrustQuorumDheCert,
     pub deviceid_cert: DeviceIdSelfCert,
 }
 
@@ -129,14 +132,18 @@ impl HandoffData for AliasData {
 
 impl AliasData {
     pub fn new(
-        seed: AliasOkm,
+        alias_seed: AliasOkm,
         alias_cert: AliasCert,
+        tqdhe_seed: TrustQuorumDheOkm,
+        tqdhe_cert: TrustQuorumDheCert,
         deviceid_cert: DeviceIdSelfCert,
     ) -> Self {
         Self {
             magic: Self::EXPECTED_MAGIC,
-            seed,
+            alias_seed,
             alias_cert,
+            tqdhe_seed,
+            tqdhe_cert,
             deviceid_cert,
         }
     }

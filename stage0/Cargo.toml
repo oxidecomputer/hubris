@@ -32,6 +32,15 @@ path = "../lib/dice"
 default-features = false
 optional = true
 
+#[build-dependencies]
+#hubpack = "0.1"
+#
+#[build-dependencies.dice_crate]
+#package = "dice"
+#path = "../lib/dice"
+#default-features = false
+#optional = true
+
 [dependencies.salty]
 git = "https://github.com/oxidecomputer/salty"
 rev = "eb3c31858f631a7fb9934246c8efdef080d05726"

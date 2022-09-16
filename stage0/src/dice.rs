@@ -8,6 +8,7 @@ use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
     DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData, RngSeed, SeedBuf,
     SerialNumber, SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
+    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -76,8 +77,24 @@ pub fn run(image: &Image) {
     )
     .sign(&deviceid_keypair);
 
-    let alias_data =
-        AliasData::new(alias_okm, alias_cert, deviceid_cert.clone());
+    let tqdhe_okm = TrustQuorumDheOkm::from_cdi(&cdi_l1);
+    let tqdhe_keypair = Keypair::from(tqdhe_okm.as_bytes());
+
+    let tqdhe_cert = TrustQuorumDheCertBuilder::new(
+        &cert_sn.next(),
+        &dname_sn,
+        &tqdhe_keypair.public,
+        fwid.as_ref(),
+    )
+    .sign(&deviceid_keypair);
+
+    let alias_data = AliasData::new(
+        alias_okm,
+        alias_cert,
+        tqdhe_okm,
+        tqdhe_cert,
+        deviceid_cert.clone(),
+    );
 
     handoff.store(&alias_data);
 

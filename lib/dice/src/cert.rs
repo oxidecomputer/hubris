@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    alias_cert_tmpl, deviceid_cert_tmpl, spmeasure_cert_tmpl, CertSerialNumber,
-    SerialNumber,
+    alias_cert_tmpl, deviceid_cert_tmpl, spmeasure_cert_tmpl,
+    trust_quorum_dhe_cert_tmpl, CertSerialNumber, SerialNumber,
 };
 use core::ops::Range;
 use hubpack::SerializedSize;
@@ -345,6 +345,88 @@ impl Cert for SpMeasureCert {
     const PUB_RANGE: Range<usize> = spmeasure_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = spmeasure_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> = spmeasure_cert_tmpl::SIGNDATA_RANGE;
+
+    fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+pub struct TrustQuorumDheCertBuilder([u8; trust_quorum_dhe_cert_tmpl::SIZE]);
+
+impl TrustQuorumDheCertBuilder {
+    const FWID_LENGTH: usize = trust_quorum_dhe_cert_tmpl::FWID_RANGE.end
+        - trust_quorum_dhe_cert_tmpl::FWID_RANGE.start;
+
+    pub fn new(
+        cert_sn: &CertSerialNumber,
+        dname_sn: &SerialNumber,
+        public_key: &PublicKey,
+        fwid: &[u8; Self::FWID_LENGTH],
+    ) -> Self {
+        Self(trust_quorum_dhe_cert_tmpl::CERT_TMPL.clone())
+            .set_serial_number(cert_sn)
+            .set_issuer_sn(dname_sn)
+            .set_subject_sn(dname_sn)
+            .set_pub(public_key.as_bytes())
+            .set_fwid(fwid)
+    }
+
+    pub fn set_fwid(self, fwid: &[u8; Self::FWID_LENGTH]) -> Self {
+        self.set_range(trust_quorum_dhe_cert_tmpl::FWID_RANGE, fwid)
+    }
+
+    const SIGNDATA_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SIGNDATA_RANGE;
+
+    pub fn sign(self, keypair: &Keypair) -> TrustQuorumDheCert
+    where
+        Self: Sized,
+    {
+        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let sig = keypair.sign(signdata);
+        let tmp = self.set_sig(&sig.to_bytes());
+
+        TrustQuorumDheCert(tmp.0)
+    }
+}
+
+impl CertBuilder for TrustQuorumDheCertBuilder {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::SIG_RANGE;
+
+    fn as_mut_bytes(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct TrustQuorumDheCert(
+    #[serde(with = "BigArray")] [u8; trust_quorum_dhe_cert_tmpl::SIZE],
+);
+
+impl TrustQuorumDheCert {
+    pub fn get_fwid(&self) -> &[u8] {
+        self.get_range(trust_quorum_dhe_cert_tmpl::FWID_RANGE)
+    }
+}
+
+impl Cert for TrustQuorumDheCert {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::SIG_RANGE;
+    const SIGNDATA_RANGE: Range<usize> =
+        trust_quorum_dhe_cert_tmpl::SIGNDATA_RANGE;
 
     fn as_bytes(&self) -> &[u8] {
         &self.0

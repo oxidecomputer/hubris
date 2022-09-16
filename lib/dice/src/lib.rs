@@ -17,11 +17,13 @@ mod cert;
 pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdSelfCert,
     DeviceIdSelfCertBuilder, SpMeasureCert, SpMeasureCertBuilder,
+    TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;
 mod spmeasure_cert_tmpl;
+mod trust_quorum_dhe_cert_tmpl;
 pub use crate::handoff::{
     AliasData, Handoff, HandoffData, RngData, SpMeasureData,
 };
@@ -262,6 +264,26 @@ impl SpMeasureOkm {
     // in extract, and info string in expand.
     pub fn from_cdi(cdi: &CdiL1) -> Self {
         Self(okm_from_seed_no_extract(cdi, "sp-measure".as_bytes()))
+    }
+}
+
+/// TrustQuorumDheOkm is a type that represents the output keying material
+/// (OKM)used to create the trust quorum DHE key. This key is used as the
+/// identity key in the trust quorum DHE.
+#[derive(Deserialize, Serialize, SerializedSize, Zeroize, ZeroizeOnDrop)]
+pub struct TrustQuorumDheOkm([u8; SEED_LENGTH]);
+
+impl SeedBuf for TrustQuorumDheOkm {
+    fn as_bytes(&self) -> &[u8; SEED_LENGTH] {
+        &self.0
+    }
+}
+
+impl TrustQuorumDheOkm {
+    // keys derived from CDI_L1 here use HKDF w/ CDI_L1 as IKM, no salt
+    // in extract, and info string in expand.
+    pub fn from_cdi(cdi: &CdiL1) -> Self {
+        Self(okm_from_seed_no_extract(cdi, "trust-quorum-dhe".as_bytes()))
     }
 }
 
