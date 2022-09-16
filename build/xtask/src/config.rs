@@ -341,7 +341,7 @@ impl Config {
         let outputs: &Vec<Output> = self
             .outputs
             .get(&region)
-            .ok_or(anyhow!("couldn't find region {}", region))?;
+            .ok_or_else(|| anyhow!("couldn't find region {}", region))?;
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
 
         for o in outputs {
@@ -357,7 +357,7 @@ impl Config {
     ) -> Result<IndexMap<String, Range<u32>>> {
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
         for a in &self.external_images {
-            if let Some(r) = self.memories(&a)?.get(&region) {
+            if let Some(r) = self.memories(a)?.get(&region) {
                 memories.insert(a.clone(), r.start..r.end);
             }
         }
