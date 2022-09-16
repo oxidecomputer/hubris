@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::convert::TryInto;
-
 use crate::util::detype;
 use crate::Trace;
 use crate::{Phy, PhyRw};
@@ -138,13 +136,13 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
 
         self.phy.cmd(MCB_CFG_BUF_START_ADDR)?; // Line 3998
 
-        for i in 0..38 {
+        for byte in &mut cfg {
             // "read the value of cfg_buf[idx] w/ post-incr."
             self.phy.cmd(0x9007)?;
             let r = self.phy.read(phy::GPIO::MICRO_PAGE())?;
 
             // "get bits 11:4 from return value"
-            cfg[i] = (u16::from(r) >> 4) as u8;
+            *byte = (u16::from(r) >> 4) as u8;
         }
         Ok(TeslaSerdes6gPatch { cfg })
     }
@@ -223,7 +221,7 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
 
         // Set the start address
         let addr = MCB_CFG_BUF_START_ADDR + bits.start() / 8;
-        self.phy.cmd(addr.try_into().unwrap())?;
+        self.phy.cmd(addr)?;
 
         while mask != 0 {
             self.phy.cmd(0x8007)?; // Read cfg_buffer[byte], no post-increment

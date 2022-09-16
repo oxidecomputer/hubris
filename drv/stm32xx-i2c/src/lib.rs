@@ -115,7 +115,7 @@ pub struct I2cMux<'a> {
 ///
 /// An enum describing the amount to read
 ///
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ReadLength {
     /// Fixed length to read
     Fixed(usize),
@@ -123,7 +123,7 @@ pub enum ReadLength {
     Variable,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     WaitISR(u32),
     WriteISR(u32),

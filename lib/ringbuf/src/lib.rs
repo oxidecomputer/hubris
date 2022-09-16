@@ -234,6 +234,7 @@ macro_rules! ringbuf_entry {
 
 /// Inserts data into an unnamed ringbuffer at the root of this crate
 #[cfg(not(feature = "disabled"))]
+#[allow(clippy::crate_in_macro_def)]
 #[macro_export]
 macro_rules! ringbuf_entry_root {
     ($payload:expr) => {

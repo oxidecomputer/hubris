@@ -8,9 +8,7 @@ use vsc7448_pac::phy;
 use vsc_err::VscError;
 
 /// Based on `vtss_atom_patch_suspend` in the SDK
-pub fn atom_patch_suspend<'a, 'b, P: PhyRw>(
-    phy: &'b mut Phy<'a, P>,
-) -> Result<(), VscError> {
+pub fn atom_patch_suspend<P: PhyRw>(phy: &mut Phy<P>) -> Result<(), VscError> {
     // We don't have VeriPHY running, so skip the first conditional
     let v = phy.read(phy::GPIO::MICRO_PAGE())?;
     if (v.0 & 0x4000) == 0 {
@@ -23,9 +21,7 @@ pub fn atom_patch_suspend<'a, 'b, P: PhyRw>(
 }
 
 /// Based on `vtss_atom_patch_suspend` in the SDK
-pub fn atom_patch_resume<'a, 'b, P: PhyRw>(
-    phy: &'b mut Phy<'a, P>,
-) -> Result<(), VscError> {
+pub fn atom_patch_resume<P: PhyRw>(phy: &mut Phy<P>) -> Result<(), VscError> {
     // We don't have VeriPHY running, so skip the first conditional
     let v = phy.read(phy::GPIO::MICRO_PAGE())?;
     if (v.0 & 0x4000) != 0 {

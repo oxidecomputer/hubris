@@ -73,7 +73,7 @@ bitfield! {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Register {
     GlobalConfiguration = 0x00,
     PWMFrequency = 0x01,
@@ -183,7 +183,7 @@ pub struct Max31790 {
 
 pub const MAX_FANS: u8 = 6;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
 impl TryFrom<u8> for Fan {

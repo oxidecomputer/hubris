@@ -34,7 +34,7 @@ impl Vsc7448Spi {
 
     #[inline(never)]
     fn read_core(&self, orig_addr: u32) -> Result<u32, VscError> {
-        if orig_addr < 0x71000000 || orig_addr >= 0x72000000 {
+        if !(0x71000000..0x72000000).contains(&orig_addr) {
             return Err(VscError::BadRegAddr(orig_addr));
         }
 
@@ -97,7 +97,7 @@ impl Vsc7448Spi {
 
     #[inline(never)]
     fn write_core(&self, reg_addr: u32, value: u32) -> Result<(), VscError> {
-        if reg_addr < 0x71000000 || reg_addr >= 0x72000000 {
+        if !(0x71000000..0x72000000).contains(&reg_addr) {
             return Err(VscError::BadRegAddr(reg_addr));
         }
 

@@ -88,7 +88,7 @@ impl Status {
 /// This is a subset of Table 6.4, p. 32, Lattice Semi FPGA-TN-02039-2.0. The
 /// table header suggests these are opcodes for SPI commands, but they seem to
 /// apply to JTAG as well.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum Command {
     Noop = 0xff,
@@ -104,7 +104,7 @@ pub enum Command {
     BitstreamBurst = 0x7a,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Trace {
     None,
     Disabled,

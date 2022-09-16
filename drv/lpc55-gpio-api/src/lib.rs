@@ -139,7 +139,7 @@ pub enum Mode {
     Repeater = 3,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Digimode {
     Analog = 0,
     Digital = 1,
@@ -151,7 +151,7 @@ impl Into<bool> for Digimode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Slew {
     Standard = 0,
     Fast = 1,
@@ -163,7 +163,7 @@ impl Into<bool> for Slew {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Invert {
     Disable = 0,
     Enabled = 1,
@@ -175,7 +175,7 @@ impl Into<bool> for Invert {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Opendrain {
     Normal = 0,
     Opendrain = 1,

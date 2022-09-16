@@ -32,7 +32,7 @@ use userlib::*;
 // We define our own Fan type, as we may have more fans than any single
 // controller supports.
 //
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
 impl From<usize> for Fan {
@@ -46,7 +46,7 @@ use task_sensor_api::Sensor as SensorApi;
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Start,

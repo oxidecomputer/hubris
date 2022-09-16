@@ -14,7 +14,7 @@ pub use drv_sidecar_mainboard_controller::tofino2::{
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SeqError {
     FpgaError = 1,
     IllegalTransition = 2,
@@ -32,7 +32,7 @@ impl From<FpgaError> for SeqError {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum TofinoSequencerPolicy {
     Disabled = 0,

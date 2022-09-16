@@ -98,7 +98,7 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Disposition {
     Restart,
     Start,

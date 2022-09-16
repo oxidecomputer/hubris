@@ -6,7 +6,7 @@ use userlib::FromPrimitive;
 
 /// Offsets used to access MIB counters
 /// (see Table 4-200 in the datasheet for details)
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MIBCounter {
     /// Rx lo-priority (default) octet count, including bad packets.
     RxLoPriorityByte = 0x0,
@@ -105,7 +105,7 @@ pub enum MIBCounter {
     TxMultipleCollision = 0x1F,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 #[allow(non_camel_case_types)]
 pub enum Register {
     // Table 4-2

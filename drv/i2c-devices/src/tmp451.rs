@@ -9,7 +9,7 @@ use drv_i2c_api::*;
 use userlib::units::*;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Register {
     LocalTempHiByte = 0x00,
     RemoteTempHiByte = 0x01,

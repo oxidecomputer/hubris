@@ -430,7 +430,7 @@ impl Config {
 }
 
 /// Represents an MPU's desired alignment strategy
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum MpuAlignment {
     /// Regions should be power-of-two sized and aligned
     PowerOfTwo,

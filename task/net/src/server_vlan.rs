@@ -158,7 +158,7 @@ impl<'a> ServerImpl<'a> {
         let sockets = generated::construct_sockets();
         assert_eq!(sockets.0.len(), VLAN_COUNT);
 
-        let start_mac = mac.clone();
+        let start_mac = mac;
         for sockets in sockets.0.into_iter() {
             let neighbor_cache_storage = neighbor_cache_iter.next().unwrap();
             let neighbor_cache = smoltcp::iface::NeighborCache::new(
@@ -168,7 +168,7 @@ impl<'a> ServerImpl<'a> {
             let socket_storage = socket_storage_iter.next().unwrap();
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
-                    eth: &eth,
+                    eth,
                     vid: vid_iter.next().unwrap(),
                 },
                 &mut socket_storage[..],
@@ -246,7 +246,7 @@ impl<'a> ServerImpl<'a> {
     }
 
     pub fn wake(&self) {
-        self.bsp.wake(&self.eth)
+        self.bsp.wake(self.eth)
     }
 
     fn get_handle(

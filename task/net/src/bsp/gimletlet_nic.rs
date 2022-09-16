@@ -17,7 +17,7 @@ use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     BspConfigured,

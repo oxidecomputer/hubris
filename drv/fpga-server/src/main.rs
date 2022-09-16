@@ -27,7 +27,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     DeviceId(u8, u32),

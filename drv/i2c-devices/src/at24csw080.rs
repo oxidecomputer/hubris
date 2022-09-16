@@ -32,7 +32,7 @@ pub struct At24Csw080 {
     device: handle::DeviceHandle,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     /// The low-level I2C communication returned an error
     I2cError(ResponseCode),

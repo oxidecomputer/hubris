@@ -10,7 +10,7 @@ use drv_onewire::Identifier;
 use ringbuf::*;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Command {
     OneWireTriplet = 0x78,
     OneWireSingleBit = 0x87,
@@ -52,7 +52,7 @@ bitfield! {
     direction, set_direction: 7;
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Register {
     Status = 0xf0,
     ReadData = 0xe1,
