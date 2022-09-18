@@ -17,14 +17,16 @@ use static_assertions as sa;
 // chips/lpc55/chip.toml
 // TODO: get from app.toml -> chip.toml at build time
 const MEM_RANGE: Range<usize> = 0x4010_0000..0x4010_4000;
-const ALIAS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0x800);
+const CERTS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0x800);
+const ALIAS_RANGE: Range<usize> = CERTS_RANGE.end..(CERTS_RANGE.end + 0x800);
 const SPMEASURE_RANGE: Range<usize> =
     ALIAS_RANGE.end..(ALIAS_RANGE.end + 0x800);
 const RNG_RANGE: Range<usize> =
     SPMEASURE_RANGE.end..(SPMEASURE_RANGE.end + 0x100);
 
 // ensure memory ranges are within MEM_RANGE and do not overlap
-sa::const_assert!(MEM_RANGE.start <= ALIAS_RANGE.start);
+sa::const_assert!(MEM_RANGE.start <= CERTS_RANGE.start);
+sa::const_assert!(CERTS_RANGE.end <= ALIAS_RANGE.start);
 sa::const_assert!(ALIAS_RANGE.end <= SPMEASURE_RANGE.start);
 sa::const_assert!(SPMEASURE_RANGE.end <= RNG_RANGE.start);
 sa::const_assert!(RNG_RANGE.end <= MEM_RANGE.end);
@@ -123,6 +125,44 @@ pub unsafe trait HandoffData {
     }
 }
 
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct CertData {
+    pub magic: [u8; 16],
+    pub deviceid_cert: DeviceIdSelfCert,
+}
+
+// Handoff DICE cert chain.
+//
+// SAFETY: The memory range denoted by MEM_RANGE is checked to be nonoverlapping
+// by static assertion above. We ensure this region is sufficiently large to
+// hold CertData with another static assert.
+unsafe impl HandoffData for CertData {
+    const EXPECTED_MAGIC: [u8; 16] = [
+        0x61, 0x3c, 0xc9, 0x2e, 0x42, 0x97, 0x96, 0xf5, 0xfa, 0xc8, 0x76, 0x69,
+        0x9a, 0xf2, 0x07, 0xbf,
+    ];
+    const MEM_RANGE: Range<usize> = CERTS_RANGE;
+
+    fn get_magic(&self) -> [u8; 16] {
+        self.magic
+    }
+}
+
+// ensure CertData handoff memory is large enough to store data
+sa::const_assert!(
+    CertData::MEM_RANGE.end - CertData::MEM_RANGE.start
+        >= <CertData as SerializedSize>::MAX_SIZE
+);
+
+impl CertData {
+    pub fn new(deviceid_cert: DeviceIdSelfCert) -> Self {
+        Self {
+            magic: Self::EXPECTED_MAGIC,
+            deviceid_cert,
+        }
+    }
+}
+
 /// Type to represent DICE derived artifacts used by the root of trust for
 /// reporting in the attestation process. Stage0 will construct an instance of
 /// this type and write it to memory using the Handoff type above. The receiving
@@ -137,7 +177,6 @@ pub struct AliasData {
     pub alias_cert: AliasCert,
     pub tqdhe_seed: TrustQuorumDheOkm,
     pub tqdhe_cert: TrustQuorumDheCert,
-    pub deviceid_cert: DeviceIdSelfCert,
 }
 
 // Handoff DICE Alias artifacts.
@@ -169,7 +208,6 @@ impl AliasData {
         alias_cert: AliasCert,
         tqdhe_seed: TrustQuorumDheOkm,
         tqdhe_cert: TrustQuorumDheCert,
-        deviceid_cert: DeviceIdSelfCert,
     ) -> Self {
         Self {
             magic: Self::EXPECTED_MAGIC,
@@ -177,7 +215,6 @@ impl AliasData {
             alias_cert,
             tqdhe_seed,
             tqdhe_cert,
-            deviceid_cert,
         }
     }
 }
@@ -193,7 +230,6 @@ pub struct SpMeasureData {
     pub magic: [u8; 16],
     pub seed: SpMeasureOkm,
     pub spmeasure_cert: SpMeasureCert,
-    pub deviceid_cert: DeviceIdSelfCert,
 }
 
 // Handoff DICE artifacts to task measuring the SP.
@@ -220,16 +256,11 @@ sa::const_assert!(
 );
 
 impl SpMeasureData {
-    pub fn new(
-        seed: SpMeasureOkm,
-        spmeasure_cert: SpMeasureCert,
-        deviceid_cert: DeviceIdSelfCert,
-    ) -> Self {
+    pub fn new(seed: SpMeasureOkm, spmeasure_cert: SpMeasureCert) -> Self {
         Self {
             magic: Self::EXPECTED_MAGIC,
             seed,
             spmeasure_cert,
-            deviceid_cert,
         }
     }
 }

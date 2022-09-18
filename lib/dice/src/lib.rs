@@ -25,7 +25,7 @@ mod handoff;
 mod spmeasure_cert_tmpl;
 mod trust_quorum_dhe_cert_tmpl;
 pub use crate::handoff::{
-    AliasData, Handoff, HandoffData, RngData, SpMeasureData,
+    AliasData, CertData, Handoff, HandoffData, RngData, SpMeasureData,
 };
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;

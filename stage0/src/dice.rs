@@ -5,10 +5,10 @@
 use crate::image_header::Image;
 use core::str::FromStr;
 use dice_crate::{
-    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
-    DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData, RngSeed, SeedBuf,
-    SerialNumber, SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
-    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
+    CertSerialNumber, DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData,
+    RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder, SpMeasureData,
+    SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -51,6 +51,9 @@ pub fn run(image: &Image) {
     )
     .sign(&deviceid_keypair);
 
+    let certs = CertData::new(deviceid_cert);
+    handoff.store(&certs);
+
     // Collect hash(es) of TCB. The first TCB Component Identifier (TCI)
     // calculated is the Hubris image. The DICE specs call this collection
     // of TCIs the FWID. This hash is stored in keeys certified by the
@@ -88,13 +91,8 @@ pub fn run(image: &Image) {
     )
     .sign(&deviceid_keypair);
 
-    let alias_data = AliasData::new(
-        alias_okm,
-        alias_cert,
-        tqdhe_okm,
-        tqdhe_cert,
-        deviceid_cert.clone(),
-    );
+    let alias_data =
+        AliasData::new(alias_okm, alias_cert, tqdhe_okm, tqdhe_cert);
 
     handoff.store(&alias_data);
 
@@ -109,11 +107,7 @@ pub fn run(image: &Image) {
     )
     .sign(&deviceid_keypair);
 
-    let spmeasure_data = SpMeasureData::new(
-        spmeasure_okm,
-        spmeasure_cert,
-        deviceid_cert.clone(),
-    );
+    let spmeasure_data = SpMeasureData::new(spmeasure_okm, spmeasure_cert);
 
     handoff.store(&spmeasure_data);
 
