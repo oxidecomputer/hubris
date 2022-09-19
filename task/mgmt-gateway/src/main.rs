@@ -91,7 +91,7 @@ enum MgsMessage {
     UpdateAbort {
         component: SpComponent,
     },
-    SysResetPrepare,
+    ResetPrepare,
 }
 
 ringbuf!(Log, 16, Log::Empty);
