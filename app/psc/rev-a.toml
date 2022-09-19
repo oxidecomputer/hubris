@@ -233,89 +233,91 @@ address = 0b1010_000
 device = "at24csw080"
 description = "FRU ID EEPROM"
 
+# NOTE: the schematic labels the PSUs as 1-6 (matching Murata's numbering
+# scheme), but they are 0-indexed in user-facing markings (RFD 200)
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0eeprom"
+address = 0b1010_000
+device = "psueeprom"
+description = "PSU 0 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0mcu"
+address = 0b1011_000
+device = "psumcu"
+description = "PSU 0 MCU"
+
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu1eeprom"
-address = 0b1010_000
+address = 0b1010_001
 device = "psueeprom"
 description = "PSU 1 EEPROM"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu1mcu"
-address = 0b1011_000
+address = 0b1011_001
 device = "psumcu"
 description = "PSU 1 MCU"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu2eeprom"
-address = 0b1010_001
+address = 0b1010_010
 device = "psueeprom"
 description = "PSU 2 EEPROM"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu2mcu"
-address = 0b1011_001
+address = 0b1011_010
 device = "psumcu"
 description = "PSU 2 MCU"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu3eeprom"
-address = 0b1010_010
+address = 0b1010_011
 device = "psueeprom"
 description = "PSU 3 EEPROM"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu3mcu"
-address = 0b1011_010
+address = 0b1011_011
 device = "psumcu"
 description = "PSU 3 MCU"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu4eeprom"
-address = 0b1010_011
+address = 0b1010_100
 device = "psueeprom"
 description = "PSU 4 EEPROM"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu4mcu"
-address = 0b1011_011
+address = 0b1011_100
 device = "psumcu"
 description = "PSU 4 MCU"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu5eeprom"
-address = 0b1010_100
+address = 0b1010_101
 device = "psueeprom"
 description = "PSU 5 EEPROM"
 
 [[config.i2c.devices]]
 bus = "backplane"
 name = "psu5mcu"
-address = 0b1011_100
-device = "psumcu"
-description = "PSU 5 MCU"
-
-[[config.i2c.devices]]
-bus = "backplane"
-name = "psu6eeprom"
-address = 0b1010_101
-device = "psueeprom"
-description = "PSU 6 EEPROM"
-
-[[config.i2c.devices]]
-bus = "backplane"
-name = "psu6mcu"
 address = 0b1011_101
 device = "psumcu"
-description = "PSU 6 MCU"
+description = "PSU 5 MCU"
 
 [[config.i2c.devices]]
 bus = "status"
