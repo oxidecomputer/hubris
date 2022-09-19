@@ -12,7 +12,7 @@ use userlib::*;
 
 pub struct Max7358;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 enum Register {
     SwitchControl = 0x00,
     Configuration = 0x01,
@@ -36,7 +36,7 @@ impl From<Register> for u8 {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct SwitchControl(u8);
     channel7_selected, set_channel7_selected: 7;
     channel6_selected, set_channel6_selected: 6;
@@ -49,7 +49,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Configuration(u8);
     preconnect_test_enabled, set_preconnect_test_enabled: 7;
     basic_mode_enabled, set_basic_mode_enabled: 6;
@@ -61,7 +61,7 @@ bitfield! {
     interrupt_enabled, set_interrupt_enabled: 0;
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     Read(Register, u8),
     Write(Register, u8),

@@ -154,7 +154,7 @@ enum Trace {
 
 ringbuf!(Trace, 48, Trace::None);
 
-impl<'a> I2cMux<'_> {
+impl I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
     /// management into one that can be returned to a caller
     fn error_code(
@@ -206,7 +206,7 @@ impl<'a> I2cMux<'_> {
     }
 }
 
-impl<'a> I2cController<'a> {
+impl I2cController<'_> {
     pub fn enable(&self, sys: &sys_api::Sys) {
         sys.enable_clock(self.peripheral);
         sys.leave_reset(self.peripheral);

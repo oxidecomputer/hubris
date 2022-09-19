@@ -58,7 +58,7 @@ impl From<ResponseCode> for NoData {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SensorError {
     InvalidSensor = 1,
     NoReading = 2,

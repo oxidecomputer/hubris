@@ -37,7 +37,7 @@ use userlib::units::*;
 
 /// A DS18B20 command
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Command {
     ConvertT = 0x44,
     WriteScratchpad = 0x4e,

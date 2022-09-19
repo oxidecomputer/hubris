@@ -284,7 +284,7 @@ impl At24Csw080 {
         addr: u8,
         val: u8,
     ) -> Result<(), Error> {
-        if addr < 16 || addr >= 32 {
+        if !(16..32).contains(&addr) {
             return Err(Error::InvalidSecurityRegisterWriteByte(addr));
         }
         let reg_addr = 0b1000_0000 | addr;

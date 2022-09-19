@@ -141,7 +141,7 @@ fn configure_mux(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Trace,
+    Error, // ringbuf line indications error location
     Reset(Controller, PortIndex),
     ResetMux(Mux),
     SegmentFailed(ResponseCode),
@@ -254,7 +254,7 @@ fn main() -> ! {
                 ) {
                     Ok(_) => {}
                     Err(code) => {
-                        ringbuf_entry!(Trace::Trace);
+                        ringbuf_entry!(Trace::Error);
                         reset_if_needed(code, controller, port, &muxes, mux);
                         return Err(code);
                     }
@@ -305,7 +305,7 @@ fn main() -> ! {
                     &ctrl,
                 ) {
                     Err(code) => {
-                        ringbuf_entry!(Trace::Trace);
+                        ringbuf_entry!(Trace::Error);
                         reset_if_needed(code, controller, port, &muxes, mux);
                         Err(code)
                     }

@@ -13,7 +13,7 @@ use userlib::*;
 pub struct Ltc4306;
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register0(u8);
     connected, _: 7;
     not_alert1, _: 6;
@@ -26,7 +26,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register1(u8);
     upstream_accelerators_enable, set_upstream_accelerators_enable: 7;
     downstream_accelerators_enable, set_downstream_accelerators_enable: 6;
@@ -36,7 +36,7 @@ bitfield! {
     gpio2_logic_state, _: 0;
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[allow(clippy::enum_variant_names)] // not great, TODO
 enum Timeout {
     TimeoutDisabled = 0b00,
@@ -58,7 +58,7 @@ impl From<Timeout> for u8 {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register2(u8);
     gpio1_mode_input, set_gpio1_mode_input: 7;
     gpio2_mode_input, set_gpio2_mode_input: 6;
@@ -70,7 +70,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register3(u8);
     bus1_connected, set_bus1_connected: 7;
     bus2_connected, set_bus2_connected: 6;

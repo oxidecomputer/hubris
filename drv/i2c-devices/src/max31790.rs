@@ -20,6 +20,7 @@ pub enum I2cWatchdog {
     ThirtySeconds = 0b11,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(FromPrimitive)]
 #[repr(u8)]
 enum Frequency {
@@ -37,6 +38,7 @@ enum Frequency {
     F25000Hz = 0b1011,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[allow(dead_code)]
 enum SpinUp {
     NoSpinUp = 0b00,

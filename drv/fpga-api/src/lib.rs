@@ -358,7 +358,7 @@ pub fn load_bitstream_from_auxflash(
             return Err(FpgaError::AuxReadError);
         }
 
-        if let Err(e) = bitstream.continue_load(&chunk) {
+        if let Err(e) = bitstream.continue_load(chunk) {
             let _ = bitstream.cancel_load();
             return Err(e);
         }

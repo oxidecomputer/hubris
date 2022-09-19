@@ -11,7 +11,7 @@ use drv_i2c_api::{ResponseCode, Segment};
 pub struct Pca9548;
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct ControlRegister(u8);
     channel7_enabled, set_channel7_enabled: 7;
     channel6_enabled, set_channel6_enabled: 6;

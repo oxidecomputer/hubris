@@ -12,7 +12,7 @@ use zerocopy::{AsBytes, FromBytes};
 
 /// ECP5 IDCODE values, found in Table B.5, p. 58, Lattice Semi FPGA-TN-02039-2.0.
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq, AsBytes,
+    Copy, Clone, Debug, FromPrimitive, ToPrimitive, Eq, PartialEq, AsBytes,
 )]
 #[repr(u32)]
 pub enum Id {
@@ -32,7 +32,7 @@ pub enum Id {
 /// Possible bitstream error codes returned by the device. These values are
 /// taken from Table 4.2, p. 10, Lattice Semi FPGA-TN-02039-2.0.
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq, AsBytes,
+    Copy, Clone, Debug, FromPrimitive, ToPrimitive, Eq, PartialEq, AsBytes,
 )]
 #[repr(u8)]
 pub enum BitstreamError {
