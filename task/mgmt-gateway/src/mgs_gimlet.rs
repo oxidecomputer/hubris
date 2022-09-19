@@ -686,12 +686,11 @@ impl HostFlashUpdate {
                     // ingested any chunks yet.
                     assert!(sub_status.bytes_received == 0);
 
-                    sector_erase.progress().map(|progress| {
-                        UpdateStatus::Preparing(UpdatePreparationStatus {
-                            id: sub_status.id,
-                            progress: Some(progress),
-                        })
-                    })
+                    let progress = sector_erase.progress()?;
+                    Ok(UpdateStatus::Preparing(UpdatePreparationStatus {
+                        id: sub_status.id,
+                        progress: Some(progress),
+                    }))
                 } else {
                     Ok(status)
                 }
@@ -782,11 +781,10 @@ impl HostFlashUpdate {
         //
         // We only want to return an error if we have a _different_ in-progress
         // update.
-        match self.buf.in_progress_update_id() {
-            Some(in_progress_id) if id != in_progress_id => {
+        if let Some(in_progress_id) = self.buf.in_progress_update_id() {
+            if id != in_progress_id {
                 return Err(ResponseError::UpdateInProgress(self.buf.status()));
             }
-            _ => (),
         }
 
         // TODO should we erase the slot?

@@ -124,27 +124,23 @@ impl MgsCommon {
         //
         // We only want to return an error if we have a _different_ in-progress
         // update.
-        match self.update_buf.in_progress_update_id() {
-            Some(in_progress_id) if id != in_progress_id => {
+        if let Some(in_progress_id) = self.update_buf.in_progress_update_id() {
+            if id != in_progress_id {
                 return Err(ResponseError::UpdateInProgress(
                     self.update_buf.status(),
                 ));
             }
-            _ => (),
         }
 
         match self.update_task.abort_update() {
             // Aborting an update that hasn't started yet is fine; either way
             // our caller is clear to start a new update.
-            Ok(()) | Err(UpdateError::UpdateNotStarted) => (),
-            Err(other) => {
-                return Err(ResponseError::UpdateFailed(other as u32))
+            Ok(()) | Err(UpdateError::UpdateNotStarted) => {
+                self.update_buf.abort();
+                Ok(())
             }
+            Err(other) => Err(ResponseError::UpdateFailed(other as u32)),
         }
-
-        self.update_buf.abort();
-
-        Ok(())
     }
 
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
