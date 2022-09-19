@@ -3,7 +3,7 @@
 Interface(
     name: "Sequencer",
     ops: {
-	"get_state": (
+        "get_state": (
             doc: "Return the power state",
             reply: Result(
                 ok: (
@@ -13,7 +13,7 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
-	"set_state": (
+        "set_state": (
             doc: "Set the power state",
             args: {
                 "state": (
