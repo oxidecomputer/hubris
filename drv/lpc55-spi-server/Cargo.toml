@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 zerocopy = "0.6.1"
-lpc55-pac = "0.3.0"
+lpc55-pac = "0.4"
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 drv-lpc55-spi = {path = "../lpc55-spi"}
 num-traits = { version = "0.2.12", default-features = false }

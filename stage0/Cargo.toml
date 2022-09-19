@@ -14,7 +14,7 @@ digest = { version = "0.10", optional = true }
 panic-semihosting = "0.5.3"
 lpc55_romapi = { path = "../drv/lpc55-romapi" }
 panic-halt = "0.2.0"
-lpc55-pac = {version = "0.3.0", features = ["rt"]}
+lpc55-pac = {version = "0.4", features = ["rt"]}
 ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 hmac = { version = "0.10.1", default-features = false }

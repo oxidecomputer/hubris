@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-lpc55-pac = "0.3.0"
+lpc55-pac = "0.4"
 drv-lpc55-spi = {path = "../lpc55-spi"}
 ringbuf = {path = "../../lib/ringbuf"}
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
