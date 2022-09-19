@@ -20,7 +20,7 @@ task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "e6eccffb236d0c242b5f90d30d01daa47aa9d89f"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91"}
 
 [features]
 gimlet = []

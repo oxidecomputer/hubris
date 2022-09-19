@@ -5,10 +5,10 @@
 use crate::{update_buffer::UpdateBuffer, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
-use drv_update_api::{Update, UpdateTarget};
+use drv_update_api::{Update, UpdateError, UpdateTarget};
 use gateway_messages::{
     DiscoverResponse, ResponseError, SpComponent, SpPort, SpState, UpdateChunk,
-    UpdatePrepare, UpdatePrepareStatusRequest, UpdatePrepareStatusResponse,
+    UpdateId, UpdatePrepare, UpdateStatus,
 };
 use ringbuf::ringbuf_entry_root;
 
@@ -94,23 +94,9 @@ impl MgsCommon {
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        self.update_buf
-            .start(update.stream_id, update.total_size as usize);
+        self.update_buf.start(update.id, update.total_size);
 
         Ok(())
-    }
-
-    pub(crate) fn update_prepare_status(
-        &mut self,
-        request: UpdatePrepareStatusRequest,
-    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
-        self.update_buf
-            .ensure_matching_stream_id(request.stream_id)?;
-
-        // We immediately prepare for update in `update_prepare()`
-        // and have no followup work to do; if this stream ID
-        // matches, we're already prepared.
-        Ok(UpdatePrepareStatusResponse { done: true })
     }
 
     pub(crate) fn update_chunk(
@@ -119,23 +105,42 @@ impl MgsCommon {
         data: &[u8],
     ) -> Result<(), ResponseError> {
         self.update_buf
-            .ingest_chunk(
-                chunk.stream_id,
-                &self.update_task,
-                chunk.offset,
-                data,
-            )
+            .ingest_chunk(&chunk.id, &self.update_task, chunk.offset, data)
             .map(|_progress| ())
     }
 
-    pub(crate) fn update_abort(&mut self) -> Result<(), ResponseError> {
-        self.update_task
-            .abort_update()
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+    pub(crate) fn status(&self) -> UpdateStatus {
+        self.update_buf.status()
+    }
 
-        self.update_buf.reset();
+    pub(crate) fn update_abort(
+        &mut self,
+        id: &UpdateId,
+    ) -> Result<(), ResponseError> {
+        // We will allow the abort if either:
+        //
+        // 1. We have an in-progress update that matches `id`
+        // 2. We do not have an in-progress update
+        //
+        // We only want to return an error if we have a _different_ in-progress
+        // update.
+        if let Some(in_progress_id) = self.update_buf.in_progress_update_id() {
+            if id != in_progress_id {
+                return Err(ResponseError::UpdateInProgress(
+                    self.update_buf.status(),
+                ));
+            }
+        }
 
-        Ok(())
+        match self.update_task.abort_update() {
+            // Aborting an update that hasn't started yet is fine; either way
+            // our caller is clear to start a new update.
+            Ok(()) | Err(UpdateError::UpdateNotStarted) => {
+                self.update_buf.abort();
+                Ok(())
+            }
+            Err(other) => Err(ResponseError::UpdateFailed(other as u32)),
+        }
     }
 
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {

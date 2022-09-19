@@ -7,7 +7,7 @@
 
 use gateway_messages::{
     sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
-    SpPort,
+    SpPort, UpdateId,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -52,7 +52,7 @@ enum Log {
     UsartRxOverrun,
     UsartRxBufferDataDropped { num_bytes: u64 },
     SerialConsoleSend { buffered: usize },
-    UpdatePartial { bytes_written: usize },
+    UpdatePartial { bytes_written: u32 },
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
 }
@@ -77,17 +77,16 @@ enum MgsMessage {
     SerialConsoleDetach,
     UpdatePrepare {
         component: SpComponent,
-        stream_id: u64,
+        id: UpdateId,
         length: u32,
         slot: u16,
-    },
-    UpdatePrepareStatus {
-        component: SpComponent,
-        stream_id: u64,
     },
     UpdateChunk {
         component: SpComponent,
         offset: u32,
+    },
+    UpdateStatus {
+        component: SpComponent,
     },
     UpdateAbort {
         component: SpComponent,

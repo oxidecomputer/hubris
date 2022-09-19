@@ -8,8 +8,8 @@ use crate::{mgs_common::MgsCommon, Log, MgsMessage};
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
     DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
-    SpComponent, SpPort, SpState, UpdateChunk, UpdatePrepare,
-    UpdatePrepareStatusRequest, UpdatePrepareStatusResponse,
+    SpComponent, SpPort, SpState, UpdateChunk, UpdateId, UpdatePrepare,
+    UpdateStatus,
 };
 use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
@@ -111,7 +111,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
-            stream_id: update.stream_id,
+            id: update.id,
             slot: update.slot,
         }));
 
@@ -121,21 +121,18 @@ impl SpHandler for MgsHandler {
         }
     }
 
-    fn update_prepare_status(
+    fn update_status(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-        request: UpdatePrepareStatusRequest,
-    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepareStatus {
-            component: request.component,
-            stream_id: request.stream_id,
+        component: SpComponent,
+    ) -> Result<UpdateStatus, ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
+            component
         }));
 
-        match request.component {
-            SpComponent::SP_ITSELF => {
-                self.common.update_prepare_status(request)
-            }
+        match component {
+            SpComponent::SP_ITSELF => Ok(self.common.status()),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -163,13 +160,14 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         component: SpComponent,
+        id: UpdateId,
     ) -> Result<(), ResponseError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
         }));
 
         match component {
-            SpComponent::SP_ITSELF => self.common.update_abort(),
+            SpComponent::SP_ITSELF => self.common.update_abort(&id),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }

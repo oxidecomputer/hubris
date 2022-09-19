@@ -2,10 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::update_buffer::{UpdateBuffer, UpdateProgress};
 use crate::{
-    mgs_common::MgsCommon, vlan_id_from_sp_port, Log, MgsMessage, SYS,
-    USART_IRQ,
+    mgs_common::MgsCommon, update_buffer::UpdateBuffer, vlan_id_from_sp_port,
+    Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::ops::Range;
@@ -19,7 +18,8 @@ use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
     DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
     SpComponent, SpMessage, SpMessageKind, SpPort, SpState, UpdateChunk,
-    UpdatePrepare, UpdatePrepareStatusRequest, UpdatePrepareStatusResponse,
+    UpdateId, UpdatePreparationProgress, UpdatePreparationStatus,
+    UpdatePrepare, UpdateStatus,
 };
 use heapless::Deque;
 use ringbuf::ringbuf_entry_root;
@@ -220,34 +220,14 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
-            stream_id: update.stream_id,
+            id: update.id,
             slot: update.slot,
         }));
 
         match update.component {
             SpComponent::SP_ITSELF => self.common.update_prepare(update),
-            SpComponent::SP3_HOST_CPU => self.host_flash_update.prepare(update),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
-        }
-    }
-
-    fn update_prepare_status(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        request: UpdatePrepareStatusRequest,
-    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepareStatus {
-            component: request.component,
-            stream_id: request.stream_id,
-        }));
-
-        match request.component {
-            SpComponent::SP_ITSELF => {
-                self.common.update_prepare_status(request)
-            }
-            SpComponent::SP3_HOST_CPU => {
-                self.host_flash_update.prepare_status(request)
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.prepare(update)
             }
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
@@ -267,9 +247,26 @@ impl SpHandler for MgsHandler {
 
         match chunk.component {
             SpComponent::SP_ITSELF => self.common.update_chunk(chunk, data),
-            SpComponent::SP3_HOST_CPU => {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.ingest_chunk(chunk, data)
             }
+            _ => Err(ResponseError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn update_status(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<UpdateStatus, ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
+            component
+        }));
+
+        match component {
+            SpComponent::SP_ITSELF => Ok(self.common.status()),
+            SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -279,14 +276,17 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         component: SpComponent,
+        id: UpdateId,
     ) -> Result<(), ResponseError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
         }));
 
         match component {
-            SpComponent::SP_ITSELF => self.common.update_abort(),
-            SpComponent::SP3_HOST_CPU => self.host_flash_update.abort(),
+            SpComponent::SP_ITSELF => self.common.update_abort(&id),
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.abort(&id)
+            }
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -674,6 +674,33 @@ impl HostFlashUpdate {
         }
     }
 
+    fn status(&self) -> Result<UpdateStatus, ResponseError> {
+        let status = self.buf.status();
+        match &status {
+            // `UpdateBuffer` never sets its status to "preparing", as it
+            // doesn't know anything about that stage.
+            UpdateStatus::Preparing { .. } => panic!(),
+            UpdateStatus::InProgress(sub_status) => {
+                if let Some(sector_erase) = self.sector_erase.as_ref() {
+                    // If we're still erasing sectors, we shouldn't have
+                    // ingested any chunks yet.
+                    assert!(sub_status.bytes_received == 0);
+
+                    let progress = sector_erase.progress()?;
+                    Ok(UpdateStatus::Preparing(UpdatePreparationStatus {
+                        id: sub_status.id,
+                        progress: Some(progress),
+                    }))
+                } else {
+                    Ok(status)
+                }
+            }
+            UpdateStatus::None
+            | UpdateStatus::Complete(_)
+            | UpdateStatus::Aborted(_) => Ok(status),
+        }
+    }
+
     fn needs_sectors_erased(&self) -> bool {
         self.sector_erase.is_some()
     }
@@ -727,31 +754,9 @@ impl HostFlashUpdate {
         self.sector_erase =
             Some(HostFlashSectorErase::new(capacity / SECTOR_SIZE_BYTES));
 
-        self.buf.start(update.stream_id, update.total_size as usize);
+        self.buf.start(update.id, update.total_size);
 
         Ok(())
-    }
-
-    fn prepare_status(
-        &self,
-        request: UpdatePrepareStatusRequest,
-    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
-        self.buf.ensure_matching_stream_id(request.stream_id)?;
-
-        // Have we failed erasing sectors?
-        if let Some(err) = self
-            .sector_erase
-            .as_ref()
-            .and_then(HostFlashSectorErase::most_recent_error)
-        {
-            return Err(ResponseError::UpdateFailed(err as u32));
-        }
-
-        // We have an update in progress that matches request.stream_id; do we
-        // still have sectors to erase?
-        Ok(UpdatePrepareStatusResponse {
-            done: self.sector_erase.is_none(),
-        })
     }
 
     fn ingest_chunk(
@@ -764,25 +769,27 @@ impl HostFlashUpdate {
             return Err(ResponseError::UpdateNotPrepared);
         }
 
-        match self.buf.ingest_chunk(
-            chunk.stream_id,
-            &self.task,
-            chunk.offset,
-            data,
-        )? {
-            UpdateProgress::Complete => {
-                // Update complete; we can now accept a new update.
-                self.buf.reset();
-            }
-            UpdateProgress::Incomplete => (),
-        }
-        Ok(())
+        self.buf
+            .ingest_chunk(&chunk.id, &self.task, chunk.offset, data)
     }
 
-    fn abort(&mut self) -> Result<(), ResponseError> {
+    fn abort(&mut self, id: &UpdateId) -> Result<(), ResponseError> {
+        // We will allow the abort if either:
+        //
+        // 1. We have an in-progress update that matches `id`
+        // 2. We do not have an in-progress update
+        //
+        // We only want to return an error if we have a _different_ in-progress
+        // update.
+        if let Some(in_progress_id) = self.buf.in_progress_update_id() {
+            if id != in_progress_id {
+                return Err(ResponseError::UpdateInProgress(self.buf.status()));
+            }
+        }
+
         // TODO should we erase the slot?
         // TODO should we set_dev() back to what it was (if we changed it)?
-        self.buf.reset();
+        self.buf.abort();
         self.sector_erase = None;
         Ok(())
     }
@@ -805,8 +812,15 @@ impl HostFlashSectorErase {
         self.sectors_to_erase.is_empty()
     }
 
-    fn most_recent_error(&self) -> Option<HfError> {
-        self.most_recent_error
+    fn progress(&self) -> Result<UpdatePreparationProgress, ResponseError> {
+        if let Some(err) = self.most_recent_error {
+            Err(ResponseError::UpdateFailed(err as u32))
+        } else {
+            Ok(UpdatePreparationProgress {
+                current: self.sectors_to_erase.start as u32,
+                total: self.sectors_to_erase.end as u32,
+            })
+        }
     }
 
     fn erase_sectors_if_needed(&mut self, task: &HostFlash) {
