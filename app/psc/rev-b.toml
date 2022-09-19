@@ -73,7 +73,7 @@ name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
-uses = ["i2c2", "i2c3", "i2c4"]
+uses = ["i2c2", "i2c3"]
 start = true
 task-slots = ["sys"]
 
@@ -82,8 +82,6 @@ task-slots = ["sys"]
 "i2c2.error" = 0b0000_0010
 "i2c3.event" = 0b0000_0100
 "i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
 
 [tasks.update_server]
 name = "stm32h7-update-server"
