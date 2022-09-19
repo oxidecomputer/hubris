@@ -141,7 +141,7 @@ fn configure_mux(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Error, // ringbuf line indications error location
+    Error, // ringbuf line indicates error location
     Reset(Controller, PortIndex),
     ResetMux(Mux),
     SegmentFailed(ResponseCode),
