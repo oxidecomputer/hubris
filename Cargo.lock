@@ -1137,6 +1137,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mock-gimlet-seq-server"
+version = "0.1.0"
+dependencies = [
+ "drv-gimlet-seq-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
