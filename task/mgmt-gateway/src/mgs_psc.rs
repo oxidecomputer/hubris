@@ -7,9 +7,9 @@ use core::convert::Infallible;
 use crate::{mgs_common::MgsCommon, Log, MgsMessage};
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
-    SpComponent, SpPort, SpState, UpdateChunk, UpdateId, UpdatePrepare,
-    UpdateStatus,
+    DiscoverResponse, IgnitionCommand, IgnitionState, PowerState,
+    ResponseError, SpComponent, SpPort, SpState, UpdateChunk, UpdateId,
+    UpdatePrepare, UpdateStatus,
 };
 use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
@@ -170,6 +170,31 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF => self.common.update_abort(&id),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
+    }
+
+    fn power_state(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<PowerState, ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
+
+        // We have no states other than A2.
+        Ok(PowerState::A2)
+    }
+
+    fn set_power_state(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        power_state: PowerState,
+    ) -> Result<(), ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
+            power_state
+        )));
+
+        // We have no states other than A2; always fail.
+        Err(ResponseError::RequestUnsupportedForSp)
     }
 
     fn serial_console_attach(
