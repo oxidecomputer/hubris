@@ -22,7 +22,7 @@ task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "7e5d68e0094bcf40f55e7640b2a8a56e4f743409"}
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]
