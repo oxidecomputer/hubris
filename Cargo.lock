@@ -703,6 +703,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "sha3",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
  "zeroize",
