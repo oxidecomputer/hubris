@@ -43,11 +43,11 @@ fn validate_port(
 }
 
 fn find_mux(
-    controller: &I2cController,
+    controller: &I2cController<'_>,
     port: PortIndex,
-    muxes: &[I2cMux],
+    muxes: &[I2cMux<'_>],
     mux: Option<(Mux, Segment)>,
-    mut func: impl FnMut(&I2cMux, Mux, Segment) -> Result<(), ResponseCode>,
+    mut func: impl FnMut(&I2cMux<'_>, Mux, Segment) -> Result<(), ResponseCode>,
 ) -> Result<(), ResponseCode> {
     match mux {
         Some((id, segment)) => {
@@ -71,10 +71,10 @@ fn find_mux(
 
 fn configure_mux(
     map: &mut MuxMap,
-    controller: &I2cController,
+    controller: &I2cController<'_>,
     port: PortIndex,
     mux: Option<(Mux, Segment)>,
-    muxes: &[I2cMux],
+    muxes: &[I2cMux<'_>],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     //
@@ -153,9 +153,9 @@ ringbuf!(Trace, 8, Trace::None);
 
 fn reset_if_needed(
     code: ResponseCode,
-    controller: &I2cController,
+    controller: &I2cController<'_>,
     port: PortIndex,
-    muxes: &[I2cMux],
+    muxes: &[I2cMux<'_>],
     mux: Option<(Mux, Segment)>,
 ) {
     match code {
@@ -319,7 +319,7 @@ fn main() -> ! {
     }
 }
 
-fn turn_on_i2c(controllers: &[I2cController]) {
+fn turn_on_i2c(controllers: &[I2cController<'_>]) {
     let sys = Sys::from(SYS.get_task_id());
 
     for controller in controllers {
@@ -327,7 +327,7 @@ fn turn_on_i2c(controllers: &[I2cController]) {
     }
 }
 
-fn configure_controllers(controllers: &[I2cController]) {
+fn configure_controllers(controllers: &[I2cController<'_>]) {
     for controller in controllers {
         controller.configure();
         sys_irq_control(controller.notification, true);
@@ -336,7 +336,7 @@ fn configure_controllers(controllers: &[I2cController]) {
 
 fn configure_port(
     map: &mut PortMap,
-    controller: &I2cController,
+    controller: &I2cController<'_>,
     port: PortIndex,
     pins: &[I2cPin],
 ) {
@@ -381,7 +381,7 @@ fn configure_port(
 }
 
 fn configure_pins(
-    controllers: &[I2cController],
+    controllers: &[I2cController<'_>],
     pins: &[I2cPin],
     map: &mut PortMap,
 ) {
@@ -417,8 +417,8 @@ fn configure_pins(
 }
 
 fn configure_muxes(
-    muxes: &[I2cMux],
-    controllers: &[I2cController],
+    muxes: &[I2cMux<'_>],
+    controllers: &[I2cController<'_>],
     pins: &[I2cPin],
     map: &mut PortMap,
     ctrl: &I2cControl,

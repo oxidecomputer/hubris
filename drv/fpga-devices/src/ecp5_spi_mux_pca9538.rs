@@ -121,7 +121,7 @@ impl Driver {
         &self,
         device_id: usize,
         pins: DevicePins,
-    ) -> Result<DeviceInstance, Error> {
+    ) -> Result<DeviceInstance<'_>, Error> {
         let output_pins =
             pins.init_n | pins.program_n | pins.user_design_reset_n;
 
@@ -148,7 +148,7 @@ impl Driver {
         &self,
         device0_pins: DevicePins,
         device1_pins: DevicePins,
-    ) -> Result<[Ecp5<DeviceInstance>; 2], Error> {
+    ) -> Result<[Ecp5<DeviceInstance<'_>>; 2], Error> {
         Ok([
             Ecp5::new(self.init_device(0, device0_pins)?),
             Ecp5::new(self.init_device(1, device1_pins)?),

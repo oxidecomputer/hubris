@@ -244,7 +244,7 @@ impl<T> Clone for USlice<T> {
 /// Can't `derive(Debug)` for `USlice` because that puts a `Debug` requirement
 /// on `T`, and that's silly.
 impl<T> core::fmt::Debug for USlice<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("USlice")
             .field("base_address", &self.base_address)
             .field("length", &self.length)

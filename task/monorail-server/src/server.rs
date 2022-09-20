@@ -70,7 +70,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
     }
 
     fn decode_phy_id<P: vsc85xx::PhyRw>(
-        phy: &vsc85xx::Phy<P>,
+        phy: &vsc85xx::Phy<'_, P>,
     ) -> Result<(u32, PhyType), VscError> {
         let id = phy.read_id()?;
         let ty = match id {

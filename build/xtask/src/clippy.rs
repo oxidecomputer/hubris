@@ -101,6 +101,8 @@ pub fn run(
         cmd.arg("clippy::identity_op");
         cmd.arg("-A");
         cmd.arg("clippy::too_many_arguments");
+        cmd.arg("-W");
+        cmd.arg("elided_lifetimes_in_paths");
 
         for opt in options {
             cmd.arg(opt);

@@ -142,9 +142,7 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl<B>)
-            .set_mode_manual(initial_pwm)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_mode_manual(self, initial_pwm).map_err(Into::into)
     }
 
     fn set_mode_auto(
@@ -155,17 +153,14 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl<B>)
-            .set_mode_auto(initial_pwm)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_mode_auto(self, initial_pwm).map_err(Into::into)
     }
 
     fn disable_watchdog(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<ThermalError>> {
-        (self as &mut ServerImpl<B>)
-            .set_watchdog(I2cWatchdog::Disabled)
+        ServerImpl::<B>::set_watchdog(self, I2cWatchdog::Disabled)
             .map_err(Into::into)
     }
 
@@ -180,9 +175,7 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
             30 => I2cWatchdog::ThirtySeconds,
             _ => return Err(ThermalError::InvalidWatchdogTime.into()),
         };
-        (self as &mut ServerImpl<B>)
-            .set_watchdog(wd)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_watchdog(self, wd).map_err(Into::into)
     }
 }
 

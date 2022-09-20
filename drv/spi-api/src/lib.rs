@@ -50,7 +50,7 @@ impl Spi {
         &self,
         device_index: u8,
         assert_cs: CsState,
-    ) -> Result<ControllerLock, SpiError> {
+    ) -> Result<ControllerLock<'_>, SpiError> {
         self.lock(device_index, assert_cs)?;
         Ok(ControllerLock(self))
     }
@@ -153,7 +153,7 @@ impl SpiDevice {
     pub fn lock_auto(
         &self,
         assert_cs: CsState,
-    ) -> Result<ControllerLock, SpiError> {
+    ) -> Result<ControllerLock<'_>, SpiError> {
         self.server.lock_auto(self.device_index, assert_cs)
     }
 

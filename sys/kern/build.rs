@@ -237,7 +237,7 @@ pub const HUBRIS_TASK_IRQ_LOOKUP: SortedList::<abi::InterruptOwner, &'static [ab
                 .join("\n        ");
             writeln!(file, "
 use phash::PerfectHashMap;
-pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
+pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<'_, abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
     m: {:#x},
     values: &[
         {}
@@ -291,7 +291,7 @@ pub const HUBRIS_TASK_IRQ_LOOKUP: NestedPerfectHashMap::<abi::InterruptOwner, &'
                 .collect::<Vec<String>>()
                 .join("\n        ");
             writeln!(file, "
-pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
+pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<'_, abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
     m: {:#x},
     values: &[
         {}

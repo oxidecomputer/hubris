@@ -195,7 +195,7 @@ impl<'a> ServerImpl<'a> {
                 socket_handles.iter().zip(&generated::SOCKET_PORTS)
             {
                 iface
-                    .get_socket::<UdpSocket>(h)
+                    .get_socket::<UdpSocket<'_>>(h)
                     .bind((ipv6_addr, port))
                     .map_err(|_| ())
                     .unwrap();
@@ -274,7 +274,7 @@ impl<'a> ServerImpl<'a> {
         vlan_index: usize,
     ) -> Result<&mut UdpSocket<'static>, ClientError> {
         Ok(self.ifaces[vlan_index]
-            .get_socket::<UdpSocket>(self.get_handle(index, vlan_index)?))
+            .get_socket::<UdpSocket<'_>>(self.get_handle(index, vlan_index)?))
     }
 }
 

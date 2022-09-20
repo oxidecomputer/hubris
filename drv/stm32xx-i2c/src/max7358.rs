@@ -71,8 +71,8 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 fn read_regs(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     rbuf: &mut [u8],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
@@ -99,8 +99,8 @@ fn read_regs(
 }
 
 fn write_reg(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     reg: Register,
     val: u8,
     ctrl: &I2cControl,
@@ -139,8 +139,8 @@ fn write_reg(
 impl I2cMuxDriver for Max7358 {
     fn configure(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
@@ -193,8 +193,8 @@ impl I2cMuxDriver for Max7358 {
 
     fn enable_segment(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
@@ -234,7 +234,7 @@ impl I2cMuxDriver for Max7358 {
 
     fn reset(
         &self,
-        mux: &I2cMux,
+        mux: &I2cMux<'_>,
         gpio: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.reset(gpio)

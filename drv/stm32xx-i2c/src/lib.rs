@@ -79,8 +79,8 @@ pub trait I2cMuxDriver {
     /// instance to a [`Gpio`] task.
     fn configure(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         sys: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
@@ -88,7 +88,7 @@ pub trait I2cMuxDriver {
     /// Reset the mux
     fn reset(
         &self,
-        mux: &I2cMux,
+        mux: &I2cMux<'_>,
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
@@ -96,8 +96,8 @@ pub trait I2cMuxDriver {
     /// all segments if None is explicitly specified as the segment)
     fn enable_segment(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         segment: Option<drv_i2c_api::Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;

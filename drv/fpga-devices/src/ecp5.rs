@@ -218,7 +218,7 @@ impl<Driver: Ecp5Driver> Ecp5<Driver> {
 
     /// Lock (resources in) the driver, returning a lock object which
     /// automatically releases the driver when dropped.
-    fn lock(&self) -> Result<Ecp5Lock<Driver>, Driver::Error> {
+    fn lock(&self) -> Result<Ecp5Lock<'_, Driver>, Driver::Error> {
         self.driver.configuration_lock()?;
         ringbuf_entry!(Trace::Lock);
         Ok(Ecp5Lock(&self.driver))
