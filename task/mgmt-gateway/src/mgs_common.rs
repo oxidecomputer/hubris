@@ -145,7 +145,7 @@ impl MgsCommon {
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SysResetPrepare));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ResetPrepare));
         self.reset_requested = true;
         Ok(())
     }
@@ -156,7 +156,7 @@ impl MgsCommon {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
         if !self.reset_requested {
-            return Err(ResponseError::SysResetTriggerWithoutPrepare);
+            return Err(ResponseError::ResetTriggerWithoutPrepare);
         }
 
         let jefe = task_jefe_api::Jefe::from(crate::JEFE.get_task_id());

@@ -6,8 +6,8 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
-    SpPort, UpdateId,
+    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, PowerState,
+    SpComponent, SpPort, UpdateId,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -91,7 +91,9 @@ enum MgsMessage {
     UpdateAbort {
         component: SpComponent,
     },
-    SysResetPrepare,
+    GetPowerState,
+    SetPowerState(PowerState),
+    ResetPrepare,
 }
 
 ringbuf!(Log, 16, Log::Empty);

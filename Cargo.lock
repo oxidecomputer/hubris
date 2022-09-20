@@ -1137,6 +1137,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mock-gimlet-seq-server"
+version = "0.1.0"
+dependencies = [
+ "drv-gimlet-seq-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
@@ -1673,7 +1685,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91#d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91"
+source = "git+https://github.com/oxidecomputer/omicron?rev=7e5d68e0094bcf40f55e7640b2a8a56e4f743409#7e5d68e0094bcf40f55e7640b2a8a56e4f743409"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -3457,6 +3469,8 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "drv-gimlet-hf-api",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
  "drv-update-api",
