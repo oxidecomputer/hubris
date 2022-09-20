@@ -140,7 +140,7 @@ features = ["vlan"]
 
 [tasks.monorail]
 name = "task-monorail-server"
-priority = 6
+priority = 3
 max-sizes = {flash = 262144, ram = 8192}
 features = []
 stacksize = 4096
