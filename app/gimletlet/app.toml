@@ -138,6 +138,15 @@ start = true
 task-slots = ["net"]
 features = ["vlan"]
 
+[tasks.monorail]
+name = "task-monorail-server"
+priority = 6
+max-sizes = {flash = 262144, ram = 8192}
+features = []
+stacksize = 4096
+start = true
+task-slots = ["spi_driver"]
+
 [tasks.mgmt_gateway]
 name = "task-mgmt-gateway"
 priority = 4

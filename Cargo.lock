@@ -3421,6 +3421,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-fpga-api",
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-spi-api",

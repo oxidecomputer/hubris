@@ -45,7 +45,7 @@ fn main() -> ! {
         }
         Err(e) => {
             ringbuf_entry!(Trace::ChipInitFailed(e));
-            panic!("Could not initialize chip: {:?}", e);
+            //panic!("Could not initialize chip: {:?}", e);
         }
     }
 
