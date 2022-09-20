@@ -65,11 +65,11 @@ impl BspT for Bsp {
         &self.fans
     }
 
-    fn fan_control(&self, fan: crate::Fan) -> FanControl {
+    fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
         FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
     }
 
-    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
         fctrl(self.fan_control(0.into()))
     }
 
