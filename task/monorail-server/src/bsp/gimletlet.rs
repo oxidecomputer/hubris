@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_fpga_api::{FpgaError, WriteOp};
+use drv_spi_api::{Spi, SpiDevice};
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::Vsc7448;
 use vsc7448::VscError;
@@ -108,7 +109,7 @@ impl<'a, R> Bsp<'a, R> {
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct SpiPhyRw {
-    spi: drv_spi_api::Spi,
+    spi: SpiDevice,
     await_not_busy_sleep_for: u64,
 }
 
@@ -157,8 +158,7 @@ struct SmiRequest {
 impl SpiPhyRw {
     pub fn new(spi_task: userlib::TaskId) -> Self {
         Self {
-            // PHY SMI interface is only present/connected on FPGA1.
-            spi: drv_spi_api::Spi::from(spi_task),
+            spi: SpiDevice::new(Spi::from(spi_task), 0),
             await_not_busy_sleep_for: 0,
         }
     }
@@ -167,7 +167,16 @@ impl SpiPhyRw {
     where
         T: AsBytes + Default + FromBytes,
     {
-        todo!()
+        let header = UserDesignRequestHeader {
+            cmd: 0x1,
+            addr: U16::new(addr.into()),
+        };
+        let mut out = T::default();
+        self.spi.lock(drv_spi_api::CsState::Asserted).unwrap();
+        self.spi.write(header.as_bytes()).unwrap();
+        self.spi.read(out.as_bytes_mut()).unwrap();
+        self.spi.release().unwrap();
+        Ok(out)
     }
 
     pub fn fpga_write<T>(
@@ -179,7 +188,16 @@ impl SpiPhyRw {
     where
         T: AsBytes + FromBytes,
     {
-        todo!()
+        let header = UserDesignRequestHeader {
+            cmd: u8::from(op),
+            addr: U16::new(addr.into()),
+        };
+
+        self.spi.lock(drv_spi_api::CsState::Asserted).unwrap();
+        self.spi.write(header.as_bytes()).unwrap();
+        self.spi.write(value.as_bytes()).unwrap();
+        self.spi.release().unwrap();
+        Ok(())
     }
 
     #[inline]
@@ -273,4 +291,11 @@ impl PhyRw for SpiPhyRw {
         self.write_raw_inner(phy, reg, value)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
+}
+
+#[derive(AsBytes, Unaligned)]
+#[repr(C)]
+struct UserDesignRequestHeader {
+    cmd: u8,
+    addr: U16<byteorder::BigEndian>,
 }
