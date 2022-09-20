@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+userlib = { path = "../../sys/userlib" }
 
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
 stm32h7 = { version = "0.14", default-features = false }

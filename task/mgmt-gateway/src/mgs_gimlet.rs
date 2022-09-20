@@ -555,7 +555,15 @@ fn configure_usart() -> Usart {
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
 
-    const BAUD_RATE: u32 = 115_200;
+    // For gimlet, we only expect baud rate 3 Mbit, usart1, with hardware flow
+    // control enabled. We could expand our cargo features to cover other cases
+    // as needed. Currently, failing to enable any of those three features will
+    // cause a compilation error.
+    #[cfg(feature = "baud_rate_3M")]
+    const BAUD_RATE: u32 = 3_000_000;
+
+    #[cfg(feature = "hardware_flow_control")]
+    let hardware_flow_control = true;
 
     let usart;
     let peripheral;
@@ -563,9 +571,18 @@ fn configure_usart() -> Usart {
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::B.pin(6).and_pin(7), Alternate::AF7),
-            ];
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        &[(
+                            Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
+                            Alternate::AF7
+                        )]
+                    } else {
+                        compile_error!("hardware_flow_control feature must be enabled");
+                    }
+                }
+            };
 
             // From thin air, pluck a pointer to the USART register block.
             //
@@ -575,13 +592,6 @@ fn configure_usart() -> Usart {
             // just reference it.
             usart = unsafe { &*device::USART1::ptr() };
             peripheral = Peripheral::Usart1;
-            pins = PINS;
-        } else if #[cfg(feature = "usart2")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::D.pin(5).and_pin(6), Alternate::AF7),
-            ];
-            usart = unsafe { &*device::USART2::ptr() };
-            peripheral = Peripheral::Usart2;
             pins = PINS;
         } else {
             compile_error!("no usartX feature specified");
@@ -595,6 +605,7 @@ fn configure_usart() -> Usart {
         pins,
         CLOCK_HZ,
         BAUD_RATE,
+        hardware_flow_control,
     )
 }
 

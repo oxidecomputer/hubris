@@ -194,6 +194,17 @@ max-sizes = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
 
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
+uses = ["uart7"]
+interrupts = {"uart7.irq" = 0b01}
+priority = 5
+max-sizes = {flash = 8192, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["sys"]
+
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 6
@@ -232,7 +243,7 @@ uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
 task-slots = ["jefe", "net", "update_server", "sys", "hf"]
-features = ["gimlet", "usart1", "vlan"]
+features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]

@@ -28,5 +28,7 @@ sidecar = []
 psc = []
 
 vlan = ["task-net-api/vlan"]
+
 usart1 = []
-usart2 = []
+baud_rate_3M = []
+hardware_flow_control = []

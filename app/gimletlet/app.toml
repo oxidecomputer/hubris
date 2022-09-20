@@ -88,11 +88,22 @@ task-slots = ["user_leds"]
 
 [tasks.uartecho]
 name = "task-uartecho"
-features = ["stm32h753", "usart2"]
+features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 0b01}
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = ["sys"]
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
+uses = ["uart7"]
+interrupts = {"uart7.irq" = 0b01}
+priority = 3
+max-sizes = {flash = 8192, ram = 8192}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
@@ -149,7 +160,7 @@ uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
 task-slots = ["jefe", "net", "update_server", "sys", "hf"]
-features = ["gimlet", "usart1", "vlan"]
+features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]
