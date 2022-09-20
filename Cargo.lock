@@ -3470,6 +3470,7 @@ dependencies = [
  "cfg-if",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
  "drv-update-api",
