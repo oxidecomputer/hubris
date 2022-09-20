@@ -72,9 +72,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
                 Err(err.into())
             }
 
-            Err(_) => {
-                return Err(VpdError::BadRead.into());
-            }
+            Err(_) => Err(VpdError::BadRead.into()),
 
             Ok(rval) => Ok(rval),
         }
@@ -106,9 +104,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
                 Err(err.into())
             }
 
-            Err(_) => {
-                return Err(VpdError::BadWrite.into());
-            }
+            Err(_) => Err(VpdError::BadWrite.into()),
 
             Ok(rval) => Ok(rval),
         }

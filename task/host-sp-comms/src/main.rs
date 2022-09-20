@@ -58,6 +58,8 @@ fn main() -> ! {
             ringbuf_entry!(UartLog::RxOverrun);
         }
 
+        // This is going to be fixed up with another PR
+        #[allow(clippy::never_loop)]
         let maybe_response = 'response: loop {
             // Receive until we find a message delimiter. Since we're using
             // corncobs for framing, we're looking for 0x00.
@@ -68,15 +70,13 @@ fn main() -> ! {
                     let n = process_message(tx_buf, rx_buf.as_mut());
                     rx_buf.clear();
                     break 'response Some(&tx_buf[..n]);
-                } else {
-                    if rx_buf.push(byte).is_err() {
-                        // Message overflow - nothing we can do here except
-                        // discard data. We'll drop this byte and wait til we
-                        // see a 0 to respond, at which point our
-                        // deserialization will presumably fail and we'll send
-                        // back an error. Should we record that we overflowed
-                        // here?
-                    }
+                } else if rx_buf.push(byte).is_err() {
+                    // Message overflow - nothing we can do here except
+                    // discard data. We'll drop this byte and wait til we
+                    // see a 0 to respond, at which point our
+                    // deserialization will presumably fail and we'll send
+                    // back an error. Should we record that we overflowed
+                    // here?
                 }
             }
 
@@ -259,10 +259,6 @@ fn configure_uart_device() -> Usart {
     #[cfg(feature = "hardware_flow_control")]
     let hardware_flow_control = true;
 
-    let usart;
-    let peripheral;
-    let pins;
-
     cfg_if::cfg_if! {
         if #[cfg(feature = "uart7")] {
             const PINS: &[(PinSet, Alternate)] = {
@@ -277,9 +273,9 @@ fn configure_uart_device() -> Usart {
                     }
                 }
             };
-            usart = unsafe { &*device::UART7::ptr() };
-            peripheral = Peripheral::Uart7;
-            pins = PINS;
+            let usart = unsafe { &*device::UART7::ptr() };
+            let peripheral = Peripheral::Uart7;
+            let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");
         }
