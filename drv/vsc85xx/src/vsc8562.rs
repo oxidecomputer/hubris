@@ -154,7 +154,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         //      phy_reset_private
         //          port_reset
         //              vtss_phy_soft_reset_port
-        crate::atom::atom_patch_suspend(&mut self.phy)?;
+        crate::atom::atom_patch_suspend(self.phy)?;
 
         // Do the actual PHY reset (line 937)
         self.phy.software_reset()?;
@@ -190,7 +190,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // Cat5 copper only.
 
         // We are now exiting vtss_phy_soft_reset_port
-        crate::atom::atom_patch_resume(&mut self.phy)?; // line 980
+        crate::atom::atom_patch_resume(self.phy)?; // line 980
 
         // We are now exiting port_reset.
 

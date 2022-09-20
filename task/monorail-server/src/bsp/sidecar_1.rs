@@ -463,7 +463,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     ///
     /// Returns `None` if the given port isn't associated with a PHY
     /// (for example, because it's an SGMII link)
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<GenericPhyRw>) -> T>(
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<'_, GenericPhyRw<'_>>) -> T>(
         &mut self,
         port: u8,
         callback: F,

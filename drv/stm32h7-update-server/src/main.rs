@@ -183,7 +183,7 @@ impl<'a> ServerImpl<'a> {
 
         for (i, c) in bytes.chunks_exact(4).enumerate() {
             let mut word: [u8; 4] = [0; 4];
-            word.copy_from_slice(&c);
+            word.copy_from_slice(c);
 
             // SAFETY
             // This code is running out of bank #1. The programming for bank #2
@@ -347,7 +347,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             const FLASH_WORDS_PER_BLOCK: usize =
                 BLOCK_SIZE_BYTES / FLASH_WORD_BYTES;
 
-            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, &c)?;
+            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, c)?;
         }
 
         Ok(())

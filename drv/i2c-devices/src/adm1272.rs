@@ -13,7 +13,7 @@ use pmbus::commands::*;
 use ringbuf::*;
 use userlib::units::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },

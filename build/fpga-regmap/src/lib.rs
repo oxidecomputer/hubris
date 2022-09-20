@@ -54,7 +54,7 @@ fn recurse_addr_map(
                 children,
             } => {
                 recurse_addr_map(
-                    &children,
+                    children,
                     offset + addr_offset,
                     &format!("{inst_name}_{prefix}"),
                     output,
@@ -80,7 +80,7 @@ pub enum Addr {{"
     )
     .unwrap();
 
-    recurse_addr_map(&children, 0, "", output);
+    recurse_addr_map(children, 0, "", output);
 
     writeln!(output, "}}").unwrap();
     writeln!(
@@ -159,7 +159,7 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            recurse_reg_map(&children, &format!("    {prefix}"), output);
+            recurse_reg_map(children, &format!("    {prefix}"), output);
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
@@ -190,7 +190,7 @@ pub mod Reg {{"
     )
     .unwrap();
 
-    recurse_reg_map(&children, "", output);
+    recurse_reg_map(children, "", output);
 
     writeln!(output, "}}").unwrap();
 }

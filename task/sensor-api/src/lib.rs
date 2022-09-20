@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use userlib::*;
 
-#[derive(zerocopy::AsBytes, Copy, Clone, Debug, PartialEq)]
+#[derive(zerocopy::AsBytes, Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
 pub struct SensorId(pub usize);
 
@@ -33,7 +33,9 @@ pub enum Reading {
     NoData(NoData),
 }
 
-#[derive(zerocopy::AsBytes, Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(
+    zerocopy::AsBytes, Copy, Clone, Debug, FromPrimitive, Eq, PartialEq,
+)]
 #[repr(u8)]
 pub enum NoData {
     DeviceOff,
@@ -56,7 +58,7 @@ impl From<ResponseCode> for NoData {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SensorError {
     InvalidSensor = 1,
     NoReading = 2,

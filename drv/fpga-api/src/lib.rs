@@ -15,7 +15,7 @@ use zerocopy::{AsBytes, FromBytes};
 #[cfg(feature = "auxflash")]
 use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FpgaError {
     ImplError(u8),
     BitstreamError(u8),
@@ -94,7 +94,7 @@ impl core::convert::TryFrom<u32> for FpgaError {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum DeviceState {
     Unknown = 0,
@@ -104,14 +104,14 @@ pub enum DeviceState {
     Error = 4,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum BitstreamType {
     Uncompressed = 0,
     Compressed = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum WriteOp {
     Write = 0,
@@ -358,7 +358,7 @@ pub fn load_bitstream_from_auxflash(
             return Err(FpgaError::AuxReadError);
         }
 
-        if let Err(e) = bitstream.continue_load(&chunk) {
+        if let Err(e) = bitstream.continue_load(chunk) {
             let _ = bitstream.cancel_load();
             return Err(e);
         }

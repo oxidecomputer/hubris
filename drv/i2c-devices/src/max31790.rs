@@ -20,6 +20,7 @@ pub enum I2cWatchdog {
     ThirtySeconds = 0b11,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(FromPrimitive)]
 #[repr(u8)]
 enum Frequency {
@@ -37,6 +38,7 @@ enum Frequency {
     F25000Hz = 0b1011,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[allow(dead_code)]
 enum SpinUp {
     NoSpinUp = 0b00,
@@ -73,7 +75,7 @@ bitfield! {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Register {
     GlobalConfiguration = 0x00,
     PWMFrequency = 0x01,
@@ -183,7 +185,7 @@ pub struct Max31790 {
 
 pub const MAX_FANS: u8 = 6;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
 impl TryFrom<u8> for Fan {

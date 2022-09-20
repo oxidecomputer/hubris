@@ -179,7 +179,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Vsc8504Init(u8),
@@ -202,7 +202,7 @@ ringbuf!(Trace, 16, Trace::None);
 /// a counter which isn't available on this particular PHY (in particular,
 /// the VSC8552 doesn't have MAC counters); `Inactive` means that the counter
 /// is available but the active bit is cleared.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Counter {
     Unavailable,
     Inactive,

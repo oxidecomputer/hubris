@@ -9,7 +9,7 @@ use drv_i2c_api::*;
 use userlib::*;
 
 #[allow(dead_code, non_camel_case_types)]
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Register {
     /// High 8 bits ([9:2]) of latest current-signal
     adc_chx_cs_msb_ch1 = 0x00,

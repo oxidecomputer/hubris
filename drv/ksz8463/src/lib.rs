@@ -12,7 +12,7 @@ pub use registers::{MIBCounter, Register};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     SpiError(SpiError),
     WrongChipId(u16),
@@ -50,7 +50,7 @@ pub enum Mode {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Read(Register, u16),
@@ -63,7 +63,7 @@ ringbuf!(Trace, 16, Trace::None);
 
 /// Data from a management information base (MIB) counter on the chip,
 /// used to monitor port activity for network management.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MIBCounterValue {
     None,
     Count(u32),
@@ -76,14 +76,14 @@ impl Default for MIBCounterValue {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SourcePort {
     Port1,
     Port2,
     Port3,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KszRawMacTableEntry {
     /// Number of valid entries in the table
     pub count: u32,

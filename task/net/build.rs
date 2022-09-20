@@ -42,7 +42,7 @@ fn generate_net_config(
     )?;
 
     #[cfg(feature = "vlan")]
-    build_net::generate_vlan_consts(&config, &mut out)?;
+    build_net::generate_vlan_consts(config, &mut out)?;
 
     for (name, socket) in &config.sockets {
         writeln!(

@@ -17,7 +17,7 @@ use userlib::*;
 /// 1-wire commands.  Most devices support more commands, but these commands
 /// are supported by all devices.
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Command {
     SearchROM = 0xf0,
     ReadROM = 0x33,
@@ -29,7 +29,7 @@ pub enum Command {
 /// Family of 1-wire device. The most complete list seems to be found at:
 /// <http://owfs.sourceforge.net/family.html>.  We want to keep this list
 /// as short as possible.
-#[derive(Copy, Clone, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive)]
 pub enum Family {
     DS18B20 = 0x28,
 }

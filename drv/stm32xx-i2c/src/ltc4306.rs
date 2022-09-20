@@ -13,7 +13,7 @@ use userlib::*;
 pub struct Ltc4306;
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register0(u8);
     connected, _: 7;
     not_alert1, _: 6;
@@ -26,7 +26,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register1(u8);
     upstream_accelerators_enable, set_upstream_accelerators_enable: 7;
     downstream_accelerators_enable, set_downstream_accelerators_enable: 6;
@@ -36,7 +36,7 @@ bitfield! {
     gpio2_logic_state, _: 0;
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[allow(clippy::enum_variant_names)] // not great, TODO
 enum Timeout {
     TimeoutDisabled = 0b00,
@@ -58,7 +58,7 @@ impl From<Timeout> for u8 {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register2(u8);
     gpio1_mode_input, set_gpio1_mode_input: 7;
     gpio2_mode_input, set_gpio2_mode_input: 6;
@@ -70,7 +70,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Register3(u8);
     bus1_connected, set_bus1_connected: 7;
     bus2_connected, set_bus2_connected: 6;
@@ -85,8 +85,8 @@ bitfield! {
 ringbuf!(u8, 16, 0);
 
 fn read_reg_u8(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     reg: u8,
     ctrl: &I2cControl,
 ) -> Result<u8, ResponseCode> {
@@ -110,8 +110,8 @@ fn read_reg_u8(
 }
 
 fn write_reg_u8(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     reg: u8,
     val: u8,
     ctrl: &I2cControl,
@@ -132,8 +132,8 @@ fn write_reg_u8(
 impl I2cMuxDriver for Ltc4306 {
     fn configure(
         &self,
-        mux: &I2cMux,
-        _controller: &I2cController,
+        mux: &I2cMux<'_>,
+        _controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
         _ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
@@ -142,8 +142,8 @@ impl I2cMuxDriver for Ltc4306 {
 
     fn enable_segment(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
@@ -183,7 +183,7 @@ impl I2cMuxDriver for Ltc4306 {
 
     fn reset(
         &self,
-        mux: &I2cMux,
+        mux: &I2cMux<'_>,
         gpio: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.reset(gpio)
