@@ -242,7 +242,7 @@ uses = [
     "usart1",
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys", "hf"]
+task-slots = ["jefe", "net", "update_server", "sys", "hf", "gimlet_seq"]
 features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
 

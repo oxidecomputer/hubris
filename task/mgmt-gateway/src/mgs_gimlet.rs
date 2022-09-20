@@ -13,12 +13,13 @@ use drv_gimlet_hf_api::{
     HfDevSelect, HfError, HfMuxState, HostFlash, PAGE_SIZE_BYTES,
     SECTOR_SIZE_BYTES,
 };
+use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
-    SpComponent, SpMessage, SpMessageKind, SpPort, SpState, UpdateChunk,
-    UpdateId, UpdatePreparationProgress, UpdatePreparationStatus,
+    DiscoverResponse, IgnitionCommand, IgnitionState, PowerState,
+    ResponseError, SpComponent, SpMessage, SpMessageKind, SpPort, SpState,
+    UpdateChunk, UpdateId, UpdatePreparationProgress, UpdatePreparationStatus,
     UpdatePrepare, UpdateStatus,
 };
 use heapless::Deque;
@@ -44,9 +45,11 @@ const SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE: usize =
 const SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS: u64 = 500;
 
 userlib::task_slot!(HOST_FLASH, hf);
+userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
 
 pub(crate) struct MgsHandler {
     common: MgsCommon,
+    sequencer: Sequencer,
     host_flash_update: HostFlashUpdate,
     usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
@@ -61,6 +64,7 @@ impl MgsHandler {
         Self {
             common: MgsCommon::claim_static_resources(),
             host_flash_update: HostFlashUpdate::claim_static_resources(),
+            sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
@@ -289,6 +293,58 @@ impl SpHandler for MgsHandler {
             }
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
+    }
+
+    fn power_state(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<PowerState, ResponseError> {
+        use drv_gimlet_seq_api::PowerState as DrvPowerState;
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
+
+        // TODO Do we want to expose the sub-states to the control plane? For
+        // now, squish them down.
+        //
+        // TODO Do we want to expose A1 to the control plane at all? If not,
+        // what would we map it to? Maybe easier to leave it exposed.
+        let state = match self
+            .sequencer
+            .get_state()
+            .map_err(|e| ResponseError::PowerStateError(e as u32))?
+        {
+            DrvPowerState::A2
+            | DrvPowerState::A2PlusMono
+            | DrvPowerState::A2PlusFans => PowerState::A2,
+            DrvPowerState::A1 => PowerState::A1,
+            DrvPowerState::A0
+            | DrvPowerState::A0PlusHP
+            | DrvPowerState::A0Thermtrip => PowerState::A0,
+        };
+
+        Ok(state)
+    }
+
+    fn set_power_state(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        power_state: PowerState,
+    ) -> Result<(), ResponseError> {
+        use drv_gimlet_seq_api::PowerState as DrvPowerState;
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
+            power_state
+        )));
+
+        let power_state = match power_state {
+            PowerState::A0 => DrvPowerState::A0,
+            PowerState::A1 => DrvPowerState::A1,
+            PowerState::A2 => DrvPowerState::A2,
+        };
+
+        self.sequencer
+            .set_state(power_state)
+            .map_err(|e| ResponseError::PowerStateError(e as u32))
     }
 
     fn serial_console_attach(
