@@ -344,7 +344,7 @@ impl ServerImpl {
             HostToSp::GetStatus => SpToHost::Status(self.status),
             HostToSp::ClearStatus { mask } => {
                 self.status &= Status::from_bits_truncate(!mask);
-                SpToHost::Ack
+                SpToHost::Status(self.status)
             }
             HostToSp::GetAlert { mask: _ } => {
                 // TODO define alerts
