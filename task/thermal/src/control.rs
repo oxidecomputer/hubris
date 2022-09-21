@@ -383,10 +383,13 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
+        // When the power mode changes, we may require a new set of sensors to
+        // be online.  Reset the control state, waiting for all newly-required
+        // sensors to come online before re-entering the control loop.
         let prev_power_mode = self.power_mode;
         self.power_mode = self.bsp.power_mode();
         if prev_power_mode != self.power_mode {
-            // TODO: reset controller here
+            self.reset();
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
