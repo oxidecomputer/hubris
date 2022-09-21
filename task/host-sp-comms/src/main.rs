@@ -33,7 +33,6 @@ enum Trace {
     UartTxFull,
     UartRx(u8),
     UartRxOverrun,
-    Notification(u32),
     ClearStatus { mask: u64 },
     RebootSetA2,
     JefeNotification(PowerState),
@@ -73,7 +72,6 @@ fn main() -> ! {
         )
         .unwrap_lite()
         .operation;
-        ringbuf_entry!(Trace::Notification(note));
 
         server.handle_notification(note);
     }
