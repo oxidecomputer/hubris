@@ -28,8 +28,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.jefe.config]
-on-state-change = {net = {bit-number = 3}}
+[tasks.jefe.config.on-state-change]
+net = {bit-number = 3}
+host_sp_comms = {bit-number = 1}
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]

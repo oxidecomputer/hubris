@@ -37,7 +37,7 @@ fn main() -> Result<()> {
         task, count
     )?;
     for (name, rec) in cfg.on_state_change {
-        writeln!(out, "    ({}::{}, 1 << {})", task, name, rec.bit_number)?;
+        writeln!(out, "    ({}::{}, 1 << {}),", task, name, rec.bit_number)?;
     }
     writeln!(out, "];")?;
 

@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+use core::ops::Range;
+
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
@@ -23,21 +25,30 @@ use userlib::{
 task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum UartLog {
+enum Trace {
     None,
-    Tx(u8),
-    TxFull,
-    Rx(u8),
-    RxOverrun,
+    UartTx(u8),
+    UartTxFull,
+    UartRx(u8),
+    UartRxOverrun,
+    Notification(u32),
 }
 
-ringbuf!(UartLog, 64, UartLog::None);
+ringbuf!(Trace, 64, Trace::None);
 
-/// Notification mask for USART IRQ; must match configuration in app.toml.
-const USART_IRQ: u32 = 1;
+/// Notification bit for USART IRQ; must match configuration in app.toml.
+const USART_IRQ: u32 = 1 << 0;
+
+/// Notification bit for Jefe notifying us of state changes; must match Jefe's
+/// `on-state-change` config for us in app.toml.
+const JEFE_STATE_CHANGE_IRQ: u32 = 1 << 1;
 
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
+
+/// We wrap host/sp messages in corncobs; derive our max packet length from the
+/// max unwrapped message length.
+const MAX_PACKET_SIZE: usize = corncobs::max_encoded_len(MAX_MESSAGE_SIZE);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -49,61 +60,96 @@ fn main() -> ! {
     loop {
         // Wait for uart interrupt; if we haven't enabled tx interrupts, this
         // blocks until there's data to receive.
-        let note =
-            sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL).unwrap_lite();
+        let note = sys_recv_closed(
+            &mut [],
+            USART_IRQ | JEFE_STATE_CHANGE_IRQ,
+            TaskId::KERNEL,
+        )
+        .unwrap_lite()
+        .operation;
+        ringbuf_entry!(Trace::Notification(note));
 
-        server.handle_notification(note.operation);
+        server.handle_notification(note);
     }
 }
 
 struct ServerImpl {
     uart: Usart,
-    tx_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
-    rx_buf: &'static mut Vec<u8, MAX_MESSAGE_SIZE>,
+    tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
+    tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
+    tx_pkt_to_write: Range<usize>,
+    rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
 }
 
 impl ServerImpl {
     fn claim_static_resources(status: Status) -> Self {
+        let (tx_msg_buf, tx_pkt_buf) = mutable_statics! {
+                static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
+                static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [0; _];
+        };
         Self {
             uart: configure_uart_device(),
-            tx_buf: mutable_statics! {
-                static mut UART_TX_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
-            },
+            tx_msg_buf,
+            tx_pkt_buf,
+            tx_pkt_to_write: 0..0,
             rx_buf: claim_uart_rx_buf(),
             status,
         }
     }
-}
 
-// approximately idol_runtime::NotificationHandler, in anticipation of
-// eventually having an idol interface (at least for mgmt-gateway to give us
-// host phase 2 data)
-impl ServerImpl {
-    fn handle_notification(&mut self, _bits: u32) {
-        // Clear any RX overrun errors. If we hit this, we will likely fail to
-        // decode the next message from the host, which will cause us to send a
-        // `DecodeFailure` response.
-        if self.uart.check_and_clear_rx_overrun() {
-            ringbuf_entry!(UartLog::RxOverrun);
-        }
+    fn handle_usart_notification(&mut self) {
+        'tx: loop {
+            // Do we have data to transmit? If so, write as much as we can until
+            // either the fifo fills (in which case we return before trying to
+            // receive more) or we finish flushing.
+            while !self.tx_pkt_to_write.is_empty() {
+                if try_tx_push(
+                    &self.uart,
+                    self.tx_pkt_buf[self.tx_pkt_to_write.start],
+                ) {
+                    self.tx_pkt_to_write.start += 1;
+                } else {
+                    return;
+                }
+            }
 
-        // This is going to be fixed up with another PR
-        #[allow(clippy::never_loop)]
-        let maybe_response = 'response: loop {
-            // Receive until we find a message delimiter. Since we're using
-            // corncobs for framing, we're looking for 0x00.
+            // We're done flushing data; disable the tx fifo interrupt.
+            self.uart.disable_tx_fifo_empty_interrupt();
+
+            // Clear any RX overrun errors. If we hit this, we will likely fail
+            // to decode the next message from the host, which will cause us to
+            // send a `DecodeFailure` response.
+            if self.uart.check_and_clear_rx_overrun() {
+                ringbuf_entry!(Trace::UartRxOverrun);
+            }
+
+            // Receive until there's no more data or we get a 0x00, signifying
+            // the end of a corncobs packet.
             while let Some(byte) = self.uart.try_rx_pop() {
-                ringbuf_entry!(UartLog::Rx(byte));
+                ringbuf_entry!(Trace::UartRx(byte));
 
                 if byte == 0x00 {
-                    let n = process_message(
+                    // Process message and populate our response into
+                    // `tx_msg_buf`.
+                    let msg_len = process_message(
                         &mut self.status,
-                        self.tx_buf,
+                        self.tx_msg_buf,
                         self.rx_buf.as_mut(),
                     );
                     self.rx_buf.clear();
-                    break 'response Some(&self.tx_buf[..n]);
+
+                    // Encode our outgoing packet.
+                    let pkt_len = corncobs::encode_buf(
+                        &self.tx_msg_buf[..msg_len],
+                        &mut self.tx_pkt_buf[..],
+                    );
+                    self.tx_pkt_to_write = 0..pkt_len;
+
+                    // Enable tx fifo interrupts, and immediately start trying
+                    // to send our response.
+                    self.uart.enable_tx_fifo_empty_interrupt();
+                    continue 'tx;
                 } else if self.rx_buf.push(byte).is_err() {
                     // Message overflow - nothing we can do here except
                     // discard data. We'll drop this byte and wait til we
@@ -114,34 +160,24 @@ impl ServerImpl {
                 }
             }
 
-            // RX FIFO is empty and we don't have a complete message.
-            break None;
-        };
+            // We received everything we could out of the rx fifo and we have
+            // nothing to send; we're done.
+            return;
+        }
+    }
+}
 
-        // Spin here until we're able to flush our entire response out to the TX
-        // FIFO. We're not going to attempt to read from the RX FIFO while we're
-        // doing this, because the host isn't supposed to be sending us
-        // pipelined requests.
-        if let Some(unframed_data) = maybe_response {
-            let mut iter = corncobs::encode_iter(unframed_data).peekable();
-
-            self.uart.enable_tx_fifo_empty_interrupt();
-            while let Some(&b) = iter.peek() {
-                if try_tx_push(&self.uart, b) {
-                    // Discard the byte we just peeked and successfully inserted
-                    // into the TX FIFO.
-                    iter.next().unwrap_lite();
-                } else {
-                    // TX fifo is full; wait for space.
-                    sys_irq_control(USART_IRQ, true);
-                    let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
-                }
-            }
-            self.uart.disable_tx_fifo_empty_interrupt();
+// approximately idol_runtime::NotificationHandler, in anticipation of
+// eventually having an idol interface (at least for mgmt-gateway to give us
+// host phase 2 data)
+impl ServerImpl {
+    fn handle_notification(&mut self, bits: u32) {
+        if bits & USART_IRQ != 0 {
+            self.handle_usart_notification();
+            sys_irq_control(USART_IRQ, true);
         }
 
-        // Re-enable USART interrupts.
-        sys_irq_control(USART_IRQ, true);
+        if bits & JEFE_STATE_CHANGE_IRQ != 0 {}
     }
 }
 
@@ -150,9 +186,9 @@ impl ServerImpl {
 fn try_tx_push(uart: &Usart, val: u8) -> bool {
     let ret = uart.try_tx_push(val);
     if ret {
-        ringbuf_entry!(UartLog::Tx(val));
+        ringbuf_entry!(Trace::UartTx(val));
     } else {
-        ringbuf_entry!(UartLog::TxFull);
+        ringbuf_entry!(Trace::UartTxFull);
     }
     ret
 }
@@ -352,10 +388,10 @@ fn configure_uart_device() -> Usart {
     )
 }
 
-fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_MESSAGE_SIZE> {
+fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
     use core::sync::atomic::{AtomicBool, Ordering};
 
-    static mut UART_RX_BUF: Vec<u8, MAX_MESSAGE_SIZE> = Vec::new();
+    static mut UART_RX_BUF: Vec<u8, MAX_PACKET_SIZE> = Vec::new();
 
     static TAKEN: AtomicBool = AtomicBool::new(false);
     if TAKEN.swap(true, Ordering::Relaxed) {

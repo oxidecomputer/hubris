@@ -1144,6 +1144,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
