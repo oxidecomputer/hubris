@@ -225,17 +225,19 @@ impl ServerImpl {
                     let msg_len = self.process_message();
                     self.rx_buf.clear();
 
-                    // Encode our outgoing packet.
-                    let pkt_len = corncobs::encode_buf(
-                        &self.tx_msg_buf[..msg_len],
-                        &mut self.tx_pkt_buf[..],
-                    );
-                    self.tx_pkt_to_write = 0..pkt_len;
+                    if let Some(msg_len) = msg_len {
+                        // Encode our outgoing packet.
+                        let pkt_len = corncobs::encode_buf(
+                            &self.tx_msg_buf[..msg_len],
+                            &mut self.tx_pkt_buf[..],
+                        );
+                        self.tx_pkt_to_write = 0..pkt_len;
 
-                    // Enable tx fifo interrupts, and immediately start trying
-                    // to send our response.
-                    self.uart.enable_tx_fifo_empty_interrupt();
-                    continue 'tx;
+                        // Enable tx fifo interrupts, and immediately start
+                        // trying to send our response.
+                        self.uart.enable_tx_fifo_empty_interrupt();
+                        continue 'tx;
+                    }
                 } else if self.rx_buf.push(byte).is_err() {
                     // Message overflow - nothing we can do here except
                     // discard data. We'll drop this byte and wait til we
@@ -252,14 +254,17 @@ impl ServerImpl {
         }
     }
 
-    fn process_message(&mut self) -> usize {
+    // Process the framed packet sitting in `self.rx_buf`. If it warrants a
+    // response, we return `Some(n)` where n is the length of the outgoing,
+    // unframed message we wrote to `self.tx_msg_buf`.
+    fn process_message(&mut self) -> Option<usize> {
         let deframed = match corncobs::decode_in_place(self.rx_buf) {
             Ok(n) => &self.rx_buf[..n],
             Err(_) => {
-                return populate_with_decode_error(
+                return Some(populate_with_decode_error(
                     self.tx_msg_buf,
                     DecodeFailureReason::Cobs,
-                )
+                ));
             }
         };
 
@@ -267,38 +272,38 @@ impl ServerImpl {
             match host_sp_messages::deserialize::<HostToSp>(deframed) {
                 Ok((header, request, data)) => (header, request, data),
                 Err(HubpackError::Custom) => {
-                    return populate_with_decode_error(
+                    return Some(populate_with_decode_error(
                         self.tx_msg_buf,
                         DecodeFailureReason::Crc,
-                    )
+                    ));
                 }
                 Err(_) => {
-                    return populate_with_decode_error(
+                    return Some(populate_with_decode_error(
                         self.tx_msg_buf,
                         DecodeFailureReason::Deserialize,
-                    )
+                    ));
                 }
             };
 
         if header.magic != host_sp_messages::MAGIC {
-            return populate_with_decode_error(
+            return Some(populate_with_decode_error(
                 self.tx_msg_buf,
                 DecodeFailureReason::MagicMismatch,
-            );
+            ));
         }
 
         if header.version != host_sp_messages::version::V1 {
-            return populate_with_decode_error(
+            return Some(populate_with_decode_error(
                 self.tx_msg_buf,
                 DecodeFailureReason::VersionMismatch,
-            );
+            ));
         }
 
         if header.sequence & SEQ_REPLY != 0 {
-            return populate_with_decode_error(
+            return Some(populate_with_decode_error(
                 self.tx_msg_buf,
                 DecodeFailureReason::SequenceInvalid,
-            );
+            ));
         }
 
         // We defer any actions until after we've serialized our response to
@@ -307,68 +312,68 @@ impl ServerImpl {
         let mut response_data: &[u8] = &[];
         let response = match request {
             HostToSp::_Unused => {
-                SpToHost::DecodeFailure(DecodeFailureReason::Deserialize)
+                Some(SpToHost::DecodeFailure(DecodeFailureReason::Deserialize))
             }
             HostToSp::RequestReboot => {
                 action = Some(Action::RebootHost);
-                SpToHost::Ack
+                None
             }
             HostToSp::RequestPowerOff => {
                 // TODO power off host
-                SpToHost::Ack
+                None
             }
             HostToSp::GetBootStorageUnit => {
                 // TODO how do we know the real answer?
-                SpToHost::BootStorageUnit(Bsu::A)
+                Some(SpToHost::BootStorageUnit(Bsu::A))
             }
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
-                SpToHost::Identity {
+                Some(SpToHost::Identity {
                     model: 1,
                     revision: 2,
                     serial: *b"fake-serial",
-                }
+                })
             }
             HostToSp::GetMacAddresses => {
                 // TODO where do we get host MAC addrs?
-                SpToHost::MacAddresses {
+                Some(SpToHost::MacAddresses {
                     base: [0; 6],
                     count: 1,
                     stride: 1,
-                }
+                })
             }
             HostToSp::HostBootFailure { .. } => {
-                // TODO what do we do in reaction to this?
-                SpToHost::Ack
+                // TODO what do we do in reaction to this? reboot?
+                Some(SpToHost::Ack)
             }
             HostToSp::HostPanic { .. } => {
                 // TODO log event and/or forward to MGS
                 action = Some(Action::RebootHost);
-                SpToHost::Ack
+                None
             }
-            HostToSp::GetStatus => SpToHost::Status(self.status),
+            HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
             HostToSp::ClearStatus { mask } => {
                 ringbuf_entry!(Trace::ClearStatus { mask });
                 self.status &= Status::from_bits_truncate(!mask);
-                SpToHost::Status(self.status)
+                Some(SpToHost::Status(self.status))
             }
             HostToSp::GetAlert { mask: _ } => {
                 // TODO define alerts
-                SpToHost::Alert { action: 0 }
+                Some(SpToHost::Alert { action: 0 })
             }
             HostToSp::RotRequest => {
                 // TODO forward request to RoT; for now just echo
                 response_data = data;
-                SpToHost::RotResponse
+                Some(SpToHost::RotResponse)
             }
             HostToSp::RotAddHostMeasurements => {
                 // TODO forward request to RoT
-                SpToHost::Ack
+                Some(SpToHost::Ack)
             }
             HostToSp::GetPhase2Data { start, count: _ } => {
                 // TODO forward real data
                 response_data = b"hello world";
-                SpToHost::Phase2Data { start }
+                Some(SpToHost::Phase2Data { start })
             }
         };
 
@@ -377,14 +382,17 @@ impl ServerImpl {
 
         // TODO this can panic if `response_data` is too large; where do we
         // check it before sending a response?
-        let n = host_sp_messages::serialize(
-            self.tx_msg_buf,
-            &header,
-            &response,
-            response_data,
-        )
-        .unwrap_lite()
-        .0;
+        let tx_msg_buf = &mut self.tx_msg_buf; // borrow checker workaround
+        let n = response.map(|response| {
+            host_sp_messages::serialize(
+                tx_msg_buf,
+                &header,
+                &response,
+                response_data,
+            )
+            .unwrap_lite()
+            .0
+        });
 
         // Now that all buffer borrowing is done, we can borrow `self` mutably
         // again to perform any necessary action.
