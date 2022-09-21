@@ -20,7 +20,7 @@ use host_sp_messages::{
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite, hl,
+    hl, sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
 
 task_slot!(SYS, sys);
@@ -135,8 +135,7 @@ impl ServerImpl {
                 | PowerState::A0Thermtrip => continue,
                 PowerState::A2
                 | PowerState::A2PlusMono
-                | PowerState::A2PlusFans
-                    => {
+                | PowerState::A2PlusFans => {
                     // Somehow we're already in A2 when the host wanted to
                     // reboot; try to move to A0 immediately.
                     if self.sequencer.set_state(PowerState::A0).is_ok() {
@@ -193,11 +192,7 @@ impl ServerImpl {
                 if byte == 0x00 {
                     // Process message and populate our response into
                     // `tx_msg_buf`.
-                    let msg_len = process_message(
-                        &mut self.status,
-                        self.tx_msg_buf,
-                        self.rx_buf.as_mut(),
-                    );
+                    let msg_len = self.process_message();
                     self.rx_buf.clear();
 
                     // Encode our outgoing packet.
@@ -225,6 +220,136 @@ impl ServerImpl {
             // nothing to send; we're done.
             return;
         }
+    }
+
+    fn process_message(&mut self) -> usize {
+        let deframed = match corncobs::decode_in_place(self.rx_buf) {
+            Ok(n) => &self.rx_buf[..n],
+            Err(_) => {
+                return populate_with_decode_error(
+                    self.tx_msg_buf,
+                    DecodeFailureReason::Cobs,
+                )
+            }
+        };
+
+        let (mut header, request, data) =
+            match host_sp_messages::deserialize::<HostToSp>(deframed) {
+                Ok((header, request, data)) => (header, request, data),
+                Err(HubpackError::Custom) => {
+                    return populate_with_decode_error(
+                        self.tx_msg_buf,
+                        DecodeFailureReason::Crc,
+                    )
+                }
+                Err(_) => {
+                    return populate_with_decode_error(
+                        self.tx_msg_buf,
+                        DecodeFailureReason::Deserialize,
+                    )
+                }
+            };
+
+        if header.magic != host_sp_messages::MAGIC {
+            return populate_with_decode_error(
+                self.tx_msg_buf,
+                DecodeFailureReason::MagicMismatch,
+            );
+        }
+
+        if header.version != host_sp_messages::version::V1 {
+            return populate_with_decode_error(
+                self.tx_msg_buf,
+                DecodeFailureReason::VersionMismatch,
+            );
+        }
+
+        if header.sequence & SEQ_REPLY != 0 {
+            return populate_with_decode_error(
+                self.tx_msg_buf,
+                DecodeFailureReason::SequenceInvalid,
+            );
+        }
+
+        let mut response_data: &[u8] = &[];
+        let response = match request {
+            HostToSp::_Unused => {
+                SpToHost::DecodeFailure(DecodeFailureReason::Deserialize)
+            }
+            HostToSp::RequestReboot => {
+                // TODO reboot host
+                SpToHost::Ack
+            }
+            HostToSp::RequestPowerOff => {
+                // TODO power off host
+                SpToHost::Ack
+            }
+            HostToSp::GetBootStorageUnit => {
+                // TODO how do we know the real answer?
+                SpToHost::BootStorageUnit(Bsu::A)
+            }
+            HostToSp::GetIdentity => {
+                // TODO how do we get our real identity?
+                SpToHost::Identity {
+                    model: 1,
+                    revision: 2,
+                    serial: *b"fake-serial",
+                }
+            }
+            HostToSp::GetMacAddresses => {
+                // TODO where do we get host MAC addrs?
+                SpToHost::MacAddresses {
+                    base: [0; 6],
+                    count: 1,
+                    stride: 1,
+                }
+            }
+            HostToSp::HostBootFailure { .. } => {
+                // TODO what do we do in reaction to this?
+                SpToHost::Ack
+            }
+            HostToSp::HostPanic { .. } => {
+                // TODO what do we do in reaction to this?
+                SpToHost::Ack
+            }
+            HostToSp::GetStatus => SpToHost::Status(self.status),
+            HostToSp::ClearStatus { mask } => {
+                self.status &= Status::from_bits_truncate(!mask);
+                SpToHost::Ack
+            }
+            HostToSp::GetAlert { mask: _ } => {
+                // TODO define alerts
+                SpToHost::Alert { action: 0 }
+            }
+            HostToSp::RotRequest => {
+                // TODO forward request to RoT; for now just echo
+                response_data = data;
+                SpToHost::RotResponse
+            }
+            HostToSp::RotAddHostMeasurements => {
+                // TODO forward request to RoT
+                SpToHost::Ack
+            }
+            HostToSp::GetPhase2Data { start, count: _ } => {
+                // TODO forward real data
+                response_data = b"hello world";
+                SpToHost::Phase2Data { start }
+            }
+        };
+
+        // We set the high bit of the sequence number before responding.
+        header.sequence |= SEQ_REPLY;
+
+        // TODO this can panic if `response_data` is too large; where do we
+        // check it before sending a response?
+        host_sp_messages::serialize(
+            self.tx_msg_buf,
+            &header,
+            &response,
+            response_data,
+        )
+        .unwrap_lite()
+        .0
     }
 }
 
@@ -269,131 +394,6 @@ fn populate_with_decode_error(
     // Serializing can only fail if we pass unexpected types as `response`, but
     // we're using `SpToHost`, so it cannot fail.
     host_sp_messages::serialize(out, &header, &response, &[])
-        .unwrap_lite()
-        .0
-}
-
-fn process_message(
-    status: &mut Status,
-    out: &mut [u8; MAX_MESSAGE_SIZE],
-    frame: &mut [u8],
-) -> usize {
-    let deframed = match corncobs::decode_in_place(frame) {
-        Ok(n) => &frame[..n],
-        Err(_) => {
-            return populate_with_decode_error(out, DecodeFailureReason::Cobs)
-        }
-    };
-
-    let (mut header, request, data) = match host_sp_messages::deserialize::<
-        HostToSp,
-    >(deframed)
-    {
-        Ok((header, request, data)) => (header, request, data),
-        Err(HubpackError::Custom) => {
-            return populate_with_decode_error(out, DecodeFailureReason::Crc)
-        }
-        Err(_) => {
-            return populate_with_decode_error(
-                out,
-                DecodeFailureReason::Deserialize,
-            )
-        }
-    };
-
-    if header.magic != host_sp_messages::MAGIC {
-        return populate_with_decode_error(
-            out,
-            DecodeFailureReason::MagicMismatch,
-        );
-    }
-
-    if header.version != host_sp_messages::version::V1 {
-        return populate_with_decode_error(
-            out,
-            DecodeFailureReason::VersionMismatch,
-        );
-    }
-
-    if header.sequence & SEQ_REPLY != 0 {
-        return populate_with_decode_error(
-            out,
-            DecodeFailureReason::SequenceInvalid,
-        );
-    }
-
-    let mut response_data: &[u8] = &[];
-    let response = match request {
-        HostToSp::_Unused => {
-            SpToHost::DecodeFailure(DecodeFailureReason::Deserialize)
-        }
-        HostToSp::RequestReboot => {
-            // TODO reboot host
-            SpToHost::Ack
-        }
-        HostToSp::RequestPowerOff => {
-            // TODO power off host
-            SpToHost::Ack
-        }
-        HostToSp::GetBootStorageUnit => {
-            // TODO how do we know the real answer?
-            SpToHost::BootStorageUnit(Bsu::A)
-        }
-        HostToSp::GetIdentity => {
-            // TODO how do we get our real identity?
-            SpToHost::Identity {
-                model: 1,
-                revision: 2,
-                serial: *b"fake-serial",
-            }
-        }
-        HostToSp::GetMacAddresses => {
-            // TODO where do we get host MAC addrs?
-            SpToHost::MacAddresses {
-                base: [0; 6],
-                count: 1,
-                stride: 1,
-            }
-        }
-        HostToSp::HostBootFailure { .. } => {
-            // TODO what do we do in reaction to this?
-            SpToHost::Ack
-        }
-        HostToSp::HostPanic { .. } => {
-            // TODO what do we do in reaction to this?
-            SpToHost::Ack
-        }
-        HostToSp::GetStatus => SpToHost::Status(*status),
-        HostToSp::ClearStatus { mask } => {
-            *status &= Status::from_bits_truncate(!mask);
-            SpToHost::Ack
-        }
-        HostToSp::GetAlert { mask: _ } => {
-            // TODO define alerts
-            SpToHost::Alert { action: 0 }
-        }
-        HostToSp::RotRequest => {
-            // TODO forward request to RoT; for now just echo
-            response_data = data;
-            SpToHost::RotResponse
-        }
-        HostToSp::RotAddHostMeasurements => {
-            // TODO forward request to RoT
-            SpToHost::Ack
-        }
-        HostToSp::GetPhase2Data { start, count: _ } => {
-            // TODO forward real data
-            response_data = b"hello world";
-            SpToHost::Phase2Data { start }
-        }
-    };
-
-    // We set the high bit of the sequence number before responding.
-    header.sequence |= SEQ_REPLY;
-
-    // TODO this can panic if `response_data` is too large; where do we check it
-    // before sending a response?
-    host_sp_messages::serialize(out, &header, &response, response_data)
         .unwrap_lite()
         .0
 }
