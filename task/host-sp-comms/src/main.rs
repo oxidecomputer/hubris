@@ -34,9 +34,8 @@ enum Trace {
     UartRx(u8),
     UartRxOverrun,
     ClearStatus { mask: u64 },
-    RebootSetA2,
+    SetState(PowerState),
     JefeNotification(PowerState),
-    RebootSetA0,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -106,18 +105,18 @@ impl ServerImpl {
         }
     }
 
-    // TODO is this logic right? I think we should basically only ever succeed
-    // in our initial set_state() request, so I don't know how we'd test the
-    // error handling cases...
-    fn reboot_host(&mut self) {
+    // TODO is error handling in this method correct? I think we should
+    // basically only ever succeed in our initial set_state() request, so I
+    // don't know how we'd test it
+    fn power_off_host(&mut self, reboot: bool) {
         loop {
             // Attempt to move to A2; given we only call this function in
             // response to a host request, we expect we're currently in A0 and
             // this should work.
             let err = match self.sequencer.set_state(PowerState::A2) {
                 Ok(()) => {
-                    ringbuf_entry!(Trace::RebootSetA2);
-                    self.rebooting_host = true;
+                    ringbuf_entry!(Trace::SetState(PowerState::A2));
+                    self.rebooting_host = reboot;
                     return;
                 }
                 Err(err) => err,
@@ -139,17 +138,23 @@ impl ServerImpl {
                 PowerState::A2
                 | PowerState::A2PlusMono
                 | PowerState::A2PlusFans => {
-                    // Somehow we're already in A2 when the host wanted to
-                    // reboot; try to move to A0 immediately.
-                    if self.sequencer.set_state(PowerState::A0).is_ok() {
-                        // Intentionally don't set `self.rebooting_host` in this
-                        // case: we just successfully transitioned from A2 to
-                        // A0; i.e., rebooted.
-                        return;
+                    if reboot {
+                        // Somehow we're already in A2 when the host wanted to
+                        // reboot; try to move to A0 immediately.
+                        if self.sequencer.set_state(PowerState::A0).is_ok() {
+                            // Intentionally don't set `self.rebooting_host` in
+                            // this case: we just successfully transitioned from
+                            // A2 to A0; i.e., rebooted.
+                            return;
+                        } else {
+                            // Failed trying to go to A2 and then failed trying
+                            // to go to A0; nothing we can do but retry?
+                            continue;
+                        }
                     } else {
-                        // Failed trying to go to A2 and then failed trying to
-                        // go to A0; nothing we can do but retry?
-                        continue;
+                        // Transitioning to A2 failed because we're already in
+                        // A2 - host is powered off.
+                        return;
                     }
                 }
                 PowerState::A1 => {
@@ -171,7 +176,7 @@ impl ServerImpl {
             | PowerState::A2PlusFans => {
                 if self.rebooting_host {
                     if self.sequencer.set_state(PowerState::A0).is_ok() {
-                        ringbuf_entry!(Trace::RebootSetA0);
+                        ringbuf_entry!(Trace::SetState(PowerState::A0));
                         self.rebooting_host = false;
                     } else {
                         // TODO what can we do if this fails?
@@ -319,7 +324,7 @@ impl ServerImpl {
                 None
             }
             HostToSp::RequestPowerOff => {
-                // TODO power off host
+                action = Some(Action::PowerOffHost);
                 None
             }
             HostToSp::GetBootStorageUnit => {
@@ -398,7 +403,8 @@ impl ServerImpl {
         // again to perform any necessary action.
         if let Some(action) = action {
             match action {
-                Action::RebootHost => self.reboot_host(),
+                Action::RebootHost => self.power_off_host(true),
+                Action::PowerOffHost => self.power_off_host(false),
             }
         }
 
@@ -428,6 +434,7 @@ impl ServerImpl {
 // request _after_ we're done borrowing any message buffers.
 enum Action {
     RebootHost,
+    PowerOffHost,
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
