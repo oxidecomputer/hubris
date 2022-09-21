@@ -10,6 +10,7 @@ use core::ops::Range;
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
+use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
 use drv_usart::Usart;
 use heapless::Vec;
 use host_sp_messages::{
@@ -19,10 +20,11 @@ use host_sp_messages::{
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
+    sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite, hl,
 };
 
 task_slot!(SYS, sys);
+task_slot!(GIMLET_SEQ, gimlet_seq);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
@@ -80,6 +82,8 @@ struct ServerImpl {
     tx_pkt_to_write: Range<usize>,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
+    sequencer: Sequencer,
+    rebooting_host: bool,
 }
 
 impl ServerImpl {
@@ -95,6 +99,63 @@ impl ServerImpl {
             tx_pkt_to_write: 0..0,
             rx_buf: claim_uart_rx_buf(),
             status,
+            sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
+            rebooting_host: false,
+        }
+    }
+
+    // TODO is this logic right? I think we should basically only ever succeed
+    // in our initial set_state() request, so I don't know how we'd test the
+    // error handling cases...
+    fn reboot_host(&mut self) {
+        loop {
+            // Attempt to move to A2; given we only call this function in
+            // response to a host request, we expect we're currently in A0 and
+            // this should work.
+            let err = match self.sequencer.set_state(PowerState::A2) {
+                Ok(()) => {
+                    self.rebooting_host = true;
+                    return;
+                }
+                Err(err) => err,
+            };
+
+            // The only error we should see from `set_state()` is an illegal
+            // transition, if we're not currently in A0.
+            assert!(matches!(err, SeqError::IllegalTransition));
+
+            // If we can't go to A2, what state are we in, keeping in mind that
+            // we have a bit of TOCTOU here in that the state might've changed
+            // since we tried to `set_state()` above?
+            match self.sequencer.get_state().unwrap_lite() {
+                // States from which we should be allowed to transition to A2;
+                // just retry and assume we hit some race.
+                PowerState::A0
+                | PowerState::A0PlusHP
+                | PowerState::A0Thermtrip => continue,
+                PowerState::A2
+                | PowerState::A2PlusMono
+                | PowerState::A2PlusFans
+                    => {
+                    // Somehow we're already in A2 when the host wanted to
+                    // reboot; try to move to A0 immediately.
+                    if self.sequencer.set_state(PowerState::A0).is_ok() {
+                        // Intentionally don't set `self.rebooting_host` in this
+                        // case: we just successfully transitioned from A2 to
+                        // A0; i.e., rebooted.
+                        return;
+                    } else {
+                        // Failed trying to go to A2 and then failed trying to
+                        // go to A0; nothing we can do but retry?
+                        continue;
+                    }
+                }
+                PowerState::A1 => {
+                    // A1 should be transitive; sleep then retry.
+                    hl::sleep_for(1);
+                    continue;
+                }
+            }
         }
     }
 

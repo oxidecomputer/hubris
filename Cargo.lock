@@ -3446,6 +3446,7 @@ dependencies = [
  "cfg-if",
  "corncobs",
  "cortex-m",
+ "drv-gimlet-seq-api",
  "drv-stm32h7-usart",
  "heapless",
  "host-sp-messages",
