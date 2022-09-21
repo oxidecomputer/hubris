@@ -158,6 +158,31 @@ impl ServerImpl {
         }
     }
 
+    fn handle_jefe_notification(&mut self, state: PowerState) {
+        // If we're rebooting and jefe has notified us that we're now in A2,
+        // move to A0. Otherwise, ignore this notification.
+        match state {
+            PowerState::A2
+            | PowerState::A2PlusMono
+            | PowerState::A2PlusFans => {
+                if self.rebooting_host {
+                    if self.sequencer.set_state(PowerState::A0).is_ok() {
+                        self.rebooting_host = false;
+                    } else {
+                        // TODO what can we do if this fails?
+                    }
+                }
+            }
+            PowerState::A1 => (), // do nothing
+            PowerState::A0 | PowerState::A0PlusHP | PowerState::A0Thermtrip => {
+                // TODO should we clear self.rebooting_host here? What if we
+                // transitioned from one A0 state to another? For now, leave it
+                // set, and we'll move back to A0 whenever we transition to
+                // A2...
+            }
+        }
+    }
+
     fn handle_usart_notification(&mut self) {
         'tx: loop {
             // Do we have data to transmit? If so, write as much as we can until
@@ -271,13 +296,16 @@ impl ServerImpl {
             );
         }
 
+        // We defer any actions until after we've serialized our response to
+        // avoid borrow checker issues with calling methods on `self`.
+        let mut action = None;
         let mut response_data: &[u8] = &[];
         let response = match request {
             HostToSp::_Unused => {
                 SpToHost::DecodeFailure(DecodeFailureReason::Deserialize)
             }
             HostToSp::RequestReboot => {
-                // TODO reboot host
+                action = Some(Action::RebootHost);
                 SpToHost::Ack
             }
             HostToSp::RequestPowerOff => {
@@ -309,7 +337,8 @@ impl ServerImpl {
                 SpToHost::Ack
             }
             HostToSp::HostPanic { .. } => {
-                // TODO what do we do in reaction to this?
+                // TODO log event and/or forward to MGS
+                action = Some(Action::RebootHost);
                 SpToHost::Ack
             }
             HostToSp::GetStatus => SpToHost::Status(self.status),
@@ -342,14 +371,24 @@ impl ServerImpl {
 
         // TODO this can panic if `response_data` is too large; where do we
         // check it before sending a response?
-        host_sp_messages::serialize(
+        let n = host_sp_messages::serialize(
             self.tx_msg_buf,
             &header,
             &response,
             response_data,
         )
         .unwrap_lite()
-        .0
+        .0;
+
+        // Now that all buffer borrowing is done, we can borrow `self` mutably
+        // again to perform any necessary action.
+        if let Some(action) = action {
+            match action {
+                Action::RebootHost => self.reboot_host(),
+            }
+        }
+
+        n
     }
 }
 
@@ -363,8 +402,18 @@ impl ServerImpl {
             sys_irq_control(USART_IRQ, true);
         }
 
-        if bits & JEFE_STATE_CHANGE_IRQ != 0 {}
+        if bits & JEFE_STATE_CHANGE_IRQ != 0 {
+            self.handle_jefe_notification(
+                self.sequencer.get_state().unwrap_lite(),
+            );
+        }
     }
+}
+
+// Borrow checker workaround; list of actions we perform in response to a host
+// request _after_ we're done borrowing any message buffers.
+enum Action {
+    RebootHost,
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
