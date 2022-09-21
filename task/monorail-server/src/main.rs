@@ -5,7 +5,8 @@
 #![no_std]
 #![no_main]
 
-#[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_1.rs")]
+#[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
+#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_b.rs")]
 #[cfg_attr(
     any(target_board = "gemini-bu-1", target_board = "gimletlet-2"),
     path = "bsp/vsc7448_dev.rs"
