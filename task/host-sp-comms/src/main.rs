@@ -34,6 +34,10 @@ enum Trace {
     UartRx(u8),
     UartRxOverrun,
     Notification(u32),
+    ClearStatus { mask: u64 },
+    RebootSetA2,
+    JefeNotification(PowerState),
+    RebootSetA0,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -114,6 +118,7 @@ impl ServerImpl {
             // this should work.
             let err = match self.sequencer.set_state(PowerState::A2) {
                 Ok(()) => {
+                    ringbuf_entry!(Trace::RebootSetA2);
                     self.rebooting_host = true;
                     return;
                 }
@@ -159,6 +164,7 @@ impl ServerImpl {
     }
 
     fn handle_jefe_notification(&mut self, state: PowerState) {
+        ringbuf_entry!(Trace::JefeNotification(state));
         // If we're rebooting and jefe has notified us that we're now in A2,
         // move to A0. Otherwise, ignore this notification.
         match state {
@@ -167,6 +173,7 @@ impl ServerImpl {
             | PowerState::A2PlusFans => {
                 if self.rebooting_host {
                     if self.sequencer.set_state(PowerState::A0).is_ok() {
+                        ringbuf_entry!(Trace::RebootSetA0);
                         self.rebooting_host = false;
                     } else {
                         // TODO what can we do if this fails?
@@ -343,6 +350,7 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => SpToHost::Status(self.status),
             HostToSp::ClearStatus { mask } => {
+                ringbuf_entry!(Trace::ClearStatus { mask });
                 self.status &= Status::from_bits_truncate(!mask);
                 SpToHost::Status(self.status)
             }
