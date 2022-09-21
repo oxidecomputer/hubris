@@ -9,14 +9,19 @@
 
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use idol_runtime::RequestError;
-use userlib::RecvMessage;
+use task_jefe_api::Jefe;
+use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
+
+userlib::task_slot!(JEFE, jefe);
 
 #[export_name = "main"]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        state: PowerState::A2,
+        jefe: Jefe::from(JEFE.get_task_id()),
     };
+
+    server.set_state_impl(PowerState::A2);
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -24,7 +29,19 @@ fn main() -> ! {
 }
 
 struct ServerImpl {
-    state: PowerState,
+    jefe: Jefe,
+}
+
+impl ServerImpl {
+    fn get_state_impl(&self) -> PowerState {
+        // Only we should be setting the state, and we set it to A2 on startup;
+        // this conversion should never fail.
+        PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
+    }
+
+    fn set_state_impl(&self, state: PowerState) {
+        self.jefe.set_state(state as u32);
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -32,7 +49,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        Ok(self.state)
+        Ok(self.get_state_impl())
     }
 
     fn set_state(
@@ -40,12 +57,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        match (self.state, state) {
+        match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
-                self.state = state;
+                self.set_state_impl(state);
                 Ok(())
             }
 
