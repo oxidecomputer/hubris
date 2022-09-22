@@ -24,6 +24,10 @@ enum Node {
         lsb: usize,
         msb: usize,
     },
+    Mem {
+        inst_name: String,
+        addr_offset: usize,
+    },
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,6 +63,18 @@ fn recurse_addr_map(
                     &format!("{inst_name}_{prefix}"),
                     output,
                 );
+            }
+            Node::Mem {
+                inst_name,
+                addr_offset,
+                ..
+            } => {
+                writeln!(
+                    output,
+                    "    {prefix}{inst_name} = {:#x},",
+                    offset + addr_offset
+                )
+                .unwrap();
             }
             _ => panic!("unexpected child {:?}", child),
         }
@@ -122,9 +138,8 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
     }
 }
 
-fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
+fn write_node(node: &Node, prefix: &str, output: &mut String) {
     match node {
-        // Recurse into Addrmap
         Node::Reg {
             inst_name,
             regwidth,
@@ -143,6 +158,18 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
             )
             .unwrap();
             write_reg_fields(children, prefix, output);
+
+            writeln!(output, "{prefix}    }}").unwrap();
+        }
+
+        Node::Mem { inst_name, .. } => {
+            writeln!(
+                output,
+                "\
+{prefix}    #[allow(non_snake_case)]
+{prefix}    pub mod {inst_name} {{",
+            )
+            .unwrap();
 
             writeln!(output, "{prefix}    }}").unwrap();
         }
@@ -172,7 +199,7 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
 
 fn recurse_reg_map(children: &[Node], prefix: &str, output: &mut String) {
     for child in children.iter() {
-        write_node_reg(child, prefix, output);
+        write_node(child, prefix, output);
     }
 }
 
