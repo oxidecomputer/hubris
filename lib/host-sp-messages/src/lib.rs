@@ -44,6 +44,15 @@ pub struct Header {
     // (depending on the variant of those enums), then a 16-bit checksum.
 }
 
+/// The order of these cases is critical! We are relying on hubpack's encoding
+/// of enum variants being 0-indexed and using a single byte. The order of
+/// variants in this enum produces a mapping of these that matches both RFD 316
+/// and the C implementation in the host software.
+///
+/// Because many of these variants have associated data, we can't assign literal
+/// values. Instead, we have a unit test that checks them against what we
+/// expect. When updating this enum, make sure to update that test and check
+/// that it contains the expected values.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -81,6 +90,15 @@ pub enum HostToSp {
     },
 }
 
+/// The order of these cases is critical! We are relying on hubpack's encoding
+/// of enum variants being 0-indexed and using a single byte. The order of
+/// variants in this enum produces a mapping of these that matches both RFD 316
+/// and the C implementation in the host software.
+///
+/// Because many of these variants have associated data, we can't assign literal
+/// values. Instead, we have a unit test that checks them against what we
+/// expect. When updating this enum, make sure to update that test and check
+/// that it contains the expected values.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -232,6 +250,79 @@ pub fn deserialize<T: DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Test that confirms our hubpack encoding of `HostToSp` (based on the
+    // ordering of its variants) matches the expected command values described
+    // in RFD 316.
+    #[test]
+    fn host_to_sp_command_values() {
+        let mut buf = [0; HostToSp::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x01, HostToSp::RequestReboot),
+            (0x02, HostToSp::RequestPowerOff),
+            (0x03, HostToSp::GetBootStorageUnit),
+            (0x04, HostToSp::GetIdentity),
+            (0x05, HostToSp::GetMacAddresses),
+            (0x06, HostToSp::HostBootFailure { reason: 0 }),
+            (
+                0x07,
+                HostToSp::HostPanic {
+                    status: 0,
+                    cpu: 0,
+                    thread: 0,
+                },
+            ),
+            (0x08, HostToSp::GetStatus),
+            (0x09, HostToSp::ClearStatus { mask: 0 }),
+            (0x0a, HostToSp::GetAlert { mask: 0 }),
+            (0x0b, HostToSp::RotRequest),
+            (0x0c, HostToSp::RotAddHostMeasurements),
+            (0x0d, HostToSp::GetPhase2Data { start: 0, count: 0 }),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n >= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
+
+    // Test that confirms our hubpack encoding of `HostToSp` (based on the
+    // ordering of its variants) matches the expected command values described
+    // in RFD 316.
+    #[test]
+    fn sp_to_host_command_values() {
+        let mut buf = [0; SpToHost::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x01, SpToHost::Ack),
+            (0x02, SpToHost::DecodeFailure(DecodeFailureReason::Cobs)),
+            (0x03, SpToHost::BootStorageUnit(Bsu::A)),
+            (
+                0x04,
+                SpToHost::Identity {
+                    model: 0,
+                    revision: 0,
+                    serial: [0; 11],
+                },
+            ),
+            (
+                0x05,
+                SpToHost::MacAddresses {
+                    base: [0; 6],
+                    count: 0,
+                    stride: 0,
+                },
+            ),
+            (0x06, SpToHost::Status(Status::empty())),
+            (0x07, SpToHost::Alert { action: 0 }),
+            (0x08, SpToHost::RotResponse),
+            (0x09, SpToHost::Phase2Data { start: 0 }),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n >= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
 
     #[test]
     fn roundtrip() {
