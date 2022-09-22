@@ -17,11 +17,7 @@ userlib::task_slot!(JEFE, jefe);
 #[export_name = "main"]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl {
-        jefe: Jefe::from(JEFE.get_task_id()),
-    };
-
-    server.set_state_impl(PowerState::A2);
+    let mut server = ServerImpl::init(Jefe::from(JEFE.get_task_id()));
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -33,6 +29,12 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
+    fn init(jefe: Jefe) -> Self {
+        let me = Self { jefe };
+        me.set_state_impl(PowerState::A2);
+        me
+    }
+
     fn get_state_impl(&self) -> PowerState {
         // Only we should be setting the state, and we set it to A2 on startup;
         // this conversion should never fail.
