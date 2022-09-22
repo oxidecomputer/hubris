@@ -353,8 +353,7 @@ impl ServerImpl {
             }
             HostToSp::HostPanic { .. } => {
                 // TODO log event and/or forward to MGS
-                action = Some(Action::RebootHost);
-                None
+                Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
             HostToSp::ClearStatus { mask } => {
