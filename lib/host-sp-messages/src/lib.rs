@@ -135,6 +135,7 @@ pub enum SpToHost {
     },
 }
 
+// See RFD 316 for values.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize_repr, Serialize_repr,
 )]
@@ -151,20 +152,26 @@ impl hubpack::SerializedSize for Bsu {
     const MAX_SIZE: usize = core::mem::size_of::<Bsu>();
 }
 
+// See RFD 316 for values.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize_repr, Serialize_repr,
 )]
+#[repr(u8)]
 pub enum DecodeFailureReason {
-    // Microoptimization: insert a dummy variant first, so we never serialize a
-    // command value of `0` to make COBS's life slightly easier.
-    _Unused,
-    Cobs,
-    Crc,
-    Deserialize,
-    MagicMismatch,
-    VersionMismatch,
-    SequenceInvalid,
-    DataLengthInvalid,
+    Cobs = 0x01,
+    Crc = 0x02,
+    Deserialize = 0x03,
+    MagicMismatch = 0x04,
+    VersionMismatch = 0x05,
+    SequenceInvalid = 0x06,
+    DataLengthInvalid = 0x07,
+}
+
+// We're using serde_repr for `Bsu`, so we have to supply our own
+// `SerializedSize` impl (since hubpack assumes it's serializing enum variants
+// itself as raw u8s).
+impl hubpack::SerializedSize for DecodeFailureReason {
+    const MAX_SIZE: usize = core::mem::size_of::<DecodeFailureReason>();
 }
 
 bitflags::bitflags! {
@@ -400,7 +407,6 @@ mod tests {
         let (n, leftover) =
             serialize(&mut buf, &header, &message, &[]).unwrap();
         assert!(leftover.is_empty());
-
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
             // magic
@@ -414,7 +420,27 @@ mod tests {
             // payload (BSU A)
             0x41,
         ];
+        assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
 
+        // Message including `DecodeFailureReason`, which uses `Serialize_repr`.
+        let message =
+            SpToHost::DecodeFailure(DecodeFailureReason::SequenceInvalid);
+        let (n, leftover) =
+            serialize(&mut buf, &header, &message, &[]).unwrap();
+        assert!(leftover.is_empty());
+        #[rustfmt::skip]
+        let expected_without_cksum: &[u8] = &[
+            // magic
+            0xcc, 0x19, 0xde, 0x01,
+            // version
+            0x67, 0x45, 0x23, 0x01,
+            // sequence
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+            // command
+            0x02,
+            // payload (sequence invalid)
+            0x06,
+        ];
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
 
         // Message including `Status`, which is defined by `bitflags!`.
@@ -424,7 +450,6 @@ mod tests {
         let (n, leftover) =
             serialize(&mut buf, &header, &message, &[]).unwrap();
         assert!(leftover.is_empty());
-
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
             // magic
@@ -438,7 +463,6 @@ mod tests {
             // payload
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
-
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
     }
 }
