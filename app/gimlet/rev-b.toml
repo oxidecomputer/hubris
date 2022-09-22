@@ -200,7 +200,7 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
 uses = ["uart7"]
 interrupts = {"uart7.irq" = 0b01}
 priority = 5
-max-sizes = {flash = 8192, ram = 8192}
+max-sizes = {flash = 16384, ram = 16384}
 stacksize = 2048
 start = true
 task-slots = ["sys"]

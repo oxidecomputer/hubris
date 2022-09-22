@@ -1908,9 +1908,11 @@ dependencies = [
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "fletcher",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "serde",
+ "serde_repr",
  "unwrap-lite",
 ]
 

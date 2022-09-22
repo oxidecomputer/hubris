@@ -11,7 +11,7 @@ use drv_stm32h7_usart as drv_usart;
 use drv_usart::Usart;
 use heapless::Vec;
 use host_sp_messages::{
-    DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
     MAX_MESSAGE_SIZE,
 };
 use mutable_statics::mutable_statics;
@@ -36,25 +36,55 @@ ringbuf!(UartLog, 64, UartLog::None);
 /// Notification mask for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1;
 
+/// We set the high bit of the sequence number before replying to host requests.
+const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
+
 #[export_name = "main"]
 fn main() -> ! {
-    let uart = configure_uart_device();
-    let tx_buf = mutable_statics! {
-        static mut UART_TX_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
-    };
-    let rx_buf = claim_uart_rx_buf();
+    let mut server =
+        ServerImpl::claim_static_resources(Status::SP_TASK_RESTARTED);
 
     sys_irq_control(USART_IRQ, true);
 
     loop {
         // Wait for uart interrupt; if we haven't enabled tx interrupts, this
         // blocks until there's data to receive.
-        let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
+        let note =
+            sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL).unwrap_lite();
 
+        server.handle_notification(note.operation);
+    }
+}
+
+struct ServerImpl {
+    uart: Usart,
+    tx_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
+    rx_buf: &'static mut Vec<u8, MAX_MESSAGE_SIZE>,
+    status: Status,
+}
+
+impl ServerImpl {
+    fn claim_static_resources(status: Status) -> Self {
+        Self {
+            uart: configure_uart_device(),
+            tx_buf: mutable_statics! {
+                static mut UART_TX_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
+            },
+            rx_buf: claim_uart_rx_buf(),
+            status,
+        }
+    }
+}
+
+// approximately idol_runtime::NotificationHandler, in anticipation of
+// eventually having an idol interface (at least for mgmt-gateway to give us
+// host phase 2 data)
+impl ServerImpl {
+    fn handle_notification(&mut self, _bits: u32) {
         // Clear any RX overrun errors. If we hit this, we will likely fail to
         // decode the next message from the host, which will cause us to send a
         // `DecodeFailure` response.
-        if uart.check_and_clear_rx_overrun() {
+        if self.uart.check_and_clear_rx_overrun() {
             ringbuf_entry!(UartLog::RxOverrun);
         }
 
@@ -63,14 +93,18 @@ fn main() -> ! {
         let maybe_response = 'response: loop {
             // Receive until we find a message delimiter. Since we're using
             // corncobs for framing, we're looking for 0x00.
-            while let Some(byte) = uart.try_rx_pop() {
+            while let Some(byte) = self.uart.try_rx_pop() {
                 ringbuf_entry!(UartLog::Rx(byte));
 
                 if byte == 0x00 {
-                    let n = process_message(tx_buf, rx_buf.as_mut());
-                    rx_buf.clear();
-                    break 'response Some(&tx_buf[..n]);
-                } else if rx_buf.push(byte).is_err() {
+                    let n = process_message(
+                        &mut self.status,
+                        self.tx_buf,
+                        self.rx_buf.as_mut(),
+                    );
+                    self.rx_buf.clear();
+                    break 'response Some(&self.tx_buf[..n]);
+                } else if self.rx_buf.push(byte).is_err() {
                     // Message overflow - nothing we can do here except
                     // discard data. We'll drop this byte and wait til we
                     // see a 0 to respond, at which point our
@@ -91,9 +125,9 @@ fn main() -> ! {
         if let Some(unframed_data) = maybe_response {
             let mut iter = corncobs::encode_iter(unframed_data).peekable();
 
-            uart.enable_tx_fifo_empty_interrupt();
+            self.uart.enable_tx_fifo_empty_interrupt();
             while let Some(&b) = iter.peek() {
-                if try_tx_push(&uart, b) {
+                if try_tx_push(&self.uart, b) {
                     // Discard the byte we just peeked and successfully inserted
                     // into the TX FIFO.
                     iter.next().unwrap_lite();
@@ -103,7 +137,7 @@ fn main() -> ! {
                     let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
                 }
             }
-            uart.disable_tx_fifo_empty_interrupt();
+            self.uart.disable_tx_fifo_empty_interrupt();
         }
 
         // Re-enable USART interrupts.
@@ -128,6 +162,7 @@ fn populate_with_decode_error(
     reason: DecodeFailureReason,
 ) -> usize {
     let header = Header {
+        magic: host_sp_messages::MAGIC,
         version: host_sp_messages::version::V1,
         // We failed to decode, so don't know the sequence number.
         sequence: 0xffff_ffff_ffff_ffff,
@@ -142,35 +177,39 @@ fn populate_with_decode_error(
 }
 
 fn process_message(
+    status: &mut Status,
     out: &mut [u8; MAX_MESSAGE_SIZE],
     frame: &mut [u8],
 ) -> usize {
     let deframed = match corncobs::decode_in_place(frame) {
         Ok(n) => &frame[..n],
         Err(_) => {
+            return populate_with_decode_error(out, DecodeFailureReason::Cobs)
+        }
+    };
+
+    let (mut header, request, data) = match host_sp_messages::deserialize::<
+        HostToSp,
+    >(deframed)
+    {
+        Ok((header, request, data)) => (header, request, data),
+        Err(HubpackError::Custom) => {
+            return populate_with_decode_error(out, DecodeFailureReason::Crc)
+        }
+        Err(_) => {
             return populate_with_decode_error(
                 out,
-                DecodeFailureReason::CobsError,
+                DecodeFailureReason::Deserialize,
             )
         }
     };
 
-    let (mut header, request, data) =
-        match host_sp_messages::deserialize::<HostToSp>(deframed) {
-            Ok((header, request, data)) => (header, request, data),
-            Err(HubpackError::Custom) => {
-                return populate_with_decode_error(
-                    out,
-                    DecodeFailureReason::CrcFailure,
-                )
-            }
-            Err(_) => {
-                return populate_with_decode_error(
-                    out,
-                    DecodeFailureReason::HubpackError,
-                )
-            }
-        };
+    if header.magic != host_sp_messages::MAGIC {
+        return populate_with_decode_error(
+            out,
+            DecodeFailureReason::MagicMismatch,
+        );
+    }
 
     if header.version != host_sp_messages::version::V1 {
         return populate_with_decode_error(
@@ -179,14 +218,45 @@ fn process_message(
         );
     }
 
+    if header.sequence & SEQ_REPLY != 0 {
+        return populate_with_decode_error(
+            out,
+            DecodeFailureReason::SequenceInvalid,
+        );
+    }
+
     let mut response_data: &[u8] = &[];
     let response = match request {
         HostToSp::_Unused => {
-            SpToHost::DecodeFailure(DecodeFailureReason::BadRequestType)
+            SpToHost::DecodeFailure(DecodeFailureReason::Deserialize)
+        }
+        HostToSp::RequestReboot => {
+            // TODO reboot host
+            SpToHost::Ack
+        }
+        HostToSp::RequestPowerOff => {
+            // TODO power off host
+            SpToHost::Ack
         }
         HostToSp::GetBootStorageUnit => {
             // TODO how do we know the real answer?
-            SpToHost::BootStorageUnit(0)
+            SpToHost::BootStorageUnit(Bsu::A)
+        }
+        HostToSp::GetIdentity => {
+            // TODO how do we get our real identity?
+            SpToHost::Identity {
+                model: 1,
+                revision: 2,
+                serial: *b"fake-serial",
+            }
+        }
+        HostToSp::GetMacAddresses => {
+            // TODO where do we get host MAC addrs?
+            SpToHost::MacAddresses {
+                base: [0; 6],
+                count: 1,
+                stride: 1,
+            }
         }
         HostToSp::HostBootFailure { .. } => {
             // TODO what do we do in reaction to this?
@@ -196,43 +266,33 @@ fn process_message(
             // TODO what do we do in reaction to this?
             SpToHost::Ack
         }
-        HostToSp::GetIdentity => {
-            // TODO how do we get our real identity?
-            SpToHost::Identity {
-                model: 1,
-                revision: 2,
-                serial: [0; 11],
-            }
-        }
-        HostToSp::GetStatus => {
-            // TODO what status is this?
-            SpToHost::Status(0x1234)
-        }
-        HostToSp::ClearStatus { mask: _ } => {
-            // TODO clear status bits
+        HostToSp::GetStatus => SpToHost::Status(*status),
+        HostToSp::ClearStatus { mask } => {
+            *status &= Status::from_bits_truncate(!mask);
             SpToHost::Ack
         }
-        HostToSp::GetMacAddresses => {
-            // TODO where do we get host MAC addrs?
-            SpToHost::MacAddresses([[0; 6]; 16])
-        }
-        HostToSp::RebootHost => {
-            // TODO reboot host
-            SpToHost::Ack
-        }
-        HostToSp::PowerOffHost => {
-            // TODO power off host
-            SpToHost::Ack
+        HostToSp::GetAlert { mask: _ } => {
+            // TODO define alerts
+            SpToHost::Alert { action: 0 }
         }
         HostToSp::RotRequest => {
             // TODO forward request to RoT; for now just echo
             response_data = data;
             SpToHost::RotResponse
         }
+        HostToSp::RotAddHostMeasurements => {
+            // TODO forward request to RoT
+            SpToHost::Ack
+        }
+        HostToSp::GetPhase2Data { start, count: _ } => {
+            // TODO forward real data
+            response_data = b"hello world";
+            SpToHost::Phase2Data { start }
+        }
     };
 
     // We set the high bit of the sequence number before responding.
-    header.sequence |= 0x8000_0000_0000_0000;
+    header.sequence |= SEQ_REPLY;
 
     // TODO this can panic if `response_data` is too large; where do we check it
     // before sending a response?
