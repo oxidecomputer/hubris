@@ -20,11 +20,18 @@ use host_sp_messages::{
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    hl, sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
+    hl, sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer,
+    task_slot, TaskId, UnwrapLite,
 };
 
 task_slot!(SYS, sys);
 task_slot!(GIMLET_SEQ, gimlet_seq);
+
+// TODO: When rebooting the host, we need to wait for the relevant power rails
+// to decay. We ought to do this properly by monitoring the rails, but for now,
+// we'll simply wait a fixed period of time. This time is a WAG - we should
+// fix this!
+const A2_REBOOT_DELAY: u64 = 5_000;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
@@ -34,8 +41,8 @@ enum Trace {
     UartRx(u8),
     UartRxOverrun,
     ClearStatus { mask: u64 },
-    SetState(PowerState),
-    JefeNotification(PowerState),
+    SetState { now: u64, state: PowerState },
+    JefeNotification { now: u64, state: PowerState },
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -46,6 +53,9 @@ const USART_IRQ: u32 = 1 << 0;
 /// Notification bit for Jefe notifying us of state changes; must match Jefe's
 /// `on-state-change` config for us in app.toml.
 const JEFE_STATE_CHANGE_IRQ: u32 = 1 << 1;
+
+/// Notification bit for the timer we set for ourselves.
+const TIMER_IRQ: u32 = 1 << 2;
 
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
@@ -62,18 +72,32 @@ fn main() -> ! {
     sys_irq_control(USART_IRQ, true);
 
     loop {
+        let mut mask = USART_IRQ | JEFE_STATE_CHANGE_IRQ;
+        if let Some(RebootState::TransitionToA0At(deadline)) =
+            server.reboot_state
+        {
+            sys_set_timer(Some(deadline), TIMER_IRQ);
+            mask |= TIMER_IRQ;
+        }
+
         // Wait for uart interrupt; if we haven't enabled tx interrupts, this
         // blocks until there's data to receive.
-        let note = sys_recv_closed(
-            &mut [],
-            USART_IRQ | JEFE_STATE_CHANGE_IRQ,
-            TaskId::KERNEL,
-        )
-        .unwrap_lite()
-        .operation;
+        let note = sys_recv_closed(&mut [], mask, TaskId::KERNEL)
+            .unwrap_lite()
+            .operation;
 
         server.handle_notification(note);
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RebootState {
+    // We've instructed the sequencer to transition to A2; we're waiting to see
+    // the notification from jefe that that transition has occurred.
+    WaitingForA2,
+    // We're in our reboot delay (see `A2_REBOOT_DELAY`); once we're past this
+    // deadline, we want to transition to A0.
+    TransitionToA0At(u64),
 }
 
 struct ServerImpl {
@@ -84,7 +108,7 @@ struct ServerImpl {
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
     sequencer: Sequencer,
-    rebooting_host: bool,
+    reboot_state: Option<RebootState>,
 }
 
 impl ServerImpl {
@@ -101,10 +125,30 @@ impl ServerImpl {
             rx_buf: claim_uart_rx_buf(),
             status,
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
-            rebooting_host: false,
+            reboot_state: None,
         }
     }
 
+    /// Power of the host (i.e., transition to A2).
+    ///
+    /// If `reboot` is true and we successfully instruct the sequencer to
+    /// transition to A2, we set `self.reboot_state` to
+    /// `RebootState::WaitingForA2`. Once we receive the notification from Jefe
+    /// that the transition is complete, we'll update that state to
+    /// `RebootState::TransitionToA0At(_)`.
+    ///
+    /// If we're not able to instruct the sequencer to transition to A2, we ask
+    /// the sequencer what the current state is and handle them
+    /// hopefully-appropriately:
+    ///
+    /// 1. The sequencer reports the current state is A0 - our request to
+    ///    transition to A2 should have succeeded, so presumably we hit a race
+    ///    window. We retry.
+    /// 2. We're already in A2 - the host is already powered off. If `reboot` is
+    ///    true, we set `self.reboot_state` to
+    ///    `RebootState::TransitionToA0At(_)` and will attempt to move back to
+    ///    A0 once we pass that deadline.
+    /// 3. We're in A1 - this state should be transitory, so we sleep and retry.
     // TODO is error handling in this method correct? I think we should
     // basically only ever succeed in our initial set_state() request, so I
     // don't know how we'd test it
@@ -115,8 +159,13 @@ impl ServerImpl {
             // this should work.
             let err = match self.sequencer.set_state(PowerState::A2) {
                 Ok(()) => {
-                    ringbuf_entry!(Trace::SetState(PowerState::A2));
-                    self.rebooting_host = reboot;
+                    ringbuf_entry!(Trace::SetState {
+                        now: sys_get_timer().now,
+                        state: PowerState::A2,
+                    });
+                    if reboot {
+                        self.reboot_state = Some(RebootState::WaitingForA2);
+                    }
                     return;
                 }
                 Err(err) => err,
@@ -130,35 +179,28 @@ impl ServerImpl {
             // we have a bit of TOCTOU here in that the state might've changed
             // since we tried to `set_state()` above?
             match self.sequencer.get_state().unwrap_lite() {
-                // States from which we should be allowed to transition to A2;
-                // just retry and assume we hit some race.
+                // If we're in A0, we should've been able to transition to A2;
+                // just repeat our loop and try again.
                 PowerState::A0
                 | PowerState::A0PlusHP
                 | PowerState::A0Thermtrip => continue,
+
+                // If we're already in A2 somehow, we're done.
                 PowerState::A2
                 | PowerState::A2PlusMono
                 | PowerState::A2PlusFans => {
                     if reboot {
                         // Somehow we're already in A2 when the host wanted to
-                        // reboot; try to move to A0 immediately.
-                        if self.sequencer.set_state(PowerState::A0).is_ok() {
-                            // Intentionally don't set `self.rebooting_host` in
-                            // this case: we just successfully transitioned from
-                            // A2 to A0; i.e., rebooted.
-                            return;
-                        } else {
-                            // Failed trying to go to A2 and then failed trying
-                            // to go to A0; nothing we can do but retry?
-                            continue;
-                        }
-                    } else {
-                        // Transitioning to A2 failed because we're already in
-                        // A2 - host is powered off.
-                        return;
+                        // reboot; set our reboot timer.
+                        let reboot_at = sys_get_timer().now + A2_REBOOT_DELAY;
+                        self.reboot_state =
+                            Some(RebootState::TransitionToA0At(reboot_at));
                     }
+                    return;
                 }
+
+                // A1 should be transitory; sleep then retry.
                 PowerState::A1 => {
-                    // A1 should be transitive; sleep then retry.
                     hl::sleep_for(1);
                     continue;
                 }
@@ -167,25 +209,25 @@ impl ServerImpl {
     }
 
     fn handle_jefe_notification(&mut self, state: PowerState) {
-        ringbuf_entry!(Trace::JefeNotification(state));
+        let now = sys_get_timer().now;
+        ringbuf_entry!(Trace::JefeNotification { now, state });
         // If we're rebooting and jefe has notified us that we're now in A2,
         // move to A0. Otherwise, ignore this notification.
         match state {
             PowerState::A2
             | PowerState::A2PlusMono
             | PowerState::A2PlusFans => {
-                if self.rebooting_host {
-                    if self.sequencer.set_state(PowerState::A0).is_ok() {
-                        ringbuf_entry!(Trace::SetState(PowerState::A0));
-                        self.rebooting_host = false;
-                    } else {
-                        // TODO what can we do if this fails?
-                    }
+                // Were we waiting for a transition to A2? If so, start our
+                // timer for going back to A0.
+                if self.reboot_state == Some(RebootState::WaitingForA2) {
+                    self.reboot_state = Some(RebootState::TransitionToA0At(
+                        now + A2_REBOOT_DELAY,
+                    ));
                 }
             }
             PowerState::A1 => (), // do nothing
             PowerState::A0 | PowerState::A0PlusHP | PowerState::A0Thermtrip => {
-                // TODO should we clear self.rebooting_host here? What if we
+                // TODO should we clear self.reboot_state here? What if we
                 // transitioned from one A0 state to another? For now, leave it
                 // set, and we'll move back to A0 whenever we transition to
                 // A2...
@@ -425,6 +467,30 @@ impl ServerImpl {
             self.handle_jefe_notification(
                 self.sequencer.get_state().unwrap_lite(),
             );
+        }
+
+        if bits & TIMER_IRQ != 0 {
+            // If we're past the deadline for transitioning to A0, attempt to do
+            // that.
+            if let Some(RebootState::TransitionToA0At(deadline)) =
+                self.reboot_state
+            {
+                if sys_get_timer().now >= deadline {
+                    // The only way our reboot state gets set to
+                    // `TransitionToA0At` is if we believe we were currently in
+                    // A2. Attempt to transition to A0, which can only fail if
+                    // we're no longer in A2. In either case (we successfully
+                    // started the transition or we're no longer in A2 due to
+                    // some external cause), we've done what we can to reboot,
+                    // so clear out `reboot_state`.
+                    ringbuf_entry!(Trace::SetState {
+                        now: sys_get_timer().now,
+                        state: PowerState::A0,
+                    });
+                    _ = self.sequencer.set_state(PowerState::A0);
+                    self.reboot_state = None;
+                }
+            }
         }
     }
 }
