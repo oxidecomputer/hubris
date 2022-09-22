@@ -621,10 +621,6 @@ fn configure_usart() -> Usart {
     #[cfg(feature = "hardware_flow_control")]
     let hardware_flow_control = true;
 
-    let usart;
-    let peripheral;
-    let pins;
-
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
             const PINS: &[(PinSet, Alternate)] = {
@@ -646,9 +642,9 @@ fn configure_usart() -> Usart {
             // essentially a static, and we access it through a & reference so
             // aliasing is not a concern. Were it literally a static, we could
             // just reference it.
-            usart = unsafe { &*device::USART1::ptr() };
-            peripheral = Peripheral::Usart1;
-            pins = PINS;
+            let usart = unsafe { &*device::USART1::ptr() };
+            let peripheral = Peripheral::Usart1;
+            let pins = PINS;
         } else {
             compile_error!("no usartX feature specified");
         }
