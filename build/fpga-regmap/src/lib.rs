@@ -162,10 +162,7 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
-        Node::Mem {
-            inst_name,
-            ..
-        } => {
+        Node::Mem { inst_name, .. } => {
             writeln!(
                 output,
                 "\
