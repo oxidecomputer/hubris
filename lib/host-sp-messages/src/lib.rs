@@ -117,7 +117,7 @@ pub enum SpToHost {
     },
     MacAddresses {
         base: [u8; 6],
-        count: u8,
+        count: u8, // TODO maybe a u16 instead?
         stride: u8,
     },
     Status(Status),
