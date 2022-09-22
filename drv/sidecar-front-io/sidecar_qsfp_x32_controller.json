@@ -2187,6 +2187,125 @@
                             "desc": null
                         }
                     ]
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "WRITE_BUFFER",
+                    "addr_offset": 128,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT0_READ_BUFFER",
+                    "addr_offset": 256,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT1_READ_BUFFER",
+                    "addr_offset": 384,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT2_READ_BUFFER",
+                    "addr_offset": 512,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT3_READ_BUFFER",
+                    "addr_offset": 640,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT4_READ_BUFFER",
+                    "addr_offset": 768,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT5_READ_BUFFER",
+                    "addr_offset": 896,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT6_READ_BUFFER",
+                    "addr_offset": 1024,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT7_READ_BUFFER",
+                    "addr_offset": 1152,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT8_READ_BUFFER",
+                    "addr_offset": 1280,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT9_READ_BUFFER",
+                    "addr_offset": 1408,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT10_READ_BUFFER",
+                    "addr_offset": 1536,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT11_READ_BUFFER",
+                    "addr_offset": 1664,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT12_READ_BUFFER",
+                    "addr_offset": 1792,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT13_READ_BUFFER",
+                    "addr_offset": 1920,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT14_READ_BUFFER",
+                    "addr_offset": 2048,
+                    "memwidth": 8,
+                    "mementries": 128
+                },
+                {
+                    "type": "mem",
+                    "inst_name": "PORT15_READ_BUFFER",
+                    "addr_offset": 2176,
+                    "memwidth": 8,
+                    "mementries": 128
                 }
             ]
         }
