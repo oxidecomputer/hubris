@@ -125,7 +125,7 @@ where
         }
         match (chck_expected, chck_actual) {
             (None, _) => Err(AuxFlashError::MissingChck),
-            (_, None) => Err(AuxFlashError::MissingChck),
+            (_, None) => Err(AuxFlashError::MissingAuxi),
             (Some(a), Some(b)) => {
                 if a != b {
                     Err(AuxFlashError::ChckMismatch)
