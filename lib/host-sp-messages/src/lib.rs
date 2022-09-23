@@ -69,9 +69,7 @@ pub enum HostToSp {
         reason: u8,
     },
     HostPanic {
-        status: u16,
-        cpu: u16,
-        thread: u64,
+        code: u16,
         // Followed by a binary data blob (panic message?)
     },
     GetStatus,
