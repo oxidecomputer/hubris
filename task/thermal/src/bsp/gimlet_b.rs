@@ -107,23 +107,35 @@ impl Bsp {
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
 
-        // TODO these numbers are all made up
+        // In general, see RFD 276 Detailed Thermal Loop Design for references.
+        // TODO: temperature_slew_deg_per_sec is made up.
+
+        // JEDEC specification requires Tcasemax <= 85°C for normal temperature
+        // range.  We're using RAM with industrial temperature ranges, listed on
+        // the datasheet as 0°C <= T_oper <= 95°C.
         const DIMM_THERMALS: ThermalProperties = ThermalProperties {
-            target_temperature: Celsius(60f32),
-            critical_temperature: Celsius(70f32),
-            power_down_temperature: Celsius(80f32),
+            target_temperature: Celsius(80f32),
+            critical_temperature: Celsius(90f32),
+            power_down_temperature: Celsius(95f32),
             temperature_slew_deg_per_sec: 0.5,
         };
+
+        // The CPU doesn't actually report true temperature; it reports a
+        // unitless "temperature control value".  Throttling starts at 95, and
+        // becomes more aggressive at 100.  Let's aim for 80, to stay well below
+        // the throttling range.
         const CPU_THERMALS: ThermalProperties = ThermalProperties {
-            target_temperature: Celsius(60f32),
-            critical_temperature: Celsius(70f32),
-            power_down_temperature: Celsius(80f32),
+            target_temperature: Celsius(80f32),
+            critical_temperature: Celsius(90f32),
+            power_down_temperature: Celsius(100f32),
             temperature_slew_deg_per_sec: 0.5,
         };
+
+        // The T6's specifications aren't clearly detailed anywhere.
         const T6_THERMALS: ThermalProperties = ThermalProperties {
-            target_temperature: Celsius(60f32),
-            critical_temperature: Celsius(70f32),
-            power_down_temperature: Celsius(80f32),
+            target_temperature: Celsius(70f32),
+            critical_temperature: Celsius(80f32),
+            power_down_temperature: Celsius(85f32),
             temperature_slew_deg_per_sec: 0.5,
         };
 

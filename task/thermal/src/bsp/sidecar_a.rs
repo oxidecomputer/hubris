@@ -130,10 +130,13 @@ impl Bsp {
             power_down_temperature: Celsius(80f32),
             temperature_slew_deg_per_sec: 0.5,
         };
+
+        // The VSC7448 has a maximum die temperature of 110°C, which is very
+        // hot.  Let's keep it a little cooler than that.
         const VSC7448_THERMALS: ThermalProperties = ThermalProperties {
-            target_temperature: Celsius(60f32),
-            critical_temperature: Celsius(70f32),
-            power_down_temperature: Celsius(80f32),
+            target_temperature: Celsius(85f32),
+            critical_temperature: Celsius(95f32),
+            power_down_temperature: Celsius(105f32),
             temperature_slew_deg_per_sec: 0.5,
         };
 
