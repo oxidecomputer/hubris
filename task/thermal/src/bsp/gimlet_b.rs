@@ -112,19 +112,19 @@ impl Bsp {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
             power_down_temperature: Celsius(80f32),
-            temperature_slew_deg_per_msec: 0.5 / 1000.0,
+            temperature_slew_deg_per_sec: 0.5,
         };
         const CPU_THERMALS: ThermalProperties = ThermalProperties {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
             power_down_temperature: Celsius(80f32),
-            temperature_slew_deg_per_msec: 0.5 / 1000.0,
+            temperature_slew_deg_per_sec: 0.5,
         };
         const T6_THERMALS: ThermalProperties = ThermalProperties {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
             power_down_temperature: Celsius(80f32),
-            temperature_slew_deg_per_msec: 0.5 / 1000.0,
+            temperature_slew_deg_per_sec: 0.5,
         };
 
         Self {

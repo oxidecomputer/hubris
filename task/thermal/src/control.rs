@@ -112,11 +112,11 @@ pub(crate) struct ThermalProperties {
     /// below the part's nonrecoverable temperature.
     pub power_down_temperature: Celsius,
 
-    /// Maximum slew rate of temperature, measured in °C per millisecond
+    /// Maximum slew rate of temperature, measured in °C per second
     ///
     /// The slew rate is used to model worst-case temperature if we haven't
     /// heard from a chip in a while (e.g. due to dropped samples)
-    pub temperature_slew_deg_per_msec: f32,
+    pub temperature_slew_deg_per_sec: f32,
 }
 
 impl InputChannel {
@@ -437,8 +437,8 @@ impl<'a> ThermalControl<'a> {
                             // now_ms, so this becomes v.value (i.e. the most
                             // recent reading).
                             let temperature = value.0
-                                + (time_ms - now_ms) as f32
-                                    * i.temps.temperature_slew_deg_per_msec;
+                                + (time_ms - now_ms) as f32 / 1000.0
+                                    * i.temps.temperature_slew_deg_per_sec;
                             any_power_down |=
                                 temperature >= i.temps.power_down_temperature.0;
                             worst_margin = worst_margin.min(
@@ -485,8 +485,8 @@ impl<'a> ThermalControl<'a> {
                 for (v, i) in values.iter().zip(self.bsp.inputs.iter()) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (time_ms - now_ms) as f32
-                                * i.temps.temperature_slew_deg_per_msec;
+                            + (time_ms - now_ms) as f32 / 1000.0
+                                * i.temps.temperature_slew_deg_per_sec;
                         any_power_down |=
                             temperature >= i.temps.power_down_temperature.0;
                         any_critical |=
@@ -533,8 +533,8 @@ impl<'a> ThermalControl<'a> {
                 for (v, i) in values.iter().zip(self.bsp.inputs.iter()) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (time_ms - now_ms) as f32
-                                * i.temps.temperature_slew_deg_per_msec;
+                            + (time_ms - now_ms) as f32 / 1000.0
+                                * i.temps.temperature_slew_deg_per_sec;
 
                         all_subcritical &= temperature
                             < i.temps.critical_temperature.0

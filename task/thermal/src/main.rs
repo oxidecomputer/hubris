@@ -24,8 +24,8 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
 use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
+use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
 use userlib::units::PWMDuty;
 use userlib::*;
 
