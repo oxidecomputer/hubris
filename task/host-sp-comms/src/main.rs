@@ -129,7 +129,7 @@ impl ServerImpl {
         }
     }
 
-    /// Power of the host (i.e., transition to A2).
+    /// Power off the host (i.e., transition to A2).
     ///
     /// If `reboot` is true and we successfully instruct the sequencer to
     /// transition to A2, we set `self.reboot_state` to
