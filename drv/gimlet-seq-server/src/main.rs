@@ -403,9 +403,17 @@ impl NotificationHandler for ServerImpl {
                     self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0);
                 }
+
+                (PowerState::A0, true) | (PowerState::A0PlusHP, false) => {
+                    //
+                    // Our power state matches NIC_PWREN_L -- nothing to do
+                    //
+                }
+
                 _ => {
                     //
-                    // We cannot be here unless the state is A0 or A0PlusHP
+                    // We can only be in this larger block if the state is A0
+                    // or A0PlusHP; we must have matched one of the arms above.
                     //
                     unreachable!();
                 }
