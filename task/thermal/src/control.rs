@@ -165,12 +165,6 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Most recent power mode mask
     power_mode: u32,
-
-    /// Number of sensor reads which failed
-    read_failed_count: u32,
-
-    /// Number of sensor posts which failed
-    post_failed_count: u32,
 }
 
 /// Represents a temperature reading at the time at which it was taken
@@ -327,9 +321,6 @@ impl<'a> ThermalControl<'a> {
             overheat_timeout_ms: 60_000,
 
             power_mode: 0, // no sensors active
-
-            read_failed_count: 0,
-            post_failed_count: 0,
         }
     }
 
@@ -339,8 +330,6 @@ impl<'a> ThermalControl<'a> {
             values: [None; bsp::NUM_TEMPERATURE_INPUTS],
         };
         self.target_margin = Celsius(0.0f32);
-        self.read_failed_count = 0;
-        self.post_failed_count = 0;
         // The fan speed will be applied on the next controller iteration
     }
 
@@ -348,7 +337,7 @@ impl<'a> ThermalControl<'a> {
     /// to the sensors task API and recording them in `self.state`.
     ///
     /// Records failed sensor reads and failed posts to the sensors task in
-    /// `self.read_failed_count` and `self.post_failed_count` respectively.
+    /// the local ringbuf.
     pub fn read_sensors(&mut self, now_ms: u64) {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
@@ -362,8 +351,8 @@ impl<'a> ThermalControl<'a> {
                         self.sensor_api.nodata(*sensor_id, e.into())
                     }
                 };
-            if post_result.is_err() {
-                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            if let Err(e) = post_result {
+                ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
             }
         }
 
@@ -373,13 +362,11 @@ impl<'a> ThermalControl<'a> {
                 Ok(v) => self.sensor_api.post(s.id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(i, e));
-                    self.read_failed_count =
-                        self.read_failed_count.wrapping_add(1);
                     self.sensor_api.nodata(s.id, e.into())
                 }
             };
-            if post_result.is_err() {
-                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            if let Err(e) = post_result {
+                ringbuf_entry!(Trace::PostFailed(s.id, e));
             }
         }
 
@@ -421,8 +408,8 @@ impl<'a> ThermalControl<'a> {
                     self.sensor_api.nodata(s.sensor.id, e.into())
                 }
             };
-            if post_result.is_err() {
-                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            if let Err(e) = post_result {
+                ringbuf_entry!(Trace::PostFailed(s.sensor.id, e));
             }
         }
     }

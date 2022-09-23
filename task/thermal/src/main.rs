@@ -25,6 +25,7 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
+use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
 use userlib::units::PWMDuty;
 use userlib::*;
 
@@ -39,8 +40,6 @@ impl From<usize> for Fan {
     }
 }
 
-use task_sensor_api::Sensor as SensorApi;
-
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
@@ -52,6 +51,7 @@ enum Trace {
     FanReadFailed(usize, ResponseCode),
     MiscReadFailed(usize, ResponseCode),
     SensorReadFailed(usize, ResponseCode),
+    PostFailed(SensorId, SensorError),
     ControlPwm(u8),
     PowerDownFailed(SeqError),
 }
