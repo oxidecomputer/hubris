@@ -5,12 +5,18 @@ edition = "2021"
 
 [features]
 hiffy = []
+auxflash = ["drv-auxflash-api", "tlvc", "sha3"]
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
+drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api"}
+userlib = {path = "../../sys/userlib"}
+
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+tlvc = {git = "https://github.com/oxidecomputer/tlvc.git", optional = true}
+
 num-traits = {version = "0.2.12", default-features = false}
+sha3 = {version = "0.10", default-features = false, optional = true}
 zerocopy = "0.6.1"
 
 [build-dependencies]

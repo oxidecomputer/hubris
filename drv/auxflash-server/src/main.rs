@@ -5,10 +5,11 @@
 #![no_std]
 #![no_main]
 
-use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
+use drv_auxflash_api::{
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, TlvcReadAuxFlash,
+};
 use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
-use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
@@ -142,7 +143,7 @@ fn main() -> ! {
         qspi,
         active_slot: None,
     };
-    let _ = server.scan_for_active_slot();
+    server.scan_for_active_slot();
     let _ = server.ensure_redundancy();
 
     loop {
@@ -197,6 +198,7 @@ impl ServerImpl {
         }
         Ok(())
     }
+
     fn read_slot_checksum(
         &self,
         slot: u32,
@@ -208,59 +210,7 @@ impl ServerImpl {
             qspi: &self.qspi,
             base: slot * SLOT_SIZE as u32,
         };
-        let mut reader = TlvcReader::begin(handle)
-            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
-
-        let mut chck_expected = None;
-        let mut chck_actual = None;
-        while let Ok(Some(chunk)) = reader.next() {
-            if &chunk.header().tag == b"CHCK" {
-                if chck_expected.is_some() {
-                    return Err(AuxFlashError::MultipleChck);
-                } else if chunk.len() != 32 {
-                    return Err(AuxFlashError::BadChckSize);
-                }
-                let mut out = [0; 32];
-                chunk
-                    .read_exact(0, &mut out)
-                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                chck_expected = Some(out);
-            } else if &chunk.header().tag == b"AUXI" {
-                if chck_actual.is_some() {
-                    return Err(AuxFlashError::MultipleAuxi);
-                }
-
-                // Read data and calculate the checksum using a scratch buffer
-                let mut sha = Sha3_256::new();
-                let mut scratch = [0u8; 256];
-                let mut i: u64 = 0;
-                while i < chunk.len() {
-                    let amount = (chunk.len() - i).min(scratch.len() as u64);
-                    chunk
-                        .read_exact(i, &mut scratch[0..(amount as usize)])
-                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                    i += amount as u64;
-                    sha.update(&scratch[0..(amount as usize)]);
-                }
-                let sha_out = sha.finalize();
-
-                // Save the checksum in `chck_actual`
-                let mut out = [0; 32];
-                out.copy_from_slice(sha_out.as_slice());
-                chck_actual = Some(out);
-            }
-        }
-        match (chck_expected, chck_actual) {
-            (None, _) => Err(AuxFlashError::MissingChck),
-            (_, None) => Err(AuxFlashError::MissingChck),
-            (Some(a), Some(b)) => {
-                if a != b {
-                    Err(AuxFlashError::ChckMismatch)
-                } else {
-                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
-                }
-            }
-        }
+        handle.read_checksum()
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
@@ -480,9 +430,35 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        (self as &mut ServerImpl)
-            .ensure_redundancy()
-            .map_err(Into::into)
+        ServerImpl::ensure_redundancy(self).map_err(Into::into)
+    }
+
+    fn get_blob_by_tag(
+        &mut self,
+        _: &RecvMessage,
+        tag: [u8; 4],
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        self.scan_for_active_slot();
+        let active_slot = self
+            .active_slot
+            .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: active_slot * SLOT_SIZE as u32,
+        };
+        handle
+            .get_blob_by_tag(active_slot, tag)
+            .map_err(RequestError::from)
+    }
+
+    fn get_blob_by_u32(
+        &mut self,
+        msg: &RecvMessage,
+        tag: u32,
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        // This is so that we can call this function from `humility hiffy`,
+        // which doesn't know how to send arrays as arguments.
+        self.get_blob_by_tag(msg, tag.to_be_bytes())
     }
 }
 
@@ -490,7 +466,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
 mod idl {
     use super::AuxFlashError;
-    use drv_auxflash_api::{AuxFlashChecksum, AuxFlashId};
+    use drv_auxflash_api::{AuxFlashBlob, AuxFlashChecksum, AuxFlashId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

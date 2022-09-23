@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-drv-fpga-api = {path = "../../drv/fpga-api"}
+drv-auxflash-api = {path = "../../drv/auxflash-api"}
+drv-fpga-api = {path = "../../drv/fpga-api", features = ["auxflash"]}
 vsc85xx = {path = "../../drv/vsc85xx", optional = true}
 vsc7448-pac = {git = "https://github.com/oxidecomputer/vsc7448", optional = true}
 ringbuf = {path = "../../lib/ringbuf"}
@@ -20,4 +21,3 @@ phy_smi = ["vsc85xx", "vsc7448-pac"]
 build-fpga-regmap = {path = "../../build/fpga-regmap"}
 build-util = {path = "../../build/util"}
 gnarle = {path = "../../lib/gnarle", features=["std"]}
-sha2 = { version = "0.9", default-features = false }

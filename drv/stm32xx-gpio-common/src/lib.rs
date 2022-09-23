@@ -75,7 +75,7 @@ impl PinSet {
 }
 
 /// Possible modes for a GPIO pin.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Mode {
     /// Digital input. This activates a Schmitt trigger on the pin, which is
     /// great for receiving digital signals, but can burn a lot of current if
@@ -97,7 +97,7 @@ pub enum Mode {
 }
 
 /// Drive modes for a GPIO pin.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum OutputType {
     /// The pin will be driven both high and low in `Output` and `Alternate`
     /// modes.
@@ -114,7 +114,7 @@ pub enum OutputType {
 /// to generating reflections and EMI. Note that you need to check the datasheet
 /// for the specific part you're targeting to get the actual speeds of these
 /// drive settings. The notes below are thus vague.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Speed {
     /// Slowest and generally correct drive speed (up to, say, 10MHz or so).
     Low = 0b00,
@@ -130,7 +130,7 @@ pub enum Speed {
 ///
 /// Note that the pull resistors apply in all modes, so, you can apply these to
 /// an input, and you will want to turn them off for `Analog`.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Pull {
     /// Both resistors off.
     None = 0b00,
@@ -147,7 +147,7 @@ pub enum Pull {
 /// These are numbers and not, like, convenient human-readable peripheral names
 /// because the mapping from pin + AF to signal is very complex. See the
 /// datasheet.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Alternate {
     AF0 = 0,
     AF1 = 1,

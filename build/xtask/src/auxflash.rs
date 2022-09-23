@@ -5,6 +5,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use sha3::{Digest, Sha3_256};
+use std::collections::BTreeMap;
 
 /// List of binary blobs to include in the auxiliary flash binary shipped with
 /// this image.  The auxiliary flash is used to offload storage of large
@@ -22,8 +23,22 @@ pub struct AuxFlashBlob {
     pub tag: String,
 }
 
+pub type AuxFlashChecksum = [u8; 32];
+
+#[derive(Clone, Debug)]
+pub struct AuxFlashData {
+    /// Main checksum
+    pub chck: AuxFlashChecksum,
+    /// Individual blob checksums
+    pub checksums: BTreeMap<String, AuxFlashChecksum>,
+    /// Full serialized data
+    pub data: Vec<u8>,
+}
+
 /// Packs a single blob into a TLV-C structure
-fn pack_blob(blob: &AuxFlashBlob) -> Result<tlvc_text::Piece> {
+fn pack_blob(
+    blob: &AuxFlashBlob,
+) -> Result<(tlvc_text::Piece, AuxFlashChecksum)> {
     if blob.tag.len() != 4 {
         bail!("Tag must be a 4-byte value, not '{}'", blob.tag);
     }
@@ -34,20 +49,26 @@ fn pack_blob(blob: &AuxFlashBlob) -> Result<tlvc_text::Piece> {
     } else {
         data
     };
+    let blob_checksum = Sha3_256::digest(&data);
+
     let tag: [u8; 4] = blob.tag.as_bytes().try_into().unwrap();
-    Ok(tlvc_text::Piece::Chunk(
+    let piece = tlvc_text::Piece::Chunk(
         tlvc_text::Tag::new(tag),
         vec![tlvc_text::Piece::Bytes(data)],
-    ))
+    );
+    Ok((piece, blob_checksum.into()))
 }
 
 /// Constructs an auxiliary flash image, based on RFD 311
 ///
 /// Returns the checksum and the raw data to be saved
-pub fn build_auxflash(aux: &AuxFlash) -> Result<([u8; 32], Vec<u8>)> {
+pub fn build_auxflash(aux: &AuxFlash) -> Result<AuxFlashData> {
     let mut auxi = vec![];
+    let mut blob_checksums = BTreeMap::new();
     for f in &aux.blobs {
-        auxi.push(pack_blob(f)?);
+        let (piece, checksum) = pack_blob(f)?;
+        auxi.push(piece);
+        blob_checksums.insert(f.tag.clone(), checksum);
     }
     let sha = Sha3_256::digest(tlvc_text::pack(&auxi));
 
@@ -59,5 +80,9 @@ pub fn build_auxflash(aux: &AuxFlash) -> Result<([u8; 32], Vec<u8>)> {
         tlvc_text::Piece::Chunk(tlvc_text::Tag::new(*b"AUXI"), auxi),
     ];
 
-    Ok((sha.into(), tlvc_text::pack(&out)))
+    Ok(AuxFlashData {
+        chck: sha.into(),
+        checksums: blob_checksums,
+        data: tlvc_text::pack(&out),
+    })
 }

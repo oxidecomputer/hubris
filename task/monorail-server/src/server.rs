@@ -70,7 +70,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
     }
 
     fn decode_phy_id<P: vsc85xx::PhyRw>(
-        phy: &vsc85xx::Phy<P>,
+        phy: &vsc85xx::Phy<'_, P>,
     ) -> Result<(u32, PhyType), VscError> {
         let id = phy.read_id()?;
         let ty = match id {
@@ -453,7 +453,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                let (id, ty) = Self::decode_phy_id(&phy)?;
                 if ty == PhyType::Vsc8504 {
                     vsc85xx::tesla::TeslaPhy { phy: &mut phy }
                         .read_patch_settings()
@@ -476,7 +476,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                let (id, ty) = Self::decode_phy_id(&phy)?;
                 if ty == PhyType::Vsc8504 {
                     vsc85xx::tesla::TeslaPhy { phy: &mut phy }
                         .read_serdes6g_ob()
@@ -504,7 +504,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                let (id, ty) = Self::decode_phy_id(&phy)?;
                 if ty == PhyType::Vsc8504 {
                     let mut tesla = vsc85xx::tesla::TeslaPhy { phy: &mut phy };
                     tesla.tune_serdes6g_ob(
@@ -541,7 +541,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<(), RequestError<MonorailError>> {
         const VSC8564_BASE_PORT: u8 = 44;
         let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
-            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            let (id, ty) = Self::decode_phy_id(&phy)?;
             if ty == PhyType::Vsc8562 {
                 use vsc85xx::vsc8562::{Sd6gObCfg, Vsc8562Phy};
                 let mut v = Vsc8562Phy { phy: &mut phy };
@@ -555,7 +555,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     ob_sr,
                 })
             } else {
-                Err(VscError::BadPhyId(id).into())
+                Err(VscError::BadPhyId(id))
             }
         });
         match r {
@@ -577,13 +577,13 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<(), RequestError<MonorailError>> {
         const VSC8564_BASE_PORT: u8 = 44;
         let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
-            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            let (id, ty) = Self::decode_phy_id(&phy)?;
             if ty == PhyType::Vsc8562 {
                 use vsc85xx::vsc8562::{Sd6gObCfg1, Vsc8562Phy};
                 let mut v = Vsc8562Phy { phy: &mut phy };
                 v.tune_sd6g_ob_cfg1(Sd6gObCfg1 { ob_ena_cas, ob_lev })
             } else {
-                Err(VscError::BadPhyId(id).into())
+                Err(VscError::BadPhyId(id))
             }
         });
         match r {
@@ -603,12 +603,12 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<vsc85xx::vsc8562::Sd6gObCfg1, RequestError<MonorailError>> {
         const VSC8564_BASE_PORT: u8 = 44;
         let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
-            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            let (id, ty) = Self::decode_phy_id(&phy)?;
             if ty == PhyType::Vsc8562 {
                 let mut v = vsc85xx::vsc8562::Vsc8562Phy { phy: &mut phy };
                 v.read_sd6g_ob_cfg1()
             } else {
-                Err(VscError::BadPhyId(id).into())
+                Err(VscError::BadPhyId(id))
             }
         });
         match r {
@@ -628,12 +628,12 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<vsc85xx::vsc8562::Sd6gObCfg, RequestError<MonorailError>> {
         const VSC8564_BASE_PORT: u8 = 44;
         let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
-            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            let (id, ty) = Self::decode_phy_id(&phy)?;
             if ty == PhyType::Vsc8562 {
                 let mut v = vsc85xx::vsc8562::Vsc8562Phy { phy: &mut phy };
                 v.read_sd6g_ob_cfg()
             } else {
-                Err(VscError::BadPhyId(id).into())
+                Err(VscError::BadPhyId(id))
             }
         });
         match r {

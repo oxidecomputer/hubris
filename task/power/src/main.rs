@@ -37,7 +37,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 use i2c_config::sensors;
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),

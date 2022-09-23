@@ -55,6 +55,8 @@ fn configure_pins(pins: &[I2cPin]) {
 //
 static mut SPD_DATA: [u8; 8192] = [0; 8192];
 
+// Keep this in i2c address form
+#[allow(clippy::unusual_byte_groupings)]
 const LTC4306_ADDRESS: u8 = 0b1001_010;
 type Bank = (Controller, drv_i2c_api::PortIndex, Option<(Mux, Segment)>);
 
@@ -100,7 +102,7 @@ fn read_spd_data(
             .unwrap();
         let page = I2cDevice::new(i2c_task, controller, port, None, addr);
 
-        if let Err(_) = page.write(&[0]) {
+        if page.write(&[0]).is_err() {
             //
             // If our operation fails, we are going to assume that there
             // are no DIMMs on this bank.
@@ -299,13 +301,11 @@ fn main() -> ! {
             } else {
                 false
             }
+        } else if addr == LTC4306_ADDRESS {
+            ltc4306.set(ltc4306::State::init());
+            true
         } else {
-            if addr == LTC4306_ADDRESS {
-                ltc4306.set(ltc4306::State::init());
-                true
-            } else {
-                false
-            }
+            false
         };
 
         ringbuf_entry!(Trace::Initiate(addr, rval));

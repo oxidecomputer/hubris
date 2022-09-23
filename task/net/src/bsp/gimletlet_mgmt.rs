@@ -21,7 +21,7 @@ use vsc85xx::VscError;
 task_slot!(SPI, spi_driver);
 task_slot!(USER_LEDS, user_leds);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     BspConfigured,

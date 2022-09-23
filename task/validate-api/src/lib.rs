@@ -11,7 +11,7 @@ use drv_i2c_api::ResponseCode;
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ValidateError {
     InvalidDevice = 1,
     BadValidation = 2,

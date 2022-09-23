@@ -6,8 +6,8 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
-    SpPort,
+    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, PowerState,
+    SpComponent, SpPort, UpdateId,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -52,7 +52,7 @@ enum Log {
     UsartRxOverrun,
     UsartRxBufferDataDropped { num_bytes: u64 },
     SerialConsoleSend { buffered: usize },
-    UpdatePartial { bytes_written: usize },
+    UpdatePartial { bytes_written: u32 },
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
 }
@@ -77,22 +77,23 @@ enum MgsMessage {
     SerialConsoleDetach,
     UpdatePrepare {
         component: SpComponent,
-        stream_id: u64,
+        id: UpdateId,
         length: u32,
         slot: u16,
-    },
-    UpdatePrepareStatus {
-        component: SpComponent,
-        stream_id: u64,
     },
     UpdateChunk {
         component: SpComponent,
         offset: u32,
     },
+    UpdateStatus {
+        component: SpComponent,
+    },
     UpdateAbort {
         component: SpComponent,
     },
-    SysResetPrepare,
+    GetPowerState,
+    SetPowerState(PowerState),
+    ResetPrepare,
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -233,7 +234,7 @@ impl NetHandler {
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
-            &mut self.tx_buf,
+            self.tx_buf,
         ) {
             Ok(n) => {
                 meta.size = n as u32;

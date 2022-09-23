@@ -141,9 +141,7 @@ impl SequencerFpga {
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
 
-        for i in 0..header.len() {
-            data[i] = header[i];
-        }
+        data[..header.len()].copy_from_slice(header);
 
         self.spi.exchange(&data, &mut rval)?;
 
@@ -171,9 +169,7 @@ impl SequencerFpga {
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
 
-        for i in 0..header.len() {
-            data[i] = header[i];
-        }
+        data[..header.len()].copy_from_slice(header);
 
         for i in 0..data_in.len() {
             if i + header.len() < data.len() {

@@ -182,7 +182,12 @@ fn configure_uart_device() -> Usart {
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
 
+    #[cfg(feature = "baud_rate_115_200")]
     const BAUD_RATE: u32 = 115_200;
+    #[cfg(feature = "baud_rate_3M")]
+    const BAUD_RATE: u32 = 3_000_000;
+
+    let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
     let usart;
     let peripheral;
@@ -190,9 +195,19 @@ fn configure_uart_device() -> Usart {
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::B.pin(6).and_pin(7), Alternate::AF7),
-            ];
+            const PINS: &[(PinSet, Alternate)] = {
+                if cfg!(feature = "hardware_flow_control") {
+                    // NOTE: These pins are for gimletlet, not gimlet!
+                    &[
+                        // TX, RX
+                        (Port::B.pin(6).and_pin(7), Alternate::AF7),
+                        // CTS, RTS
+                        (Port::A.pin(11).and_pin(12), Alternate::AF7),
+                    ]
+                } else {
+                    &[(Port::B.pin(6).and_pin(7), Alternate::AF7)]
+                }
+            };
 
             // From thin air, pluck a pointer to the USART register block.
             //
@@ -204,45 +219,30 @@ fn configure_uart_device() -> Usart {
             peripheral = Peripheral::Usart1;
             pins = PINS;
         } else if #[cfg(feature = "usart2")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::D.pin(5).and_pin(6), Alternate::AF7),
-            ];
+            const PINS: &[(PinSet, Alternate)] = {
+                if cfg!(feature = "hardware_flow_control") {
+                    &[(
+                        Port::D.pin(3).and_pin(4).and_pin(5).and_pin(6),
+                        Alternate::AF7
+                    )]
+                } else {
+                    &[(Port::D.pin(5).and_pin(6), Alternate::AF7)]
+                }
+            };
             usart = unsafe { &*device::USART2::ptr() };
             peripheral = Peripheral::Usart2;
             pins = PINS;
-        } else if #[cfg(feature = "usart3")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::D.pin(8).and_pin(9), Alternate::AF7),
-            ];
-            usart = unsafe { &*device::USART3::ptr() };
-            peripheral = Peripheral::Usart3;
-            pins = PINS;
-        } else if #[cfg(feature = "uart4")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::D.pin(0).and_pin(1), Alternate::AF8),
-            ];
-            usart = unsafe { &*device::UART4::ptr() };
-            peripheral = Peripheral::Uart4;
-            pins = PINS;
-        } else if #[cfg(feature = "uart5")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::C.pin(12), Alternate::AF8),
-                (Port::D.pin(2), Alternate::AF8),
-            ];
-            usart = unsafe { &*device::UART5::ptr() };
-            peripheral = Peripheral::Uart5;
-            pins = PINS;
-        } else if #[cfg(feature = "usart6")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::C.pin(6).and_pin(7), Alternate::AF7),
-            ];
-            usart = unsafe { &*device::USART6::ptr() };
-            peripheral = Peripheral::Usart6;
-            pins = PINS;
         } else if #[cfg(feature = "uart7")] {
-            const PINS: &[(PinSet, Alternate)] = &[
-                (Port::E.pin(7).and_pin(8), Alternate::AF7),
-            ];
+            const PINS: &[(PinSet, Alternate)] = {
+                if cfg!(feature = "hardware_flow_control") {
+                    &[(
+                        Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
+                        Alternate::AF7
+                    )]
+                } else {
+                    &[(Port::E.pin(7).and_pin(8), Alternate::AF7)]
+                }
+            };
             usart = unsafe { &*device::UART7::ptr() };
             peripheral = Peripheral::Uart7;
             pins = PINS;
@@ -258,5 +258,6 @@ fn configure_uart_device() -> Usart {
         pins,
         CLOCK_HZ,
         BAUD_RATE,
+        hardware_flow_control,
     )
 }

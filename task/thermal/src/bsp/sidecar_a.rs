@@ -56,7 +56,7 @@ impl BspT for Bsp {
         &self.fans
     }
 
-    fn fan_control(&self, fan: crate::Fan) -> crate::control::FanControl {
+    fn fan_control(&self, fan: crate::Fan) -> crate::control::FanControl<'_> {
         //
         // Fan 0/1 are on the east max31790; fan 2/3 are on west max31790.  And
         // because each fan has in fact two fans, here is the mapping of
@@ -93,7 +93,7 @@ impl BspT for Bsp {
         }
     }
 
-    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
         // Run the function on each fan control chip
         fctrl(self.fan_control(0.into()));
         fctrl(self.fan_control(4.into()));

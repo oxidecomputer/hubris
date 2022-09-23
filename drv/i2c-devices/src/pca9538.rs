@@ -10,7 +10,7 @@ use userlib::*;
 
 /// `PinSet` is a bit vector indicating on which pins/ports a given operation is
 /// applied.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub struct PinSet(u8);
 
 impl PinSet {
@@ -40,7 +40,7 @@ impl core::ops::BitOr for PinSet {
 /// Pins in a `PinSet` can be configured as either `Input` or `Output`. Note
 /// that even when configured as output, the status of the pin will be reflected
 /// in the result of `read(..)`.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 #[repr(u8)]
 pub enum Mode {
     Input = 0,
@@ -48,14 +48,14 @@ pub enum Mode {
 }
 
 /// Pins in a `PinSet` can be configured with `Normal` or `Inverted` polarity.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 #[repr(u8)]
 pub enum Polarity {
     Normal = 0,
     Inverted = 1,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 enum Register {
     InputPort = 0x00,
     OutputPort = 0x01,

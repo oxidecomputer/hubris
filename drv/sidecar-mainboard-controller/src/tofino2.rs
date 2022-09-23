@@ -7,7 +7,7 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoSeqState {
     Initial = 0,
@@ -17,7 +17,7 @@ pub enum TofinoSeqState {
     InPowerDown = 4,
 }
 
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoSeqError {
     None = 0,
@@ -32,7 +32,7 @@ pub enum TofinoSeqError {
 
 /// VID to voltage mapping. The VID values are specified in TF2-DS2, with the
 /// actual voltage values derived experimentally after load testing the PDN.
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum Tofino2Vid {
     V0P922 = 0b1111,
@@ -49,7 +49,7 @@ pub struct Sequencer {
     fpga: FpgaUserDesign,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Status {
     state: TofinoSeqState,
     error: TofinoSeqError,
@@ -58,7 +58,7 @@ pub struct Status {
     pcie_status: u8,
 }
 
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoPcieReset {
     HostControl,

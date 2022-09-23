@@ -8,7 +8,7 @@ lib-lpc55-usart = {path = "../../lib/lpc55-usart"}
 nb = "1.0"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 zerocopy = "0.6.1"
-lpc55-pac = "0.3.0"
+lpc55-pac = "0.4"
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 

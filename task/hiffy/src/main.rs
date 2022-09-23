@@ -160,19 +160,21 @@ fn main() -> ! {
 
         let text = unsafe { &HIFFY_TEXT };
         let data = unsafe { &HIFFY_DATA };
-        let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
+        let rstack = unsafe { &mut HIFFY_RSTACK[0..] };
 
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             trace_execute(offset, *op);
             Ok(())
         };
 
+        // XXX: workaround for false-positive due to rust-lang/rust-clippy#9126
+        #[allow(clippy::explicit_auto_deref)]
         let rv = execute::<_, NLABELS>(
             text,
             HIFFY_FUNCS,
             data,
             &mut stack,
-            &mut rstack,
+            rstack,
             &mut *HIFFY_SCRATCH.borrow_mut(),
             check,
         );

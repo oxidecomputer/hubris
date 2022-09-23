@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum IdolTestError {
     UhOh = 1,
     YouAskedForThis = 2,

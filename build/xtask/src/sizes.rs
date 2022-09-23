@@ -35,7 +35,7 @@ pub fn run(
     compare: bool,
     save: bool,
 ) -> Result<()> {
-    let toml = Config::from_file(&cfg)?;
+    let toml = Config::from_file(cfg)?;
     let sizes = create_sizes(&toml)?;
 
     let filename = format!("{}.json", toml.name);
@@ -62,7 +62,7 @@ pub fn run(
 
     // Print detailed sizes relative to usage
     if !only_suggest {
-        let map = build_memory_map(&toml, &sizes, &allocs)?;
+        let map = build_memory_map(&toml, &sizes, allocs)?;
         print_memory_map(&toml, &map)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
@@ -186,19 +186,17 @@ fn print_task_table(
     let region_pad = map
         .keys()
         .chain(std::iter::once(&"REGION"))
-        .map(|c| format!("{}", c).len())
+        .map(|c| c.to_string().len())
         .max()
         .unwrap_or(0) as usize;
 
     // Turn the memory map around so we can index it by [region][task name]
     let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk>> = map
-        .into_iter()
+        .iter()
         .map(|(region, map)| {
             (
                 *region,
-                map.into_iter()
-                    .map(|(_, chunk)| (chunk.owner, *chunk))
-                    .collect(),
+                map.iter().map(|(_, chunk)| (chunk.owner, *chunk)).collect(),
             )
         })
         .collect();
@@ -238,7 +236,7 @@ fn print_task_table(
                     Some(Recommended::MaxSize(m)) => print!("{}", m),
                     Some(Recommended::FixedSize(_)) => print!("(fixed)"),
                 }
-                println!("");
+                println!();
             }
         }
     }
@@ -362,10 +360,10 @@ pub fn load_task_size<'a>(
         // section which is relocated into RAM, so we also accumulate
         // its FileSiz in the physical address (which is presumably
         // flash).
-        if phdr.p_vaddr != phdr.p_paddr {
-            if !record_size(phdr.p_paddr, phdr.p_filesz) {
-                bail!("Failed to remap relocated section at {}", phdr.p_paddr);
-            }
+        if phdr.p_vaddr != phdr.p_paddr
+            && !record_size(phdr.p_paddr, phdr.p_filesz)
+        {
+            bail!("Failed to remap relocated section at {}", phdr.p_paddr);
         }
     }
 
@@ -387,7 +385,7 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
     let mut sizes = IndexMap::new();
 
     let kernel_sizes = load_task_size(
-        &toml,
+        toml,
         "kernel",
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
@@ -395,7 +393,7 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
 
     for (name, task) in &toml.tasks {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
-        let task_sizes = load_task_size(&toml, &name, stacksize)?;
+        let task_sizes = load_task_size(toml, name, stacksize)?;
 
         sizes.insert(name, task_sizes);
     }
@@ -421,8 +419,8 @@ fn compare_sizes(
     for name in names {
         println!("Checking for differences in {}", name);
 
-        let current_size = current_sizes.entry(&name);
-        let saved_size = saved_sizes.entry(&name);
+        let current_size = current_sizes.entry(name);
+        let saved_size = saved_sizes.entry(name);
 
         match (current_size, saved_size) {
             // the common case; both are in both

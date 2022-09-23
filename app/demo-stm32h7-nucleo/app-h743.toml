@@ -103,17 +103,6 @@ max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
-[tasks.uartecho]
-name = "task-uartecho"
-features = ["stm32h743", "usart3"]
-uses = ["usart3"]
-interrupts = {"usart3.irq" = 1}
-priority = 3
-max-sizes = {flash = 16384, ram = 4096}
-stacksize = 2048
-start = true
-task-slots = ["sys"]
-
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 3

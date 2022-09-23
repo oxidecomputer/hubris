@@ -1,7 +1,7 @@
 name = "sidecar-a"
 target = "thumbv7em-none-eabihf"
 board = "sidecar-a"
-chip = "../../chips/stm32h7-nonredundant"
+chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
 
@@ -140,7 +140,7 @@ start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys"]
+task-slots = ["jefe", "net", "update_server", "sys", "sequencer"]
 features = ["sidecar", "vlan"]
 
 [tasks.udpecho]
@@ -239,11 +239,12 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-sidecar-seq-server"
 features = []
 priority = 4
-stacksize = 1024
+stacksize = 4096
 start = true
 task-slots = [
     "sys",
     "i2c_driver",
+    "auxflash",
     {mainboard = "ecp5_mainboard"},
     {front_io = "ecp5_front_io"}]
 

@@ -461,7 +461,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 // First, set our mux state to be the HostCPU
                 //
-                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::HostCPU) {
+                if self.hf.set_mux(hf_api::HfMuxState::HostCPU).is_err() {
                     return Err(SeqError::MuxToHostCPUFailed.into());
                 }
 
@@ -534,7 +534,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
-                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::SP) {
+                if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
                     return Err(SeqError::MuxToSPFailed.into());
                 }
 
@@ -573,7 +573,7 @@ fn reprogram_fpga(
     sys: &sys_api::Sys,
     config: &ice40::Config,
 ) -> Result<(), ice40::Ice40Error> {
-    ice40::begin_bitstream_load(&spi, &sys, &config)?;
+    ice40::begin_bitstream_load(spi, sys, config)?;
 
     // We've got the bitstream in Flash, so we can technically just send it in
     // one transaction, but we'll want chunking later -- so let's make sure
@@ -584,10 +584,10 @@ fn reprogram_fpga(
     while !bitstream.is_empty() || !decompressor.is_idle() {
         let out =
             gnarle::decompress(&mut decompressor, &mut bitstream, &mut chunk);
-        ice40::continue_bitstream_load(&spi, out)?;
+        ice40::continue_bitstream_load(spi, out)?;
     }
 
-    ice40::finish_bitstream_load(&spi, &sys, &config)
+    ice40::finish_bitstream_load(spi, sys, config)
 }
 
 static COMPRESSED_BITSTREAM: &[u8] =

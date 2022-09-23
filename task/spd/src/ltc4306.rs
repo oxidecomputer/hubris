@@ -24,7 +24,7 @@ const REGISTER_3: u8 = 3;
 //
 const CONNECTED_NOT_FAILED: u8 = 0b1000_0100;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum State {
     /// idle
     Idle,
