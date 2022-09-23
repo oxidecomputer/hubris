@@ -367,25 +367,25 @@ impl NotificationHandler for ServerImpl {
             self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
         ));
 
-        //
-        // The first order of business is to check if the sequencer hit a
-        // THERMTRIP.  If it did, we need to go to A0Thermtrip and clear
-        // the bit.
-        //
-        match self.state {
-            PowerState::A0 | PowerState::A0PlusHP => {
-                let thermtrip = Reg::IFR::THERMTRIP;
-                let ifr = self.seq.read_byte(Addr::IFR).unwrap();
+        if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
+            //
+            // The first order of business is to check if the sequencer hit a
+            // THERMTRIP.  If it did, we need to go to A0Thermtrip and clear
+            // the bit.
+            //
+            let thermtrip = Reg::IFR::THERMTRIP;
+            let ifr = self.seq.read_byte(Addr::IFR).unwrap();
 
-                if ifr & thermtrip != 0 {
-                    self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
-                    self.update_state_internal(PowerState::A0Thermtrip);
-                }
+            if ifr & thermtrip != 0 {
+                self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
+                self.update_state_internal(PowerState::A0Thermtrip);
             }
-            _ => {}
-        }
 
-        if self.state == PowerState::A0 {
+            //
+            // Now we need to check NIC_PWREN_L to assure that our power state
+            // matches it, clearing or setting NIC_CTRL in the sequencer as
+            // needed.
+            //
             let sys = sys_api::Sys::from(SYS.get_task_id());
             let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS).unwrap() != 0;
 
@@ -393,9 +393,30 @@ impl NotificationHandler for ServerImpl {
 
             let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
-            if !pwren_l {
-                self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
-                self.update_state_internal(PowerState::A0PlusHP);
+            match (self.state, pwren_l) {
+                (PowerState::A0, false) => {
+                    self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                    self.update_state_internal(PowerState::A0PlusHP);
+                }
+
+                (PowerState::A0PlusHP, true) => {
+                    self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                    self.update_state_internal(PowerState::A0);
+                }
+
+                (PowerState::A0, true) | (PowerState::A0PlusHP, false) => {
+                    //
+                    // Our power state matches NIC_PWREN_L -- nothing to do
+                    //
+                }
+
+                _ => {
+                    //
+                    // We can only be in this larger block if the state is A0
+                    // or A0PlusHP; we must have matched one of the arms above.
+                    //
+                    unreachable!();
+                }
             }
         }
 
@@ -415,7 +436,8 @@ impl ServerImpl {
     //
     // Return the current timer interval, in milliseconds.  If we are in A0,
     // we are polling for NIC_PWREN_L; if we are in A0PlusHP, we are polling
-    // for a thermtrip.  If we are in any other state, we don't need to poll.
+    // for a thermtrip or for someone disabling NIC_PWREN_L.  If we are in
+    // any other state, we don't need to poll.
     //
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
