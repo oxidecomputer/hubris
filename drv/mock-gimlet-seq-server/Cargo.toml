@@ -10,5 +10,7 @@ num-traits = { version = "0.2.12", default-features = false }
 drv-gimlet-seq-api = {path = "../gimlet-seq-api"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
+task-jefe-api = {path = "../../task/jefe-api"}
+
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

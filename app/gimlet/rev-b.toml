@@ -28,8 +28,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.jefe.config]
-on-state-change = {net = {bit-number = 3}}
+[tasks.jefe.config.on-state-change]
+net = {bit-number = 3}
+host_sp_comms = {bit-number = 1}
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -203,7 +204,7 @@ priority = 5
 max-sizes = {flash = 16384, ram = 16384}
 stacksize = 2048
 start = true
-task-slots = ["sys"]
+task-slots = ["sys", "gimlet_seq"]
 
 [tasks.udpecho]
 name = "task-udpecho"

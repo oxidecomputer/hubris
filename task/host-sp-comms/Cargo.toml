@@ -13,6 +13,7 @@ ringbuf = {path = "../../lib/ringbuf"}
 userlib = {path = "../../sys/userlib"}
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
+drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api"}
 host-sp-messages = {path = "../../lib/host-sp-messages"}
 
 [build-dependencies]
