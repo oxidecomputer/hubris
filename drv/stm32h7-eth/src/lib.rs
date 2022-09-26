@@ -343,7 +343,8 @@ impl Ethernet {
     /// page access register may not be set to 0, so this could return values
     /// from a register on an extended page!
     pub fn smi_write(&self, phy: u8, register: impl Into<u8>, value: u16) {
-        // Wait until peripheral is free.
+        // Wait until peripheral is free. This spin loop should not spin in
+        // practice because we block waiting for any operations we issue.
         crappy_spin_until(|| !self.is_smi_busy());
 
         const WRITE: u8 = 0b01;
@@ -362,42 +363,7 @@ impl Ethernet {
                 .mb()
                 .set_bit()
         });
-
-        // An MDIO/SMI read operation always consists of
-        // - 32 bit preamble
-        // - start bit
-        // - 2 bit opcode
-        // - 5 bit phy address
-        // - 5 bit register address
-        // - 2 turnaround bits
-        // - 16 bit response
-        // ...for a total of 63 bits.
-        const MDIO_READ_BITS: usize = 63;
-        // So we want to program the timer to count up to that many bits, and
-        // then interrupt us. Since the ARR value is _included_ in the count,
-        // this actually counts out our number of bits _plus one,_ and that's
-        // okay because it ensures we've got some padding.
-        self.mdio_timer.arr.write(|w| w.arr().bits(MDIO_READ_BITS as u16));
-        self.mdio_timer.cnt.write(|w| w.cnt().bits(0));
-        // Force update
-        self.mdio_timer.egr.write(|w| w.ug().set_bit());
-        // Clear existing interrupt flags.
-        self.mdio_timer.sr.write(|w| w.uif().clear_bit());
-        // Go!
-        self.mdio_timer.cr1.modify(|_, w| w.cen().set_bit());
-        // Enable the IRQ.
-        userlib::sys_irq_control(self.mdio_timer_irq_mask, true);
-        // Wait for it. Avoid spurious notifications by checking if the timer
-        // has disabled itself before proceeding.
-        loop {
-            userlib::sys_irq_control(self.mdio_timer_irq_mask, true);
-            let _ = userlib::sys_recv_closed(&mut [], self.mdio_timer_irq_mask, userlib::TaskId::KERNEL);
-            if !self.mdio_timer.cr1.read().cen().bit() {
-                break;
-            }
-        }
-
-        if self.is_smi_busy() { panic!(); }
+        self.smi_timer_wait();
     }
 
     /// Performs a SMI read from PHY address `phy`, register number `register`,
@@ -424,8 +390,13 @@ impl Ethernet {
                 .mb()
                 .set_bit()
         });
+        self.smi_timer_wait();
+        self.mac.macmdiodr.read().md().bits()
+    }
 
-        // An MDIO/SMI read operation always consists of
+    /// Waits for an MDIO/SMI operation to complete, using dead-reckoning
+    fn smi_timer_wait(&self) {
+        // An MDIO/SMI operation always consists of
         // - 32 bit preamble
         // - start bit
         // - 2 bit opcode
@@ -434,12 +405,14 @@ impl Ethernet {
         // - 2 turnaround bits
         // - 16 bit response
         // ...for a total of 63 bits.
-        const MDIO_READ_BITS: usize = 63;
+        const MDIO_BITS: usize = 63;
         // So we want to program the timer to count up to that many bits, and
         // then interrupt us. Since the ARR value is _included_ in the count,
         // this actually counts out our number of bits _plus one,_ and that's
         // okay because it ensures we've got some padding.
-        self.mdio_timer.arr.write(|w| w.arr().bits(MDIO_READ_BITS as u16));
+        self.mdio_timer
+            .arr
+            .write(|w| w.arr().bits(MDIO_BITS as u16));
         self.mdio_timer.cnt.write(|w| w.cnt().bits(0));
         // Force update
         self.mdio_timer.egr.write(|w| w.ug().set_bit());
@@ -451,15 +424,19 @@ impl Ethernet {
         // has disabled itself before proceeding.
         loop {
             userlib::sys_irq_control(self.mdio_timer_irq_mask, true);
-            let _ = userlib::sys_recv_closed(&mut [], self.mdio_timer_irq_mask, userlib::TaskId::KERNEL);
+            let _ = userlib::sys_recv_closed(
+                &mut [],
+                self.mdio_timer_irq_mask,
+                userlib::TaskId::KERNEL,
+            );
             if !self.mdio_timer.cr1.read().cen().bit() {
                 break;
             }
         }
 
-        if self.is_smi_busy() { panic!(); }
-
-        self.mac.macmdiodr.read().md().bits()
+        if self.is_smi_busy() {
+            panic!();
+        }
     }
 
     fn is_smi_busy(&self) -> bool {
