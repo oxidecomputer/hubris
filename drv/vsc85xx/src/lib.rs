@@ -166,7 +166,10 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         u16: From<T>,
         F: Fn(T) -> Result<bool, VscError>,
     {
-        for _ in 0..32 {
+        // Based on value from vtss_phy_wait_for_micro_complete, which includes
+        // the reassuring explanation
+        // "increased timeout from 500 to 1000 due to bugzilla#20356"
+        for _ in 0..1000 {
             let r = self.read(reg)?;
             if f(r)? {
                 return Ok(());
