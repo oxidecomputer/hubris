@@ -5,24 +5,12 @@
 # * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
 name: documentation
 on:
+  pull_request:
   push:
-    branches:
-      - master
+    branches: [master]
+
 jobs:
-  skip_duplicate_jobs:
-    runs-on: ubuntu-latest
-    outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
-    steps:
-      - id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
-        with:
-          concurrent_skipping: 'same_content'
-          skip_after_successful_duplicate: 'true'
-          paths: '["doc/**"]'
   deploy:
-    needs: skip_duplicate_jobs
-    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.1
