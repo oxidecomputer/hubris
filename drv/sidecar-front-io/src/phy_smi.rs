@@ -11,7 +11,6 @@ use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 pub struct PhySmi {
     fpga: FpgaUserDesign,
-    await_not_busy_sleep_for: Option<u64>,
 
     /// Records whether an SMI operation might be in progress, and we should
     /// poll the status register before starting a new operation.
@@ -25,7 +24,7 @@ impl PhySmi {
         Self {
             // PHY SMI interface is only present/connected on FPGA1.
             fpga: FpgaUserDesign::new(fpga_task, 1),
-            await_not_busy_sleep_for: None,
+
             maybe_busy: Cell::new(true),
         }
     }
@@ -85,9 +84,7 @@ impl PhySmi {
 
     pub fn await_not_busy(&self) -> Result<(), FpgaError> {
         while self.smi_busy()? {
-            if let Some(t) = self.await_not_busy_sleep_for {
-                userlib::hl::sleep_for(t);
-            }
+            // busy-loop, because MDIO is fast
         }
         Ok(())
     }
@@ -121,8 +118,6 @@ impl PhySmi {
             if (r.status & Reg::VSC8562::PHY_SMI_STATUS::BUSY) == 0 {
                 self.maybe_busy.set(false);
                 return Ok(r.rdata.get());
-            } else if let Some(t) = self.await_not_busy_sleep_for {
-                userlib::hl::sleep_for(t);
             }
         }
     }
