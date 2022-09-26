@@ -26,7 +26,7 @@ impl PhySmi {
             // PHY SMI interface is only present/connected on FPGA1.
             fpga: FpgaUserDesign::new(fpga_task, 1),
             await_not_busy_sleep_for: None,
-            maybe_busy: Cell::new(false),
+            maybe_busy: Cell::new(true),
         }
     }
 
