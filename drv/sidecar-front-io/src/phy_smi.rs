@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::cell::Cell;
+
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use vsc85xx::{PhyRw, VscError};
@@ -9,7 +11,13 @@ use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 pub struct PhySmi {
     fpga: FpgaUserDesign,
-    await_not_busy_sleep_for: u64,
+    await_not_busy_sleep_for: Option<u64>,
+
+    /// Records whether an SMI operation might be in progress, and we should
+    /// poll the status register before starting a new operation.
+    ///
+    /// This is a `Cell` because `PhyRw` functions expect `&self`
+    maybe_busy: Cell<bool>,
 }
 
 impl PhySmi {
@@ -17,7 +25,8 @@ impl PhySmi {
         Self {
             // PHY SMI interface is only present/connected on FPGA1.
             fpga: FpgaUserDesign::new(fpga_task, 1),
-            await_not_busy_sleep_for: 0,
+            await_not_busy_sleep_for: None,
+            maybe_busy: Cell::new(false),
         }
     }
 
@@ -76,8 +85,8 @@ impl PhySmi {
 
     pub fn await_not_busy(&self) -> Result<(), FpgaError> {
         while self.smi_busy()? {
-            if self.await_not_busy_sleep_for > 0 {
-                userlib::hl::sleep_for(self.await_not_busy_sleep_for);
+            if let Some(t) = self.await_not_busy_sleep_for {
+                userlib::hl::sleep_for(t);
             }
         }
         Ok(())
@@ -85,24 +94,37 @@ impl PhySmi {
 
     #[inline(never)]
     fn read_raw_inner(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
-        let request = SmiRequest {
-            rdata: U16::new(0),
-            wdata: U16::new(0),
+        let request = SmiReadRequest {
             phy,
             reg,
             ctrl: Reg::VSC8562::PHY_SMI_CTRL::START,
         };
-        self.await_not_busy()?;
+
+        if self.maybe_busy.replace(true) {
+            self.await_not_busy()?;
+        }
+
         self.fpga.write(
             WriteOp::Write,
-            Addr::VSC8562_PHY_SMI_RDATA_H,
+            Addr::VSC8562_PHY_SMI_PHY_ADDR,
             request,
         )?;
 
-        self.await_not_busy()?;
-        let v = u16::from_be(self.fpga.read(Addr::VSC8562_PHY_SMI_RDATA_H)?);
-
-        Ok(v)
+        // We _could_ use `await_not_busy` here, but that means doing two
+        // transactions: one to check the status, and a second to read back the
+        // data.  The status and rdata register are contiguous in memory, and
+        // we're _almost always_ ready in the first poll, so let's instead read
+        // all three bytes together.
+        loop {
+            let r: SmiReadData =
+                self.fpga.read(Addr::VSC8562_PHY_SMI_STATUS)?;
+            if (r.status & Reg::VSC8562::PHY_SMI_STATUS::BUSY) == 0 {
+                self.maybe_busy.set(false);
+                return Ok(r.rdata.get());
+            } else if let Some(t) = self.await_not_busy_sleep_for {
+                userlib::hl::sleep_for(t);
+            }
+        }
     }
 
     #[inline(never)]
@@ -112,17 +134,19 @@ impl PhySmi {
         reg: u8,
         value: u16,
     ) -> Result<(), FpgaError> {
-        let request = SmiRequest {
-            rdata: U16::new(0),
+        let request = SmiWriteRequest {
             wdata: U16::new(value),
             phy,
             reg,
             ctrl: Reg::VSC8562::PHY_SMI_CTRL::RW
                 | Reg::VSC8562::PHY_SMI_CTRL::START,
         };
-        self.await_not_busy()?;
+        if self.maybe_busy.replace(true) {
+            self.await_not_busy()?;
+        }
+
         self.fpga
-            .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_RDATA_H, request)
+            .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_WDATA_H, request)
     }
 }
 
@@ -142,10 +166,24 @@ impl PhyRw for PhySmi {
 
 #[derive(AsBytes, FromBytes, Unaligned)]
 #[repr(C)]
-struct SmiRequest {
-    rdata: U16<byteorder::BigEndian>,
+struct SmiWriteRequest {
     wdata: U16<byteorder::BigEndian>,
     phy: u8,
     reg: u8,
     ctrl: u8,
+}
+
+#[derive(AsBytes, FromBytes, Unaligned)]
+#[repr(C)]
+struct SmiReadRequest {
+    phy: u8,
+    reg: u8,
+    ctrl: u8,
+}
+
+#[derive(AsBytes, FromBytes, Unaligned, Default)]
+#[repr(C)]
+struct SmiReadData {
+    status: u8,
+    rdata: U16<byteorder::BigEndian>,
 }
