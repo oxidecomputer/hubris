@@ -91,7 +91,14 @@ Interface(
             ),
         ),
         "scan_and_get_active_slot": (
-            doc: "Searches for a slot with a checksum that matches the one in the Hubris image",
+            doc: "DEPRECATED; use active_slot() instead",
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "get_active_slot": (
+            doc: "Returns the slot containing the checksum that matches the one in the Hubris image",
             reply: Result(
                 ok: "u32",
                 err: CLike("AuxFlashError"),

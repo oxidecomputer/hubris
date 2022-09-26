@@ -5,6 +5,7 @@ edition = "2018"
 
 [dependencies]
 derive-idol-err = {path = "../../lib/derive-idol-err" }
+drv-qspi-api = {path = "../qspi-api"}
 userlib = {path = "../../sys/userlib"}
 
 tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}

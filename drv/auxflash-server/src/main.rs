@@ -6,9 +6,9 @@
 #![no_main]
 
 use drv_auxflash_api::{
-    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, TlvcReadAuxFlash,
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
+    TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
-use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
@@ -139,11 +139,9 @@ fn main() -> ! {
     // Gimlet is  MT25QU256ABA8E12
     // Sidecar is S25FL128SAGMFIR01
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl {
-        qspi,
-        active_slot: None,
-    };
-    server.scan_for_active_slot();
+    let active_slot = scan_for_active_slot(&qspi);
+    let mut server = ServerImpl { qspi, active_slot };
+
     let _ = server.ensure_redundancy();
 
     loop {
@@ -159,18 +157,6 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn scan_for_active_slot(&mut self) {
-        self.active_slot = None;
-        for i in 0..SLOT_COUNT {
-            if let Ok(chck) = self.read_slot_checksum(i) {
-                if chck.0 == AUXI_CHECKSUM {
-                    self.active_slot = Some(i);
-                    break;
-                }
-            }
-        }
-    }
-
     /// Polls for the "Write Complete" flag.
     ///
     /// Sleep times are in ticks (typically milliseconds) and are somewhat
@@ -203,21 +189,13 @@ impl ServerImpl {
         &self,
         slot: u32,
     ) -> Result<AuxFlashChecksum, AuxFlashError> {
-        if slot >= SLOT_COUNT {
-            return Err(AuxFlashError::InvalidSlot);
-        }
-        let handle = SlotReader {
-            qspi: &self.qspi,
-            base: slot * SLOT_SIZE as u32,
-        };
-        handle.read_checksum()
+        read_slot_checksum(&self.qspi, slot)
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
     ///
     /// If not, writes the auxiliary data to the spare slot.
     fn ensure_redundancy(&mut self) -> Result<(), AuxFlashError> {
-        self.scan_for_active_slot();
         let active_slot =
             self.active_slot.ok_or(AuxFlashError::NoActiveSlot)?;
 
@@ -361,6 +339,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if Some(slot) == self.active_slot {
+            return Err(AuxFlashError::SlotActive.into());
+        }
         if offset as usize % PAGE_SIZE_BYTES != 0 {
             return Err(AuxFlashError::UnalignedAddress.into());
         } else if offset as usize + data.len() > SLOT_SIZE {
@@ -419,9 +400,18 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
     fn scan_and_get_active_slot(
         &mut self,
+        msg: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        // We no longer actually "scan"; this function is now misleadingly named
+        // but marked as deprecated in the idl file. We keep it around for
+        // compatibility with old humility.
+        self.get_active_slot(msg)
+    }
+
+    fn get_active_slot(
+        &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<AuxFlashError>> {
-        self.scan_for_active_slot();
         self.active_slot
             .ok_or_else(|| AuxFlashError::NoActiveSlot.into())
     }
@@ -438,7 +428,6 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         tag: [u8; 4],
     ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
-        self.scan_for_active_slot();
         let active_slot = self
             .active_slot
             .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
@@ -460,6 +449,31 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         // which doesn't know how to send arrays as arguments.
         self.get_blob_by_tag(msg, tag.to_be_bytes())
     }
+}
+
+fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
+    for i in 0..SLOT_COUNT {
+        if let Ok(chck) = read_slot_checksum(qspi, i) {
+            if chck.0 == AUXI_CHECKSUM {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+fn read_slot_checksum(
+    qspi: &Qspi,
+    slot: u32,
+) -> Result<AuxFlashChecksum, AuxFlashError> {
+    if slot >= SLOT_COUNT {
+        return Err(AuxFlashError::InvalidSlot);
+    }
+    let handle = SlotReader {
+        qspi,
+        base: slot * SLOT_SIZE as u32,
+    };
+    handle.read_checksum()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
