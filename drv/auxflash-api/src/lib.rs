@@ -177,3 +177,10 @@ where
 ////////////////////////////////////////////////////////////////////////////////
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+
+mod config {
+    include!(concat!(env!("OUT_DIR"), "/auxflash_config.rs"));
+}
+
+pub use self::config::SLOT_COUNT;
+pub const SLOT_SIZE: usize = (self::config::MEMORY_SIZE / SLOT_COUNT) as usize;
