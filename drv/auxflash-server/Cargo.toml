@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 drv-auxflash-api = {path = "../auxflash-api", default-features = false}
-drv-qspi-api = {path = "../qspi-api"}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}

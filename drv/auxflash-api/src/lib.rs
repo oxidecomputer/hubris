@@ -11,6 +11,8 @@ use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReader};
 use userlib::*;
 
+pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum AuxFlashError {
     WriteEnableFailed = 1,
@@ -41,6 +43,8 @@ pub enum AuxFlashError {
     NoActiveSlot,
     /// There is no blob with this name
     NoSuchBlob,
+    /// Writes to the currently-active slot are not allowed
+    SlotActive,
 }
 
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]

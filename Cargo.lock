@@ -733,6 +733,7 @@ name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "drv-qspi-api",
  "idol",
  "num-traits",
  "sha3",
@@ -748,7 +749,6 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-auxflash-api",
- "drv-qspi-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "idol",
