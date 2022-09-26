@@ -65,14 +65,17 @@ use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
 
+#[cfg(feature = "fru-id-eeprom")]
+task_slot!(I2C, i2c_driver);
+
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
 //
 // Much of this needs to move into the board-level configuration.
 
 /// Claims and calculates the MAC address.  This can only be called once.
-fn mac_address() -> &'static [u8; 6] {
-    let buf = crate::buf::claim_mac_address();
+fn mac_address_from_uid() -> [u8; 6] {
+    let mut buf = [0u8; 6];
     let uid = drv_stm32xx_uid::read_uid();
     // Jenkins hash
     let mut hash: u32 = 0;
@@ -93,6 +96,56 @@ fn mac_address() -> &'static [u8; 6] {
     buf[2..].copy_from_slice(&hash.to_be_bytes());
     buf
 }
+
+#[cfg(feature = "fru-id-eeprom")]
+fn mac_address_from_fru_id() -> Option<[u8; 6]> {
+    use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
+    use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
+    use zerocopy::{byteorder::LittleEndian, U16};
+
+    #[derive(Clone)]
+    struct EepromReader<'a> {
+        eeprom: &'a At24Csw080,
+    }
+    impl<'a> TlvcRead for EepromReader<'a> {
+        fn extent(&self) -> Result<u64, TlvcReadError> {
+            Ok(EEPROM_SIZE as u64)
+        }
+        fn read_exact(
+            &self,
+            offset: u64,
+            dest: &mut [u8],
+        ) -> Result<(), TlvcReadError> {
+            self.eeprom
+                .read_into(offset as u16, dest)
+                .map_err(|_| TlvcReadError::Truncated)?;
+            Ok(())
+        }
+    }
+
+    let i2c_task = I2C.get_task_id();
+    let eeprom = crate::generated::get_fru_id_eeprom(i2c_task);
+    let eeprom_reader = EepromReader { eeprom: &eeprom };
+    let mut reader = TlvcReader::begin(eeprom_reader).ok()?;
+
+    while let Ok(Some(chunk)) = reader.next() {
+        if &chunk.header().tag == b"MACS" {
+            let mut base_mac = [0u8; 6];
+            chunk.read_exact(0, &mut base_mac).ok()?;
+
+            let mut count: U16<LittleEndian> = U16::new(0);
+            chunk.read_exact(6, count.as_bytes_mut()).ok()?;
+
+            let mut stride = 0u8;
+            chunk.read_exact(8, stride.as_bytes_mut()).ok()?;
+
+            return Some(base_mac);
+        }
+    }
+    None
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 const TX_RING_SZ: usize = 4;
 
@@ -168,7 +221,15 @@ fn main() -> ! {
 
     // Set up the network stack.
     use smoltcp::wire::EthernetAddress;
-    let mac = EthernetAddress::from_bytes(mac_address());
+
+    #[cfg(feature = "fru-id-eeprom")]
+    let mac_address =
+        mac_address_from_fru_id().unwrap_or_else(mac_address_from_uid);
+
+    #[cfg(not(feature = "fru-id-eeprom"))]
+    let mac_address = mac_address_from_uid();
+
+    let mac = EthernetAddress::from_bytes(&mac_address);
 
     // Configure the server and its local storage arrays (on the stack)
     let ipv6_addr = link_local_iface_addr(mac);

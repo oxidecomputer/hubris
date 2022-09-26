@@ -3719,10 +3719,13 @@ dependencies = [
 name = "task-net"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-net",
  "build-util",
  "cortex-m",
  "drv-gimlet-seq-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
@@ -3749,6 +3752,7 @@ dependencies = [
  "syn",
  "task-jefe-api",
  "task-net-api",
+ "tlvc",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",

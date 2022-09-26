@@ -27,6 +27,9 @@ pub struct NetConfig {
     /// during the `net` build, so it must be present iff the `vlan` feature
     /// is turned on.
     pub vlan: Option<VLanConfig>,
+
+    /// Optional I2C bus name for the FRU ID EEPROM
+    pub fru_id_bus: Option<String>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum

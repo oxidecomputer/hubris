@@ -63,6 +63,24 @@ fn generate_net_config(
 
     build_net::generate_socket_enum(config, &mut out)?;
 
+    // Sanity-checking to match the fru-id-eeprom feature with the fru-id-bus
+    // configuration variable.
+    match (config.fru_id_bus.is_some(), cfg!(feature = "fru-id-eeprom")) {
+        (true, false) => panic!(
+            "fru-id-eeprom feature must be enabled when fru-id-bus is provided"
+        ),
+        (false, true) => panic!(
+            "fru-id-bus must be provided when fru-id-eeprom feature is enabled"
+        ),
+        _ => (),
+    }
+    #[cfg(feature = "fru-id-eeprom")]
+    {
+        let fru_id_bus = config.fru_id_bus.as_ref().unwrap();
+        writeln!(out, "{}", generate_fru_id_stub(fru_id_bus)?)?;
+        build_i2c::codegen(build_i2c::Disposition::Devices)?;
+    }
+
     drop(out);
 
     //call_rustfmt::rustfmt(&dest_path)?;
@@ -213,4 +231,23 @@ fn generate_constructor(
             ])
         }
     })
+}
+
+#[cfg(feature = "fru-id-eeprom")]
+fn generate_fru_id_stub(
+    fru_id_bus: &str,
+) -> Result<TokenStream, Box<dyn std::error::Error>> {
+    let function_name: proc_macro2::TokenStream =
+        format!("at24csw080_{fru_id_bus}").parse().unwrap();
+    let out = quote::quote! {
+        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+        pub fn get_fru_id_eeprom(i2c_task: userlib::TaskId)
+            -> drv_i2c_devices::at24csw080::At24Csw080
+        {
+            let devs = i2c_config::devices::#function_name(i2c_task);
+            assert_eq!(devs.len(), 1);
+            drv_i2c_devices::at24csw080::At24Csw080::new(devs[0])
+        }
+    };
+    Ok(out)
 }
