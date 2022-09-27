@@ -121,7 +121,7 @@ task-slots = ["sys"]
 name = "task-net"
 stacksize = 4640
 priority = 5
-features = ["mgmt", "h753", "sidecar", "vlan", "fru-id-eeprom"]
+features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash", "tim16"]
@@ -825,9 +825,11 @@ cs = [{port = "K", pin = 1}]
 mux = "port_jk"
 cs = [{port = "J", pin = 6}]
 
+[config.local-vpd]
+vpd-bus = "south2"
+
 [config.net]
 vlan = { start = 0x301, count = 2 }
-fru-id-bus = "south2"
 
 [config.net.sockets.echo]
 kind = "udp"

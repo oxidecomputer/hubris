@@ -65,7 +65,7 @@ use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
 
-#[cfg(feature = "fru-id-eeprom")]
+#[cfg(feature = "vpd-mac")]
 task_slot!(I2C, i2c_driver);
 
 /////////////////////////////////////////////////////////////////////////////
@@ -97,52 +97,25 @@ fn mac_address_from_uid() -> [u8; 6] {
     buf
 }
 
-#[cfg(feature = "fru-id-eeprom")]
-fn mac_address_from_fru_id() -> Option<[u8; 6]> {
-    use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
-    use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-    use zerocopy::{byteorder::LittleEndian, U16};
-
-    #[derive(Clone)]
-    struct EepromReader<'a> {
-        eeprom: &'a At24Csw080,
-    }
-    impl<'a> TlvcRead for EepromReader<'a> {
-        fn extent(&self) -> Result<u64, TlvcReadError> {
-            Ok(EEPROM_SIZE as u64)
-        }
-        fn read_exact(
-            &self,
-            offset: u64,
-            dest: &mut [u8],
-        ) -> Result<(), TlvcReadError> {
-            self.eeprom
-                .read_into(offset as u16, dest)
-                .map_err(|_| TlvcReadError::Truncated)?;
-            Ok(())
-        }
-    }
+#[cfg(feature = "vpd-mac")]
+fn mac_address_from_vpd() -> Option<[u8; 6]> {
+    use zerocopy::{LittleEndian, U16};
 
     let i2c_task = I2C.get_task_id();
-    let eeprom = crate::generated::get_fru_id_eeprom(i2c_task);
-    let eeprom_reader = EepromReader { eeprom: &eeprom };
-    let mut reader = TlvcReader::begin(eeprom_reader).ok()?;
 
-    while let Ok(Some(chunk)) = reader.next() {
-        if &chunk.header().tag == b"MACS" {
-            let mut base_mac = [0u8; 6];
-            chunk.read_exact(0, &mut base_mac).ok()?;
+    let mut out = [0u8; 10];
+    drv_local_vpd::read_config(i2c_task, *b"MACS", &mut out);
 
-            let mut count: U16<LittleEndian> = U16::new(0);
-            chunk.read_exact(6, count.as_bytes_mut()).ok()?;
+    let mut base_mac = [0u8; 6];
+    base_mac.as_bytes_mut().copy_from_slice(&out[0..6]);
 
-            let mut stride = 0u8;
-            chunk.read_exact(8, stride.as_bytes_mut()).ok()?;
+    let mut count: U16<LittleEndian> = U16::new(0);
+    count.as_bytes_mut().copy_from_slice(&out[6..8]);
 
-            return Some(base_mac);
-        }
-    }
-    None
+    let mut stride = 0u8;
+    stride.as_bytes_mut().copy_from_slice(&out[8..10]);
+
+    return Some(base_mac);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,11 +195,11 @@ fn main() -> ! {
     // Set up the network stack.
     use smoltcp::wire::EthernetAddress;
 
-    #[cfg(feature = "fru-id-eeprom")]
+    #[cfg(feature = "vpd-mac")]
     let mac_address =
-        mac_address_from_fru_id().unwrap_or_else(mac_address_from_uid);
+        mac_address_from_vpd().unwrap_or_else(mac_address_from_uid);
 
-    #[cfg(not(feature = "fru-id-eeprom"))]
+    #[cfg(not(feature = "vpd-mac"))]
     let mac_address = mac_address_from_uid();
 
     let mac = EthernetAddress::from_bytes(&mac_address);
