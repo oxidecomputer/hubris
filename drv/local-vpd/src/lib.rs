@@ -13,6 +13,8 @@ use zerocopy::{AsBytes, FromBytes};
 pub enum LocalVpdError {
     DeviceError,
     NoSuchChunk,
+    InvalidChecksum,
+    InvalidChunkSize,
 }
 
 #[derive(Clone)]
@@ -36,6 +38,10 @@ impl<'a> TlvcRead for EepromReader<'a> {
     }
 }
 
+/// Searches for the given tag in the local VPD and reads it
+///
+/// Returns an error if the tag is not present, the data is of an unexpected
+/// size (i.e. not size_of<V>), or any checksum is corrupt.
 pub fn read_config<V: Default + AsBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
@@ -47,6 +53,15 @@ pub fn read_config<V: Default + AsBytes + FromBytes>(
 
     while let Ok(Some(chunk)) = reader.next() {
         if &chunk.header().tag == &tag {
+            let mut scratch = [0u8; 32];
+            chunk
+                .check_body_checksum(&mut scratch)
+                .map_err(|_| LocalVpdError::InvalidChecksum)?;
+
+            if chunk.len() as usize != core::mem::size_of::<V>() {
+                return Err(LocalVpdError::InvalidChunkSize);
+            }
+
             let mut out = V::default();
             chunk
                 .read_exact(0, out.as_bytes_mut())
