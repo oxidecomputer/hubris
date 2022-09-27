@@ -19,7 +19,7 @@ task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    IRQ,
+    Irq,
     Tx(u8),
     Rx(u8),
     None,
@@ -87,7 +87,7 @@ fn main() -> ! {
             panic!()
         }
 
-        ringbuf_entry!(Trace::IRQ);
+        ringbuf_entry!(Trace::Irq);
 
         loop {
             let mut again = false;
@@ -121,10 +121,7 @@ fn main() -> ! {
         }
 
         if tx_done && rx_done {
-            let tmp = rx;
-
-            rx = tx;
-            tx = tmp;
+            core::mem::swap(&mut rx, &mut tx);
             rx_done = false;
             tx_done = false;
             tx_cnt = 0;

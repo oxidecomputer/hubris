@@ -9,7 +9,7 @@ pub use drv_update_api::UpdateTarget;
 pub use lpc55_romapi::FLASH_PAGE_SIZE;
 
 #[repr(u32)]
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub enum HypoStatus {
     Success,
     RunningImage,
@@ -154,5 +154,5 @@ pub unsafe extern "C" fn __write_block(
         return HypoStatus::FlashError(result);
     }
 
-    return HypoStatus::Success;
+    HypoStatus::Success
 }

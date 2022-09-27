@@ -113,11 +113,17 @@ impl idl::InOrderUpdateImpl for ServerImpl {
 
         let img = self.image.unwrap_lite();
 
-        match tz_table!().write_to_flash(
-            img,
-            block_num as u32,
-            flash_page.as_mut_ptr(),
-        ) {
+        let result = unsafe {
+            // The write_to_flash API takes raw pointers due to TrustZone
+            // ABI requirements which makes this function unsafe.
+            tz_table!().write_to_flash(
+                img,
+                block_num as u32,
+                flash_page.as_mut_ptr(),
+            )
+        };
+
+        match result {
             HypoStatus::Success => Ok(()),
             HypoStatus::OutOfBounds => Err(UpdateError::OutOfBounds.into()),
             HypoStatus::RunningImage => Err(UpdateError::RunningImage.into()),
