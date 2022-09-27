@@ -39,6 +39,23 @@ fn generate_auxflash_config(
 
     let mut out = std::fs::File::create(&dest_path)?;
 
+    // Check that the config is reasonable:
+    // a. We have at least 6 slots (see RFD 311)
+    assert!(config.slot_count >= 6, "auxflash requires at least 6 slots");
+    // b. Memory size is evenly divisible by the slot count
+    assert_eq!(
+        config.memory_size % config.slot_count,
+        0,
+        "auxflash memory must be evenly divisble by slot count"
+    );
+    // c. Slot offsets are page-aligned (assuming 64 KiB pages; we can update
+    //    this as needed)
+    assert_eq!(
+        config.memory_size / config.slot_count % (64 << 10),
+        0,
+        "auxflash slots must be page aligned"
+    );
+
     writeln!(out, "pub const MEMORY_SIZE: u32 = {};", config.memory_size)?;
     writeln!(out, "pub const SLOT_COUNT: u32 = {};", config.slot_count)?;
 
