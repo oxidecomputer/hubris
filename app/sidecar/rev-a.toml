@@ -119,7 +119,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 4640
+stacksize = 6040
 priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
