@@ -105,10 +105,19 @@ fn mac_address_from_uid() -> MacAddressBlock {
 
     // Set the lower 32-bits based on the hashed UID
     buf[2..].copy_from_slice(&hash.to_be_bytes());
+
+    // Mask the highest non-OUI octet, since we reserve `F0:00:00` and above for
+    // software stuff.  It's still *theoretically* possible to overflow, if
+    // literally every other bit of the MAC address is 1 and we're running with
+    // VLANs enabled; this seems unlikely enough to disregard, since we'll be
+    // use the MAC address from the VPD in production.
+    buf[3] &= 0xEF;
+
     MacAddressBlock {
         base_mac: buf,
         #[cfg(feature = "vlan")]
         count: U16::new(crate::generated::VLAN_COUNT.try_into().unwrap()),
+
         #[cfg(not(feature = "vlan"))]
         count: U16::new(1),
         stride: 1,
