@@ -15,4 +15,6 @@ num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
 
 [build-dependencies]
+build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+serde = "1"

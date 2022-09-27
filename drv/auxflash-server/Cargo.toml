@@ -19,7 +19,6 @@ stm32h7 = { version = "0.14", default-features = false }
 zerocopy = "0.6.1"
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]

@@ -4,8 +4,6 @@
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_target_board();
-
     idol::server::build_server_support(
         "../../idl/auxflash.idol",
         "server_stub.rs",

@@ -787,6 +787,10 @@ port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
+[config.auxflash]
+memory-size = 16_777_216 # 16 MiB
+slot-count = 8
+
 [[auxflash.blobs]]
 file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller.bit"
 compress = true
