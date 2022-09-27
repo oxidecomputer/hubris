@@ -87,13 +87,11 @@ const RX_RING_SZ: usize = 4;
 /// Notification mask for our IRQ; must match configuration in app.toml.
 const ETH_IRQ: u32 = 1 << 0;
 
+/// Notification mask for MDIO timer; must match configuration in app.toml.
+const MDIO_TIMER_IRQ: u32 = 1 << 1;
+
 /// Notification mask for optional periodic logging
-const WAKE_IRQ: u32 = 1 << 1;
-
-// NOTE: bit 3 is used in the BSPs!
-
-/// Notification mask for MDIO timer.
-const MDIO_TIMER_IRQ: u32 = 1 << 4;
+const WAKE_IRQ: u32 = 1 << 2;
 
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
