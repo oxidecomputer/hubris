@@ -32,7 +32,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     write!(
         out,
         r#"
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 pub fn get_vpd_eeprom(i2c_task: userlib::TaskId)
     -> drv_i2c_devices::at24csw080::At24Csw080
 {{

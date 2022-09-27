@@ -49,7 +49,7 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -72,6 +72,14 @@ task_slot!(I2C, i2c_driver);
 // Configuration things!
 //
 // Much of this needs to move into the board-level configuration.
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
+#[repr(C)]
+struct MacAddressBlock {
+    base_mac: [u8; 6],
+    count: U16<LittleEndian>,
+    stride: u8,
+}
 
 /// Claims and calculates the MAC address.  This can only be called once.
 fn mac_address_from_uid() -> [u8; 6] {
@@ -99,23 +107,12 @@ fn mac_address_from_uid() -> [u8; 6] {
 
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<[u8; 6]> {
-    use zerocopy::{LittleEndian, U16};
-
     let i2c_task = I2C.get_task_id();
 
-    let mut out = [0u8; 10];
-    drv_local_vpd::read_config(i2c_task, *b"MACS", &mut out);
+    let out: MacAddressBlock =
+        drv_local_vpd::read_config(i2c_task, *b"MACS").ok()?;
 
-    let mut base_mac = [0u8; 6];
-    base_mac.as_bytes_mut().copy_from_slice(&out[0..6]);
-
-    let mut count: U16<LittleEndian> = U16::new(0);
-    count.as_bytes_mut().copy_from_slice(&out[6..8]);
-
-    let mut stride = 0u8;
-    stride.as_bytes_mut().copy_from_slice(&out[8..10]);
-
-    return Some(base_mac);
+    return Some(out.base_mac);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
