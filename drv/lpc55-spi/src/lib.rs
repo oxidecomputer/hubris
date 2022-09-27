@@ -195,6 +195,8 @@ impl Spi {
         rxignore: bool,
         len_bits: u8,
     ) {
+        // SPI hardware only supports lengths of range 4-16 bits
+        #[allow(clippy::manual_range_contains)]
         if len_bits > 16 || len_bits < 4 {
             panic!()
         }

@@ -161,7 +161,7 @@ fn turn_on_flexcomm() {
     syscon.leave_reset(Peripheral::Fc0).unwrap_lite();
 }
 
-fn step_transmit(usart: &mut Usart, txs: &mut Transmit) -> bool {
+fn step_transmit(usart: &mut Usart<'_>, txs: &mut Transmit) -> bool {
     let mut byte = 0u8;
     let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
     if rc != 0 || len != 1 {

@@ -171,7 +171,7 @@ pub(crate) fn read_from_sp(
 fn gpio_args(
     stack: &[Option<u32>],
 ) -> Result<drv_lpc55_gpio_api::Pin, Failure> {
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 

@@ -145,22 +145,10 @@ pub enum Digimode {
     Digital = 1,
 }
 
-impl Into<bool> for Digimode {
-    fn into(self) -> bool {
-        self == Self::Digital
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Slew {
     Standard = 0,
     Fast = 1,
-}
-
-impl Into<bool> for Slew {
-    fn into(self) -> bool {
-        self == Self::Fast
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
@@ -169,22 +157,10 @@ pub enum Invert {
     Enabled = 1,
 }
 
-impl Into<bool> for Invert {
-    fn into(self) -> bool {
-        self == Self::Enabled
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum Opendrain {
     Normal = 0,
     Opendrain = 1,
-}
-
-impl Into<bool> for Opendrain {
-    fn into(self) -> bool {
-        self == Self::Opendrain
-    }
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
