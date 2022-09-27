@@ -1834,7 +1834,7 @@ dependencies = [
  "hash32",
  "rustc_version 0.4.0",
  "serde",
- "spin 0.9.2",
+ "spin 0.9.4",
  "stable_deref_trait",
 ]
 
@@ -3178,9 +3178,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin"
-version = "0.9.2"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
+checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 dependencies = [
  "lock_api",
 ]
@@ -4127,6 +4127,13 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 [[package]]
 name = "unwrap-lite"
 version = "0.1.0"
+
+[[package]]
+name = "update-buffer"
+version = "0.1.0"
+dependencies = [
+ "spin 0.9.4",
+]
 
 [[package]]
 name = "userlib"
