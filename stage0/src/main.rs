@@ -175,16 +175,29 @@ fn main() -> ! {
 
     check_system_freq();
 
-    let imagea = match image_header::get_image_a() {
-        Some(a) => a,
-        None => panic!(),
+    let (imagea, imageb) =
+        (image_header::get_image_a(), image_header::get_image_b());
+
+    // Image selection is very simple at the moment
+    // Future work: check persistent state and epochs
+    let image = match (imagea, imageb) {
+        (None, None) => panic!(),
+        (Some(a), None) => a,
+        (None, Some(b)) => b,
+        (Some(a), Some(b)) => {
+            if a.get_version() > b.get_version() {
+                a
+            } else {
+                b
+            }
+        }
     };
 
     #[cfg(feature = "dice")]
-    dice::run(&imagea);
+    dice::run(&image);
 
     unsafe {
-        branch_to_image(imagea);
+        branch_to_image(image);
     }
 }
 

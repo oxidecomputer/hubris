@@ -637,6 +637,8 @@ pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
     pub sau_entries: [SAUEntry; 8],
+    pub version: u32,
+    pub epoch: u32,
 }
 
 // Corresponds to the ARM vector table, limited to what we need
