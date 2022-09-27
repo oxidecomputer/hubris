@@ -73,4 +73,3 @@ pub fn read_config<V: Default + AsBytes + FromBytes>(
 }
 
 include!(concat!(env!("OUT_DIR"), "/vpd_config.rs"));
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

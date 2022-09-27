@@ -39,6 +39,7 @@ pub fn get_vpd_eeprom(i2c_task: userlib::TaskId)
     assert_eq!(devs.len(), 1);
     drv_i2c_devices::at24csw080::At24Csw080::new(devs[0])
 }}
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 "#,
         cfg.vpd_bus
     )?;
