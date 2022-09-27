@@ -890,7 +890,7 @@ pub(crate) fn start_update(
 ) -> Result<usize, Failure> {
     use userlib::FromPrimitive;
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 

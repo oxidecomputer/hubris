@@ -179,6 +179,8 @@ enum RawSwdReg {
 
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq)]
+// Be picky and match the spec
+#[allow(clippy::upper_case_acronyms)]
 enum ApReg {
     CSW = 0x0,
     TAR = 0x4,
@@ -337,18 +339,20 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
 
         for i in 0..cnt / 4 {
             let mut word: [u8; 4] = [0; 4];
-            for j in 0..4 {
+            for item in &mut word {
                 match buf.read() {
-                    Some(b) => word[j] = b,
+                    Some(b) => *item = b,
                     None => return Ok(()),
                 };
             }
-            match self.write_single_target_addr(
-                addr + ((i * 4) as u32),
-                u32::from_le_bytes(word),
-            ) {
-                Err(_) => return Err(SpCtrlError::Fault.into()),
-                _ => (),
+            if self
+                .write_single_target_addr(
+                    addr + ((i * 4) as u32),
+                    u32::from_le_bytes(word),
+                )
+                .is_err()
+            {
+                return Err(SpCtrlError::Fault.into());
             }
         }
 
@@ -650,17 +654,14 @@ impl ServerImpl {
         loop {
             let result = self.swd_transfer_cmd(port, reg);
 
-            match result {
-                Err(e) => {
-                    // Need to account for the turnaround bit before continuing
-                    self.io_out();
-                    self.idle_cycles(8);
-                    match e {
-                        Ack::Wait => continue,
-                        _ => return Err(e),
-                    }
+            if let Err(e) = result {
+                // Need to account for the turnaround bit before continuing
+                self.io_out();
+                self.idle_cycles(8);
+                match e {
+                    Ack::Wait => continue,
+                    _ => return Err(e),
                 }
-                _ => (),
             }
 
             self.io_out();

@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 #[repr(u32)]
 pub enum SpCtrlError {
     BadLen = 1,

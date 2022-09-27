@@ -8,7 +8,7 @@ pub use embedded_hal::serial::{Read, Write};
 use lpc55_pac as device;
 use unwrap_lite::UnwrapLite;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum Error {
     Frame,
     Parity,
