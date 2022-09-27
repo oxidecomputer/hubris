@@ -73,16 +73,19 @@ task_slot!(I2C, i2c_driver);
 //
 // Much of this needs to move into the board-level configuration.
 
+/// Represents a range of allocated MAC addresses, per RFD 320
+///
+/// The SP will claim the first two addresses
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
 #[repr(C)]
-struct MacAddressBlock {
+pub struct MacAddressBlock {
     base_mac: [u8; 6],
     count: U16<LittleEndian>,
     stride: u8,
 }
 
 /// Claims and calculates the MAC address.  This can only be called once.
-fn mac_address_from_uid() -> [u8; 6] {
+fn mac_address_from_uid() -> MacAddressBlock {
     let mut buf = [0u8; 6];
     let uid = drv_stm32xx_uid::read_uid();
     // Jenkins hash
@@ -102,17 +105,20 @@ fn mac_address_from_uid() -> [u8; 6] {
 
     // Set the lower 32-bits based on the hashed UID
     buf[2..].copy_from_slice(&hash.to_be_bytes());
-    buf
+    MacAddressBlock {
+        base_mac: buf,
+        #[cfg(feature = "vlan")]
+        count: U16::new(crate::generated::VLAN_COUNT.try_into().unwrap()),
+        #[cfg(not(feature = "vlan"))]
+        count: U16::new(1),
+        stride: 1,
+    }
 }
 
 #[cfg(feature = "vpd-mac")]
-fn mac_address_from_vpd() -> Option<[u8; 6]> {
+fn mac_address_from_vpd() -> Option<MacAddressBlock> {
     let i2c_task = I2C.get_task_id();
-
-    let out: MacAddressBlock =
-        drv_local_vpd::read_config(i2c_task, *b"MACS").ok()?;
-
-    return Some(out.base_mac);
+    drv_local_vpd::read_config(i2c_task, *b"MACS").ok()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -190,8 +196,6 @@ fn main() -> ! {
     );
 
     // Set up the network stack.
-    use smoltcp::wire::EthernetAddress;
-
     #[cfg(feature = "vpd-mac")]
     let mac_address =
         mac_address_from_vpd().unwrap_or_else(mac_address_from_uid);
@@ -199,15 +203,10 @@ fn main() -> ! {
     #[cfg(not(feature = "vpd-mac"))]
     let mac_address = mac_address_from_uid();
 
-    let mac = EthernetAddress::from_bytes(&mac_address);
-
-    // Configure the server and its local storage arrays (on the stack)
-    let ipv6_addr = link_local_iface_addr(mac);
-
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = BspImpl::new(&eth, &sys);
 
-    let mut server = server_impl::new(&eth, ipv6_addr, mac, bsp);
+    let mut server = server_impl::new(&eth, mac_address, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);

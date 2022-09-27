@@ -10,7 +10,10 @@ use drv_stm32h7_eth as eth;
 
 use crate::bsp_support;
 use crate::generated;
-use crate::server::{DeviceExt, GenServerImpl, Storage};
+use crate::{
+    server::{DeviceExt, GenServerImpl, Storage},
+    MacAddressBlock,
+};
 use core::cell::Cell;
 use mutable_statics::mutable_statics;
 use smoltcp::wire::{EthernetAddress, Ipv6Address};
@@ -29,8 +32,7 @@ pub type ServerImpl<'a, B> = GenServerImpl<'a, B, Smol<'a>, 1>;
 
 pub fn new<'a, B>(
     eth: &'a eth::Ethernet,
-    ipv6_addr: Ipv6Address,
-    mac: EthernetAddress,
+    mac: MacAddressBlock,
     bsp: B,
 ) -> ServerImpl<'a, B>
 where
@@ -38,7 +40,6 @@ where
 {
     ServerImpl::new(
         eth,
-        ipv6_addr,
         mac,
         bsp,
         claim_server_storage_statics(),
