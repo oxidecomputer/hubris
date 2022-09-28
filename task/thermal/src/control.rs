@@ -329,6 +329,7 @@ impl<'a> ThermalControl<'a> {
         self.state = ThermalControlState::Boot {
             values: [None; bsp::NUM_TEMPERATURE_INPUTS],
         };
+        ringbuf_entry!(Trace::AutoState(self.get_state()));
         self.target_margin = Celsius(0.0f32);
         // The fan speed will be applied on the next controller iteration
     }
@@ -454,6 +455,8 @@ impl<'a> ThermalControl<'a> {
                 }
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::PowerDown
                 } else if all_some {
                     // Transition to the Running state and run a single
@@ -469,6 +472,8 @@ impl<'a> ThermalControl<'a> {
                         values: values.map(|i| i.unwrap()),
                         pid,
                     };
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 } else {
                     ControlResult::Pwm(PWMDuty(100))
@@ -499,12 +504,16 @@ impl<'a> ThermalControl<'a> {
 
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::PowerDown
                 } else if any_critical {
                     self.state = ThermalControlState::Overheated {
                         values: *values,
                         start_time: now_ms,
                     };
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::Pwm(PWMDuty(100))
                 } else {
                     // We adjust the worst component margin by our target
@@ -548,6 +557,8 @@ impl<'a> ThermalControl<'a> {
 
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::PowerDown
                 } else if all_subcritical {
                     // Transition to the Running state and run a single
@@ -563,11 +574,15 @@ impl<'a> ThermalControl<'a> {
                         values: *values,
                         pid,
                     };
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 } else if now_ms > *start_time + self.overheat_timeout_ms {
                     // If blasting the fans hasn't cooled us down in this amount
                     // of time, then something is terribly wrong - abort!
                     self.state = ThermalControlState::Uncontrollable;
+                    ringbuf_entry!(Trace::AutoState(self.get_state()));
+
                     ControlResult::PowerDown
                 } else {
                     ControlResult::Pwm(PWMDuty(100))

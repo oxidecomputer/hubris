@@ -41,7 +41,7 @@ pub enum ThermalMode {
 /// These are based on `enum ThermalControlState`, but stripped of the
 /// associated state data.
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, PartialEq, Serialize, Deserialize,
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Serialize, Deserialize,
 )]
 pub enum ThermalAutoState {
     Boot,

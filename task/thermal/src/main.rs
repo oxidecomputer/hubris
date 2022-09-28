@@ -48,6 +48,7 @@ enum Trace {
     None,
     Start,
     ThermalMode(ThermalMode),
+    AutoState(ThermalAutoState),
     FanReadFailed(usize, ResponseCode),
     MiscReadFailed(usize, ResponseCode),
     SensorReadFailed(usize, ResponseCode),
