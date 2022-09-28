@@ -198,7 +198,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
 
     fn handle_notification(&mut self, _bits: u32) {
         let now = sys_get_timer().now;
-        if self.deadline >= now {
+        if now >= self.deadline {
             match self.mode {
                 ThermalMode::Auto => {
                     self.control.run_control(now);
