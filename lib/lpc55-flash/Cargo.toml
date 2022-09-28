@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 abi = {path = "../../sys/abi"}
-lpc55_romapi = { path = "../../drv/lpc55-romapi" }
+lpc55_romapi = { path = "../lpc55-romapi" }
 drv-update-api = { path = "../../drv/update-api" }
 
 [lib]
