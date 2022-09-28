@@ -8,9 +8,9 @@ external-images = ["a", "b"]
 
 [kernel]
 name = "stage0"
-requires = {flash = 0x7000, ram = 8192}
+requires = {flash = 0x8000, ram = 16000}
 features = ["tz_support", "dice"]
-stacksize = 8000
+stacksize = 12000
 
 [tasks.idle]
 name = "task-idle"
