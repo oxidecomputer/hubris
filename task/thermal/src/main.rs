@@ -54,6 +54,7 @@ enum Trace {
     SensorReadFailed(usize, ResponseCode),
     PostFailed(SensorId, SensorError),
     ControlPwm(u8),
+    PowerModeChanged(u32),
     PowerDownFailed(SeqError),
 }
 ringbuf!(Trace, 32, Trace::None);

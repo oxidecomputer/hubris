@@ -377,6 +377,7 @@ impl<'a> ThermalControl<'a> {
         let prev_power_mode = self.power_mode;
         self.power_mode = self.bsp.power_mode();
         if prev_power_mode != self.power_mode {
+            ringbuf_entry!(Trace::PowerModeChanged(self.power_mode));
             self.reset();
         }
 
