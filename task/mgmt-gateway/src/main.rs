@@ -18,7 +18,7 @@ use task_net_api::{
 use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
 
 mod mgs_common;
-mod update_buffer;
+mod update;
 
 // If the build system enables multiple of the gimlet/sidecar/psc features, this
 // sequence of `cfg_attr`s will trigger an unused_attributes warning. We can
@@ -35,7 +35,6 @@ use self::mgs_handler::MgsHandler;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
-task_slot!(UPDATE_SERVER, update_server);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]

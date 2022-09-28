@@ -84,7 +84,7 @@ impl<T: Clone, const N: usize> BufferMutex<T, N> {
             // owner lock. Any other caller to this method will see our owner
             // until the `UpdateBuffer` we're about to create is dropped, since
             // `owner` will remain `Some(_)` until that drop impl runs.
-            *owner = Some(new_owner.clone());
+            *owner = Some(new_owner);
             mem::drop(owner);
 
             Ok(UpdateBuffer {
@@ -129,7 +129,7 @@ impl<T, const N: usize> UpdateBuffer<'_, T, N> {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &*self
+        self
     }
 
     pub fn clear(&mut self) {
