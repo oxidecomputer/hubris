@@ -85,10 +85,13 @@ const TX_RING_SZ: usize = 4;
 const RX_RING_SZ: usize = 4;
 
 /// Notification mask for our IRQ; must match configuration in app.toml.
-const ETH_IRQ: u32 = 1;
+const ETH_IRQ: u32 = 1 << 0;
+
+/// Notification mask for MDIO timer; must match configuration in app.toml.
+const MDIO_TIMER_IRQ: u32 = 1 << 1;
 
 /// Notification mask for optional periodic logging
-const WAKE_IRQ: u32 = 2;
+const WAKE_IRQ: u32 = 1 << 2;
 
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
@@ -120,6 +123,11 @@ fn main() -> ! {
     sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
     sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
+    // Reset our MDIO timer.
+    sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Tim16);
+    sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Tim16);
+    sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Tim16);
+
     // Do preliminary pin configuration
     bsp::configure_ethernet_pins(&sys);
 
@@ -136,6 +144,8 @@ fn main() -> ! {
         unsafe { &*device::ETHERNET_DMA::ptr() },
         tx_ring,
         rx_ring,
+        unsafe { &*device::TIM16::ptr() },
+        MDIO_TIMER_IRQ,
     );
 
     // Set up the network stack.
