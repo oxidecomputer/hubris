@@ -137,32 +137,6 @@ unsafe fn branch_to_image(image: Image) -> ! {
     );
 }
 
-fn check_system_freq() {
-    // corresponds to FRO 96 MHz, see 4.5.34 in user manual
-    const EXPECTED_MAINCLKSELA: u32 = 3;
-    // corresponds to Main Clock A, see 4.5.45 in user manual
-    const EXPECTED_MAINCLKSELB: u32 = 0;
-    // corresponds to divide by 2, see 4.5.50 in user manual
-    const EXPECTED_AHBCLKDIV: u32 = 1;
-
-    let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
-
-    let a = syscon.mainclksela.read().bits();
-    let b = syscon.mainclkselb.read().bits();
-    let div = syscon.ahbclkdiv.read().bits();
-
-    // Very very ugly check! We are assuming that the system is running at
-    // 48Mh with these settings. This is a short term verification until we have
-    // all our expected infrastructure to make sure the system is running at
-    // what we expect.
-    if a != EXPECTED_MAINCLKSELA
-        && b != EXPECTED_MAINCLKSELB
-        && div != EXPECTED_AHBCLKDIV
-    {
-        panic!();
-    }
-}
-
 #[entry]
 fn main() -> ! {
     // This is the SYSCON_DIEID register on LPC55 which contains the ROM
@@ -172,8 +146,6 @@ fn main() -> ! {
     if val & 1 != ROM_VER {
         panic!()
     }
-
-    check_system_freq();
 
     let (imagea, imageb) =
         (image_header::get_image_a(), image_header::get_image_b());
