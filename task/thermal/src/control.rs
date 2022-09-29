@@ -188,33 +188,39 @@ pub struct PidConfig {
     pub gain_d: f32,
 }
 
-struct PidState {
+/// Represents a PID controller that can only push in one direction (i.e. the
+/// output must always be positive).
+struct OneSidedPidState {
     /// Previous (time, input) tuple, for derivative term
     prev_error: Option<f32>,
 
-    /// Accumulated integral term
+    /// Accumulated integral term, pre-multiplied by gain
     integral: f32,
 }
 
-impl PidState {
+impl OneSidedPidState {
     /// Attempts to drive the error to zero.
     ///
     /// The error and output are expected to have the same signs, i.e. a large
     /// positive error will produce a large positive output.
-    fn run(
-        &mut self,
-        cfg: &PidConfig,
-        error: f32,
-        limit: core::ops::Range<f32>,
-    ) -> f32 {
+    fn run(&mut self, cfg: &PidConfig, error: f32, output_limit: f32) -> f32 {
         let p_contribution = cfg.gain_p * error;
 
-        // Only accumulate the integral term if we're not saturated, to prevent
-        // integral wind-up.
-        if limit.contains(&p_contribution) {
-            self.integral += error;
+        // Only accumulate the integral term if the P term doesn't saturate the
+        // controller, to prevent integral wind-up.
+        if p_contribution > output_limit || p_contribution < -output_limit {
+            // Pre-multiply by gain here, to make clamping easier
+            self.integral += error * cfg.gain_i;
+
+            // Clamp the accumulated integral to a fraction of the output limit
+            let integral_limit: f32 = output_limit * 0.3; // TODO parameterize
+            if self.integral > integral_limit {
+                self.integral = integral_limit;
+            } else if self.integral < -integral_limit {
+                self.integral = -integral_limit;
+            }
         }
-        let i_contribution = cfg.gain_i * self.integral;
+        let i_contribution = self.integral;
 
         let d_contribution = if let Some(prev_error) = self.prev_error {
             (error - prev_error) * cfg.gain_d
@@ -224,17 +230,17 @@ impl PidState {
         self.prev_error = Some(error);
 
         let out = p_contribution + i_contribution + d_contribution;
-        if out > limit.end {
-            limit.end
-        } else if out < limit.start {
-            limit.start
+        if out > output_limit {
+            output_limit
+        } else if out < 0.0 {
+            0.0
         } else {
             out
         }
     }
 }
 
-impl Default for PidState {
+impl Default for OneSidedPidState {
     fn default() -> Self {
         Self {
             prev_error: None,
@@ -253,7 +259,7 @@ enum ThermalControlState {
     /// Normal happy control loop
     Running {
         values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
-        pid: PidState,
+        pid: OneSidedPidState,
     },
 
     /// In the overheated state, one or more components has entered their
@@ -345,13 +351,12 @@ impl<'a> ThermalControl<'a> {
             return Err(ThermalError::InvalidParameter);
         }
 
-        // Scale the accumulated integral so that its contribution to the
-        // controller remains the same, to avoid glitches in the output.
+        // If the incoming integral gain is zero, then it will never be able
+        // to wind down the integral accumulator (which is pre-multiplied),
+        // so clear it here.
         if let ThermalControlState::Running { pid, .. } = &mut self.state {
-            if i == 0.0 || self.pid_config.gain_i == 0.0 {
+            if i == 0.0 {
                 pid.integral = 0.0;
-            } else {
-                pid.integral *= self.pid_config.gain_i / i;
             }
         }
 
@@ -521,12 +526,11 @@ impl<'a> ThermalControl<'a> {
                 } else if all_some {
                     // Transition to the Running state and run a single
                     // iteration of the PID control loop.
-                    let mut pid = PidState::default();
-                    let output_limits = 0.0..100.0;
+                    let mut pid = OneSidedPidState::default();
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        output_limits,
+                        100.0,
                     );
                     self.state = ThermalControlState::Running {
                         values: values.map(|i| i.unwrap()),
@@ -585,11 +589,10 @@ impl<'a> ThermalControl<'a> {
                     // margin is negative (i.e. the system is overheating), then
                     // the input to `run` is positive, because we want a
                     // positive fan speed.
-                    let output_limits = 0.0..100.0;
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        output_limits,
+                        100.0,
                     );
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
@@ -623,12 +626,11 @@ impl<'a> ThermalControl<'a> {
                 } else if all_subcritical {
                     // Transition to the Running state and run a single
                     // iteration of the PID control loop.
-                    let mut pid = PidState::default();
-                    let output_limits = 0.0..100.0;
+                    let mut pid = OneSidedPidState::default();
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        output_limits,
+                        100.0,
                     );
                     self.state = ThermalControlState::Running {
                         values: *values,
