@@ -208,7 +208,7 @@ impl OneSidedPidState {
 
         // Only accumulate the integral term if the P term doesn't saturate the
         // controller, to prevent integral wind-up.
-        if p_contribution > output_limit || p_contribution < -output_limit {
+        if p_contribution < output_limit && p_contribution > -output_limit {
             // Pre-multiply by gain here, to make clamping easier
             self.integral += error * cfg.gain_i;
 
