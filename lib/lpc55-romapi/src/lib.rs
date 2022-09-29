@@ -383,6 +383,45 @@ struct FlashConfig {
     mode_config: FlashModeConfig,
 }
 
+fn get_system_clock_speed_mhz() -> u32 {
+    const CMPA_BOOT_CFG: u32 = 0x9e400;
+    const BOOT_SPEED_SHIFT: u32 = 7;
+    const BOOT_SPEED_MASK: u32 = 0b11;
+
+    // This is ...sort of documented in NXP APIs
+    const NMPA_SYSTEM_SPEED: u32 = 0x9fc08;
+    const SYSTEM_SPEED_SHIFT: u32 = 0;
+    const SYSTEM_SPEED_MASK: u32 = 0b11;
+
+    let cmpa_setting = unsafe {
+        (core::ptr::read_volatile(CMPA_BOOT_CFG as *const u32)
+            >> BOOT_SPEED_SHIFT)
+            & BOOT_SPEED_MASK
+    };
+
+    // All of this actually is documented by NXP across the mcux-sdk and
+    // spsdk repositories.
+    match cmpa_setting {
+        0b10 => 48,
+        0b01 => 96,
+        0b00 => {
+            let nmpa_setting = unsafe {
+                (core::ptr::read_volatile(NMPA_SYSTEM_SPEED as *const u32)
+                    >> SYSTEM_SPEED_SHIFT)
+                    & SYSTEM_SPEED_MASK
+            };
+            match nmpa_setting {
+                0b00 => 12,
+                0b01 => 24,
+                0b10 => 48,
+                0b11 => 96,
+                _ => panic!(),
+            }
+        }
+        _ => panic!(),
+    }
+}
+
 // Magic from the docs!
 const ERASE_KEY: u32 = 0x6b65666c;
 
@@ -507,7 +546,7 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
     //   XXX More validation of buffer?
     //   We expect the caller to have dropped the clocks appropriately
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     check_addr_len_alignment(addr, len)?;
 
@@ -535,7 +574,7 @@ pub unsafe fn flash_write(
     //   XXX More validation of buffer?
     //   XXX docs say we need to drop the clocks?
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     check_addr_len_alignment(addr, len)?;
 
@@ -563,7 +602,7 @@ pub unsafe fn flash_write(
  */
 pub fn validate_programmed(start: u32, len: u32) -> bool {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     let ret = handle_flash_status(unsafe {
         (bootloader_tree()
@@ -609,7 +648,7 @@ pub fn get_key_code(
     key_code: &mut [u32; 13],
 ) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -637,7 +676,7 @@ pub fn get_activation_code(
     ac: &mut [u32; ACTIVATION_CODE_SIZE / 4],
 ) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -663,7 +702,7 @@ pub fn get_activation_code(
 
 pub fn write_keystore(key_store: &mut FfrKeyStore) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -695,7 +734,7 @@ pub fn get_cmpa_data(
     assert!(len <= (data.len() as u32));
 
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
 
     handle_flash_status(unsafe {
         (bootloader_tree()
