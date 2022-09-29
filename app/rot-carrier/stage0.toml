@@ -9,7 +9,7 @@ external-images = ["a", "b"]
 name = "stage0"
 requires = {flash = 0x8000, ram = 16000}
 features = ["dice"]
-stacksize = 8256
+stacksize = 8768
 
 [tasks.idle]
 name = "task-idle"

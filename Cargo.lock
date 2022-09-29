@@ -707,6 +707,7 @@ name = "dice"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dice-mfg-msgs",
  "hkdf",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lpc55-pac",
@@ -718,6 +719,18 @@ dependencies = [
  "unwrap-lite",
  "zerocopy",
  "zeroize",
+]
+
+[[package]]
+name = "dice-mfg-msgs"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/dice-util?rev=20469753b650f43523b53df52efd17ef2e252807#20469753b650f43523b53df52efd17ef2e252807"
+dependencies = [
+ "corncobs",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde-big-array",
+ "zerocopy",
 ]
 
 [[package]]

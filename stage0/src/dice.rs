@@ -3,11 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::image_header::Image;
-use core::{convert::TryInto, str::FromStr};
-
+use core::convert::TryInto;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
-    CertSerialNumber, DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData,
+    CertSerialNumber, DeviceIdOkm, DeviceIdSelfMfg, DiceMfg, Handoff, RngData,
     RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder, SpMeasureData,
     SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
@@ -22,27 +21,29 @@ fn gen_deviceid_keypair(cdi: &Cdi) -> Keypair {
     Keypair::from(devid_okm.as_bytes())
 }
 
-// TODO: get the legit SN from somewhere
-// https://github.com/oxidecomputer/hubris/issues/734
-fn get_serial_number() -> SerialNumber {
-    SerialNumber::from_str("0123456789ab").expect("SerialNumber::from_str")
+struct SerialNumbers {
+    cert_serial_number: CertSerialNumber,
+    serial_number: SerialNumber,
 }
 
-fn gen_cert_artifacts(
-    cert_serial_number: &mut CertSerialNumber,
-    serial_number: &SerialNumber,
+fn gen_mfg_artifacts(
     deviceid_keypair: &Keypair,
     handoff: &Handoff,
-) {
-    let deviceid_cert = DeviceIdSelfCertBuilder::new(
-        &cert_serial_number.next(),
-        &serial_number,
-        &deviceid_keypair.public,
-    )
-    .sign(&deviceid_keypair);
+) -> SerialNumbers {
+    let mfg = DeviceIdSelfMfg::new(deviceid_keypair);
+    let mfg_state = mfg.run();
 
-    let cert_data = CertData::new(deviceid_cert);
+    // transfer certs to CertData for serialization
+    let cert_data =
+        CertData::new(mfg_state.deviceid_cert, mfg_state.intermediate_cert);
+
     handoff.store(&cert_data);
+
+    // transfer platform and cert serial number to structure & return
+    SerialNumbers {
+        cert_serial_number: mfg_state.cert_serial_number,
+        serial_number: mfg_state.serial_number,
+    }
 }
 
 fn gen_alias_artifacts(
@@ -139,11 +140,9 @@ pub fn run(image: &Image) {
         None => return,
     };
 
-    let dname_sn = get_serial_number();
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
-    let mut cert_sn = CertSerialNumber::default();
 
-    gen_cert_artifacts(&mut cert_sn, &dname_sn, &deviceid_keypair, &handoff);
+    let mut serial_numbers = gen_mfg_artifacts(&deviceid_keypair, &handoff);
 
     let fwid = gen_fwid(image);
 
@@ -152,8 +151,8 @@ pub fn run(image: &Image) {
 
     gen_alias_artifacts(
         &cdi_l1,
-        &mut cert_sn,
-        &dname_sn,
+        &mut serial_numbers.cert_serial_number,
+        &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
         &handoff,
@@ -161,8 +160,8 @@ pub fn run(image: &Image) {
 
     gen_spmeasure_artifacts(
         &cdi_l1,
-        &mut cert_sn,
-        &dname_sn,
+        &mut serial_numbers.cert_serial_number,
+        &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
         &handoff,

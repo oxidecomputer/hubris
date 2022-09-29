@@ -3,10 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    AliasCert, AliasOkm, DeviceIdSelfCert, RngSeed, SpMeasureCert,
-    SpMeasureOkm, TrustQuorumDheCert, TrustQuorumDheOkm,
+    AliasCert, AliasOkm, RngSeed, SpMeasureCert, SpMeasureOkm,
+    TrustQuorumDheCert, TrustQuorumDheOkm,
 };
 use core::ops::Range;
+use dice_mfg_msgs::SizedBlob;
 use hubpack::SerializedSize;
 use lpc55_pac::syscon::RegisterBlock;
 use serde::{Deserialize, Serialize};
@@ -128,7 +129,8 @@ pub unsafe trait HandoffData {
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct CertData {
     pub magic: [u8; 16],
-    pub deviceid_cert: DeviceIdSelfCert,
+    pub deviceid_cert: SizedBlob,
+    pub intermediate_cert: SizedBlob,
 }
 
 // Handoff DICE cert chain.
@@ -155,10 +157,11 @@ sa::const_assert!(
 );
 
 impl CertData {
-    pub fn new(deviceid_cert: DeviceIdSelfCert) -> Self {
+    pub fn new(deviceid_cert: SizedBlob, intermediate_cert: SizedBlob) -> Self {
         Self {
             magic: Self::EXPECTED_MAGIC,
             deviceid_cert,
+            intermediate_cert,
         }
     }
 }
