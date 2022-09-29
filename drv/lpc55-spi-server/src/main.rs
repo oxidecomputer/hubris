@@ -8,6 +8,7 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_gpio_api::Pin;
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
