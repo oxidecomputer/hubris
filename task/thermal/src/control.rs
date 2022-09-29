@@ -165,6 +165,9 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Most recent power mode mask
     power_mode: u32,
+
+    /// PID parameters, pulled from the BSP by default but user-modifiable
+    pid_config: PidConfig,
 }
 
 /// Represents a temperature reading at the time at which it was taken
@@ -178,6 +181,7 @@ enum TemperatureReading {
 }
 
 /// Configuration for a PID controller
+#[derive(Copy, Clone)]
 pub struct PidConfig {
     pub gain_p: f32,
     pub gain_i: f32,
@@ -316,6 +320,7 @@ impl<'a> ThermalControl<'a> {
             state: ThermalControlState::Boot {
                 values: [None; bsp::NUM_TEMPERATURE_INPUTS],
             },
+            pid_config: bsp.pid_config,
 
             overheat_hysteresis: Celsius(1.0),
             overheat_timeout_ms: 60_000,
@@ -324,14 +329,68 @@ impl<'a> ThermalControl<'a> {
         }
     }
 
-    /// Resets the control state
+    pub fn set_pid(
+        &mut self,
+        p: f32,
+        i: f32,
+        d: f32,
+    ) -> Result<(), ThermalError> {
+        if p <= 0.0 || p.is_nan() || p.is_infinite() {
+            return Err(ThermalError::InvalidParameter);
+        }
+        if i < 0.0 || i.is_nan() || i.is_infinite() {
+            return Err(ThermalError::InvalidParameter);
+        }
+        if d < 0.0 || d.is_nan() || d.is_infinite() {
+            return Err(ThermalError::InvalidParameter);
+        }
+
+        // Scale the accumulated integral so that its contribution to the
+        // controller remains the same, to avoid glitches in the output.
+        if let ThermalControlState::Running { pid, .. } = &mut self.state {
+            if i == 0.0 || self.pid_config.gain_i == 0.0 {
+                pid.integral = 0.0;
+            } else {
+                pid.integral *= self.pid_config.gain_i / i;
+            }
+        }
+
+        self.pid_config.gain_p = p;
+        self.pid_config.gain_i = i;
+        self.pid_config.gain_d = d;
+
+        Ok(())
+    }
+
+    pub fn set_margin(&mut self, margin: f32) -> Result<(), ThermalError> {
+        if margin < 0.0 || margin.is_nan() || margin.is_infinite() {
+            return Err(ThermalError::InvalidParameter);
+        }
+        self.target_margin = Celsius(margin);
+        Ok(())
+    }
+
+    pub fn get_margin(&mut self) -> f32 {
+        self.target_margin.0
+    }
+
+    /// Resets the control state and the PID configuration
     pub fn reset(&mut self) {
+        self.reset_state();
+
+        // Reset the PID configuration from the BSP
+        self.pid_config = self.bsp.pid_config;
+
+        // Set the target_margin to 0, indicating no overcooling
+        self.target_margin = Celsius(0.0f32);
+    }
+
+    /// Resets the control state
+    fn reset_state(&mut self) {
         self.state = ThermalControlState::Boot {
             values: [None; bsp::NUM_TEMPERATURE_INPUTS],
         };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
-        self.target_margin = Celsius(0.0f32);
-        // The fan speed will be applied on the next controller iteration
     }
 
     /// Reads all temperature and fan RPM sensors, posting their results
@@ -378,7 +437,7 @@ impl<'a> ThermalControl<'a> {
         self.power_mode = self.bsp.power_mode();
         if prev_power_mode != self.power_mode {
             ringbuf_entry!(Trace::PowerModeChanged(self.power_mode));
-            self.reset();
+            self.reset_state();
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
@@ -465,7 +524,7 @@ impl<'a> ThermalControl<'a> {
                     let mut pid = PidState::default();
                     let output_limits = 0.0..100.0;
                     let pwm = pid.run(
-                        &self.bsp.pid_config,
+                        &self.pid_config,
                         self.target_margin.0 - worst_margin,
                         output_limits,
                     );
@@ -528,7 +587,7 @@ impl<'a> ThermalControl<'a> {
                     // positive fan speed.
                     let output_limits = 0.0..100.0;
                     let pwm = pid.run(
-                        &self.bsp.pid_config,
+                        &self.pid_config,
                         self.target_margin.0 - worst_margin,
                         output_limits,
                     );
@@ -567,7 +626,7 @@ impl<'a> ThermalControl<'a> {
                     let mut pid = PidState::default();
                     let output_limits = 0.0..100.0;
                     let pwm = pid.run(
-                        &self.bsp.pid_config,
+                        &self.pid_config,
                         self.target_margin.0 - worst_margin,
                         output_limits,
                     );

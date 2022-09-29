@@ -19,6 +19,7 @@ pub enum ThermalError {
     NotInAutoMode = 5,
     AlreadyInAutoMode = 6,
     InvalidWatchdogTime = 7,
+    InvalidParameter = 8,
 }
 
 #[derive(

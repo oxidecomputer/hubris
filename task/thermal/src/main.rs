@@ -189,6 +189,42 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         };
         ServerImpl::set_watchdog(self, wd).map_err(Into::into)
     }
+
+    fn set_pid(
+        &mut self,
+        _: &RecvMessage,
+        p: f32,
+        i: f32,
+        d: f32,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control.set_pid(p, i, d)?;
+        Ok(())
+    }
+
+    fn set_margin(
+        &mut self,
+        _: &RecvMessage,
+        margin: f32,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control.set_margin(margin)?;
+        Ok(())
+    }
+
+    fn get_margin(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<f32, RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        Ok(self.control.get_margin())
+    }
 }
 
 impl<'a> NotificationHandler for ServerImpl<'a> {

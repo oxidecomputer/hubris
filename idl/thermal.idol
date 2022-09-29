@@ -58,5 +58,33 @@ Interface(
                 err: CLike("ThermalError"),
             ),
         ),
+        "set_pid": (
+            args: {
+                "p": "f32",
+                "i": "f32",
+                "d": "f32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "get_margin": (
+            doc: "Returns the current thermal margin, which is >= 0 and controls over-cooling",
+            reply: Result(
+                ok: "f32",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "set_margin": (
+            doc: "Sets the thermal margin, which must be >= 0 and controls over-cooling",
+            args: {
+                "margin": "f32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        )
     },
 )
