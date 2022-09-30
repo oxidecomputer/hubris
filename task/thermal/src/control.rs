@@ -206,22 +206,11 @@ impl OneSidedPidState {
     fn run(&mut self, cfg: &PidConfig, error: f32, output_limit: f32) -> f32 {
         let p_contribution = cfg.gain_p * error;
 
-        // Only accumulate the integral term if the P term doesn't saturate the
-        // controller, to prevent integral wind-up.
-        if p_contribution < output_limit && p_contribution > -output_limit {
-            // Pre-multiply by gain here, to make clamping easier
-            self.integral += error * cfg.gain_i;
+        // Pre-multiply accumulated integral by gain, to make clamping easier
+        // (this also means we can change the gain_i without glitches)
+        self.integral += error * cfg.gain_i;
 
-            // Clamp the accumulated integral to a fraction of the output limit
-            let integral_limit: f32 = output_limit * 0.3; // TODO parameterize
-            if self.integral > integral_limit {
-                self.integral = integral_limit;
-            } else if self.integral < -integral_limit {
-                self.integral = -integral_limit;
-            }
-        }
-        let i_contribution = self.integral;
-
+        // Calculate the derivative term if there was a previous error
         let d_contribution = if let Some(prev_error) = self.prev_error {
             (error - prev_error) * cfg.gain_d
         } else {
@@ -229,10 +218,30 @@ impl OneSidedPidState {
         };
         self.prev_error = Some(error);
 
-        let out = p_contribution + i_contribution + d_contribution;
+        // Calculate the P+D contribution separately, which is used to clamp the
+        // integral term.
+        let pd_contribution = p_contribution + d_contribution;
+        let out = pd_contribution + self.integral;
+
         if out > output_limit {
+            // Clamp the integral to the maximum value at which it can
+            // contribute to the output.  For example:
+            //
+            // pd_contribution = 100 => clamp i to < 0
+            // pd_contribution = 110 => clamp i to < 0
+            // pd_contribution = 80  => clamp i to < 20
+            let clamp = (output_limit - pd_contribution).max(0.0);
+            self.integral = self.integral.min(clamp);
+
             output_limit
         } else if out < 0.0 {
+            // Same idea as above, on the negative side.  For example:
+            //
+            // pd_contribution = 10  => clamp i to > -10
+            // pd_contribution = -10 => clamp i to > 0
+            let clamp = (-pd_contribution).min(0.0);
+            self.integral = self.integral.max(clamp);
+
             0.0
         } else {
             out
