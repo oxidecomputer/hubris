@@ -95,7 +95,7 @@ impl<'a> ServerImpl<'a> {
             self.control.reset();
             Ok(())
         } else {
-            Err(ThermalError::AlreadyInAutoMode.into())
+            Err(ThermalError::AlreadyInAutoMode)
         }
     }
 

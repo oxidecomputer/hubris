@@ -65,11 +65,11 @@ const POWER_STATE_A2: u32 = 0b001;
 const POWER_STATE_A0: u32 = 0b010;
 
 impl Bsp {
-    pub fn fan_control(&self, fan: crate::Fan) -> FanControl {
+    pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
         FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
     }
 
-    pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+    pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
         fctrl(self.fan_control(0.into()))
     }
 
