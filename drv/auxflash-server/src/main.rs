@@ -213,6 +213,14 @@ impl ServerImpl {
             // Read from the active slot
             self.qspi.read_memory(read_addr as u32, &mut buf[..amount]);
 
+            // If we're at the start of a sector, erase it before we start
+            // writing the copy.
+            if write_addr % SECTOR_SIZE_BYTES == 0 {
+                self.set_and_check_write_enable()?;
+                self.qspi.sector_erase(write_addr as u32);
+                self.poll_for_write_complete(Some(1));
+            }
+
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
             self.qspi.page_program(write_addr as u32, &buf[..amount]);

@@ -102,6 +102,10 @@ pins = [
 { pin = { port = 1, pin = 2}, alt = 6},
 # HS_SSEL1 = P1_1 = FUN5
 { pin = { port = 1, pin = 1}, alt = 5},
+# ROT_IRQ = P0_18 = FUN0
+{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, mode = "NoPull", direction = "output"},
+# SP_RESET = P0_9 = FUN0
+{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, mode = "NoPull", direction = "input"},
 ]
 
 [tasks.swd]
