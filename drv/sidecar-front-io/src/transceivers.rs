@@ -176,7 +176,7 @@ impl Transceivers {
         port: u8,
         buf: &mut [u8],
     ) -> Result<(), FpgaError> {
-        let fpga_idx: usize = if port < 16 as u8 { 0 } else { 1 };
+        let fpga_idx: usize = if port < 16 { 0 } else { 1 };
         self.fpgas[fpga_idx].read_bytes(Self::read_buffer_address(port), buf)
     }
 
