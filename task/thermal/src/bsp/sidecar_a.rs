@@ -28,6 +28,9 @@ pub const NUM_TEMPERATURE_INPUTS: usize =
     sensors::NUM_TMP451_TEMPERATURE_SENSORS;
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
+// We're not ready
+pub const USE_CONTROLLER: bool = false;
+
 #[allow(dead_code)]
 pub(crate) struct Bsp {
     pub inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],

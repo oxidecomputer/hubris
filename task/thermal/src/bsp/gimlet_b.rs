@@ -37,6 +37,9 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
+/// This controller is tuned and ready to go
+pub const USE_CONTROLLER: bool = true;
+
 pub(crate) struct Bsp {
     /// Controlled sensors
     pub inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
@@ -144,13 +147,13 @@ impl Bsp {
             fans,
             fctrl,
 
-            // TODO this is all made up
+            // Based on experimental tuning!
             pid_config: PidConfig {
                 // If we're > 10 degrees from the target temperature, fans
                 // should be on at full power.
                 gain_p: 10.0,
-                gain_i: 0.0,
-                gain_d: 0.0,
+                gain_i: 0.5,
+                gain_d: 10.0,
             },
 
             inputs: [

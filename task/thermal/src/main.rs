@@ -272,7 +272,11 @@ fn main() -> ! {
         control,
         deadline,
     };
-    server.set_mode_manual(PWMDuty(0)).unwrap();
+    if bsp::USE_CONTROLLER {
+        server.set_mode_auto().unwrap();
+    } else {
+        server.set_mode_manual(PWMDuty(0)).unwrap();
+    }
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
