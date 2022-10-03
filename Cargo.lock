@@ -3714,6 +3714,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
+ "ssmarshal",
  "task-sensor-api",
  "task-thermal-api",
  "userlib",
@@ -3727,6 +3729,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]
