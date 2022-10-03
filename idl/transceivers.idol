@@ -73,19 +73,20 @@ Interface(
             doc: "Get up to 128 bytes from the I2C read buffer for a given port number (0 to 31)",
             args: {
                 "port": "u8",
-                "num_bytes": "u8",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "[u8; 128]",
+                ok: "()",
                 err: CLike("TransceiversError"),
             ),
         ),
 
         "set_i2c_write_buffer": (
             doc: "Set up to 128 bytes in the I2C write buffer of all modules. Note that these will not be written without a call to setup_i2c_op.",
-            args: {
-                "num_bytes": "u8",
-                "buf": "[u8; 128]",
+            leases: {
+                "data": (type: "[u8]", read: true),
             },
             reply: Result(
                 ok: "()",

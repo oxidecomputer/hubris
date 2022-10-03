@@ -6,7 +6,10 @@
 #![no_main]
 
 use drv_sidecar_front_io::transceivers::Transceivers;
-use drv_transceivers_api::{ModulesStatus, TransceiversError};
+use drv_transceivers_api::{
+    ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
+};
+use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use userlib::task_slot;
 
 task_slot!(FRONT_IO, front_io);
@@ -90,25 +93,45 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         port: u8,
-        num_bytes: u8,
-    ) -> Result<[u8; 128], idol_runtime::RequestError<TransceiversError>> {
-        let mut buf: [u8; 128] = [0; 128];
+        dest: Leased<W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        if port >= NUM_PORTS {
+            return Err(TransceiversError::InvalidPortNumber.into());
+        }
+
+        if dest.len() > PAGE_SIZE_BYTES {
+            return Err(TransceiversError::InvalidNumberOfBytes.into());
+        }
+
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
+
         self.transceivers
-            .get_i2c_read_buffer(port, &mut buf[..(num_bytes as usize)])
+            .get_i2c_read_buffer(port, &mut buf[..dest.len()])
             .map_err(TransceiversError::from)?;
 
-        Ok(buf)
+        dest.write_range(0..dest.len(), &buf[..dest.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        Ok(())
     }
 
     fn set_i2c_write_buffer(
         &mut self,
         _msg: &userlib::RecvMessage,
-        num_bytes: u8,
-        buf: [u8; 128],
+        data: Leased<R, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        if data.len() > PAGE_SIZE_BYTES {
+            return Err(TransceiversError::InvalidNumberOfBytes.into());
+        }
+
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
+
+        data.read_range(0..data.len(), &mut buf[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
         Ok(self
             .transceivers
-            .set_i2c_write_buffer(&buf[..(num_bytes as usize)])
+            .set_i2c_write_buffer(&buf[..data.len()])
             .map_err(TransceiversError::from)?)
     }
 }

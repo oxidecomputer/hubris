@@ -8,7 +8,10 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+<<<<<<< HEAD
 // use serde::{Deserialize, Serialize};
+=======
+>>>>>>> 9a1d704c (WIP: switch to Leases)
 use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
@@ -50,6 +53,22 @@ impl From<[u32; 7]> for ModulesStatus {
     }
 }
 
+<<<<<<< HEAD
+=======
+/// Size in bytes of a page section we will read or write
+///
+/// QSFP module's internal memory map is 256 bytes, with the lower 128 being
+/// static and then the upper 128 are paged in. The internal address register
+/// is only 7 bits, so you can only access half in any single transaction and
+/// thus our communication mechanisms have been designed for that.
+/// See SFF-8636 and CMIS specifications for details.
+pub const PAGE_SIZE_BYTES: usize = 128;
+
+/// The only instantiation of Front IO board that exists is one with 32 QSFP
+/// ports.
+pub const NUM_PORTS: u8 = 32;
+
+>>>>>>> 9a1d704c (WIP: switch to Leases)
 ////////////////////////////////////////////////////////////////////////////////
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
