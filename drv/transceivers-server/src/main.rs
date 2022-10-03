@@ -75,6 +75,28 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             .map_err(TransceiversError::from)?)
     }
 
+    fn set_lpmode(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        Ok(self
+            .transceivers
+            .set_lpmode(mask)
+            .map_err(TransceiversError::from)?)
+    }
+
+    fn clear_lpmode(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        Ok(self
+            .transceivers
+            .clear_lpmode(mask)
+            .map_err(TransceiversError::from)?)
+    }
+
     fn setup_i2c_op(
         &mut self,
         _msg: &userlib::RecvMessage,

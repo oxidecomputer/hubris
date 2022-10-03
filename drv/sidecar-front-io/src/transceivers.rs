@@ -36,88 +36,46 @@ impl Transceivers {
         Ok(r)
     }
 
-    pub fn set_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
+    pub fn masked_op(
+        &self,
+        op: WriteOp,
+        mask: u32,
+        addr: Addr,
+    ) -> Result<(), FpgaError> {
         let m = mask.as_bytes();
 
         if (mask & 0xFFFF) > 0 {
-            self.fpgas[0].write(
-                WriteOp::BitSet,
-                Addr::QSFP_CTRL_EN_H,
-                [m[1], m[0]],
-            )?;
+            self.fpgas[0].write(op, addr, [m[1], m[0]])?;
         }
         if (mask & 0xFFFF0000) > 0 {
-            self.fpgas[1].write(
-                WriteOp::BitSet,
-                Addr::QSFP_CTRL_EN_H,
-                [m[3], m[2]],
-            )?;
+            self.fpgas[1].write(op, addr, [m[3], m[2]])?;
         }
 
         Ok(())
+    }
+
+    pub fn set_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
+        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_EN_H)
     }
 
     pub fn clear_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        let m = mask.as_bytes();
-
-        if (mask & 0xFFFF) > 0 {
-            self.fpgas[0].write(
-                WriteOp::BitClear,
-                Addr::QSFP_CTRL_EN_H,
-                [m[1], m[0]],
-            )?;
-        }
-        if (mask & 0xFFFF0000) > 0 {
-            self.fpgas[1].write(
-                WriteOp::BitClear,
-                Addr::QSFP_CTRL_EN_H,
-                [m[3], m[2]],
-            )?;
-        }
-
-        Ok(())
+        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_EN_H)
     }
 
     pub fn set_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        let m = mask.as_bytes();
-
-        if (mask & 0xFFFF) > 0 {
-            self.fpgas[0].write(
-                WriteOp::BitSet,
-                Addr::QSFP_CTRL_RESET_H,
-                [m[1], m[0]],
-            )?;
-        }
-        if (mask & 0xFFFF0000) > 0 {
-            self.fpgas[1].write(
-                WriteOp::BitSet,
-                Addr::QSFP_CTRL_RESET_H,
-                [m[3], m[2]],
-            )?;
-        }
-
-        Ok(())
+        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_RESET_H)
     }
 
     pub fn clear_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        let m = mask.as_bytes();
+        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_RESET_H)
+    }
 
-        if (mask & 0xFFFF) > 0 {
-            self.fpgas[0].write(
-                WriteOp::BitClear,
-                Addr::QSFP_CTRL_RESET_H,
-                [m[1], m[0]],
-            )?;
-        }
-        if (mask & 0xFFFF0000) > 0 {
-            self.fpgas[1].write(
-                WriteOp::BitClear,
-                Addr::QSFP_CTRL_RESET_H,
-                [m[3], m[2]],
-            )?;
-        }
+    pub fn set_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
+        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_LPMODE_H)
+    }
 
-        Ok(())
+    pub fn clear_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
+        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_LPMODE_H)
     }
 
     pub fn setup_i2c_op(
