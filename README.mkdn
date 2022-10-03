@@ -21,12 +21,18 @@ The repo is laid out as follows.
 
 - `build/` contains the build system and supporting crates.
 
+- `chip/` contains peripheral definitions and debugging support files for
+  individual microcontrollers.
+
 - `doc/` contains developer documentation.
 
 - `drv/` contains drivers, a mix of simple driver lib crates and fully-fledged
   server bin crates. Current convention is that `drv/SYSTEM-DEVICE` is the
   driver for `DEVICE` on `SYSTEM` (where `SYSTEM` is usually an SoC name),
   whereas `drv/SYSTEM-DEVICE-server` is the server bin crate.
+
+- `idl/` contains interface definitions written in
+  [Idol](https://github.com/oxidecomputer/idolatry)
 
 - `lib/` contains assorted utility libraries we've written. If you need to make
   a reusable crate that doesn't fit into one of the other directories, it
@@ -47,6 +53,9 @@ The repo is laid out as follows.
 
 - `test/` contains the test framework and binary crates for building it for
   various boards.
+
+- `website/` contains the source code for the
+  [hubris website](https://hubris.oxide.computer/)
 
 # Developing
 
