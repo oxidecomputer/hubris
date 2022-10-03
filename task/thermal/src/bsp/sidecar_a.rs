@@ -28,7 +28,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize =
     sensors::NUM_TMP451_TEMPERATURE_SENSORS;
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
-// We're not ready
+// The Sidecar controller hasn't been tuned yet, so boot into manual mode
 pub const USE_CONTROLLER: bool = false;
 
 #[allow(dead_code)]
