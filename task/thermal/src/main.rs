@@ -56,6 +56,7 @@ enum Trace {
     ControlPwm(u8),
     PowerModeChanged(u32),
     PowerDownFailed(SeqError),
+    ControlError(ThermalError),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -237,7 +238,15 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
         if now >= self.deadline {
             match self.mode {
                 ThermalMode::Auto => {
-                    self.control.run_control(now);
+                    // The thermal loop handles most failures, but will return
+                    // an error if it fails to set fan PWMs.  There's not much
+                    // we can do about it, so just log it.
+                    //
+                    // (if things actually overheat, `run_control` will cut
+                    //  power to the system)
+                    if let Err(e) = self.control.run_control(now) {
+                        ringbuf_entry!(Trace::ControlError(e));
+                    }
                 }
                 ThermalMode::Manual => {
                     // Read sensors and post them to the `sensors` task
