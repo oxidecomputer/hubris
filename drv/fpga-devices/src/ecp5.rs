@@ -234,11 +234,11 @@ impl<Driver: Ecp5Driver> Ecp5<Driver> {
 
     /// Send a command and read back a number of bytes given by the type T. Note
     /// that data is always returned in big endian order.
-    pub fn read<T: Default + AsBytes + FromBytes>(
+    pub fn read<T: AsBytes + FromBytes>(
         &self,
         c: Command,
     ) -> Result<T, Driver::Error> {
-        let mut buf = T::default();
+        let mut buf = T::new_zeroed();
 
         // Release of the lock happens implicit as we leave this function.
         let _lock = self.lock()?;

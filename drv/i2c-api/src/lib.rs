@@ -285,11 +285,11 @@ impl I2cDevice {
     ///
     /// On failure, a [`ResponseCode`] will indicate more detail.
     ///
-    pub fn read_reg<R: AsBytes, V: Default + AsBytes + FromBytes>(
+    pub fn read_reg<R: AsBytes, V: AsBytes + FromBytes>(
         &self,
         reg: R,
     ) -> Result<V, ResponseCode> {
-        let mut val = V::default();
+        let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -388,11 +388,9 @@ impl I2cDevice {
     /// (And indeed, on these devices, attempting to read a register will
     /// in fact overwrite the contents of the first two registers.)
     ///
-    pub fn read<V: Default + AsBytes + FromBytes>(
-        &self,
-    ) -> Result<V, ResponseCode> {
+    pub fn read<V: AsBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
         let empty = [0u8; 1];
-        let mut val = V::default();
+        let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
         let (code, _) = sys_send(

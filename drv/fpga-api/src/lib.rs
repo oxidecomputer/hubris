@@ -254,9 +254,9 @@ impl FpgaUserDesign {
 
     pub fn read<T>(&self, addr: impl Into<u16>) -> Result<T, FpgaError>
     where
-        T: AsBytes + Default + FromBytes,
+        T: AsBytes + FromBytes,
     {
-        let mut v = T::default();
+        let mut v = T::new_zeroed();
         self.server.user_design_read(
             self.device_index,
             addr.into(),

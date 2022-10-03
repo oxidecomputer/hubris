@@ -107,10 +107,7 @@ impl At24Csw080 {
     ///
     /// `addr` and `addr + sizeof(V)` must be below `EEPROM_SIZE`; otherwise
     /// this function will return an error.
-    pub fn read<V: Default + AsBytes + FromBytes>(
-        &self,
-        addr: u16,
-    ) -> Result<V, Error> {
+    pub fn read<V: AsBytes + FromBytes>(&self, addr: u16) -> Result<V, Error> {
         // Address validation
         if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
@@ -248,11 +245,7 @@ impl At24Csw080 {
     ///
     /// **Be careful** when using this value with integer literals:
     /// `write(addr, 0x01)` will write a 4-byte value!
-    pub fn write<V: Default + AsBytes + FromBytes>(
-        &self,
-        addr: u16,
-        val: V,
-    ) -> Result<(), Error> {
+    pub fn write<V: AsBytes>(&self, addr: u16, val: V) -> Result<(), Error> {
         self.write_buffer(addr, val.as_bytes())
     }
 
