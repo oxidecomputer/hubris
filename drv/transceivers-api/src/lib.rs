@@ -8,10 +8,6 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
-<<<<<<< HEAD
-// use serde::{Deserialize, Serialize};
-=======
->>>>>>> 9a1d704c (WIP: switch to Leases)
 use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
@@ -53,8 +49,6 @@ impl From<[u32; 7]> for ModulesStatus {
     }
 }
 
-<<<<<<< HEAD
-=======
 /// Size in bytes of a page section we will read or write
 ///
 /// QSFP module's internal memory map is 256 bytes, with the lower 128 being
@@ -68,7 +62,6 @@ pub const PAGE_SIZE_BYTES: usize = 128;
 /// ports.
 pub const NUM_PORTS: u8 = 32;
 
->>>>>>> 9a1d704c (WIP: switch to Leases)
 ////////////////////////////////////////////////////////////////////////////////
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
