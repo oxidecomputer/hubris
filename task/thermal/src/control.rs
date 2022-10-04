@@ -10,7 +10,8 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
 use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::{
-    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
+    nvme_bmc::NvmeBmc, sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451,
+    tse2004av::Tse2004Av,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
@@ -28,6 +29,7 @@ pub enum Device {
     Tmp451(Tmp451),
     CPU(Sbtsi),
     Dimm(Tse2004Av),
+    U2(NvmeBmc),
 }
 
 /// Represents a sensor and its associated `SensorId`, used when posting data
@@ -47,6 +49,7 @@ impl TemperatureSensor {
             Device::CPU(dev) => dev.read_temperature()?,
             Device::Tmp451(dev) => dev.read_temperature()?,
             Device::Dimm(dev) => dev.read_temperature()?,
+            Device::U2(dev) => dev.read_temperature()?,
         };
         Ok(t)
     }
