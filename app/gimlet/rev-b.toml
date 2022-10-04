@@ -497,7 +497,7 @@ removable = true
 bus = "front"
 mux = 1
 segment = 3
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 C NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_C"] }
@@ -528,7 +528,7 @@ removable = true
 bus = "front"
 mux = 1
 segment = 4
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 D NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_D"] }
@@ -559,7 +559,7 @@ removable = true
 bus = "front"
 mux = 2
 segment = 1
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 E NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_E"] }
@@ -590,7 +590,7 @@ removable = true
 bus = "front"
 mux = 2
 segment = 2
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 F NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_F"] }
@@ -621,7 +621,7 @@ removable = true
 bus = "front"
 mux = 2
 segment = 3
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 G NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_G"] }
@@ -652,7 +652,7 @@ removable = true
 bus = "front"
 mux = 2
 segment = 4
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 H NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_H"] }
@@ -683,7 +683,7 @@ removable = true
 bus = "front"
 mux = 3
 segment = 1
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 I NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_I"] }
@@ -714,7 +714,7 @@ removable = true
 bus = "front"
 mux = 3
 segment = 2
-address = 0b0111_000
+address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 J NVMe Basic Management Control"
 sensors = { temperature = 1, names = ["U2_J"] }
