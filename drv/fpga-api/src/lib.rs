@@ -257,7 +257,7 @@ impl FpgaUserDesign {
         T: AsBytes + FromBytes,
     {
         let mut v = T::new_zeroed();
-        self.read_bytes(addr.into(), v.as_bytes_mut())?;
+        self.read_bytes(addr, v.as_bytes_mut())?;
         Ok(v)
     }
 
@@ -279,7 +279,7 @@ impl FpgaUserDesign {
     where
         T: AsBytes + FromBytes,
     {
-        self.write_bytes(op, addr.into(), value.as_bytes())
+        self.write_bytes(op, addr, value.as_bytes())
     }
 
     pub fn write_bytes(
