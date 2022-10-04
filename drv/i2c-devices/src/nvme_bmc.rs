@@ -30,6 +30,7 @@ pub struct DriveStatus {
     temperature: u8,
     drive_life_used: u8,
     _reserved: [u8; 2],
+    pec: u8,
 }
 
 impl NvmeBmc {
@@ -41,6 +42,8 @@ impl NvmeBmc {
             .device
             .read_reg::<u8, DriveStatus>(0)
             .map_err(Error::I2cError)?;
+        // TODO: check PEC
+
         // Again, see Figure 112 in "NVM Express Management Interface",
         // revision 1.0a, April 8, 2017
         match v.temperature {
