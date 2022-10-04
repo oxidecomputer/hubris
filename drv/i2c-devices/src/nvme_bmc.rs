@@ -13,6 +13,7 @@ pub enum Error {
     NoData,
     SensorFailure,
     Reserved,
+    InvalidLength,
 }
 
 pub struct NvmeBmc {
@@ -42,6 +43,10 @@ impl NvmeBmc {
             .device
             .read_reg::<u8, DriveStatus>(0)
             .map_err(Error::I2cError)?;
+
+        if v.length != 6 {
+            return Err(Error::InvalidLength);
+        }
         // TODO: check PEC
 
         // Again, see Figure 112 in "NVM Express Management Interface",

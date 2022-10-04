@@ -74,6 +74,9 @@ pub enum SensorReadError {
     /// The returned value is listed as reserved in the datasheet and does not
     /// represent a temperature.
     ReservedValue,
+
+    /// The reply is structurally incorrect (wrong length, bad checksum, etc)
+    BadReply,
 }
 
 impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
@@ -120,6 +123,7 @@ impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
             NoData => Self::NoData,
             SensorFailure => Self::SensorFailure,
             Reserved => Self::ReservedValue,
+            InvalidLength => Self::BadReply,
         }
     }
 }
