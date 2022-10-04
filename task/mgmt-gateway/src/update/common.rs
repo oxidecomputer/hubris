@@ -45,6 +45,7 @@ impl<State> CurrentUpdate<State> {
     }
 
     #[inline(always)]
+    #[allow(dead_code)] // not used by all configurations
     pub(super) fn update_state<F>(&mut self, f: F)
     where
         F: FnOnce(State) -> State,

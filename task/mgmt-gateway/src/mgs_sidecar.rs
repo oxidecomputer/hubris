@@ -162,9 +162,8 @@ impl SpHandler for MgsHandler {
             slot: update.slot,
         }));
 
-        match update.component {
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
-        }
+        // We currently don't have any updateable components on sidecar.
+        Err(ResponseError::RequestUnsupportedForComponent)
     }
 
     fn update_status(
