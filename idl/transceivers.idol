@@ -1,0 +1,119 @@
+// Transceivers API
+
+Interface(
+    name: "Transceivers",
+    ops: {
+        "get_modules_status": (
+            doc: "Collect the status of each modules control and status signals",
+            reply: Result(
+                ok: "ModulesStatus",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_power_enable": (
+            doc: "Enable power for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "clear_power_enable": (
+            doc: "Disable power for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_reset": (
+            doc: "Enable reset for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "clear_reset": (
+            doc: "Disable reset for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_lpmode": (
+            doc: "Enable lpmode for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "clear_lpmode": (
+            doc: "Disable lpmode for modules whose bit is set in mask.",
+            args: {
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "setup_i2c_op": (
+            doc: "Setup an operation over I2C to all modules whose bit is set in the mask",
+            args: {
+                "is_read": "bool",
+                "reg": "u8",
+                "num_bytes": "u8",
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "get_i2c_read_buffer": (
+            doc: "Get up to 128 bytes from the I2C read buffer for a given port number (0 to 31)",
+            args: {
+                "port": "u8",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_i2c_write_buffer": (
+            doc: "Set up to 128 bytes in the I2C write buffer of all modules. Note that these will not be written without a call to setup_i2c_op.",
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+    }
+)
