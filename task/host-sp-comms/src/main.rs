@@ -267,6 +267,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::UartRx(byte));
 
                 if byte == 0x00 {
+                    // Host may send extra cobs terminators; skip any empty
+                    // packets.
+                    if self.rx_buf.is_empty() {
+                        continue;
+                    }
+
                     // Process message and populate our response into
                     // `tx_msg_buf`.
                     let msg_len = self.process_message();
