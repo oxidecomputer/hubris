@@ -51,7 +51,9 @@ pub enum AuxFlashError {
 #[repr(transparent)]
 pub struct AuxFlashId(pub [u8; 20]);
 
-#[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, zerocopy::FromBytes, zerocopy::AsBytes,
+)]
 #[repr(transparent)]
 pub struct AuxFlashChecksum(pub [u8; 32]);
 

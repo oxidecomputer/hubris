@@ -11,6 +11,7 @@ serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 static_assertions = "1.1"
 
+drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
@@ -36,3 +37,4 @@ vlan = ["task-net-api/vlan"]
 usart1 = []
 baud_rate_3M = []
 hardware_flow_control = []
+auxflash = ["drv-auxflash-api"]
