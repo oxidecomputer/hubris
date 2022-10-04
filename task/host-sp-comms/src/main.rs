@@ -33,6 +33,11 @@ task_slot!(GIMLET_SEQ, gimlet_seq);
 // fix this!
 const A2_REBOOT_DELAY: u64 = 5_000;
 
+// How frequently should we try to send 0x00 bytes to the host? This only
+// applies if our current tx_buf/rx_buf are empty (i.e., we don't have a real
+// response to send, and we haven't yet started to receive a request).
+const UART_ZERO_DELAY: u64 = 200;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
     None,
@@ -73,9 +78,7 @@ fn main() -> ! {
 
     loop {
         let mut mask = USART_IRQ | JEFE_STATE_CHANGE_IRQ;
-        if let Some(RebootState::TransitionToA0At(deadline)) =
-            server.reboot_state
-        {
+        if let Some(deadline) = server.timer_deadline() {
             sys_set_timer(Some(deadline), TIMER_IRQ);
             mask |= TIMER_IRQ;
         }
@@ -102,6 +105,7 @@ enum RebootState {
 
 struct ServerImpl {
     uart: Usart,
+    tx_zero_deadline: Option<u64>,
     tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
     tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
     tx_pkt_to_write: Range<usize>,
@@ -119,6 +123,7 @@ impl ServerImpl {
         };
         Self {
             uart: configure_uart_device(),
+            tx_zero_deadline: Some(sys_get_timer().now + UART_ZERO_DELAY),
             tx_msg_buf,
             tx_pkt_buf,
             tx_pkt_to_write: 0..0,
@@ -127,6 +132,24 @@ impl ServerImpl {
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             reboot_state: None,
         }
+    }
+
+    /// If we want to be woken by the system timer, returns `Some(deadline)`.
+    fn timer_deadline(&self) -> Option<u64> {
+        let reboot_deadline = match self.reboot_state {
+            Some(RebootState::TransitionToA0At(deadline)) => Some(deadline),
+            Some(RebootState::WaitingForA2) | None => None,
+        };
+
+        let all_deadlines = [self.tx_zero_deadline, reboot_deadline];
+
+        // Get the earliest deadline, or `None` if every element of
+        // `all_deadlines` is `None`.
+        all_deadlines
+            .iter()
+            .copied()
+            .filter_map(core::convert::identity) // unwraps non-None Options
+            .min()
     }
 
     /// Power off the host (i.e., transition to A2).
@@ -236,6 +259,10 @@ impl ServerImpl {
     }
 
     fn handle_usart_notification(&mut self) {
+        // Any time we take a uart interrupt, reset our timer to send out 0
+        // bytes periodically.
+        self.tx_zero_deadline = Some(sys_get_timer().now + UART_ZERO_DELAY);
+
         'tx: loop {
             // Do we have data to transmit? If so, write as much as we can until
             // either the fifo fills (in which case we return before trying to
@@ -304,6 +331,54 @@ impl ServerImpl {
             // We received everything we could out of the rx fifo and we have
             // nothing to send; we're done.
             return;
+        }
+    }
+
+    fn handle_timer_notification(&mut self) {
+        let now = sys_get_timer().now;
+
+        // If we're past the deadline for transitioning to A0, attempt to do so.
+        if let Some(RebootState::TransitionToA0At(deadline)) = self.reboot_state
+        {
+            if now >= deadline {
+                // The only way our reboot state gets set to
+                // `TransitionToA0At` is if we believe we were currently in
+                // A2. Attempt to transition to A0, which can only fail if
+                // we're no longer in A2. In either case (we successfully
+                // started the transition or we're no longer in A2 due to
+                // some external cause), we've done what we can to reboot,
+                // so clear out `reboot_state`.
+                ringbuf_entry!(Trace::SetState {
+                    now: sys_get_timer().now,
+                    state: PowerState::A0,
+                });
+                _ = self.sequencer.set_state(PowerState::A0);
+                self.reboot_state = None;
+            }
+        }
+
+        // If we're past the deadline to send a 0x00 byte on the uart, do so and
+        // reset the timer, unless we're currently mid-send or mid-recv.
+        if let Some(deadline) = self.tx_zero_deadline {
+            if now >= deadline {
+                if self.tx_pkt_to_write.is_empty() && self.rx_buf.is_empty() {
+                    // If we have room in the FIFO, send a 0 byte and then reset
+                    // our timer to wake back up. If we can't, turn on the TX
+                    // FIFO empty interrupt instead, and wait for it to wake us
+                    // up.
+                    if try_tx_push(&self.uart, 0) {
+                        self.tx_zero_deadline = Some(now + UART_ZERO_DELAY);
+                        self.uart.disable_tx_fifo_empty_interrupt();
+                    } else {
+                        self.tx_zero_deadline = None;
+                        self.uart.enable_tx_fifo_empty_interrupt();
+                    }
+                } else {
+                    // We're either sending or receiving a real packet; disable
+                    // our "sending 0s" timer until that finishes.
+                    self.tx_zero_deadline = None;
+                }
+            }
         }
     }
 
@@ -476,27 +551,7 @@ impl ServerImpl {
         }
 
         if bits & TIMER_IRQ != 0 {
-            // If we're past the deadline for transitioning to A0, attempt to do
-            // that.
-            if let Some(RebootState::TransitionToA0At(deadline)) =
-                self.reboot_state
-            {
-                if sys_get_timer().now >= deadline {
-                    // The only way our reboot state gets set to
-                    // `TransitionToA0At` is if we believe we were currently in
-                    // A2. Attempt to transition to A0, which can only fail if
-                    // we're no longer in A2. In either case (we successfully
-                    // started the transition or we're no longer in A2 due to
-                    // some external cause), we've done what we can to reboot,
-                    // so clear out `reboot_state`.
-                    ringbuf_entry!(Trace::SetState {
-                        now: sys_get_timer().now,
-                        state: PowerState::A0,
-                    });
-                    _ = self.sequencer.set_state(PowerState::A0);
-                    self.reboot_state = None;
-                }
-            }
+            self.handle_timer_notification();
         }
     }
 }
