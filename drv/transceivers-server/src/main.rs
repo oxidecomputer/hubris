@@ -35,10 +35,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .set_power_enable(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn clear_power_enable(
@@ -46,10 +46,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .clear_power_enable(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn set_reset(
@@ -57,10 +57,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .set_reset(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn clear_reset(
@@ -68,10 +68,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .clear_reset(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn set_lpmode(
@@ -79,10 +79,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .set_lpmode(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn clear_lpmode(
@@ -90,10 +90,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .clear_lpmode(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn setup_i2c_op(
@@ -104,10 +104,14 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         num_bytes: u8,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        if usize::from(num_bytes) > PAGE_SIZE_BYTES {
+            return Err(TransceiversError::InvalidNumberOfBytes.into());
+        }
+
+        self.transceivers
             .setup_i2c_op(is_read, reg, num_bytes, mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn get_i2c_read_buffer(
@@ -132,7 +136,6 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
 
         dest.write_range(0..dest.len(), &buf[..dest.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-
         Ok(())
     }
 
@@ -150,10 +153,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         data.read_range(0..data.len(), &mut buf[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        Ok(self
-            .transceivers
+        self.transceivers
             .set_i2c_write_buffer(&buf[..data.len()])
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 }
 
