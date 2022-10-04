@@ -15,15 +15,6 @@ pub enum Error {
     Reserved,
 }
 
-impl From<Error> for ResponseCode {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::I2cError(code) => code,
-            _ => todo!(),
-        }
-    }
-}
-
 pub struct NvmeBmc {
     device: I2cDevice,
 }
