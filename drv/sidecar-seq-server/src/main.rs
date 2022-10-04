@@ -20,7 +20,6 @@ use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
-use zerocopy::{BigEndian, U32};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);
@@ -38,6 +37,7 @@ mod tofino;
 enum Trace {
     None,
     FpgaInit,
+    FpgaInitComplete,
     FpgaBitstreamError(u32),
     LoadingFpgaBitstream,
     SkipLoadingBitstream,
@@ -393,6 +393,7 @@ fn main() -> ! {
     // more details.
     ringbuf_entry!(Trace::MainboardControllerVersion(ident.version.into()));
     ringbuf_entry!(Trace::MainboardControllerSha(ident.sha.into()));
+    ringbuf_entry!(Trace::FpgaInitComplete);
 
     // The sequencer for the clock generator currently does not have a feedback
     // mechanism/register we can read. Sleeping a short while seems to be
