@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Addr, Reg};
+use crate::Addr;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use zerocopy::{AsBytes, FromBytes, Unaligned};
+use drv_transceivers_api::ModulesStatus;
+use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 pub struct Transceivers {
     fpgas: [FpgaUserDesign; 2],
@@ -21,19 +22,18 @@ impl Transceivers {
         }
     }
 
-    pub fn get_modules_status(&self) -> Result<[u32; 7], FpgaError> {
-        let mut r: [u32; 7] = [0; 7];
-        let f0: [u8; 14] = self.fpgas[0].read(Addr::QSFP_CTRL_EN_H)?;
-        let f1: [u8; 14] = self.fpgas[1].read(Addr::QSFP_CTRL_EN_H)?;
+    pub fn get_modules_status(&self) -> Result<ModulesStatus, FpgaError> {
+        let f0: [U16<byteorder::BigEndian>; 7] =
+            self.fpgas[0].read(Addr::QSFP_CTRL_EN_H)?;
+        let f1: [U16<byteorder::BigEndian>; 7] =
+            self.fpgas[1].read(Addr::QSFP_CTRL_EN_H)?;
 
-        for i in 0..7 {
-            r[i] = ((f1[i * 2] as u32) << 24)
-                | ((f1[i * 2 + 1] as u32) << 16)
-                | ((f0[i * 2] as u32) << 8)
-                | (f0[i * 2 + 1] as u32);
+        let mut data: [u32; 7] = [0; 7];
+        for (data, (lo, hi)) in data.iter_mut().zip(f0.iter().zip(f1.iter())) {
+            *data = (lo.get() as u32) | ((hi.get() as u32) << 16);
         }
 
-        Ok(r)
+        Ok(ModulesStatus::read_from(data.as_bytes()).unwrap())
     }
 
     pub fn masked_op(
@@ -42,13 +42,16 @@ impl Transceivers {
         mask: u32,
         addr: Addr,
     ) -> Result<(), FpgaError> {
-        let m = mask.as_bytes();
+        let fpga0_mask = (mask & 0xFFFF) as u16;
+        let fpga1_mask = ((mask & 0xFFFF0000) >> 16) as u16;
 
-        if (mask & 0xFFFF) > 0 {
-            self.fpgas[0].write(op, addr, [m[1], m[0]])?;
+        if fpga0_mask != 0 {
+            let wdata: U16<byteorder::BigEndian> = U16::new(fpga0_mask);
+            self.fpgas[0].write(op, addr, wdata)?;
         }
-        if (mask & 0xFFFF0000) > 0 {
-            self.fpgas[1].write(op, addr, [m[3], m[2]])?;
+        if fpga1_mask != 0 {
+            let wdata: U16<byteorder::BigEndian> = U16::new(fpga1_mask);
+            self.fpgas[1].write(op, addr, wdata)?;
         }
 
         Ok(())
@@ -85,7 +88,8 @@ impl Transceivers {
         num_bytes: u8,
         mask: u32,
     ) -> Result<(), FpgaError> {
-        let m = mask.as_bytes();
+        let fpga0_mask = (mask & 0xFFFF) as u16;
+        let fpga1_mask = ((mask & 0xFFFF0000) >> 16) as u16;
 
         let i2c_op = if is_read {
             // Defaulting to RandomRead, rather than Read, because RandomRead
@@ -97,12 +101,12 @@ impl Transceivers {
             TransceiverI2COperation::Write
         };
 
-        if (mask & 0xFFFF) > 0 {
+        if fpga0_mask != 0 {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: [m[1], m[0]],
-                op: ((i2c_op as u8) << 1) | Reg::QSFP::I2C_CTRL::START,
+                mask: U16::new(fpga0_mask),
+                op: i2c_op as u8,
             };
 
             self.fpgas[0].write(
@@ -112,12 +116,12 @@ impl Transceivers {
             )?;
         }
 
-        if (mask & 0xFFFF0000) > 0 {
+        if fpga1_mask != 0 {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: [m[3], m[2]],
-                op: ((i2c_op as u8) << 1) | Reg::QSFP::I2C_CTRL::START,
+                mask: U16::new(fpga1_mask),
+                op: i2c_op as u8,
             };
             self.fpgas[1].write(
                 WriteOp::Write,
@@ -138,6 +142,11 @@ impl Transceivers {
         self.fpgas[fpga_idx].read_bytes(Self::read_buffer_address(port), buf)
     }
 
+    // Setting data in the write buffer does not require a port be specified.
+    // This is because in the FPGA implementation, the write buffer being
+    // written to simply pushes a copy of the data into each individual port's
+    // write buffer. This keeps us from needing to write to them all
+    // individually.
     pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> Result<(), FpgaError> {
         self.fpgas[0].write_bytes(
             WriteOp::Write,
@@ -171,18 +180,21 @@ impl Transceivers {
             13 => Addr::QSFP_PORT13_READ_BUFFER,
             14 => Addr::QSFP_PORT14_READ_BUFFER,
             15 => Addr::QSFP_PORT15_READ_BUFFER,
-            _ => Addr::QSFP_PORT0_READ_BUFFER,
+            _ => unreachable!(),
         }
     }
 }
 
+// The I2C control register looks like:
+// [2..1] - Operation (0 - Read, 1 - Write, 2 - RandomRead)
+// [0] - Start
 #[derive(AsBytes)]
 #[repr(u8)]
 pub enum TransceiverI2COperation {
-    Read = 0,
-    Write = 1,
+    Read = 0x01,
+    Write = 0x03,
     // Start a Write to set the reg addr, then Start again to do read at that addr
-    RandomRead = 2,
+    RandomRead = 0x05,
 }
 
 impl From<TransceiverI2COperation> for u8 {
@@ -196,6 +208,6 @@ impl From<TransceiverI2COperation> for u8 {
 pub struct TransceiversI2CRequest {
     reg: u8,
     num_bytes: u8,
-    mask: [u8; 2],
+    mask: U16<byteorder::BigEndian>,
     op: u8,
 }

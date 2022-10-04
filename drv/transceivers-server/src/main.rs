@@ -24,11 +24,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
     ) -> Result<ModulesStatus, idol_runtime::RequestError<TransceiversError>>
     {
-        Ok(ModulesStatus::from(
-            self.transceivers
-                .get_modules_status()
-                .map_err(TransceiversError::from)?,
-        ))
+        Ok(self
+            .transceivers
+            .get_modules_status()
+            .map_err(TransceiversError::from)?)
     }
 
     fn set_power_enable(

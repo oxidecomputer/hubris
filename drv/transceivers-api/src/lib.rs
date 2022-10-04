@@ -23,6 +23,8 @@ impl From<FpgaError> for TransceiversError {
     }
 }
 
+/// Each field is a bitmask of the 32 transceivers in big endian order, which
+/// results in Port 31 being bit 31, and so forth.
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
 #[repr(C)]
 pub struct ModulesStatus {
@@ -33,20 +35,6 @@ pub struct ModulesStatus {
     pub power_good_timeout: u32,
     pub present: u32,
     pub irq_rxlos: u32,
-}
-
-impl From<[u32; 7]> for ModulesStatus {
-    fn from(data: [u32; 7]) -> Self {
-        ModulesStatus {
-            enable: data[0],
-            reset: data[1],
-            lpmode_txdis: data[2],
-            power_good: data[3],
-            power_good_timeout: data[4],
-            present: data[5],
-            irq_rxlos: data[6],
-        }
-    }
 }
 
 /// Size in bytes of a page section we will read or write

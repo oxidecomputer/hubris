@@ -1196,6 +1196,7 @@ dependencies = [
  "build-util",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-transceivers-api",
  "gnarle",
  "num-traits",
  "ringbuf",
