@@ -10,12 +10,16 @@ use zerocopy::{AsBytes, FromBytes};
 pub enum Error {
     /// The low-level I2C communication returned an error
     I2cError(ResponseCode),
+    NoData,
+    SensorFailure,
+    Reserved,
 }
 
 impl From<Error> for ResponseCode {
     fn from(err: Error) -> Self {
         match err {
             Error::I2cError(code) => code,
+            _ => todo!(),
         }
     }
 }
@@ -24,9 +28,12 @@ pub struct NvmeBmc {
     device: I2cDevice,
 }
 
+/// See Figure 112: Subsystem Management Data Structure in
+/// "NVM Express Management Interface", revision 1.0a, April 8, 2017
 #[derive(Copy, Clone, Debug, FromBytes, AsBytes)]
 #[repr(C)]
-struct DriveStatus {
+pub struct DriveStatus {
+    length: u8,
     flags: u8,
     warnings: u8,
     temperature: u8,
@@ -43,6 +50,18 @@ impl NvmeBmc {
             .device
             .read_reg::<u8, DriveStatus>(0)
             .map_err(Error::I2cError)?;
-        todo!()
+        // Again, see Figure 112 in "NVM Express Management Interface",
+        // revision 1.0a, April 8, 2017
+        match v.temperature {
+            0..=0x7E => Ok(Celsius(v.temperature as f32)),
+            0x7F => Ok(Celsius(127.0)),
+            0xC4 => Ok(Celsius(-60.0)),
+            0x80 => Err(Error::NoData),
+            0x81 => Err(Error::SensorFailure),
+            0x82..=0xC3 => Err(Error::Reserved),
+
+            // Cast to i8, since this is a two's complement value
+            0xC5..=0xFF => Ok(Celsius((v.temperature as i8) as f32)),
+        }
     }
 }
