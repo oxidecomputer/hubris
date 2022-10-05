@@ -63,8 +63,8 @@ impl Hash {
         interrupt: u32,
     ) -> Self {
         Self {
-            reg: reg,
-            interrupt: interrupt,
+            reg,
+            interrupt,
             state: State::Uninitialized,
             count: 0,
             remainder: 0,

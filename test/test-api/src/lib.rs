@@ -7,7 +7,7 @@
 use userlib::*;
 
 /// Operations that are performed by the test-assist
-#[derive(FromPrimitive, Debug, PartialEq)]
+#[derive(FromPrimitive, Debug, Eq, PartialEq)]
 pub enum AssistOp {
     JustReply = 0,
     SendBack = 1,

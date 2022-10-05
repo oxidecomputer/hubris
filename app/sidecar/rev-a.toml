@@ -1,7 +1,7 @@
-name = "sidecar"
+name = "sidecar-a"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-1"
-chip = "../../chips/stm32h7-nonredundant"
+board = "sidecar-a"
+chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
 
@@ -124,9 +124,9 @@ priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "system_flash"]
+uses = ["eth", "eth_dma", "system_flash", "tim16"]
 start = true
-interrupts = {"eth.irq" = 0b1}
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys",
               { spi_driver = "spi3_driver" },
               { seq = "sequencer" }]
@@ -140,7 +140,7 @@ start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys"]
+task-slots = ["jefe", "net", "update_server", "sys", "sequencer"]
 features = ["sidecar", "vlan"]
 
 [tasks.udpecho]
@@ -239,11 +239,12 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-sidecar-seq-server"
 features = []
 priority = 4
-stacksize = 1024
+stacksize = 4096
 start = true
 task-slots = [
     "sys",
     "i2c_driver",
+    "auxflash",
     {mainboard = "ecp5_mainboard"},
     {front_io = "ecp5_front_io"}]
 
@@ -785,6 +786,10 @@ owner = {name = "mgmt_gateway", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.auxflash]
+memory-size = 16_777_216 # 16 MiB
+slot-count = 8
 
 [[auxflash.blobs]]
 file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller.bit"

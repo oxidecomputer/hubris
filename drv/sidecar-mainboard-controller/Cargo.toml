@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-drv-fpga-api = {path = "../../drv/fpga-api"}
+drv-auxflash-api = {path = "../../drv/auxflash-api"}
+drv-fpga-api = {path = "../../drv/fpga-api", features = ["auxflash"]}
 userlib = {path = "../../sys/userlib"}
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"

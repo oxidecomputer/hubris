@@ -364,6 +364,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "corncobs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
+
+[[package]]
 name = "cortex-m"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -697,6 +703,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "sha3",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
  "zeroize",
@@ -726,9 +733,14 @@ dependencies = [
 name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "derive-idol-err",
+ "drv-qspi-api",
  "idol",
  "num-traits",
+ "serde",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -737,15 +749,13 @@ dependencies = [
 name = "drv-auxflash-server"
 version = "0.1.0"
 dependencies = [
- "build-util",
+ "cfg-if",
  "drv-auxflash-api",
- "drv-qspi-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
- "sha3",
  "stm32h7",
  "tlvc",
  "userlib",
@@ -771,10 +781,13 @@ dependencies = [
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [
+ "drv-auxflash-api",
  "drv-spi-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -1126,6 +1139,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mock-gimlet-seq-server"
+version = "0.1.0"
+dependencies = [
+ "drv-gimlet-seq-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "task-jefe-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
@@ -1168,11 +1194,11 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",
  "ringbuf",
- "sha2",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
@@ -1185,6 +1211,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",
@@ -1641,6 +1668,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fletcher"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78b6ad5124f2e4d1ba8048f0366d3b5e7b3ff8ef55fb1f9d1b167c8e67181070"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1655,7 +1688,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=e6eccffb236d0c242b5f90d30d01daa47aa9d89f#e6eccffb236d0c242b5f90d30d01daa47aa9d89f"
+source = "git+https://github.com/oxidecomputer/omicron?rev=7e5d68e0094bcf40f55e7640b2a8a56e4f743409#7e5d68e0094bcf40f55e7640b2a8a56e4f743409"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -1664,6 +1697,7 @@ dependencies = [
  "serde_repr",
  "smoltcp",
  "static_assertions",
+ "uuid",
 ]
 
 [[package]]
@@ -1883,6 +1917,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "host-sp-messages"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "fletcher",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "serde",
+ "serde_repr",
+ "unwrap-lite",
+]
+
+[[package]]
 name = "hubpack"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1902,6 +1948,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubpack"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
+dependencies = [
+ "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "serde",
+]
+
+[[package]]
 name = "hubpack_derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1916,6 +1971,16 @@ dependencies = [
 name = "hubpack_derive"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "hubpack_derive"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1948,7 +2013,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#7350b8acf81e56fec8994326f64b2b544c4cb9e3"
+source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
 dependencies = [
  "indexmap",
  "quote",
@@ -1960,7 +2025,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#7350b8acf81e56fec8994326f64b2b544c4cb9e3"
+source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2080,9 +2145,9 @@ dependencies = [
 
 [[package]]
 name = "lpc55-pac"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee47591d506a22d56bc591abb955176b1ad3c22122c2395a69e426ea76e25ab"
+checksum = "cf1b5b32d313af526145882f5115a55177f479e9328ca667a84aaaa1ae6d65d3"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -2578,7 +2643,7 @@ dependencies = [
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#1907e4470c84f7dfd86e8ca9a910f97ce548076e"
+source = "git+https://github.com/oxidecomputer/pmbus#9f5d86bfd04cbb6d7a7fcb38e00071c8b643f6f3"
 dependencies = [
  "anyhow",
  "convert_case 0.3.2",
@@ -3376,6 +3441,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-host-sp-comms"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "corncobs",
+ "cortex-m",
+ "drv-gimlet-seq-api",
+ "drv-stm32h7-usart",
+ "heapless",
+ "host-sp-messages",
+ "mutable-statics",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
@@ -3424,6 +3506,8 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "drv-gimlet-hf-api",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
  "drv-update-api",
@@ -4093,6 +4177,12 @@ dependencies = [
  "unwrap-lite",
  "zerocopy",
 ]
+
+[[package]]
+name = "uuid"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
 
 [[package]]
 name = "vcell"

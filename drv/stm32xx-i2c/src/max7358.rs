@@ -12,7 +12,7 @@ use userlib::*;
 
 pub struct Max7358;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 enum Register {
     SwitchControl = 0x00,
     Configuration = 0x01,
@@ -36,7 +36,7 @@ impl From<Register> for u8 {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct SwitchControl(u8);
     channel7_selected, set_channel7_selected: 7;
     channel6_selected, set_channel6_selected: 6;
@@ -49,7 +49,7 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Eq, PartialEq)]
     pub struct Configuration(u8);
     preconnect_test_enabled, set_preconnect_test_enabled: 7;
     basic_mode_enabled, set_basic_mode_enabled: 6;
@@ -61,7 +61,7 @@ bitfield! {
     interrupt_enabled, set_interrupt_enabled: 0;
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     Read(Register, u8),
     Write(Register, u8),
@@ -71,8 +71,8 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 fn read_regs(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     rbuf: &mut [u8],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
@@ -99,8 +99,8 @@ fn read_regs(
 }
 
 fn write_reg(
-    mux: &I2cMux,
-    controller: &I2cController,
+    mux: &I2cMux<'_>,
+    controller: &I2cController<'_>,
     reg: Register,
     val: u8,
     ctrl: &I2cControl,
@@ -139,8 +139,8 @@ fn write_reg(
 impl I2cMuxDriver for Max7358 {
     fn configure(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
@@ -193,8 +193,8 @@ impl I2cMuxDriver for Max7358 {
 
     fn enable_segment(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
@@ -234,7 +234,7 @@ impl I2cMuxDriver for Max7358 {
 
     fn reset(
         &self,
-        mux: &I2cMux,
+        mux: &I2cMux<'_>,
         gpio: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.reset(gpio)

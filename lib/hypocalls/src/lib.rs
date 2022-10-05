@@ -57,13 +57,17 @@ pub struct SecureTable {
 }
 
 impl SecureTable {
-    pub fn write_to_flash(
+    pub unsafe fn write_to_flash(
         &self,
         img: UpdateTarget,
         block_num: u32,
         buf: *mut u8,
     ) -> HypoStatus {
-        // SAFETY: The table of applicable secure function calls is updated
+        // SAFETY
+        // This entire function gets marked as unsafe because it takes a
+        // raw pointer (necessary for TrustZone ABI reasons)
+        //
+        // The table of applicable secure function calls is updated
         // at build time. The compiler doesn't know this and wants to
         // optimize this function based on the initial state which isn't
         // what we want.
@@ -71,14 +75,12 @@ impl SecureTable {
         // We're doing a volatile read of the magic and comparing it to
         // what we expect. If it is what we expect, we can assume the
         // function table is what we generated at build time.
-        unsafe {
-            let magic = core::ptr::read_volatile(&self.magic);
-            if magic != TABLE_MAGIC {
-                panic!();
-            }
-            if let Some(func) = core::ptr::read_volatile(&self.write_to_flash) {
-                return func(img, block_num, buf);
-            }
+        let magic = core::ptr::read_volatile(&self.magic);
+        if magic != TABLE_MAGIC {
+            panic!();
+        }
+        if let Some(func) = core::ptr::read_volatile(&self.write_to_flash) {
+            return func(img, block_num, buf);
         }
         unreachable!()
     }

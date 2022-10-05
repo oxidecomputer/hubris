@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 embedded-hal = "0.2"
-lpc55-pac = "0.3.0"
+lpc55-pac = "0.4"
 nb = "1"
 unwrap-lite = { path = "../../lib/unwrap-lite" }

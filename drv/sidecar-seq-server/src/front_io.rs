@@ -4,10 +4,7 @@
 
 use crate::*;
 use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
-use drv_sidecar_front_io::{
-    controller::FrontIOController, phy_smi::PhySmi,
-    SIDECAR_IO_BITSTREAM_CHECKSUM,
-};
+use drv_sidecar_front_io::{controller::FrontIOController, phy_smi::PhySmi};
 
 #[allow(dead_code)]
 pub(crate) struct FrontIOBoard {
@@ -15,10 +12,15 @@ pub(crate) struct FrontIOBoard {
     pub controllers: [FrontIOController; 2],
     pub state_reset: bool,
     fpga_task: userlib::TaskId,
+    auxflash_task: userlib::TaskId,
 }
 
 impl FrontIOBoard {
-    pub fn new(fpga_task: userlib::TaskId, i2c_task: userlib::TaskId) -> Self {
+    pub fn new(
+        fpga_task: userlib::TaskId,
+        i2c_task: userlib::TaskId,
+        auxflash_task: userlib::TaskId,
+    ) -> Self {
         Self {
             fruid: i2c_config::devices::at24csw080_front_io(i2c_task)[0],
             controllers: [
@@ -27,6 +29,7 @@ impl FrontIOBoard {
             ],
             state_reset: false,
             fpga_task,
+            auxflash_task,
         }
     }
 
@@ -59,7 +62,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                    expected: FrontIOController::short_checksum(),
                 });
 
                 if !ident_valid || !checksum_valid {
@@ -78,7 +81,7 @@ impl FrontIOBoard {
                     fpga_id: i
                 });
 
-                if let Err(e) = controller.load_bitstream() {
+                if let Err(e) = controller.load_bitstream(self.auxflash_task) {
                     ringbuf_entry!(Trace::FpgaBitstreamError(
                         u32::try_from(e).unwrap()
                     ));
@@ -96,7 +99,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                    expected: FrontIOController::short_checksum(),
                 });
             }
 

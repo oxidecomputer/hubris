@@ -37,7 +37,7 @@ pub struct PortCounters {
 
 /// Error-code-only version of [VscError], for use in RPC calls
 #[derive(
-    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, IdolError,
+    Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, ToPrimitive, IdolError,
 )]
 #[repr(C)]
 pub enum MonorailError {

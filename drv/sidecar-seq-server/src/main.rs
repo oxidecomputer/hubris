@@ -24,6 +24,7 @@ use userlib::*;
 task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
+task_slot!(AUXFLASH, auxflash);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -71,8 +72,8 @@ enum Trace {
     },
     FrontIOControllerChecksum {
         fpga_id: usize,
-        checksum: u32,
-        expected: u32,
+        checksum: [u8; 4],
+        expected: [u8; 4],
     },
     FrontIOVsc8562Ready,
 }
@@ -280,8 +281,11 @@ fn main() -> ! {
         MainboardController::new(MAINBOARD.get_task_id());
     let clock_generator = ClockGenerator::new(I2C.get_task_id());
     let tofino = Tofino::new(I2C.get_task_id());
-    let front_io_board =
-        FrontIOBoard::new(FRONT_IO.get_task_id(), I2C.get_task_id());
+    let front_io_board = FrontIOBoard::new(
+        FRONT_IO.get_task_id(),
+        I2C.get_task_id(),
+        AUXFLASH.get_task_id(),
+    );
 
     let mut server = ServerImpl {
         mainboard_controller,
@@ -300,9 +304,25 @@ fn main() -> ! {
         DeviceState::AwaitingBitstream => {
             ringbuf_entry!(Trace::LoadingFpgaBitstream);
 
-            if let Err(e) = server.mainboard_controller.load_bitstream() {
+            if let Err(e) = server
+                .mainboard_controller
+                .load_bitstream(AUXFLASH.get_task_id())
+            {
                 let code = u32::try_from(e).unwrap();
                 ringbuf_entry!(Trace::FpgaBitstreamError(code));
+
+                // If this is an auxflash error indicating that we can't find
+                // the target blob, then it's possible that data isn't present
+                // (i.e. this is an initial boot at the factory). To prevent
+                // this task from spinning too hard, we add a brief delay before
+                // resetting.
+                //
+                // Note that other auxflash errors (e.g. a failed read) will
+                // reset immediately, matching existing behavior on a failed
+                // FPGA reset.
+                if matches!(e, FpgaError::AuxMissingBlob) {
+                    userlib::hl::sleep_for(100);
+                }
                 panic!();
             }
         }

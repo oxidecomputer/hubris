@@ -29,7 +29,7 @@ pub enum Ksz8463ResetSpeed {
     Normal,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
@@ -174,7 +174,7 @@ impl Bsp {
         eth: &Ethernet,
     ) -> Result<u16, PhyError> {
         if port >= 2 {
-            Err(PhyError::InvalidPort.into())
+            Err(PhyError::InvalidPort)
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
@@ -194,7 +194,7 @@ impl Bsp {
         eth: &Ethernet,
     ) -> Result<(), PhyError> {
         if port >= 2 {
-            Err(PhyError::InvalidPort.into())
+            Err(PhyError::InvalidPort)
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
@@ -302,7 +302,7 @@ impl Bsp {
             Ok((tx, rx)) => Ok((decode_counter(tx), decode_counter(rx))),
             Err(err) => {
                 ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                return Err(MgmtError::VscError);
+                Err(MgmtError::VscError)
             }
         };
         let rw = &mut MiimBridge::new(eth);

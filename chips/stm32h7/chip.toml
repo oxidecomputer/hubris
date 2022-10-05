@@ -136,6 +136,11 @@ address = 0x52002000
 size = 0x2000
 interrupts = { irq = 4 }
 
+[tim16]
+address = 0x40014400
+size = 0x400
+interrupts = { irq = 117 }
+
 [bank2]
 address = 0x08100000
 size = 0x00100000

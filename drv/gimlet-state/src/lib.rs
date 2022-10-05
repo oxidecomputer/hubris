@@ -10,7 +10,7 @@
 use userlib::FromPrimitive;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes)]
 #[repr(u8)]
 pub enum PowerState {
     A2 = 1,

@@ -13,11 +13,11 @@ use core::convert::TryFrom;
 pub struct Celsius(pub f32);
 
 /// Rotations per minute
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Debug)]
 pub struct Rpm(pub u16);
 
 /// PWM duty cycle (0-100)
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct PWMDuty(pub u8);
 

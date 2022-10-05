@@ -38,7 +38,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 use i2c_config::sensors;
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),
@@ -207,7 +207,7 @@ macro_rules! max5970_controller {
             PowerController {
                 state: PowerState::$state,
                 device: Device::$which({
-                    let (device, rail) = i2c_config::pmbus::$rail($task);
+                    let (device, rail) = i2c_config::power::$rail($task);
                     Max5970::new(&device, rail, $rsense)
                 }),
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
@@ -241,7 +241,7 @@ fn controllers() -> [PowerController; 13] {
 }
 
 #[cfg(target_board = "gimlet-b")]
-fn controllers() -> [PowerController; 19] {
+fn controllers() -> [PowerController; 37] {
     let task = I2C.get_task_id();
 
     [
@@ -261,9 +261,27 @@ fn controllers() -> [PowerController; 19] {
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
         max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
-        max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
-        max5970_controller!(task, HotSwapIO, v12_u2_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
+        max5970_controller!(task, HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
     ]
 }
 
@@ -290,7 +308,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(target_board = "sidecar-1")]
+#[cfg(target_board = "sidecar-a")]
 fn controllers() -> [PowerController; 15] {
     let task = I2C.get_task_id();
 
@@ -313,7 +331,7 @@ fn controllers() -> [PowerController; 15] {
     ]
 }
 
-#[cfg(target_board = "sidecar-1")]
+#[cfg(target_board = "sidecar-a")]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
 

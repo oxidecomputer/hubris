@@ -28,11 +28,7 @@ pub fn get_section_by_vma<'a>(
     elf: &'a goblin::elf::Elf,
     addr: u64,
 ) -> Option<&'a goblin::elf::SectionHeader> {
-    for section in &elf.section_headers {
-        if addr >= section.sh_addr && addr < (section.sh_addr + section.sh_size)
-        {
-            return Some(section);
-        }
-    }
-    None
+    elf.section_headers.iter().find(|&section| {
+        addr >= section.sh_addr && addr < (section.sh_addr + section.sh_size)
+    })
 }

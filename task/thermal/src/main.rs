@@ -32,7 +32,7 @@ use userlib::*;
 // We define our own Fan type, as we may have more fans than any single
 // controller supports.
 //
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
 impl From<usize> for Fan {
@@ -46,7 +46,7 @@ use task_sensor_api::Sensor as SensorApi;
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Start,
@@ -142,9 +142,7 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl<B>)
-            .set_mode_manual(initial_pwm)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_mode_manual(self, initial_pwm).map_err(Into::into)
     }
 
     fn set_mode_auto(
@@ -155,17 +153,14 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl<B>)
-            .set_mode_auto(initial_pwm)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_mode_auto(self, initial_pwm).map_err(Into::into)
     }
 
     fn disable_watchdog(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<ThermalError>> {
-        (self as &mut ServerImpl<B>)
-            .set_watchdog(I2cWatchdog::Disabled)
+        ServerImpl::<B>::set_watchdog(self, I2cWatchdog::Disabled)
             .map_err(Into::into)
     }
 
@@ -180,9 +175,7 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
             30 => I2cWatchdog::ThirtySeconds,
             _ => return Err(ThermalError::InvalidWatchdogTime.into()),
         };
-        (self as &mut ServerImpl<B>)
-            .set_watchdog(wd)
-            .map_err(Into::into)
+        ServerImpl::<B>::set_watchdog(self, wd).map_err(Into::into)
     }
 }
 
@@ -224,8 +217,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Start);
 
-    let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, sensor_api);
+    let bsp = Bsp::new(i2c_task);
+    let control = ThermalControl::new(&bsp, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;

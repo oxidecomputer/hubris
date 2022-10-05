@@ -194,13 +194,16 @@ pub struct SecureData {
     nsc: Range<u32>,
 }
 
+/// Represents allocations and free spaces for a particular image
+type AllocationMap = (Allocations, IndexMap<String, Range<u32>>);
+
 pub fn package(
     verbose: bool,
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
     dirty_ok: bool,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
+) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -270,7 +273,7 @@ pub fn package(
         std::fs::create_dir_all(&cfg.img_dir(image_name))?;
         let (allocs, memories) = allocated
             .get(image_name)
-            .ok_or(anyhow!("failed to get imag name"))?;
+            .ok_or_else(|| anyhow!("failed to get image name"))?;
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
@@ -283,7 +286,7 @@ pub fn package(
                     // Link tasks regardless of whether they have changed, because
                     // we don't want to track changes in the other linker input
                     // (task-link.x, memory.x, table.ld, etc)
-                    link_task(&cfg, name, image_name, &allocs)?;
+                    link_task(&cfg, name, image_name, allocs)?;
                     task_entry_point(
                         &cfg,
                         name,
@@ -299,13 +302,13 @@ pub fn package(
             .collect::<Result<_, _>>()?;
 
         let s =
-            secure_update(&cfg, &allocs, &mut all_output_sections, image_name)?;
+            secure_update(&cfg, allocs, &mut all_output_sections, image_name)?;
 
         // Build the kernel!
         let kern_build = if tasks_to_build.contains("kernel") {
             Some(build_kernel(
                 &cfg,
-                &allocs,
+                allocs,
                 &mut all_output_sections,
                 &cfg.toml.memories(image_name)?,
                 &entry_points,
@@ -323,7 +326,7 @@ pub fn package(
         }
 
         // Print stats on memory usage
-        let starting_memories = cfg.toml.memories(&image_name)?;
+        let starting_memories = cfg.toml.memories(image_name)?;
         for (name, range) in &starting_memories {
             println!(
                 "{:<5} = {:#010x}..{:#010x}",
@@ -379,7 +382,7 @@ pub fn package(
                 cfg.toml
                     .memories(image_name)?
                     .get(&"flash".to_string())
-                    .ok_or(anyhow!("failed to get flash region"))?
+                    .ok_or_else(|| anyhow!("failed to get flash region"))?
                     .start,
                 kentry,
                 &cfg.img_file("final.srec", image_name),
@@ -513,8 +516,7 @@ fn secure_update(
             .toml
             .tasks
             .iter()
-            .find(|(_, task)| task.uses_secure_entry)
-            .is_some()
+            .any(|(_, task)| task.uses_secure_entry)
         {
             bail!("task is using secure entry but no secure task is found!");
         }
@@ -567,7 +569,7 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         // Even on Windows, GDB expects path components to be separated by '/',
         // so we tweak the path here so that remapping works.
         if cfg!(windows) {
-            path_str = path_str.replace("\\", "/");
+            path_str = path_str.replace('\\', "/");
         }
         writeln!(gdb_script, "set substitute-path {} {}", remap, path_str)?;
     }
@@ -649,9 +651,9 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
 
     if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
         let file = cfg.dist_file("auxi.tlvc");
-        std::fs::write(&file, &auxflash.1)
+        std::fs::write(&file, &auxflash.data)
             .context(format!("Failed to write auxi to {:?}", file))?;
-        archive.copy(&file, img_dir.join("auxi.tlvc"))?;
+        archive.copy(cfg.dist_file("auxi.tlvc"), img_dir.join("auxi.tlvc"))?;
     }
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
@@ -746,7 +748,7 @@ struct LoadSegment {
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
     // Use relocatable linker script for this build
     fs::copy("build/task-rlink.x", "target/link.x")?;
-    if cfg.toml.need_tz_linker(&name) {
+    if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
         File::create(Path::new("target/trustzone.x"))?;
@@ -781,7 +783,7 @@ fn link_task(
     )
     .context(format!("failed to generate linker script for {}", name))?;
     fs::copy("build/task-link.x", "target/link.x")?;
-    if cfg.toml.need_tz_linker(&name) {
+    if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
         File::create(Path::new("target/trustzone.x"))?;
@@ -817,7 +819,7 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     )
     .context(format!("failed to generate linker script for {}", name))?;
     fs::copy("build/task-tlink.x", "target/link.x")?;
-    if cfg.toml.need_tz_linker(&name) {
+    if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
         File::create(Path::new("target/trustzone.x"))?;
@@ -983,10 +985,9 @@ fn update_image_header(
                 for (addr, sec) in all_output_sections {
                     if (*addr as u32) > flash.start
                         && (*addr as u32) < flash.end
+                        && (*addr as u32) > end
                     {
-                        if (*addr as u32) > end {
-                            end = addr + (sec.data.len() as u32);
-                        }
+                        end = addr + (sec.data.len() as u32);
                     }
                 }
 
@@ -1507,7 +1508,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
+) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1526,7 +1527,7 @@ pub fn allocate_all(
 
     for image_name in &toml.image_names {
         let mut allocs = Allocations::default();
-        let mut free = toml.memories(&image_name)?;
+        let mut free = toml.memories(image_name)?;
         let kernel_requests = &kernel.requires;
 
         let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =

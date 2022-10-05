@@ -61,7 +61,7 @@ pub fn run(
 
             let (allocs, _) = allocated
                 .get(&toml.image_names[0])
-                .ok_or(anyhow::anyhow!("Failed to get image name"))?;
+                .ok_or_else(|| anyhow::anyhow!("Failed to get image name"))?;
 
             // Pick dummy entry points for each task
             let entry_points = allocs
@@ -101,6 +101,8 @@ pub fn run(
         cmd.arg("clippy::identity_op");
         cmd.arg("-A");
         cmd.arg("clippy::too_many_arguments");
+        cmd.arg("-W");
+        cmd.arg("elided_lifetimes_in_paths");
 
         for opt in options {
             cmd.arg(opt);

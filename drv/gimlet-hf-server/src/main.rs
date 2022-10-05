@@ -331,7 +331,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
                 self.check_muxed_to_sp()?;
                 let hash_driver = hash_api::Hash::from(HASH.get_task_id());
-                if let Err(_) = hash_driver.init_sha256() {
+                if hash_driver.init_sha256().is_err() {
                     return Err(HfError::HashError.into());
                 }
                 let begin = addr as usize;
@@ -360,8 +360,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                         end - addr
                     };
                     self.qspi.read_memory(addr as u32, &mut self.block[..size]);
-                    if let Err(_) = hash_driver.update(
-                        size as u32, &self.block[..size]) {
+                    if hash_driver.update(
+                        size as u32, &self.block[..size]).is_err() {
                         return Err(HfError::HashError.into());
                     }
                 }

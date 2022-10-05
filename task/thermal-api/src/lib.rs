@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
@@ -19,7 +19,7 @@ pub enum ThermalError {
     InvalidWatchdogTime = 6,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
     /// should be transient, as the thermal task turns on.

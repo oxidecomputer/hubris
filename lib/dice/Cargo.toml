@@ -6,10 +6,11 @@ edition = "2021"
 [dependencies]
 hkdf = { version = "0.12", default-features = false }
 hubpack = "0.1"
-lpc55-pac = "0.3"
+lpc55-pac = "0.4"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde-big-array = "0.4"
 sha3 = { version = "0.10", default-features = false }
+static_assertions = "1"
 unwrap-lite = { path = "../unwrap-lite" }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zerocopy = "0.6"

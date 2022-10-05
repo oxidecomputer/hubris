@@ -43,6 +43,7 @@ impl Usart {
         pins: &[(PinSet, Alternate)],
         clock_hz: u32,
         baud_rate: u32,
+        hardware_flow_control: bool,
     ) -> Self {
         // Turn the actual peripheral on so that we can interact with it.
         sys.enable_clock(peripheral);
@@ -62,6 +63,10 @@ impl Usart {
         unsafe {
             // 0b101 == interrupt when TX fifo is completely empty
             usart.cr3.write(|w| w.txftcfg().bits(0b101));
+        }
+
+        if hardware_flow_control {
+            usart.cr3.modify(|_, w| w.rtse().enabled().ctse().enabled());
         }
 
         // Enable the UART in FIFO mode.

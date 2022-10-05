@@ -100,7 +100,7 @@ fn main() -> ! {
                 }
 
                 write_a_buffer(
-                    &i2c,
+                    i2c,
                     Transmit {
                         addr,
                         caller,
@@ -121,7 +121,7 @@ fn main() -> ! {
                 }
 
                 read_a_buffer(
-                    &i2c,
+                    i2c,
                     Transmit {
                         addr,
                         caller,

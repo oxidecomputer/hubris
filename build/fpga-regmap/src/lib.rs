@@ -24,6 +24,10 @@ enum Node {
         lsb: usize,
         msb: usize,
     },
+    Mem {
+        inst_name: String,
+        addr_offset: usize,
+    },
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,11 +58,23 @@ fn recurse_addr_map(
                 children,
             } => {
                 recurse_addr_map(
-                    &children,
+                    children,
                     offset + addr_offset,
                     &format!("{inst_name}_{prefix}"),
                     output,
                 );
+            }
+            Node::Mem {
+                inst_name,
+                addr_offset,
+                ..
+            } => {
+                writeln!(
+                    output,
+                    "    {prefix}{inst_name} = {:#x},",
+                    offset + addr_offset
+                )
+                .unwrap();
             }
             _ => panic!("unexpected child {:?}", child),
         }
@@ -76,11 +92,12 @@ fn build_addr_map(node: &Node, output: &mut String) {
         output,
         "\
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Addr {{"
     )
     .unwrap();
 
-    recurse_addr_map(&children, 0, "", output);
+    recurse_addr_map(children, 0, "", output);
 
     writeln!(output, "}}").unwrap();
     writeln!(
@@ -121,9 +138,8 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
     }
 }
 
-fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
+fn write_node(node: &Node, prefix: &str, output: &mut String) {
     match node {
-        // Recurse into Addrmap
         Node::Reg {
             inst_name,
             regwidth,
@@ -146,6 +162,18 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
+        Node::Mem { inst_name, .. } => {
+            writeln!(
+                output,
+                "\
+{prefix}    #[allow(non_snake_case)]
+{prefix}    pub mod {inst_name} {{",
+            )
+            .unwrap();
+
+            writeln!(output, "{prefix}    }}").unwrap();
+        }
+
         // Recurse into Addrmap
         Node::Addrmap {
             inst_name,
@@ -159,7 +187,7 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            recurse_reg_map(&children, &format!("    {prefix}"), output);
+            recurse_reg_map(children, &format!("    {prefix}"), output);
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
@@ -171,7 +199,7 @@ fn write_node_reg(node: &Node, prefix: &str, output: &mut String) {
 
 fn recurse_reg_map(children: &[Node], prefix: &str, output: &mut String) {
     for child in children.iter() {
-        write_node_reg(child, prefix, output);
+        write_node(child, prefix, output);
     }
 }
 
@@ -190,7 +218,7 @@ pub mod Reg {{"
     )
     .unwrap();
 
-    recurse_reg_map(&children, "", output);
+    recurse_reg_map(children, "", output);
 
     writeln!(output, "}}").unwrap();
 }

@@ -17,6 +17,13 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "slot_size": (
+            doc: "returns the size of a slot, in bytes",
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
         "read_status": (
             doc: "reads the auxiliary flash chip's status register",
             reply: Result(
@@ -28,6 +35,17 @@ Interface(
             doc: "erases the given slot",
             args: {
                 "slot": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "slot_sector_erase": (
+            doc: "erase a particular sector within a slot",
+            args: {
+                "slot": "u32",
+                "offset": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -73,7 +91,14 @@ Interface(
             ),
         ),
         "scan_and_get_active_slot": (
-            doc: "Searches for a slot with a checksum that matches the one in the Hubris image",
+            doc: "DEPRECATED; use active_slot() instead",
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "get_active_slot": (
+            doc: "Returns the slot containing the checksum that matches the one in the Hubris image",
             reply: Result(
                 ok: "u32",
                 err: CLike("AuxFlashError"),
@@ -83,6 +108,26 @@ Interface(
             doc: "If necessary, flashes data from the active slot to the spare slot",
             reply: Result(
                 ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "get_blob_by_tag": (
+            doc: "Scans the active slot for a blob with the given tag",
+            args: {
+                "name": "[u8; 4]",
+            },
+            reply: Result(
+                ok: "AuxFlashBlob",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "get_blob_by_u32": (
+            doc: "Scans the active slot for a blob with the given tag, as a u32",
+            args: {
+                "name": "u32",
+            },
+            reply: Result(
+                ok: "AuxFlashBlob",
                 err: CLike("AuxFlashError"),
             ),
         ),

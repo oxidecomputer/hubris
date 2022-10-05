@@ -7,13 +7,13 @@ use crate::{Vsc7448Rw, VscError};
 use userlib::hl;
 use vsc7448_pac::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Mode {
     Lan10g(SerdesPresetType),
     Sgmii,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     f_pll_khz_plain: u32,
 
@@ -717,14 +717,14 @@ impl Config {
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SerdesPresetType {
     DacHw, // VTSS_SD10G65_DAC_HW
     KrHw,  // VTSS_SD10G65_KR_HW, i.e. 10GBASE-KR
 }
 
 /// Equivalent to `vtss_sd10g65_preset_struct_t`
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct SerdesRxPreset {
     synth_phase_data: u8,
     ib_main_thres_offs: u8,
@@ -786,7 +786,7 @@ impl SerdesRxPreset {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct SerdesApcPreset {
     ld_lev_ini: u8,
     range_sel: u8,
@@ -849,7 +849,7 @@ impl SerdesApcPreset {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 struct SynthSettingsCalc {
     freq_mult: u16,
     freqm: u64,
@@ -894,7 +894,7 @@ fn calc_gcd(num_in: u64, mut div: u64) -> u64 {
     div
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct FrequencySetup {
     f_pll_khz: u32,
     ratio_num: u32,
@@ -920,7 +920,7 @@ impl FrequencySetup {
 }
 
 /// Roughly based on `vtss_sd10g65_synth_mult_calc_rslt_t`
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 struct SynthMultCalc {
     speed_sel: bool, // SYNTH_SPEED_SEL
     fbdiv_sel: u8,   // SYNTH_FBDIV_SEL
@@ -974,7 +974,7 @@ impl SynthMultCalc {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 struct FrequencyDecoderBypass {
     freq_mult: u16,
     freq_mult_hi: u8,

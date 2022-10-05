@@ -5,18 +5,14 @@
 #![no_std]
 #![no_main]
 
-use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
-use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+use drv_auxflash_api::{
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
+    TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
+    SLOT_SIZE,
+};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
-use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
-
-// XXX hard-coded for Sidecar
-const SLOT_COUNT: u32 = 16;
-
-// Generic across all machines
-const SLOT_SIZE: usize = 1 << 20;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -38,7 +34,7 @@ struct SlotReader<'a> {
 
 impl<'a> TlvcRead for SlotReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
-        // Hard-coded slot size of 1MiB
+        // Hard-coded slot size, on a per-board basis
         Ok(SLOT_SIZE as u64)
     }
     fn read_exact(
@@ -129,11 +125,9 @@ fn main() -> ! {
     // Gimlet is  MT25QU256ABA8E12
     // Sidecar is S25FL128SAGMFIR01
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl {
-        qspi,
-        active_slot: None,
-    };
-    let _ = server.scan_for_active_slot();
+    let active_slot = scan_for_active_slot(&qspi);
+    let mut server = ServerImpl { qspi, active_slot };
+
     let _ = server.ensure_redundancy();
 
     loop {
@@ -149,18 +143,6 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn scan_for_active_slot(&mut self) {
-        self.active_slot = None;
-        for i in 0..SLOT_COUNT {
-            if let Ok(chck) = self.read_slot_checksum(i) {
-                if chck.0 == AUXI_CHECKSUM {
-                    self.active_slot = Some(i);
-                    break;
-                }
-            }
-        }
-    }
-
     /// Polls for the "Write Complete" flag.
     ///
     /// Sleep times are in ticks (typically milliseconds) and are somewhat
@@ -188,77 +170,18 @@ impl ServerImpl {
         }
         Ok(())
     }
+
     fn read_slot_checksum(
         &self,
         slot: u32,
     ) -> Result<AuxFlashChecksum, AuxFlashError> {
-        if slot >= SLOT_COUNT {
-            return Err(AuxFlashError::InvalidSlot);
-        }
-        let handle = SlotReader {
-            qspi: &self.qspi,
-            base: slot * SLOT_SIZE as u32,
-        };
-        let mut reader = TlvcReader::begin(handle)
-            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
-
-        let mut chck_expected = None;
-        let mut chck_actual = None;
-        while let Ok(Some(chunk)) = reader.next() {
-            if &chunk.header().tag == b"CHCK" {
-                if chck_expected.is_some() {
-                    return Err(AuxFlashError::MultipleChck);
-                } else if chunk.len() != 32 {
-                    return Err(AuxFlashError::BadChckSize);
-                }
-                let mut out = [0; 32];
-                chunk
-                    .read_exact(0, &mut out)
-                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                chck_expected = Some(out);
-            } else if &chunk.header().tag == b"AUXI" {
-                if chck_actual.is_some() {
-                    return Err(AuxFlashError::MultipleAuxi);
-                }
-
-                // Read data and calculate the checksum using a scratch buffer
-                let mut sha = Sha3_256::new();
-                let mut scratch = [0u8; 256];
-                let mut i: u64 = 0;
-                while i < chunk.len() {
-                    let amount = (chunk.len() - i).min(scratch.len() as u64);
-                    chunk
-                        .read_exact(i, &mut scratch[0..(amount as usize)])
-                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                    i += amount as u64;
-                    sha.update(&scratch[0..(amount as usize)]);
-                }
-                let sha_out = sha.finalize();
-
-                // Save the checksum in `chck_actual`
-                let mut out = [0; 32];
-                out.copy_from_slice(sha_out.as_slice());
-                chck_actual = Some(out);
-            }
-        }
-        match (chck_expected, chck_actual) {
-            (None, _) => Err(AuxFlashError::MissingChck),
-            (_, None) => Err(AuxFlashError::MissingChck),
-            (Some(a), Some(b)) => {
-                if a != b {
-                    Err(AuxFlashError::ChckMismatch)
-                } else {
-                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
-                }
-            }
-        }
+        read_slot_checksum(&self.qspi, slot)
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
     ///
     /// If not, writes the auxiliary data to the spare slot.
     fn ensure_redundancy(&mut self) -> Result<(), AuxFlashError> {
-        self.scan_for_active_slot();
         let active_slot =
             self.active_slot.ok_or(AuxFlashError::NoActiveSlot)?;
 
@@ -289,6 +212,14 @@ impl ServerImpl {
 
             // Read from the active slot
             self.qspi.read_memory(read_addr as u32, &mut buf[..amount]);
+
+            // If we're at the start of a sector, erase it before we start
+            // writing the copy.
+            if write_addr % SECTOR_SIZE_BYTES == 0 {
+                self.set_and_check_write_enable()?;
+                self.qspi.sector_erase(write_addr as u32);
+                self.poll_for_write_complete(Some(1));
+            }
 
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
@@ -333,6 +264,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(SLOT_COUNT)
     }
 
+    fn slot_size(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        Ok(SLOT_SIZE as u32)
+    }
+
     fn read_slot_chck(
         &mut self,
         _: &RecvMessage,
@@ -365,6 +303,29 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn slot_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+        offset: u32,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
+        if offset >= SLOT_SIZE as u32 {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
+        let addr = slot as usize * SLOT_SIZE + offset as usize;
+        if addr > u32::MAX as usize {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
+
+        self.set_and_check_write_enable()?;
+        self.qspi.sector_erase(addr as u32);
+        self.poll_for_write_complete(Some(1));
+        Ok(())
+    }
+
     fn write_slot_with_offset(
         &mut self,
         _: &RecvMessage,
@@ -372,6 +333,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if Some(slot) == self.active_slot {
+            return Err(AuxFlashError::SlotActive.into());
+        }
         if offset as usize % PAGE_SIZE_BYTES != 0 {
             return Err(AuxFlashError::UnalignedAddress.into());
         } else if offset as usize + data.len() > SLOT_SIZE {
@@ -420,7 +384,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         while addr < end {
             let amount = (end - addr).min(buf.len());
             self.qspi.read_memory(addr as u32, &mut buf[..amount]);
-            dest.write_range(write..(write + addr), &buf[..amount])
+            dest.write_range(write..(write + amount), &buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             write += amount;
             addr += amount;
@@ -430,9 +394,18 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
     fn scan_and_get_active_slot(
         &mut self,
+        msg: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        // We no longer actually "scan"; this function is now misleadingly named
+        // but marked as deprecated in the idl file. We keep it around for
+        // compatibility with old humility.
+        self.get_active_slot(msg)
+    }
+
+    fn get_active_slot(
+        &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<AuxFlashError>> {
-        self.scan_for_active_slot();
         self.active_slot
             .ok_or_else(|| AuxFlashError::NoActiveSlot.into())
     }
@@ -441,17 +414,67 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        (self as &mut ServerImpl)
-            .ensure_redundancy()
-            .map_err(Into::into)
+        ServerImpl::ensure_redundancy(self).map_err(Into::into)
     }
+
+    fn get_blob_by_tag(
+        &mut self,
+        _: &RecvMessage,
+        tag: [u8; 4],
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        let active_slot = self
+            .active_slot
+            .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: active_slot * SLOT_SIZE as u32,
+        };
+        handle
+            .get_blob_by_tag(active_slot, tag)
+            .map_err(RequestError::from)
+    }
+
+    fn get_blob_by_u32(
+        &mut self,
+        msg: &RecvMessage,
+        tag: u32,
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        // This is so that we can call this function from `humility hiffy`,
+        // which doesn't know how to send arrays as arguments.
+        self.get_blob_by_tag(msg, tag.to_be_bytes())
+    }
+}
+
+fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
+    for i in 0..SLOT_COUNT {
+        if let Ok(chck) = read_slot_checksum(qspi, i) {
+            if chck.0 == AUXI_CHECKSUM {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+fn read_slot_checksum(
+    qspi: &Qspi,
+    slot: u32,
+) -> Result<AuxFlashChecksum, AuxFlashError> {
+    if slot >= SLOT_COUNT {
+        return Err(AuxFlashError::InvalidSlot);
+    }
+    let handle = SlotReader {
+        qspi,
+        base: slot * SLOT_SIZE as u32,
+    };
+    handle.read_checksum()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
     use super::AuxFlashError;
-    use drv_auxflash_api::{AuxFlashChecksum, AuxFlashId};
+    use drv_auxflash_api::{AuxFlashBlob, AuxFlashChecksum, AuxFlashId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

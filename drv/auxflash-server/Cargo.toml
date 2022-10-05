@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 drv-auxflash-api = {path = "../auxflash-api", default-features = false}
-drv-qspi-api = {path = "../qspi-api"}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
@@ -14,13 +13,12 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}
 
+cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
-sha3 = {version = "0.10", default-features = false}
 stm32h7 = { version = "0.14", default-features = false }
 zerocopy = "0.6.1"
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]

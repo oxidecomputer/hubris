@@ -65,7 +65,7 @@ pub struct I2cControl {
     pub wfi: fn(u32),
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum I2cKonamiCode {
     Read,
     Write,
@@ -79,8 +79,8 @@ pub trait I2cMuxDriver {
     /// instance to a [`Gpio`] task.
     fn configure(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         sys: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
@@ -88,7 +88,7 @@ pub trait I2cMuxDriver {
     /// Reset the mux
     fn reset(
         &self,
-        mux: &I2cMux,
+        mux: &I2cMux<'_>,
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
@@ -96,8 +96,8 @@ pub trait I2cMuxDriver {
     /// all segments if None is explicitly specified as the segment)
     fn enable_segment(
         &self,
-        mux: &I2cMux,
-        controller: &I2cController,
+        mux: &I2cMux<'_>,
+        controller: &I2cController<'_>,
         segment: Option<drv_i2c_api::Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
@@ -115,7 +115,7 @@ pub struct I2cMux<'a> {
 ///
 /// An enum describing the amount to read
 ///
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ReadLength {
     /// Fixed length to read
     Fixed(usize),
@@ -123,7 +123,7 @@ pub enum ReadLength {
     Variable,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     WaitISR(u32),
     WriteISR(u32),
@@ -154,7 +154,7 @@ enum Trace {
 
 ringbuf!(Trace, 48, Trace::None);
 
-impl<'a> I2cMux<'_> {
+impl I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
     /// management into one that can be returned to a caller
     fn error_code(
@@ -206,7 +206,7 @@ impl<'a> I2cMux<'_> {
     }
 }
 
-impl<'a> I2cController<'a> {
+impl I2cController<'_> {
     pub fn enable(&self, sys: &sys_api::Sys) {
         sys.enable_clock(self.peripheral);
         sys.leave_reset(self.peripheral);

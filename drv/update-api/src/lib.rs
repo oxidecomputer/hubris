@@ -9,7 +9,7 @@ use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 #[repr(u8)]
-#[derive(FromPrimitive, AsBytes, PartialEq, Clone, Copy)]
+#[derive(FromPrimitive, AsBytes, Eq, PartialEq, Clone, Copy)]
 pub enum UpdateTarget {
     // Represents targets where we only ever write to a single
     // alternate flash location. This is typically used in

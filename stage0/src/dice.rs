@@ -5,8 +5,10 @@
 use crate::image_header::Image;
 use core::str::FromStr;
 use dice_crate::{
-    AliasCert, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber, DeviceIdOkm,
-    DeviceIdSelfCert, Handoff, SeedBuf, SerialNumber,
+    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
+    DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData, RngSeed, SeedBuf,
+    SerialNumber, SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
+    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -42,8 +44,12 @@ pub fn run(image: &Image) {
     let deviceid_keypair = get_deviceid_keypair(&cdi);
     let mut cert_sn = CertSerialNumber::default();
 
-    let deviceid_cert =
-        DeviceIdSelfCert::new(&cert_sn.next(), &dname_sn, &deviceid_keypair);
+    let deviceid_cert = DeviceIdSelfCertBuilder::new(
+        &cert_sn.next(),
+        &dname_sn,
+        &deviceid_keypair.public,
+    )
+    .sign(&deviceid_keypair);
 
     // Collect hash(es) of TCB. The first TCB Component Identifier (TCI)
     // calculated is the Hubris image. The DICE specs call this collection
@@ -63,15 +69,56 @@ pub fn run(image: &Image) {
     let alias_okm = AliasOkm::from_cdi(&cdi_l1);
     let alias_keypair = Keypair::from(alias_okm.as_bytes());
 
-    let alias_cert = AliasCert::new(
+    let alias_cert = AliasCertBuilder::new(
         &cert_sn.next(),
         &dname_sn,
         &alias_keypair.public,
         fwid.as_ref(),
-        &deviceid_keypair,
+    )
+    .sign(&deviceid_keypair);
+
+    let tqdhe_okm = TrustQuorumDheOkm::from_cdi(&cdi_l1);
+    let tqdhe_keypair = Keypair::from(tqdhe_okm.as_bytes());
+
+    let tqdhe_cert = TrustQuorumDheCertBuilder::new(
+        &cert_sn.next(),
+        &dname_sn,
+        &tqdhe_keypair.public,
+        fwid.as_ref(),
+    )
+    .sign(&deviceid_keypair);
+
+    let alias_data = AliasData::new(
+        alias_okm,
+        alias_cert,
+        tqdhe_okm,
+        tqdhe_cert,
+        deviceid_cert.clone(),
     );
 
-    let alias_data = AliasData::new(alias_okm, alias_cert, deviceid_cert);
-
     handoff.store(&alias_data);
+
+    let spmeasure_okm = SpMeasureOkm::from_cdi(&cdi_l1);
+    let spmeasure_keypair = Keypair::from(spmeasure_okm.as_bytes());
+
+    let spmeasure_cert = SpMeasureCertBuilder::new(
+        &cert_sn.next(),
+        &dname_sn,
+        &spmeasure_keypair.public,
+        fwid.as_ref(),
+    )
+    .sign(&deviceid_keypair);
+
+    let spmeasure_data = SpMeasureData::new(
+        spmeasure_okm,
+        spmeasure_cert,
+        deviceid_cert.clone(),
+    );
+
+    handoff.store(&spmeasure_data);
+
+    let rng_seed = RngSeed::from_cdi(&cdi_l1);
+    let rng_data = RngData::new(rng_seed);
+
+    handoff.store(&rng_data);
 }

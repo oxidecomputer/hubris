@@ -2,6 +2,7 @@ name = "gimletlet"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
@@ -27,7 +28,11 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config.on-state-change]
+host_sp_comms = {bit-number = 1}
+
 [tasks.jefe.config.allowed-callers]
+set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "mgmt_gateway"]
 
@@ -79,6 +84,13 @@ max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
+[tasks.gimlet_seq]
+name = "drv-mock-gimlet-seq-server"
+priority = 2
+max-sizes = {flash = 2048, ram = 1024 }
+start = true
+task-slots = ["jefe"]
+
 [tasks.pong]
 name = "task-pong"
 priority = 3
@@ -88,7 +100,7 @@ task-slots = ["user_leds"]
 
 [tasks.uartecho]
 name = "task-uartecho"
-features = ["stm32h753", "usart2"]
+features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 0b01}
 priority = 3
@@ -96,6 +108,17 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
+uses = ["uart7"]
+interrupts = {"uart7.irq" = 0b01}
+priority = 3
+max-sizes = {flash = 16384, ram = 16384}
+stacksize = 2048
+start = true
+task-slots = ["sys", "gimlet_seq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -124,9 +147,9 @@ priority = 3
 features = ["h753", "vlan", "gimletlet-nic"]
 max-sizes = {flash = 65536, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "system_flash"]
+uses = ["eth", "eth_dma", "system_flash", "tim16"]
 start = true
-interrupts = {"eth.irq" = 0b1}
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys", "spi_driver" ]
 
 [tasks.udpecho]
@@ -141,15 +164,15 @@ features = ["vlan"]
 [tasks.mgmt_gateway]
 name = "task-mgmt-gateway"
 priority = 4
-max-sizes = {flash = 32768, ram = 8192}
-stacksize = 1536
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 2048
 start = true
 uses = [
     "usart1",
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys", "hf"]
-features = ["gimlet", "usart1", "vlan"]
+task-slots = ["jefe", "net", "update_server", "sys", "hf", "gimlet_seq"]
+features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]

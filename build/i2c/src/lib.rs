@@ -58,7 +58,7 @@ struct I2cController {
 // https://github.com/alexcrichton/toml-rs/issues/390 for details).  As a
 // result, we currently flatten what really should be enums around topology
 // (i.e., [`controller`]/[`port`] vs. [`bus`]) and device class parameters
-// (i.e., [`pmbus`]) into optional fields in [`I2cDevice`].  This makes it
+// (i.e., [`power`]) into optional fields in [`I2cDevice`].  This makes it
 // easier to accidentally create invalid entries (e.g., a device that has both
 // a controller *and* a named bus), so the validation code should go to
 // additional lengths to assure that these mistakes are caught in compilation.
@@ -97,8 +97,8 @@ struct I2cDevice {
     /// reference designator, if any
     refdes: Option<String>,
 
-    /// PMBus information, if any
-    pmbus: Option<I2cPmbus>,
+    /// power information, if any
+    power: Option<I2cPower>,
 
     /// sensor information, if any
     sensors: Option<I2cSensors>,
@@ -138,8 +138,17 @@ struct I2cMux {
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct I2cPmbus {
+struct I2cPower {
     rails: Option<Vec<String>>,
+
+    #[serde(default = "I2cPower::default_pmbus")]
+    pmbus: bool,
+}
+
+impl I2cPower {
+    fn default_pmbus() -> bool {
+        true
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -164,7 +173,7 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -385,10 +394,11 @@ impl ConfigGenerator {
             I2cController {{
                 controller: Controller::I2C{controller},
                 peripheral: Peripheral::I2c{controller},
-                notification: (1 << ({controller} - 1)),
+                notification: (1 << {shift}),
                 registers: unsafe {{ &*device::I2C{controller}::ptr() }},
             }},"##,
-                controller = c.controller
+                shift = c.controller - 1,
+                controller = c.controller,
             )?;
         }
 
@@ -497,7 +507,7 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for port in c.ports.values() {
-                if port.muxes.len() > 0 {
+                if !port.muxes.is_empty() {
                     nmuxedbuses += 1;
                 }
 
@@ -569,7 +579,7 @@ impl ConfigGenerator {
 
                     let driver_struct = format!(
                         "{}{}",
-                        (&mux.driver[..1].to_string()).to_uppercase(),
+                        mux.driver[..1].to_uppercase(),
                         &mux.driver[1..]
                     );
 
@@ -892,12 +902,16 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    pub fn generate_pmbus(&mut self) -> Result<()> {
+    fn generate_pmbus(&mut self, pmbus: bool) -> Result<()> {
         let mut byrail = HashMap::new();
 
         for d in &self.devices {
-            if let Some(pmbus) = &d.pmbus {
-                if let Some(rails) = &pmbus.rails {
+            if let Some(power) = &d.power {
+                if power.pmbus != pmbus {
+                    continue;
+                }
+
+                if let Some(rails) = &power.rails {
                     for (index, rail) in rails.iter().enumerate() {
                         if rail.is_empty() {
                             continue;
@@ -915,10 +929,10 @@ impl ConfigGenerator {
             write!(
                 &mut self.output,
                 r##"
-    pub mod pmbus {{
+    pub mod {} {{
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
-"##
+"##, if pmbus { "pmbus" } else { "power" }
             )?;
 
             for (rail, (device, index)) in &byrail {
@@ -936,6 +950,12 @@ impl ConfigGenerator {
 
             writeln!(&mut self.output, "    }}")?;
         }
+        Ok(())
+    }
+
+    fn generate_power(&mut self) -> Result<()> {
+        self.generate_pmbus(true)?;
+        self.generate_pmbus(false)?;
         Ok(())
     }
 
@@ -999,8 +1019,8 @@ impl ConfigGenerator {
             let id = sensors.len();
             sensors.push(kind);
 
-            let name: Option<String> = if let Some(pmbus) = &d.pmbus {
-                if let Some(rails) = &pmbus.rails {
+            let name: Option<String> = if let Some(power) = &d.power {
+                if let Some(rails) = &power.rails {
                     if idx < rails.len() {
                         Some(rails[idx].clone())
                     } else {
@@ -1009,20 +1029,18 @@ impl ConfigGenerator {
                 } else {
                     d.name.clone()
                 }
-            } else {
-                if let Some(names) = &d.sensors.as_ref().unwrap().names {
-                    if idx >= names.len() {
-                        panic!(
-                            "name array is too short ({}) for sensor index ({})",
-                            names.len(),
-                            idx
-                        );
-                    } else {
-                        Some(names[idx].clone())
-                    }
+            } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
+                if idx >= names.len() {
+                    panic!(
+                        "name array is too short ({}) for sensor index ({})",
+                        names.len(),
+                        idx
+                    );
                 } else {
-                    d.name.clone()
+                    Some(names[idx].clone())
                 }
+            } else {
+                d.name.clone()
             };
 
             if let Some(bus) = &d.bus {
@@ -1172,12 +1190,12 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 
         Disposition::Devices => {
             g.generate_devices()?;
-            g.generate_pmbus()?;
+            g.generate_power()?;
         }
 
         Disposition::Sensors => {
             g.generate_devices()?;
-            g.generate_pmbus()?;
+            g.generate_power()?;
             g.generate_sensors()?;
         }
 

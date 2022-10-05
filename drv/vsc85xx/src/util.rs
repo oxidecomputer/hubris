@@ -57,7 +57,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     }
 
     /// Calls a function with broadcast writes enabled, then unsets the flag
-    pub(crate) fn broadcast<F: Fn(&Phy<P>) -> Result<(), VscError>>(
+    pub(crate) fn broadcast<F: Fn(&Phy<'_, P>) -> Result<(), VscError>>(
         &self,
         f: F,
     ) -> Result<(), VscError> {

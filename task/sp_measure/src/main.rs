@@ -33,9 +33,8 @@ fn main() -> ! {
         let mut sha = Sha3_256::new();
         let sp_ctrl = SpCtrl::from(SP_CTRL.get_task_id());
 
-        match sp_ctrl.setup() {
-            Err(_) => panic!(),
-            _ => (),
+        if sp_ctrl.setup().is_err() {
+            panic!();
         }
 
         let mut data: [u8; READ_SIZE] = [0; READ_SIZE];
@@ -43,19 +42,17 @@ fn main() -> ! {
         let start = sys_get_timer().now;
         ringbuf_entry!(Trace::Start(start));
         for addr in (FLASH_START..FLASH_END).step_by(READ_SIZE) {
-            if addr % TRANSACTION_SIZE == 0 {
-                match sp_ctrl
+            if addr % TRANSACTION_SIZE == 0
+                && sp_ctrl
                     .read_transaction_start(addr, addr + TRANSACTION_SIZE)
-                {
-                    Err(_) => panic!(),
-                    Ok(_) => (),
-                }
+                    .is_err()
+            {
+                panic!();
             }
 
             data.fill(0);
-            match sp_ctrl.read_transaction(&mut data) {
-                Err(_) => panic!(),
-                Ok(_) => (),
+            if sp_ctrl.read_transaction(&mut data).is_err() {
+                panic!();
             }
 
             sha.update(&data);

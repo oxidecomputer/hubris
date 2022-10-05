@@ -1,0 +1,32 @@
+[package]
+name = "task-host-sp-comms"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+cfg-if = "1"
+corncobs = "0.1.1"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+heapless = "0.7.16"
+mutable-statics = {path = "../../lib/mutable-statics"}
+ringbuf = {path = "../../lib/ringbuf"}
+userlib = {path = "../../sys/userlib"}
+
+drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
+drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api"}
+host-sp-messages = {path = "../../lib/host-sp-messages"}
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+[features]
+stm32h743 = ["drv-stm32h7-usart/h743"]
+stm32h753 = ["drv-stm32h7-usart/h753"]
+uart7 = []
+baud_rate_3M = []
+hardware_flow_control = []
+
+[[bin]]
+name = "task-host-sp-comms"
+test = false
+bench = false

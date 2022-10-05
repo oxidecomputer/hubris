@@ -32,7 +32,7 @@ pub struct At24Csw080 {
     device: handle::DeviceHandle,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     /// The low-level I2C communication returned an error
     I2cError(ResponseCode),
@@ -284,7 +284,7 @@ impl At24Csw080 {
         addr: u8,
         val: u8,
     ) -> Result<(), Error> {
-        if addr < 16 || addr >= 32 {
+        if !(16..32).contains(&addr) {
             return Err(Error::InvalidSecurityRegisterWriteByte(addr));
         }
         let reg_addr = 0b1000_0000 | addr;
