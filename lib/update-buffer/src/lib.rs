@@ -112,6 +112,8 @@ impl<T, const N: usize> Drop for UpdateBuffer<'_, T, N> {
         // from `BufferMutex::borrow()` above. See the comment in it above for
         // the reasoning why this will not deadlock.
         *self.owner.lock() = None;
+        // `self.data` is dropped (and therefore unlocked) immediately after
+        // this function returns, since we're in the process of being dropped.
     }
 }
 
