@@ -12,17 +12,36 @@ use gateway_messages::{
     UpdateInProgressStatus, UpdateStatus,
 };
 
+#[cfg_attr(not(feature = "auxflash"), path = "sp/stub_auxflash.rs")]
+mod auxflash;
+
+use self::auxflash::ChckScanResult;
+use self::auxflash::IngestDataResult as AuxFlashIngestDataResult;
+use self::auxflash::State as AuxFlashState;
+
 cfg_if! {
     if #[cfg(feature = "auxflash")] {
         use drv_auxflash_api::AuxFlash;
 
-        mod auxflash;
-
-        use self::auxflash::State as AuxFlashState;
-        use self::auxflash::IngestDataResult as AuxFlashIngestDataResult;
-        use self::auxflash::ChckScanResult;
-
         userlib::task_slot!(AUX_FLASH_SERVER, auxflash);
+    } else {
+        // If the auxflash feature isn't enabled, we can stub out a fake
+        // `AuxFlash` server that we never actually do anything with (other than
+        // construct it).
+        use userlib::TaskId;
+
+        struct AuxFlash;
+        impl From<TaskId> for AuxFlash {
+            fn from(_: TaskId) -> Self {
+                Self
+            }
+        }
+
+        struct FakeAuxFlashServer;
+        impl FakeAuxFlashServer {
+            fn get_task_id(&self) -> TaskId { TaskId::UNBOUND }
+        }
+        const AUX_FLASH_SERVER: FakeAuxFlashServer = FakeAuxFlashServer;
     }
 }
 
@@ -34,20 +53,20 @@ static_assertions::const_assert!(
 
 pub(crate) struct SpUpdate {
     sp_task: Update,
-    #[cfg(feature = "auxflash")]
     auxflash_task: AuxFlash,
     current: Option<CurrentUpdate>,
 }
 
 impl SpUpdate {
-    // TODO: Take max of this and auxflash page size once we add auxflash
-    // support.
+    #[cfg(feature = "hash")]
+    pub(crate) const BLOCK_SIZE: usize =
+        crate::usize_max(BLOCK_SIZE_BYTES, drv_auxflash_api::PAGE_SIZE_BYTES);
+    #[cfg(not(feature = "hash"))]
     pub(crate) const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
 
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),
-            #[cfg(feature = "auxflash")]
             auxflash_task: AuxFlash::from(AUX_FLASH_SERVER.get_task_id()),
             current: None,
         }
@@ -60,12 +79,9 @@ impl SpUpdate {
     ) -> Result<(), ResponseError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(|c| c.state()) {
-            #[cfg(feature = "auxflash")]
             Some(State::AuxFlash(_))
-            | Some(State::FoundMatchingAuxFlashChck { .. }) => {
-                return Err(ResponseError::UpdateInProgress(self.status()));
-            }
-            Some(State::AcceptingData { .. }) => {
+            | Some(State::FoundMatchingAuxFlashChck { .. })
+            | Some(State::AcceptingData { .. }) => {
                 return Err(ResponseError::UpdateInProgress(self.status()));
             }
             Some(State::Complete)
@@ -85,8 +101,7 @@ impl SpUpdate {
             })?;
 
         // Can we handle an auxflash update?
-        #[cfg(not(feature = "auxflash"))]
-        if update.aux_flash_size > 0 {
+        if update.aux_flash_size > 0 && cfg!(not(feature = "auxflash")) {
             return Err(ResponseError::RequestUnsupportedForSp);
         }
 
@@ -95,27 +110,18 @@ impl SpUpdate {
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        cfg_if! {
-            if #[cfg(feature = "auxflash")] {
-                let state = if update.aux_flash_size > 0 {
-                    State::AuxFlash(AuxFlashState::new(
-                        &self.auxflash_task,
-                        buffer,
-                        update.aux_flash_chck,
-                    ))
-                } else {
-                    State::AcceptingData(AcceptingData {
-                        buffer,
-                        next_write_offset: 0,
-                    })
-                };
-            } else {
-                let state = State::AcceptingData(AcceptingData {
-                    buffer,
-                    next_write_offset: 0,
-                });
-            }
-        }
+        let state = if update.aux_flash_size > 0 {
+            State::AuxFlash(AuxFlashState::new(
+                &self.auxflash_task,
+                buffer,
+                update.aux_flash_chck,
+            ))
+        } else {
+            State::AcceptingData(AcceptingData {
+                buffer,
+                next_write_offset: 0,
+            })
+        };
 
         self.current = Some(CurrentUpdate::new(
             update.id,
@@ -129,7 +135,6 @@ impl SpUpdate {
 
     pub(crate) fn is_preparing(&self) -> bool {
         match self.current.as_ref().map(|c| c.state()) {
-            #[cfg(feature = "auxflash")]
             Some(State::AuxFlash(s)) => s.is_preparing(),
             _ => false,
         }
@@ -144,7 +149,6 @@ impl SpUpdate {
 
         current.update_state(|state| match state {
             // auxflash states that have prep work to do.
-            #[cfg(feature = "auxflash")]
             State::AuxFlash(AuxFlashState::ScanningForChck(scan)) => {
                 match scan.continue_scanning(&self.auxflash_task) {
                     ChckScanResult::FoundMatch(mut buffer) => {
@@ -157,7 +161,6 @@ impl SpUpdate {
                     ChckScanResult::NewState(s) => State::AuxFlash(s),
                 }
             }
-            #[cfg(feature = "auxflash")]
             State::AuxFlash(AuxFlashState::ErasingSlot(erase)) => {
                 match erase.continue_erasing(&self.auxflash_task) {
                     Ok(s) => State::AuxFlash(s),
@@ -166,15 +169,12 @@ impl SpUpdate {
                 }
             }
 
-            // auxflash states with no prep work
-            #[cfg(feature = "auxflash")]
+            // states with no prep work
             State::AuxFlash(AuxFlashState::FinishedErasingSlot(_))
             | State::AuxFlash(AuxFlashState::AcceptingData(_))
             | State::AuxFlash(AuxFlashState::Failed(_))
-            | State::FoundMatchingAuxFlashChck { .. } => state,
-
-            // non-auxflash states; no prep work for any.
-            State::AcceptingData(_)
+            | State::FoundMatchingAuxFlashChck { .. }
+            | State::AcceptingData(_)
             | State::Complete
             | State::Aborted
             | State::Failed(_) => state,
@@ -188,9 +188,7 @@ impl SpUpdate {
         };
 
         match current.state() {
-            #[cfg(feature = "auxflash")]
             State::AuxFlash(s) => s.status(current.id(), current.total_size()),
-            #[cfg(feature = "auxflash")]
             State::FoundMatchingAuxFlashChck { .. } => {
                 UpdateStatus::SpUpdateAuxFlashChckScan {
                     id: current.id(),
@@ -237,12 +235,10 @@ impl SpUpdate {
         }
 
         // Copy fields of `current` so we can borrow it mutably.
-        #[cfg(feature = "auxflash")]
         let aux_flash_size = current.aux_flash_size;
         let sp_image_size = current.sp_image_size;
 
         // Handle aux flash states.
-        #[cfg(feature = "auxflash")]
         if let Some(result) = current.update_state_with_result(|state| {
             let auxflash_state = match state {
                 State::AuxFlash(s) => s,
@@ -315,9 +311,7 @@ impl SpUpdate {
         // Handle SP image states.
         current.update_state_with_result(|state| {
             let accepting = match state {
-                #[cfg(feature = "auxflash")]
                 State::AuxFlash(_) => unreachable!(), // handled above
-                #[cfg(feature = "auxflash")]
                 State::FoundMatchingAuxFlashChck { buffer } => AcceptingData {
                     buffer,
                     next_write_offset: 0,
@@ -352,9 +346,10 @@ impl SpUpdate {
         match current.state() {
             // Active states - do any work necessary to abort, then set our
             // state to `Aborted`.
-            #[cfg(feature = "auxflash")]
-            State::AuxFlash(_) | State::FoundMatchingAuxFlashChck { .. } => todo!(),
-            State::AcceptingData { .. } | State::Failed(_) => {
+            State::AuxFlash(_)
+            | State::FoundMatchingAuxFlashChck { .. }
+            | State::AcceptingData { .. }
+            | State::Failed(_) => {
                 match self.sp_task.abort_update() {
                     // Aborting an update that hasn't started yet is fine;
                     // either way our caller is clear to start a new update.
@@ -419,12 +414,8 @@ impl DerefMut for CurrentUpdate {
 }
 
 enum State {
-    #[cfg(feature = "auxflash")]
     AuxFlash(AuxFlashState),
-    #[cfg(feature = "auxflash")]
-    FoundMatchingAuxFlashChck {
-        buffer: UpdateBuffer,
-    },
+    FoundMatchingAuxFlashChck { buffer: BorrowedUpdateBuffer },
     AcceptingData(AcceptingData),
     Complete,
     Aborted,

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::mgs_handler::{BufferMutex, UpdateBuffer};
+use crate::mgs_handler::{UpdateBuffer, BorrowedUpdateBuffer};
 use core::ops::Range;
 use drv_auxflash_api::{
     AuxFlash, AuxFlashChecksum, AuxFlashError, PAGE_SIZE_BYTES,
@@ -24,23 +24,23 @@ pub(super) enum State {
 }
 
 pub(super) enum ChckScanResult {
-    FoundMatch(UpdateBuffer),
+    FoundMatch(BorrowedUpdateBuffer),
     NewState(State),
 }
 
 pub(super) enum IngestDataResult {
-    Done(UpdateBuffer),
+    Done(BorrowedUpdateBuffer),
     NewState(State),
 }
 
 impl State {
     pub(super) fn new(
         task: &AuxFlash,
-        mut buffer: UpdateBuffer,
+        mut buffer: BorrowedUpdateBuffer,
         chck: [u8; 32],
     ) -> Self {
         static_assertions::const_assert!(
-            PAGE_SIZE_BYTES <= BufferMutex::MAX_CAPACITY
+            PAGE_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
         );
         // We get `buffer` from `SpUpdate`; make sure it's the size we need, and
         // mark ourselves as owning it.
@@ -131,7 +131,7 @@ impl State {
 }
 
 pub(super) struct ScanningForChck {
-    buffer: UpdateBuffer,
+    buffer: BorrowedUpdateBuffer,
     chck: AuxFlashChecksum,
     // The currently-active slot for our running image. This is the slot
     // index where we start scanning, since we typically expect to find a
@@ -210,7 +210,7 @@ impl ScanningForChck {
 }
 
 pub(super) struct ErasingSlot {
-    buffer: UpdateBuffer,
+    buffer: BorrowedUpdateBuffer,
     chck: AuxFlashChecksum,
     slot: u32,
     sectors_to_erase: Range<u32>,
@@ -238,7 +238,7 @@ impl ErasingSlot {
 }
 
 pub(super) struct FinishedErasingSlot {
-    buffer: UpdateBuffer,
+    buffer: BorrowedUpdateBuffer,
     chck: AuxFlashChecksum,
     slot: u32,
 }
@@ -255,7 +255,7 @@ impl FinishedErasingSlot {
 }
 
 pub(super) struct AcceptingData {
-    buffer: UpdateBuffer,
+    buffer: BorrowedUpdateBuffer,
     chck: AuxFlashChecksum,
     slot: u32,
     next_write_offset: u32,
