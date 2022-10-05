@@ -37,12 +37,16 @@ mod tofino;
 enum Trace {
     None,
     FpgaInit,
+    FpgaInitComplete,
     FpgaBitstreamError(u32),
     LoadingFpgaBitstream,
     SkipLoadingBitstream,
-    FpgaInitComplete,
-    ValidMainboardControllerIdent(u32),
-    InvalidMainboardControllerIdent(u32),
+    MainboardControllerId(u32),
+    MainboardControllerChecksum(u32),
+    MainboardControllerVersion(u32),
+    MainboardControllerSha(u32),
+    InvalidMainboardControllerId(u32),
+    ExpectedMainboardControllerChecksum(u32),
     LoadingClockConfiguration,
     SkipLoadingClockConfiguration,
     ClockConfigurationError(usize, ResponseCode),
@@ -304,26 +308,33 @@ fn main() -> ! {
         DeviceState::AwaitingBitstream => {
             ringbuf_entry!(Trace::LoadingFpgaBitstream);
 
-            if let Err(e) = server
+            match server
                 .mainboard_controller
                 .load_bitstream(AUXFLASH.get_task_id())
             {
-                let code = u32::try_from(e).unwrap();
-                ringbuf_entry!(Trace::FpgaBitstreamError(code));
+                Err(e) => {
+                    let code = u32::try_from(e).unwrap();
+                    ringbuf_entry!(Trace::FpgaBitstreamError(code));
 
-                // If this is an auxflash error indicating that we can't find
-                // the target blob, then it's possible that data isn't present
-                // (i.e. this is an initial boot at the factory). To prevent
-                // this task from spinning too hard, we add a brief delay before
-                // resetting.
-                //
-                // Note that other auxflash errors (e.g. a failed read) will
-                // reset immediately, matching existing behavior on a failed
-                // FPGA reset.
-                if matches!(e, FpgaError::AuxMissingBlob) {
-                    userlib::hl::sleep_for(100);
+                    // If this is an auxflash error indicating that we can't
+                    // find the target blob, then it's possible that data isn't
+                    // present (i.e. this is an initial boot at the factory). To
+                    // prevent this task from spinning too hard, we add a brief
+                    // delay before resetting.
+                    //
+                    // Note that other auxflash errors (e.g. a failed read) will
+                    // reset immediately, matching existing behavior on a failed
+                    // FPGA reset.
+                    if matches!(e, FpgaError::AuxMissingBlob) {
+                        userlib::hl::sleep_for(100);
+                    }
+                    panic!();
                 }
-                panic!();
+                // Write the checksum fuses to lock the design until the FPGA is
+                // reset.
+                Ok(()) => {
+                    server.mainboard_controller.write_checksum().unwrap_lite();
+                }
             }
         }
         DeviceState::RunningUserDesign => {
@@ -332,18 +343,56 @@ fn main() -> ! {
         _ => panic!(),
     }
 
-    match server.mainboard_controller.ident_valid() {
-        Ok((ident, valid)) => {
-            if valid {
-                ringbuf_entry!(Trace::ValidMainboardControllerIdent(ident))
-            } else {
-                ringbuf_entry!(Trace::InvalidMainboardControllerIdent(ident));
-                panic!();
-            }
+    // Read the design Ident and determine if a bitstream reload is needed.
+    let ident = server.mainboard_controller.read_ident().unwrap_lite();
+
+    match ident.id.into() {
+        MainboardController::EXPECTED_ID => {
+            ringbuf_entry!(Trace::MainboardControllerId(ident.id.into()))
         }
-        Err(_) => panic!(),
+        _ => {
+            // The FPGA is running something unexpected. Reset the device and
+            // fire the escape thrusters. This will force a bitstream load when
+            // the task is restarted.
+            ringbuf_entry!(Trace::InvalidMainboardControllerId(
+                ident.id.into()
+            ));
+            server.mainboard_controller.reset().unwrap_lite();
+            panic!()
+        }
     }
 
+    ringbuf_entry!(Trace::MainboardControllerChecksum(ident.checksum.into()));
+
+    if !server.mainboard_controller.checksum_valid(&ident) {
+        ringbuf_entry!(Trace::ExpectedMainboardControllerChecksum(
+            MainboardController::short_checksum().into()
+        ));
+
+        // The mainboard controller does not match the checksum of the
+        // bitstream which is expected to run. This means the register map
+        // may not match the APIs in this binary so a bitstream reload is
+        // required.
+        //
+        // Attempt to shutdown Tofino somewhat gracefully instead of letting
+        // the PDN collapse. This may need some tweaking because the host
+        // CPU will suddenly lose its PCIe device. Perhaps an interrupt is
+        // in order here to prep the driver for what's about to happen.
+        if let Ok(()) = server.tofino.power_down() {
+            // Give the sequencer some time to shut down the PDN.
+            userlib::hl::sleep_for(25);
+        }
+
+        // Reset the FPGA and deploy the parashutes. This will cause the
+        // bitstream to be reloaded when the task is restarted.
+        server.mainboard_controller.reset().unwrap_lite();
+        panic!()
+    }
+
+    // The expected version of the mainboard controller is running. Log some
+    // more details.
+    ringbuf_entry!(Trace::MainboardControllerVersion(ident.version.into()));
+    ringbuf_entry!(Trace::MainboardControllerSha(ident.sha.into()));
     ringbuf_entry!(Trace::FpgaInitComplete);
 
     // The sequencer for the clock generator currently does not have a feedback

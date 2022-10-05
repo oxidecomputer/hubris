@@ -10,7 +10,7 @@ use core::ops::Deref;
 
 use drv_spi_api::SpiError;
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{AsBytes, BigEndian, FromBytes, U32};
 
 #[cfg(feature = "auxflash")]
 use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
@@ -224,6 +224,15 @@ impl Bitstream {
     pub fn cancel_load(&mut self) -> Result<(), FpgaError> {
         (*self.0).reset_device(self.0.device_index)
     }
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, AsBytes)]
+#[repr(C, packed)]
+pub struct FpgaUserDesignIdent {
+    pub id: U32<BigEndian>,
+    pub checksum: U32<BigEndian>,
+    pub version: U32<BigEndian>,
+    pub sha: U32<BigEndian>,
 }
 
 pub struct FpgaUserDesign {
