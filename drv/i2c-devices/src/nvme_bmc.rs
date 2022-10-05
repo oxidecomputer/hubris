@@ -14,6 +14,7 @@ pub enum Error {
     SensorFailure,
     Reserved,
     InvalidLength,
+    BadChecksum,
 }
 
 pub struct NvmeBmc {
@@ -47,7 +48,16 @@ impl NvmeBmc {
         if v.length != 6 {
             return Err(Error::InvalidLength);
         }
-        // TODO: check PEC
+
+        // Calculate the PEC, which is based on the entire SMBus transaction
+        let mut raw_buf: [u8; 10] = [0u8; 10];
+        raw_buf[0] = self.device.address << 1;
+        raw_buf[2] = (self.device.address << 1) | 1;
+        raw_buf[3..].copy_from_slice(&v.as_bytes()[..7]);
+        let checksum = smbus_pec::pec(&raw_buf);
+        if checksum != v.pec {
+            return Err(Error::BadChecksum);
+        }
 
         // Again, see Figure 112 in "NVM Express Management Interface",
         // revision 1.0a, April 8, 2017

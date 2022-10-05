@@ -76,7 +76,7 @@ pub enum SensorReadError {
     ReservedValue,
 
     /// The reply is structurally incorrect (wrong length, bad checksum, etc)
-    BadReply,
+    CorruptReply,
 }
 
 impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
@@ -123,7 +123,7 @@ impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
             NoData => Self::NoData,
             SensorFailure => Self::SensorFailure,
             Reserved => Self::ReservedValue,
-            InvalidLength => Self::BadReply,
+            InvalidLength | BadChecksum => Self::CorruptReply,
         }
     }
 }
