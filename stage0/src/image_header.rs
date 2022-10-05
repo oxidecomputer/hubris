@@ -7,6 +7,7 @@ use lpc55_romapi::FLASH_PAGE_SIZE;
 
 extern "C" {
     static IMAGEA: abi::ImageVectors;
+    static IMAGEB: abi::ImageVectors;
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -34,21 +35,35 @@ const PAGE_SIZE: u32 = FLASH_PAGE_SIZE as u32;
 // It would technically be possible to create an instance of Image with an
 // invalid set of ImageVectors but that would require going far outside the
 // bounds of the expected design.
+
+// Safety: These accesses are unsafe because `IMAGEA` and `IMAGEB`
+// are coming from an extern, and might violate alignment rules or even be
+// modified externally and subject to data races. In our case
+// we have to assume that neither of these is true, since it's
+// being furnished by our linker script, which we trust.
+
+pub fn get_image_b() -> Option<Image> {
+    let imageb = unsafe { &IMAGEB };
+
+    let img = Image(imageb);
+
+    if img.validate() {
+        Some(img)
+    } else {
+        None
+    }
+}
+
 pub fn get_image_a() -> Option<Image> {
-    // Safety: this is unsafe because `IMAGEA` is coming from
-    // an extern, and might violate alignment rules or even be
-    // modified externally and subject to data races. In our case
-    // we have to assume that neither of these is true, since it's
-    // being furnished by our linker script, which we trust.
     let imagea = unsafe { &IMAGEA };
 
     let img = Image(imagea);
 
-    if !img.validate() {
-        return None;
+    if img.validate() {
+        Some(img)
+    } else {
+        None
     }
-
-    Some(img)
 }
 
 impl Image {
@@ -135,6 +150,13 @@ impl Image {
 
     pub fn get_sp(&self) -> u32 {
         self.0.sp
+    }
+
+    pub fn get_version(&self) -> u32 {
+        // SAFETY: We checked this previously
+        let header = unsafe { &*self.get_header() };
+
+        header.version
     }
 
     #[cfg(feature = "tz_support")]

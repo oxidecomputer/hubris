@@ -1196,6 +1196,7 @@ dependencies = [
  "build-util",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-transceivers-api",
  "gnarle",
  "num-traits",
  "ringbuf",
@@ -1527,6 +1528,35 @@ name = "drv-stm32xx-uid"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "drv-transceivers-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "drv-fpga-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-transceivers-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-sidecar-front-io",
+ "drv-transceivers-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3745,6 +3775,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
+ "ssmarshal",
  "task-sensor-api",
  "task-thermal-api",
  "userlib",
@@ -3758,6 +3790,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]

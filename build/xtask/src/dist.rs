@@ -266,10 +266,10 @@ pub fn package(
     // Allocate memories.
     let allocated = allocate_all(&cfg.toml, &task_sizes)?;
 
-    // Build each task.
-    let mut all_output_sections = BTreeMap::default();
-
     for image_name in &cfg.toml.image_names {
+        // Build each task.
+        let mut all_output_sections = BTreeMap::default();
+
         std::fs::create_dir_all(&cfg.img_dir(image_name))?;
         let (allocs, memories) = allocated
             .get(image_name)

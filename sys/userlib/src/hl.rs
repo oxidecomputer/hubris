@@ -369,11 +369,9 @@ impl Borrow<'_> {
     /// requirements is placed on the *client* side.
     pub fn read_at<T>(&self, offset: usize) -> Option<T>
     where
-        T: Default + FromBytes + AsBytes,
+        T: FromBytes + AsBytes,
     {
-        // NOTE: the default requirement could be lifted if we do some unsafe
-        // uninitialized buffer shenanigans.
-        let mut dest = T::default();
+        let mut dest = T::new_zeroed();
         let (rc, n) =
             sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
         if rc != 0 || n != core::mem::size_of::<T>() {

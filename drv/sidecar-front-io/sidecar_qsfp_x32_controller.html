@@ -1,0 +1,3134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+        "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script>
+    $(document).ready(function(){
+    $(".toggler").click(function(e){
+        e.preventDefault();
+        $('.cat'+$(this).attr('data-prod-cat')).toggle();
+    });
+    });
+</script>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>RegisterMap</title>
+    </head>
+    <body>
+    <style type="text/css" media="screen,print">
+    <!--
+    A:link {text-decorations: none; color: black}
+    A:hover {text-decorations: underline; color: black}
+    -->
+    body, html{
+        margin:0;
+        padding:0;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+    p{
+        margin-left:auto;
+        margin-right:auto;
+        padding:1em;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+
+    h1, h3 {
+        margin:0;
+        position: relative; left: 20px;
+        line-height: 1.45;
+    }
+
+    /* registers table */
+    table.register {
+        margin-left:auto;
+        margin-right:auto;
+        width: 98%;
+        border: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Header{
+        background-color: darkgrey;
+        height: 2em;
+        font-size: 100%;
+        border-bottom: medium solid #000;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Register{
+        height: 2em;
+        font-size: 75%;
+        border: thin solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register td.RegisterName {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        }
+    table.register td.Offset {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.Slice {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+
+        }
+    table.register td.Bitfield {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.validbitdef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdbitdef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.validspandef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdspandef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.Description {
+        background-color: lightblue;
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.Blank {
+        width: 10em;
+        text-align: left;
+        padding: 5px
+        }
+    table.register td.FieldHeader {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        font-weight: bold;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #bbb;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.FieldDesc {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    .offset_tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    .offset_tooltip .tooltip_text {
+        visibility: hidden;
+        width: 120px;
+        background-color: grey;
+        color: #fff;
+        text-align: center;
+        padding: 5px 0;
+        border-radius: 6px;
+        /* Position the tooltip */
+        position: absolute;
+        z-index: 1;
+        bottom: 100%;
+        left: 50%;
+        margin-left: -60px;
+    }
+    .offset_tooltip:hover .tooltip_text {
+        visibility: visible;
+    }
+    </style>
+    <div id="header">
+        <h1>qsfp_x32_controller</h1>
+        <!--$optional_header -->
+    </div>
+    <table class="register">
+    <tr class="Header">
+        <td class="RegisterName" colspan="3*">Register Name</td>
+        <td class="Offset" colspan="2*">Byte Offset</td>
+        <td class="Slice" colspan="1*">Slice</td>
+        <td class="Bitfield" colspan="2*">Bit<br>7</td>
+        <td class="Bitfield" colspan="2*">Bit<br>6</td>
+        <td class="Bitfield" colspan="2*">Bit<br>5</td>
+        <td class="Bitfield" colspan="2*">Bit<br>4</td>
+        <td class="Bitfield" colspan="2*">Bit<br>3</td>
+        <td class="Bitfield" colspan="2*">Bit<br>2</td>
+        <td class="Bitfield" colspan="2*">Bit<br>1</td>
+        <td class="Bitfield" colspan="2*">Bit<br>0</td>
+
+    </tr>
+
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="0">ID0</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x0
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Identification 0</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat0" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">ID0</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ID0</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Byte 0 of ID</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="1">ID1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Identification 1</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat1" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">ID1</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ID1</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Byte 1 of ID</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="2">ID2</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x2
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Identification 2</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat2" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">ID2</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ID2</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Byte 2 of ID</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="3">ID3</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x3
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Identification 3</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat3" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">ID3</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ID3</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Byte 3 of ID</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="4">CHECKSUM_SCRATCHPAD0</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x4
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 0</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat4" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">checksum[31..24]</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="5">CHECKSUM_SCRATCHPAD1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x5
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 1</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">checksum[23..16]</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="6">CHECKSUM_SCRATCHPAD2</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x6
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 2</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat6" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">checksum[15..8]</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="7">CHECKSUM_SCRATCHPAD3</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x7
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 3</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat7" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">checksum[7..0]</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="8">SCRATCHPAD</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x8
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp; General Scratchpad</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat8" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">SCRATCHPAD</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SCRATCHPAD</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Scribble Register for read-write use</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="9">FPGA_ID</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x9
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;QSFP FPGA ID</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat9" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="validspandef" colspan="2*">ID</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ID</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">0 for FPGA0, 1 for FPGA1</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="10">LED_CTRL</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0xa
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;LED Controller (PCA9956B) Control Bits</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat10" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">OE</td>
+                <td class="validspandef" colspan="2*">RESET</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">OE</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">Control of OE_L (inverted at pin)</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESET</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">Control of RESET_L (inverted at pin)</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="11">VSC8562_PHY_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x10
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Status bits related to VSC8562 (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat11" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">READY</td>
+                <td class="validspandef" colspan="2*">RESET</td>
+                <td class="validspandef" colspan="2*">REFCLK_EN</td>
+                <td class="validspandef" colspan="2*">COMA_MODE</td>
+                <td class="validspandef" colspan="2*">PG_V2P5</td>
+                <td class="validspandef" colspan="2*">PG_V1P0</td>
+                <td class="validspandef" colspan="2*">EN_V1P0</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">READY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The VSC8562 has been brought out of reset and is ready for
+software control</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESET</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Value inverted to drive  FPGA1_TO_PHY_RESET_L.</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">REFCLK_EN</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Value of FPGA1_TO_PHY_REFCLK_EN</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COMA_MODE</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Value of FPGA1_TO_PHY_COMA_MODE</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PG_V2P5</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Power Good of V2P5_PHY_A2</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PG_V1P0</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Power Good of  V1P0_PHY_A2</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">EN_V1P0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Enable for 1.0V PHY VR</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">VSC8562_PHY_CTRL</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x11
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Control bits related to VSC8562  (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">COMA_MODE</td>
+                <td class="validspandef" colspan="2*">EN</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COMA_MODE</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">Software control for the COMA_MODE pin.</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">EN</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">Enable for the VSC8562 power up state machine</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">VSC8562_PHY_SMI_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x12
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Status bits for the SMI interface to the VSC8562 (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">MDINT</td>
+                <td class="validspandef" colspan="2*">BUSY</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MDINT</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">1 for active interrupt (inversion of miim_phy_to_fpga_mdint_l pin)</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">BUSY</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">1 if a transaction is in progress</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">VSC8562_PHY_SMI_RDATA_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x13
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Read Data [15:8] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Upper byte of read data</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">VSC8562_PHY_SMI_RDATA_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x14
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Read Data [7:0] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Lower byte of read data</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">VSC8562_PHY_SMI_WDATA_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x15
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Write Data [15:8] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Upper byte of write data</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">VSC8562_PHY_SMI_WDATA_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x16
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Write Data [7:0] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Lower byte of write data</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="18">VSC8562_PHY_SMI_PHY_ADDR</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x17
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;PHY Address (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="validspandef" colspan="10*">ADDR</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ADDR</td>
+        <td class="FieldDesc" colspan="1*">4:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Address for which PHY to configure</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="19">VSC8562_PHY_SMI_REG_ADDR</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x18
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Register Address (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="validspandef" colspan="10*">ADDR</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ADDR</td>
+        <td class="FieldDesc" colspan="1*">4:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Address for a register</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="20">VSC8562_PHY_SMI_CTRL</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x19
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI control bits, these are one-shot registers and intended to
+                be written in the same transaction. (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">START</td>
+                <td class="validspandef" colspan="2*">RW</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">START</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Write a 1 here to begin a transaction</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RW</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Read = 0, Write = 1</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">QSFP_I2C_BUS_ADDR</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1000
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;QSFP module I2C address</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="14*">ADDR</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ADDR</td>
+        <td class="FieldDesc" colspan="1*">6:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">80</td>
+        <td class="FieldDesc" colspan="14">I2C Address of QSFP module (reset: 7'b1010000)</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">QSFP_I2C_REG_ADDR</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1001
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;QSFP module register address</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">ADDR</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ADDR</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">QSFP module register address</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">QSFP_I2C_NUM_BYTES</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1002
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;I2C_NUM_BYTES</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COUNT</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">Number of bytes to read/write in the I2C transaction. up to 128 bytes.</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="24">QSFP_I2C_BCAST_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1003
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Broadcast Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat24" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="25">QSFP_I2C_BCAST_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1004
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Broadcast Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat25" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="26">QSFP_I2C_CTRL</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1005
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Control bits for I2C communication.</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat26" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="4*">OP</td>
+                <td class="validspandef" colspan="2*">START</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">OP</td>
+        <td class="FieldDesc" colspan="1*">2:1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">2'b00 to read, 2'b01 to write, 2'b10 to random-read.</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">START</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' to start next transaction.</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">QSFP_CTRL_EN_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1006
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Enable Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat27" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">QSFP_CTRL_EN_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1007
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Enable Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat28" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">QSFP_CTRL_RESET_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1008
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Reset Control (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat29" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">QSFP_CTRL_RESET_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1009
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Reset Control (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat30" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">QSFP_CTRL_LPMODE_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100a
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 LPMode/TxDis Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat31" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">QSFP_CTRL_LPMODE_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100b
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 LPMode/TxDis Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat32" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">QSFP_STATUS_PG_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100c
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat33" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">QSFP_STATUS_PG_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100d
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat34" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">QSFP_STATUS_PG_TIMEOUT_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100e
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good timeout</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat35" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">QSFP_STATUS_PG_TIMEOUT_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100f
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good timeout</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat36" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">QSFP_STATUS_PRESENT_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1010
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat37" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">QSFP_STATUS_PRESENT_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1011
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat38" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">QSFP_STATUS_IRQ_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1012
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat39" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">QSFP_STATUS_IRQ_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1013
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat40" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_WRITE_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1080
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat41" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT0_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1100
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat42" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT1_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1180
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat43" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT2_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1200
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat44" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT3_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1280
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat45" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT4_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1300
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT5_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1380
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT6_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1400
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT7_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1480
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT8_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1500
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT9_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1580
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat51" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT10_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1600
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat52" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT11_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1680
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat53" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT12_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1700
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat54" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT13_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1780
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat55" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT14_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1800
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat56" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT15_READ_BUFFER</td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1880
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat57" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    </table>
+    </body>
+</html>
