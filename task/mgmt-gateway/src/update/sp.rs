@@ -2,7 +2,60 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// State machine transitions for the "happy path" is below. From any state, we
+// could transition to `Aborted` (on request from MGS) or `Failed` (if an error
+// occurs on our side).
+
+/*
+               ┌─────────────────┐
+               │ SpUpdatePrepare │
+               └┬───────────────┬┘
+                │               │
+┌───────────────▼───┐       ┌───▼──────────────┐
+│aux_image_size == 0│     ┌─┤aux_image_size > 0│
+└┬──────────────────┘     │ └──────────────────┘
+ │                        │
+ │                 ┌──────▼───────────────────┐ No  ┌─────┐
+ │                 │#[cfg(feature="auxflash")]├────►│Error│
+ │                 └───────┬──────────────────┘     └─────┘
+ │                         │Yes
+ │   ┌─────────────────────▼────────────────────────────┐
+ │   │State::AuxFlash(AuxFlashState::ScanningForChck(_))│
+ │   └─────┬──────────────────────────┬─────────────────┘
+ │         │Match Found               │Match Not Found
+ │         │           ┌──────────────▼───────────────────────────────┐
+ │         │           │State::AuxFlash(AuxFlashState::ErasingSlot(_))│
+ │         │           └──────┬───────────────────────────────────────┘
+ │         │                  │
+ │ ┌───────┼──────────────────┼───────────────────────────────────────────┐
+ │ │       │                  │                                           │
+ │ │       │   ┌──────────────▼────────────────────────────────────────┐  │
+ │ │       │   │State::AuxFlash(AuxFlashState::FinishedErasingSlot(_)) ├──┼─┐
+ │ │       │   └───────────────────────────────────────────────────────┘  │ │
+ │ │       │                            MGS waits to see one of these two │ │
+ │ │ ┌─────▼──────────────────────────┐ states to decide whether to send  │ │
+ │ │ │State::FoundMatchingAuxFlashChck│ the aux flash image or skip it    │ │
+ │ │ └────┬───────────────────────────┘ and only send the SP image.       │ │
+ │ │      │                                                               │ │
+ │ └──────┼───────────────────────────────────────────────────────────────┘ │
+ │        │                                                                 │
+ │        │              ┌────────────────────────────────────────────────┐ │
+ │        │              │State::AuxFlash(AuxFlashState::AcceptingData(_))◄─┘
+ │        │              └▲────────────────┬─────┬────────────────────────┘
+ │        │               │aux flash chunks│     │all chunks received
+ │        │               └────◄─────◄─────┘     │
+ │        │                                      │
+ │ ┌──────▼────────────────┐                     │
+ └─►State::AcceptingData(_)◄─────────────────────┘
+   └▲───────────────┬───┬──┘
+    │SP image chunks│   │all chunks received
+    └───◄───────◄───┘   │        ┌───────────────┐
+                        └────────►State::Complete│
+                                 └───────────────┘
+*/
+
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
+use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateError, UpdateTarget};
@@ -10,6 +63,27 @@ use gateway_messages::{
     ResponseError, SpComponent, SpUpdatePrepare, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
 };
+
+cfg_if! {
+    if #[cfg(feature = "auxflash")] {
+        use drv_auxflash_api::AuxFlash;
+
+        mod auxflash;
+
+        userlib::task_slot!(AUX_FLASH_SERVER, auxflash);
+    } else {
+        mod stub_auxflash;
+        use stub_auxflash as auxflash;
+
+        use auxflash::{AuxFlash, FakeAuxFlashTaskSlot};
+
+        const AUX_FLASH_SERVER: FakeAuxFlashTaskSlot = FakeAuxFlashTaskSlot;
+    }
+}
+
+use auxflash::ChckScanResult;
+use auxflash::IngestDataResult as AuxFlashIngestDataResult;
+use auxflash::State as AuxFlashState;
 
 userlib::task_slot!(UPDATE_SERVER, update_server);
 
@@ -19,17 +93,21 @@ static_assertions::const_assert!(
 
 pub(crate) struct SpUpdate {
     sp_task: Update,
+    auxflash_task: AuxFlash,
     current: Option<CurrentUpdate>,
 }
 
 impl SpUpdate {
-    // TODO: Take max of this and auxflash page size once we add auxflash
-    // support.
+    #[cfg(feature = "hash")]
+    pub(crate) const BLOCK_SIZE: usize =
+        crate::usize_max(BLOCK_SIZE_BYTES, drv_auxflash_api::PAGE_SIZE_BYTES);
+    #[cfg(not(feature = "hash"))]
     pub(crate) const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
 
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),
+            auxflash_task: AuxFlash::from(AUX_FLASH_SERVER.get_task_id()),
             current: None,
         }
     }
@@ -41,7 +119,9 @@ impl SpUpdate {
     ) -> Result<(), ResponseError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(|c| c.state()) {
-            Some(State::AcceptingData { .. }) => {
+            Some(State::AuxFlash(_))
+            | Some(State::FoundMatchingAuxFlashChck { .. })
+            | Some(State::AcceptingData { .. }) => {
                 return Err(ResponseError::UpdateInProgress(self.status()));
             }
             Some(State::Complete)
@@ -60,8 +140,8 @@ impl SpUpdate {
                 ResponseError::OtherComponentUpdateInProgress(component)
             })?;
 
-        // TODO handle auxflash updates
-        if update.aux_flash_size > 0 {
+        // Can we handle an auxflash update?
+        if update.aux_flash_size > 0 && cfg!(not(feature = "auxflash")) {
             return Err(ResponseError::RequestUnsupportedForSp);
         }
 
@@ -70,10 +150,18 @@ impl SpUpdate {
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        let state = State::AcceptingData(AcceptingData {
-            buffer,
-            next_write_offset: 0,
-        });
+        let state = if update.aux_flash_size > 0 {
+            State::AuxFlash(AuxFlashState::new(
+                &self.auxflash_task,
+                buffer,
+                update.aux_flash_chck,
+            ))
+        } else {
+            State::AcceptingData(AcceptingData {
+                buffer,
+                next_write_offset: 0,
+            })
+        };
 
         self.current = Some(CurrentUpdate::new(
             update.id,
@@ -86,10 +174,57 @@ impl SpUpdate {
     }
 
     pub(crate) fn is_preparing(&self) -> bool {
-        false
+        match self.current.as_ref().map(|c| c.state()) {
+            Some(State::AuxFlash(s)) => s.is_preparing(),
+            _ => false,
+        }
     }
 
-    pub(crate) fn step_preparation(&mut self) {}
+    pub(crate) fn step_preparation(&mut self) {
+        // Do we have an update?
+        let current = match self.current.as_mut() {
+            Some(current) => current,
+            None => return,
+        };
+
+        current.update_state(|state| match state {
+            // auxflash states that have prep work to do.
+            State::AuxFlash(AuxFlashState::ScanningForChck(scan)) => {
+                match scan.continue_scanning(&self.auxflash_task) {
+                    ChckScanResult::FoundMatch(mut buffer) => {
+                        // Take ownership of `buffer` back, and resize it for
+                        // our blocks.
+                        //
+                        // We set the owner to `SP_ITSELF`, because if we found
+                        // a match, we will not be receiving an aux flash image
+                        // at all, and want to jump immediately to receiving the
+                        // SP image.
+                        buffer
+                            .reborrow(SpComponent::SP_ITSELF, BLOCK_SIZE_BYTES);
+                        State::FoundMatchingAuxFlashChck { buffer }
+                    }
+                    ChckScanResult::NewState(s) => State::AuxFlash(s),
+                }
+            }
+            State::AuxFlash(AuxFlashState::ErasingSlot(erase)) => {
+                match erase.continue_erasing(&self.auxflash_task) {
+                    Ok(s) => State::AuxFlash(s),
+                    // TODO we're losing the specific auxflash error :(
+                    Err(_) => State::Failed(UpdateError::FlashError),
+                }
+            }
+
+            // states with no prep work
+            State::AuxFlash(AuxFlashState::FinishedErasingSlot(_))
+            | State::AuxFlash(AuxFlashState::AcceptingData(_))
+            | State::AuxFlash(AuxFlashState::Failed(_))
+            | State::FoundMatchingAuxFlashChck { .. }
+            | State::AcceptingData(_)
+            | State::Complete
+            | State::Aborted
+            | State::Failed(_) => state,
+        });
+    }
 
     pub(crate) fn status(&self) -> UpdateStatus {
         let current = match self.current.as_ref() {
@@ -98,6 +233,14 @@ impl SpUpdate {
         };
 
         match current.state() {
+            State::AuxFlash(s) => s.status(current.id(), current.total_size()),
+            State::FoundMatchingAuxFlashChck { .. } => {
+                UpdateStatus::SpUpdateAuxFlashChckScan {
+                    id: current.id(),
+                    found_match: true,
+                    total_size: current.total_size(),
+                }
+            }
             State::AcceptingData(accepting) => {
                 UpdateStatus::InProgress(UpdateInProgressStatus {
                     id: current.id(),
@@ -137,7 +280,73 @@ impl SpUpdate {
         }
 
         // Copy fields of `current` so we can borrow it mutably.
+        let aux_flash_size = current.aux_flash_size;
         let sp_image_size = current.sp_image_size;
+
+        // Handle aux flash states.
+        if let Some(result) = current.update_state_with_result(|state| {
+            let auxflash_state = match state {
+                State::AuxFlash(s) => s,
+                // All other states are handled below.
+                _ => return (state, None),
+            };
+
+            // We are in an aux flash state - is this chunk aux flash data?
+            if *component != SpComponent::SP_AUX_FLASH {
+                return (
+                    State::AuxFlash(auxflash_state),
+                    Some(Err(ResponseError::InvalidUpdateChunk)),
+                );
+            }
+
+            // Are we in a state where we can accept data?
+            let accepting = match auxflash_state {
+                AuxFlashState::AcceptingData(a) => a,
+                AuxFlashState::FinishedErasingSlot(s) => {
+                    s.into_accepting_data()
+                }
+                AuxFlashState::ScanningForChck(_)
+                | AuxFlashState::ErasingSlot(_) => {
+                    return (
+                        State::AuxFlash(auxflash_state),
+                        Some(Err(ResponseError::UpdateNotPrepared)),
+                    );
+                }
+                AuxFlashState::Failed(err) => {
+                    return (
+                        State::AuxFlash(auxflash_state),
+                        Some(Err(ResponseError::UpdateFailed(err as u32))),
+                    );
+                }
+            };
+
+            // Perform the actual data ingest, and map back to a new state.
+            let (ingest_result, result) = accepting.ingest_chunk(
+                &self.auxflash_task,
+                offset,
+                data,
+                aux_flash_size,
+            );
+            let new_state = match ingest_result {
+                AuxFlashIngestDataResult::NewState(s) => State::AuxFlash(s),
+                AuxFlashIngestDataResult::Done(mut buffer) => {
+                    // Take ownership of `buffer` back, and resize it for
+                    // our blocks.
+                    buffer.reborrow(SpComponent::SP_ITSELF, BLOCK_SIZE_BYTES);
+                    State::AcceptingData(AcceptingData {
+                        buffer,
+                        next_write_offset: 0,
+                    })
+                }
+            };
+            (new_state, Some(result))
+        }) {
+            // If our closure above returned `Some(result)`, it handled this
+            // chunk and we're done. If it returned `None`, we're not in an
+            // auxflash state and we need to handle this chunk as part of the SP
+            // update (below).
+            return result;
+        }
 
         // We're not in an aux flash state, so check that this chunk is SP data.
         if *component != SpComponent::SP_ITSELF {
@@ -147,6 +356,11 @@ impl SpUpdate {
         // Handle SP image states.
         current.update_state_with_result(|state| {
             let accepting = match state {
+                State::AuxFlash(_) => unreachable!(), // handled above
+                State::FoundMatchingAuxFlashChck { buffer } => AcceptingData {
+                    buffer,
+                    next_write_offset: 0,
+                },
                 State::AcceptingData(a) => a,
                 State::Complete | State::Aborted => {
                     return (state, Err(ResponseError::UpdateNotPrepared))
@@ -170,7 +384,6 @@ impl SpUpdate {
             None => return Err(ResponseError::UpdateNotPrepared),
         };
 
-        // Only proceed if the requested ID matches ours.
         if *id != current.id() {
             return Err(ResponseError::UpdateInProgress(self.status()));
         }
@@ -178,7 +391,16 @@ impl SpUpdate {
         match current.state() {
             // Active states - do any work necessary to abort, then set our
             // state to `Aborted`.
-            State::AcceptingData { .. } | State::Failed(_) => {
+            //
+            // We always call `sp_task.abort()` (even if we're in an auxflash
+            // state) because we called `sp_task.prepare()` when this update
+            // began. There is no work to do in the aux flash server in response
+            // to an abort - we can leave the slot we were writing in a
+            // partially written state, and we'll overwrite it next time.
+            State::AuxFlash(_)
+            | State::FoundMatchingAuxFlashChck { .. }
+            | State::AcceptingData { .. }
+            | State::Failed(_) => {
                 match self.sp_task.abort_update() {
                     // Aborting an update that hasn't started yet is fine;
                     // either way our caller is clear to start a new update.
@@ -243,6 +465,8 @@ impl DerefMut for CurrentUpdate {
 }
 
 enum State {
+    AuxFlash(AuxFlashState),
+    FoundMatchingAuxFlashChck { buffer: BorrowedUpdateBuffer },
     AcceptingData(AcceptingData),
     Complete,
     Aborted,
