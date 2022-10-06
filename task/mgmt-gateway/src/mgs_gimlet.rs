@@ -107,6 +107,9 @@ impl MgsHandler {
     }
 
     pub(crate) fn handle_timer_fired(&mut self) {
+        // We use a shared update buffer, so at most one of these updates can be
+        // active at a time. For any inactive update, `step_preparation()` is a
+        // no-op.
         self.host_flash_update.step_preparation();
         self.sp_update.step_preparation();
         // Even though `timer_deadline()` can return a timer related to usart
@@ -306,6 +309,13 @@ impl SpHandler for MgsHandler {
         }));
 
         let status = match component {
+            // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
+            // here and not `SP_AUX_FLASH`. We mostly hide the fact that an SP
+            // update also may include an aux flash image from clients: when
+            // they start an update, it is for `SP_ITSELF` (whether or not it
+            // includes an aux flash image, which they don't need to know).
+            // Similarly, they will only ask for the status of an `SP_ITSELF`
+            // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
             _ => return Err(ResponseError::RequestUnsupportedForComponent),
@@ -326,6 +336,13 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
+            // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
+            // here and not `SP_AUX_FLASH`. We mostly hide the fact that an SP
+            // update also may include an aux flash image from clients: when
+            // they start an update, it is for `SP_ITSELF` (whether or not it
+            // includes an aux flash image, which they don't need to know).
+            // Similarly, they will only attempt to abort an `SP_ITSELF`
+            // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)

@@ -59,6 +59,7 @@ impl MgsHandler {
     }
 
     pub(crate) fn handle_timer_fired(&mut self) {
+        // This is a no-op if we're not preparing for an SP update.
         self.sp_update.step_preparation();
     }
 

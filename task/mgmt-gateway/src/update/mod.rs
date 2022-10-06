@@ -31,6 +31,9 @@ pub(crate) trait ComponentUpdater {
 
     /// Attempt to start preparing for an update, using `buffer` as the backing
     /// store for incoming data.
+    ///
+    /// Implementors should record the `UpdateId` carried by `update` for future
+    /// correlation in `ingest_chunk()` and `abort()`.
     fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
