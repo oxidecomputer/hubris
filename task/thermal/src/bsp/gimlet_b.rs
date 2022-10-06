@@ -12,6 +12,7 @@ use core::convert::TryInto;
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
+use drv_i2c_devices::nvme_bmc::*;
 use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
@@ -32,7 +33,8 @@ const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 // The control loop is driven by CPU, NIC, and DIMM temperatures
 pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
-    + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS;
+    + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS
+    + sensors::NUM_NVMEBMC_TEMPERATURE_SENSORS;
 
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
@@ -120,6 +122,21 @@ impl Bsp {
             target_temperature: Celsius(80f32),
             critical_temperature: Celsius(90f32),
             power_down_temperature: Celsius(95f32),
+            temperature_slew_deg_per_sec: 0.5,
+        };
+
+        // Thermal throttling begins at 78° for WD-SN840 (primary source) and
+        // 75° for Micron-9300 (secondary source).
+        //
+        // For the WD part, thermal shutdown is at 84°C, which also voids the
+        // warranty. The Micron drive doesn't specify a thermal shutdown
+        // temperature, but the "critical" temperature is 80°C.
+        //
+        // All temperature are "composite" temperatures.
+        const U2_THERMALS: ThermalProperties = ThermalProperties {
+            target_temperature: Celsius(65f32),
+            critical_temperature: Celsius(70f32),
+            power_down_temperature: Celsius(75f32),
             temperature_slew_deg_per_sec: 0.5,
         };
 
@@ -352,6 +369,117 @@ impl Bsp {
                     ),
                     DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
+                ),
+                // U.2 drives
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[0],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[0],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[1],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[1],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[2],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[2],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[3],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[3],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[4],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[4],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[5],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[5],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[6],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[6],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[7],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[7],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[8],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[8],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
+                    true,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::U2(NvmeBmc::new(
+                            &devices::nvmebmc(i2c_task)[9],
+                        )),
+                        sensors::NVMEBMC_TEMPERATURE_SENSORS[9],
+                    ),
+                    U2_THERMALS,
+                    POWER_STATE_A0,
                     true,
                 ),
             ],

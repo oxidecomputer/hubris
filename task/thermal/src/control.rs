@@ -10,7 +10,8 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
 use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::{
-    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
+    nvme_bmc::NvmeBmc, sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451,
+    tse2004av::Tse2004Av,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
@@ -28,6 +29,7 @@ pub enum Device {
     Tmp451(Tmp451),
     CPU(Sbtsi),
     Dimm(Tse2004Av),
+    U2(NvmeBmc),
 }
 
 /// Represents a sensor and its associated `SensorId`, used when posting data
@@ -41,14 +43,97 @@ impl TemperatureSensor {
     pub fn new(device: Device, id: SensorId) -> Self {
         Self { device, id }
     }
-    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
+    fn read_temp(&self) -> Result<Celsius, SensorReadError> {
         let t = match &self.device {
             Device::Tmp117(dev) => dev.read_temperature()?,
             Device::CPU(dev) => dev.read_temperature()?,
             Device::Tmp451(dev) => dev.read_temperature()?,
             Device::Dimm(dev) => dev.read_temperature()?,
+            Device::U2(dev) => dev.read_temperature()?,
         };
         Ok(t)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Combined error type for all of our temperature sensors
+///
+/// Most of them will only return an I2C `ResponseCode`, but in some cases,
+/// they can report an error through in-band signalling (looking at you, NVMe)
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SensorReadError {
+    I2cError(ResponseCode),
+
+    /// The sensor reported that data is either not present or too old
+    NoData,
+
+    /// The sensor reported a failure
+    SensorFailure,
+
+    /// The returned value is listed as reserved in the datasheet and does not
+    /// represent a temperature.
+    ReservedValue,
+
+    /// The reply is structurally incorrect (wrong length, bad checksum, etc)
+    CorruptReply,
+}
+
+impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp117::Error) -> Self {
+        use drv_i2c_devices::tmp117::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp451::Error) -> Self {
+        use drv_i2c_devices::tmp451::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::sbtsi::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::sbtsi::Error) -> Self {
+        use drv_i2c_devices::sbtsi::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tse2004av::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tse2004av::Error) -> Self {
+        use drv_i2c_devices::tse2004av::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::nvme_bmc::Error) -> Self {
+        use drv_i2c_devices::nvme_bmc::Error::*;
+        match s {
+            I2cError(v) => Self::I2cError(v),
+            NoData => Self::NoData,
+            SensorFailure => Self::SensorFailure,
+            Reserved => Self::ReservedValue,
+            InvalidLength | BadChecksum => Self::CorruptReply,
+        }
+    }
+}
+
+impl From<SensorReadError> for task_sensor_api::NoData {
+    fn from(code: SensorReadError) -> task_sensor_api::NoData {
+        match code {
+            SensorReadError::I2cError(v) => v.into(),
+            _ => Self::DeviceError,
+        }
     }
 }
 
@@ -469,7 +554,10 @@ impl<'a> ThermalControl<'a> {
                     // a) this sensor shouldn't be on in this power mode, or
                     // b) the sensor is removable and not present
                     if (s.power_mode_mask & self.power_mode) == 0
-                        || (s.removable && e == ResponseCode::NoDevice)
+                        || (s.removable
+                            && e == SensorReadError::I2cError(
+                                ResponseCode::NoDevice,
+                            ))
                     {
                         self.state.write_temperature_inactive(i);
                     } else {

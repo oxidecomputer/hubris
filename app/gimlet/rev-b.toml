@@ -120,8 +120,8 @@ task-slots = ["sys", "i2c_driver"]
 name = "task-thermal"
 features = ["itm", "gimlet"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 5400
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 8000
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
@@ -434,6 +434,17 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 A NVMe Basic Management Command"
+sensors = { temperature = 1, names = ["U2_N0"] }
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -448,6 +459,17 @@ segment = 2
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin B hot swap controller"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 B NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N1"] }
 refdes = "J207"
 removable = true
 
@@ -474,6 +496,17 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
+segment = 3
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 C NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N2"] }
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
 segment = 4
 address = 0b1010_000
 device = "at24csw080"
@@ -488,6 +521,17 @@ segment = 4
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin D hot swap controller"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 D NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N3"] }
 refdes = "J209"
 removable = true
 
@@ -514,6 +558,17 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 E NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N4"] }
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -528,6 +583,17 @@ segment = 2
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin F hot swap controller"
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 F NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N5"] }
 refdes = "J211"
 removable = true
 
@@ -554,6 +620,17 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
+segment = 3
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 G NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N6"] }
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
 segment = 4
 address = 0b1010_000
 device = "at24csw080"
@@ -568,6 +645,17 @@ segment = 4
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 H NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N7"] }
 refdes = "J213"
 removable = true
 
@@ -594,6 +682,17 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 3
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 I NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N8"] }
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -608,6 +707,17 @@ segment = 2
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
+refdes = "J215"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 J NVMe Basic Management Control"
+sensors = { temperature = 1, names = ["U2_N9"] }
 refdes = "J215"
 removable = true
 

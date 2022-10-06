@@ -19,7 +19,7 @@ mod control;
 
 use crate::{
     bsp::{Bsp, SeqError},
-    control::ThermalControl,
+    control::{SensorReadError, ThermalControl},
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
@@ -52,8 +52,8 @@ enum Trace {
     ThermalMode(ThermalMode),
     AutoState(ThermalAutoState),
     FanReadFailed(usize, ResponseCode),
-    MiscReadFailed(usize, ResponseCode),
-    SensorReadFailed(usize, ResponseCode),
+    MiscReadFailed(usize, SensorReadError),
+    SensorReadFailed(usize, SensorReadError),
     PostFailed(SensorId, SensorError),
     ControlPwm(u8),
     PowerModeChanged(u32),
