@@ -12,7 +12,6 @@ mod miim_bridge;
 mod server;
 
 // Select the BSP based on the target board
-#[deny(unused_attributes)]
 #[cfg_attr(
     any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
     path = "bsp/nucleo_h7.rs"
@@ -27,7 +26,6 @@ mod server;
 )]
 mod bsp;
 
-#[deny(unused_attributes)]
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
 #[cfg_attr(not(feature = "vlan"), path = "server_basic.rs")]
 mod server_impl;

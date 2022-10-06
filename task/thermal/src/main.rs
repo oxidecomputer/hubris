@@ -12,7 +12,6 @@
 #![no_std]
 #![no_main]
 
-#[deny(unused_attributes)]
 #[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_b.rs")]
 #[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
 mod bsp;

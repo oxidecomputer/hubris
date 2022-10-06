@@ -1330,6 +1330,12 @@ fn build(
         ),
     );
     cmd.arg("--");
+
+    // We use attributes to conditionally import based on feature flags;
+    // invalid combinations of features often create duplicate attributes,
+    // which causes the later one to go unused.  Let's detect this explicitly!
+    cmd.arg("-Dunused_attributes");
+
     cmd.arg("-C")
         .arg("link-arg=-Tlink.x")
         .arg("-L")
