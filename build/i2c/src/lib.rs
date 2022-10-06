@@ -319,7 +319,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_header(&mut self) -> Result<()> {
-        writeln!(&mut self.output, "mod i2c_config {{")?;
+        writeln!(&mut self.output, "pub(crate) mod i2c_config {{")?;
         Ok(())
     }
 
@@ -966,23 +966,24 @@ impl ConfigGenerator {
                 label,
                 ids[0]
             )?;
-        } else {
-            writeln!(
-                &mut self.output,
-                r##"
+        }
+        // Always write the _SENSORS array as well, so that code doesn't have
+        // to special-case the situation with only one sensor of a type.
+        writeln!(
+            &mut self.output,
+            r##"
         #[allow(dead_code)]
         pub const {}_{}_SENSORS: [SensorId; {}] = [ "##,
-                device.to_uppercase(),
-                label,
-                ids.len(),
-            )?;
+            device.to_uppercase(),
+            label,
+            ids.len(),
+        )?;
 
-            for id in ids {
-                writeln!(&mut self.output, "            SensorId({}), ", id)?;
-            }
-
-            writeln!(&mut self.output, "        ];")?;
+        for id in ids {
+            writeln!(&mut self.output, "            SensorId({}), ", id)?;
         }
+
+        writeln!(&mut self.output, "        ];")?;
 
         Ok(())
     }

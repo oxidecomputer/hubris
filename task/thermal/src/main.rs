@@ -264,6 +264,8 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 #[export_name = "main"]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
@@ -272,7 +274,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
     let bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&bsp, sensor_api);
+    let control = ThermalControl::new(&bsp, i2c_task, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
@@ -295,8 +297,11 @@ fn main() -> ! {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 mod idl {
     use super::{ThermalAutoState, ThermalError, ThermalMode};
-
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
