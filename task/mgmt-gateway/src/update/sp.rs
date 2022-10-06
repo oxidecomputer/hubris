@@ -167,30 +167,38 @@ impl SpUpdate {
         // Do we have an update in progress? If not, nothing to do.
         let current = match self.current.as_mut() {
             Some(current) => current,
-            None => return Ok(()),
+            None => return Err(ResponseError::UpdateNotPrepared),
         };
 
-        match current.state() {
-            // Inactive states - nothing to do in response to an abort.
-            State::Complete | State::Aborted => return Ok(()),
-
-            // Active states - fall through to the rest of our function to
-            // actually perform the abort.
-            State::AcceptingData { .. } | State::Failed(_) => (),
-        }
-
+        // Only proceed if the requested ID matches ours.
         if *id != current.id() {
             return Err(ResponseError::UpdateInProgress(self.status()));
         }
 
-        match self.sp_task.abort_update() {
-            // Aborting an update that hasn't started yet is fine;
-            // either way our caller is clear to start a new update.
-            Ok(()) | Err(UpdateError::UpdateNotStarted) => {
-                *current.state_mut() = State::Aborted;
-                Ok(())
+        match current.state() {
+            // Active states - do any work necessary to abort, then set our
+            // state to `Aborted`.
+            State::AcceptingData { .. } | State::Failed(_) => {
+                match self.sp_task.abort_update() {
+                    // Aborting an update that hasn't started yet is fine;
+                    // either way our caller is clear to start a new update.
+                    Ok(()) | Err(UpdateError::UpdateNotStarted) => {
+                        *current.state_mut() = State::Aborted;
+                        Ok(())
+                    }
+                    Err(other) => {
+                        Err(ResponseError::UpdateFailed(other as u32))
+                    }
+                }
             }
-            Err(other) => Err(ResponseError::UpdateFailed(other as u32)),
+
+            // Update already aborted - aborting it again is a no-op.
+            State::Aborted => Ok(()),
+
+            // Update has already completed - too late to abort.
+            State::Complete => {
+                Err(ResponseError::UpdateInProgress(self.status()))
+            }
         }
     }
 }

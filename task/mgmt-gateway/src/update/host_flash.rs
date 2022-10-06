@@ -281,26 +281,33 @@ impl ComponentUpdater for HostFlashUpdate {
         // Do we have an update in progress? If not, nothing to do.
         let current = match self.current.as_mut() {
             Some(current) => current,
-            None => return Ok(()),
+            None => return Err(ResponseError::UpdateNotPrepared),
         };
 
+        // Only proceed if the requested ID matches ours.
+        if *id != current.id() {
+            return Err(ResponseError::UpdateInProgress(self.status()));
+        }
+
         match current.state() {
-            // Active states - we only allow the abort if the ID matches.
+            // Active states - do any work necessary to abort (none for host
+            // flash), then set our state to `Aborted`.
             State::ErasingSectors { .. }
             | State::AcceptingData { .. }
             | State::Failed(_) => {
-                if *id != current.id() {
-                    return Err(ResponseError::UpdateInProgress(self.status()));
-                }
-
                 // TODO should we erase the slot? TODO should we set_dev() back
                 // to what it was (if we changed it)?
                 *current.state_mut() = State::Aborted;
                 Ok(())
             }
 
-            // Inactive states - nothing to do in response to an abort.
-            State::Complete | State::Aborted => Ok(()),
+            // Update already aborted - aborting it again is a no-op.
+            State::Aborted => Ok(()),
+
+            // Update has already completed - too late to abort.
+            State::Complete => {
+                Err(ResponseError::UpdateInProgress(self.status()))
+            }
         }
     }
 }
