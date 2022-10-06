@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use super::{common::CurrentUpdate, ComponentUpdater};
-use crate::mgs_handler::{BufferMutex, UpdateBuffer};
+use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_gimlet_hf_api::{
     HfDevSelect, HfError, HfMuxState, HostFlash, PAGE_SIZE_BYTES,
@@ -34,14 +34,14 @@ impl HostFlashUpdate {
 impl ComponentUpdater for HostFlashUpdate {
     fn block_size(&self) -> usize {
         static_assertions::const_assert!(
-            PAGE_SIZE_BYTES <= BufferMutex::MAX_CAPACITY
+            PAGE_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
         );
         PAGE_SIZE_BYTES
     }
 
     fn prepare(
         &mut self,
-        buffer: &'static BufferMutex,
+        buffer: &'static UpdateBuffer,
         update: ComponentUpdatePrepare,
     ) -> Result<(), ResponseError> {
         // Do we have an update already in progress?
@@ -302,11 +302,11 @@ impl ComponentUpdater for HostFlashUpdate {
 
 enum State {
     ErasingSectors {
-        buffer: UpdateBuffer,
+        buffer: BorrowedUpdateBuffer,
         sectors_to_erase: Range<u32>,
     },
     AcceptingData {
-        buffer: UpdateBuffer,
+        buffer: BorrowedUpdateBuffer,
         next_write_offset: u32,
     },
     Complete,

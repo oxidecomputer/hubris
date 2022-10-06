@@ -7,8 +7,8 @@
 //!
 //! For example, if we have a task that wants to accept updates that are written
 //! in chunk sizes of 256 and 1024 bytes, we can declare a single, static
-//! [`BufferMutex<1024>`], and then borrow [`UpdateBuffer`]s of sizes 256 and/or
-//! 1024 when needed (but not both simultaneously).
+//! [`UpdateBuffer<1024>`], and then borrow [`BorrowedUpdateBuffer`]s of sizes
+//! 256 and/or 1024 when needed (but not both simultaneously).
 
 #![cfg_attr(not(test), no_std)]
 
@@ -17,12 +17,12 @@ use spin::Mutex;
 use spin::MutexGuard;
 
 #[derive(Debug)]
-pub struct BufferMutex<T, const N: usize> {
+pub struct UpdateBuffer<T, const N: usize> {
     current_owner: Mutex<Option<T>>,
     data: Mutex<[u8; N]>,
 }
 
-impl<T: Clone, const N: usize> BufferMutex<T, N> {
+impl<T: Clone, const N: usize> UpdateBuffer<T, N> {
     pub const MAX_CAPACITY: usize = N;
 
     pub const fn new() -> Self {
@@ -44,7 +44,7 @@ impl<T: Clone, const N: usize> BufferMutex<T, N> {
         &self,
         new_owner: T,
         capacity: usize,
-    ) -> Result<UpdateBuffer<'_, T, N>, T> {
+    ) -> Result<BorrowedUpdateBuffer<'_, T, N>, T> {
         if capacity > N {
             panic!();
         }
@@ -53,41 +53,42 @@ impl<T: Clone, const N: usize> BufferMutex<T, N> {
         let mut owner = self.current_owner.lock();
         if let Some(owner) = owner.as_ref() {
             // If `owner` is `Some(_)`, we know there is an outstanding
-            // `UpdateBuffer`; return an error.
+            // `BorrowedUpdateBuffer`; return an error.
             Err(owner.clone())
         } else {
             // `owner` is `None`, which means either:
             //
-            // 1. No `UpdateBuffer` exists (this lock will succeed immediately)
-            // 2. An `UpdateBuffer` is in the process of being dropped (this
-            //    lock will succeed very soon)
+            // 1. No `BorrowedUpdateBuffer` exists (this lock will succeed
+            //    immediately)
+            // 2. An `BorrowedUpdateBuffer` is in the process of being dropped
+            //    (this lock will succeed very soon)
             //
             // Either way, we must first acquire the data lock _before_
             // unlocking `owner`, to avoid TOCTOU races with concurrent calls to
             // this method.
             //
-            // This has the potential to deadlock with `UpdateBuffer::drop()`,
-            // which acquires the `owner` lock while still holding the `data`
-            // lock (the reverse order from this method). Normally acquiring
-            // locks in opposite order is a good way to deadlock, but we avoid
-            // it in this case due to our use of `owner`: We only attempt to
-            // acquire the `data` lock if `owner` is `None`. If `owner` is
-            // `Some(_)`, we immediately release the lock and return. If there
-            // is an outstanding `UpdateBuffer`, `owner` remains `Some(_)` until
-            // its drop method is able to acquire the `owner` lock (which it
-            // will always be able to, because we only hold it momentarily if
-            // it's `Some(_)`) and set it back to `None`, before the drop
-            // continues and `data` is unlocked.
+            // This has the potential to deadlock with
+            // `BorrowedUpdateBuffer::drop()`, which acquires the `owner` lock
+            // while still holding the `data` lock (the reverse order from this
+            // method). Normally acquiring locks in opposite order is a good way
+            // to deadlock, but we avoid it in this case due to our use of
+            // `owner`: We only attempt to acquire the `data` lock if `owner` is
+            // `None`. If `owner` is `Some(_)`, we immediately release the lock
+            // and return. If there is an outstanding `BorrowedUpdateBuffer`,
+            // `owner` remains `Some(_)` until its drop method is able to
+            // acquire the `owner` lock (which it will always be able to,
+            // because we only hold it momentarily if it's `Some(_)`) and set it
+            // back to `None`, before the drop continues and `data` is unlocked.
             let data = self.data.lock();
 
             // We now own the data; record our `new_owner` tag and drop the
             // owner lock. Any other caller to this method will see our owner
-            // until the `UpdateBuffer` we're about to create is dropped, since
-            // `owner` will remain `Some(_)` until that drop impl runs.
+            // until the `BorrowedUpdateBuffer` we're about to create is dropped,
+            // since `owner` will remain `Some(_)` until that drop impl runs.
             *owner = Some(new_owner);
             mem::drop(owner);
 
-            Ok(UpdateBuffer {
+            Ok(BorrowedUpdateBuffer {
                 owner: &self.current_owner,
                 data,
                 len: 0,
@@ -98,24 +99,24 @@ impl<T: Clone, const N: usize> BufferMutex<T, N> {
 }
 
 #[derive(Debug)]
-pub struct UpdateBuffer<'a, T, const N: usize> {
+pub struct BorrowedUpdateBuffer<'a, T, const N: usize> {
     owner: &'a Mutex<Option<T>>,
     data: MutexGuard<'a, [u8; N]>,
     len: usize,
     cap: usize,
 }
 
-impl<T, const N: usize> Drop for UpdateBuffer<'_, T, N> {
+impl<T, const N: usize> Drop for BorrowedUpdateBuffer<'_, T, N> {
     fn drop(&mut self) {
         // Avoiding deadlocks: We currently own the `data` lock and are
         // attempting to acquire the `owner` lock. This is the reverse order
-        // from `BufferMutex::borrow()` above. See the comment in it above for
+        // from `UpdateBuffer::borrow()` above. See the comment in it above for
         // the reasoning why this will not deadlock.
         *self.owner.lock() = None;
     }
 }
 
-impl<T, const N: usize> UpdateBuffer<'_, T, N> {
+impl<T, const N: usize> BorrowedUpdateBuffer<'_, T, N> {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -146,7 +147,7 @@ impl<T, const N: usize> UpdateBuffer<'_, T, N> {
         &data[n..]
     }
 
-    /// Discard `self` and reborrow the underlying [`BufferMutex`] with a new
+    /// Discard `self` and reborrow the underlying [`UpdateBuffer`] with a new
     /// capacity, without having to actually release and reacquire the lock.
     ///
     /// # Panics
@@ -163,7 +164,7 @@ impl<T, const N: usize> UpdateBuffer<'_, T, N> {
     }
 }
 
-impl<T, const N: usize> Deref for UpdateBuffer<'_, T, N> {
+impl<T, const N: usize> Deref for BorrowedUpdateBuffer<'_, T, N> {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -179,7 +180,7 @@ mod tests {
 
     #[test]
     fn acquiring_lock() {
-        let m = BufferMutex::<&str, 16>::new();
+        let m = UpdateBuffer::<&str, 16>::new();
 
         let buf1 = m.borrow("first", 4).unwrap();
         assert_eq!(m.borrow("x", 4).unwrap_err(), "first");
@@ -196,9 +197,9 @@ mod tests {
 
     #[test]
     fn concurrent_borrow() {
-        let m = Arc::new(BufferMutex::<String, 8>::new());
+        let m = Arc::new(UpdateBuffer::<String, 8>::new());
 
-        // Spawn a bunch of threads that all hammer on the same `BufferMutex`
+        // Spawn a bunch of threads that all hammer on the same `UpdateBuffer`
         // concurrently. We can run this both to spot check our lock ordering
         // (i.e., this test doesn't deadlock) and under miri to exercise the
         // underlying spin lock safety.
@@ -240,7 +241,7 @@ mod tests {
 
     #[test]
     fn capacity_under_max_size() {
-        let m = BufferMutex::<&str, 16>::new();
+        let m = UpdateBuffer::<&str, 16>::new();
 
         let mut buf = m.borrow("first", 4).unwrap();
         assert_eq!(buf.capacity(), 4);
@@ -307,7 +308,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn cannot_borrow_greater_than_underlying_capacity() {
-        let m = BufferMutex::<&str, 16>::new();
+        let m = UpdateBuffer::<&str, 16>::new();
         let _ = m.borrow("first", 17);
     }
 }

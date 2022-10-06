@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::mgs_handler::{BufferMutex, UpdateBuffer};
+use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::{Deref, DerefMut};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateError, UpdateTarget};
@@ -13,7 +13,9 @@ use gateway_messages::{
 
 userlib::task_slot!(UPDATE_SERVER, update_server);
 
-static_assertions::const_assert!(BLOCK_SIZE_BYTES <= BufferMutex::MAX_CAPACITY);
+static_assertions::const_assert!(
+    BLOCK_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
+);
 
 pub(crate) struct SpUpdate {
     sp_task: Update,
@@ -30,7 +32,7 @@ impl SpUpdate {
 
     pub(crate) fn prepare(
         &mut self,
-        buffer: &'static BufferMutex,
+        buffer: &'static UpdateBuffer,
         update: SpUpdatePrepare,
     ) -> Result<(), ResponseError> {
         // Do we have an update already in progress?
@@ -236,7 +238,7 @@ enum State {
 }
 
 struct AcceptingData {
-    buffer: UpdateBuffer,
+    buffer: BorrowedUpdateBuffer,
     next_write_offset: u32,
 }
 

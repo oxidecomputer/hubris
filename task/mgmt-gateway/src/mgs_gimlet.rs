@@ -22,23 +22,23 @@ use ringbuf::ringbuf_entry_root;
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
-// Create type aliases that include our `BufferMutex` size (i.e., the size of
+// Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update). We could use some
 // kind of const max function over all the components, but we already have
 // static assertions for each component that they fit in this size, so we just
 // manually pick the component with the max (SP updates).
-pub(crate) type BufferMutex = ::update_buffer::BufferMutex<
+pub(crate) type UpdateBuffer = update_buffer::UpdateBuffer<
     SpComponent,
     { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
 >;
-pub(crate) type UpdateBuffer = ::update_buffer::UpdateBuffer<
+pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
     'static,
     SpComponent,
     { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
 >;
 
 // Our single, shared update buffer.
-static UPDATE_MEMORY: BufferMutex = BufferMutex::new();
+static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
 /// Buffer sizes for serial console UDP / USART proxying.
 ///
