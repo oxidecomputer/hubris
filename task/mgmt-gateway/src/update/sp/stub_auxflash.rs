@@ -5,9 +5,27 @@
 /// Stub implementation that has the same types and methods as the real
 /// `auxflash` module (our sibling). All method implementations panic: none of
 /// them should ever be called.
-use super::AuxFlash;
 use crate::mgs_handler::BorrowedUpdateBuffer;
 use gateway_messages::{ResponseError, UpdateId, UpdateStatus};
+use userlib::TaskId;
+
+// Provide a fake `AuxFlash` idol client for our parent to import.
+pub(super) struct AuxFlash;
+
+impl From<TaskId> for AuxFlash {
+    fn from(_: TaskId) -> Self {
+        Self
+    }
+}
+
+// Provide a fake aux flash task slot for our parent to import.
+pub(super) struct FakeAuxFlashTaskSlot;
+
+impl FakeAuxFlashTaskSlot {
+    pub(super) fn get_task_id(&self) -> TaskId {
+        TaskId::UNBOUND
+    }
+}
 
 #[allow(dead_code)] // we never construct any of these variants
 pub(super) enum State {

@@ -12,38 +12,26 @@ use gateway_messages::{
     UpdateInProgressStatus, UpdateStatus,
 };
 
-#[cfg_attr(not(feature = "auxflash"), path = "sp/stub_auxflash.rs")]
-mod auxflash;
-
-use self::auxflash::ChckScanResult;
-use self::auxflash::IngestDataResult as AuxFlashIngestDataResult;
-use self::auxflash::State as AuxFlashState;
-
 cfg_if! {
     if #[cfg(feature = "auxflash")] {
         use drv_auxflash_api::AuxFlash;
 
+        mod auxflash;
+
         userlib::task_slot!(AUX_FLASH_SERVER, auxflash);
     } else {
-        // If the auxflash feature isn't enabled, we can stub out a fake
-        // `AuxFlash` server that we never actually do anything with (other than
-        // construct it).
-        use userlib::TaskId;
+        mod stub_auxflash;
+        use stub_auxflash as auxflash;
 
-        struct AuxFlash;
-        impl From<TaskId> for AuxFlash {
-            fn from(_: TaskId) -> Self {
-                Self
-            }
-        }
+        use auxflash::{AuxFlash, FakeAuxFlashTaskSlot};
 
-        struct FakeAuxFlashServer;
-        impl FakeAuxFlashServer {
-            fn get_task_id(&self) -> TaskId { TaskId::UNBOUND }
-        }
-        const AUX_FLASH_SERVER: FakeAuxFlashServer = FakeAuxFlashServer;
+        const AUX_FLASH_SERVER: FakeAuxFlashTaskSlot = FakeAuxFlashTaskSlot;
     }
 }
+
+use auxflash::ChckScanResult;
+use auxflash::IngestDataResult as AuxFlashIngestDataResult;
+use auxflash::State as AuxFlashState;
 
 userlib::task_slot!(UPDATE_SERVER, update_server);
 
