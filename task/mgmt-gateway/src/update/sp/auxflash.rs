@@ -162,7 +162,17 @@ impl ScanningForChck {
                     return ChckScanResult::FoundMatch(self.buffer);
                 }
             }
-            Err(AuxFlashError::MissingChck) => {
+            // Error states that indicate missing or invalid data in a slot: If
+            // we hit one of these errors in an even-numbered slot, we'll prefer
+            // it as our target slot (unless we've already found one).
+            Err(
+                AuxFlashError::BadChckSize
+                | AuxFlashError::MissingChck
+                | AuxFlashError::MissingAuxi
+                | AuxFlashError::MultipleChck
+                | AuxFlashError::MultipleAuxi
+                | AuxFlashError::ChckMismatch,
+            ) => {
                 // This error is expected for any empty slot; only
                 // note its index if it's the first even empty slot
                 // we've seen. (We'll use it as our target slot if
@@ -173,7 +183,7 @@ impl ScanningForChck {
             }
             Err(_) => {
                 // What should we do with other errors? They indicate
-                // some kind of problem with the auxflash state, but
+                // some kind of problem with the auxflash itself, but
                 // there's nothing we can do about it. For now, just
                 // pretend it was a non-matching chck (i.e., skip).
             }
