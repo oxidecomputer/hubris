@@ -25,6 +25,7 @@ max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
 features = ["g030"]
+task-slots = ["jefe"]
 stacksize = 256
 
 [tasks.pong]

@@ -10,6 +10,13 @@
 #![no_std]
 #![no_main]
 
+#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_b.rs")]
+#[cfg_attr(target_board = "gemini-bu-1", path = "bsp/gemini_bu_1.rs")]
+#[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
+#[cfg_attr(
+    any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
+    path = "bsp/nucleo_h7x.rs"
+)]
 mod bsp;
 
 use userlib::*;
@@ -321,65 +328,65 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "hash")] {
-            fn hash(
-                &mut self,
-                _: &RecvMessage,
-                addr: u32,
-                len: u32,
-            ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
-                self.check_muxed_to_sp()?;
-                let hash_driver = hash_api::Hash::from(HASH.get_task_id());
-                if hash_driver.init_sha256().is_err() {
-                    return Err(HfError::HashError.into());
-                }
-                let begin = addr as usize;
-                // TODO: Begin may be an address beyond physical end of
-                // flash part and may wrap around.
-                let end = match begin.checked_add(len as usize) {
-                    Some(end) => {
-                        // Check end > maximum 4-byte address.
-                        // TODO: End may be beyond physical end of flash part.
-                        //       Use that limit rather than maximum 4-byte address.
-                        if end > u32::MAX as usize {
-                            return Err(HfError::HashBadRange.into());
-                        } else {
-                            end
-                        }
-                    },
-                    None => {
-                        return Err(HfError::HashBadRange.into());
-                    },
-                };
-                // If we knew the flash part size, we'd check against those limits.
-                for addr in (begin..end).step_by(self.block.len()) {
-                    let size = if self.block.len() < (end - addr) {
-                        self.block.len()
-                    } else {
-                        end - addr
-                    };
-                    self.qspi.read_memory(addr as u32, &mut self.block[..size]);
-                    if hash_driver.update(
-                        size as u32, &self.block[..size]).is_err() {
-                        return Err(HfError::HashError.into());
-                    }
-                }
-                match hash_driver.finalize_sha256() {
-                    Ok(sum) => Ok(sum),
-                    Err(_) => Err(HfError::HashError.into()),   // XXX losing info
+    #[cfg(feature = "hash")]
+    fn hash(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        len: u32,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        let hash_driver = hash_api::Hash::from(HASH.get_task_id());
+        if hash_driver.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
+        }
+        let begin = addr as usize;
+        // TODO: Begin may be an address beyond physical end of
+        // flash part and may wrap around.
+        let end = match begin.checked_add(len as usize) {
+            Some(end) => {
+                // Check end > maximum 4-byte address.
+                // TODO: End may be beyond physical end of flash part.
+                //       Use that limit rather than maximum 4-byte address.
+                if end > u32::MAX as usize {
+                    return Err(HfError::HashBadRange.into());
+                } else {
+                    end
                 }
             }
-        } else {
-            fn hash(
-                &mut self,
-                _: &RecvMessage,
-                _addr: u32,
-                _len: u32,
-            ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
-                Err(HfError::HashNotConfigured.into())
+            None => {
+                return Err(HfError::HashBadRange.into());
+            }
+        };
+        // If we knew the flash part size, we'd check against those limits.
+        for addr in (begin..end).step_by(self.block.len()) {
+            let size = if self.block.len() < (end - addr) {
+                self.block.len()
+            } else {
+                end - addr
+            };
+            self.qspi.read_memory(addr as u32, &mut self.block[..size]);
+            if hash_driver
+                .update(size as u32, &self.block[..size])
+                .is_err()
+            {
+                return Err(HfError::HashError.into());
             }
         }
+        match hash_driver.finalize_sha256() {
+            Ok(sum) => Ok(sum),
+            Err(_) => Err(HfError::HashError.into()), // XXX losing info
+        }
+    }
+
+    #[cfg(not(feature = "hash"))]
+    fn hash(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _len: u32,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        Err(HfError::HashNotConfigured.into())
     }
 }
 

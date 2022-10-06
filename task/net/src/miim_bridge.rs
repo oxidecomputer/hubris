@@ -13,6 +13,7 @@ pub struct MiimBridge<'a> {
 }
 
 impl<'a> MiimBridge<'a> {
+    #[allow(dead_code)]
     pub fn new(eth: &'a eth::Ethernet) -> Self {
         Self { eth }
     }

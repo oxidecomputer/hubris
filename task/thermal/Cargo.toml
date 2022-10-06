@@ -11,7 +11,6 @@ ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 zerocopy = "0.6.1"
-cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
@@ -26,7 +25,6 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 build-util = {path = "../../build/util"}
 build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
-cfg-if = "1"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]

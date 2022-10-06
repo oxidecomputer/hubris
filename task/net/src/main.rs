@@ -5,28 +5,34 @@
 #![no_std]
 #![no_main]
 
-mod bsp;
+pub mod pins;
+
 mod buf;
 mod miim_bridge;
 mod server;
 
-pub mod pins;
+// Select the BSP based on the target board
+#[cfg_attr(
+    any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
+    path = "bsp/nucleo_h7.rs"
+)]
+#[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
+#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_b.rs")]
+#[cfg_attr(target_board = "psc-a", path = "bsp/psc_a.rs")]
+#[cfg_attr(target_board = "gimletlet-1", path = "bsp/gimletlet_mgmt.rs")]
+#[cfg_attr(
+    all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
+    path = "bsp/gimletlet_nic.rs"
+)]
+mod bsp;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "vlan")] {
-        mod server_vlan;
-        use server_vlan::ServerImpl;
-    } else {
-        mod server_basic;
-        use server_basic::ServerImpl;
-    }
-}
+#[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
+#[cfg_attr(not(feature = "vlan"), path = "server_basic.rs")]
+mod server_impl;
+use server_impl::ServerImpl;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "mgmt")] {
-        pub(crate) mod mgmt;
-    }
-}
+#[cfg(feature = "mgmt")]
+pub(crate) mod mgmt;
 
 mod idl {
     use task_net_api::{

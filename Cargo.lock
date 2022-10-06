@@ -849,7 +849,6 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-gimlet-hf-api",
  "drv-hash-api",
  "drv-stm32h7-qspi",
@@ -3556,7 +3555,6 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-sidecar-seq-api",
@@ -3734,7 +3732,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
