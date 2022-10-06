@@ -125,6 +125,21 @@ impl Bsp {
             temperature_slew_deg_per_sec: 0.5,
         };
 
+        // Thermal throttling begins at 78° for WD-SN840 (primary source) and
+        // 75° for Micron-9300 (secondary source).
+        //
+        // For the WD part, thermal shutdown is at 84°C, which also voids the
+        // warranty. The Micron drive doesn't specify a thermal shutdown
+        // temperature, but the "critical" temperature is 80°C.
+        //
+        // All temperature are "composite" temperatures.
+        const U2_THERMALS: ThermalProperties = ThermalProperties {
+            target_temperature: Celsius(65f32),
+            critical_temperature: Celsius(70f32),
+            power_down_temperature: Celsius(75f32),
+            temperature_slew_deg_per_sec: 0.5,
+        };
+
         // The CPU doesn't actually report true temperature; it reports a
         // unitless "temperature control value".  Throttling starts at 95, and
         // becomes more aggressive at 100.  Let's aim for 80, to stay well below
@@ -364,7 +379,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[0],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -375,7 +390,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[1],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -386,7 +401,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[2],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -397,7 +412,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[3],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -408,7 +423,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[4],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -419,7 +434,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[5],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -430,7 +445,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[6],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -441,7 +456,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[7],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -452,7 +467,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[8],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
@@ -463,7 +478,7 @@ impl Bsp {
                         )),
                         sensors::NVMEBMC_TEMPERATURE_SENSORS[9],
                     ),
-                    DIMM_THERMALS,
+                    U2_THERMALS,
                     POWER_STATE_A0,
                     true,
                 ),
