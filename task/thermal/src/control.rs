@@ -44,51 +44,32 @@ pub enum Device {
 /// sensors index (`sensors::TSE2004AV_TEMPERATURE_SENSORS[index]`).
 pub struct TemperatureSensor {
     device: Device,
-    index: usize,
+    builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+    sensor_id: SensorId,
 }
 
 impl TemperatureSensor {
-    pub const fn new(device: Device, index: usize) -> Self {
-        Self { device, index }
+    pub const fn new(
+        device: Device,
+        builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+        sensor_id: SensorId,
+    ) -> Self {
+        Self {
+            device,
+            builder,
+            sensor_id,
+        }
     }
     fn read_temp(&self, i2c_task: TaskId) -> Result<Celsius, SensorReadError> {
-        use crate::i2c_config::devices;
+        let dev = (self.builder)(i2c_task);
         let t = match &self.device {
-            Device::Tmp117 => {
-                let dev = Tmp117::new(&devices::tmp117(i2c_task)[self.index]);
-                dev.read_temperature()?
-            }
-            Device::CPU => {
-                let dev = Sbtsi::new(&devices::sbtsi(i2c_task)[self.index]);
-                dev.read_temperature()?
-            }
-            Device::Tmp451(t) => {
-                let dev =
-                    Tmp451::new(&devices::tmp451(i2c_task)[self.index], *t);
-                dev.read_temperature()?
-            }
-            Device::Dimm => {
-                let dev =
-                    Tse2004Av::new(&devices::tse2004av(i2c_task)[self.index]);
-                dev.read_temperature()?
-            }
-            Device::U2 => {
-                let dev = NvmeBmc::new(&devices::nvmebmc(i2c_task)[self.index]);
-                dev.read_temperature()?
-            }
+            Device::Tmp117 => Tmp117::new(&dev).read_temperature()?,
+            Device::CPU => Sbtsi::new(&dev).read_temperature()?,
+            Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
+            Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
+            Device::U2 => NvmeBmc::new(&dev).read_temperature()?,
         };
         Ok(t)
-    }
-    fn sensor_id(&self) -> SensorId {
-        use crate::i2c_config::sensors;
-        use Device::*;
-        match &self.device {
-            Tmp117 => sensors::TMP117_TEMPERATURE_SENSORS[self.index],
-            CPU => sensors::SBTSI_TEMPERATURE_SENSORS[self.index],
-            Tmp451(_) => sensors::TMP451_TEMPERATURE_SENSORS[self.index],
-            Dimm => sensors::TSE2004AV_TEMPERATURE_SENSORS[self.index],
-            U2 => sensors::NVMEBMC_TEMPERATURE_SENSORS[self.index],
-        }
     }
 }
 
@@ -558,16 +539,15 @@ impl<'a> ThermalControl<'a> {
 
         // Read miscellaneous temperature data and log it to the sensors task
         for (i, s) in self.bsp.misc_sensors.iter().enumerate() {
-            let sensor_id = s.sensor_id();
             let post_result = match s.read_temp(self.i2c_task) {
-                Ok(v) => self.sensor_api.post(sensor_id, v.0),
+                Ok(v) => self.sensor_api.post(s.sensor_id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(i, e));
-                    self.sensor_api.nodata(sensor_id, e.into())
+                    self.sensor_api.nodata(s.sensor_id, e.into())
                 }
             };
             if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(sensor_id, e));
+                ringbuf_entry!(Trace::PostFailed(s.sensor_id, e));
             }
         }
 
@@ -582,7 +562,6 @@ impl<'a> ThermalControl<'a> {
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let sensor_id = s.sensor.sensor_id();
             let post_result = match s.sensor.read_temp(self.i2c_task) {
                 Ok(v) => {
                     if (s.power_mode_mask & self.power_mode) != 0 {
@@ -590,7 +569,7 @@ impl<'a> ThermalControl<'a> {
                     } else {
                         self.state.write_temperature_inactive(i);
                     }
-                    self.sensor_api.post(sensor_id, v.0)
+                    self.sensor_api.post(s.sensor.sensor_id, v.0)
                 }
                 Err(e) => {
                     // Ignore errors if
@@ -611,11 +590,11 @@ impl<'a> ThermalControl<'a> {
                         // temperature is sufficiently high)
                         ringbuf_entry!(Trace::SensorReadFailed(i, e));
                     }
-                    self.sensor_api.nodata(sensor_id, e.into())
+                    self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                 }
             };
             if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(sensor_id, e));
+                ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));
             }
         }
     }

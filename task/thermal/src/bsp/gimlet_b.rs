@@ -177,7 +177,11 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
-        TemperatureSensor::new(Device::CPU, 0),
+        TemperatureSensor::new(
+            Device::CPU,
+            devices::sbtsi_cpu,
+            sensors::SBTSI_CPU_TEMPERATURE_SENSOR,
+        ),
         CPU_THERMALS,
         POWER_STATE_A0,
         false,
@@ -185,165 +189,270 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::Tmp451(drv_i2c_devices::tmp451::Target::Remote),
-            0,
+            devices::tmp451_t6,
+            sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
         POWER_STATE_A0,
         false,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 0),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_a0,
+            sensors::TSE2004AV_DIMM_A0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 1),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_a1,
+            sensors::TSE2004AV_DIMM_A1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 2),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_b0,
+            sensors::TSE2004AV_DIMM_B0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 3),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_b1,
+            sensors::TSE2004AV_DIMM_B1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 4),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_c0,
+            sensors::TSE2004AV_DIMM_C0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 5),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_c1,
+            sensors::TSE2004AV_DIMM_C1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 6),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_d0,
+            sensors::TSE2004AV_DIMM_D0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 7),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_d1,
+            sensors::TSE2004AV_DIMM_D1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 8),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_e0,
+            sensors::TSE2004AV_DIMM_E0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 9),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_e1,
+            sensors::TSE2004AV_DIMM_E1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 10),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_f0,
+            sensors::TSE2004AV_DIMM_F0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 11),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_f1,
+            sensors::TSE2004AV_DIMM_F1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 12),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_g0,
+            sensors::TSE2004AV_DIMM_G0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 13),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_g1,
+            sensors::TSE2004AV_DIMM_G1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 14),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_h0,
+            sensors::TSE2004AV_DIMM_H0_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::Dimm, 15),
+        TemperatureSensor::new(
+            Device::Dimm,
+            devices::tse2004av_dimm_h1,
+            sensors::TSE2004AV_DIMM_H1_TEMPERATURE_SENSOR,
+        ),
         DIMM_THERMALS,
         POWER_STATE_A0 | POWER_STATE_A2,
         true,
     ),
     // U.2 drives
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 0),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n0,
+            sensors::NVMEBMC_U2_N0_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 1),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n1,
+            sensors::NVMEBMC_U2_N1_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 2),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n2,
+            sensors::NVMEBMC_U2_N2_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 3),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n3,
+            sensors::NVMEBMC_U2_N3_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 4),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n4,
+            sensors::NVMEBMC_U2_N4_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 5),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n5,
+            sensors::NVMEBMC_U2_N5_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 6),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n6,
+            sensors::NVMEBMC_U2_N6_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 7),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n7,
+            sensors::NVMEBMC_U2_N7_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 8),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n8,
+            sensors::NVMEBMC_U2_N8_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
     InputChannel::new(
-        TemperatureSensor::new(Device::U2, 9),
+        TemperatureSensor::new(
+            Device::U2,
+            devices::nvmebmc_u2_n9,
+            sensors::NVMEBMC_U2_N9_TEMPERATURE_SENSOR,
+        ),
         U2_THERMALS,
         POWER_STATE_A0,
         true,
@@ -351,10 +460,34 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
-    TemperatureSensor::new(Device::Tmp117, 0),
-    TemperatureSensor::new(Device::Tmp117, 1),
-    TemperatureSensor::new(Device::Tmp117, 2),
-    TemperatureSensor::new(Device::Tmp117, 3),
-    TemperatureSensor::new(Device::Tmp117, 4),
-    TemperatureSensor::new(Device::Tmp117, 5),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_southwest,
+        sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_southeast,
+        sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_northwest,
+        sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_northeast,
+        sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_north,
+        sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
+    ),
+    TemperatureSensor::new(
+        Device::Tmp117,
+        devices::tmp117_south,
+        sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
+    ),
 ];
