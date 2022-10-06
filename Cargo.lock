@@ -3733,7 +3733,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-i2c-api",

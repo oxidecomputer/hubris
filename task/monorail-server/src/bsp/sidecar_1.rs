@@ -288,7 +288,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // Tune QSGMII link from the front IO board's PHY
         // These values are captured empirically with an oscilloscope
         if let Some(phy) = self.vsc8562.as_mut() {
-            use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1, Vsc8562Phy};
+            use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1};
             let mut p = vsc85xx::Phy::new(0, phy); // port 0
             let mut v = Vsc8562Phy { phy: &mut p };
             v.tune_sd6g_ob_cfg(Sd6gObCfg {
