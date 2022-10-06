@@ -389,17 +389,17 @@ pub fn package(
             )?;
             translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
 
-            // The 'enable-dice' key causes the build to create a CMPA image
-            // with DICE enabled, however the CFPA & keystore must be setup too
-            // before the UDS can be created. See lpc55_support for details.
-            lpc55_sign::signed_image::create_cmpa(
-                signing.enable_dice,
-                signing.dice_inc_nxp_cfg,
-                signing.dice_cust_cfg,
-                signing.dice_inc_sec_epoch,
-                &rkth,
-                &cfg.img_file("CMPA.bin", image_name),
-            )?;
+            let mut cmpa = signing.generate_cmpa(&rkth)?;
+            let cmpa_bytes = cmpa.to_vec()?;
+            let mut cmpa_file =
+                File::create(Path::new(&cfg.img_file("CMPA.bin", image_name)))?;
+            cmpa_file.write(&cmpa_bytes)?;
+
+            let mut cfpa = signing.generate_cfpa()?;
+            let cfpa_bytes = cfpa.to_vec()?;
+            let mut cfpa_file =
+                File::create(Path::new(&cfg.img_file("CFPA.bin", image_name)))?;
+            cfpa_file.write(&cfpa_bytes)?;
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
