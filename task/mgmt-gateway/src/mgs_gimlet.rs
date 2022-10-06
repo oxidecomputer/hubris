@@ -4,8 +4,8 @@
 
 use crate::{
     mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
-    update::sp::SpUpdate, update::ComponentUpdater, vlan_id_from_sp_port, Log,
-    MgsMessage, SYS, USART_IRQ,
+    update::sp::SpUpdate, update::ComponentUpdater, usize_max,
+    vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -22,19 +22,21 @@ use ringbuf::ringbuf_entry_root;
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
+// How big does our shared update buffer need to be? Has to be able to handle SP
+// update blocks or host flash pages.
+const UPDATE_BUFFER_SIZE: usize = usize_max(
+    drv_update_api::stm32h7::BLOCK_SIZE_BYTES,
+    drv_gimlet_hf_api::PAGE_SIZE_BYTES,
+);
+
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
-// the largest update chunk of all the components we update). We could use some
-// kind of const max function over all the components, but we already have
-// static assertions for each component that they fit in this size, so we just
-// manually pick the component with the max (SP updates).
-pub(crate) type UpdateBuffer = update_buffer::UpdateBuffer<
-    SpComponent,
-    { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
->;
+// the largest update chunk of all the components we update).
+pub(crate) type UpdateBuffer =
+    update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
 pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
     'static,
     SpComponent,
-    { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
+    UPDATE_BUFFER_SIZE,
 >;
 
 // Our single, shared update buffer.

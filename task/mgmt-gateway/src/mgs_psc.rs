@@ -15,19 +15,18 @@ use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
 
+// How big does our shared update buffer need to be? Has to be able to handle SP
+// update blocks.
+const UPDATE_BUFFER_SIZE: usize = drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
+
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
-// the largest update chunk of all the components we update). We could use some
-// kind of const max function over all the components, but we already have
-// static assertions for each component that they fit in this size, so we just
-// manually pick the component with the max (SP updates).
-pub(crate) type UpdateBuffer = update_buffer::UpdateBuffer<
-    SpComponent,
-    { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
->;
+// the largest update chunk of all the components we update).
+pub(crate) type UpdateBuffer =
+    update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
 pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
     'static,
     SpComponent,
-    { drv_update_api::stm32h7::BLOCK_SIZE_BYTES },
+    UPDATE_BUFFER_SIZE,
 >;
 
 // Our single, shared update buffer.

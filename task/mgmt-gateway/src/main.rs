@@ -267,3 +267,12 @@ fn vlan_id_from_sp_port(port: SpPort) -> u16 {
         SpPort::Two => VLAN_RANGE.start + 1,
     }
 }
+
+#[allow(dead_code)]
+const fn usize_max(a: usize, b: usize) -> usize {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
