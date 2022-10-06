@@ -966,24 +966,23 @@ impl ConfigGenerator {
                 label,
                 ids[0]
             )?;
-        }
-        // Always write the _SENSORS array as well, so that code doesn't have
-        // to special-case the situation with only one sensor of a type.
-        writeln!(
-            &mut self.output,
-            r##"
+        } else {
+            writeln!(
+                &mut self.output,
+                r##"
         #[allow(dead_code)]
         pub const {}_{}_SENSORS: [SensorId; {}] = [ "##,
-            device.to_uppercase(),
-            label,
-            ids.len(),
-        )?;
+                device.to_uppercase(),
+                label,
+                ids.len(),
+            )?;
 
-        for id in ids {
-            writeln!(&mut self.output, "            SensorId({}), ", id)?;
+            for id in ids {
+                writeln!(&mut self.output, "            SensorId({}), ", id)?;
+            }
+
+            writeln!(&mut self.output, "        ];")?;
         }
-
-        writeln!(&mut self.output, "        ];")?;
 
         Ok(())
     }
