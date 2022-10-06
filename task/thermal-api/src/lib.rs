@@ -7,6 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
@@ -15,11 +16,15 @@ pub enum ThermalError {
     InvalidPWM = 2,
     DeviceError = 3,
     NotInManualMode = 4,
-    NoReading = 5,
-    InvalidWatchdogTime = 6,
+    NotInAutoMode = 5,
+    AlreadyInAutoMode = 6,
+    InvalidWatchdogTime = 7,
+    InvalidParameter = 8,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Serialize, Deserialize,
+)]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
     /// should be transient, as the thermal task turns on.
@@ -30,6 +35,20 @@ pub enum ThermalMode {
     /// The thermal loop is polling sensors and sending data to the `sensors`
     /// task; fan speeds are controlled based on certain temperature sensors.
     Auto = 2,
+}
+
+/// Substates when running in automatic mode
+///
+/// These are based on `enum ThermalControlState`, but stripped of the
+/// associated state data.
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Serialize, Deserialize,
+)]
+pub enum ThermalAutoState {
+    Boot,
+    Running,
+    Overheated,
+    Uncontrollable,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

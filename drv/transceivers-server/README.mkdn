@@ -1,0 +1,14 @@
+# Transceivers
+
+This task provides basic control and communication of QSFP modules on
+Sidecar's Front IO board. Things this task can provide are:
+
+- hot swap controller (HSC) enable control
+- QSFP module reset/lpmode control
+- status of HSC power good and power good timeout
+- status of QSFP module presence and interrupts
+- ability to read/write up to 128 bytes on modules' I2C interface
+
+Currently, the task does not track any internal state, it is merely a
+communication conduit. Things like module monitoring (temperature, voltage, etc)
+will be added in the future.

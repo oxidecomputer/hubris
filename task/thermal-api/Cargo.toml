@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
 derive-idol-err = {path = "../../lib/derive-idol-err" }
+num-traits = { version = "0.2.12", default-features = false }
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+zerocopy = "0.6.1"
+
+userlib = {path = "../../sys/userlib"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

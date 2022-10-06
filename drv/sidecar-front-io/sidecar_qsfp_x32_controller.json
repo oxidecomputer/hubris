@@ -607,105 +607,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_BCAST_L",
-                    "addr_offset": 3,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT0",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT1",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT2",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT3",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT4",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT5",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT6",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT7",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
                     "inst_name": "I2C_BCAST_H",
-                    "addr_offset": 4,
+                    "addr_offset": 3,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -789,6 +692,103 @@
                         {
                             "type": "field",
                             "inst_name": "PORT15",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "I2C_BCAST_L",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT0",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT1",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT2",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT3",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT4",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT5",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT6",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -832,105 +832,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_EN_L",
-                    "addr_offset": 6,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT0",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT1",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT2",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT3",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT4",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT5",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT6",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT7",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
                     "inst_name": "CTRL_EN_H",
-                    "addr_offset": 7,
+                    "addr_offset": 6,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1026,8 +929,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_RESET_L",
-                    "addr_offset": 8,
+                    "inst_name": "CTRL_EN_L",
+                    "addr_offset": 7,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1036,7 +939,7 @@
                             "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1047,7 +950,7 @@
                             "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1058,7 +961,7 @@
                             "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1069,7 +972,7 @@
                             "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1080,7 +983,7 @@
                             "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1091,7 +994,7 @@
                             "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1102,7 +1005,7 @@
                             "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1113,7 +1016,7 @@
                             "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1124,7 +1027,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_RESET_H",
-                    "addr_offset": 9,
+                    "addr_offset": 8,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1220,8 +1123,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_LPMODE_L",
-                    "addr_offset": 10,
+                    "inst_name": "CTRL_RESET_L",
+                    "addr_offset": 9,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1230,7 +1133,7 @@
                             "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1241,7 +1144,7 @@
                             "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1252,7 +1155,7 @@
                             "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1263,7 +1166,7 @@
                             "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1274,7 +1177,7 @@
                             "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1285,7 +1188,7 @@
                             "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1296,7 +1199,7 @@
                             "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1307,7 +1210,7 @@
                             "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -1318,7 +1221,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_LPMODE_H",
-                    "addr_offset": 11,
+                    "addr_offset": 10,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1414,8 +1317,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_L",
-                    "addr_offset": 12,
+                    "inst_name": "CTRL_LPMODE_L",
+                    "addr_offset": 11,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1512,7 +1415,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_H",
-                    "addr_offset": 13,
+                    "addr_offset": 12,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1608,8 +1511,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_TIMEOUT_L",
-                    "addr_offset": 14,
+                    "inst_name": "STATUS_PG_L",
+                    "addr_offset": 13,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1706,7 +1609,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_TIMEOUT_H",
-                    "addr_offset": 15,
+                    "addr_offset": 14,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1802,8 +1705,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PRESENT_L",
-                    "addr_offset": 16,
+                    "inst_name": "STATUS_PG_TIMEOUT_L",
+                    "addr_offset": 15,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1900,7 +1803,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PRESENT_H",
-                    "addr_offset": 17,
+                    "addr_offset": 16,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1996,8 +1899,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_IRQ_L",
-                    "addr_offset": 18,
+                    "inst_name": "STATUS_PRESENT_L",
+                    "addr_offset": 17,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2094,7 +1997,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_IRQ_H",
-                    "addr_offset": 19,
+                    "addr_offset": 18,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2178,6 +2081,103 @@
                         {
                             "type": "field",
                             "inst_name": "PORT15",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_IRQ_L",
+                    "addr_offset": 19,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT0",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT1",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT2",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT3",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT4",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT5",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT6",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
