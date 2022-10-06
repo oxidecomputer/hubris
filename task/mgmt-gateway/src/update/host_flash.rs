@@ -96,9 +96,14 @@ impl ComponentUpdater for HostFlashUpdate {
 
         // How many total sectors do we need to erase? For gimlet, we know that
         // capacity is an exact multiple of the sector size, which is probably
-        // a safe assumption for future parts as well. We'll assert here in case
-        // that ever becomes untrue, and we can update our math.
-        assert!(capacity % SECTOR_SIZE_BYTES == 0);
+        // a safe assumption for future parts as well. We'll fail here if that's
+        // untrue, which will require reworking how we erase the target slot.
+        if capacity % SECTOR_SIZE_BYTES != 0 {
+            // We don't have an error case for "our assumptions are wrong", so
+            // we'll fill in an easily-greppable update failure code. In case it
+            // shows up in logs in base 10, 0x1de_0001 == 31326209.
+            return Err(ResponseError::UpdateFailed(0x1de_0001));
+        }
         let num_sectors = (capacity / SECTOR_SIZE_BYTES) as u32;
 
         self.current = Some(CurrentUpdate::new(
