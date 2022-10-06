@@ -39,9 +39,11 @@ pub enum Device {
     U2,
 }
 
-/// Represents a sensor and an associated index.  The index is used both as
-/// the device index (e.g. `devices::tse2004av(i2c_task)[index]`) and the
-/// sensors index (`sensors::TSE2004AV_TEMPERATURE_SENSORS[index]`).
+/// Represents a sensor in the system.
+///
+/// The sensor includes a device type, used to decide how to read it;
+/// a free function that returns the raw `I2cDevice`, so that this can be
+/// `const`); and the sensor ID, to post data to the `sensors` task.
 pub struct TemperatureSensor {
     device: Device,
     builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
