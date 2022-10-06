@@ -45,3 +45,7 @@ zerocopy = "0.6.1"
 [dependencies.lpc55_sign]
 git = "https://github.com/oxidecomputer/lpc55_support"
 rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+
+[dependencies.lpc55_areas]
+git = "https://github.com/oxidecomputer/lpc55_support"
+rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"

@@ -4457,6 +4457,7 @@ dependencies = [
  "gnarle",
  "goblin",
  "indexmap",
+ "lpc55_areas",
  "lpc55_sign",
  "memchr",
  "ordered-toml",

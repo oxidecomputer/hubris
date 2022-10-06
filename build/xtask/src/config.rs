@@ -12,6 +12,9 @@ use indexmap::IndexMap;
 use serde::Deserialize;
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
+use lpc55_areas::{
+    BootSpeed, CFPAPage, CMPAPage, DefaultIsp, RKTHRevoke, SecureBootCfg,
+};
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -29,7 +32,7 @@ struct RawConfig {
     #[serde(default)]
     external_images: Vec<String>,
     #[serde(default)]
-    signing: Option<Signing>,
+    signing: Option<RoTMfgSettings>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
     kernel: Kernel,
@@ -51,7 +54,7 @@ pub struct Config {
     pub chip: String,
     pub image_names: Vec<String>,
     pub external_images: Vec<String>,
-    pub signing: Option<Signing>,
+    pub signing: Option<RoTMfgSettings>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
     pub kernel: Kernel,
@@ -479,9 +482,12 @@ impl std::fmt::Display for SigningMethod {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Signing {
+pub struct RoTMfgSettings {
     pub priv_key: PathBuf,
     pub root_cert: PathBuf,
+
+    #[serde(default)]
+    pub enable_secure_boot: bool,
     #[serde(default)]
     pub enable_dice: bool,
     #[serde(default)]
@@ -490,6 +496,48 @@ pub struct Signing {
     pub dice_cust_cfg: bool,
     #[serde(default)]
     pub dice_inc_sec_epoch: bool,
+}
+
+impl RoTMfgSettings {
+    pub fn generate_cmpa(&self, rkth: &[u8; 32]) -> Result<CMPAPage> {
+        let mut cmpa = CMPAPage::new();
+        let mut sec_boot = SecureBootCfg::new();
+
+        if self.enable_dice && !self.enable_secure_boot {
+            bail!("Must set secure boot to use DICE");
+        }
+
+        sec_boot.set_sec_boot(self.enable_secure_boot);
+        sec_boot.set_dice(self.enable_dice);
+        sec_boot.set_dice_inc_nxp_cfg(self.dice_inc_nxp_cfg);
+        sec_boot.set_dice_inc_cust_cfg(self.dice_cust_cfg);
+        sec_boot.set_dice_inc_sec_epoch(self.dice_inc_sec_epoch);
+
+        cmpa.set_secure_boot_cfg(sec_boot)?;
+
+        cmpa.set_rotkh(rkth);
+        // ISP will eventually want to be a config setting
+        cmpa.set_boot_cfg(DefaultIsp::Auto, BootSpeed::Fro96mhz)?;
+
+        Ok(cmpa)
+    }
+
+    pub fn generate_cfpa(&self) -> Result<CFPAPage> {
+        let mut cfpa: CFPAPage = Default::default();
+
+        // We always need to bump the version
+        cfpa.update_version();
+
+        let mut rkth = RKTHRevoke::new();
+
+        // Just set a single key for now. Once we figure out our
+        // key strategy we can set the bits appropriately
+        rkth.enable_keys(true, false, false, false);
+
+        cfpa.update_rkth_revoke(rkth)?;
+
+        Ok(cfpa)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
