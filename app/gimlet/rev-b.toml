@@ -438,7 +438,7 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 A NVMe Basic Management Command"
-sensors = { temperature = 1, names = ["U2_A"] }
+sensors = { temperature = 1, names = ["U2_N0"] }
 refdes = "J206"
 removable = true
 
@@ -469,7 +469,7 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 B NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_B"] }
+sensors = { temperature = 1, names = ["U2_N1"] }
 refdes = "J207"
 removable = true
 
@@ -500,7 +500,7 @@ segment = 3
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 C NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_C"] }
+sensors = { temperature = 1, names = ["U2_N2"] }
 refdes = "J208"
 removable = true
 
@@ -531,7 +531,7 @@ segment = 4
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 D NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_D"] }
+sensors = { temperature = 1, names = ["U2_N3"] }
 refdes = "J209"
 removable = true
 
@@ -562,7 +562,7 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 E NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_E"] }
+sensors = { temperature = 1, names = ["U2_N4"] }
 refdes = "J210"
 removable = true
 
@@ -593,7 +593,7 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 F NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_F"] }
+sensors = { temperature = 1, names = ["U2_N5"] }
 refdes = "J211"
 removable = true
 
@@ -624,7 +624,7 @@ segment = 3
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 G NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_G"] }
+sensors = { temperature = 1, names = ["U2_N6"] }
 refdes = "J212"
 removable = true
 
@@ -655,7 +655,7 @@ segment = 4
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 H NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_H"] }
+sensors = { temperature = 1, names = ["U2_N7"] }
 refdes = "J213"
 removable = true
 
@@ -686,7 +686,7 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 I NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_I"] }
+sensors = { temperature = 1, names = ["U2_N8"] }
 refdes = "J214"
 removable = true
 
@@ -717,7 +717,7 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 J NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_J"] }
+sensors = { temperature = 1, names = ["U2_N9"] }
 refdes = "J215"
 removable = true
 
