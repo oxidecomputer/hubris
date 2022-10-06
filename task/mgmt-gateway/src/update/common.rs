@@ -50,7 +50,7 @@ impl<State> CurrentUpdate<State> {
     where
         F: FnOnce(State) -> State,
     {
-        self.update_state_with_result(|state| ((f)(state), ()));
+        self.update_state_with_result(|state| (f(state), ()));
     }
 
     #[inline(always)]
@@ -59,7 +59,7 @@ impl<State> CurrentUpdate<State> {
         F: FnOnce(State) -> (State, T),
     {
         let state = self.state.take().unwrap_lite();
-        let (new_state, t) = (f)(state);
+        let (new_state, t) = f(state);
         self.state = Some(new_state);
         t
     }
