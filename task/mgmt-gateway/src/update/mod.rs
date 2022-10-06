@@ -27,7 +27,7 @@ pub(crate) mod sp;
 pub(crate) trait ComponentUpdater {
     /// Size of one block / sector / page; whatever unit the underlying update
     /// mechanism wants as a single chunk.
-    fn block_size(&self) -> usize;
+    const BLOCK_SIZE: usize;
 
     /// Attempt to start preparing for an update, using `buffer` as the backing
     /// store for incoming data.

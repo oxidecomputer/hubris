@@ -24,10 +24,8 @@ use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks or host flash pages.
-const UPDATE_BUFFER_SIZE: usize = usize_max(
-    drv_update_api::stm32h7::BLOCK_SIZE_BYTES,
-    drv_gimlet_hf_api::PAGE_SIZE_BYTES,
-);
+const UPDATE_BUFFER_SIZE: usize =
+    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE);
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).

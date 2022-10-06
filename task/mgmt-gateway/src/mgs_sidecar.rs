@@ -18,11 +18,8 @@ use userlib::sys_get_timer;
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
-// update blocks.
-//
-// TODO Take max of SP update block with auxflash page when we add auxflash
-// support.
-const UPDATE_BUFFER_SIZE: usize = drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
+// update blocks for now, no other updateable components.
+const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).

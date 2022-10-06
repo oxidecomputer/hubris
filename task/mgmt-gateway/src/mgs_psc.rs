@@ -16,8 +16,8 @@ use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
-// update blocks.
-const UPDATE_BUFFER_SIZE: usize = drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
+// update blocks for now, no other updateable components.
+const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).

@@ -23,6 +23,10 @@ pub(crate) struct SpUpdate {
 }
 
 impl SpUpdate {
+    // TODO: Take max of this and auxflash page size once we add auxflash
+    // support.
+    pub(crate) const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
+
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),

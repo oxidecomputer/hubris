@@ -31,13 +31,13 @@ impl HostFlashUpdate {
     }
 }
 
+// Ensure our `UpdateBuffer` type is sized large enough for us.
+static_assertions::const_assert!(
+    HostFlashUpdate::BLOCK_SIZE <= UpdateBuffer::MAX_CAPACITY
+);
+
 impl ComponentUpdater for HostFlashUpdate {
-    fn block_size(&self) -> usize {
-        static_assertions::const_assert!(
-            PAGE_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
-        );
-        PAGE_SIZE_BYTES
-    }
+    const BLOCK_SIZE: usize = PAGE_SIZE_BYTES;
 
     fn prepare(
         &mut self,
@@ -61,7 +61,7 @@ impl ComponentUpdater for HostFlashUpdate {
 
         // Can we lock the update buffer?
         let buffer = buffer
-            .borrow(SpComponent::HOST_CPU_BOOT_FLASH, self.block_size())
+            .borrow(SpComponent::HOST_CPU_BOOT_FLASH, Self::BLOCK_SIZE)
             .map_err(|component| {
                 ResponseError::OtherComponentUpdateInProgress(component)
             })?;
