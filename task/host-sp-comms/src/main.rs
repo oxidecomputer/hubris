@@ -45,7 +45,7 @@ enum Trace {
     UartTxFull,
     UartRx(u8),
     UartRxOverrun,
-    ClearStatus { mask: u64 },
+    AckSpStart,
     SetState { now: u64, state: PowerState },
     JefeNotification { now: u64, state: PowerState },
 }
@@ -479,12 +479,12 @@ impl ServerImpl {
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
-            HostToSp::ClearStatus { mask } => {
-                ringbuf_entry!(Trace::ClearStatus { mask });
-                self.status &= Status::from_bits_truncate(!mask);
+            HostToSp::AckSpStart => {
+                ringbuf_entry!(Trace::AckSpStart);
+                self.status.remove(Status::SP_TASK_RESTARTED);
                 Some(SpToHost::Status(self.status))
             }
-            HostToSp::GetAlert { mask: _ } => {
+            HostToSp::GetAlert => {
                 // TODO define alerts
                 Some(SpToHost::Alert { action: 0 })
             }
