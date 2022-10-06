@@ -2,6 +2,58 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// State machine transitions for the "happy path" is below. From any state, we
+// could transition to `Aborted` (on request from MGS) or `Failed` (if an error
+// occurs on our side).
+
+/*
+               ┌─────────────────┐
+               │ SpUpdatePrepare │
+               └┬───────────────┬┘
+                │               │
+┌───────────────▼───┐       ┌───▼──────────────┐
+│aux_image_size == 0│     ┌─┤aux_image_size > 0│
+└┬──────────────────┘     │ └──────────────────┘
+ │                        │
+ │                 ┌──────▼───────────────────┐ No  ┌─────┐
+ │                 │#[cfg(feature="auxflash")]├────►│Error│
+ │                 └───────┬──────────────────┘     └─────┘
+ │                         │Yes
+ │   ┌─────────────────────▼────────────────────────────┐
+ │   │State::AuxFlash(AuxFlashState::ScanningForChck(_))│
+ │   └─────┬──────────────────────────┬─────────────────┘
+ │         │Match Found               │Match Not Found
+ │         │           ┌──────────────▼───────────────────────────────┐
+ │         │           │State::AuxFlash(AuxFlashState::ErasingSlot(_))│
+ │         │           └──────┬───────────────────────────────────────┘
+ │         │                  │
+ │ ┌───────┼──────────────────┼───────────────────────────────────────────┐
+ │ │       │                  │                                           │
+ │ │       │   ┌──────────────▼────────────────────────────────────────┐  │
+ │ │       │   │State::AuxFlash(AuxFlashState::FinishedErasingSlot(_)) ├──┼─┐
+ │ │       │   └───────────────────────────────────────────────────────┘  │ │
+ │ │       │                            MGS waits to see one of these two │ │
+ │ │ ┌─────▼──────────────────────────┐ states to decide whether to send  │ │
+ │ │ │State::FoundMatchingAuxFlashChck│ the aux flash image or skip it    │ │
+ │ │ └────┬───────────────────────────┘ and only send the SP image.       │ │
+ │ │      │                                                               │ │
+ │ └──────┼───────────────────────────────────────────────────────────────┘ │
+ │        │                                                                 │
+ │        │              ┌────────────────────────────────────────────────┐ │
+ │        │              │State::AuxFlash(AuxFlashState::AcceptingData(_))◄─┘
+ │        │              └▲────────────────┬─────┬────────────────────────┘
+ │        │               │aux flash chunks│     │all chunks received
+ │        │               └────◄─────◄─────┘     │
+ │        │                                      │
+ │ ┌──────▼────────────────┐                     │
+ └─►State::AcceptingData(_)◄─────────────────────┘
+   └▲───────────────┬───┬──┘
+    │SP image chunks│   │all chunks received
+    └───◄───────◄───┘   │        ┌───────────────┐
+                        └────────►State::Complete│
+                                 └───────────────┘
+*/
+
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
@@ -142,6 +194,11 @@ impl SpUpdate {
                     ChckScanResult::FoundMatch(mut buffer) => {
                         // Take ownership of `buffer` back, and resize it for
                         // our blocks.
+                        //
+                        // We set the owner to `SP_ITSELF`, because if we found
+                        // a match, we will not be receiving an aux flash image
+                        // at all, and want to jump immediately to receiving the
+                        // SP image.
                         buffer
                             .reborrow(SpComponent::SP_ITSELF, BLOCK_SIZE_BYTES);
                         State::FoundMatchingAuxFlashChck { buffer }
@@ -334,6 +391,12 @@ impl SpUpdate {
         match current.state() {
             // Active states - do any work necessary to abort, then set our
             // state to `Aborted`.
+            //
+            // We always call `sp_task.abort()` (even if we're in an auxflash
+            // state) because we called `sp_task.prepare()` when this update
+            // began. There is no work to do in the aux flash server in response
+            // to an abort - we can leave the slot we were writing in a
+            // partially written state, and we'll overwrite it next time.
             State::AuxFlash(_)
             | State::FoundMatchingAuxFlashChck { .. }
             | State::AcceptingData { .. }
