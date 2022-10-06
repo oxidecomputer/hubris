@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::mgs_handler::{UpdateBuffer, BorrowedUpdateBuffer};
+use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_auxflash_api::{
     AuxFlash, AuxFlashChecksum, AuxFlashError, PAGE_SIZE_BYTES,
