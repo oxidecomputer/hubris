@@ -30,7 +30,7 @@ stacksize = 1536
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy"]
+request_reset = ["hiffy", "mgmt_gateway"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -135,7 +135,7 @@ task-slots = ["sys",
 name = "task-mgmt-gateway"
 priority = 6
 max-sizes = {flash = 32768, ram = 8192}
-stacksize = 1536
+stacksize = 2048
 start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid

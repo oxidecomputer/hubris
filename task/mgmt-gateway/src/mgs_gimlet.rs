@@ -3,29 +3,42 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update_buffer::UpdateBuffer, vlan_id_from_sp_port,
-    Log, MgsMessage, SYS, USART_IRQ,
+    mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
+    update::sp::SpUpdate, update::ComponentUpdater, usize_max,
+    vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
-use core::ops::Range;
 use core::sync::atomic::{AtomicBool, Ordering};
-use drv_gimlet_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
-};
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    DiscoverResponse, IgnitionCommand, IgnitionState, PowerState,
-    ResponseError, SpComponent, SpMessage, SpMessageKind, SpPort, SpState,
-    UpdateChunk, UpdateId, UpdatePreparationProgress, UpdatePreparationStatus,
-    UpdatePrepare, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
+    PowerState, ResponseError, SpComponent, SpMessage, SpMessageKind, SpPort,
+    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
 use ringbuf::ringbuf_entry_root;
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
+
+// How big does our shared update buffer need to be? Has to be able to handle SP
+// update blocks or host flash pages.
+const UPDATE_BUFFER_SIZE: usize =
+    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE);
+
+// Create type aliases that include our `UpdateBuffer` size (i.e., the size of
+// the largest update chunk of all the components we update).
+pub(crate) type UpdateBuffer =
+    update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
+pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
+    'static,
+    SpComponent,
+    UPDATE_BUFFER_SIZE,
+>;
+
+// Our single, shared update buffer.
+static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
 /// Buffer sizes for serial console UDP / USART proxying.
 ///
@@ -50,6 +63,7 @@ userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
+    sp_update: SpUpdate,
     host_flash_update: HostFlashUpdate,
     usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
@@ -63,7 +77,8 @@ impl MgsHandler {
         let usart = UsartHandler::claim_static_resources();
         Self {
             common: MgsCommon::claim_static_resources(),
-            host_flash_update: HostFlashUpdate::claim_static_resources(),
+            host_flash_update: HostFlashUpdate::new(),
+            sp_update: SpUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
@@ -80,7 +95,9 @@ impl MgsHandler {
         // avoid blocking while the entire erase happens. If we're in that case,
         // set our timer for 1 tick from now to give a window for other
         // interrupts/notifications to arrive.
-        if self.host_flash_update.needs_sectors_erased() {
+        if self.host_flash_update.is_preparing()
+            || self.sp_update.is_preparing()
+        {
             Some(sys_get_timer().now + 1)
         } else {
             self.usart.from_rx_flush_deadline
@@ -88,7 +105,11 @@ impl MgsHandler {
     }
 
     pub(crate) fn handle_timer_fired(&mut self) {
-        self.host_flash_update.erase_sectors_if_needed();
+        // We use a shared update buffer, so at most one of these updates can be
+        // active at a time. For any inactive update, `step_preparation()` is a
+        // no-op.
+        self.host_flash_update.step_preparation();
+        self.sp_update.step_preparation();
         // Even though `timer_deadline()` can return a timer related to usart
         // flushing, we don't need to do anything here; `NetHandler` in main.rs
         // will call `wants_to_send_packet_to_mgs()` below when it's ready to
@@ -215,11 +236,27 @@ impl SpHandler for MgsHandler {
         self.common.sp_state()
     }
 
-    fn update_prepare(
+    fn sp_update_prepare(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-        update: UpdatePrepare,
+        update: SpUpdatePrepare,
+    ) -> Result<(), ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+            length: update.aux_flash_size + update.sp_image_size,
+            component: SpComponent::SP_ITSELF,
+            id: update.id,
+            slot: 0,
+        }));
+
+        self.sp_update.prepare(&UPDATE_MEMORY, update)
+    }
+
+    fn component_update_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        update: ComponentUpdatePrepare,
     ) -> Result<(), ResponseError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
@@ -229,9 +266,8 @@ impl SpHandler for MgsHandler {
         }));
 
         match update.component {
-            SpComponent::SP_ITSELF => self.common.update_prepare(update),
             SpComponent::HOST_CPU_BOOT_FLASH => {
-                self.host_flash_update.prepare(update)
+                self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
@@ -250,10 +286,12 @@ impl SpHandler for MgsHandler {
         }));
 
         match chunk.component {
-            SpComponent::SP_ITSELF => self.common.update_chunk(chunk, data),
-            SpComponent::HOST_CPU_BOOT_FLASH => {
-                self.host_flash_update.ingest_chunk(chunk, data)
-            }
+            SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
+                .sp_update
+                .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
+            SpComponent::HOST_CPU_BOOT_FLASH => self
+                .host_flash_update
+                .ingest_chunk(&chunk.id, chunk.offset, data),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -268,11 +306,20 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        match component {
-            SpComponent::SP_ITSELF => Ok(self.common.status()),
+        let status = match component {
+            // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
+            // here and not `SP_AUX_FLASH`. We mostly hide the fact that an SP
+            // update also may include an aux flash image from clients: when
+            // they start an update, it is for `SP_ITSELF` (whether or not it
+            // includes an aux flash image, which they don't need to know).
+            // Similarly, they will only ask for the status of an `SP_ITSELF`
+            // update, not an `SP_AUX_FLASH` update (which isn't a thing).
+            SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
-        }
+            _ => return Err(ResponseError::RequestUnsupportedForComponent),
+        };
+
+        Ok(status)
     }
 
     fn update_abort(
@@ -287,7 +334,14 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::SP_ITSELF => self.common.update_abort(&id),
+            // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
+            // here and not `SP_AUX_FLASH`. We mostly hide the fact that an SP
+            // update also may include an aux flash image from clients: when
+            // they start an update, it is for `SP_ITSELF` (whether or not it
+            // includes an aux flash image, which they don't need to know).
+            // Similarly, they will only attempt to abort an `SP_ITSELF`
+            // update, not an `SP_AUX_FLASH` update (which isn't a thing).
+            SpComponent::SP_ITSELF => self.sp_update.abort(&id),
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
@@ -705,238 +759,4 @@ fn claim_sp_to_mgs_usart_buf_static(
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
     unsafe { &mut UART_RX_BUF }
-}
-
-struct HostFlashUpdate {
-    task: HostFlash,
-    buf: UpdateBuffer<HostFlash, PAGE_SIZE_BYTES>,
-    sector_erase: Option<HostFlashSectorErase>,
-}
-
-impl HostFlashUpdate {
-    fn claim_static_resources() -> Self {
-        let buf = claim_hf_update_buffer_static();
-        Self {
-            task: HostFlash::from(HOST_FLASH.get_task_id()),
-            buf: UpdateBuffer::new(
-                buf,
-                |hf_task, block_index, data| {
-                    let address = (block_index * PAGE_SIZE_BYTES) as u32;
-                    hf_task
-                        .page_program(address, data)
-                        .map_err(|err| ResponseError::UpdateFailed(err as u32))
-                },
-                |_hf_task| {
-                    // nothing to do to finalize?
-                    // TODO should we set_dev() back to what it was (if we
-                    // changed it)?
-                    Ok(())
-                },
-            ),
-            sector_erase: None,
-        }
-    }
-
-    fn status(&self) -> Result<UpdateStatus, ResponseError> {
-        let status = self.buf.status();
-        match &status {
-            // `UpdateBuffer` never sets its status to "preparing", as it
-            // doesn't know anything about that stage.
-            UpdateStatus::Preparing { .. } => panic!(),
-            UpdateStatus::InProgress(sub_status) => {
-                if let Some(sector_erase) = self.sector_erase.as_ref() {
-                    // If we're still erasing sectors, we shouldn't have
-                    // ingested any chunks yet.
-                    assert!(sub_status.bytes_received == 0);
-
-                    let progress = sector_erase.progress()?;
-                    Ok(UpdateStatus::Preparing(UpdatePreparationStatus {
-                        id: sub_status.id,
-                        progress: Some(progress),
-                    }))
-                } else {
-                    Ok(status)
-                }
-            }
-            UpdateStatus::None
-            | UpdateStatus::Complete(_)
-            | UpdateStatus::Aborted(_) => Ok(status),
-        }
-    }
-
-    fn needs_sectors_erased(&self) -> bool {
-        self.sector_erase.is_some()
-    }
-
-    fn erase_sectors_if_needed(&mut self) {
-        if let Some(sector_erase) = self.sector_erase.as_mut() {
-            sector_erase.erase_sectors_if_needed(&self.task);
-            if sector_erase.is_done() {
-                self.sector_erase = None;
-            }
-        }
-    }
-
-    fn prepare(&mut self, update: UpdatePrepare) -> Result<(), ResponseError> {
-        // Which slot are we updating?
-        let slot = match update.slot {
-            0 => HfDevSelect::Flash0,
-            1 => HfDevSelect::Flash1,
-            _ => return Err(ResponseError::InvalidSlotForComponent),
-        };
-
-        // Do we have control of the host flash?
-        match self
-            .task
-            .get_mux()
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?
-        {
-            HfMuxState::SP => (),
-            HfMuxState::HostCPU => return Err(ResponseError::UpdateSlotBusy),
-        }
-
-        // Is an update already in progress?
-        self.buf.ensure_no_update_in_progress()?;
-
-        // Swap to the chosen slot.
-        self.task
-            .set_dev(slot)
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
-
-        // What is the total capacity of the device?
-        let capacity = self
-            .task
-            .capacity()
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
-
-        // How many total sectors do we need to erase? For gimlet, we know that
-        // capacity is an exact multiple of the sector size, which is probably
-        // a safe assumption for future parts as well. We'll assert here in case
-        // that ever becomes untrue, and we can update our math.
-        assert!(capacity % SECTOR_SIZE_BYTES == 0);
-        self.sector_erase =
-            Some(HostFlashSectorErase::new(capacity / SECTOR_SIZE_BYTES));
-
-        self.buf.start(update.id, update.total_size);
-
-        Ok(())
-    }
-
-    fn ingest_chunk(
-        &mut self,
-        chunk: UpdateChunk,
-        data: &[u8],
-    ) -> Result<(), ResponseError> {
-        // Have we finished erasing the host flash?
-        if self.needs_sectors_erased() {
-            return Err(ResponseError::UpdateNotPrepared);
-        }
-
-        self.buf
-            .ingest_chunk(&chunk.id, &self.task, chunk.offset, data)
-    }
-
-    fn abort(&mut self, id: &UpdateId) -> Result<(), ResponseError> {
-        // We will allow the abort if either:
-        //
-        // 1. We have an in-progress update that matches `id`
-        // 2. We do not have an in-progress update
-        //
-        // We only want to return an error if we have a _different_ in-progress
-        // update.
-        if let Some(in_progress_id) = self.buf.in_progress_update_id() {
-            if id != in_progress_id {
-                return Err(ResponseError::UpdateInProgress(self.buf.status()));
-            }
-        }
-
-        // TODO should we erase the slot?
-        // TODO should we set_dev() back to what it was (if we changed it)?
-        self.buf.abort();
-        self.sector_erase = None;
-        Ok(())
-    }
-}
-
-struct HostFlashSectorErase {
-    sectors_to_erase: Range<usize>,
-    most_recent_error: Option<HfError>,
-}
-
-impl HostFlashSectorErase {
-    fn new(num_sectors: usize) -> Self {
-        Self {
-            sectors_to_erase: 0..num_sectors,
-            most_recent_error: None,
-        }
-    }
-
-    fn is_done(&self) -> bool {
-        self.sectors_to_erase.is_empty()
-    }
-
-    fn progress(&self) -> Result<UpdatePreparationProgress, ResponseError> {
-        if let Some(err) = self.most_recent_error {
-            Err(ResponseError::UpdateFailed(err as u32))
-        } else {
-            Ok(UpdatePreparationProgress {
-                current: self.sectors_to_erase.start as u32,
-                total: self.sectors_to_erase.end as u32,
-            })
-        }
-    }
-
-    fn erase_sectors_if_needed(&mut self, task: &HostFlash) {
-        // While we're erasing sectors, we're not able to service other
-        // interrupts (e.g., incoming requests from MGS). We therefore limit how
-        // many sectors we're willing to erase in one call to this function, and
-        // it's our callers responsibility to continue to call us until we're
-        // done.
-        //
-        // Empirically, erasing 8 sectors can take up to a second, and raising
-        // it higher does not significantly improve our throughput.
-        const MAX_SECTORS_TO_ERASE_ONE_CALL: usize = 8;
-
-        if self.is_done() {
-            return;
-        }
-
-        let num_sectors = usize::min(
-            MAX_SECTORS_TO_ERASE_ONE_CALL,
-            self.sectors_to_erase.end - self.sectors_to_erase.start,
-        );
-        for i in 0..num_sectors {
-            let sector = self.sectors_to_erase.start + i;
-            let addr = sector * SECTOR_SIZE_BYTES;
-            match task.sector_erase(addr as u32) {
-                Ok(()) => (),
-                Err(err) => {
-                    self.sectors_to_erase.start += i;
-                    self.most_recent_error = Some(err);
-                    return;
-                }
-            }
-        }
-
-        self.sectors_to_erase.start += num_sectors;
-        self.most_recent_error = None;
-        ringbuf_entry_root!(Log::HostFlashSectorsErased { num_sectors });
-    }
-}
-
-fn claim_hf_update_buffer_static(
-) -> &'static mut heapless::Vec<u8, PAGE_SIZE_BYTES> {
-    static mut HF_UPDATE_BUF: heapless::Vec<u8, PAGE_SIZE_BYTES> =
-        heapless::Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `HF_UPDATE_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut HF_UPDATE_BUF }
 }
