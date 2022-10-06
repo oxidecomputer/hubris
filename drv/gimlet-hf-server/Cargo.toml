@@ -10,7 +10,6 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 stm32h7 = { version = "0.14", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
-cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
 drv-hash-api = {path = "../hash-api", default-features = false}

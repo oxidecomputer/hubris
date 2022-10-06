@@ -849,7 +849,6 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-gimlet-hf-api",
  "drv-hash-api",
  "drv-stm32h7-qspi",
