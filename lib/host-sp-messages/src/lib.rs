@@ -73,13 +73,9 @@ pub enum HostToSp {
         // Followed by a binary data blob (panic message?)
     },
     GetStatus,
-    /// Instruct SP to perform `status &= mask`
-    ClearStatus {
-        mask: u64,
-    },
-    GetAlert {
-        mask: u64,
-    },
+    // Host ack'ing SP task startup.
+    AckSpStart,
+    GetAlert,
     RotRequest, // Followed by a binary data blob (the request)
     RotAddHostMeasurements, // Followed by a binary data blob?
     GetPhase2Data {
@@ -177,6 +173,8 @@ bitflags::bitflags! {
     pub struct Status: u64 {
         const SP_TASK_RESTARTED = 1 << 0;
         const ALERTS_AVAILABLE  = 1 << 1;
+        // Resync is a WIP; omit for now.
+        // const READY_FOR_RESYNC  = 1 << 2;
     }
 }
 
@@ -279,8 +277,8 @@ mod tests {
                 },
             ),
             (0x08, HostToSp::GetStatus),
-            (0x09, HostToSp::ClearStatus { mask: 0 }),
-            (0x0a, HostToSp::GetAlert { mask: 0 }),
+            (0x09, HostToSp::AckSpStart),
+            (0x0a, HostToSp::GetAlert),
             (0x0b, HostToSp::RotRequest),
             (0x0c, HostToSp::RotAddHostMeasurements),
             (0x0d, HostToSp::GetPhase2Data { start: 0, count: 0 }),
