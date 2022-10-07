@@ -150,5 +150,107 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+
+        "tofino_debug_port_state": (
+            doc: "Return the state of the Tofino debug port",
+            args: {},
+            reply: Result(
+                ok: (
+                    type: "DebugPortState",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "set_tofino_debug_port_state": (
+            doc: "Set the state of the Tofino debug port",
+            args: {
+                "state": (
+                    type: "DebugPortState",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "tofino_read_direct": (
+            doc: "Direct read a Tofino register in the given segment",
+            args: {
+                "segment": (
+                    type: "DirectBarSegment",
+                    recv: FromPrimitive("u8"),
+                ),
+                "offset": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "tofino_write_direct": (
+            doc: "Direct write a Tofino register in the given segment",
+            args: {
+                "segment": (
+                    type: "DirectBarSegment",
+                    recv: FromPrimitive("u8"),
+                ),
+                "offset": "u32",
+                "value": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "spi_eeprom_idcode": (
+            doc: "Read the latched IDCODE after Tofino has loaded the PCIe SerDes parameters from SPI EEPROM",
+            args: {},
+            reply: Result(
+                ok: "u32",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "spi_eeprom_status": (
+            doc: "Read the Status register of the SPI EEPROM",
+            args: {},
+            reply: Result(
+                ok: "u8",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "read_spi_eeprom_bytes": (
+            doc: "Read from the SPI EEPROM at the given offset",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "write_spi_eeprom_bytes": (
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

@@ -1211,6 +1211,7 @@ dependencies = [
 name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
+ "bitfield",
  "build-fpga-regmap",
  "build-util",
  "drv-auxflash-api",

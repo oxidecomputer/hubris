@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Addr, MainboardController, Reg};
+use bitfield::bitfield;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::AsBytes;
@@ -229,5 +230,437 @@ impl Sequencer {
             power: self.power_status()?,
             pcie_status: self.pcie_hotplug_status()?,
         })
+    }
+}
+
+bitfield! {
+    #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+    #[repr(C)]
+    pub struct DebugPortState(u8);
+    pub send_buffer_empty, set_send_buffer_empty: 0;
+    pub send_buffer_full, _: 1;
+    pub receive_buffer_empty, set_receive_buffer_empty: 2;
+    pub receive_buffer_full, _: 3;
+    pub request_in_progress, set_request_in_progress: 4;
+    pub address_nack_error, set_address_nack_error: 5;
+    pub byte_nack_error, set_byte_nack_error: 6;
+}
+
+#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum DebugRequestOpcode {
+    LocalWrite = 0,
+    LocalRead = 32,
+    DirectWrite = 128,
+    DirectRead = 160,
+    IndirectWrite = 192,
+    IndirectRead = 224,
+}
+
+impl From<DebugRequestOpcode> for u8 {
+    fn from(opcode: DebugRequestOpcode) -> Self {
+        opcode as u8
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum DirectBarSegment {
+    Bar0 = 0,
+    Msi = 1,
+    Cfg = 2,
+}
+
+impl From<DirectBarSegment> for u32 {
+    fn from(segment: DirectBarSegment) -> Self {
+        match segment {
+            DirectBarSegment::Bar0 => 0,
+            DirectBarSegment::Msi => (1 as u32) << 28,
+            DirectBarSegment::Cfg => (2 as u32) << 28,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u32)]
+pub enum TofinoRegisters {
+    Scratchpad = 0x0,
+    FreeRunningCounter = 0x10,
+    SpiOutData0 = (0x80000 | 0x120),
+    SpiOutData1 = (0x80000 | 0x124),
+    SpiInData = (0x80000 | 0x12c),
+    SpiCommand = (0x80000 | 0x128),
+    SpiIdCode = (0x80000 | 0x130),
+}
+
+impl From<TofinoRegisters> for u32 {
+    fn from(r: TofinoRegisters) -> Self {
+        r as u32
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum SpiEepromInstruction {
+    WriteEnable = 0x6,
+    WriteDisable = 0x4,
+    ReadStatusRegister = 0x5,
+    WriteStatusRegister = 0x1,
+    Read = 0x3,
+    Write = 0x2,
+}
+
+impl From<SpiEepromInstruction> for u8 {
+    fn from(i: SpiEepromInstruction) -> Self {
+        i as u8
+    }
+}
+
+impl From<SpiEepromInstruction> for u32 {
+    fn from(i: SpiEepromInstruction) -> Self {
+        i as u32
+    }
+}
+
+pub struct DebugPort {
+    fpga: FpgaUserDesign,
+}
+
+impl DebugPort {
+    pub fn new(task_id: userlib::TaskId) -> Self {
+        Self {
+            fpga: FpgaUserDesign::new(
+                task_id,
+                MainboardController::DEVICE_INDEX,
+            ),
+        }
+    }
+
+    pub fn state(&self) -> Result<DebugPortState, FpgaError> {
+        self.fpga
+            .read::<u8>(Addr::TOFINO_DEBUG_PORT_STATE)
+            .map(DebugPortState)
+    }
+
+    pub fn set_state(&self, state: DebugPortState) -> Result<(), FpgaError> {
+        self.fpga
+            .write(WriteOp::Write, Addr::TOFINO_DEBUG_PORT_STATE, state.0)
+    }
+
+    pub fn read_direct(
+        &self,
+        segment: DirectBarSegment,
+        offset: impl Into<u32>,
+    ) -> Result<u32, FpgaError> {
+        let state = self.state()?;
+
+        if !state.send_buffer_empty() || !state.receive_buffer_empty() {
+            return Err(FpgaError::InvalidState);
+        }
+
+        // Add the segement base address to the given read offset.
+        let address = u32::from(segment) | offset.into();
+
+        // Write the opcode.
+        self.fpga.write(
+            WriteOp::Write,
+            Addr::TOFINO_DEBUG_PORT_BUFFER,
+            u8::from(DebugRequestOpcode::DirectRead),
+        )?;
+
+        // Write the address.
+        for b in address.as_bytes().iter() {
+            self.fpga.write(
+                WriteOp::Write,
+                Addr::TOFINO_DEBUG_PORT_BUFFER,
+                *b,
+            )?;
+        }
+
+        // Start the request.
+        self.fpga.write(
+            WriteOp::Write,
+            Addr::TOFINO_DEBUG_PORT_STATE,
+            Reg::TOFINO_DEBUG_PORT_STATE::REQUEST_IN_PROGRESS,
+        )?;
+
+        // Wait for the request to complete.
+        while self.state()?.request_in_progress() {
+            userlib::hl::sleep_for(1);
+        }
+
+        // Read the response.
+        let mut v: u32 = 0;
+        for b in v.as_bytes_mut().iter_mut() {
+            *b = self.fpga.read(Addr::TOFINO_DEBUG_PORT_BUFFER)?;
+        }
+
+        Ok(v)
+    }
+
+    pub fn write_direct(
+        &self,
+        segment: DirectBarSegment,
+        offset: impl Into<u32>,
+        value: u32,
+    ) -> Result<(), FpgaError> {
+        let state = self.state()?;
+
+        if !state.send_buffer_empty() || !state.receive_buffer_empty() {
+            return Err(FpgaError::InvalidState);
+        }
+
+        // Add the segement base address to the given read offset.
+        let address = u32::from(segment) | offset.into();
+
+        // Write the opcode to the queue.
+        self.fpga.write(
+            WriteOp::Write,
+            Addr::TOFINO_DEBUG_PORT_BUFFER,
+            u8::from(DebugRequestOpcode::DirectWrite),
+        )?;
+
+        // Write the address to the queue.
+        for b in address.as_bytes().iter() {
+            self.fpga.write(
+                WriteOp::Write,
+                Addr::TOFINO_DEBUG_PORT_BUFFER,
+                *b,
+            )?;
+        }
+
+        // Write the value to the queue.
+        for b in value.as_bytes().iter() {
+            self.fpga.write(
+                WriteOp::Write,
+                Addr::TOFINO_DEBUG_PORT_BUFFER,
+                *b,
+            )?;
+        }
+
+        // Start the request.
+        self.fpga.write(
+            WriteOp::Write,
+            Addr::TOFINO_DEBUG_PORT_STATE,
+            Reg::TOFINO_DEBUG_PORT_STATE::REQUEST_IN_PROGRESS,
+        )?;
+
+        // Wait for the request to complete.
+        while self.state()?.request_in_progress() {
+            userlib::hl::sleep_for(1);
+        }
+
+        Ok(())
+    }
+
+    /// Generate the SPI command Tofino needs to complete a SPI request.
+    fn spi_command(n_bytes_to_write: usize, n_bytes_to_read: usize) -> u32 {
+        return (0x80
+            | ((n_bytes_to_read & 0x7) << 4)
+            | (n_bytes_to_write & 0xf))
+            .try_into()
+            .unwrap();
+    }
+
+    /// Send an instruction to the Tofino attached SPI EEPROM.
+    pub fn send_spi_eeprom_instruction(
+        &self,
+        i: SpiEepromInstruction,
+    ) -> Result<(), FpgaError> {
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiOutData0,
+            u32::from(i),
+        )?;
+        // Initiate the SPI transaction.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiCommand,
+            Self::spi_command(1, 1),
+        )?;
+
+        // Wait for the SPI command to complete.
+        while self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
+            & 0x80
+            != 0
+        {
+            userlib::hl::sleep_for(1);
+        }
+
+        Ok(())
+    }
+
+    /// Read the register containing the IDCODE latched by Tofino when it
+    /// successfully reads the PCIe SerDes parameters from the SPI EEPROM.
+    pub fn spi_eeprom_idcode(&self) -> Result<u32, FpgaError> {
+        self.read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiIdCode)
+    }
+
+    /// Read the SPI EEPROM Status register.
+    pub fn spi_eeprom_status(&self) -> Result<u8, FpgaError> {
+        self.send_spi_eeprom_instruction(
+            SpiEepromInstruction::ReadStatusRegister,
+        )?;
+
+        // Read the EEPROM response.
+        Ok(self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiInData)?
+            as u8)
+    }
+
+    /// Write the SPI EEPROM Status register.
+    pub fn set_spi_eeprom_status(&self, value: u8) -> Result<(), FpgaError> {
+        // Request the WRSR instruction with the given value.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiOutData0,
+            u32::from_le_bytes([
+                u8::from(SpiEepromInstruction::WriteStatusRegister),
+                value,
+                0,
+                0,
+            ]),
+        )?;
+        // Initiate the SPI transaction.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiCommand,
+            Self::spi_command(1, 0),
+        )?;
+
+        // Wait for the SPI command to complete.
+        while self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
+            & 0x80
+            != 0
+        {
+            userlib::hl::sleep_for(1);
+        }
+
+        Ok(())
+    }
+
+    /// Read four bytes from the SPI EEPROM at the given offset.
+    pub fn read_spi_eeprom(&self, offset: usize) -> Result<[u8; 4], FpgaError> {
+        // Request a read of the given address.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiOutData0,
+            u32::from_le_bytes([
+                u8::from(SpiEepromInstruction::Read),
+                (offset >> 8) as u8,
+                offset as u8,
+                0,
+            ]),
+        )?;
+
+        // Initiate the SPI transaction.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiCommand,
+            Self::spi_command(3, 4),
+        )?;
+
+        // Wait for the SPI command to complete.
+        while self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
+            & 0x80
+            != 0
+        {
+            userlib::hl::sleep_for(1);
+        }
+
+        // Read the EEPROM response.
+        Ok(self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiInData)?
+            .to_be_bytes())
+    }
+
+    /// Write four bytes into the SPI EEPROM at the given offset.
+    pub fn write_spi_eeprom(
+        &self,
+        offset: usize,
+        data: [u8; 4],
+    ) -> Result<(), FpgaError> {
+        self.send_spi_eeprom_instruction(SpiEepromInstruction::WriteEnable)?;
+
+        // Request a Write of the given address.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiOutData0,
+            u32::from_le_bytes([
+                u8::from(SpiEepromInstruction::Write),
+                (offset >> 8) as u8,
+                offset as u8,
+                data[0],
+            ]),
+        )?;
+
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiOutData1,
+            u32::from_le_bytes([data[1], data[2], data[3], 0]),
+        )?;
+
+        // Initiate the SPI transaction.
+        self.write_direct(
+            DirectBarSegment::Bar0,
+            TofinoRegisters::SpiCommand,
+            Self::spi_command(7, 0),
+        )?;
+
+        // Wait for the SPI command to complete.
+        while self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
+            & 0x80
+            != 0
+        {
+            userlib::hl::sleep_for(1);
+        }
+
+        Ok(())
+    }
+
+    /// Read the requested number of bytes from the SPI EEPROM at the given
+    /// offset into the given byte buffer. Note that the given offset needs to
+    /// be four-byte aligned.
+    pub fn read_spi_eeprom_bytes(
+        &self,
+        offset: usize,
+        data: &mut [u8],
+    ) -> Result<(), FpgaError> {
+        // Only 4 byte aligned reads/writes are allowed.
+        if offset % 4 != 0 {
+            return Err(FpgaError::InvalidValue);
+        }
+
+        for (i, chunk) in data.chunks_mut(4).enumerate() {
+            self.read_spi_eeprom(offset + (i * 4))
+                .map(|bytes| chunk.copy_from_slice(&bytes[0..chunk.len()]))?;
+        }
+
+        Ok(())
+    }
+
+    /// Write the contents of the given byte buffer into the SPI EEPROM at the
+    /// given offset. Note that the given offset needs to be four-byte aligned.
+    pub fn write_spi_eeprom_bytes(
+        &self,
+        offset: usize,
+        data: &[u8],
+    ) -> Result<(), FpgaError> {
+        // Only 4 byte aligned reads/writes are allowed.
+        if offset % 4 != 0 {
+            return Err(FpgaError::InvalidValue);
+        }
+
+        let mut bytes = [0u8; 4];
+        for (i, chunk) in data.chunks(4).enumerate() {
+            bytes[0..chunk.len()].copy_from_slice(chunk);
+            self.write_spi_eeprom(offset + (i * 4), bytes)?;
+        }
+
+        Ok(())
     }
 }

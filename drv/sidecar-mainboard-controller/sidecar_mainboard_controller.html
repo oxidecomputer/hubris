@@ -1519,6 +1519,127 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Host PCIe Reset</td>
     </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">TOFINO_DEBUG_PORT_BUFFER</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x200
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Tofino Debug Port Data</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat30" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Send/receive buffer read/write port</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">TOFINO_DEBUG_PORT_STATE</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x201
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Tofino Debug Port Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat31" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">ERROR_DETAILS</td>
+                <td class="validspandef" colspan="2*">ERROR_VALID</td>
+                <td class="validspandef" colspan="2*">REQUEST_IN_PROGRESS</td>
+                <td class="validspandef" colspan="2*">RECEIVE_BUFFER_FULL</td>
+                <td class="validspandef" colspan="2*">RECEIVE_BUFFER_EMPTY</td>
+                <td class="validspandef" colspan="2*">SEND_BUFFER_FULL</td>
+                <td class="validspandef" colspan="2*">SEND_BUFFER_EMPTY</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ERROR_DETAILS</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Field indicating the type of I2C error occured</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ERROR_VALID</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an I2C error occured</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">REQUEST_IN_PROGRESS</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the port is busy processing requests</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVE_BUFFER_FULL</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Receive buffer full</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVE_BUFFER_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Receive buffer empty</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SEND_BUFFER_FULL</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Send buffer full</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SEND_BUFFER_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Send buffer empty</td>
+    </tr>
     </table>
     </body>
 </html>

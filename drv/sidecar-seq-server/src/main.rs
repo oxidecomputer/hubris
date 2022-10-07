@@ -13,11 +13,14 @@ use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_sidecar_mainboard_controller::tofino2::{
-    Tofino2Vid, TofinoPcieReset, TofinoSeqError, TofinoSeqState,
+    DebugPortState, DirectBarSegment, Tofino2Vid, TofinoPcieReset,
+    TofinoSeqError, TofinoSeqState,
 };
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
-use idol_runtime::{NotificationHandler, RequestError};
+use idol_runtime::{
+    ClientError, Leased, NotificationHandler, RequestError, R, W,
+};
 use ringbuf::*;
 use userlib::*;
 
@@ -247,6 +250,133 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             Ok(phy_smi.phy_powered_up_and_ready().map_err(SeqError::from)?)
         }
     }
+
+    fn tofino_debug_port_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<DebugPortState, RequestError<SeqError>> {
+        Ok(self.tofino.debug_port.state().map_err(SeqError::from)?)
+    }
+
+    fn set_tofino_debug_port_state(
+        &mut self,
+        _: &RecvMessage,
+        state: DebugPortState,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .debug_port
+            .set_state(state)
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_read_direct(
+        &mut self,
+        _: &RecvMessage,
+        segment: DirectBarSegment,
+        offset: u32,
+    ) -> Result<u32, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .debug_port
+            .read_direct(segment, offset)
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_write_direct(
+        &mut self,
+        _: &RecvMessage,
+        segment: DirectBarSegment,
+        offset: u32,
+        value: u32,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .debug_port
+            .write_direct(segment, offset, value)
+            .map_err(SeqError::from)?)
+    }
+
+    fn spi_eeprom_idcode(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .debug_port
+            .spi_eeprom_idcode()
+            .map_err(SeqError::from)?)
+    }
+
+    fn spi_eeprom_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .debug_port
+            .spi_eeprom_status()
+            .map_err(SeqError::from)?
+            .into())
+    }
+
+    fn read_spi_eeprom_bytes(
+        &mut self,
+        _: &RecvMessage,
+        offset: u32,
+        data: Leased<W, [u8]>,
+    ) -> Result<(), RequestError<SeqError>> {
+        let mut buf = [0u8; 128];
+        let mut eeprom_offset = offset as usize;
+        let mut data_offset = 0;
+        let eeprom_end = offset as usize + data.len();
+
+        while eeprom_offset < eeprom_end {
+            let amount = (eeprom_end - eeprom_offset).min(buf.len());
+            self.tofino
+                .debug_port
+                .read_spi_eeprom_bytes(eeprom_offset, &mut buf[..amount])
+                .map_err(SeqError::from)?;
+            data.write_range(
+                data_offset..(data_offset + amount),
+                &buf[..amount],
+            )
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            data_offset += amount;
+            eeprom_offset += amount;
+        }
+
+        Ok(())
+    }
+
+    fn write_spi_eeprom_bytes(
+        &mut self,
+        _: &RecvMessage,
+        offset: u32,
+        data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<SeqError>> {
+        let mut buf = [0u8; 128];
+        let mut eeprom_offset = offset as usize;
+        let mut data_offset = 0;
+        let eeprom_end = offset as usize + data.len();
+
+        while eeprom_offset < eeprom_end {
+            let amount = (eeprom_end - eeprom_offset).min(buf.len());
+            data.read_range(
+                data_offset..(data_offset + amount),
+                &mut buf[..amount],
+            )
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            self.tofino
+                .debug_port
+                .write_spi_eeprom_bytes(eeprom_offset, &buf[..amount])
+                .map_err(SeqError::from)?;
+            data_offset += amount;
+            eeprom_offset += amount;
+        }
+
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -449,8 +579,8 @@ fn main() -> ! {
 
 mod idl {
     use super::{
-        SeqError, TofinoPcieReset, TofinoSeqError, TofinoSeqState,
-        TofinoSequencerPolicy,
+        DebugPortState, DirectBarSegment, SeqError, TofinoPcieReset,
+        TofinoSeqError, TofinoSeqState, TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
