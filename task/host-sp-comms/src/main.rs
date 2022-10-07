@@ -264,11 +264,9 @@ impl ServerImpl {
     // ┌─►Set tx_zero_deadline to now+UART_ZERO_DELAY◄──┐
     // │ └───────────────────────────────────────────┘  │
     // │                                                │success
-    // │                                                │
-    // │                                                │
     // │  ┌──────────────────────┐                      │
-    // │  │Do we have packet data│no ┌──────────────┐ ──┘
-    // │  │to tx, or have we rx'd├───►try to tx 0x00├─
+    // │  │Do we have packet data│no ┌──────────────┐   │
+    // │  │to tx, or have we rx'd├───►try to tx 0x00├───┘
     // │  │   a partial packet?  │   └─┬────────────┘
     // │  └────────┬─────────────┘     │TX FIFO full
     // │           │yes              ┌─▼─────────────┐
