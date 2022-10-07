@@ -454,8 +454,8 @@ impl ServerImpl {
 }
 
 // approximately idol_runtime::NotificationHandler, in anticipation of
-// eventually having an idol interface (at least for mgmt-gateway to give us
-// host phase 2 data)
+// eventually having an idol interface (at least for control-plane-agent to give
+// us host phase 2 data)
 impl ServerImpl {
     fn handle_notification(&mut self, bits: u32) {
         if bits & USART_IRQ != 0 {

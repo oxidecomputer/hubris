@@ -103,7 +103,7 @@ const USART_IRQ: u32 = 1 << 1;
 // Must not conflict with IRQs above!
 const TIMER_IRQ: u32 = 1 << 2;
 
-const SOCKET: SocketName = SocketName::mgmt_gateway;
+const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]
 fn main() {

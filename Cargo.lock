@@ -3425,6 +3425,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-control-plane-agent"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "drv-auxflash-api",
+ "drv-gimlet-hf-api",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
+ "drv-stm32h7-usart",
+ "drv-stm32xx-uid",
+ "drv-update-api",
+ "gateway-messages",
+ "heapless",
+ "mutable-statics",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
+ "static_assertions",
+ "task-jefe-api",
+ "task-net-api",
+ "update-buffer",
+ "userlib",
+]
+
+[[package]]
 name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
@@ -3512,32 +3538,6 @@ dependencies = [
  "ssmarshal",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "task-mgmt-gateway"
-version = "0.1.0"
-dependencies = [
- "cfg-if",
- "drv-auxflash-api",
- "drv-gimlet-hf-api",
- "drv-gimlet-seq-api",
- "drv-sidecar-seq-api",
- "drv-stm32h7-usart",
- "drv-stm32xx-uid",
- "drv-update-api",
- "gateway-messages",
- "heapless",
- "mutable-statics",
- "num-traits",
- "ringbuf",
- "serde",
- "ssmarshal",
- "static_assertions",
- "task-jefe-api",
- "task-net-api",
- "update-buffer",
- "userlib",
 ]
 
 [[package]]

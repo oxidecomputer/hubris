@@ -34,7 +34,7 @@ host_sp_comms = {bit-number = 1}
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "mgmt_gateway"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -161,8 +161,8 @@ start = true
 task-slots = ["net"]
 features = ["vlan"]
 
-[tasks.mgmt_gateway]
-name = "task-mgmt-gateway"
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
 priority = 4
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 2048
@@ -282,9 +282,9 @@ port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-[config.net.sockets.mgmt_gateway]
+[config.net.sockets.control_plane_agent]
 kind = "udp"
-owner = {name = "mgmt_gateway", notification = 0b01}
+owner = {name = "control_plane_agent", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
