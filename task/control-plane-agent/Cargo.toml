@@ -1,5 +1,5 @@
 [package]
-name = "task-mgmt-gateway"
+name = "task-control-plane-agent"
 version = "0.1.0"
 edition = "2021"
 
