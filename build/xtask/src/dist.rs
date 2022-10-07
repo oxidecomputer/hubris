@@ -1399,6 +1399,7 @@ fn build(
     });
 
     println!("{} -> {}", src_file.display(), dest.display());
+    std::fs::copy(&src_file, dest)?;
 
     Ok(())
 }
