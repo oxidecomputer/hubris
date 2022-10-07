@@ -120,8 +120,8 @@ task-slots = ["sys", "i2c_driver"]
 name = "task-thermal"
 features = ["itm", "gimlet"]
 priority = 5
-max-sizes = {flash = 32768, ram = 16384 }
-stacksize = 8000
+max-sizes = {flash = 32768, ram = 8192 }
+stacksize = 4504
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
@@ -438,7 +438,8 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 A NVMe Basic Management Command"
-sensors = { temperature = 1, names = ["U2_N0"] }
+sensors = { temperature = 1 }
+name = "U2_N0"
 refdes = "J206"
 removable = true
 
@@ -469,7 +470,8 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 B NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N1"] }
+sensors = { temperature = 1 }
+name = "U2_N1"
 refdes = "J207"
 removable = true
 
@@ -500,7 +502,8 @@ segment = 3
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 C NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N2"] }
+sensors = { temperature = 1 }
+name = "U2_N2"
 refdes = "J208"
 removable = true
 
@@ -531,7 +534,8 @@ segment = 4
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 D NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N3"] }
+sensors = { temperature = 1 }
+name = "U2_N3"
 refdes = "J209"
 removable = true
 
@@ -562,7 +566,8 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 E NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N4"] }
+sensors = { temperature = 1 }
+name = "U2_N4"
 refdes = "J210"
 removable = true
 
@@ -593,7 +598,8 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 F NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N5"] }
+sensors = { temperature = 1 }
+name = "U2_N5"
 refdes = "J211"
 removable = true
 
@@ -624,7 +630,8 @@ segment = 3
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 G NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N6"] }
+sensors = { temperature = 1 }
+name = "U2_N6"
 refdes = "J212"
 removable = true
 
@@ -655,7 +662,8 @@ segment = 4
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 H NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N7"] }
+sensors = { temperature = 1 }
+name = "U2_N7"
 refdes = "J213"
 removable = true
 
@@ -686,7 +694,8 @@ segment = 1
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 I NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N8"] }
+sensors = { temperature = 1 }
+name = "U2_N8"
 refdes = "J214"
 removable = true
 
@@ -717,7 +726,8 @@ segment = 2
 address = 0b110_1010
 device = "nvmebmc"
 description = "U.2 J NVMe Basic Management Control"
-sensors = { temperature = 1, names = ["U2_N9"] }
+sensors = { temperature = 1 }
+name = "U2_N9"
 refdes = "J215"
 removable = true
 
@@ -753,6 +763,7 @@ mux = 1
 segment = 4
 address = 0x4c
 device = "tmp451"
+name = "t6"
 sensors = { temperature = 1 }
 description = "T6 temperature sensor"
 refdes = "U491"
