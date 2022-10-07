@@ -258,11 +258,68 @@ impl ServerImpl {
         }
     }
 
+    // State diagram for our uart handler:
+    //
+    //   ┌───────────────────────────────────────────┐
+    // ┌─►Set tx_zero_deadline to now+UART_ZERO_DELAY◄──┐
+    // │ └───────────────────────────────────────────┘  │
+    // │                                                │success
+    // │                                                │
+    // │                                                │
+    // │  ┌──────────────────────┐                      │
+    // │  │Do we have packet data│no ┌──────────────┐ ──┘
+    // │  │to tx, or have we rx'd├───►try to tx 0x00├─
+    // │  │   a partial packet?  │   └─┬────────────┘
+    // │  └────────┬─────────────┘     │TX FIFO full
+    // │           │yes              ┌─▼─────────────┐
+    // │           │                 │Enable TX FIFO ◄────────────┐
+    // │           │                 │empty interrupt│            │
+    // │           │                 └─┬─────────────┘            │
+    // │           │                   │                          │
+    // │           │                ┌──▼────────────────────┐     │
+    // │           └────────────────►Wait for Uart interrupt◄─────┼─┐
+    // │                            └─┬─────────────────────┘     │ │
+    // │                              │                           │ │
+    // │                              │interrupt received         │ │
+    // │                              │                           │ │
+    // │ ┌──Uart Interrupt Handler────▼───────────────────────────┼─┼─┐
+    // │ │                                                        │ │ │
+    // │ │ ┌─────────────────────────────┐                        │ │ │
+    // │ │ │Do we have packet data to tx?├───┐                    │ │ │
+    // │ │ └──────────────┬───────▲──────┘   │yes                 │ │ │
+    // │ │                │no     │          │                    │ │ │
+    // │ │     ┌──────────▼────┐  │  ┌───────▼───────────┐        │ │ │
+    // │ │     │Disable TX FIFO│  │  │try to tx data byte│        │ │ │
+    // │ │     │empty interrupt│  │  └─┬──────────▲──┬───┘        │ │ │
+    // │ │     └──────────┬────┘  │    │success   │  │tx fifo full│ │ │
+    // │ │                │       └────┘          │  └────────────┘ │ │
+    // │ │                │                       │                 │ │
+    // │ │       fail ┌───▼──────────────┐◄─────┐ │                 │ │
+    // │ │       ┌────┤Try to rx one byte│      │ │                 │ │
+    // │ │       │    └───┬──────────────┘◄──┐  │ │                 │ │
+    // │ │       │        │success           │  │ │                 │ │
+    // │ │       │    ┌───▼──────────────┐no │  │ │                 │ │
+    // │ │       │    │ Is this a packet ├───┘  │ │                 │ │
+    // │ │       │    │terminator (0x00)?│      │ │                 │ │
+    // │ │       │    └───┬──────────────┘      │ │                 │ │
+    // │ │       │        │yes                  │ │                 │ │
+    // │ │       │      ┌─▼────────────┐ yes    │ │                 │ │
+    // │ │       │      │Is this packet├────────┘ │                 │ │
+    // │ │       │      │    empty?    │          │                 │ │
+    // │ │       │      └─┬────────────┘          │                 │ │
+    // │ │       │        │no                     │                 │ │
+    // │ │       │      ┌─▼───────────────────┐   │                 │ │
+    // │ │       │      │Build response packet├───┘                 │ │
+    // │ │       │      └─────────────────────┘                     │ │
+    // │ │       │                                                  │ │
+    // │ │      ┌▼────────────────┐                                 │ │
+    // └─┼──────┤  Have we rx'd   ├─────────────────────────────────┘ │
+    //   │    no│a partial packet?│yes                                │
+    //   │      └─────────────────┘                                   │
+    //   │                                                            │
+    //   └────────────────────────────────────────────────────────────┘
+    //
     fn handle_usart_notification(&mut self) {
-        // Any time we take a uart interrupt, reset our timer to send out 0
-        // bytes periodically.
-        self.tx_zero_deadline = Some(sys_get_timer().now + UART_ZERO_DELAY);
-
         'tx: loop {
             // Do we have data to transmit? If so, write as much as we can until
             // either the fifo fills (in which case we return before trying to
@@ -274,6 +331,10 @@ impl ServerImpl {
                 ) {
                     self.tx_pkt_to_write.start += 1;
                 } else {
+                    // We have more data to send but the TX FIFO is full; enable
+                    // the TX FIFO empty interrupt and wait for it.
+                    self.tx_zero_deadline = None;
+                    self.uart.enable_tx_fifo_empty_interrupt();
                     return;
                 }
             }
@@ -313,9 +374,8 @@ impl ServerImpl {
                         );
                         self.tx_pkt_to_write = 0..pkt_len;
 
-                        // Enable tx fifo interrupts, and immediately start
-                        // trying to send our response.
-                        self.uart.enable_tx_fifo_empty_interrupt();
+                        // Loop back to the top and start transmitting our
+                        // response immediately.
                         continue 'tx;
                     }
                 } else if self.rx_buf.push(byte).is_err() {
@@ -330,6 +390,16 @@ impl ServerImpl {
 
             // We received everything we could out of the rx fifo and we have
             // nothing to send; we're done.
+            //
+            // If we haven't receiving anything, set our timer to send out
+            // periodic zero bytes. If we have received something, leave the
+            // timer clear - we're waiting on more data from the host.
+            if self.rx_buf.is_empty() {
+                self.tx_zero_deadline =
+                    Some(sys_get_timer().now + UART_ZERO_DELAY);
+            } else {
+                self.tx_zero_deadline = None;
+            }
             return;
         }
     }
@@ -362,20 +432,21 @@ impl ServerImpl {
         if let Some(deadline) = self.tx_zero_deadline {
             if now >= deadline {
                 if self.tx_pkt_to_write.is_empty() && self.rx_buf.is_empty() {
-                    // If we have room in the FIFO, send a 0 byte and then reset
-                    // our timer to wake back up. If we can't, turn on the TX
-                    // FIFO empty interrupt instead, and wait for it to wake us
-                    // up.
+                    // We don't have a real packet we're sending and we haven't
+                    // started receiving a request from the host; try to send a
+                    // 0x00 terminator. If we can, reset the deadline to send
+                    // another one after `UART_ZERO_DELAY`; if we can't, disable
+                    // our timer and wait for a uart interrupt instead.
                     if try_tx_push(&self.uart, 0) {
                         self.tx_zero_deadline = Some(now + UART_ZERO_DELAY);
-                        self.uart.disable_tx_fifo_empty_interrupt();
                     } else {
                         self.tx_zero_deadline = None;
                         self.uart.enable_tx_fifo_empty_interrupt();
                     }
                 } else {
                     // We're either sending or receiving a real packet; disable
-                    // our "sending 0s" timer until that finishes.
+                    // our "sending 0s" timer until that finishes. The
+                    // appropriate uart interrupt(s) are already enabled.
                     self.tx_zero_deadline = None;
                 }
             }
