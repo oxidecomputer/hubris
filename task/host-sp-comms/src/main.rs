@@ -439,6 +439,18 @@ impl ServerImpl {
                     if try_tx_push(&self.uart, 0) {
                         self.tx_zero_deadline = Some(now + UART_ZERO_DELAY);
                     } else {
+                        // If we have no real packet data but we've filled the
+                        // TX FIFO (presumably with zeroes from this deadline
+                        // firing $TX_FIFO_DEPTH times, although possibly
+                        // because we just finished sending a real packet),
+                        // we're waiting on the host to read the data out of our
+                        // TX FIFO: we don't need to push any more zeroes until
+                        // the host has read everything out of our FIFO.
+                        // Therefore, enable the TX FIFO empty interrupt and
+                        // stop waking up on a timer; when the uart interrupt
+                        // fires (either due to the host sending us data or
+                        // draining the TX FIFO), we'll reset the timer then if
+                        // needed.
                         self.tx_zero_deadline = None;
                         self.uart.enable_tx_fifo_empty_interrupt();
                     }
