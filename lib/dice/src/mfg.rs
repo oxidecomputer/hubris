@@ -48,7 +48,7 @@ impl DiceMfg for DeviceIdSelfMfg<'_> {
     fn run(self) -> DiceMfgState {
         let mut cert_sn: CertSerialNumber = Default::default();
         let dname_sn =
-            SerialNumber::try_from("0123456789ab").expect("DeviceIdSelf SN");
+            SerialNumber::try_from("0123456789a").expect("DeviceIdSelf SN");
 
         let deviceid_cert = DeviceIdSelfCertBuilder::new(
             &cert_sn.next(),
