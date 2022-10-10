@@ -57,12 +57,12 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
-    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
     println!("cargo:rerun-if-env-changed=HUBRIS_IMAGE_ID");
+    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
 
+    println!("cargo:rerun-if-env-changed=HUBRIS_KCONFIG");
     let kconfig: KernelConfig =
         ron::de::from_str(&env::var("HUBRIS_KCONFIG")?)?;
-    println!("cargo:rerun-if-env-changed=HUBRIS_KCONFIG");
 
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut file = File::create(out.join("kconfig.rs")).unwrap();

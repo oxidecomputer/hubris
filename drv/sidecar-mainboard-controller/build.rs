@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Pull the bitstream checksum from an environment variable
     // (injected by `xtask` itself as part of auxiliary flash packing)
-    let checksum = env!("HUBRIS_AUXFLASH_CHECKSUM_FPGA");
     println!("cargo:rerun-if-env-changed=HUBRIS_AUXFLASH_CHECKSUM_FPGA");
+    let checksum = std::env::var("HUBRIS_AUXFLASH_CHECKSUM_FPGA").unwrap();
     writeln!(
         &mut file,
         "\npub const SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM: [u8; 32] = {};",
