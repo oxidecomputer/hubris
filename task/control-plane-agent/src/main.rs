@@ -18,13 +18,12 @@ use task_net_api::{
 use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
 
 mod mgs_common;
-mod update_buffer;
+mod update;
 
 // If the build system enables multiple of the gimlet/sidecar/psc features, this
-// sequence of `cfg_attr`s will trigger an unused_attributes warning. We can
-// turn this into a hard error via this `deny`, which will catch any such build
-// system misconfiguration.
-#[deny(unused_attributes)]
+// sequence of `cfg_attr`s will trigger an unused_attributes warning.  We build
+// everything with -Dunused_attributes, which will catch any such build system
+// misconfiguration.
 #[cfg_attr(feature = "gimlet", path = "mgs_gimlet.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
@@ -35,7 +34,6 @@ use self::mgs_handler::MgsHandler;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
-task_slot!(UPDATE_SERVER, update_server);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -105,7 +103,7 @@ const USART_IRQ: u32 = 1 << 1;
 // Must not conflict with IRQs above!
 const TIMER_IRQ: u32 = 1 << 2;
 
-const SOCKET: SocketName = SocketName::mgmt_gateway;
+const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]
 fn main() {
@@ -266,5 +264,14 @@ fn vlan_id_from_sp_port(port: SpPort) -> u16 {
     match port {
         SpPort::One => VLAN_RANGE.start,
         SpPort::Two => VLAN_RANGE.start + 1,
+    }
+}
+
+#[allow(dead_code)]
+const fn usize_max(a: usize, b: usize) -> usize {
+    if a > b {
+        a
+    } else {
+        b
     }
 }

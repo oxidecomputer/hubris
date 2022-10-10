@@ -29,7 +29,7 @@ stacksize = 1536
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -115,11 +115,11 @@ start = true
 interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
-[tasks.mgmt_gateway]
-name = "task-mgmt-gateway"
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
 priority = 4
 max-sizes = {flash = 32768, ram = 8192}
-stacksize = 1536
+stacksize = 2048
 start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
@@ -381,9 +381,9 @@ port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-[config.net.sockets.mgmt_gateway]
+[config.net.sockets.control_plane_agent]
 kind = "udp"
-owner = {name = "mgmt_gateway", notification = 0b01}
+owner = {name = "control_plane_agent", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }

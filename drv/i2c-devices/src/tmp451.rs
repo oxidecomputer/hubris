@@ -50,6 +50,7 @@ impl From<Error> for ResponseCode {
 }
 
 /// Selects whether this sensor reads the local or remote temperature
+#[derive(Copy, Clone)]
 pub enum Target {
     Local,
     Remote,

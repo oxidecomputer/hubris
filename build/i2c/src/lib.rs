@@ -328,7 +328,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_header(&mut self) -> Result<()> {
-        writeln!(&mut self.output, "mod i2c_config {{")?;
+        writeln!(&mut self.output, "pub(crate) mod i2c_config {{")?;
         Ok(())
     }
 

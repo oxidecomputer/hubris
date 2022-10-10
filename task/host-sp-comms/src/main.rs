@@ -33,6 +33,11 @@ task_slot!(GIMLET_SEQ, gimlet_seq);
 // fix this!
 const A2_REBOOT_DELAY: u64 = 5_000;
 
+// How frequently should we try to send 0x00 bytes to the host? This only
+// applies if our current tx_buf/rx_buf are empty (i.e., we don't have a real
+// response to send, and we haven't yet started to receive a request).
+const UART_ZERO_DELAY: u64 = 200;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
     None,
@@ -40,7 +45,7 @@ enum Trace {
     UartTxFull,
     UartRx(u8),
     UartRxOverrun,
-    ClearStatus { mask: u64 },
+    AckSpStart,
     SetState { now: u64, state: PowerState },
     JefeNotification { now: u64, state: PowerState },
 }
@@ -73,9 +78,7 @@ fn main() -> ! {
 
     loop {
         let mut mask = USART_IRQ | JEFE_STATE_CHANGE_IRQ;
-        if let Some(RebootState::TransitionToA0At(deadline)) =
-            server.reboot_state
-        {
+        if let Some(deadline) = server.timer_deadline() {
             sys_set_timer(Some(deadline), TIMER_IRQ);
             mask |= TIMER_IRQ;
         }
@@ -102,6 +105,7 @@ enum RebootState {
 
 struct ServerImpl {
     uart: Usart,
+    tx_zero_deadline: Option<u64>,
     tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
     tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
     tx_pkt_to_write: Range<usize>,
@@ -119,6 +123,7 @@ impl ServerImpl {
         };
         Self {
             uart: configure_uart_device(),
+            tx_zero_deadline: Some(sys_get_timer().now + UART_ZERO_DELAY),
             tx_msg_buf,
             tx_pkt_buf,
             tx_pkt_to_write: 0..0,
@@ -127,6 +132,24 @@ impl ServerImpl {
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             reboot_state: None,
         }
+    }
+
+    /// If we want to be woken by the system timer, returns `Some(deadline)`.
+    fn timer_deadline(&self) -> Option<u64> {
+        let reboot_deadline = match self.reboot_state {
+            Some(RebootState::TransitionToA0At(deadline)) => Some(deadline),
+            Some(RebootState::WaitingForA2) | None => None,
+        };
+
+        let all_deadlines = [self.tx_zero_deadline, reboot_deadline];
+
+        // Get the earliest deadline, or `None` if every element of
+        // `all_deadlines` is `None`.
+        all_deadlines
+            .iter()
+            .copied()
+            .filter_map(core::convert::identity) // unwraps non-None Options
+            .min()
     }
 
     /// Power off the host (i.e., transition to A2).
@@ -235,6 +258,66 @@ impl ServerImpl {
         }
     }
 
+    // State diagram for our uart handler:
+    //
+    //      Start (main)
+    //          │
+    //==========│=======================================================
+    //   ┌──────▼────────────────────────────────────┐
+    // ┌─►Set tx_zero_deadline to now+UART_ZERO_DELAY◄──┐
+    // │ └───────────────────────────────────────────┘  │
+    // │                                                │success
+    // │  ┌──────────────────────┐                      │
+    // │  │Do we have packet data│no ┌──────────────┐   │
+    // │  │to tx, or have we rx'd├───►try to tx 0x00├───┘
+    // │  │   a partial packet?  │   └─┬────────────┘
+    // │  └────────┬─────────────┘     │TX FIFO full
+    // │           │yes              ┌─▼─────────────┐
+    // │           │                 │Enable TX FIFO ◄────────────┐
+    // │           │                 │empty interrupt│            │
+    // │           │                 └─┬─────────────┘            │
+    // │           │                   │                          │
+    // │           │                ┌──▼────────────────────┐     │
+    // │           └────────────────►Wait for Uart interrupt◄─────┼─┐
+    // │                            └─┬─────────────────────┘     │ │
+    // │                              │                           │ │
+    // │                              │interrupt received         │ │
+    // │Timer Interrupt Handler       │                           │ │
+    //=│==============================▼===========================│=│====
+    // │Uart Interrupt Handler                                    │ │
+    // │   ┌─────────────────────────────┐                        │ │
+    // │   │Do we have packet data to tx?├───┐                    │ │
+    // │   └──────────────┬───────▲──────┘   │yes                 │ │
+    // │                  │no     │          │                    │ │
+    // │       ┌──────────▼────┐  │  ┌───────▼───────────┐        │ │
+    // │       │Disable TX FIFO│  │  │try to tx data byte│        │ │
+    // │       │empty interrupt│  │  └─┬──────────▲──┬───┘        │ │
+    // │       └──────────┬────┘  │    │success   │  │tx fifo full│ │
+    // │                  │       └────┘          │  └────────────┘ │
+    // │                  │                       │                 │
+    // │         fail ┌───▼──────────────┐◄─────┐ │                 │
+    // │         ┌────┤Try to rx one byte│      │ │                 │
+    // │         │    └───┬──────────────┘◄──┐  │ │                 │
+    // │         │        │success           │  │ │                 │
+    // │         │    ┌───▼──────────────┐no │  │ │                 │
+    // │         │    │ Is this a packet ├───┘  │ │                 │
+    // │         │    │terminator (0x00)?│      │ │                 │
+    // │         │    └───┬──────────────┘      │ │                 │
+    // │         │        │yes                  │ │                 │
+    // │         │      ┌─▼────────────┐ yes    │ │                 │
+    // │         │      │Is this packet├────────┘ │                 │
+    // │         │      │    empty?    │          │                 │
+    // │         │      └─┬────────────┘          │                 │
+    // │         │        │no                     │                 │
+    // │         │      ┌─▼───────────────────┐   │                 │
+    // │         │      │Build response packet├───┘                 │
+    // │         │      └─────────────────────┘                     │
+    // │         │                                                  │
+    // │        ┌▼────────────────┐                                 │
+    // └────────┤  Have we rx'd   ├─────────────────────────────────┘
+    //       no │a partial packet?│ yes
+    //          └─────────────────┘
+    //
     fn handle_usart_notification(&mut self) {
         'tx: loop {
             // Do we have data to transmit? If so, write as much as we can until
@@ -247,6 +330,10 @@ impl ServerImpl {
                 ) {
                     self.tx_pkt_to_write.start += 1;
                 } else {
+                    // We have more data to send but the TX FIFO is full; enable
+                    // the TX FIFO empty interrupt and wait for it.
+                    self.tx_zero_deadline = None;
+                    self.uart.enable_tx_fifo_empty_interrupt();
                     return;
                 }
             }
@@ -267,6 +354,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::UartRx(byte));
 
                 if byte == 0x00 {
+                    // Host may send extra cobs terminators; skip any empty
+                    // packets.
+                    if self.rx_buf.is_empty() {
+                        continue;
+                    }
+
                     // Process message and populate our response into
                     // `tx_msg_buf`.
                     let msg_len = self.process_message();
@@ -280,9 +373,8 @@ impl ServerImpl {
                         );
                         self.tx_pkt_to_write = 0..pkt_len;
 
-                        // Enable tx fifo interrupts, and immediately start
-                        // trying to send our response.
-                        self.uart.enable_tx_fifo_empty_interrupt();
+                        // Loop back to the top and start transmitting our
+                        // response immediately.
                         continue 'tx;
                     }
                 } else if self.rx_buf.push(byte).is_err() {
@@ -297,7 +389,78 @@ impl ServerImpl {
 
             // We received everything we could out of the rx fifo and we have
             // nothing to send; we're done.
+            //
+            // If we haven't receiving anything, set our timer to send out
+            // periodic zero bytes. If we have received something, leave the
+            // timer clear - we're waiting on more data from the host.
+            if self.rx_buf.is_empty() {
+                self.tx_zero_deadline =
+                    Some(sys_get_timer().now + UART_ZERO_DELAY);
+            } else {
+                self.tx_zero_deadline = None;
+            }
             return;
+        }
+    }
+
+    fn handle_timer_notification(&mut self) {
+        let now = sys_get_timer().now;
+
+        // If we're past the deadline for transitioning to A0, attempt to do so.
+        if let Some(RebootState::TransitionToA0At(deadline)) = self.reboot_state
+        {
+            if now >= deadline {
+                // The only way our reboot state gets set to
+                // `TransitionToA0At` is if we believe we were currently in
+                // A2. Attempt to transition to A0, which can only fail if
+                // we're no longer in A2. In either case (we successfully
+                // started the transition or we're no longer in A2 due to
+                // some external cause), we've done what we can to reboot,
+                // so clear out `reboot_state`.
+                ringbuf_entry!(Trace::SetState {
+                    now: sys_get_timer().now,
+                    state: PowerState::A0,
+                });
+                _ = self.sequencer.set_state(PowerState::A0);
+                self.reboot_state = None;
+            }
+        }
+
+        // If we're past the deadline to send a 0x00 byte on the uart, do so and
+        // reset the timer, unless we're currently mid-send or mid-recv.
+        if let Some(deadline) = self.tx_zero_deadline {
+            if now >= deadline {
+                if self.tx_pkt_to_write.is_empty() && self.rx_buf.is_empty() {
+                    // We don't have a real packet we're sending and we haven't
+                    // started receiving a request from the host; try to send a
+                    // 0x00 terminator. If we can, reset the deadline to send
+                    // another one after `UART_ZERO_DELAY`; if we can't, disable
+                    // our timer and wait for a uart interrupt instead.
+                    if try_tx_push(&self.uart, 0) {
+                        self.tx_zero_deadline = Some(now + UART_ZERO_DELAY);
+                    } else {
+                        // If we have no real packet data but we've filled the
+                        // TX FIFO (presumably with zeroes from this deadline
+                        // firing $TX_FIFO_DEPTH times, although possibly
+                        // because we just finished sending a real packet),
+                        // we're waiting on the host to read the data out of our
+                        // TX FIFO: we don't need to push any more zeroes until
+                        // the host has read everything out of our FIFO.
+                        // Therefore, enable the TX FIFO empty interrupt and
+                        // stop waking up on a timer; when the uart interrupt
+                        // fires (either due to the host sending us data or
+                        // draining the TX FIFO), we'll reset the timer then if
+                        // needed.
+                        self.tx_zero_deadline = None;
+                        self.uart.enable_tx_fifo_empty_interrupt();
+                    }
+                } else {
+                    // We're either sending or receiving a real packet; disable
+                    // our "sending 0s" timer until that finishes. The
+                    // appropriate uart interrupt(s) are already enabled.
+                    self.tx_zero_deadline = None;
+                }
+            }
         }
     }
 
@@ -398,12 +561,12 @@ impl ServerImpl {
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
-            HostToSp::ClearStatus { mask } => {
-                ringbuf_entry!(Trace::ClearStatus { mask });
-                self.status &= Status::from_bits_truncate(!mask);
+            HostToSp::AckSpStart => {
+                ringbuf_entry!(Trace::AckSpStart);
+                self.status.remove(Status::SP_TASK_RESTARTED);
                 Some(SpToHost::Status(self.status))
             }
-            HostToSp::GetAlert { mask: _ } => {
+            HostToSp::GetAlert => {
                 // TODO define alerts
                 Some(SpToHost::Alert { action: 0 })
             }
@@ -454,8 +617,8 @@ impl ServerImpl {
 }
 
 // approximately idol_runtime::NotificationHandler, in anticipation of
-// eventually having an idol interface (at least for mgmt-gateway to give us
-// host phase 2 data)
+// eventually having an idol interface (at least for control-plane-agent to give
+// us host phase 2 data)
 impl ServerImpl {
     fn handle_notification(&mut self, bits: u32) {
         if bits & USART_IRQ != 0 {
@@ -470,27 +633,7 @@ impl ServerImpl {
         }
 
         if bits & TIMER_IRQ != 0 {
-            // If we're past the deadline for transitioning to A0, attempt to do
-            // that.
-            if let Some(RebootState::TransitionToA0At(deadline)) =
-                self.reboot_state
-            {
-                if sys_get_timer().now >= deadline {
-                    // The only way our reboot state gets set to
-                    // `TransitionToA0At` is if we believe we were currently in
-                    // A2. Attempt to transition to A0, which can only fail if
-                    // we're no longer in A2. In either case (we successfully
-                    // started the transition or we're no longer in A2 due to
-                    // some external cause), we've done what we can to reboot,
-                    // so clear out `reboot_state`.
-                    ringbuf_entry!(Trace::SetState {
-                        now: sys_get_timer().now,
-                        state: PowerState::A0,
-                    });
-                    _ = self.sequencer.set_state(PowerState::A0);
-                    self.reboot_state = None;
-                }
-            }
+            self.handle_timer_notification();
         }
     }
 }

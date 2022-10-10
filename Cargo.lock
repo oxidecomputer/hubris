@@ -849,7 +849,6 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
  "drv-gimlet-hf-api",
  "drv-hash-api",
  "drv-stm32h7-qspi",
@@ -947,6 +946,7 @@ dependencies = [
  "num-traits",
  "pmbus 0.1.0 (git+https://github.com/oxidecomputer/pmbus)",
  "ringbuf",
+ "smbus-pec",
  "userlib",
  "zerocopy",
 ]
@@ -1644,6 +1644,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-crc-macros"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f1c75747a43b086df1a87fb2a889590bc0725e0abf54bba6d0c4bf7bd9e762c"
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1718,7 +1724,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=7e5d68e0094bcf40f55e7640b2a8a56e4f743409#7e5d68e0094bcf40f55e7640b2a8a56e4f743409"
+source = "git+https://github.com/oxidecomputer/omicron?rev=20ef086be0e0f8cff17e6cb8b5264dbb2c749ec0#20ef086be0e0f8cff17e6cb8b5264dbb2c749ec0"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -1864,7 +1870,7 @@ dependencies = [
  "hash32",
  "rustc_version 0.4.0",
  "serde",
- "spin 0.9.2",
+ "spin 0.9.4",
  "stable_deref_trait",
 ]
 
@@ -3076,9 +3082,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
+checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
 dependencies = [
  "serde_derive",
 ]
@@ -3094,9 +3100,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
+checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3204,6 +3210,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
+name = "smbus-pec"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca0763a680cd5d72b28f7bfc8a054c117d8841380a6ad4f72f05bd2a34217d3e"
+dependencies = [
+ "embedded-crc-macros",
+]
+
+[[package]]
 name = "smoltcp"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3239,9 +3254,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin"
-version = "0.9.2"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
+checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
 dependencies = [
  "lock_api",
 ]
@@ -3441,6 +3456,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-control-plane-agent"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "drv-auxflash-api",
+ "drv-gimlet-hf-api",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
+ "drv-stm32h7-usart",
+ "drv-stm32xx-uid",
+ "drv-update-api",
+ "gateway-messages",
+ "heapless",
+ "mutable-statics",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
+ "static_assertions",
+ "task-jefe-api",
+ "task-net-api",
+ "update-buffer",
+ "userlib",
+]
+
+[[package]]
 name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
@@ -3531,29 +3572,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-mgmt-gateway"
-version = "0.1.0"
-dependencies = [
- "cfg-if",
- "drv-gimlet-hf-api",
- "drv-gimlet-seq-api",
- "drv-sidecar-seq-api",
- "drv-stm32h7-usart",
- "drv-stm32xx-uid",
- "drv-update-api",
- "gateway-messages",
- "heapless",
- "mutable-statics",
- "num-traits",
- "ringbuf",
- "serde",
- "ssmarshal",
- "task-jefe-api",
- "task-net-api",
- "userlib",
-]
-
-[[package]]
 name = "task-monorail-server"
 version = "0.1.0"
 dependencies = [
@@ -3585,7 +3603,6 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-sidecar-seq-api",
@@ -3763,7 +3780,6 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
@@ -4192,6 +4208,13 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 [[package]]
 name = "unwrap-lite"
 version = "0.1.0"
+
+[[package]]
+name = "update-buffer"
+version = "0.1.0"
+dependencies = [
+ "spin 0.9.4",
+]
 
 [[package]]
 name = "userlib"

@@ -1,0 +1,316 @@
+
+Test Output:
+
+Identification 0
+[caption="Address: "]
+.0x0000 - ID0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID0 | Byte 0 of ID
+|===
+
+Identification 1
+[caption="Address: "]
+.0x0001 - ID1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID1 | Byte 1 of ID
+|===
+
+Identification 2
+[caption="Address: "]
+.0x0002 - ID2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID2 | Byte 2 of ID
+|===
+
+Identification 3
+[caption="Address: "]
+.0x0003 - ID3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID3 | Byte 3 of ID
+|===
+
+Checksum 0
+[caption="Address: "]
+.0x0004 - CS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS0 | checksum[31..24]
+|===
+
+Checksum 1
+[caption="Address: "]
+.0x0005 - CS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS1 | checksum[23..16]
+|===
+
+Checksum 2
+[caption="Address: "]
+.0x0006 - CS2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS2 | checksum[15..8]
+|===
+
+Checksum 3
+[caption="Address: "]
+.0x0007 - CS3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS3 | checksum[7..0]
+|===
+
+Version 0
+[caption="Address: "]
+.0x0008 - VERSION0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[31..24]
+|===
+
+Version 1
+[caption="Address: "]
+.0x0009 - VERSION1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[23..16]
+|===
+
+Version 2
+[caption="Address: "]
+.0x000a - VERSION2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[15..8]
+|===
+
+Version 3
+[caption="Address: "]
+.0x000b - VERSION3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[7..0]
+|===
+
+Short SHA 0
+[caption="Address: "]
+.0x000c - SHA0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[31..24]
+|===
+
+Short SHA 1
+[caption="Address: "]
+.0x000d - SHA1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[23..16]
+|===
+
+Short SHA 2
+[caption="Address: "]
+.0x000e - SHA2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[15..8]
+|===
+
+Short SHA 3
+[caption="Address: "]
+.0x000f - SHA3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[7..0]
+|===
+
+Scratchpad
+[caption="Address: "]
+.0x0010 - SCRATCHPAD Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | SCRATCHPAD | Scribble Register for read-write use
+|===
+
+Tofino Sequencer Control
+[caption="Address: "]
+.0x0100 - TOFINO_SEQ_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | ACK_VID | Acknowledge that VDDCORE has been adjusted according to the VID
+|[1] | rw | EN | Set bit to power up Tofino, clear bit to power down Tofino
+|[0] | rw | CLEAR_ERROR | Set self clearing bit to clear Tofino sequencer error state
+|===
+
+Tofino Sequencer State
+[caption="Address: "]
+.0x0101 - TOFINO_SEQ_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2:0] | r | STATE | Tofino Sequencer State
+|===
+
+Tofino Sequencing Step
+[caption="Address: "]
+.0x0102 - TOFINO_SEQ_STEP Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | STEP | Sequencing Step
+|===
+
+Tofino Sequencing Error
+[caption="Address: "]
+.0x0103 - TOFINO_SEQ_ERROR Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ERROR | Sequencing Error
+|===
+
+Tofino Power Enable
+[caption="Address: "]
+.0x0104 - TOFINO_POWER_ENABLE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | VDDA_1P8_EN | VDDA 1.8V Enable
+|[4] | r | VDDA_1P5_EN | VDDA 1.5V Enable
+|[3] | r | VDD_VDDT_EN | VDD 0.9V VDDT Enable
+|[2] | r | VDD_PCIE_EN | VDD 0.75V PCIe Enable
+|[1] | r | VDD_CORE_EN | VDD Core Enable
+|[0] | r | VDD_1P8_EN | VDD 1.8V Enable
+|===
+
+Tofino Power Good
+[caption="Address: "]
+.0x0105 - TOFINO_POWER_GOOD Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | VDDA_1P8_PG | VDDA 1.8V Power Good
+|[4] | r | VDDA_1P5_PG | VDDA 1.5V Power Good
+|[3] | r | VDD_VDDT_PG | VDD 0.9V VDDT Power Good
+|[2] | r | VDD_PCIE_PG | VDD 0.75V PCIe Power Good
+|[1] | r | VDD_CORE_PG | VDD Core Power Good
+|[0] | r | VDD_1P8_PG | VDD 1.8V Power Good
+|===
+
+Tofino Power Fault
+[caption="Address: "]
+.0x0106 - TOFINO_POWER_FAULT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | RESERVED2 | Reserved
+|[4] | r | VDDA_1P5_FAULT | VDDA 1.5V Fault
+|[3] | r | VDD_VDDT_FAULT | VDD 0.9V VDDT Fault
+|[2] | r | RESERVED1 | Reserved
+|[1] | r | VDD_CORE_FAULT | VDD Core Fault
+|[0] | r | VDD_1P8_FAULT | VDD 1.8V Fault
+|===
+
+Tofino Power VR Hot
+[caption="Address: "]
+.0x0107 - TOFINO_POWER_VRHOT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | VDDA_1P8_VRHOT | VDDA 1.8V VRHOT
+|[4] | r | VDDA_1P5_VRHOT | VDDA 1.5V VRHOT
+|[3] | r | VDD_VDDT_VRHOT | VDD 0.9V VDDT VRHOT
+|[2] | r | RESERVED1 | Reserved
+|[1] | r | VDD_CORE_VRHOT | VDD Core VRHOT
+|[0] | r | VDD_1P8_VRHOT | VDD 1.8V VRHOT
+|===
+
+Tofino VID Value
+[caption="Address: "]
+.0x0108 - TOFINO_POWER_VID Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | VID_VALID | VID Valid
+|[6:4] | r | RESERVED | Reserved
+|[3:0] | r | VID | VID Value
+|===
+
+Tofino Reset
+[caption="Address: "]
+.0x0109 - TOFINO_RESET Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | r | PCIE | PCIe link is in reset
+|[0] | r | PWRON | Tofino package is in reset
+|===
+
+Tofino Misc
+[caption="Address: "]
+.0x010a - TOFINO_MISC Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | r | CLOCKS_EN | Clocks Enable
+|[0] | r | THERMAL_ALERT | Thermal Alert
+|===
+
+PCIe Hotplug Control
+[caption="Address: "]
+.0x010b - PCIE_HOTPLUG_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | w | OVERRIDE_HOST_RESET | Override host PCIe Reset
+|[3] | w | RESET | PCIe Reset
+|[2] | w | ALERT | Alert
+|[1] | w | POWER_FAULT | Power Fault
+|[0] | w | PRESENT | Present
+|===
+
+PCIe Hotplug Status
+[caption="Address: "]
+.0x010c - PCIE_HOTPLUG_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:1] |  | - | Reserved
+|[0] | r | HOST_RESET | Host PCIe Reset
+|===
+
+
+
+

@@ -12,12 +12,14 @@
 #![no_std]
 #![no_main]
 
+#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_b.rs")]
+#[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
 mod bsp;
 mod control;
 
 use crate::{
     bsp::{Bsp, SeqError},
-    control::ThermalControl,
+    control::{SensorReadError, ThermalControl},
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
@@ -50,8 +52,8 @@ enum Trace {
     ThermalMode(ThermalMode),
     AutoState(ThermalAutoState),
     FanReadFailed(usize, ResponseCode),
-    MiscReadFailed(usize, ResponseCode),
-    SensorReadFailed(usize, ResponseCode),
+    MiscReadFailed(usize, SensorReadError),
+    SensorReadFailed(usize, SensorReadError),
     PostFailed(SensorId, SensorError),
     ControlPwm(u8),
     PowerModeChanged(u32),
@@ -262,6 +264,8 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 #[export_name = "main"]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
@@ -270,7 +274,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Start);
 
     let bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&bsp, sensor_api);
+    let control = ThermalControl::new(&bsp, i2c_task, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
@@ -293,8 +297,11 @@ fn main() -> ! {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 mod idl {
     use super::{ThermalAutoState, ThermalError, ThermalMode};
-
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

@@ -7,15 +7,23 @@ use crate::{
     Fan, ThermalError, Trace,
 };
 use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
-use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::{
-    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
+    max31790::{I2cWatchdog, Max31790},
+    nvme_bmc::NvmeBmc,
+    sbtsi::Sbtsi,
+    tmp117::Tmp117,
+    tmp451::Tmp451,
+    tse2004av::Tse2004Av,
+    TempSensor,
 };
+
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::ThermalAutoState;
-use userlib::units::{Celsius, PWMDuty, Rpm};
+use userlib::{
+    units::{Celsius, PWMDuty, Rpm},
+    TaskId,
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -24,31 +32,128 @@ use userlib::units::{Celsius, PWMDuty, Rpm};
 /// this `enum` return an `drv_i2c_api::ResponseCode`.
 #[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum Device {
-    Tmp117(Tmp117),
-    Tmp451(Tmp451),
-    CPU(Sbtsi),
-    Dimm(Tse2004Av),
+    Tmp117,
+    Tmp451(drv_i2c_devices::tmp451::Target),
+    CPU,
+    Dimm,
+    U2,
 }
 
-/// Represents a sensor and its associated `SensorId`, used when posting data
-/// to the `sensors` task.
+/// Represents a sensor in the system.
+///
+/// The sensor includes a device type, used to decide how to read it;
+/// a free function that returns the raw `I2cDevice`, so that this can be
+/// `const`); and the sensor ID, to post data to the `sensors` task.
 pub struct TemperatureSensor {
     device: Device,
-    id: SensorId,
+    builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+    sensor_id: SensorId,
 }
 
 impl TemperatureSensor {
-    pub fn new(device: Device, id: SensorId) -> Self {
-        Self { device, id }
+    pub const fn new(
+        device: Device,
+        builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+        sensor_id: SensorId,
+    ) -> Self {
+        Self {
+            device,
+            builder,
+            sensor_id,
+        }
     }
-    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
+    fn read_temp(&self, i2c_task: TaskId) -> Result<Celsius, SensorReadError> {
+        let dev = (self.builder)(i2c_task);
         let t = match &self.device {
-            Device::Tmp117(dev) => dev.read_temperature()?,
-            Device::CPU(dev) => dev.read_temperature()?,
-            Device::Tmp451(dev) => dev.read_temperature()?,
-            Device::Dimm(dev) => dev.read_temperature()?,
+            Device::Tmp117 => Tmp117::new(&dev).read_temperature()?,
+            Device::CPU => Sbtsi::new(&dev).read_temperature()?,
+            Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
+            Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
+            Device::U2 => NvmeBmc::new(&dev).read_temperature()?,
         };
         Ok(t)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Combined error type for all of our temperature sensors
+///
+/// Most of them will only return an I2C `ResponseCode`, but in some cases,
+/// they can report an error through in-band signalling (looking at you, NVMe)
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SensorReadError {
+    I2cError(ResponseCode),
+
+    /// The sensor reported that data is either not present or too old
+    NoData,
+
+    /// The sensor reported a failure
+    SensorFailure,
+
+    /// The returned value is listed as reserved in the datasheet and does not
+    /// represent a temperature.
+    ReservedValue,
+
+    /// The reply is structurally incorrect (wrong length, bad checksum, etc)
+    CorruptReply,
+}
+
+impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp117::Error) -> Self {
+        use drv_i2c_devices::tmp117::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp451::Error) -> Self {
+        use drv_i2c_devices::tmp451::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::sbtsi::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::sbtsi::Error) -> Self {
+        use drv_i2c_devices::sbtsi::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tse2004av::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tse2004av::Error) -> Self {
+        use drv_i2c_devices::tse2004av::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::nvme_bmc::Error) -> Self {
+        use drv_i2c_devices::nvme_bmc::Error::*;
+        match s {
+            I2cError(v) => Self::I2cError(v),
+            NoData => Self::NoData,
+            SensorFailure => Self::SensorFailure,
+            Reserved => Self::ReservedValue,
+            InvalidLength | BadChecksum => Self::CorruptReply,
+        }
+    }
+}
+
+impl From<SensorReadError> for task_sensor_api::NoData {
+    fn from(code: SensorReadError) -> task_sensor_api::NoData {
+        match code {
+            SensorReadError::I2cError(v) => v.into(),
+            _ => Self::DeviceError,
+        }
     }
 }
 
@@ -120,7 +225,7 @@ pub(crate) struct ThermalProperties {
 }
 
 impl InputChannel {
-    pub fn new(
+    pub const fn new(
         sensor: TemperatureSensor,
         temps: ThermalProperties,
         power_mode_mask: u32,
@@ -145,6 +250,9 @@ impl InputChannel {
 pub(crate) struct ThermalControl<'a> {
     /// Reference to board-specific parameters
     bsp: &'a Bsp,
+
+    /// I2C task
+    i2c_task: TaskId,
 
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
@@ -327,9 +435,10 @@ impl ThermalControlState {
 impl<'a> ThermalControl<'a> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
-    pub fn new(bsp: &'a Bsp, sensor_api: SensorApi) -> Self {
+    pub fn new(bsp: &'a Bsp, i2c_task: TaskId, sensor_api: SensorApi) -> Self {
         Self {
             bsp,
+            i2c_task,
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot {
@@ -432,15 +541,15 @@ impl<'a> ThermalControl<'a> {
 
         // Read miscellaneous temperature data and log it to the sensors task
         for (i, s) in self.bsp.misc_sensors.iter().enumerate() {
-            let post_result = match s.read_temp() {
-                Ok(v) => self.sensor_api.post(s.id, v.0),
+            let post_result = match s.read_temp(self.i2c_task) {
+                Ok(v) => self.sensor_api.post(s.sensor_id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(i, e));
-                    self.sensor_api.nodata(s.id, e.into())
+                    self.sensor_api.nodata(s.sensor_id, e.into())
                 }
             };
             if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(s.id, e));
+                ringbuf_entry!(Trace::PostFailed(s.sensor_id, e));
             }
         }
 
@@ -455,21 +564,24 @@ impl<'a> ThermalControl<'a> {
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let post_result = match s.sensor.read_temp() {
+            let post_result = match s.sensor.read_temp(self.i2c_task) {
                 Ok(v) => {
                     if (s.power_mode_mask & self.power_mode) != 0 {
                         self.state.write_temperature(i, now_ms, v);
                     } else {
                         self.state.write_temperature_inactive(i);
                     }
-                    self.sensor_api.post(s.sensor.id, v.0)
+                    self.sensor_api.post(s.sensor.sensor_id, v.0)
                 }
                 Err(e) => {
                     // Ignore errors if
                     // a) this sensor shouldn't be on in this power mode, or
                     // b) the sensor is removable and not present
                     if (s.power_mode_mask & self.power_mode) == 0
-                        || (s.removable && e == ResponseCode::NoDevice)
+                        || (s.removable
+                            && e == SensorReadError::I2cError(
+                                ResponseCode::NoDevice,
+                            ))
                     {
                         self.state.write_temperature_inactive(i);
                     } else {
@@ -480,11 +592,11 @@ impl<'a> ThermalControl<'a> {
                         // temperature is sufficiently high)
                         ringbuf_entry!(Trace::SensorReadFailed(i, e));
                     }
-                    self.sensor_api.nodata(s.sensor.id, e.into())
+                    self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                 }
             };
             if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(s.sensor.id, e));
+                ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));
             }
         }
     }

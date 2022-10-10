@@ -4,18 +4,37 @@
 
 use core::convert::Infallible;
 
-use crate::{mgs_common::MgsCommon, Log, MgsMessage};
+use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    DiscoverResponse, IgnitionCommand, IgnitionState, PowerState,
-    ResponseError, SpComponent, SpPort, SpState, UpdateChunk, UpdateId,
-    UpdatePrepare, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
+    PowerState, ResponseError, SpComponent, SpPort, SpState, SpUpdatePrepare,
+    UpdateChunk, UpdateId, UpdateStatus,
 };
 use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
+use userlib::sys_get_timer;
+
+// How big does our shared update buffer need to be? Has to be able to handle SP
+// update blocks for now, no other updateable components.
+const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
+
+// Create type aliases that include our `UpdateBuffer` size (i.e., the size of
+// the largest update chunk of all the components we update).
+pub(crate) type UpdateBuffer =
+    update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
+pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
+    'static,
+    SpComponent,
+    UPDATE_BUFFER_SIZE,
+>;
+
+// Our single, shared update buffer.
+static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
 pub(crate) struct MgsHandler {
     common: MgsCommon,
+    sp_update: SpUpdate,
 }
 
 impl MgsHandler {
@@ -24,6 +43,7 @@ impl MgsHandler {
     pub(crate) fn claim_static_resources() -> Self {
         Self {
             common: MgsCommon::claim_static_resources(),
+            sp_update: SpUpdate::new(),
         }
     }
 
@@ -31,10 +51,17 @@ impl MgsHandler {
     /// `main()` is responsible for calling this method and actually setting the
     /// timer.
     pub(crate) fn timer_deadline(&self) -> Option<u64> {
-        None
+        if self.sp_update.is_preparing() {
+            Some(sys_get_timer().now + 1)
+        } else {
+            None
+        }
     }
 
-    pub(crate) fn handle_timer_fired(&mut self) {}
+    pub(crate) fn handle_timer_fired(&mut self) {
+        // This is a no-op if we're not preparing for an SP update.
+        self.sp_update.step_preparation();
+    }
 
     pub(crate) fn drive_usart(&mut self) {}
 
@@ -102,11 +129,27 @@ impl SpHandler for MgsHandler {
         self.common.sp_state()
     }
 
-    fn update_prepare(
+    fn sp_update_prepare(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-        update: UpdatePrepare,
+        update: SpUpdatePrepare,
+    ) -> Result<(), ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+            length: update.aux_flash_size + update.sp_image_size,
+            component: SpComponent::SP_ITSELF,
+            id: update.id,
+            slot: 0,
+        }));
+
+        self.sp_update.prepare(&UPDATE_MEMORY, update)
+    }
+
+    fn component_update_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        update: ComponentUpdatePrepare,
     ) -> Result<(), ResponseError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
@@ -115,10 +158,8 @@ impl SpHandler for MgsHandler {
             slot: update.slot,
         }));
 
-        match update.component {
-            SpComponent::SP_ITSELF => self.common.update_prepare(update),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
-        }
+        // We currently don't have any updateable components on psc.
+        Err(ResponseError::RequestUnsupportedForComponent)
     }
 
     fn update_status(
@@ -132,7 +173,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::SP_ITSELF => Ok(self.common.status()),
+            SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -150,7 +191,9 @@ impl SpHandler for MgsHandler {
         }));
 
         match chunk.component {
-            SpComponent::SP_ITSELF => self.common.update_chunk(chunk, data),
+            SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
+                .sp_update
+                .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }
@@ -167,7 +210,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::SP_ITSELF => self.common.update_abort(&id),
+            SpComponent::SP_ITSELF => self.sp_update.abort(&id),
             _ => Err(ResponseError::RequestUnsupportedForComponent),
         }
     }

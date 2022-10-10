@@ -17,7 +17,7 @@ pub struct MainboardController {
 
 impl MainboardController {
     pub const DEVICE_INDEX: u8 = 0;
-    pub const EXPECTED_IDENT: u32 = 0x1DE_AA55;
+    pub const EXPECTED_ID: u32 = 0x01de_5bae;
 
     pub fn new(task_id: userlib::TaskId) -> Self {
         Self {
@@ -57,9 +57,40 @@ impl MainboardController {
         )
     }
 
-    /// Check for a valid peripheral identifier.
-    pub fn ident_valid(&self) -> Result<(u32, bool), FpgaError> {
-        let ident = u32::from_be(self.user_design.read(Addr::ID0)?);
-        Ok((ident, ident == Self::EXPECTED_IDENT))
+    /// Returns the expected (short) checksum, which simply a prefix of the full
+    /// SHA3-256 hash of the bitstream.
+    pub fn short_checksum() -> u32 {
+        u32::from_le_bytes(
+            SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM[..4]
+                .try_into()
+                .unwrap(),
+        )
+    }
+
+    /// Read the design ident.
+    pub fn read_ident(&self) -> Result<FpgaUserDesignIdent, FpgaError> {
+        self.user_design.read(Addr::ID0)
+    }
+
+    /// Check whether the Ident checksum matches the expected checksum.
+    ///
+    /// This allows us to detect cases where the Hubris image has been updated
+    /// while the FPGA remained powered: if the checksum of the FPGA bitstream
+    /// in the new Hubris image has changed it will no longer match the Ident.
+    pub fn checksum_valid(&self, ident: &FpgaUserDesignIdent) -> bool {
+        ident.checksum.get() == Self::short_checksum()
+    }
+
+    /// Set the checksum fuse registers to the expected checksum.
+    ///
+    /// In concert with `checksum_valid`, this will detect when the bitstream of
+    /// an already running mainboard controller does (potentially) not match the
+    /// APIs used to build Hubris.
+    pub fn write_checksum(&self) -> Result<(), FpgaError> {
+        self.user_design.write(
+            WriteOp::Write,
+            Addr::CS0,
+            Self::short_checksum().to_be(),
+        )
     }
 }

@@ -35,7 +35,7 @@ host_sp_comms = {bit-number = 1}
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "mgmt_gateway"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
@@ -121,7 +121,7 @@ name = "task-thermal"
 features = ["itm", "gimlet"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 5400
+stacksize = 4504
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
@@ -233,8 +233,8 @@ start = true
 task-slots = ["net"]
 features = ["vlan"]
 
-[tasks.mgmt_gateway]
-name = "task-mgmt-gateway"
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 2048
@@ -436,6 +436,18 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 A NVMe Basic Management Command"
+sensors = { temperature = 1 }
+name = "U2_N0"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -452,6 +464,18 @@ device = "max5970"
 description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 B NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N1"
 refdes = "J207"
 removable = true
 
@@ -480,6 +504,18 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
+segment = 3
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 C NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N2"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
 segment = 4
 address = 0b1010_000
 device = "at24csw080"
@@ -496,6 +532,18 @@ device = "max5970"
 description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 D NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N3"
 refdes = "J209"
 removable = true
 
@@ -524,6 +572,18 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 E NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N4"
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -540,6 +600,18 @@ device = "max5970"
 description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 F NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N5"
 refdes = "J211"
 removable = true
 
@@ -568,6 +640,18 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
+segment = 3
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 G NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N6"
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
 segment = 4
 address = 0b1010_000
 device = "at24csw080"
@@ -584,6 +668,18 @@ device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 H NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N7"
 refdes = "J213"
 removable = true
 
@@ -612,6 +708,18 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 3
+segment = 1
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 I NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N8"
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
 segment = 2
 address = 0b1010_000
 device = "at24csw080"
@@ -628,6 +736,18 @@ device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+refdes = "J215"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b110_1010
+device = "nvmebmc"
+description = "U.2 J NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N9"
 refdes = "J215"
 removable = true
 
@@ -663,6 +783,7 @@ mux = 1
 segment = 4
 address = 0x4c
 device = "tmp451"
+name = "t6"
 sensors = { temperature = 1 }
 description = "T6 temperature sensor"
 refdes = "U491"
@@ -1064,9 +1185,9 @@ port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-[config.net.sockets.mgmt_gateway]
+[config.net.sockets.control_plane_agent]
 kind = "udp"
-owner = {name = "mgmt_gateway", notification = 0b01}
+owner = {name = "control_plane_agent", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }

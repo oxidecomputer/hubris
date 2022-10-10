@@ -1,5 +1,5 @@
 [package]
-name = "task-mgmt-gateway"
+name = "task-control-plane-agent"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,9 @@ heapless = "0.7.16"
 num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
+static_assertions = "1.1"
 
+drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
@@ -21,8 +23,9 @@ ringbuf = {path = "../../lib/ringbuf"}
 task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+update-buffer = {path = "../../lib/update-buffer"}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "7e5d68e0094bcf40f55e7640b2a8a56e4f743409"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "20ef086be0e0f8cff17e6cb8b5264dbb2c749ec0"}
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]
@@ -34,3 +37,4 @@ vlan = ["task-net-api/vlan"]
 usart1 = []
 baud_rate_3M = []
 hardware_flow_control = []
+auxflash = ["drv-auxflash-api"]

@@ -22,7 +22,7 @@ pub enum UpdateTarget {
     Bootloader = 4,
 }
 
-#[derive(FromPrimitive, IdolError)]
+#[derive(Clone, Copy, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,
