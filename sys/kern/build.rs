@@ -181,7 +181,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let target = build_util::env_var("TARGET").unwrap();
+    let target = build_util::target();
     if target.starts_with("thumbv6m") {
         let task_irq_map =
             phash_gen::OwnedSortedList::build(task_irq_map).unwrap();

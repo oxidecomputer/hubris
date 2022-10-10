@@ -14,9 +14,22 @@ pub fn env_var(key: &str) -> Result<String, std::env::VarError> {
     std::env::var(key)
 }
 
-/// Reads the `OUT_DIR` environment variable, marking that it's used
+/// Reads the `OUT_DIR` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when `OUT_DIR` changes.
 pub fn out_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(env_var("OUT_DIR").expect("Could not get OUT_DIR"))
+    std::path::PathBuf::from(
+        std::env::var("OUT_DIR").expect("Could not get OUT_DIR"),
+    )
+}
+
+/// Reads the `TARGET` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+pub fn target() -> String {
+    std::env::var("TARGET").unwrap()
 }
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
@@ -25,7 +38,7 @@ pub fn out_dir() -> std::path::PathBuf {
 /// This will set one of `cfg(armv6m`), `cfg(armv7m)`, or `cfg(armv8m)`
 /// depending on the value of the `TARGET` environment variable.
 pub fn expose_m_profile() {
-    let target = env_var("TARGET").unwrap();
+    let target = target();
 
     if target.starts_with("thumbv6m") {
         println!("cargo:rustc-cfg=armv6m");
