@@ -11,8 +11,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut const_file = File::create(out.join("consts.rs")).unwrap();
 
-    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
     println!("cargo:rerun-if-env-changed=HUBRIS_IMAGE_ID");
+    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
 
     writeln!(const_file, "// See build.rs for details")?;
 

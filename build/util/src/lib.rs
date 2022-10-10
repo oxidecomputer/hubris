@@ -31,10 +31,10 @@ pub fn expose_m_profile() {
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
+    println!("cargo:rerun-if-env-changed=HUBRIS_BOARD");
     if let Ok(board) = env::var("HUBRIS_BOARD") {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
-    println!("cargo:rerun-if-env-changed=HUBRIS_BOARD");
 }
 
 ///
@@ -134,6 +134,7 @@ impl TaskIds {
 /// - `Err(e)` if deserialization failed or the environment variable did not
 ///   contain UTF-8.
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
+    println!("cargo:rerun-if-env-changed={}", var);
     let config = match env::var(var) {
         Err(env::VarError::NotPresent) => return Ok(None),
         Err(e) => {
@@ -148,6 +149,5 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
     println!("{}", config);
     let rval = toml::from_slice(config.as_bytes())
         .context("deserializing configuration")?;
-    println!("cargo:rerun-if-env-changed={}", var);
     Ok(Some(rval))
 }
