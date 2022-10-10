@@ -13,9 +13,9 @@
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
+use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
-use drv_i2c_devices::max5970::*;
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -218,7 +218,6 @@ macro_rules! max5970_controller {
     };
 }
 
-
 #[cfg(target_board = "gimlet-a")]
 fn controllers() -> [PowerController; 13] {
     let task = I2C.get_task_id();
@@ -240,7 +239,7 @@ fn controllers() -> [PowerController; 13] {
     ]
 }
 
-#[cfg(target_board = "gimlet-b")]
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 fn controllers() -> [PowerController; 37] {
     let task = I2C.get_task_id();
 

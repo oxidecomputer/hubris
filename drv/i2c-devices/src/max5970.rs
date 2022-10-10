@@ -6,9 +6,9 @@
 
 use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
-use userlib::*;
-use userlib::units::*;
 use num_traits::float::FloatCore;
+use userlib::units::*;
+use userlib::*;
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
@@ -240,7 +240,8 @@ impl Max5970 {
 
 impl Validate<ResponseCode> for Max5970 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device, 0, Ohms(0.0)).read_reg(Register::cbuf_dly_stop)?;
+        let val = Max5970::new(device, 0, Ohms(0.0))
+            .read_reg(Register::cbuf_dly_stop)?;
         Ok(val == 0x19)
     }
 }
@@ -250,12 +251,12 @@ impl VoltageSensor<ResponseCode> for Max5970 {
         let (msb, lsb) = if self.rail == 0 {
             (
                 self.read_reg(Register::adc_chx_mon_msb_ch1)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch1)?
+                self.read_reg(Register::adc_chx_mon_lsb_ch1)?,
             )
         } else {
             (
                 self.read_reg(Register::adc_chx_mon_msb_ch2)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch2)?
+                self.read_reg(Register::adc_chx_mon_lsb_ch2)?,
             )
         };
 
@@ -273,7 +274,7 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         } else {
             (
                 self.read_reg(Register::adc_chx_cs_msb_ch2)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch2)?
+                self.read_reg(Register::adc_chx_cs_lsb_ch2)?,
             )
         };
 

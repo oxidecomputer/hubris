@@ -932,7 +932,8 @@ impl ConfigGenerator {
     pub mod {} {{
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
-"##, if pmbus { "pmbus" } else { "power" }
+"##,
+                if pmbus { "pmbus" } else { "power" }
             )?;
 
             for (rail, (device, index)) in &byrail {
