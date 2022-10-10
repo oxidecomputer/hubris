@@ -6,8 +6,7 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, PowerState,
-    SpComponent, SpPort, UpdateId,
+    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -41,7 +40,6 @@ enum Log {
     Empty,
     Wake(u32),
     Rx(UdpMetadata),
-    DispatchError(MgsDispatchError),
     SendError(SendError),
     MgsMessage(MgsMessage),
     UsartTx { num_bytes: usize },
@@ -227,20 +225,17 @@ impl NetHandler {
         // Hand off to `sp_impl` to handle deserialization, calling our
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
-        match sp_impl::handle_message(
+        assert!(self.packet_to_send.is_none());
+        let n = sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
             self.tx_buf,
-        ) {
-            Ok(n) => {
-                meta.size = n as u32;
-                assert!(self.packet_to_send.is_none());
-                self.packet_to_send = Some(meta);
-            }
-            Err(err) => ringbuf_entry!(Log::DispatchError(err)),
-        }
+        );
+
+        meta.size = n as u32;
+        self.packet_to_send = Some(meta);
     }
 }
 
