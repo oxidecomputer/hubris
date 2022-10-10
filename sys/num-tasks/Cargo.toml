@@ -3,7 +3,8 @@ name = "hubris-num-tasks"
 version = "0.1.0"
 edition = "2018"
 
-[dependencies]
+[build-dependencies]
+build-util = { path = "../../build/util" }
 
 [features]
 task-enum = []

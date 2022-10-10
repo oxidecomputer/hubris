@@ -8,10 +8,8 @@ use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
-use std::env;
 use std::fmt::Write;
 use std::fs::File;
-use std::path::Path;
 
 //
 // Our definition of the `Config` type.  We share this type with all other
@@ -1136,8 +1134,8 @@ impl ConfigGenerator {
 pub fn codegen(disposition: Disposition) -> Result<()> {
     use std::io::Write;
 
-    let out_dir = env::var("OUT_DIR")?;
-    let dest_path = Path::new(&out_dir).join("i2c_config.rs");
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(&dest_path)?;
 
     let mut g = ConfigGenerator::new(disposition);

@@ -34,8 +34,8 @@ struct AuxFlashConfig {
 fn generate_auxflash_config(
     config: &AuxFlashConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = std::env::var("OUT_DIR")?;
-    let dest_path = std::path::Path::new(&out_dir).join("auxflash_config.rs");
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("auxflash_config.rs");
 
     let mut out = std::fs::File::create(&dest_path)?;
 

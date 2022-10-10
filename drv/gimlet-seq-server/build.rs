@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fpga_image = fs::read(&fpga_image_path)?;
     let compressed = gnarle::compress_to_vec(&fpga_image);
 
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = build_util::out_dir();
     let compressed_path = out.join(fpga_image_path.with_extension("bin.rle"));
     fs::write(&compressed_path, &compressed)?;
     println!("cargo:rerun-if-changed={}", config.fpga_image);
