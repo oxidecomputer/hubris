@@ -13,8 +13,8 @@ use sha3::Sha3_256;
 use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-// re-export the SerialNumber type
-pub use dice_mfg_msgs::SerialNumber;
+// re-export useful types from dice-mfg-msgs making them part of our API
+pub use dice_mfg_msgs::{SerialNumber, SizedBlob};
 
 mod cert;
 pub use crate::cert::{

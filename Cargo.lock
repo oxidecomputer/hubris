@@ -3404,6 +3404,7 @@ dependencies = [
  "salty",
  "serde",
  "sha3",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
 ]
