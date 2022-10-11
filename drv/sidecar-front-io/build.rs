@@ -7,12 +7,12 @@ use std::{fs, io::Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
-    let out_dir = build_util::out_dir();
 
     if build_util::env_var("HUBRIS_BOARD")? != "sidecar-a" {
         panic!("unknown target board");
     }
 
+    let out_dir = build_util::out_dir();
     let out_file = out_dir.join("sidecar_qsfp_x32_controller.rs");
     let mut file = fs::File::create(out_file)?;
     write!(

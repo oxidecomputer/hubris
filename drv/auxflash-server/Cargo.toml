@@ -19,8 +19,8 @@ stm32h7 = { version = "0.14", default-features = false }
 zerocopy = "0.6.1"
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 build-util = { path = "../../build/util" }
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]

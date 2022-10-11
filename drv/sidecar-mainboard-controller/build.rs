@@ -3,12 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use build_fpga_regmap::fpga_regs;
-use std::{env, fs, io::Write};
+use std::{fs, io::Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
-    if env::var("HUBRIS_BOARD")? != "sidecar-a" {
+    if build_util::env_var("HUBRIS_BOARD")? != "sidecar-a" {
         panic!("unknown target board");
     }
 
