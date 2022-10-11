@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot-b, gimlet-rot-c]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -78,12 +78,16 @@ jobs:
             app_toml: app/psc/rev-a.toml
             target: thumbv7em-none-eabihf
             image: default
-          - build: gimlet-rot
-            app_name: gimlet-rot
-            app_toml: app/gimlet-rot/app.toml
+          - build: gimlet-rot-b
+            app_name: gimlet-rot-b
+            app_toml: app/gimlet-rot/app-b.toml
             target: thumbv8m.main-none-eabihf
             image: a
-
+          - build: gimlet-rot-c
+            app_name: gimlet-rot-c
+            app_toml: app/gimlet-rot/app-c.toml
+            target: thumbv8m.main-none-eabihf
+            image: a
           - os: ubuntu-latest
             deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
           - os: windows-latest
