@@ -156,6 +156,16 @@ const U2_THERMALS: ThermalProperties = ThermalProperties {
     temperature_slew_deg_per_sec: 0.5,
 };
 
+// The Micron-7300 (primary source) begins throttling at 72°, and its "critical
+// composite temperature" is 76°.  The WD-SN640 (secondary source) begins
+// throttling at 77°C.
+const M2_THERMALS: ThermalProperties = ThermalProperties {
+    target_temperature: Celsius(65f32),
+    critical_temperature: Celsius(70f32),
+    power_down_temperature: Celsius(75f32),
+    temperature_slew_deg_per_sec: 0.5,
+};
+
 // The CPU doesn't actually report true temperature; it reports a
 // unitless "temperature control value".  Throttling starts at 95, and
 // becomes more aggressive at 100.  Let's aim for 80, to stay well below
@@ -454,6 +464,26 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N9_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
+        POWER_STATE_A0,
+        true,
+    ),
+    InputChannel::new(
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvmebmc_m2_a,
+            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
+        ),
+        M2_THERMALS,
+        POWER_STATE_A0,
+        true,
+    ),
+    InputChannel::new(
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvmebmc_m2_b,
+            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
+        ),
+        M2_THERMALS,
         POWER_STATE_A0,
         true,
     ),

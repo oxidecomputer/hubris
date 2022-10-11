@@ -37,6 +37,7 @@ pub enum Device {
     CPU,
     Dimm,
     U2,
+    M2,
 }
 
 /// Represents a sensor in the system.
@@ -69,7 +70,7 @@ impl TemperatureSensor {
             Device::CPU => Sbtsi::new(&dev).read_temperature()?,
             Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
             Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
-            Device::U2 => NvmeBmc::new(&dev).read_temperature()?,
+            Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
         };
         Ok(t)
     }
