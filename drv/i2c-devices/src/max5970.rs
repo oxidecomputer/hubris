@@ -228,7 +228,7 @@ impl Max5970 {
     pub fn new(device: &I2cDevice, rail: u8, rsense: Ohms) -> Self {
         Self {
             device: *device,
-            rail: rail,
+            rail,
             rsense: (rsense.0 * 1000.0).round() as i32,
         }
     }

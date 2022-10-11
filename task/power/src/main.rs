@@ -125,7 +125,6 @@ impl PowerController {
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
             Device::HotSwapIO(dev) => read_current(dev),
-            _ => panic!(),
         }
     }
 
@@ -138,7 +137,6 @@ impl PowerController {
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
             Device::HotSwapIO(dev) => read_voltage(dev),
-            _ => panic!(),
         }
     }
 }
