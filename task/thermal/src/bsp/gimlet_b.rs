@@ -85,14 +85,31 @@ impl Bsp {
     pub fn power_mode(&self) -> u32 {
         let state = match self.seq.get_state() {
             Ok(p) => p,
-            // If `get_state` failed, then enable all sensors.  One of them
-            // will presumably fail and will drop us into failsafe
-            Err(_) => return u32::MAX,
+            // If `get_state` failed, then enable all sensors except the M.2s
+            // (which can permanently lock up the system if they're read while
+            // unpowered). One of the sensors in the A0 / A2 domains will
+            // presumably fail and will drop us into failsafe eventually.
+            Err(_) => return POWER_STATE_A0 | POWER_STATE_A2,
         };
         match state {
             PowerState::A0PlusHP => {
-                let m = devices::max5970_m2(self.i2c_task);
-                todo!()
+                let m = drv_i2c_devices::max5970::Max5970::new(
+                    &devices::max5970_m2(self.i2c_task),
+                );
+                let mut out = POWER_STATE_A0;
+                match m.read_reg(drv_i2c_devices::max5970::Register::status3) {
+                    Ok(s) => {
+                        if s & 1 != 0 {
+                            out |= POWER_M2A;
+                        }
+                        if s & 2 != 0 {
+                            out |= POWER_M2B;
+                        }
+                        out
+                    }
+                    // TODO: error handling here?
+                    Err(_e) => out,
+                }
             }
             PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
             PowerState::A2
