@@ -565,36 +565,39 @@ impl<'a> ThermalControl<'a> {
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let post_result = match s.sensor.read_temp(self.i2c_task) {
-                Ok(v) => {
-                    if (s.power_mode_mask & self.power_mode) != 0 {
+            let post_result = if (s.power_mode_mask & self.power_mode) != 0 {
+                match s.sensor.read_temp(self.i2c_task) {
+                    Ok(v) => {
                         self.state.write_temperature(i, now_ms, v);
-                    } else {
-                        self.state.write_temperature_inactive(i);
+                        self.sensor_api.post(s.sensor.sensor_id, v.0)
                     }
-                    self.sensor_api.post(s.sensor.sensor_id, v.0)
-                }
-                Err(e) => {
-                    // Ignore errors if
-                    // a) this sensor shouldn't be on in this power mode, or
-                    // b) the sensor is removable and not present
-                    if (s.power_mode_mask & self.power_mode) == 0
-                        || (s.removable
+                    Err(e) => {
+                        // Ignore errors if
+                        // a) this sensor shouldn't be on in this power mode, or
+                        // b) the sensor is removable and not present
+                        if s.removable
                             && e == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
-                            ))
-                    {
-                        self.state.write_temperature_inactive(i);
-                    } else {
-                        // By not calling self.state.write_temperature_*, we're
-                        // leaving the stale data into the controller; if the
-                        // sensor failure is persistent, then thermal loop will
-                        // eventually handle it (once the modelled worst-case
-                        // temperature is sufficiently high)
-                        ringbuf_entry!(Trace::SensorReadFailed(i, e));
+                            )
+                        {
+                            self.state.write_temperature_inactive(i);
+                        } else {
+                            // By not calling self.state.write_temperature_*,
+                            // we're leaving the stale data into the controller;
+                            // if the sensor failure is persistent, then thermal
+                            // loop will eventually handle it (once the modelled
+                            // worst-case temperature is sufficiently high)
+                            ringbuf_entry!(Trace::SensorReadFailed(i, e));
+                        }
+                        self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                     }
-                    self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                 }
+            } else {
+                self.state.write_temperature_inactive(i);
+                self.sensor_api.nodata(
+                    s.sensor.sensor_id,
+                    task_sensor_api::NoData::DeviceOff,
+                )
             };
             if let Err(e) = post_result {
                 ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));

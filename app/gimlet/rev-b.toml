@@ -830,6 +830,7 @@ refdes = "U561"
 bus = "mid"
 address = 0x3a
 device = "max5970"
+name = "m2"
 description = "M.2 hot plug controller"
 refdes = "U275"
 

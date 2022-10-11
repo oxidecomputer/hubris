@@ -52,13 +52,22 @@ pub(crate) struct Bsp {
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
 
+    /// Id of the I2C task, to query MAX5970 status
+    i2c_task: TaskId,
+
     /// Tuning for the PID controller
     pub pid_config: PidConfig,
 }
 
 // Use bitmasks to determine when sensors should be polled
-const POWER_STATE_A2: u32 = 0b001;
-const POWER_STATE_A0: u32 = 0b010;
+const POWER_STATE_A2: u32 = 0b0001;
+const POWER_STATE_A0: u32 = 0b0010;
+
+// Bonus bits for M.2 power, which is switched separately.  We *cannot* read the
+// M.2 drives when they are unpowered; otherwise, we risk locking up the I2C bus
+// (see hardware-gimlet#1804 for the gory details)
+const POWER_M2A: u32 = 0b0100;
+const POWER_M2B: u32 = 0b1000;
 
 impl Bsp {
     pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
@@ -74,19 +83,22 @@ impl Bsp {
     }
 
     pub fn power_mode(&self) -> u32 {
-        match self.seq.get_state() {
-            Ok(p) => match p {
-                PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
-                    POWER_STATE_A0
-                }
-                PowerState::A2
-                | PowerState::A2PlusMono
-                | PowerState::A2PlusFans
-                | PowerState::A0Thermtrip => POWER_STATE_A2,
-            },
+        let state = match self.seq.get_state() {
+            Ok(p) => p,
             // If `get_state` failed, then enable all sensors.  One of them
             // will presumably fail and will drop us into failsafe
-            Err(_) => u32::MAX,
+            Err(_) => return u32::MAX,
+        };
+        match state {
+            PowerState::A0PlusHP => {
+                let m = devices::max5970_m2(self.i2c_task);
+                todo!()
+            }
+            PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
+            PowerState::A2
+            | PowerState::A2PlusMono
+            | PowerState::A2PlusFans
+            | PowerState::A0Thermtrip => POWER_STATE_A2,
         }
     }
 
@@ -108,6 +120,7 @@ impl Bsp {
 
         Self {
             seq,
+            i2c_task,
             fans,
             fctrl,
 
@@ -186,6 +199,32 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
+    // The M.2 devices are polled first deliberately: they're only polled if
+    // powered, and we want to minimize the TOCTOU window between asking the
+    // MAX5970 "is it powered?" and actually reading data.
+    //
+    // See hardware-gimlet#1804 for details; this will hopefully be fixed in
+    // later Gimlet revisions.
+    InputChannel::new(
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvmebmc_m2_a,
+            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
+        ),
+        M2_THERMALS,
+        POWER_M2A,
+        true,
+    ),
+    InputChannel::new(
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvmebmc_m2_b,
+            sensors::NVMEBMC_M2_B_TEMPERATURE_SENSOR,
+        ),
+        M2_THERMALS,
+        POWER_M2B,
+        true,
+    ),
     InputChannel::new(
         TemperatureSensor::new(
             Device::CPU,
@@ -464,26 +503,6 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N9_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
-        true,
-    ),
-    InputChannel::new(
-        TemperatureSensor::new(
-            Device::M2,
-            devices::nvmebmc_m2_a,
-            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
-        ),
-        M2_THERMALS,
-        POWER_STATE_A0,
-        true,
-    ),
-    InputChannel::new(
-        TemperatureSensor::new(
-            Device::M2,
-            devices::nvmebmc_m2_b,
-            sensors::NVMEBMC_M2_B_TEMPERATURE_SENSOR,
-        ),
-        M2_THERMALS,
         POWER_STATE_A0,
         true,
     ),
