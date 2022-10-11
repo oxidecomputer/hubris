@@ -92,26 +92,28 @@ impl Bsp {
             Err(_) => return POWER_STATE_A0 | POWER_STATE_A2,
         };
         match state {
-            PowerState::A0PlusHP => {
-                let m = drv_i2c_devices::max5970::Max5970::new(
-                    &devices::max5970_m2(self.i2c_task),
-                );
+            PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
+                // The M.2 devices are enabled separately from A0, so we check
+                // for them by asking their power controller.
+                let dev = devices::max5970_m2(self.i2c_task);
+                let m = drv_i2c_devices::max5970::Max5970::new(&dev);
                 let mut out = POWER_STATE_A0;
                 match m.read_reg(drv_i2c_devices::max5970::Register::status3) {
                     Ok(s) => {
+                        // pg[0]
                         if s & 1 != 0 {
                             out |= POWER_M2A;
                         }
+                        // pg[1]
                         if s & 2 != 0 {
                             out |= POWER_M2B;
                         }
-                        out
                     }
                     // TODO: error handling here?
-                    Err(_e) => out,
+                    Err(_e) => (),
                 }
+                out
             }
-            PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
             PowerState::A2
             | PowerState::A2PlusMono
             | PowerState::A2PlusFans
