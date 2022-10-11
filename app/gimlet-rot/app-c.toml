@@ -1,13 +1,15 @@
-name = "gimlet-rot"
+name = "gimlet-rot-c"
 target = "thumbv8m.main-none-eabihf"
-board = "gimlet-rot-1"
+board = "gimlet-rot-c"
 chip = "../../chips/lpc55"
 stacksize = 1024
+secure-separation = true
 image-names = ["a", "b"]
+secure-task = "secure"
 
 [kernel]
 name = "gimlet-rot"
-requires = {flash = 32768, ram = 3072}
+requires = {flash = 32768, ram = 4096}
 features = ["itm"]
 
 [tasks.jefe]
@@ -34,6 +36,12 @@ max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.secure]
+name = "task-secure"
+priority = 5
+max-sizes = {flash = 8192, ram = 512}
+stacksize = 256
+
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
 priority = 2
@@ -49,21 +57,6 @@ max-sizes = {flash = 8192, ram = 2048}
 uses = ["gpio", "iocon"]
 start = true
 task-slots = ["syscon_driver"]
-
-[tasks.usart_driver]
-name = "drv-lpc55-usart"
-priority = 4
-max-sizes = {flash = 8192, ram = 2048}
-uses = ["iocon", "flexcomm0"]
-start = true
-interrupts = {"flexcomm0.irq" = 1}
-task-slots = ["gpio_driver", "syscon_driver"]
-
-[tasks.usart_driver.config]
-pins = [
-{ pin = { port = 0, pin = 29}, alt = 1},
-{ pin = { port = 0, pin = 30}, alt = 1}
-]
 
 [tasks.spi0_driver]
 name = "drv-lpc55-spi-server"

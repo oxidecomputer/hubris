@@ -1,6 +1,6 @@
-name = "gimlet-rot"
+name = "gimlet-rot-b"
 target = "thumbv8m.main-none-eabihf"
-board = "gimlet-rot-1"
+board = "gimlet-rot-b"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["stage0"]
