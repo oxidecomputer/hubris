@@ -94,7 +94,9 @@ impl Bsp {
         match state {
             PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
                 // The M.2 devices are enabled separately from A0, so we check
-                // for them by asking their power controller.
+                // for them by asking their power controller. There's a
+                // potential TOCTOU race here, but we don't expect to power
+                // these down after the server comes up.
                 let dev = devices::max5970_m2(self.i2c_task);
                 let m = drv_i2c_devices::max5970::Max5970::new(&dev);
                 let mut out = POWER_STATE_A0;
