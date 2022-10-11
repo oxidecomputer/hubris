@@ -481,7 +481,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         TemperatureSensor::new(
             Device::M2,
             devices::nvmebmc_m2_b,
-            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
+            sensors::NVMEBMC_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         POWER_STATE_A0,
