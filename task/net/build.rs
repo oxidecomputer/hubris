@@ -41,7 +41,7 @@ fn generate_net_config(
         }
     )?;
 
-    if build_util::env_var("CARGO_FEATURE_VLAN").is_ok() {
+    if build_util::has_feature("vlan") {
         build_net::generate_vlan_consts(config, &mut out)?;
     }
 

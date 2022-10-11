@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_m_profile();
 
     // Do an architecture check.
-    if build_util::env_var("CARGO_CFG_TARGET_OS").unwrap() != "none" {
+    if build_util::target_os() != "none" {
         eprintln!("***********************************************");
         eprintln!("Hi!");
         eprintln!("You appear to be building this natively,");

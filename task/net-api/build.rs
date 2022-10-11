@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut out = std::fs::File::create(dest_path)?;
 
-    if build_util::env_var("CARGO_FEATURE_VLAN").is_ok() {
+    if build_util::has_feature("vlan") {
         build_net::generate_vlan_consts(&net_config, &mut out)?;
     }
 

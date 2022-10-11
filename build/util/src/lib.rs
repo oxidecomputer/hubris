@@ -17,7 +17,7 @@ pub fn env_var(key: &str) -> Result<String, std::env::VarError> {
 /// Reads the `OUT_DIR` environment variable
 ///
 /// This function goes through `std::env::var` directly, rather than our own
-/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+/// `env_var`, because Cargo should know when it changes.
 pub fn out_dir() -> std::path::PathBuf {
     std::path::PathBuf::from(
         std::env::var("OUT_DIR").expect("Could not get OUT_DIR"),
@@ -30,6 +30,23 @@ pub fn out_dir() -> std::path::PathBuf {
 /// `env_var`, because Cargo should know when `OUT_DIR` changes.
 pub fn target() -> String {
     std::env::var("TARGET").unwrap()
+}
+
+/// Reads the `TARGET_OS` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when it changes.
+pub fn target_os() -> String {
+    std::env::var("CARGO_CFG_TARGET_OS").unwrap()
+}
+
+/// Checks to see whether the given feature is enabled
+pub fn has_feature(s: &str) -> bool {
+    std::env::var(format!(
+        "CARGO_FEATURE_{}",
+        s.to_uppercase().replace("-", "_")
+    ))
+    .is_ok()
 }
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
@@ -56,7 +73,7 @@ pub fn expose_m_profile() {
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
-    if let Ok(board) = env_var("HUBRIS_BOARD") {
+    if let Ok(board) = crate::env_var("HUBRIS_BOARD") {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
 }
@@ -81,7 +98,7 @@ pub fn config<T: DeserializeOwned>() -> Result<T> {
 /// Pulls the task configuration. See `config` for more details.
 pub fn task_config<T: DeserializeOwned>() -> Result<T> {
     let task_name =
-        env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
+        crate::env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
     task_maybe_config()?.ok_or_else(|| {
         anyhow!(
             "app.toml missing task config section [tasks.{}.config]",
@@ -98,7 +115,7 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
 
 /// Returns a map of task names to their IDs.
 pub fn task_ids() -> TaskIds {
-    let tasks = env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+    let tasks = crate::env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
     TaskIds(
         tasks
             .split(',')
@@ -158,7 +175,7 @@ impl TaskIds {
 /// - `Err(e)` if deserialization failed or the environment variable did not
 ///   contain UTF-8.
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
-    let config = match env_var(var) {
+    let config = match crate::env_var(var) {
         Err(std::env::VarError::NotPresent) => return Ok(None),
         Err(e) => {
             return Err(e).with_context(|| {

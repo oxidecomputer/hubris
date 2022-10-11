@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut task_file = File::create(out.join("tasks.rs")).unwrap();
 
-    if build_util::env_var("CARGO_FEATURE_TASK_ENUM").is_ok() {
+    if build_util::has_feature("task-enum") {
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
         for line in task_enum {
