@@ -3,10 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::HashMap;
-use std::env;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 
@@ -20,10 +18,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = build_util::out_dir();
     let mut const_file = File::create(out.join("consts.rs")).unwrap();
 
-    println!("cargo:rerun-if-env-changed=HUBRIS_SECURE");
     writeln!(
         const_file,
         "// See build.rs for an explanation of this constant"
@@ -35,7 +32,7 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
     // bit 0 = ES = the security domain the exception was taken to
     // These need to be consistent! The failure mode is a secure fault
     // otherwise
-    if let Ok(secure) = env::var("HUBRIS_SECURE") {
+    if let Ok(secure) = build_util::env_var("HUBRIS_SECURE") {
         if secure == "0" {
             writeln!(
                 const_file,
@@ -57,14 +54,11 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
-    println!("cargo:rerun-if-env-changed=HUBRIS_IMAGE_ID");
-    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
-
-    println!("cargo:rerun-if-env-changed=HUBRIS_KCONFIG");
+    let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?.parse()?;
     let kconfig: KernelConfig =
-        ron::de::from_str(&env::var("HUBRIS_KCONFIG")?)?;
+        ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)?;
 
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = build_util::out_dir();
     let mut file = File::create(out.join("kconfig.rs")).unwrap();
 
     writeln!(file, "// See build.rs for details")?;
@@ -187,7 +181,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let target = env::var("TARGET").unwrap();
+    let target = build_util::target();
     if target.starts_with("thumbv6m") {
         let task_irq_map =
             phash_gen::OwnedSortedList::build(task_irq_map).unwrap();

@@ -10,11 +10,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         idol::server::ServerStyle::InOrder,
     )?;
 
-    println!("cargo:rerun-if-env-changed=HUBRIS_AUXFLASH_CHECKSUM");
-    match std::env::var("HUBRIS_AUXFLASH_CHECKSUM") {
+    match build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM") {
         Ok(e) => {
-            let out_dir = std::env::var("OUT_DIR")?;
-            let dest_path = std::path::Path::new(&out_dir).join("checksum.rs");
+            let out_dir = build_util::out_dir();
+            let dest_path = out_dir.join("checksum.rs");
             let mut file = std::fs::File::create(&dest_path)?;
             writeln!(&mut file, "const AUXI_CHECKSUM: [u8; 32] = {};", e)?;
         }

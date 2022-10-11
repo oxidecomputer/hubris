@@ -14,5 +14,3 @@ convert_case = "0.4"
 syn = {version = "1", features = ["parsing"]}
 proc-macro2 = "1"
 quote = "1"
-
-[features]

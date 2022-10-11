@@ -24,8 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn generate_net_config(
     config: &NetConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = std::env::var("OUT_DIR")?;
-    let dest_path = std::path::Path::new(&out_dir).join("net_config.rs");
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("net_config.rs");
 
     let mut out = std::fs::File::create(&dest_path)?;
 
@@ -41,8 +41,9 @@ fn generate_net_config(
         }
     )?;
 
-    #[cfg(feature = "vlan")]
-    build_net::generate_vlan_consts(config, &mut out)?;
+    if build_util::has_feature("vlan") {
+        build_net::generate_vlan_consts(config, &mut out)?;
+    }
 
     for (name, socket) in &config.sockets {
         writeln!(

@@ -28,6 +28,7 @@ default-features = false
 
 [build-dependencies]
 build-net = {path = "../../build/net"}
+build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
