@@ -1726,7 +1726,6 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=90a4a944d35b7250b4ab468b31ae88deaf34ff78#90a4a944d35b7250b4ab468b31ae88deaf34ff78"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -1736,6 +1735,7 @@ dependencies = [
  "smoltcp",
  "static_assertions",
  "uuid",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3453,6 +3453,7 @@ dependencies = [
  "static_assertions",
  "task-jefe-api",
  "task-net-api",
+ "task-validate-api",
  "update-buffer",
  "userlib",
 ]
