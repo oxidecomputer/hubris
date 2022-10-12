@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    bsp::{self, Bsp},
+    bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
 };
 use drv_i2c_api::ResponseCode;
@@ -37,6 +37,7 @@ pub enum Device {
     CPU,
     Dimm,
     U2,
+    M2,
 }
 
 /// Represents a sensor in the system.
@@ -69,7 +70,7 @@ impl TemperatureSensor {
             Device::CPU => Sbtsi::new(&dev).read_temperature()?,
             Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
             Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
-            Device::U2 => NvmeBmc::new(&dev).read_temperature()?,
+            Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
         };
         Ok(t)
     }
@@ -198,7 +199,7 @@ pub(crate) struct InputChannel {
     temps: ThermalProperties,
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
-    power_mode_mask: u32,
+    power_mode_mask: PowerBitmask,
 
     /// If we get `NoDevice` for a removable device, ignore it
     removable: bool,
@@ -228,7 +229,7 @@ impl InputChannel {
     pub const fn new(
         sensor: TemperatureSensor,
         temps: ThermalProperties,
-        power_mode_mask: u32,
+        power_mode_mask: PowerBitmask,
         removable: bool,
     ) -> Self {
         Self {
@@ -272,7 +273,7 @@ pub(crate) struct ThermalControl<'a> {
     overheat_hysteresis: Celsius,
 
     /// Most recent power mode mask
-    power_mode: u32,
+    power_mode: PowerBitmask,
 
     /// PID parameters, pulled from the BSP by default but user-modifiable
     pid_config: PidConfig,
@@ -449,7 +450,7 @@ impl<'a> ThermalControl<'a> {
             overheat_hysteresis: Celsius(1.0),
             overheat_timeout_ms: 60_000,
 
-            power_mode: 0, // no sensors active
+            power_mode: PowerBitmask::empty(), // no sensors active
         }
     }
 
@@ -564,36 +565,40 @@ impl<'a> ThermalControl<'a> {
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let post_result = match s.sensor.read_temp(self.i2c_task) {
-                Ok(v) => {
-                    if (s.power_mode_mask & self.power_mode) != 0 {
+            let post_result = if self.power_mode.intersects(s.power_mode_mask) {
+                match s.sensor.read_temp(self.i2c_task) {
+                    Ok(v) => {
                         self.state.write_temperature(i, now_ms, v);
-                    } else {
-                        self.state.write_temperature_inactive(i);
+                        self.sensor_api.post(s.sensor.sensor_id, v.0)
                     }
-                    self.sensor_api.post(s.sensor.sensor_id, v.0)
-                }
-                Err(e) => {
-                    // Ignore errors if
-                    // a) this sensor shouldn't be on in this power mode, or
-                    // b) the sensor is removable and not present
-                    if (s.power_mode_mask & self.power_mode) == 0
-                        || (s.removable
+                    Err(e) => {
+                        // Ignore errors if the sensor is removable and the
+                        // error indicates that it's not present.
+                        if s.removable
                             && e == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
-                            ))
-                    {
-                        self.state.write_temperature_inactive(i);
-                    } else {
-                        // By not calling self.state.write_temperature_*, we're
-                        // leaving the stale data into the controller; if the
-                        // sensor failure is persistent, then thermal loop will
-                        // eventually handle it (once the modelled worst-case
-                        // temperature is sufficiently high)
-                        ringbuf_entry!(Trace::SensorReadFailed(i, e));
+                            )
+                        {
+                            self.state.write_temperature_inactive(i);
+                        } else {
+                            // By not calling self.state.write_temperature_*,
+                            // we're leaving the stale data into the controller;
+                            // if the sensor failure is persistent, then thermal
+                            // loop will eventually handle it (once the modelled
+                            // worst-case temperature is sufficiently high)
+                            ringbuf_entry!(Trace::SensorReadFailed(i, e));
+                        }
+                        self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                     }
-                    self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                 }
+            } else {
+                // If the device isn't supposed to be on in the current power
+                // state, then don't try to read its temperature.
+                self.state.write_temperature_inactive(i);
+                self.sensor_api.nodata(
+                    s.sensor.sensor_id,
+                    task_sensor_api::NoData::DeviceOff,
+                )
             };
             if let Err(e) = post_result {
                 ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));

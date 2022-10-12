@@ -30,6 +30,16 @@ const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 // The Sidecar controller hasn't been tuned yet, so boot into manual mode
 pub const USE_CONTROLLER: bool = false;
 
+bitflags::bitflags! {
+    pub struct PowerBitmask: u32 {
+        // As far as I know, we don't have any devices which are active only
+        // in A2; you probably want to use `POWER_STATE_A0_OR_A2` instead
+        const A2 = 0b00000001;
+        const A0 = 0b00000010;
+        const A0_OR_A2 = Self::A0.bits | Self::A2.bits;
+    }
+}
+
 #[allow(dead_code)]
 pub(crate) struct Bsp {
     pub inputs: &'static [InputChannel],
@@ -96,9 +106,17 @@ impl Bsp {
         fctrl(self.fan_control(4.into()));
     }
 
-    pub fn power_mode(&self) -> u32 {
-        // TODO: this needs to be done properly
-        u32::MAX
+    pub fn power_mode(&self) -> PowerBitmask {
+        match self.seq.tofino_seq_policy() {
+            Ok(r) => match r {
+                TofinoSequencerPolicy::LatchOffOnFault => PowerBitmask::A0,
+                TofinoSequencerPolicy::Disabled => PowerBitmask::A2,
+
+                // RestartOnFault is not yet implemented
+                TofinoSequencerPolicy::RestartOnFault => PowerBitmask::A0_OR_A2,
+            },
+            Err(_) => PowerBitmask::A0_OR_A2,
+        }
     }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
@@ -173,7 +191,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_TF2_TEMPERATURE_SENSOR,
         ),
         TF2_THERMALS,
-        0,
+        PowerBitmask::A0,
         false,
     ),
     InputChannel::new(
@@ -183,7 +201,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_VSC7448_TEMPERATURE_SENSOR,
         ),
         VSC7448_THERMALS,
-        0,
+        PowerBitmask::A0_OR_A2,
         false,
     ),
 ];

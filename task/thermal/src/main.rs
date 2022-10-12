@@ -18,7 +18,7 @@ mod bsp;
 mod control;
 
 use crate::{
-    bsp::{Bsp, SeqError},
+    bsp::{Bsp, PowerBitmask, SeqError},
     control::{SensorReadError, ThermalControl},
 };
 use core::convert::TryFrom;
@@ -56,7 +56,7 @@ enum Trace {
     SensorReadFailed(usize, SensorReadError),
     PostFailed(SensorId, SensorError),
     ControlPwm(u8),
-    PowerModeChanged(u32),
+    PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(ThermalError),
 }

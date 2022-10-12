@@ -225,7 +225,7 @@ impl Max5970 {
         Self { device: *device }
     }
 
-    fn read_reg(&self, reg: Register) -> Result<u8, ResponseCode> {
+    pub fn read_reg(&self, reg: Register) -> Result<u8, ResponseCode> {
         self.device.read_reg::<u8, u8>(reg as u8)
     }
 }
