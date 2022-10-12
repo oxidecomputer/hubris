@@ -114,6 +114,7 @@ impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
         use drv_i2c_devices::tmp451::Error::*;
         match s {
             BadRegisterRead { code, .. } => Self::I2cError(code),
+            BadRegisterWrite { .. } => panic!(),
         }
     }
 }
