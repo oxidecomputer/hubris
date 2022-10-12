@@ -112,11 +112,11 @@ impl Bsp {
                 match m.read_reg(drv_i2c_devices::max5970::Register::status3) {
                     Ok(s) => {
                         // pg[0]
-                        if s & 1 != 0 {
+                        if s & (1 << 0) != 0 {
                             out |= PowerBitmask::M2A;
                         }
                         // pg[1]
-                        if s & 2 != 0 {
+                        if s & (1 << 1) != 0 {
                             out |= PowerBitmask::M2B;
                         }
                     }
