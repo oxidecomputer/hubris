@@ -572,9 +572,8 @@ impl<'a> ThermalControl<'a> {
                         self.sensor_api.post(s.sensor.sensor_id, v.0)
                     }
                     Err(e) => {
-                        // Ignore errors if
-                        // a) this sensor shouldn't be on in this power mode, or
-                        // b) the sensor is removable and not present
+                        // Ignore errors if the sensor is removable and the
+                        // error indicates that it's not present.
                         if s.removable
                             && e == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
@@ -593,6 +592,8 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
             } else {
+                // If the device isn't supposed to be on in the current power
+                // state, then don't try to read its temperature.
                 self.state.write_temperature_inactive(i);
                 self.sensor_api.nodata(
                     s.sensor.sensor_id,
