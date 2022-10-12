@@ -44,3 +44,12 @@ pub enum ValidateOk {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct DeviceDescription {
+    pub device: &'static str,
+    pub description: &'static str,
+    pub num_measurement_channels: u32,
+}
+
+include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
