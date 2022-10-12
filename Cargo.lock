@@ -3753,6 +3753,7 @@ name = "task-thermal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags",
  "build-i2c",
  "build-util",
  "cortex-m",

@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    bsp::{self, Bsp},
+    bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
 };
 use drv_i2c_api::ResponseCode;
@@ -199,7 +199,7 @@ pub(crate) struct InputChannel {
     temps: ThermalProperties,
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
-    power_mode_mask: u32,
+    power_mode_mask: PowerBitmask,
 
     /// If we get `NoDevice` for a removable device, ignore it
     removable: bool,
@@ -229,7 +229,7 @@ impl InputChannel {
     pub const fn new(
         sensor: TemperatureSensor,
         temps: ThermalProperties,
-        power_mode_mask: u32,
+        power_mode_mask: PowerBitmask,
         removable: bool,
     ) -> Self {
         Self {
@@ -273,7 +273,7 @@ pub(crate) struct ThermalControl<'a> {
     overheat_hysteresis: Celsius,
 
     /// Most recent power mode mask
-    power_mode: u32,
+    power_mode: PowerBitmask,
 
     /// PID parameters, pulled from the BSP by default but user-modifiable
     pid_config: PidConfig,
@@ -450,7 +450,7 @@ impl<'a> ThermalControl<'a> {
             overheat_hysteresis: Celsius(1.0),
             overheat_timeout_ms: 60_000,
 
-            power_mode: 0, // no sensors active
+            power_mode: PowerBitmask::empty(), // no sensors active
         }
     }
 
@@ -565,7 +565,7 @@ impl<'a> ThermalControl<'a> {
         }
 
         for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let post_result = if (s.power_mode_mask & self.power_mode) != 0 {
+            let post_result = if self.power_mode.intersects(s.power_mode_mask) {
                 match s.sensor.read_temp(self.i2c_task) {
                     Ok(v) => {
                         self.state.write_temperature(i, now_ms, v);

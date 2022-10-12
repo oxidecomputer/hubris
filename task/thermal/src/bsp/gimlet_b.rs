@@ -59,15 +59,22 @@ pub(crate) struct Bsp {
     pub pid_config: PidConfig,
 }
 
-// Use bitmasks to determine when sensors should be polled
-const POWER_STATE_A2: u32 = 0b0001;
-const POWER_STATE_A0: u32 = 0b0010;
+bitflags::bitflags! {
+    pub struct PowerBitmask: u32 {
+        // As far as I know, we don't have any devices which are active only
+        // in A2; you probably want to use `A0_OR_A2` instead.
+        const A2 = 0b00000001;
+        const A0 = 0b00000010;
+        const A0_OR_A2 = Self::A0.bits | Self::A2.bits;
 
-// Bonus bits for M.2 power, which is switched separately.  We *cannot* read the
-// M.2 drives when they are unpowered; otherwise, we risk locking up the I2C bus
-// (see hardware-gimlet#1804 for the gory details)
-const POWER_M2A: u32 = 0b0100;
-const POWER_M2B: u32 = 0b1000;
+        // Bonus bits for M.2 power, which is switched separately.  We *cannot*
+        // read the M.2 drives when they are unpowered; otherwise, we risk
+        // locking up the I2C bus (see hardware-gimlet#1804 for the gory
+        // details)
+        const M2A = 0b00000100;
+        const M2B = 0b00001000;
+    }
+}
 
 impl Bsp {
     pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
@@ -82,14 +89,16 @@ impl Bsp {
         self.seq.set_state(PowerState::A2)
     }
 
-    pub fn power_mode(&self) -> u32 {
+    pub fn power_mode(&self) -> PowerBitmask {
         let state = match self.seq.get_state() {
             Ok(p) => p,
             // If `get_state` failed, then enable all sensors except the M.2s
             // (which can permanently lock up the system if they're read while
             // unpowered). One of the sensors in the A0 / A2 domains will
             // presumably fail and will drop us into failsafe eventually.
-            Err(_) => return POWER_STATE_A0 | POWER_STATE_A2,
+            Err(_) => {
+                return PowerBitmask::A0_OR_A2;
+            }
         };
         match state {
             PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
@@ -99,16 +108,16 @@ impl Bsp {
                 // these down after the server comes up.
                 let dev = devices::max5970_m2(self.i2c_task);
                 let m = drv_i2c_devices::max5970::Max5970::new(&dev);
-                let mut out = POWER_STATE_A0;
+                let mut out = PowerBitmask::A0;
                 match m.read_reg(drv_i2c_devices::max5970::Register::status3) {
                     Ok(s) => {
                         // pg[0]
                         if s & 1 != 0 {
-                            out |= POWER_M2A;
+                            out |= PowerBitmask::M2A;
                         }
                         // pg[1]
                         if s & 2 != 0 {
-                            out |= POWER_M2B;
+                            out |= PowerBitmask::M2B;
                         }
                     }
                     // TODO: error handling here?
@@ -119,7 +128,7 @@ impl Bsp {
             PowerState::A2
             | PowerState::A2PlusMono
             | PowerState::A2PlusFans
-            | PowerState::A0Thermtrip => POWER_STATE_A2,
+            | PowerState::A0Thermtrip => PowerBitmask::A2,
         }
     }
 
@@ -233,7 +242,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
-        POWER_M2A,
+        PowerBitmask::M2A,
         true,
     ),
     InputChannel::new(
@@ -243,7 +252,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
-        POWER_M2B,
+        PowerBitmask::M2B,
         true,
     ),
     InputChannel::new(
@@ -253,7 +262,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::SBTSI_CPU_TEMPERATURE_SENSOR,
         ),
         CPU_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         false,
     ),
     InputChannel::new(
@@ -263,7 +272,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         false,
     ),
     InputChannel::new(
@@ -273,7 +282,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_A0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -283,7 +292,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_A1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -293,7 +302,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_B0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -303,7 +312,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_B1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -313,7 +322,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_C0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -323,7 +332,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_C1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -333,7 +342,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_D0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -343,7 +352,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_D1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -353,7 +362,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_E0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -363,7 +372,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_E1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -373,7 +382,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_F0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -383,7 +392,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_F1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -393,7 +402,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_G0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -403,7 +412,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_G1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -413,7 +422,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_H0_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     InputChannel::new(
@@ -423,7 +432,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TSE2004AV_DIMM_H1_TEMPERATURE_SENSOR,
         ),
         DIMM_THERMALS,
-        POWER_STATE_A0 | POWER_STATE_A2,
+        PowerBitmask::A0_OR_A2,
         true,
     ),
     // U.2 drives
@@ -434,7 +443,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N0_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -444,7 +453,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N1_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -454,7 +463,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N2_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -464,7 +473,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N3_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -474,7 +483,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N4_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -484,7 +493,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N5_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -494,7 +503,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N6_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -504,7 +513,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N7_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -514,7 +523,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N8_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
     InputChannel::new(
@@ -524,7 +533,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVMEBMC_U2_N9_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
-        POWER_STATE_A0,
+        PowerBitmask::A0,
         true,
     ),
 ];
