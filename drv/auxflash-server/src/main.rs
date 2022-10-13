@@ -61,7 +61,8 @@ fn main() -> ! {
     let qspi = Qspi::new(reg, QSPI_IRQ);
 
     let clock = 5; // 200MHz kernel / 5 = 40MHz clock
-    qspi.configure(clock, 24); // 2**24 = 16MiB = 128Mib
+    qspi.configure(clock, 25); // 2**25 = 32MiB = 256Mib
+                               // TODO This is hard-coded for rev B
 
     // Sidecar-only for now!
     //

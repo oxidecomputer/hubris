@@ -771,8 +771,8 @@ tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.auxflash]
-memory-size = 134_217_728 # 128 MiB
-slot-count = 32 # 4 MiB slots
+memory-size = 33554432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
 file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller.bit"
