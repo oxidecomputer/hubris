@@ -10,8 +10,6 @@
 #![no_std]
 #![no_main]
 
-use core::mem::MaybeUninit;
-
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
@@ -346,13 +344,8 @@ fn main() -> ! {
 
     let i2c_task = I2C.get_task_id();
 
-    let mut devices: [MaybeUninit<Device>; CONTROLLER_CONFIG.len()] =
-        unsafe { MaybeUninit::uninit().assume_init() };
-    for (dev, config) in devices.iter_mut().zip(CONTROLLER_CONFIG.iter()) {
-        dev.write(config.get_device(i2c_task));
-    }
     let mut devices: [Device; CONTROLLER_CONFIG.len()] =
-        unsafe { core::mem::transmute(devices) };
+        array_init::array_init(|i| CONTROLLER_CONFIG[i].get_device(i2c_task));
 
     loop {
         hl::sleep_for(1000);
