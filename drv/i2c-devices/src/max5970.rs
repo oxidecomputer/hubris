@@ -260,7 +260,29 @@ impl VoltageSensor<ResponseCode> for Max5970 {
             )
         };
 
-        Ok(Volts(((((msb as u16) << 2) | (lsb as u16)) as f32) / 64.0))
+        let mon_range = self.read_reg(Register::mon_range)?;
+
+        let range = if self.rail == 0 {
+            mon_range & 0b11
+        } else {
+            (mon_range >> 2) & 0b11
+        };
+
+        let volts = match range {
+            0b00 => 16,
+            0b01 => 8,
+            0b10 => 4,
+            0b11 => 2,
+            _ => unreachable!(),
+        };
+
+        //
+        // The 10-bit value from the ADC is a fraction of the full-scale
+        // voltage setting.
+        //
+        let divisor = 1024.0 / volts as f32;
+
+        Ok(Volts(((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor))
     }
 }
 
@@ -281,8 +303,10 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         let status2 = self.read_reg(Register::status2)?;
 
         //
-        // Enragingly, the datasheet always refers to Channel 1 and Channel 2 --
-        // except for status2, which refers to Channel 0 and Channel 1.
+        // The datasheet is enragingly inconsistent about how it refers to the
+        // channels.  For most registers that have different settings for
+        // channels, it refers to them as Channel 1 and Channel 2 -- except
+        // for status2, which refers to Channel 0 and Channel 1.
         //
         let range = if self.rail == 0 {
             status2 & 0b11
@@ -295,7 +319,7 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         // to the implication of the datasheet, there is no fourth maximum
         // current-sense range.)
         //
-        let mv = match range {
+        let millivolts = match range {
             0b00 => 100,
             0b01 => 50,
             0b10 => 25,
@@ -308,7 +332,7 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         // The 10-bit value from the ADC is a fraction of the maximum
         // current-sense range.
         //
-        let divisor = 1024.0 / mv as f32;
+        let divisor = 1024.0 / millivolts as f32;
         let delta = ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor;
 
         //
