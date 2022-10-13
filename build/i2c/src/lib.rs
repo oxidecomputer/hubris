@@ -216,6 +216,15 @@ impl std::fmt::Display for Sensor {
     }
 }
 
+#[derive(PartialEq)]
+enum PowerDevices {
+    /// PMBus power devices
+    PMBus,
+
+    /// Non-PMBus power devices
+    NonPMBus,
+}
+
 struct ConfigGenerator {
     /// output that we're building
     output: String,
@@ -791,6 +800,10 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+
+        self.generate_power(PowerDevices::PMBus)?;
+        self.generate_power(PowerDevices::NonPMBus)?;
+
         Ok(())
     }
 
@@ -902,12 +915,12 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    fn generate_pmbus(&mut self, pmbus: bool) -> Result<()> {
+    fn generate_power(&mut self, which: PowerDevices) -> Result<()> {
         let mut byrail = HashMap::new();
 
         for d in &self.devices {
             if let Some(power) = &d.power {
-                if power.pmbus != pmbus {
+                if power.pmbus && which != PowerDevices::PMBus {
                     continue;
                 }
 
@@ -933,7 +946,10 @@ impl ConfigGenerator {
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
 "##,
-                if pmbus { "pmbus" } else { "power" }
+                match which {
+                    PowerDevices::PMBus => "pmbus",
+                    PowerDevices::NonPMBus => "power",
+                }
             )?;
 
             for (rail, (device, index)) in &byrail {
@@ -951,12 +967,6 @@ impl ConfigGenerator {
 
             writeln!(&mut self.output, "    }}")?;
         }
-        Ok(())
-    }
-
-    fn generate_power(&mut self) -> Result<()> {
-        self.generate_pmbus(true)?;
-        self.generate_pmbus(false)?;
         Ok(())
     }
 
@@ -1191,12 +1201,10 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 
         Disposition::Devices => {
             g.generate_devices()?;
-            g.generate_power()?;
         }
 
         Disposition::Sensors => {
             g.generate_devices()?;
-            g.generate_power()?;
             g.generate_sensors()?;
         }
 

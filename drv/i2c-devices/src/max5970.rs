@@ -290,6 +290,11 @@ impl CurrentSensor<ResponseCode> for Max5970 {
             (status2 >> 2) & 0b11
         };
 
+        //
+        // Our maximum current-sense range is 25mV, 50mV, or 100mV. (Contrary
+        // to the implication of the datasheet, there is no fourth maximum
+        // current-sense range.)
+        //
         let mv = match range {
             0b00 => 100,
             0b01 => 50,
@@ -299,9 +304,17 @@ impl CurrentSensor<ResponseCode> for Max5970 {
             }
         };
 
+        //
+        // The 10-bit value from the ADC is a fraction of the maximum
+        // current-sense range.
+        //
         let divisor = 1024.0 / mv as f32;
         let delta = ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor;
 
+        //
+        // We have the voltage drop across the current sense resistor; to
+        // determine current, we divide voltage by resistance (I = V / R).
+        //
         Ok(Amperes(delta / self.rsense as f32))
     }
 }
