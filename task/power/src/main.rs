@@ -238,10 +238,7 @@ macro_rules! max5970_controller {
 }
 
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
-const CONTROLLER_CONFIG_LEN: usize = 37;
-
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
-static CONTROLLER_CONFIG: [PowerControllerConfig; CONTROLLER_CONFIG_LEN] = [
+const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
     rail_controller!(Core, raa229618, vdd_vcore, A0),
     rail_controller!(Core, raa229618, vddcr_soc, A0),
@@ -349,12 +346,12 @@ fn main() -> ! {
 
     let i2c_task = I2C.get_task_id();
 
-    let mut devices: [MaybeUninit<Device>; CONTROLLER_CONFIG_LEN] =
+    let mut devices: [MaybeUninit<Device>; CONTROLLER_CONFIG.len()] =
         unsafe { MaybeUninit::uninit().assume_init() };
     for (dev, config) in devices.iter_mut().zip(CONTROLLER_CONFIG.iter()) {
         dev.write(config.get_device(i2c_task));
     }
-    let mut devices: [Device; CONTROLLER_CONFIG_LEN] =
+    let mut devices: [Device; CONTROLLER_CONFIG.len()] =
         unsafe { core::mem::transmute(devices) };
 
     loop {
