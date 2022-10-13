@@ -584,7 +584,7 @@ impl ServerImpl {
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
                 self.status.remove(Status::SP_TASK_RESTARTED);
-                Some(SpToHost::Status(self.status))
+                Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {
                 // TODO define alerts
