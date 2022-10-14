@@ -127,7 +127,8 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash", "tim16"]
 start = true
 interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
-task-slots = [{ spi_driver = "spi3_driver" },
+task-slots = ["sys",
+              { spi_driver = "spi3_driver" },
               { seq = "sequencer" }]
 
 [tasks.control_plane_agent]
@@ -176,7 +177,7 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar", "vlan"]
 stacksize = 4096
 start = true
-task-slots = ["sys", "ecp5_front_io",
+task-slots = ["ecp5_front_io",
               { spi_driver = "spi2_driver" },
               { seq = "sequencer" }]
 
