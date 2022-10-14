@@ -771,7 +771,7 @@ tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.auxflash]
-memory-size = 33554432 # 256 Mib / 32 MiB
+memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
