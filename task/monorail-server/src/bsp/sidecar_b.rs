@@ -4,16 +4,14 @@
 
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::{SeqError, Sequencer};
-use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{
     config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
 };
-use vsc7448_pac::{HSIO, VAUI0, VAUI1};
+use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
-task_slot!(SYS, sys);
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
@@ -293,33 +291,20 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     /// Configures the local PHY ("PHY4"), which is an on-board VSC8504
     fn phy_vsc8504_init(&mut self) -> Result<(), VscError> {
-        // Get a handle to modify GPIOs
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
         // Let's configure the on-board PHY first
-        // Relevant pins are
-        // - SP_TO_PHY4_COMA_MODE (PI10, internal pull-up)
-        // - SP_TO_PHY4_RESET_L (PI9)
         //
+        // It's always powered on, and COMA_MODE is controlled via the VSC7448
+        // on GPIO_47.
+        const COMA_MODE_GPIO: u32 = 47;
+
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board), using the VSC7448 as a MIIM bridge.
 
-        // TODO: wait for PLL lock to happen here
-        use sys_api::*;
+        // When the VSC7448 comes out of reset, GPIO_47 is an input and low.
+        // It's pulled up by a resistor on the board, keeping the PHY in
+        // COMA_MODE.  That's fine!
 
-        let coma_mode = Port::I.pin(10);
-        sys.gpio_set(coma_mode).unwrap();
-        sys.gpio_configure_output(
-            coma_mode,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-        sys.gpio_reset(coma_mode).unwrap();
-
-        // Initialize the PHY, then disable COMA_MODE
+        // Initialize the PHY
         let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
         self.vsc8504 = Vsc8504::init(4, rw)?;
         for p in 5..8 {
@@ -330,7 +315,14 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // for some reason.
         self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
 
-        sys.gpio_reset(coma_mode).unwrap();
+        // Switch the GPIO to an output.  Since the output register is low
+        // by default, this pulls COMA_MODE low, bringing the VSC8504 into
+        // mission mode.
+        self.vsc7448.modify(DEVCPU_GCB().GPIO().GPIO_OE1(), |r| {
+            let mut g_oe1 = r.g_oe1();
+            g_oe1 |= 1 << (COMA_MODE_GPIO - 32);
+            r.set_g_oe1(g_oe1);
+        })?;
 
         Ok(())
     }
