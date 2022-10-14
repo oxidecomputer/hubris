@@ -319,25 +319,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         .unwrap();
         sys.gpio_reset(coma_mode).unwrap();
 
-        // Make NRST low then switch it to output mode, before resetting
-        // power to the chip.
-        let nrst = Port::I.pin(9);
-        sys.gpio_reset(nrst).unwrap();
-        sys.gpio_configure_output(
-            nrst,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-
         // SP_TO_LDO_PHY4_EN (PI6)
         sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4).unwrap();
         // TODO: sleep for PG lines going high here
-
-        // Deassert reset line, then wait 120 ms
-        sys.gpio_set(nrst).unwrap();
-        sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
         let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
