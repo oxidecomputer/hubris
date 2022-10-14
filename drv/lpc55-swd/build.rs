@@ -17,8 +17,8 @@ struct TaskConfig {
 }
 
 fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
-    let out_dir = std::env::var("OUT_DIR")?;
-    let dest_path = std::path::Path::new(&out_dir).join("swd.rs");
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("swd.rs");
     let mut file = std::fs::File::create(&dest_path)?;
 
     let out_cfg = &config.out_cfg;

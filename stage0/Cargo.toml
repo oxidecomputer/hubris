@@ -32,6 +32,9 @@ path = "../lib/dice"
 default-features = false
 optional = true
 
+[build-dependencies]
+build-util = { path = "../build/util" }
+
 #[build-dependencies]
 #hubpack = "0.1"
 #

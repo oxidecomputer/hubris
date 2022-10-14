@@ -23,8 +23,8 @@ fn main() -> Result<()> {
 
     build_util::expose_m_profile();
 
-    let out_dir = std::env::var("OUT_DIR")?;
-    let dest_path = std::path::Path::new(&out_dir).join("jefe_config.rs");
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("jefe_config.rs");
     let mut out =
         std::fs::File::create(&dest_path).context("creating jefe_config.rs")?;
 
