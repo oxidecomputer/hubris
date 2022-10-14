@@ -10,7 +10,8 @@
 #![no_std]
 #![no_main]
 
-#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_b.rs")]
+#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_bc.rs")]
+#[cfg_attr(target_board = "gimlet-c", path = "bsp/gimlet_bc.rs")]
 #[cfg_attr(target_board = "gemini-bu-1", path = "bsp/gemini_bu_1.rs")]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
 #[cfg_attr(

@@ -214,6 +214,7 @@ fn main() -> ! {
         } else if #[cfg(any(
             target_board = "gimlet-a",
             target_board = "gimlet-b",
+            target_board = "gimlet-c",
         ))] {
             //
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:

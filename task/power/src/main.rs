@@ -13,6 +13,7 @@
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
+use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use task_sensor_api as sensor_api;
@@ -47,6 +48,7 @@ enum Device {
     Sys(Tps546B24A),
     HotSwap(Adm1272),
     Fan(Adm1272),
+    HotSwapIO(Max5970),
 }
 
 struct PowerController {
@@ -107,10 +109,10 @@ impl PowerController {
         match &self.device {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
-            Device::MemVpp(_) => panic!(),
             Device::SerDes(dev) => read_temperature(dev),
             Device::Sys(dev) => read_temperature(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
+            _ => panic!(),
         }
     }
 
@@ -122,6 +124,7 @@ impl PowerController {
             Device::SerDes(dev) => read_current(dev),
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
+            Device::HotSwapIO(dev) => read_current(dev),
         }
     }
 
@@ -133,6 +136,7 @@ impl PowerController {
             Device::SerDes(dev) => read_voltage(dev),
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
+            Device::HotSwapIO(dev) => read_voltage(dev),
         }
     }
 }
@@ -194,6 +198,24 @@ macro_rules! adm1272_controller {
     };
 }
 
+#[allow(unused_macros)]
+macro_rules! max5970_controller {
+    ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+        paste::paste! {
+            PowerController {
+                state: PowerState::$state,
+                device: Device::$which({
+                    let (device, rail) = i2c_config::power::$rail($task);
+                    Max5970::new(&device, rail, $rsense)
+                }),
+                voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
+                current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
+                temperature: None,
+            }
+        }
+    };
+}
+
 #[cfg(target_board = "gimlet-a")]
 fn controllers() -> [PowerController; 13] {
     let task = I2C.get_task_id();
@@ -215,8 +237,8 @@ fn controllers() -> [PowerController; 13] {
     ]
 }
 
-#[cfg(target_board = "gimlet-b")]
-fn controllers() -> [PowerController; 15] {
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+fn controllers() -> [PowerController; 37] {
     let task = I2C.get_task_id();
 
     [
@@ -235,6 +257,28 @@ fn controllers() -> [PowerController; 15] {
         rail_controller!(task, Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
+        max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
+        max5970_controller!(task, HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
+        max5970_controller!(task, HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
+        max5970_controller!(task, HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
     ]
 }
 
