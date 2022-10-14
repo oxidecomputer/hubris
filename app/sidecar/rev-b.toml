@@ -1,6 +1,6 @@
-name = "sidecar-a"
+name = "sidecar-b"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-a"
+board = "sidecar-b"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
@@ -177,7 +177,7 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar", "vlan"]
 stacksize = 4096
 start = true
-task-slots = ["sys", "net", "ecp5_front_io",
+task-slots = ["sys", "ecp5_front_io",
               { spi_driver = "spi2_driver" },
               { seq = "sequencer" }]
 
@@ -349,7 +349,7 @@ controller = 3
 
 #
 # I2C_NORTH_WEST0_SCL
-# I2C_NORTH_WEST0_SDL
+# I2C_NORTH_WEST0_SDA
 #
 [config.i2c.controllers.ports.C]
 name = "northwest0"
@@ -367,7 +367,7 @@ af = 4
 
 #
 # I2C_NORTH_WEST1_SCL
-# I2C_NORTH_WEST1_SDL
+# I2C_NORTH_WEST1_SDA
 #
 [config.i2c.controllers.ports.H]
 name = "northwest1"
@@ -580,10 +580,6 @@ device = "pca9545"
 description = "Northwest fan mux"
 refdes = "U90"
 
-#
-# U29: DNI ADM1272
-#
-
 [[config.i2c.devices]]
 bus = "south0"
 address = 0b1100_010
@@ -657,36 +653,12 @@ description = "VSC7448 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U65"
 
-# [[config.i2c.devices]]
-# bus = "south1"
-# address = ??
-# device = "ecp5"
-# refdes = "U43"
-
-# [[config.i2c.devices]]
-# device = "at24csw080"
-# bus = "northeast0"
-# address = 0b1010_0**
-# description = ""
-
-# [[config.i2c.devices]]
-# bus = "northwest1"
-# address = 0b1010_0**
-# device = "at24csw080"
-# description = ""
-
 [[config.i2c.devices]]
 bus = "south2"
 address = 0b1010_000
 device = "at24csw080"
 description = "Mainboard FRUID"
 refdes = "U91"
-
-# [[config.i2c.devices]]
-# device = "tf2"
-# bus = "ECP5->S?"
-# address = 0b1011_011
-# description = ""
 
 [[config.i2c.devices]]
 bus = "front_io"
@@ -707,10 +679,10 @@ controller = 1
 
 [config.spi.spi1.mux_options.port_adg]
 outputs = [
-    {port = "A", pins = [5], af = 5}, # FRONT_IO_SCK
-    {port = "D", pins = [7], af = 5}, # FRONT_IO_COPI
+    {port = "A", pins = [5], af = 5}, # SPI_SP_TO_FRONT_IO_SCK
+    {port = "D", pins = [7], af = 5}, # SPI_SP_TO_FRONT_IO_MOSI
 ]
-input = {port = "G", pin = 9, af = 5} # FRONT_IO_CIPO
+input = {port = "G", pin = 9, af = 5} # SPI_SP_TO_FRONT_IO_MISO
 
 [config.spi.spi1.devices.ecp5_front_io_fpga]
 mux = "port_adg"
@@ -725,26 +697,28 @@ controller = 2
 
 [config.spi.spi2.mux_options.port_i]
 outputs = [
+    # SPI_SP_TO_MGMT_SCK, SPI_SP_TO_MGMT_MOSI
     {port = "I", pins = [1, 3], af = 5},
 ]
-input = {port = "I", pin = 2, af = 5}
+input = {port = "I", pin = 2, af = 5} # SPI_SP_TO_MGMT_MISO
 
 [config.spi.spi2.devices.vsc7448]
 mux = "port_i"
-cs = [{port = "I", pin = 0}]
+cs = [{port = "I", pin = 0}] # SPI_SP_TO_MGMT_CS_L
 
 [config.spi.spi3]
 controller = 3
 
 [config.spi.spi3.mux_options.port_c]
 outputs = [
+    # SPI_SP_TO_EPE_SCK, SPI_SP_TO_EPE_MOSI
     {port = "C", pins = [10, 12], af = 6},
 ]
-input = {port = "C", pin = 11, af = 6}
+input = {port = "C", pin = 11, af = 6} # SPI_SP_TO_EPE_MISO
 
 [config.spi.spi3.devices.ksz8463]
 mux = "port_c"
-cs = [{port = "A", pin = 4}, {port = "B", pin = 13}]
+cs = [{port = "A", pin = 4}] # SPI_SP_TO_EPE_CS_L
 
 
 [config.spi.spi5]
@@ -752,18 +726,18 @@ controller = 5
 
 [config.spi.spi5.mux_options.port_jk]
 outputs = [
-    {port = "J", pins = [10], af = 5},
-    {port = "K", pins = [0], af = 5},
+    {port = "J", pins = [10], af = 5}, # SPI_SP_TO_FPGA_MOSI
+    {port = "K", pins = [0], af = 5},  # SPI_SP_TO_FPGA_SCK
 ]
-input = {port = "J", pin = 11, af = 5}
+input = {port = "J", pin = 11, af = 5} # SPI_SP_TO_FPGA_MISO
 
 [config.spi.spi5.devices.ecp5_mainboard_fpga]
 mux = "port_jk"
-cs = [{port = "K", pin = 1}]
+cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
 
 [config.spi.spi5.devices.ecp5_mainboard_user_design]
 mux = "port_jk"
-cs = [{port = "J", pin = 6}]
+cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
@@ -797,11 +771,11 @@ tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.auxflash]
-memory-size = 16_777_216 # 16 MiB
-slot-count = 8
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_a.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_b.bit"
 compress = true
 tag = "FPGA"
 

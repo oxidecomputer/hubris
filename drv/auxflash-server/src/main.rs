@@ -61,7 +61,10 @@ fn main() -> ! {
     let qspi = Qspi::new(reg, QSPI_IRQ);
 
     let clock = 5; // 200MHz kernel / 5 = 40MHz clock
-    qspi.configure(clock, 24); // 2**24 = 16MiB = 128Mib
+    const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
+    assert!(MEMORY_SIZE.is_power_of_two());
+    let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
+    qspi.configure(clock, memory_size_log2);
 
     // Sidecar-only for now!
     //

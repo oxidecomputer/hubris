@@ -8,7 +8,8 @@ use std::{fs, io::Write};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
-    if build_util::env_var("HUBRIS_BOARD")? != "sidecar-a" {
+    let board = build_util::env_var("HUBRIS_BOARD")?;
+    if board != "sidecar-a" && board != "sidecar-b" {
         panic!("unknown target board");
     }
 

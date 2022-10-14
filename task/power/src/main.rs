@@ -305,7 +305,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(target_board = "sidecar-a")]
+#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
 fn controllers() -> [PowerController; 15] {
     let task = I2C.get_task_id();
 
@@ -328,7 +328,7 @@ fn controllers() -> [PowerController; 15] {
     ]
 }
 
-#[cfg(target_board = "sidecar-a")]
+#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
 

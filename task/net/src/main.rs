@@ -17,6 +17,7 @@ mod server;
     path = "bsp/nucleo_h7.rs"
 )]
 #[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
+#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_b.rs")]
 #[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_bc.rs")]
 #[cfg_attr(target_board = "gimlet-c", path = "bsp/gimlet_bc.rs")]
 #[cfg_attr(target_board = "psc-a", path = "bsp/psc_a.rs")]
