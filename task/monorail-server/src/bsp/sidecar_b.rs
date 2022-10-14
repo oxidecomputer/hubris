@@ -319,10 +319,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         .unwrap();
         sys.gpio_reset(coma_mode).unwrap();
 
-        // SP_TO_LDO_PHY4_EN (PI6)
-        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4).unwrap();
-        // TODO: sleep for PG lines going high here
-
         // Initialize the PHY, then disable COMA_MODE
         let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
         self.vsc8504 = Vsc8504::init(4, rw)?;
