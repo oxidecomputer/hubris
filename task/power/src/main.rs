@@ -71,81 +71,39 @@ enum Device {
 
 impl Device {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
-        match &self {
-            Device::Bmr491(dev) => read_temperature(dev),
-            Device::Raa229618(dev) => read_temperature(dev),
-            Device::Isl68224(dev) => read_temperature(dev),
-            Device::Tps546B24A(dev) => read_temperature(dev),
-            Device::Adm1272(dev) => read_temperature(dev),
-            Device::Max5970(_dev) => Err(ResponseCode::NoDevice),
-        }
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_temperature()?,
+            Device::Raa229618(dev) => dev.read_temperature()?,
+            Device::Isl68224(dev) => dev.read_temperature()?,
+            Device::Tps546B24A(dev) => dev.read_temperature()?,
+            Device::Adm1272(dev) => dev.read_temperature()?,
+            Device::Max5970(_dev) => return Err(ResponseCode::NoDevice),
+        };
+        Ok(r)
     }
 
     fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        match &self {
-            Device::Bmr491(dev) => read_current(dev),
-            Device::Raa229618(dev) => read_current(dev),
-            Device::Isl68224(dev) => read_current(dev),
-            Device::Tps546B24A(dev) => read_current(dev),
-            Device::Adm1272(dev) => read_current(dev),
-            Device::Max5970(dev) => read_current(dev),
-        }
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_iout()?,
+            Device::Raa229618(dev) => dev.read_iout()?,
+            Device::Isl68224(dev) => dev.read_iout()?,
+            Device::Tps546B24A(dev) => dev.read_iout()?,
+            Device::Adm1272(dev) => dev.read_iout()?,
+            Device::Max5970(dev) => dev.read_iout()?,
+        };
+        Ok(r)
     }
 
     fn read_vout(&self) -> Result<Volts, ResponseCode> {
-        match &self {
-            Device::Bmr491(dev) => read_voltage(dev),
-            Device::Raa229618(dev) => read_voltage(dev),
-            Device::Isl68224(dev) => read_voltage(dev),
-            Device::Tps546B24A(dev) => read_voltage(dev),
-            Device::Adm1272(dev) => read_voltage(dev),
-            Device::Max5970(dev) => read_voltage(dev),
-        }
-    }
-}
-
-fn read_temperature<E, T: TempSensor<E>>(
-    device: &T,
-) -> Result<Celsius, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_temperature() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
-}
-
-fn read_current<E, T: CurrentSensor<E>>(
-    device: &T,
-) -> Result<Amperes, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_iout() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
-}
-
-fn read_voltage<E, T: VoltageSensor<E>>(
-    device: &T,
-) -> Result<Volts, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_vout() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_vout()?,
+            Device::Raa229618(dev) => dev.read_vout()?,
+            Device::Isl68224(dev) => dev.read_vout()?,
+            Device::Tps546B24A(dev) => dev.read_vout()?,
+            Device::Adm1272(dev) => dev.read_vout()?,
+            Device::Max5970(dev) => dev.read_vout()?,
+        };
+        Ok(r)
     }
 }
 
