@@ -258,10 +258,7 @@ fn get_state() -> PowerState {
 }
 
 #[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
-const CONTROLLER_CONFIG_LEN: usize = 15;
-
-#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
-static CONTROLLER_CONFIG: [PowerControllerConfig; CONTROLLER_CONFIG_LEN] = [
+const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
     adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
     adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
