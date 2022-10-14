@@ -10,6 +10,7 @@ use core::ops::Range;
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
+use drv_gimlet_hf_api::{HfDevSelect, HostFlash};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
 use drv_usart::Usart;
 use heapless::Vec;
@@ -26,6 +27,7 @@ use userlib::{
 
 task_slot!(SYS, sys);
 task_slot!(GIMLET_SEQ, gimlet_seq);
+task_slot!(HOST_FLASH, hf);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
@@ -112,6 +114,7 @@ struct ServerImpl {
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
     sequencer: Sequencer,
+    hf: HostFlash,
     reboot_state: Option<RebootState>,
 }
 
@@ -130,6 +133,7 @@ impl ServerImpl {
             rx_buf: claim_uart_rx_buf(),
             status,
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
+            hf: HostFlash::from(HOST_FLASH.get_task_id()),
             reboot_state: None,
         }
     }
@@ -533,8 +537,24 @@ impl ServerImpl {
                 None
             }
             HostToSp::GetBootStorageUnit => {
-                // TODO how do we know the real answer?
-                Some(SpToHost::BootStorageUnit(Bsu::A))
+                // Per RFD 241, the phase 1 device (which we can read via
+                // `hf`) is tightly bound to the BSU, so we can map flash0 to
+                // BSU A and flash1 to BSU B.
+                //
+                // What should we do if we fail to get the device from the host
+                // flash task? That should only happen if `hf` is unable to
+                // respond to us at all, which makes it seem unlikely that the
+                // host could even be up. We'll default to returning Bsu::A.
+                //
+                // Minor TODO: Attempting to get the BSU on a gimletlet will
+                // hang, because the host-flash task hangs indefinitely. We
+                // could replace gimlet-hf-server with a fake on gimletlet if
+                // that becomes onerous.
+                let bsu = match self.hf.get_dev() {
+                    Ok(HfDevSelect::Flash0) | Err(_) => Bsu::A,
+                    Ok(HfDevSelect::Flash1) => Bsu::B,
+                };
+                Some(SpToHost::BootStorageUnit(bsu))
             }
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
@@ -564,7 +584,7 @@ impl ServerImpl {
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
                 self.status.remove(Status::SP_TASK_RESTARTED);
-                Some(SpToHost::Status(self.status))
+                Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {
                 // TODO define alerts

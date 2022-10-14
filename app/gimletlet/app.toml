@@ -118,7 +118,7 @@ priority = 3
 max-sizes = {flash = 16384, ram = 16384}
 stacksize = 2048
 start = true
-task-slots = ["sys", "gimlet_seq"]
+task-slots = ["sys", "gimlet_seq", "hf"]
 
 [tasks.hiffy]
 name = "task-hiffy"
