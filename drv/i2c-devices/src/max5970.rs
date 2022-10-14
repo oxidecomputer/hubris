@@ -282,7 +282,9 @@ impl VoltageSensor<ResponseCode> for Max5970 {
         //
         let divisor = 1024.0 / volts as f32;
 
-        Ok(Volts(((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor))
+        Ok(Volts(
+            ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor,
+        ))
     }
 }
 
