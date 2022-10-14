@@ -775,7 +775,7 @@ memory-size = 33554432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_b.bit"
 compress = true
 tag = "FPGA"
 
