@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot-b, gimlet-rot-c]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, sidecar-b, psc-a, stm32g0, gimlet-rot-b, gimlet-rot-c]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
