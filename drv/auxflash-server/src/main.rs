@@ -63,7 +63,8 @@ fn main() -> ! {
     let clock = 5; // 200MHz kernel / 5 = 40MHz clock
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
     assert!(MEMORY_SIZE.is_power_of_two());
-    qspi.configure(clock, MEMORY_SIZE.trailing_zeros());
+    let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
+    qspi.configure(clock, memory_size_log2);
 
     // Sidecar-only for now!
     //
