@@ -4,8 +4,10 @@
 
 //! Driver for the MAX5970 hot swap controller
 
-use crate::Validate;
+use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
+use num_traits::float::FloatCore;
+use userlib::units::*;
 use userlib::*;
 
 #[allow(dead_code, non_camel_case_types)]
@@ -218,11 +220,17 @@ pub enum Register {
 
 pub struct Max5970 {
     device: I2cDevice,
+    rail: u8,
+    rsense: i32,
 }
 
 impl Max5970 {
-    pub fn new(device: &I2cDevice) -> Self {
-        Self { device: *device }
+    pub fn new(device: &I2cDevice, rail: u8, rsense: Ohms) -> Self {
+        Self {
+            device: *device,
+            rail,
+            rsense: (rsense.0 * 1000.0).round() as i32,
+        }
     }
 
     pub fn read_reg(&self, reg: Register) -> Result<u8, ResponseCode> {
@@ -232,8 +240,107 @@ impl Max5970 {
 
 impl Validate<ResponseCode> for Max5970 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device).read_reg(Register::cbuf_dly_stop)?;
-
+        let val = Max5970::new(device, 0, Ohms(0.0))
+            .read_reg(Register::cbuf_dly_stop)?;
         Ok(val == 0x19)
+    }
+}
+
+impl VoltageSensor<ResponseCode> for Max5970 {
+    fn read_vout(&self) -> Result<Volts, ResponseCode> {
+        let (msb, lsb) = if self.rail == 0 {
+            (
+                self.read_reg(Register::adc_chx_mon_msb_ch1)?,
+                self.read_reg(Register::adc_chx_mon_lsb_ch1)?,
+            )
+        } else {
+            (
+                self.read_reg(Register::adc_chx_mon_msb_ch2)?,
+                self.read_reg(Register::adc_chx_mon_lsb_ch2)?,
+            )
+        };
+
+        let mon_range = self.read_reg(Register::mon_range)?;
+
+        let range = if self.rail == 0 {
+            mon_range & 0b11
+        } else {
+            (mon_range >> 2) & 0b11
+        };
+
+        let volts = match range {
+            0b00 => 16,
+            0b01 => 8,
+            0b10 => 4,
+            0b11 => 2,
+            _ => unreachable!(),
+        };
+
+        //
+        // The 10-bit value from the ADC is a fraction of the full-scale
+        // voltage setting.
+        //
+        let divisor = 1024.0 / volts as f32;
+
+        Ok(Volts(
+            ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor,
+        ))
+    }
+}
+
+impl CurrentSensor<ResponseCode> for Max5970 {
+    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
+        let (msb, lsb) = if self.rail == 0 {
+            (
+                self.read_reg(Register::adc_chx_cs_msb_ch1)?,
+                self.read_reg(Register::adc_chx_cs_lsb_ch1)?,
+            )
+        } else {
+            (
+                self.read_reg(Register::adc_chx_cs_msb_ch2)?,
+                self.read_reg(Register::adc_chx_cs_lsb_ch2)?,
+            )
+        };
+
+        let status2 = self.read_reg(Register::status2)?;
+
+        //
+        // The datasheet is enragingly inconsistent about how it refers to the
+        // channels.  For most registers that have different settings for
+        // channels, it refers to them as Channel 1 and Channel 2 -- except
+        // for status2, which refers to Channel 0 and Channel 1.
+        //
+        let range = if self.rail == 0 {
+            status2 & 0b11
+        } else {
+            (status2 >> 2) & 0b11
+        };
+
+        //
+        // Our maximum current-sense range is 25mV, 50mV, or 100mV. (Contrary
+        // to the implication of the datasheet, there is no fourth maximum
+        // current-sense range.)
+        //
+        let millivolts = match range {
+            0b00 => 100,
+            0b01 => 50,
+            0b10 => 25,
+            _ => {
+                return Err(ResponseCode::BadDeviceState);
+            }
+        };
+
+        //
+        // The 10-bit value from the ADC is a fraction of the maximum
+        // current-sense range.
+        //
+        let divisor = 1024.0 / millivolts as f32;
+        let delta = ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor;
+
+        //
+        // We have the voltage drop across the current sense resistor; to
+        // determine current, we divide voltage by resistance (I = V / R).
+        //
+        Ok(Amperes(delta / self.rsense as f32))
     }
 }

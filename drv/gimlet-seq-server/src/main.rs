@@ -602,7 +602,11 @@ static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(env!("GIMLET_FPGA_IMAGE_PATH"));
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
+    if #[cfg(any(
+        target_board = "gimlet-a",
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+    ))] {
         const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
@@ -629,7 +633,7 @@ cfg_if::cfg_if! {
             (sys_api::Port::I.pin(8), false),
         ]);
 
-        #[cfg(target_board = "gimlet-b")]
+        #[cfg(not(target_board = "gimlet-a"))]
         const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = None;
 
         //

@@ -102,14 +102,19 @@ impl Bsp {
         };
         match state {
             PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
+                use drv_i2c_devices::max5970;
+                use userlib::units::Ohms;
+
                 // The M.2 devices are enabled separately from A0, so we check
                 // for them by asking their power controller. There's a
                 // potential TOCTOU race here, but we don't expect to power
-                // these down after the server comes up.
+                // these down after the server comes up. (Note that we are
+                // passing in the correct value of the current-sense resistor,
+                // but we are in fact not using it here.)
                 let dev = devices::max5970_m2(self.i2c_task);
-                let m = drv_i2c_devices::max5970::Max5970::new(&dev);
+                let m = max5970::Max5970::new(&dev, 0, Ohms(0.004));
                 let mut out = PowerBitmask::A0;
-                match m.read_reg(drv_i2c_devices::max5970::Register::status3) {
+                match m.read_reg(max5970::Register::status3) {
                     Ok(s) => {
                         // pg[0]
                         if s & (1 << 0) != 0 {
