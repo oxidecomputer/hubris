@@ -4,14 +4,18 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-dice = ["dice_crate", "digest", "salty", "sha3", "unwrap-lite"]
+dice-mfg = ["dice_crate", "digest", "salty", "sha3", "unwrap-lite", "lib-lpc55-usart"]
+dice-self = ["dice_crate", "digest", "salty", "sha3", "unwrap-lite"]
 tz_support = []
 
 [dependencies]
+cfg-if = "1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m-rt = "0.6.12"
 digest = { version = "0.10", optional = true }
+hubpack = "0.1"
 panic-semihosting = "0.5.3"
+lib-lpc55-usart = { path = "../lib/lpc55-usart", optional = true }
 lpc55_romapi = { path = "../lib/lpc55-romapi" }
 panic-halt = "0.2.0"
 lpc55-pac = {version = "0.4", features = ["rt"]}
@@ -19,6 +23,7 @@ ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 hmac = { version = "0.10.1", default-features = false }
 sha3 = { version = "0.10", default-features = false, optional = true }
+serde = { version = "1", default-features = false, features = ["derive"] }
 zerocopy = "0.6.1"
 abi = { path = "../sys/abi" }
 unwrap-lite = { path = "../lib/unwrap-lite", optional = true }
@@ -34,15 +39,6 @@ optional = true
 
 [build-dependencies]
 build-util = { path = "../build/util" }
-
-#[build-dependencies]
-#hubpack = "0.1"
-#
-#[build-dependencies.dice_crate]
-#package = "dice"
-#path = "../lib/dice"
-#default-features = false
-#optional = true
 
 [dependencies.salty]
 git = "https://github.com/oxidecomputer/salty"

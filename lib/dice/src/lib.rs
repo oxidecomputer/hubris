@@ -22,11 +22,16 @@ pub use crate::cert::{
     DeviceIdSelfCertBuilder, SpMeasureCert, SpMeasureCertBuilder,
     TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
+mod csr;
+pub use crate::csr::DeviceIdCsrBuilder;
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
+mod deviceid_csr_tmpl;
 mod handoff;
 mod mfg;
-pub use crate::mfg::{DeviceIdSelfMfg, DiceMfg, DiceMfgState};
+pub use crate::mfg::{
+    DeviceIdSelfMfg, DeviceIdSerialMfg, DiceMfg, DiceMfgState,
+};
 mod spmeasure_cert_tmpl;
 mod trust_quorum_dhe_cert_tmpl;
 pub use crate::handoff::{

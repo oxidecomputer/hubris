@@ -15,8 +15,16 @@ extern crate panic_halt;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
 
-#[cfg(feature = "dice")]
-mod dice;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "dice-mfg")] {
+        mod dice;
+        mod dice_mfg_usart;
+    } else if #[cfg(feature = "dice-self")] {
+        mod dice;
+        mod dice_mfg_self;
+    }
+}
+
 // FIXME Need to fixup the secure interface calls
 //mod hypo;
 mod image_header;
@@ -165,7 +173,7 @@ fn main() -> ! {
         }
     };
 
-    #[cfg(feature = "dice")]
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     dice::run(&image);
 
     unsafe {
