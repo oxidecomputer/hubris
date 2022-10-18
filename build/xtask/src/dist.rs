@@ -357,12 +357,10 @@ pub fn package(
         translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
-            let priv_key = &signing.priv_key;
-            let root_cert = &signing.root_cert;
-            let rkth = lpc55_sign::signed_image::sign_image(
+            let rkth = lpc55_sign::signed_image::sign_chain(
                 &cfg.img_file("combined.bin", image_name),
-                &cfg.app_src_dir.join(&priv_key),
-                &cfg.app_src_dir.join(&root_cert),
+                Some(&cfg.app_src_dir),
+                &signing.certs,
                 &cfg.img_file("combined_rsa.bin", image_name),
             )?;
             std::fs::copy(

@@ -483,9 +483,7 @@ impl std::fmt::Display for SigningMethod {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct RoTMfgSettings {
-    pub priv_key: PathBuf,
-    pub root_cert: PathBuf,
-
+    pub certs: Vec<lpc55_sign::signed_image::CertChain>,
     #[serde(default)]
     pub enable_secure_boot: bool,
     #[serde(default)]
