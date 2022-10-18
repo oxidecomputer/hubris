@@ -74,7 +74,7 @@ impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
         }
     }
     fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-        self.eth.capabilities()
+        crate::ethernet_capabilities(self.eth)
     }
 }
 
