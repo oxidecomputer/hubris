@@ -366,7 +366,7 @@ fn main() -> ! {
 
     if !server.mainboard_controller.checksum_valid(&ident) {
         ringbuf_entry!(Trace::ExpectedMainboardControllerChecksum(
-            MainboardController::short_checksum().into()
+            MainboardController::short_checksum()
         ));
 
         // The mainboard controller does not match the checksum of the

@@ -44,7 +44,7 @@ pub fn target_os() -> String {
 pub fn has_feature(s: &str) -> bool {
     std::env::var(format!(
         "CARGO_FEATURE_{}",
-        s.to_uppercase().replace("-", "_")
+        s.to_uppercase().replace('-', "_")
     ))
     .is_ok()
 }
