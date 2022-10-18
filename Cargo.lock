@@ -1332,7 +1332,6 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "cortex-m",
- "smoltcp",
  "stm32h7",
  "userlib",
 ]

@@ -47,7 +47,7 @@ pub fn claim_server_storage_statics() -> (
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; SOCKET_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
-    iface: Interface<'static, &'a eth::Ethernet>,
+    iface: Interface<'static, Smol<'a>>,
     bsp: crate::bsp::Bsp,
     mac: EthernetAddress,
 }
@@ -63,6 +63,7 @@ impl<'a> ServerImpl<'a> {
         mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
+        let eth = Smol(eth);
         let (neighbor_cache_storage, socket_storage, ipv6_net) =
             claim_server_storage_statics();
         ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
@@ -153,7 +154,7 @@ impl<'a> ServerImpl<'a> {
     /// Calls the `wake` function on the BSP, which handles things like
     /// periodic logging and monitoring of ports.
     pub fn wake(&self) {
-        self.bsp.wake(self.iface.device());
+        self.bsp.wake(&self.iface.device().0);
     }
 }
 
@@ -254,7 +255,7 @@ impl NetServer for ServerImpl<'_> {
     }
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
-        (self.iface.device(), &mut self.bsp)
+        (&self.iface.device().0, &mut self.bsp)
     }
 
     fn base_mac_address(&self) -> &EthernetAddress {
@@ -271,9 +272,82 @@ impl NotificationHandler for ServerImpl<'_> {
     fn handle_notification(&mut self, bits: u32) {
         // Interrupt dispatch.
         if bits & ETH_IRQ != 0 {
-            self.iface.device().on_interrupt();
+            self.iface.device().0.on_interrupt();
             userlib::sys_irq_control(ETH_IRQ, true);
         }
         // The wake IRQ is handled in the main `net` loop
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////
+// Smoltcp-to-Ethernet bridge for the raw Ethernet device.
+//
+// We gotta newtype the Ethernet driver since we're not in its crate. (This
+// implementation was once in its crate but that became a little gross.)
+
+#[derive(Copy, Clone)]
+struct Smol<'d>(&'d eth::Ethernet);
+
+struct OurRxToken<'d>(&'d Smol<'d>);
+impl<'d> smoltcp::phy::RxToken for OurRxToken<'d> {
+    fn consume<R, F>(
+        self,
+        _timestamp: smoltcp::time::Instant,
+        f: F,
+    ) -> smoltcp::Result<R>
+    where
+        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+    {
+        self.0 .0.recv(f)
+    }
+}
+
+struct OurTxToken<'d>(&'d Smol<'d>);
+impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
+    fn consume<R, F>(
+        self,
+        _timestamp: smoltcp::time::Instant,
+        len: usize,
+        f: F,
+    ) -> smoltcp::Result<R>
+    where
+        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+    {
+        self.0
+             .0
+            .try_send(len, f)
+            .expect("TX token existed without descriptor available")
+    }
+}
+
+impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
+    type RxToken = OurRxToken<'d>;
+    type TxToken = OurTxToken<'d>;
+
+    fn receive(&'d mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+        // Note: smoltcp wants a transmit token every time it receives a
+        // packet. This is because it automatically handles stuff like
+        // NDP by itself, but means that if the tx queue fills up, we stop
+        // being able to receive.
+        //
+        // Note that the can_recv and can_send checks remain valid because
+        // the token mutably borrows the phy.
+        if self.0.can_recv() && self.0.can_send() {
+            Some((OurRxToken(self), OurTxToken(self)))
+        } else {
+            None
+        }
+    }
+
+    fn transmit(&'d mut self) -> Option<Self::TxToken> {
+        if self.0.can_send() {
+            Some(OurTxToken(self))
+        } else {
+            None
+        }
+    }
+
+    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+        crate::ethernet_capabilities(self.0)
     }
 }
