@@ -1,0 +1,17 @@
+// Host / SP communication API
+
+Interface(
+    name: "HostSpComms",
+    ops: {
+        "set_status": (
+            doc: "Set the SP status word; changing the status sends an interrupt to the host",
+            args: {
+                "status": "u64", // TODO use bitflags type instead?
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HostSpCommsError"),
+            ),
+        ),
+    },
+)

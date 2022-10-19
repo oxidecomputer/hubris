@@ -18,8 +18,10 @@ use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
     MAX_MESSAGE_SIZE,
 };
+use idol_runtime::{NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{
     hl, sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer,
     task_slot, TaskId, UnwrapLite,
@@ -78,20 +80,13 @@ fn main() -> ! {
 
     sys_irq_control(USART_IRQ, true);
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        let mut mask = USART_IRQ | JEFE_STATE_CHANGE_IRQ;
         if let Some(deadline) = server.timer_deadline() {
             sys_set_timer(Some(deadline), TIMER_IRQ);
-            mask |= TIMER_IRQ;
         }
 
-        // Wait for uart interrupt; if we haven't enabled tx interrupts, this
-        // blocks until there's data to receive.
-        let note = sys_recv_closed(&mut [], mask, TaskId::KERNEL)
-            .unwrap_lite()
-            .operation;
-
-        server.handle_notification(note);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
 }
 
@@ -636,10 +631,11 @@ impl ServerImpl {
     }
 }
 
-// approximately idol_runtime::NotificationHandler, in anticipation of
-// eventually having an idol interface (at least for control-plane-agent to give
-// us host phase 2 data)
-impl ServerImpl {
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        USART_IRQ | JEFE_STATE_CHANGE_IRQ | TIMER_IRQ
+    }
+
     fn handle_notification(&mut self, bits: u32) {
         if bits & USART_IRQ != 0 {
             self.handle_usart_notification();
@@ -655,6 +651,25 @@ impl ServerImpl {
         if bits & TIMER_IRQ != 0 {
             self.handle_timer_notification();
         }
+    }
+}
+
+impl idl::InOrderHostSpCommsImpl for ServerImpl {
+    fn set_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        status: u64,
+    ) -> Result<(), RequestError<HostSpCommsError>> {
+        let status = Status::from_bits(status).ok_or_else(|| {
+            RequestError::from(HostSpCommsError::InvalidStatus)
+        })?;
+
+        if self.status != status {
+            self.status = status;
+            // TODO send interrupt
+        }
+
+        Ok(())
     }
 }
 
@@ -762,4 +777,9 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
     unsafe { &mut UART_RX_BUF }
+}
+
+mod idl {
+    use task_host_sp_comms_api::HostSpCommsError;
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
