@@ -59,6 +59,7 @@ enum Trace {
     TofinoSequencerError(SeqError),
     TofinoSequencerFault(TofinoSeqError),
     TofinoVidAck,
+    TofinoEepromIdCode(u32),
     InitiateTofinoPowerUp,
     InitiateTofinoPowerDown,
     SetVddCoreVout(userlib::units::Volts),
