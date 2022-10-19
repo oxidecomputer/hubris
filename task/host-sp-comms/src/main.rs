@@ -682,9 +682,8 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         status: u64,
     ) -> Result<(), RequestError<HostSpCommsError>> {
-        let status = Status::from_bits(status).ok_or_else(|| {
-            RequestError::from(HostSpCommsError::InvalidStatus)
-        })?;
+        let status =
+            Status::from_bits(status).ok_or(HostSpCommsError::InvalidStatus)?;
 
         self.set_status_impl(status);
 
@@ -806,6 +805,8 @@ cfg_if::cfg_if! {
 }
 
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
+    sys.gpio_reset(SP_TO_SP3_INT_L).unwrap();
+
     sys.gpio_configure_output(
         SP_TO_SP3_INT_L,
         sys_api::OutputType::PushPull,
@@ -813,8 +814,6 @@ fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
         sys_api::Pull::Down,
     )
     .unwrap();
-
-    sys.gpio_reset(SP_TO_SP3_INT_L).unwrap();
 }
 
 fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
