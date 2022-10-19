@@ -14,6 +14,7 @@ zerocopy = "0.6.1"
 
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-util = {path = "../../build/util"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
