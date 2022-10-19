@@ -122,14 +122,14 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let mut file = std::fs::File::create(&dest_path)?;
 
     let mut buf = BufWriter::new(Vec::new());
+    if pins.iter().any(|p| p.name.is_some()) {
+        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
+    }
     writeln!(
         &mut file,
         "fn setup_pins(task : TaskId) -> Result<(), ()> {{"
     )?;
     writeln!(&mut file, "use drv_lpc55_gpio_api::*;")?;
-    if !pins.is_empty() {
-        writeln!(&mut file, "use drv_lpc55_gpio_api::Pin;")?;
-    }
     writeln!(&mut file, "let iocon = Pins::from(task);")?;
     for p in pins {
         writeln!(&mut file, "iocon.iocon_configure(")?;
