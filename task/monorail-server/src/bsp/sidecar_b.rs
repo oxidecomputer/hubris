@@ -258,11 +258,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             phy: &mut vsc8504.phy,
         };
         tesla.tune_serdes6g_ob(TeslaSerdes6gObConfig {
-            ob_post0: 0xc,
+            ob_post0: 0x6,
             ob_post1: 0,
             ob_prec: 0,
             ob_sr_h: 1, // half rate
-            ob_sr: 3,
+            ob_sr: 0,
         })?;
 
         // Tune QSGMII link from the front IO board's PHY
