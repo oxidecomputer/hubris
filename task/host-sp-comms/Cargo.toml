@@ -11,9 +11,10 @@ heapless = "0.7.16"
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
 
-drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api"}
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
+drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
 host-sp-messages = {path = "../../lib/host-sp-messages"}
 mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
@@ -27,8 +28,8 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-stm32h743 = ["drv-stm32h7-usart/h743"]
-stm32h753 = ["drv-stm32h7-usart/h753"]
+stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743"]
+stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753"]
 uart7 = []
 baud_rate_3M = []
 hardware_flow_control = []

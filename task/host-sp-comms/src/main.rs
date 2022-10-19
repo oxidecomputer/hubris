@@ -12,6 +12,7 @@ use drv_stm32h7_usart as drv_usart;
 
 use drv_gimlet_hf_api::{HfDevSelect, HostFlash};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
+use drv_stm32xx_sys_api as sys_api;
 use drv_usart::Usart;
 use heapless::Vec;
 use host_sp_messages::{
@@ -103,6 +104,7 @@ enum RebootState {
 
 struct ServerImpl {
     uart: Usart,
+    sys: sys_api::Sys,
     tx_zero_deadline: Option<u64>,
     tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
     tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
@@ -120,8 +122,12 @@ impl ServerImpl {
                 static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
                 static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [0; _];
         };
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+        let uart = configure_uart_device(&sys);
+        sp_to_sp3_interrupt_enable(&sys);
         Self {
-            uart: configure_uart_device(),
+            uart,
+            sys,
             tx_zero_deadline: Some(sys_get_timer().now + UART_ZERO_DELAY),
             tx_msg_buf,
             tx_pkt_buf,
@@ -137,7 +143,11 @@ impl ServerImpl {
     fn set_status_impl(&mut self, status: Status) {
         if status != self.status {
             self.status = status;
-            // TODO send interrupt to host if `!self.status.is_empty()`
+            if self.status.is_empty() {
+                self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
+            } else {
+                self.sys.gpio_set(SP_TO_SP3_INT_L).unwrap_lite();
+            }
         }
     }
 
@@ -729,7 +739,7 @@ fn populate_with_decode_error(
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
-fn configure_uart_device() -> Usart {
+fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     use drv_usart::device;
     use drv_usart::drv_stm32xx_sys_api::*;
 
@@ -769,7 +779,7 @@ fn configure_uart_device() -> Usart {
     }
 
     Usart::turn_on(
-        &Sys::from(SYS.get_task_id()),
+        sys,
         usart,
         peripheral,
         pins,
@@ -777,6 +787,34 @@ fn configure_uart_device() -> Usart {
         BAUD_RATE,
         hardware_flow_control,
     )
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(any(
+        target_board = "gimlet-a",
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+    ))] {
+        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
+    } else if #[cfg(target_board = "gimletlet-2")] {
+        // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
+        // to one of the exposed E2-E6 pins to see it visually.
+        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
+    } else {
+        compile_error!("unsupported target board");
+    }
+}
+
+fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
+    sys.gpio_configure_output(
+        SP_TO_SP3_INT_L,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::Down,
+    )
+    .unwrap();
+
+    sys.gpio_reset(SP_TO_SP3_INT_L).unwrap();
 }
 
 fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
