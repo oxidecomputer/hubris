@@ -23,8 +23,7 @@ use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{
-    hl, sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer,
-    task_slot, TaskId, UnwrapLite,
+    hl, sys_get_timer, sys_irq_control, sys_set_timer, task_slot, UnwrapLite,
 };
 
 task_slot!(SYS, sys);
@@ -671,6 +670,13 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn get_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Status, RequestError<HostSpCommsError>> {
+        Ok(self.status)
+    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
@@ -780,6 +786,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::HostSpCommsError;
+    use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

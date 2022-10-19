@@ -1954,6 +1954,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "unwrap-lite",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3513,6 +3514,7 @@ name = "task-host-sp-comms-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "host-sp-messages",
  "idol",
  "num-traits",
  "ssmarshal",

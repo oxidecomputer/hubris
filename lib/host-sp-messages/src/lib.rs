@@ -11,6 +11,7 @@ use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use unwrap_lite::UnwrapLite;
+use zerocopy::{AsBytes, FromBytes};
 
 pub use hubpack::error::Error as HubpackError;
 
@@ -169,7 +170,8 @@ impl hubpack::SerializedSize for DecodeFailureReason {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, SerializedSize)]
+    #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
+    #[repr(transparent)]
     pub struct Status: u64 {
         const SP_TASK_RESTARTED = 1 << 0;
         const ALERTS_AVAILABLE  = 1 << 1;
