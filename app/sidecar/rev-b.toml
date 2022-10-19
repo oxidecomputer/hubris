@@ -661,6 +661,42 @@ description = "Mainboard FRUID"
 refdes = "U91"
 
 [[config.i2c.devices]]
+bus = "northeast0"
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan 0 FRUID"
+removable = true
+
+[[config.i2c.devices]]
+bus = "northeast0"
+mux = 1
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan 1 FRUID"
+removable = true
+
+[[config.i2c.devices]]
+bus = "northwest1"
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan 2 FRUID"
+removable = true
+
+[[config.i2c.devices]]
+bus = "northwest1"
+mux = 1
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan 3 FRUID"
+removable = true
+
+[[config.i2c.devices]]
 bus = "front_io"
 address = 0b1010_000
 device = "at24csw080"
