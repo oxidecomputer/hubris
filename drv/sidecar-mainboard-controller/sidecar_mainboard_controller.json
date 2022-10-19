@@ -932,6 +932,112 @@
                     "desc": "Host PCIe Reset"
                 }
             ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_DEBUG_PORT_BUFFER",
+            "addr_offset": 512,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Send/receive buffer read/write port"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_DEBUG_PORT_STATE",
+            "addr_offset": 513,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SEND_BUFFER_EMPTY",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Send buffer empty"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "SEND_BUFFER_FULL",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Send buffer full"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RECEIVE_BUFFER_EMPTY",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Receive buffer empty"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RECEIVE_BUFFER_FULL",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Receive buffer full"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "REQUEST_IN_PROGRESS",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the port is busy processing requests"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ERROR_VALID",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating an I2C error occured"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ERROR_DETAILS",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Field indicating the type of I2C error occured"
+                }
+            ]
         }
     ]
 }

@@ -311,6 +311,31 @@ PCIe Hotplug Status
 |[0] | r | HOST_RESET | Host PCIe Reset
 |===
 
+Tofino Debug Port Data
+[caption="Address: "]
+.0x0200 - TOFINO_DEBUG_PORT_BUFFER Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | DATA | Send/receive buffer read/write port
+|===
+
+Tofino Debug Port Status
+[caption="Address: "]
+.0x0201 - TOFINO_DEBUG_PORT_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] |  | - | Reserved
+|[6] | r | ERROR_DETAILS | Field indicating the type of I2C error occured
+|[5] | r | ERROR_VALID | Flag indicating an I2C error occured
+|[4] | r | REQUEST_IN_PROGRESS | Flag indicating the port is busy processing requests
+|[3] | r | RECEIVE_BUFFER_FULL | Receive buffer full
+|[2] | r | RECEIVE_BUFFER_EMPTY | Receive buffer empty
+|[1] | r | SEND_BUFFER_FULL | Send buffer full
+|[0] | r | SEND_BUFFER_EMPTY | Send buffer empty
+|===
+
 
 
 
