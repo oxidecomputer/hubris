@@ -344,10 +344,11 @@ impl DebugPort {
     pub fn read_direct(
         &self,
         segment: DirectBarSegment,
-        offset: impl Into<u32>,
+        offset: impl Into<u32> + Copy,
     ) -> Result<u32, FpgaError> {
-        let state = self.state()?;
+        assert!(offset.into() < 1 << 28);
 
+        let state = self.state()?;
         if !state.send_buffer_empty() || !state.receive_buffer_empty() {
             return Err(FpgaError::InvalidState);
         }
@@ -359,10 +360,12 @@ impl DebugPort {
         self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_BUFFER,
-            u8::from(DebugRequestOpcode::DirectRead),
+            DebugRequestOpcode::DirectRead,
         )?;
 
-        // Write the address.
+        // Write the address. This is done in a loop because the SPI peripheral
+        // in the FPGA auto-increments an address pointer. This will be
+        // refactored when a non auto-incrementing `WriteOp` is implemented.
         for b in address.as_bytes().iter() {
             self.fpga.write(
                 WriteOp::Write,
@@ -383,7 +386,9 @@ impl DebugPort {
             userlib::hl::sleep_for(1);
         }
 
-        // Read the response.
+        // Read the response. This is done in a loop because the SPI peripheral
+        // in the FPGA auto-increments an address pointer. This will be
+        // refactored when a non auto-incrementing `read(..)` is implemented.
         let mut v: u32 = 0;
         for b in v.as_bytes_mut().iter_mut() {
             *b = self.fpga.read(Addr::TOFINO_DEBUG_PORT_BUFFER)?;
@@ -395,11 +400,12 @@ impl DebugPort {
     pub fn write_direct(
         &self,
         segment: DirectBarSegment,
-        offset: impl Into<u32>,
+        offset: impl Into<u32> + Copy,
         value: u32,
     ) -> Result<(), FpgaError> {
-        let state = self.state()?;
+        assert!(offset.into() < 1 << 28);
 
+        let state = self.state()?;
         if !state.send_buffer_empty() || !state.receive_buffer_empty() {
             return Err(FpgaError::InvalidState);
         }
@@ -411,10 +417,13 @@ impl DebugPort {
         self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_BUFFER,
-            u8::from(DebugRequestOpcode::DirectWrite),
+            DebugRequestOpcode::DirectWrite,
         )?;
 
-        // Write the address to the queue.
+        // Write the address to the queue. This is done in a loop because the
+        // SPI peripheral in the FPGA auto-increments an address pointer. This
+        // will be refactored when a non auto-incrementing `WriteOp` is
+        // implemented.
         for b in address.as_bytes().iter() {
             self.fpga.write(
                 WriteOp::Write,
@@ -449,11 +458,27 @@ impl DebugPort {
 
     /// Generate the SPI command Tofino needs to complete a SPI request.
     fn spi_command(n_bytes_to_write: usize, n_bytes_to_read: usize) -> u32 {
+        assert!(n_bytes_to_write <= 8);
+        assert!(n_bytes_to_read <= 4);
+
         return (0x80
             | ((n_bytes_to_read & 0x7) << 4)
             | (n_bytes_to_write & 0xf))
             .try_into()
             .unwrap();
+    }
+
+    /// Wait for a SPI request to complete.
+    fn await_spi_request_done(&self) -> Result<(), FpgaError> {
+        while self
+            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
+            & 0x80
+            != 0
+        {
+            userlib::hl::sleep_for(1);
+        }
+
+        Ok(())
     }
 
     /// Send an instruction to the Tofino attached SPI EEPROM.
@@ -464,7 +489,7 @@ impl DebugPort {
         self.write_direct(
             DirectBarSegment::Bar0,
             TofinoRegisters::SpiOutData0,
-            u8::from(i) as u32,
+            i as u32,
         )?;
         // Initiate the SPI transaction.
         self.write_direct(
@@ -473,16 +498,7 @@ impl DebugPort {
             Self::spi_command(1, 1),
         )?;
 
-        // Wait for the SPI command to complete.
-        while self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
-            & 0x80
-            != 0
-        {
-            userlib::hl::sleep_for(1);
-        }
-
-        Ok(())
+        self.await_spi_request_done()
     }
 
     /// Read the register containing the IDCODE latched by Tofino when it
@@ -510,7 +526,7 @@ impl DebugPort {
             DirectBarSegment::Bar0,
             TofinoRegisters::SpiOutData0,
             u32::from_le_bytes([
-                u8::from(SpiEepromInstruction::WriteStatusRegister),
+                SpiEepromInstruction::WriteStatusRegister as u8,
                 value,
                 0,
                 0,
@@ -523,16 +539,7 @@ impl DebugPort {
             Self::spi_command(1, 0),
         )?;
 
-        // Wait for the SPI command to complete.
-        while self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
-            & 0x80
-            != 0
-        {
-            userlib::hl::sleep_for(1);
-        }
-
-        Ok(())
+        self.await_spi_request_done()
     }
 
     /// Read four bytes from the SPI EEPROM at the given offset.
@@ -542,7 +549,7 @@ impl DebugPort {
             DirectBarSegment::Bar0,
             TofinoRegisters::SpiOutData0,
             u32::from_le_bytes([
-                u8::from(SpiEepromInstruction::Read),
+                SpiEepromInstruction::Read as u8,
                 (offset >> 8) as u8,
                 offset as u8,
                 0,
@@ -556,14 +563,7 @@ impl DebugPort {
             Self::spi_command(3, 4),
         )?;
 
-        // Wait for the SPI command to complete.
-        while self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
-            & 0x80
-            != 0
-        {
-            userlib::hl::sleep_for(1);
-        }
+        self.await_spi_request_done()?;
 
         // Read the EEPROM response.
         Ok(self
@@ -584,7 +584,7 @@ impl DebugPort {
             DirectBarSegment::Bar0,
             TofinoRegisters::SpiOutData0,
             u32::from_le_bytes([
-                u8::from(SpiEepromInstruction::Write),
+                SpiEepromInstruction::Write as u8,
                 (offset >> 8) as u8,
                 offset as u8,
                 data[0],
@@ -604,16 +604,7 @@ impl DebugPort {
             Self::spi_command(7, 0),
         )?;
 
-        // Wait for the SPI command to complete.
-        while self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
-            & 0x80
-            != 0
-        {
-            userlib::hl::sleep_for(1);
-        }
-
-        Ok(())
+        self.await_spi_request_done()
     }
 
     /// Read the requested number of bytes from the SPI EEPROM at the given
