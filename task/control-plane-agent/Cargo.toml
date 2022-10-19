@@ -26,8 +26,7 @@ task-validate-api = {path = "../validate-api"}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 update-buffer = {path = "../../lib/update-buffer"}
 
-#gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "90a4a944d35b7250b4ab468b31ae88deaf34ff78"}
-gateway-messages = {path = "../../../management-gateway-service/gateway-messages"}
+gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "c1484109c394f45e08018e0f35adc4a136cd207d"}
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]
