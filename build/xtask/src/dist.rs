@@ -913,6 +913,7 @@ fn build_kernel(
     );
     build(cfg, "kernel", build_config, false)?;
     if update_image_header(
+        cfg,
         &cfg.dist_file("kernel"),
         &cfg.img_file("kernel.modified", image_name),
         all_memories,
@@ -947,6 +948,7 @@ fn build_kernel(
 /// Returns true if the header was found and updated,
 /// false otherwise.
 fn update_image_header(
+    cfg: &PackageConfig,
     input: &Path,
     output: &Path,
     map: &IndexMap<String, Range<u32>>,
@@ -991,6 +993,8 @@ fn update_image_header(
                 let len = end - flash.start;
 
                 let mut header = abi::ImageHeader {
+                    version: cfg.toml.version,
+                    epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
                     total_image_len: len as u32,
                     ..Default::default()

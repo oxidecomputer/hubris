@@ -164,8 +164,8 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<ImageVersion, RequestError<UpdateError>> {
         Ok(ImageVersion {
-            epoch: 0,
-            version: 0,
+            epoch: HUBRIS_BUILD_EPOCH,
+            version: HUBRIS_BUILD_VERSION,
         })
     }
 }
@@ -183,6 +183,7 @@ fn main() -> ! {
     }
 }
 
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{ImageVersion, UpdateError, UpdateTarget};
 
