@@ -78,16 +78,25 @@ impl Tofino {
                 }
             })?;
 
-            // Set Vout accordingy to the VID and acknowledge the change to the
+            // Set Vout according to the VID and acknowledge the change to the
             // sequencer.
             if let Some(vid) = maybe_vid {
                 self.apply_vid(vid)?;
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
 
-                // Set PCIe present and reset.
-                self.set_pcie_present(true)?;
+                // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
+                // to load and the peripheral to initialize, and log the latched
+                // IDCODE.
                 self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
+                hl::sleep_for(200);
+                ringbuf_entry!(Trace::TofinoEepromIdCode(
+                    self.debug_port.spi_eeprom_idcode()?
+                ));
+
+                // Set PCIe present to trigger a hotplug event on the attached
+                // host.
+                self.set_pcie_present(true)?;
 
                 return Ok(());
             }
