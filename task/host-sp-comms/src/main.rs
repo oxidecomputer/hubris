@@ -74,8 +74,10 @@ const MAX_PACKET_SIZE: usize = corncobs::max_encoded_len(MAX_MESSAGE_SIZE);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut server =
-        ServerImpl::claim_static_resources(Status::SP_TASK_RESTARTED);
+    let mut server = ServerImpl::claim_static_resources();
+
+    // Set our restarted status, which interrupts the host to let them know.
+    server.set_status_impl(Status::SP_TASK_RESTARTED);
 
     sys_irq_control(USART_IRQ, true);
 
@@ -113,7 +115,7 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn claim_static_resources(status: Status) -> Self {
+    fn claim_static_resources() -> Self {
         let (tx_msg_buf, tx_pkt_buf) = mutable_statics! {
                 static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
                 static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [0; _];
@@ -125,10 +127,17 @@ impl ServerImpl {
             tx_pkt_buf,
             tx_pkt_to_write: 0..0,
             rx_buf: claim_uart_rx_buf(),
-            status,
+            status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             reboot_state: None,
+        }
+    }
+
+    fn set_status_impl(&mut self, status: Status) {
+        if status != self.status {
+            self.status = status;
+            // TODO send interrupt to host if `!self.status.is_empty()`
         }
     }
 
@@ -577,7 +586,8 @@ impl ServerImpl {
             HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
-                self.status.remove(Status::SP_TASK_RESTARTED);
+                action =
+                    Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
                 Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {
@@ -623,6 +633,9 @@ impl ServerImpl {
             match action {
                 Action::RebootHost => self.power_off_host(true),
                 Action::PowerOffHost => self.power_off_host(false),
+                Action::ClearStatusBits(to_clear) => {
+                    self.set_status_impl(self.status.difference(to_clear))
+                }
             }
         }
 
@@ -663,10 +676,7 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
             RequestError::from(HostSpCommsError::InvalidStatus)
         })?;
 
-        if self.status != status {
-            self.status = status;
-            // TODO send interrupt
-        }
+        self.set_status_impl(status);
 
         Ok(())
     }
@@ -684,6 +694,7 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
 enum Action {
     RebootHost,
     PowerOffHost,
+    ClearStatusBits(Status),
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
