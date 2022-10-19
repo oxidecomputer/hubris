@@ -8,6 +8,7 @@
 
 use drv_stm32h7_eth as eth;
 
+use core::cell::Cell;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
@@ -22,7 +23,7 @@ use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
 use crate::server::NetServer;
-use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
+use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
@@ -63,7 +64,7 @@ impl<'a> ServerImpl<'a> {
         mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
-        let eth = Smol(eth);
+        let eth = Smol::from(eth);
         let (neighbor_cache_storage, socket_storage, ipv6_net) =
             claim_server_storage_statics();
         ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
@@ -102,9 +103,15 @@ impl<'a> ServerImpl<'a> {
     }
 
     /// Calls `smoltcp`'s internal poll function on our interface
-    pub fn poll(&mut self, t: u64) -> smoltcp::Result<bool> {
-        self.iface
-            .poll(smoltcp::time::Instant::from_millis(t as i64))
+    pub(crate) fn poll(&mut self, t: u64) -> smoltcp::Result<crate::Activity> {
+        let ip = self
+            .iface
+            .poll(smoltcp::time::Instant::from_millis(t as i64))?;
+
+        // Test and clear our receive activity flag.
+        let mac_rx = self.iface.device().mac_rx.take();
+
+        Ok(crate::Activity { ip, mac_rx })
     }
 
     /// Iterate over sockets, waking any that can do work.
@@ -154,7 +161,7 @@ impl<'a> ServerImpl<'a> {
     /// Calls the `wake` function on the BSP, which handles things like
     /// periodic logging and monitoring of ports.
     pub fn wake(&self) {
-        self.bsp.wake(&self.iface.device().0);
+        self.bsp.wake(&self.iface.device().eth);
     }
 }
 
@@ -255,7 +262,7 @@ impl NetServer for ServerImpl<'_> {
     }
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
-        (&self.iface.device().0, &mut self.bsp)
+        (&self.iface.device().eth, &mut self.bsp)
     }
 
     fn base_mac_address(&self) -> &EthernetAddress {
@@ -266,13 +273,13 @@ impl NetServer for ServerImpl<'_> {
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for our interrupt or the wake (timer) irq
-        ETH_IRQ | WAKE_IRQ
+        ETH_IRQ | 1 << WAKE_IRQ_BIT
     }
 
     fn handle_notification(&mut self, bits: u32) {
         // Interrupt dispatch.
         if bits & ETH_IRQ != 0 {
-            self.iface.device().0.on_interrupt();
+            self.iface.device().eth.on_interrupt();
             userlib::sys_irq_control(ETH_IRQ, true);
         }
         // The wake IRQ is handled in the main `net` loop
@@ -285,8 +292,19 @@ impl NotificationHandler for ServerImpl<'_> {
 // We gotta newtype the Ethernet driver since we're not in its crate. (This
 // implementation was once in its crate but that became a little gross.)
 
-#[derive(Copy, Clone)]
-struct Smol<'d>(&'d eth::Ethernet);
+struct Smol<'d> {
+    eth: &'d eth::Ethernet,
+    mac_rx: Cell<bool>,
+}
+
+impl<'d> From<&'d eth::Ethernet> for Smol<'d> {
+    fn from(eth: &'d eth::Ethernet) -> Self {
+        Self {
+            eth,
+            mac_rx: Cell::new(false),
+        }
+    }
+}
 
 struct OurRxToken<'d>(&'d Smol<'d>);
 impl<'d> smoltcp::phy::RxToken for OurRxToken<'d> {
@@ -298,7 +316,7 @@ impl<'d> smoltcp::phy::RxToken for OurRxToken<'d> {
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
-        self.0 .0.recv(f)
+        self.0.eth.recv(f)
     }
 }
 
@@ -314,7 +332,7 @@ impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
         self.0
-             .0
+            .eth
             .try_send(len, f)
             .expect("TX token existed without descriptor available")
     }
@@ -332,7 +350,13 @@ impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
         //
         // Note that the can_recv and can_send checks remain valid because
         // the token mutably borrows the phy.
-        if self.0.can_recv() && self.0.can_send() {
+        if self.eth.can_recv() && self.eth.can_send() {
+            // We record this as "data available from the MAC" because it's
+            // sufficient to catch the bug we're defending against with the
+            // watchdog, even if the IP stack decides not to consume the token
+            // for some reason (that'd be a software bug instead).
+            self.mac_rx.set(true);
+
             Some((OurRxToken(self), OurTxToken(self)))
         } else {
             None
@@ -340,7 +364,7 @@ impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
     }
 
     fn transmit(&'d mut self) -> Option<Self::TxToken> {
-        if self.0.can_send() {
+        if self.eth.can_send() {
             Some(OurTxToken(self))
         } else {
             None
@@ -348,6 +372,6 @@ impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
     }
 
     fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-        crate::ethernet_capabilities(self.0)
+        crate::ethernet_capabilities(self.eth)
     }
 }
