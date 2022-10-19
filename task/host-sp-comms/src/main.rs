@@ -12,17 +12,19 @@ use drv_stm32h7_usart as drv_usart;
 
 use drv_gimlet_hf_api::{HfDevSelect, HostFlash};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
+use drv_stm32xx_sys_api as sys_api;
 use drv_usart::Usart;
 use heapless::Vec;
 use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
     MAX_MESSAGE_SIZE,
 };
+use idol_runtime::{NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{
-    hl, sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer,
-    task_slot, TaskId, UnwrapLite,
+    hl, sys_get_timer, sys_irq_control, sys_set_timer, task_slot, UnwrapLite,
 };
 
 task_slot!(SYS, sys);
@@ -73,25 +75,20 @@ const MAX_PACKET_SIZE: usize = corncobs::max_encoded_len(MAX_MESSAGE_SIZE);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut server =
-        ServerImpl::claim_static_resources(Status::SP_TASK_RESTARTED);
+    let mut server = ServerImpl::claim_static_resources();
+
+    // Set our restarted status, which interrupts the host to let them know.
+    server.set_status_impl(Status::SP_TASK_RESTARTED);
 
     sys_irq_control(USART_IRQ, true);
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        let mut mask = USART_IRQ | JEFE_STATE_CHANGE_IRQ;
         if let Some(deadline) = server.timer_deadline() {
             sys_set_timer(Some(deadline), TIMER_IRQ);
-            mask |= TIMER_IRQ;
         }
 
-        // Wait for uart interrupt; if we haven't enabled tx interrupts, this
-        // blocks until there's data to receive.
-        let note = sys_recv_closed(&mut [], mask, TaskId::KERNEL)
-            .unwrap_lite()
-            .operation;
-
-        server.handle_notification(note);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
 }
 
@@ -107,6 +104,7 @@ enum RebootState {
 
 struct ServerImpl {
     uart: Usart,
+    sys: sys_api::Sys,
     tx_zero_deadline: Option<u64>,
     tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
     tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
@@ -119,22 +117,37 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn claim_static_resources(status: Status) -> Self {
+    fn claim_static_resources() -> Self {
         let (tx_msg_buf, tx_pkt_buf) = mutable_statics! {
                 static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
                 static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [0; _];
         };
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+        let uart = configure_uart_device(&sys);
+        sp_to_sp3_interrupt_enable(&sys);
         Self {
-            uart: configure_uart_device(),
+            uart,
+            sys,
             tx_zero_deadline: Some(sys_get_timer().now + UART_ZERO_DELAY),
             tx_msg_buf,
             tx_pkt_buf,
             tx_pkt_to_write: 0..0,
             rx_buf: claim_uart_rx_buf(),
-            status,
+            status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             reboot_state: None,
+        }
+    }
+
+    fn set_status_impl(&mut self, status: Status) {
+        if status != self.status {
+            self.status = status;
+            if self.status.is_empty() {
+                self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
+            } else {
+                self.sys.gpio_set(SP_TO_SP3_INT_L).unwrap_lite();
+            }
         }
     }
 
@@ -559,9 +572,9 @@ impl ServerImpl {
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
                 Some(SpToHost::Identity {
-                    model: 1,
+                    model: *b"913-0000019",
                     revision: 2,
-                    serial: *b"fake-serial",
+                    serial: *b"OXE99990000",
                 })
             }
             HostToSp::GetMacAddresses => {
@@ -583,7 +596,8 @@ impl ServerImpl {
             HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
-                self.status.remove(Status::SP_TASK_RESTARTED);
+                action =
+                    Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
                 Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {
@@ -629,6 +643,9 @@ impl ServerImpl {
             match action {
                 Action::RebootHost => self.power_off_host(true),
                 Action::PowerOffHost => self.power_off_host(false),
+                Action::ClearStatusBits(to_clear) => {
+                    self.set_status_impl(self.status.difference(to_clear))
+                }
             }
         }
 
@@ -636,10 +653,11 @@ impl ServerImpl {
     }
 }
 
-// approximately idol_runtime::NotificationHandler, in anticipation of
-// eventually having an idol interface (at least for control-plane-agent to give
-// us host phase 2 data)
-impl ServerImpl {
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        USART_IRQ | JEFE_STATE_CHANGE_IRQ | TIMER_IRQ
+    }
+
     fn handle_notification(&mut self, bits: u32) {
         if bits & USART_IRQ != 0 {
             self.handle_usart_notification();
@@ -658,11 +676,34 @@ impl ServerImpl {
     }
 }
 
+impl idl::InOrderHostSpCommsImpl for ServerImpl {
+    fn set_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        status: u64,
+    ) -> Result<(), RequestError<HostSpCommsError>> {
+        let status =
+            Status::from_bits(status).ok_or(HostSpCommsError::InvalidStatus)?;
+
+        self.set_status_impl(status);
+
+        Ok(())
+    }
+
+    fn get_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Status, RequestError<HostSpCommsError>> {
+        Ok(self.status)
+    }
+}
+
 // Borrow checker workaround; list of actions we perform in response to a host
 // request _after_ we're done borrowing any message buffers.
 enum Action {
     RebootHost,
     PowerOffHost,
+    ClearStatusBits(Status),
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
@@ -697,7 +738,7 @@ fn populate_with_decode_error(
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
-fn configure_uart_device() -> Usart {
+fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     use drv_usart::device;
     use drv_usart::drv_stm32xx_sys_api::*;
 
@@ -737,7 +778,7 @@ fn configure_uart_device() -> Usart {
     }
 
     Usart::turn_on(
-        &Sys::from(SYS.get_task_id()),
+        sys,
         usart,
         peripheral,
         pins,
@@ -745,6 +786,34 @@ fn configure_uart_device() -> Usart {
         BAUD_RATE,
         hardware_flow_control,
     )
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(any(
+        target_board = "gimlet-a",
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+    ))] {
+        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
+    } else if #[cfg(target_board = "gimletlet-2")] {
+        // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
+        // to one of the exposed E2-E6 pins to see it visually.
+        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
+    } else {
+        compile_error!("unsupported target board");
+    }
+}
+
+fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
+    sys.gpio_reset(SP_TO_SP3_INT_L).unwrap();
+
+    sys.gpio_configure_output(
+        SP_TO_SP3_INT_L,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::Down,
+    )
+    .unwrap();
 }
 
 fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
@@ -762,4 +831,9 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
     unsafe { &mut UART_RX_BUF }
+}
+
+mod idl {
+    use task_host_sp_comms_api::{HostSpCommsError, Status};
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

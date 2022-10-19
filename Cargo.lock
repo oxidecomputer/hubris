@@ -1954,6 +1954,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "unwrap-lite",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3496,11 +3497,30 @@ dependencies = [
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-stm32h7-usart",
+ "drv-stm32xx-sys-api",
  "heapless",
  "host-sp-messages",
+ "idol",
+ "idol-runtime",
  "mutable-statics",
+ "num-traits",
  "ringbuf",
+ "task-host-sp-comms-api",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-host-sp-comms-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "host-sp-messages",
+ "idol",
+ "num-traits",
+ "ssmarshal",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

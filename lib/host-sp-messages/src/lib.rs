@@ -11,6 +11,7 @@ use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use unwrap_lite::UnwrapLite;
+use zerocopy::{AsBytes, FromBytes};
 
 pub use hubpack::error::Error as HubpackError;
 
@@ -105,13 +106,13 @@ pub enum SpToHost {
     DecodeFailure(DecodeFailureReason),
     BootStorageUnit(Bsu),
     Identity {
-        model: u8,
+        model: [u8; 11], // TODO model format?
         revision: u8,
         serial: [u8; 11], // TODO serial format?
     },
     MacAddresses {
         base: [u8; 6],
-        count: u8, // TODO maybe a u16 instead?
+        count: u16,
         stride: u8,
     },
     Status(Status),
@@ -169,7 +170,8 @@ impl hubpack::SerializedSize for DecodeFailureReason {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, SerializedSize)]
+    #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
+    #[repr(transparent)]
     pub struct Status: u64 {
         const SP_TASK_RESTARTED = 1 << 0;
         const ALERTS_AVAILABLE  = 1 << 1;

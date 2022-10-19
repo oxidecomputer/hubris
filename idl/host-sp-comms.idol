@@ -1,0 +1,28 @@
+// Host / SP communication API
+
+Interface(
+    name: "HostSpComms",
+    ops: {
+        "set_status": (
+            doc: "Set the SP status word; changing the status sends an interrupt to the host",
+            args: {
+                // Arguably this should be `Status` (our bitflags type), but in
+                // practice we only call this function from hiffy, so it's
+                // easier to just use a plain `u64`. We convert it to a `Status`
+                // internally (returning an error if the supplied u64 contains
+                // any invalid bits).
+                "status": "u64",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HostSpCommsError"),
+            ),
+        ),
+        "get_status": (
+            reply: Result(
+                ok: "Status",
+                err: CLike("HostSpCommsError"),
+            ),
+        ),
+    },
+)
