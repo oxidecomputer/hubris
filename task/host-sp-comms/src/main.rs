@@ -559,9 +559,9 @@ impl ServerImpl {
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
                 Some(SpToHost::Identity {
-                    model: 1,
+                    model: *b"913-0000019",
                     revision: 2,
-                    serial: *b"fake-serial",
+                    serial: *b"OXE99990000",
                 })
             }
             HostToSp::GetMacAddresses => {

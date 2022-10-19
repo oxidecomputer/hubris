@@ -105,13 +105,13 @@ pub enum SpToHost {
     DecodeFailure(DecodeFailureReason),
     BootStorageUnit(Bsu),
     Identity {
-        model: u8,
+        model: [u8; 11], // TODO model format?
         revision: u8,
         serial: [u8; 11], // TODO serial format?
     },
     MacAddresses {
         base: [u8; 6],
-        count: u8, // TODO maybe a u16 instead?
+        count: u16,
         stride: u8,
     },
     Status(Status),
