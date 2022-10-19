@@ -419,6 +419,7 @@ impl Borrow<'_> {
 /// TODO: once we figure out how to convert between ticks and seconds here, this
 /// should take a real unit instead of a tick count.
 pub fn sleep_until(time: u64) {
+    let prev = sys_get_timer();
     sys_set_timer(Some(time), INTERNAL_TIMER_NOTIFICATION);
     loop {
         let _ = sys_recv_closed(
@@ -436,6 +437,10 @@ pub fn sleep_until(time: u64) {
         if sys_get_timer().now >= time {
             break;
         }
+    }
+    // Restore previous timer deadline and notifications
+    if let Some(deadline) = prev.deadline {
+        sys_set_timer(Some(deadline), prev.on_dl);
     }
 }
 
