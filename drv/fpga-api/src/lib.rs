@@ -286,7 +286,7 @@ impl FpgaUserDesign {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: AsBytes + FromBytes,
+        T: AsBytes,
     {
         self.write_bytes(op, addr, value.as_bytes())
     }

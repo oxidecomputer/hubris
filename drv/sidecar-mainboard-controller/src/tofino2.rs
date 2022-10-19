@@ -6,7 +6,7 @@ use crate::{Addr, MainboardController, Reg};
 use bitfield::bitfield;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
@@ -234,7 +234,7 @@ impl Sequencer {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+    #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes, FromBytes)]
     #[repr(C)]
     pub struct DebugPortState(u8);
     pub send_buffer_empty, set_send_buffer_empty: 0;
@@ -249,12 +249,12 @@ bitfield! {
 #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum DebugRequestOpcode {
-    LocalWrite = 0,
-    LocalRead = 32,
-    DirectWrite = 128,
-    DirectRead = 160,
-    IndirectWrite = 192,
-    IndirectRead = 224,
+    LocalWrite = 0b0000_0000,
+    LocalRead = 0b0010_0000,
+    DirectWrite = 0b1000_0000,
+    DirectRead = 0b1010_0000,
+    IndirectWrite = 0b1100_0000,
+    IndirectRead = 0b1110_0000,
 }
 
 impl From<DebugRequestOpcode> for u8 {
@@ -264,23 +264,16 @@ impl From<DebugRequestOpcode> for u8 {
 }
 
 #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum DirectBarSegment {
     Bar0 = 0,
-    Msi = 1,
-    Cfg = 2,
+    Msi = 1 << 28,
+    Cfg = 2 << 28,
 }
 
-impl From<DirectBarSegment> for u32 {
-    fn from(segment: DirectBarSegment) -> Self {
-        match segment {
-            DirectBarSegment::Bar0 => 0,
-            DirectBarSegment::Msi => (1 as u32) << 28,
-            DirectBarSegment::Cfg => (2 as u32) << 28,
-        }
-    }
-}
-
+/// A few of the Tofino registers which are used in code below. These are found
+/// in 631384-0001_TF2-Top-Level_Register_Map_05062021.html as provided by
+/// Intel.
 #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u32)]
 pub enum TofinoRegisters {
@@ -299,26 +292,29 @@ impl From<TofinoRegisters> for u32 {
     }
 }
 
+/// SPI EEPROM instructions, as per for example
+/// https://octopart.com/datasheet/cat25512vi-gt3-onsemi-22302617.
 #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum SpiEepromInstruction {
+    // WREN, enable write operations
     WriteEnable = 0x6,
+    // WRDI, disable write operations
     WriteDisable = 0x4,
+    // RDSR, read Status register
     ReadStatusRegister = 0x5,
+    // WRSR, write Status register. See datasheet for which bits can actually be
+    // written.
     WriteStatusRegister = 0x1,
+    // READ, read a number of bytes from the EEPROM
     Read = 0x3,
+    // WRITE, write a number of bytes to the EEPROM
     Write = 0x2,
 }
 
 impl From<SpiEepromInstruction> for u8 {
     fn from(i: SpiEepromInstruction) -> Self {
         i as u8
-    }
-}
-
-impl From<SpiEepromInstruction> for u32 {
-    fn from(i: SpiEepromInstruction) -> Self {
-        i as u32
     }
 }
 
@@ -337,14 +333,12 @@ impl DebugPort {
     }
 
     pub fn state(&self) -> Result<DebugPortState, FpgaError> {
-        self.fpga
-            .read::<u8>(Addr::TOFINO_DEBUG_PORT_STATE)
-            .map(DebugPortState)
+        self.fpga.read(Addr::TOFINO_DEBUG_PORT_STATE)
     }
 
     pub fn set_state(&self, state: DebugPortState) -> Result<(), FpgaError> {
         self.fpga
-            .write(WriteOp::Write, Addr::TOFINO_DEBUG_PORT_STATE, state.0)
+            .write(WriteOp::Write, Addr::TOFINO_DEBUG_PORT_STATE, state)
     }
 
     pub fn read_direct(
@@ -359,7 +353,7 @@ impl DebugPort {
         }
 
         // Add the segement base address to the given read offset.
-        let address = u32::from(segment) | offset.into();
+        let address = segment as u32 | offset.into();
 
         // Write the opcode.
         self.fpga.write(
@@ -411,7 +405,7 @@ impl DebugPort {
         }
 
         // Add the segement base address to the given read offset.
-        let address = u32::from(segment) | offset.into();
+        let address = segment as u32 | offset.into();
 
         // Write the opcode to the queue.
         self.fpga.write(
@@ -470,7 +464,7 @@ impl DebugPort {
         self.write_direct(
             DirectBarSegment::Bar0,
             TofinoRegisters::SpiOutData0,
-            u32::from(i),
+            u8::from(i) as u32,
         )?;
         // Initiate the SPI transaction.
         self.write_direct(
