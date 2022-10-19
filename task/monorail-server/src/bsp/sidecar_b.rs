@@ -27,6 +27,7 @@ enum Trace {
         after: Speed,
     },
     AnegCheckFailed(VscError),
+    Restarted10GAneg,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -405,6 +406,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 Ok(()) => (),
                 Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
             }
+        }
+        // Workaround for the link-stuck issue discussed in
+        // https://docs.google.com/document/d/1vGCrqZ_kFZHeY2Ok8YUY7gn44YjJcBsTRCg5DhbZcxY
+        if self.vsc7448.check_10gbase_kr_aneg(0)? {
+            ringbuf_entry!(Trace::Restarted10GAneg);
         }
 
         Ok(())
