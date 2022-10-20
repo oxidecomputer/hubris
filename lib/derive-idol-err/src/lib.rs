@@ -14,9 +14,52 @@ use syn::{parse_macro_input, DeriveInput};
 /// The given type must also derive `FromPrimitive`, which is used in the
 /// `TryFrom<u32>` implementation.  Sadly, this cannot be automatically added
 /// to the type by this macro.
-#[proc_macro_derive(IdolError)]
+#[proc_macro_derive(IdolError, attributes(idol_death))]
 pub fn derive(input: TokenStream) -> TokenStream {
-    let DeriveInput { ident, .. } = parse_macro_input!(input);
+    let DeriveInput { ident, data, .. } = parse_macro_input!(input);
+    let mut on_death = None;
+    match data {
+        syn::Data::Enum(e) => {
+            // Search for a variant marked idol_death
+            for v in &e.variants {
+                for a in &v.attrs {
+                    if let Some(attr_ident) = a.path.get_ident() {
+                        if attr_ident == "idol_death" {
+                            if on_death.is_some() {
+                                panic!("duplicate idol_death attribute");
+                            }
+                            on_death = Some(v.ident.clone());
+                        }
+                    }
+                }
+            }
+        }
+        _ => panic!("unsupported struct or union (only enums supported)"),
+    }
+    let try_from = if let Some(death_ident) = on_death {
+        quote! {
+            impl core::convert::TryFrom<u32> for #ident {
+                type Error = ();
+                fn try_from(v: u32) -> Result<Self, Self::Error> {
+                    if ::userlib::extract_new_generation(v).is_some() {
+                        Ok(Self::#death_ident)
+                    } else {
+                        Self::from_u32(v).ok_or(())
+                    }
+                }
+            }
+        }
+    } else {
+        quote! {
+            impl core::convert::TryFrom<u32> for #ident {
+                type Error = ();
+                fn try_from(v: u32) -> Result<Self, Self::Error> {
+                    Self::from_u32(v).ok_or(())
+                }
+            }
+        }
+    };
+
     let output = quote! {
         impl From<#ident> for u16 {
             fn from(v: #ident) -> Self {
@@ -28,12 +71,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 v as u32
             }
         }
-        impl core::convert::TryFrom<u32> for #ident {
-            type Error = ();
-            fn try_from(v: u32) -> Result<Self, Self::Error> {
-                Self::from_u32(v).ok_or(())
-            }
-        }
+        #try_from
     };
     output.into()
 }

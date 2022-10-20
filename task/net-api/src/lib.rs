@@ -23,6 +23,7 @@ pub enum SendError {
     /// The outgoing tx queue is full
     QueueFull = 3,
 
+    #[idol_death]
     Other = 4,
 }
 
