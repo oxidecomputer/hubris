@@ -46,7 +46,6 @@ const DEVICES: &'static [DeviceDescription<'static>] = &[
         capabilities: DeviceCapabilities::UPDATEABLE,
         presence: DevicePresence::Present,
     },
-
     // If we have the auxflash feature enabled, report the auxflash as a
     // component. We do not mark it as explicitly "updateable", even though it
     // is written as a part of the SP update process. Crucially, that is a part
@@ -60,7 +59,6 @@ const DEVICES: &'static [DeviceDescription<'static>] = &[
         capabilities: DeviceCapabilities::empty(),
         presence: DevicePresence::Present,
     },
-
     // If we're building for gimlet, we always claim to have a host CPU.
     //
     // This is a lie on gimletlet (where we still build with the "gimlet"
@@ -73,7 +71,6 @@ const DEVICES: &'static [DeviceDescription<'static>] = &[
         capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
         presence: DevicePresence::Present, // TODO: ok to assume always present?
     },
-
     // If we're building for gimlet, we always claim to have host boot flash.
     //
     // This is a lie on gimletlet (where we still build with the "gimlet"
