@@ -247,10 +247,10 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-transceivers-server"
 features = []
 priority = 4
-max-sizes = {flash = 8192, ram = 2048}
-stacksize = 1024
+max-sizes = {flash = 32768, ram = 4096}
+stacksize = 2048
 start = true
-task-slots = ["sys", {front_io = "ecp5_front_io"}]
+task-slots = ["sys", "i2c_driver", {front_io = "ecp5_front_io"}]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
@@ -739,6 +739,22 @@ address = 0b1110_011
 device = "pca9538"
 description = "Front IO GPIO expander"
 removable = true
+
+[[config.i2c.devices]]
+bus = "front_io"
+address = 0b0001_010
+device = "pca9956b_left"
+description = "Front IO LED driver (left)"
+removable = true
+refdes = "U5"
+
+[[config.i2c.devices]]
+bus = "front_io"
+address = 0b0001_011
+device = "pca9956b_right"
+description = "Front IO LED driver (right)"
+removable = true
+refdes = "U6"
 
 [config.spi.spi1]
 controller = 1

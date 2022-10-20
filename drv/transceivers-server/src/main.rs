@@ -5,18 +5,45 @@
 #![no_std]
 #![no_main]
 
-use drv_sidecar_front_io::transceivers::Transceivers;
+use drv_sidecar_front_io::{
+    leds::FullErrorSummary, leds::Leds, phy_smi::PhySmi,
+    transceivers::Transceivers,
+};
 use drv_transceivers_api::{
     ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
 };
-use idol_runtime::{ClientError, Leased, RequestError, R, W};
-use userlib::task_slot;
+use idol_runtime::{
+    ClientError, Leased, NotificationHandler, RequestError, R, W,
+};
+use ringbuf::*;
+use userlib::*;
 
+task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Trace {
+    None,
+    LEDInit,
+    LEDInitComplete,
+    LEDErrorUpdate(FullErrorSummary),
+    ModulePresenceUpdate(u32),
+    TransceiversError(TransceiversError),
+}
+ringbuf!(Trace, 16, Trace::None);
 
 struct ServerImpl {
     transceivers: Transceivers,
+    leds: Leds,
+    modules_present: u32,
+    led_error: FullErrorSummary,
 }
+
+const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 500;
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
     fn get_modules_status(
@@ -160,16 +187,87 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     }
 }
 
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_NOTIFICATION_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        // Check for errors
+        let errors = self.leds.error_summary().unwrap();
+        if errors != self.led_error {
+            self.led_error = errors;
+            ringbuf_entry!(Trace::LEDErrorUpdate(errors))
+        }
+
+        // Query module presence and update LEDs accordingly
+        let presence = match self.transceivers.get_modules_status() {
+            Ok(status) => status.present,
+            Err(_) => 0,
+        };
+
+        if presence != self.modules_present {
+            // Errors are being temporarily suppressed here due to a miswiring of
+            // the I2C bus at the LED controller parts. They will not be accessible
+            // without rework to older hardware, and newer (correct) hardware will
+            // be replacing the hold stuff very soon.
+            // TODO: remove error suppression here once Rev B hardware is in
+            let _ = self.leds.update_led_state(presence);
+            self.modules_present = presence;
+            ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
+        }
+
+        let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
+        sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK)
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     loop {
-        let mut buffer = [0; idl::INCOMING_SIZE];
+        // This is a temporary workaround that makes sure the FPGAs are up
+        // before we start doing things with them. A more sophisticated
+        // notification system will be put in place.
+        let phy_smi = PhySmi::new(FRONT_IO.get_task_id());
+        while !phy_smi.phy_powered_up_and_ready().unwrap() {
+            userlib::hl::sleep_for(10);
+        }
+
         let transceivers = Transceivers::new(FRONT_IO.get_task_id());
+        let leds = Leds::new(
+            &i2c_config::devices::pca9956b_left_front_io(I2C.get_task_id())[0],
+            &i2c_config::devices::pca9956b_right_front_io(I2C.get_task_id())[0],
+        );
 
-        let mut server = ServerImpl { transceivers };
+        let mut server = ServerImpl {
+            transceivers,
+            leds,
+            modules_present: 0,
+            led_error: FullErrorSummary {
+                ..Default::default()
+            },
+        };
 
+        ringbuf_entry!(Trace::LEDInit);
+
+        server.transceivers.enable_led_controllers().unwrap();
+        // Errors are being temporarily suppressed here due to a miswiring of
+        // the I2C bus at the LED controller parts. They will not be accessible
+        // without rework to older hardware, and newer (correct) hardware will
+        // be replacing the hold stuff very soon.
+        // TODO: remove error suppression here once Rev B hardware is in
+        let _ = server.leds.initialize_current();
+        let _ = server.leds.turn_on_system_led();
+
+        ringbuf_entry!(Trace::LEDInitComplete);
+
+        // This will put our timer in the past, immediately forcing an update
+        let deadline = sys_get_timer().now;
+        sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
+
+        let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
-            idol_runtime::dispatch(&mut buffer, &mut server);
+            idol_runtime::dispatch_n(&mut buffer, &mut server);
         }
     }
 }

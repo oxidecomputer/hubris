@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::Addr;
+use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::ModulesStatus;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
@@ -182,6 +182,19 @@ impl Transceivers {
             15 => Addr::QSFP_PORT15_READ_BUFFER,
             _ => unreachable!(),
         }
+    }
+
+    /// Releases the LED controller from reset and enables the output
+    pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
+        for (_i, fpga) in self.fpgas.iter_mut().enumerate() {
+            fpga.write(
+                WriteOp::BitClear,
+                Addr::LED_CTRL,
+                Reg::LED_CTRL::RESET,
+            )?;
+        }
+
+        Ok(())
     }
 }
 
