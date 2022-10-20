@@ -140,7 +140,15 @@ start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys", "sequencer", "auxflash"]
+task-slots = [
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "sequencer",
+    "auxflash",
+    "validate",
+]
 features = ["sidecar", "vlan", "auxflash"]
 
 [tasks.udpecho]

@@ -3,10 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    inventory::Inventory, mgs_common::MgsCommon,
-    update::host_flash::HostFlashUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, vlan_id_from_sp_port, Log, MgsMessage,
-    SYS, USART_IRQ,
+    mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
+    update::sp::SpUpdate, update::ComponentUpdater, usize_max,
+    vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -64,7 +63,6 @@ userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
 
 pub(crate) struct MgsHandler {
     common: MgsCommon,
-    inventory: Inventory,
     sequencer: Sequencer,
     sp_update: SpUpdate,
     host_flash_update: HostFlashUpdate,
@@ -80,7 +78,6 @@ impl MgsHandler {
         let usart = UsartHandler::claim_static_resources();
         Self {
             common: MgsCommon::claim_static_resources(),
-            inventory: Inventory::new(),
             host_flash_update: HostFlashUpdate::new(),
             sp_update: SpUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
@@ -501,24 +498,13 @@ impl SpHandler for MgsHandler {
         self.common.reset_trigger()
     }
 
-    /// Number of devices returned in the inventory of this SP.
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
-        self.inventory.num_devices() as u32
+        self.common.inventory_num_devices() as u32
     }
 
-    /// Get the description for the given device.
-    ///
-    /// This function should never fail, as the device inventory should be
-    /// static. Acquiring the presence of a device may fail, but that should be
-    /// indicated inline via the returned description's `presence` field.
-    ///
-    /// # Panics
-    ///
-    /// Implementors are allowed to panic if `index` is not in range (i.e., is
-    /// greater than or equal to the value returned by `num_devices()`).
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
-        self.inventory.device_description(index as usize)
+        self.common.inventory_device_description(index as usize)
     }
 }
 
