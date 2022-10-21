@@ -7,6 +7,7 @@
 use crate::atomic::AtomicExt;
 use crate::descs::{RegionDesc, REGIONS_PER_TASK};
 use crate::task::Task;
+use crate::uninit;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -65,16 +66,13 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // states.
 
     // Now, generate the task table.
-    // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
-    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
-        unsafe { &mut *(task_table as *mut _ as *mut _) };
+    let task_table = uninit::unbundle(task_table);
     for (i, task) in task_table.iter_mut().enumerate() {
         task.write(Task::from_descriptor(&task_descs[i]));
     }
 
     // Safety: we have fully initialized this and can shed the uninit part.
-    let task_table: &mut [Task; HUBRIS_TASK_COUNT] =
-        unsafe { &mut *(task_table as *mut _ as *mut _) };
+    let task_table = unsafe { uninit::assume_init_mut(task_table) };
 
     // With that done, set up initial register state etc.
     for task in task_table.iter_mut() {
@@ -105,15 +103,14 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     // Safety: we have observed `TASK_TABLE_IN_USE` being false, which means the
     // task table is initialized (note that at reset it starts out true) and
     // that we're not already within a call to with_task_table. Thus, we can
-    // produce a reference to the task table without aliasing, and we can be
-    // confident that the memory it's pointing to is initialized and shed the
-    // MaybeUninit.
-    let task_table = unsafe {
-        &mut *(&mut HUBRIS_TASK_TABLE_SPACE
-            as *mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>
-            as *mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT]
-            as *mut [Task; HUBRIS_TASK_COUNT])
-    };
+    // produce a reference to the task table without aliasing.
+    let task_table = unsafe { &mut HUBRIS_TASK_TABLE_SPACE };
+
+    // Rearrange the braces in the type to get an array of potentially uninit
+    let task_table = uninit::unbundle(task_table);
+
+    // Safety: because `TASK_TABLE_IN_USE` is false, we know it is initialized.
+    let task_table = unsafe { uninit::assume_init_mut(task_table) };
 
     let r = body(task_table);
 
