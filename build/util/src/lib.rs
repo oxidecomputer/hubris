@@ -9,9 +9,9 @@ use std::collections::BTreeMap;
 /// Reads the given environment variable and marks that it's used
 ///
 /// This ensures a rebuild if the variable changes
-pub fn env_var(key: &str) -> Result<String, std::env::VarError> {
+pub fn env_var(key: &str) -> Result<String> {
     println!("cargo:rerun-if-env-changed={}", key);
-    std::env::var(key)
+    std::env::var(key).with_context(|| format!("reading ${key}"))
 }
 
 /// Reads the `OUT_DIR` environment variable
@@ -52,7 +52,7 @@ pub fn has_feature(s: &str) -> bool {
 /// Exposes the CPU's M-profile architecture version. This isn't available in
 /// rustc's standard environment.
 ///
-/// This will set one of `cfg(armv6m`), `cfg(armv7m)`, or `cfg(armv8m)`
+/// This will set one of `cfg(armv6m)`, `cfg(armv7m)`, or `cfg(armv8m)`
 /// depending on the value of the `TARGET` environment variable.
 pub fn expose_m_profile() {
     let target = crate::target();
@@ -176,11 +176,16 @@ impl TaskIds {
 ///   contain UTF-8.
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
     let config = match crate::env_var(var) {
-        Err(std::env::VarError::NotPresent) => return Ok(None),
         Err(e) => {
-            return Err(e).with_context(|| {
-                format!("accessing environment variable {}", var)
-            })
+            use std::env::VarError;
+
+            return if e.downcast_ref::<std::env::VarError>()
+                == Some(&VarError::NotPresent)
+            {
+                Ok(None)
+            } else {
+                Err(e).context("reading TOML from build environment")
+            };
         }
         Ok(c) => c,
     };
