@@ -65,8 +65,7 @@ pub fn expose_m_profile() {
     } else if target.starts_with("thumbv8m") {
         println!("cargo:rustc-cfg=armv8m");
     } else {
-        println!("Don't know the target {}", target);
-        std::process::exit(1);
+        // Tolerate this to allow for non-ARM-M processors.
     }
 }
 
