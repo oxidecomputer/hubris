@@ -17,11 +17,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut file = std::fs::File::create(&dest_path)?;
             writeln!(&mut file, "const AUXI_CHECKSUM: [u8; 32] = {};", e)?;
         }
-        Err(std::env::VarError::NotPresent) => panic!(
+        Err(e) => panic!(
             "Could not find HUBRIS_AUXFLASH_CHECKSUM in environment. \
-                    Is there at least one [[auxflash.blobs]] in the app?"
+                    Is there at least one [[auxflash.blobs]] in the app?\n\
+            {e:?}",
         ),
-        Err(e) => panic!("Could not find HUBRIS_AUXFLASH_CHECKSUM: {:?}", e),
     }
 
     Ok(())
