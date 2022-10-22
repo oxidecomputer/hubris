@@ -854,3 +854,188 @@ pub fn force_fault(
 pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
     TaskId::for_index_and_gen(index, tasks[index].generation())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALICE_TEXT_BASE: u32 = 0xDEAD_0000;
+    const ALICE_TEXT_SIZE: u32 = 0x1_0000;
+    const ALICE_RAM_BASE: u32 = 1024;
+    const ALICE_RAM_SIZE: u32 = 1024;
+
+    const BOB_TEXT_BASE: u32 = 0xBAAD_0000;
+    const BOB_TEXT_SIZE: u32 = 0x1_0000;
+    const BOB_RAM_BASE: u32 = 4096;
+    const BOB_RAM_SIZE: u32 = 4096;
+
+    static ALICE: TaskDesc = TaskDesc {
+        entry_point: ALICE_TEXT_BASE + 0xBEEF,
+        initial_stack: ALICE_RAM_BASE + 210,
+        priority: 12,
+        flags: TaskFlags::START_AT_BOOT,
+        index: 0,
+        regions: [1, 2, 0, 0, 0, 0, 0, 0],
+    };
+    static BOB: TaskDesc = TaskDesc {
+        entry_point: BOB_TEXT_BASE + 0xF00D,
+        initial_stack: BOB_RAM_BASE + 1582,
+        priority: 1,
+        flags: TaskFlags::START_AT_BOOT,
+        index: 1,
+        regions: [3, 4, 0, 0, 0, 0, 0, 0],
+    };
+    const fn mkatt<const N: usize>(
+        atts: [RegionAttributes; N],
+    ) -> RegionAttributes {
+        let mut bits = 0;
+        let mut i = 0;
+        while i < N {
+            bits |= atts[i].bits();
+            i += 1;
+        }
+        RegionAttributes::from_bits_truncate(bits)
+    }
+    static ALICE_REGIONS: &'static [&'static RegionDesc] = &[
+        // NULL region confers no access:
+        &RegionDesc {
+            base: 0,
+            size: 32,
+            attributes: RegionAttributes::empty(),
+        },
+        // Alice text
+        &RegionDesc {
+            base: ALICE_TEXT_BASE,
+            size: ALICE_TEXT_SIZE,
+            attributes: mkatt([
+                RegionAttributes::READ,
+                RegionAttributes::EXECUTE,
+            ]),
+        },
+        // Alice ram
+        &RegionDesc {
+            base: ALICE_RAM_BASE,
+            size: ALICE_RAM_SIZE,
+            attributes: mkatt([
+                RegionAttributes::READ,
+                RegionAttributes::WRITE,
+            ]),
+        },
+    ];
+    static BOB_REGIONS: &'static [&'static RegionDesc] = &[
+        // NULL region confers no access:
+        &RegionDesc {
+            base: 0,
+            size: 32,
+            attributes: RegionAttributes::empty(),
+        },
+        // Bob text
+        &RegionDesc {
+            base: BOB_TEXT_BASE,
+            size: BOB_TEXT_SIZE,
+            attributes: mkatt([
+                RegionAttributes::READ,
+                RegionAttributes::EXECUTE,
+            ]),
+        },
+        // Bob ram
+        &RegionDesc {
+            base: BOB_RAM_BASE,
+            size: BOB_RAM_SIZE,
+            attributes: mkatt([
+                RegionAttributes::READ,
+                RegionAttributes::WRITE,
+            ]),
+        },
+    ];
+
+    fn fake_task_table() -> Vec<Task> {
+        let mut table = vec![];
+        for (desc, reg) in [(&ALICE, ALICE_REGIONS), (&BOB, BOB_REGIONS)] {
+            table.push(Task::from_descriptor(desc, reg));
+        }
+        table
+    }
+
+    #[test]
+    fn read_empty_slice() {
+        let tasks = fake_task_table();
+
+        let empty8 = USlice::<u8>::empty();
+        let empty64 = USlice::<u64>::empty();
+
+        for task in &tasks {
+            assert!(
+                task.can_read(&empty8),
+                "tasks should be able to read the empty byte slice, but \
+                 task index {} can't.",
+                task.descriptor.index
+            );
+            assert!(
+                task.can_read(&empty64),
+                "tasks should be able to read the empty u64 slice, but \
+                 task index {} can't.",
+                task.descriptor.index
+            );
+        }
+    }
+
+    #[test]
+    fn read_null() {
+        let tasks = fake_task_table();
+
+        let slices = [
+            USlice::<u8>::from_raw(0, 1).unwrap(),
+            USlice::<u8>::from_raw(0, 4).unwrap(),
+            USlice::<u8>::from_raw(0, 16).unwrap(),
+            USlice::<u8>::from_raw(0, 32).unwrap(),
+            USlice::<u8>::from_raw(31, 1).unwrap(),
+            USlice::<u8>::from_raw(16, 16).unwrap(),
+        ];
+
+        for task in &tasks {
+            for slice in &slices {
+                assert!(
+                    !task.can_read(slice),
+                    "tasks should not be able to read near 0, but \
+                     task index {} can read {} bytes there.",
+                    task.descriptor.index,
+                    slice.len()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn alice_access() {
+        let tasks = fake_task_table();
+
+        let alice = &tasks[0];
+        let alice_reads = [
+            (ALICE_RAM_BASE, 32),
+            (ALICE_RAM_BASE, ALICE_RAM_SIZE),
+            (ALICE_RAM_BASE + ALICE_RAM_SIZE - 16, 16),
+        ];
+        for (addr, size) in alice_reads {
+            let slice =
+                USlice::<u8>::from_raw(addr as usize, size as usize).unwrap();
+            assert!(
+                alice.can_read(&slice),
+                "alice should be able to read {size} bytes at {addr:#x}",
+            );
+        }
+        let alice_no_reads = [
+            (ALICE_RAM_BASE - 16, 32),
+            (ALICE_RAM_BASE + ALICE_RAM_SIZE - 16, 32),
+            (BOB_RAM_BASE, 1),
+        ];
+        for (addr, size) in alice_no_reads {
+            let slice =
+                USlice::<u8>::from_raw(addr as usize, size as usize).unwrap();
+            assert!(
+                !alice.can_read(&slice),
+                "alice should NOT be able to read {size} bytes at {addr:#x}"
+            );
+        }
+    }
+}

@@ -33,6 +33,7 @@ use abi::{FaultInfo, FaultSource, UsageError};
 /// Note that this same `USlice` type is used for both readable and read-write
 /// contexts -- there is no `USliceMut`. So far, this has not seemed like a
 /// decision that will generate bugs.
+#[derive(Eq, PartialEq)]
 pub struct USlice<T> {
     /// Base address of the slice.
     base_address: usize,
@@ -113,15 +114,20 @@ impl<T> USlice<T> {
         self.base_address
     }
 
+    pub fn size_in_bytes(&self) -> usize {
+        // Compute the size using unchecked wrapping arithmetic. Why can we do
+        // this? Because this calculation can't overflow if our invariants
+        // (above) are maintained. The compiler can't necessarily see that, so
+        // using explicitly wrapping arithmetic here removes some instructions /
+        // panic sites.
+        self.length.wrapping_mul(core::mem::size_of::<T>())
+    }
+
     /// Returns the end address of the slice, which is the address one past its
     /// final byte -- or its base address if it's empty.
     pub fn end_addr(&self) -> usize {
-        // Compute the size using an unchecked multiplication. Why can we do
-        // this? Because we checked that this multiplication does not overflow
-        // at construction above. Using an unchecked multiply here removes some
-        // instructions.
-        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
-        self.base_address.wrapping_add(size_in_bytes)
+        // Can use cheaper wrapping add because of type invariants
+        self.base_address.wrapping_add(self.size_in_bytes())
     }
 
     /// Returns the *highest* address in this slice, inclusive.
@@ -131,18 +137,12 @@ impl<T> USlice<T> {
         // This implementation would be wrong for ZSTs (it would indicate any
         // slice of ZSTs as empty), but we blocked them at construction.
 
-        // Compute the size using an unchecked multiplication. Why can we do
-        // this? Because we checked that this multiplication does not overflow
-        // at construction above. Using an unchecked multiply here removes some
-        // instructions.
-        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
+        let size_in_bytes = self.size_in_bytes();
         if size_in_bytes == 0 {
             None
         } else {
             Some(
-                // Note: wrapping operations are safe here because we checked
-                // that the slice doesn't overlap the end of the address space
-                // at construction.
+                // Can use cheaper wrapping ops here because of type invariants.
                 self.base_address
                     .wrapping_add(size_in_bytes)
                     .wrapping_sub(1),
@@ -332,5 +332,114 @@ fn index2_distinct<T>(
         (&mut suffix[i - (j + 1)], &mut prefix[j])
     } else {
         panic!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// These invariants on `USlice` are Pretty Darn Important for overall
+    /// correctness of the kernel, and they are guarded by the `from_raw`
+    /// constructor. For more details see the docs for `USlice`.
+    #[test]
+    fn uslice_from_raw_invariants() {
+        assert_eq!(
+            USlice::<u32>::from_raw(3, 1),
+            Err(UsageError::InvalidSlice),
+            "result must not be misaligned",
+        );
+        assert_eq!(
+            USlice::<u8>::from_raw(!0 - 1024, 2048),
+            Err(UsageError::InvalidSlice),
+            "result must not wrap top of address space",
+        );
+        assert_eq!(
+            USlice::<u8>::from_raw(usize::MAX - 1023, 1024),
+            Err(UsageError::InvalidSlice),
+            "result must not include last byte of address space",
+        );
+
+        assert_eq!(
+            USlice::<[u8; 1024]>::from_raw(0, 4_194_304),
+            Err(UsageError::InvalidSlice),
+            "length of result, in bytes, must fit in a usize",
+        );
+        assert_eq!(
+            USlice::<u32>::from_raw(0, usize::MAX / 4 + 1),
+            Err(UsageError::InvalidSlice),
+            "length of result, in bytes, must fit in a usize",
+        );
+    }
+
+    #[test]
+    fn uslice_aliases() {
+        // We'll work in byte slices to keep the math simple. We're going to
+        // construct the following slices:
+        //
+        //      1 2     3      4 5 6 7
+        // A    [--------------]        overlaps B, C
+        // B            [----------]    overlaps A, abuts C
+        // C      [-----]               contained in A, abuts B
+        // D                     [---]  does not overlap A
+        // E      |                     an empty slice
+
+        let a = USlice::<u8>::from_raw(1, 4 - 1).unwrap();
+        let b = USlice::<u8>::from_raw(3, 6 - 3).unwrap();
+        let c = USlice::<u8>::from_raw(2, 3 - 2).unwrap();
+        let d = USlice::<u8>::from_raw(5, 7 - 5).unwrap();
+        let e = USlice::<u8>::from_raw(2, 0).unwrap();
+
+        // Expected relationships as a table of (slice1, slice2, aliases).
+        // Because aliasing is commutative these relationships are also checked
+        // in reverse.
+        let aliases = [
+            (&a, &a, true),
+            (&a, &b, true),
+            (&a, &c, true),
+            (&a, &d, false),
+            (&a, &e, false),
+            (&b, &b, true),
+            (&b, &c, false),
+            (&b, &d, true),
+            (&b, &e, false),
+            (&c, &c, true),
+            (&c, &d, false),
+            (&c, &e, false),
+            (&d, &d, true),
+            (&d, &e, false),
+            // Note: empty slices do not even alias _themselves._
+            (&e, &e, false),
+        ];
+
+        for (i, (left, right, expected)) in aliases.into_iter().enumerate() {
+            if expected {
+                assert!(
+                    left.aliases(right),
+                    "case {i}: {left:?} should alias {right:?} but DOES NOT",
+                );
+                assert!(
+                    right.aliases(left),
+                    "case {i}: {right:?} should alias {left:?} but DOES NOT",
+                );
+            } else {
+                assert!(
+                    !left.aliases(right),
+                    "case {i}: {left:?} should NOT alias {right:?} but DOES",
+                );
+                assert!(
+                    !right.aliases(left),
+                    "case {i}: {right:?} should NOT alias {left:?} but DOES",
+                );
+            }
+        }
+    }
+
+    /// This test is probably unnecessary but if this property stopped holding
+    /// it'd be _real bad._
+    #[test]
+    #[should_panic]
+    fn index2_distinct_requires_distinct() {
+        index2_distinct(&mut [0, 1, 2], 1, 1);
     }
 }
