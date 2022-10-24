@@ -6,7 +6,7 @@
 
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 #[repr(u8)]
 #[derive(FromPrimitive, AsBytes, Eq, PartialEq, Clone, Copy)]
@@ -20,6 +20,13 @@ pub enum UpdateTarget {
     ImageA = 2,
     ImageB = 3,
     Bootloader = 4,
+}
+
+#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[repr(C)]
+pub struct ImageVersion {
+    pub epoch: u32,
+    pub version: u32,
 }
 
 #[derive(Clone, Copy, FromPrimitive, IdolError)]

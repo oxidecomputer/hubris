@@ -10,7 +10,7 @@
 #![no_main]
 
 use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
-use drv_update_api::{UpdateError, UpdateTarget};
+use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -378,6 +378,16 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<usize, RequestError<UpdateError>> {
         Ok(BLOCK_SIZE_BYTES)
     }
+
+    fn current_version(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<ImageVersion, RequestError<UpdateError>> {
+        Ok(ImageVersion {
+            epoch: 0,
+            version: 0,
+        })
+    }
 }
 
 #[export_name = "main"]
@@ -396,7 +406,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{UpdateError, UpdateTarget};
+    use super::{ImageVersion, UpdateError, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
