@@ -3709,6 +3709,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
+ "mutable-statics",
  "paste",
  "ringbuf",
  "task-sensor-api",

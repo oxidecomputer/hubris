@@ -11,8 +11,9 @@
 /// &mut references to statics, which are declared within the macro.
 ///
 /// The macro accepts definitions of one or more mutable static arrays. It will
-/// arrange for them to be initialized, and return a tuple containing mutable
-/// references to each, in the order they're declared.
+/// arrange for them to be initialized by a per-array lambda function, and
+/// return a tuple containing mutable references to each, in the order they're
+/// declared.
 #[macro_export]
 macro_rules! mutable_statics {
     (
@@ -48,7 +49,7 @@ macro_rules! mutable_statics {
                             &mut *(__ref as *mut _ as *mut _)
                         };
                     for __u in __ref.iter_mut() {
-                        *__u = core::mem::MaybeUninit::new($init);
+                        *__u = core::mem::MaybeUninit::new($init());
                     }
                     // Safety: unsafe because of dereference of a raw pointer
                     // (after we cast it) -- safe because we are casting here
