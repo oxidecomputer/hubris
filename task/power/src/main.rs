@@ -110,16 +110,19 @@ impl Device {
 impl PowerControllerConfig {
     fn get_device(&self, task: TaskId) -> Device {
         let (dev, rail) = (self.builder)(task);
-        use DeviceType::*;
         match &self.device {
-            IBC => Device::Bmr491(Bmr491::new(&dev, rail)),
-            Core | Mem => Device::Raa229618(Raa229618::new(&dev, rail)),
-            MemVpp | SerDes => Device::Isl68224(Isl68224::new(&dev, rail)),
-            Sys => Device::Tps546B24A(Tps546B24A::new(&dev, rail)),
-            HotSwap(sense) | Fan(sense) => {
+            DeviceType::IBC => Device::Bmr491(Bmr491::new(&dev, rail)),
+            DeviceType::Core | DeviceType::Mem => {
+                Device::Raa229618(Raa229618::new(&dev, rail))
+            }
+            DeviceType::MemVpp | DeviceType::SerDes => {
+                Device::Isl68224(Isl68224::new(&dev, rail))
+            }
+            DeviceType::Sys => Device::Tps546B24A(Tps546B24A::new(&dev, rail)),
+            DeviceType::HotSwap(sense) | DeviceType::Fan(sense) => {
                 Device::Adm1272(Adm1272::new(&dev, *sense))
             }
-            HotSwapIO(sense) => {
+            DeviceType::HotSwapIO(sense) => {
                 Device::Max5970(Max5970::new(&dev, rail, *sense))
             }
         }
