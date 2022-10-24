@@ -11,8 +11,9 @@
 /// &mut references to statics, which are declared within the macro.
 ///
 /// The macro accepts definitions of one or more mutable static arrays. It will
-/// arrange for them to be initialized a per-array lambda function, and return a
-/// tuple containing mutable references to each, in the order they're declared.
+/// arrange for them to be initialized by a per-array lambda function, and
+/// return a tuple containing mutable references to each, in the order they're
+/// declared.
 #[macro_export]
 macro_rules! mutable_statics {
     (
