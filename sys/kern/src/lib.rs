@@ -39,6 +39,7 @@ pub mod arch;
 
 pub mod atomic;
 pub mod err;
+pub mod header;
 pub mod kipc;
 pub mod profiling;
 pub mod startup;
