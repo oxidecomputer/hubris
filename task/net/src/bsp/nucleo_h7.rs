@@ -15,38 +15,32 @@ use vsc85xx::PhyRw;
 /// become configurable.
 const PHYADDR: u8 = 0x0;
 
-// The Nucleo dev board doesn't do any periodic logging
-pub const WAKE_INTERVAL: Option<u64> = None;
-
-pub fn configure_ethernet_pins(sys: &Sys) {
-    pins::RmiiPins {
-        refclk: Port::A.pin(1),
-        crs_dv: Port::A.pin(7),
-        tx_en: Port::G.pin(11),
-        txd0: Port::G.pin(13),
-        txd1: Port::B.pin(13),
-        rxd0: Port::C.pin(4),
-        rxd1: Port::C.pin(5),
-        af: Alternate::AF11,
-    }
-    .configure(sys);
-
-    pins::MdioPins {
-        mdio: Port::A.pin(2),
-        mdc: Port::C.pin(1),
-        af: Alternate::AF11,
-    }
-    .configure(sys);
-}
-
-pub fn preinit() {
-    // Nothing to do here
-}
-
 // Empty handle
-pub struct Bsp;
-impl Bsp {
-    pub fn new(eth: &eth::Ethernet, _sys: &Sys) -> Self {
+pub struct BspImpl;
+
+impl crate::bsp_support::Bsp for BspImpl {
+    fn configure_ethernet_pins(sys: &Sys) {
+        pins::RmiiPins {
+            refclk: Port::A.pin(1),
+            crs_dv: Port::A.pin(7),
+            tx_en: Port::G.pin(11),
+            txd0: Port::G.pin(13),
+            txd1: Port::B.pin(13),
+            rxd0: Port::C.pin(4),
+            rxd1: Port::C.pin(5),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
+
+        pins::MdioPins {
+            mdio: Port::A.pin(2),
+            mdc: Port::C.pin(1),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
+    }
+
+    fn new(eth: &eth::Ethernet, _sys: &Sys) -> Self {
         // Unlike most Microchip PHYs, the LAN8742A-CZ-TR does not use register
         // 31 to switch between register pages (since it only uses page 0).
         // This means that we use the _raw read and write functions, since the
@@ -64,11 +58,7 @@ impl Bsp {
         Self {}
     }
 
-    pub fn wake(&self, _eth: &eth::Ethernet) {
-        panic!("Wake should never be called, because WAKE_INTERVAL is None");
-    }
-
-    pub fn phy_read(
+    fn phy_read(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
@@ -84,7 +74,7 @@ impl Bsp {
         Ok(out)
     }
 
-    pub fn phy_write(
+    fn phy_write(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,

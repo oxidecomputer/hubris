@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::idl;
+use crate::{bsp_support, bsp_support::Bsp, idl};
 use drv_stm32h7_eth as eth;
 use idol_runtime::RequestError;
 use smoltcp::wire::EthernetAddress;
@@ -15,6 +15,8 @@ use task_net_api::{
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
 /// server implementations.
 pub trait NetServer {
+    type Bsp: bsp_support::Bsp;
+
     fn net_recv_packet(
         &mut self,
         msg: &userlib::RecvMessage,
@@ -31,7 +33,7 @@ pub trait NetServer {
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
     ) -> Result<(), RequestError<SendError>>;
 
-    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp);
+    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut Self::Bsp);
 
     /// Returns the MAC address for port 0
     fn base_mac_address(&self) -> &EthernetAddress;

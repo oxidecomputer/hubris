@@ -7,6 +7,7 @@
 
 pub mod pins;
 
+mod bsp_support;
 mod buf;
 mod miim_bridge;
 mod server;
@@ -59,6 +60,9 @@ use stm32h7::stm32h753 as device;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
 use userlib::*;
+
+use crate::bsp::BspImpl;
+use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
 
@@ -126,7 +130,7 @@ fn main() -> ! {
     // Do any preinit tasks specific to this board.  For hardware which requires
     // explicit clock configuration, this is where the `net` tasks waits for
     // the clock to come up.
-    bsp::preinit();
+    BspImpl::preinit();
 
     // Turn on the Ethernet power.
     sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Rx);
@@ -144,7 +148,7 @@ fn main() -> ! {
     sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Tim16);
 
     // Do preliminary pin configuration
-    bsp::configure_ethernet_pins(&sys);
+    BspImpl::configure_ethernet_pins(&sys);
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -171,7 +175,7 @@ fn main() -> ! {
     let ipv6_addr = link_local_iface_addr(mac);
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(&eth, &sys);
+    let bsp = BspImpl::new(&eth, &sys);
 
     let mut server = ServerImpl::new(&eth, ipv6_addr, mac, bsp);
 
@@ -187,7 +191,7 @@ fn main() -> ! {
     let mut multitimer = Multitimer::<Timers>::new(WAKE_IRQ_BIT);
 
     let now = sys_get_timer().now;
-    if let Some(wake_interval) = bsp::WAKE_INTERVAL {
+    if let Some(wake_interval) = BspImpl::WAKE_INTERVAL {
         // Some of the BSPs include a 'wake' function which allows for periodic
         // logging.  We schedule a wake-up before entering the idol_runtime
         // dispatch loop, to make sure that this gets called periodically.
@@ -241,7 +245,7 @@ fn main() -> ! {
                     Timers::Watchdog => panic!("MAC RX watchdog"),
                 }
             }
-            let mut msgbuf = [0u8; ServerImpl::INCOMING_SIZE];
+            let mut msgbuf = [0u8; ServerImpl::<BspImpl>::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

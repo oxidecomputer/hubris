@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgmt, miim_bridge::MiimBridge, pins};
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
+compile_error!("this BSP requires the ksz8463 and mgmt features");
+
+use crate::{bsp_support, mgmt, miim_bridge::MiimBridge, pins};
 use drv_sidecar_seq_api::Sequencer;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
@@ -16,46 +19,46 @@ use vsc7448_pac::types::PhyRegisterAddress;
 task_slot!(SPI, spi_driver);
 task_slot!(SEQ, seq);
 
-// This system wants to be woken periodically to do logging
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
-
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Stateless function to configure ethernet pins before the Bsp struct
-/// is actually constructed
-pub fn configure_ethernet_pins(sys: &Sys) {
-    pins::RmiiPins {
-        refclk: Port::A.pin(1),
-        crs_dv: Port::A.pin(7),
-        tx_en: Port::G.pin(11),
-        txd0: Port::G.pin(13),
-        txd1: Port::G.pin(12),
-        rxd0: Port::C.pin(4),
-        rxd1: Port::C.pin(5),
-        af: Alternate::AF11,
+pub struct BspImpl(mgmt::Bsp);
+
+impl bsp_support::Bsp for BspImpl {
+    // This system wants to be woken periodically to do logging
+    const WAKE_INTERVAL: Option<u64> = Some(500);
+
+    /// Stateless function to configure ethernet pins before the Bsp struct
+    /// is actually constructed
+    fn configure_ethernet_pins(sys: &Sys) {
+        pins::RmiiPins {
+            refclk: Port::A.pin(1),
+            crs_dv: Port::A.pin(7),
+            tx_en: Port::G.pin(11),
+            txd0: Port::G.pin(13),
+            txd1: Port::G.pin(12),
+            rxd0: Port::C.pin(4),
+            rxd1: Port::C.pin(5),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
+
+        pins::MdioPins {
+            mdio: Port::A.pin(2),
+            mdc: Port::C.pin(1),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
     }
-    .configure(sys);
 
-    pins::MdioPins {
-        mdio: Port::A.pin(2),
-        mdc: Port::C.pin(1),
-        af: Alternate::AF11,
+    fn preinit() {
+        // Wait for the sequencer to turn on the clock
+        let seq = Sequencer::from(SEQ.get_task_id());
+        while !seq.is_clock_config_loaded().unwrap_or(false) {
+            sleep_for(10);
+        }
     }
-    .configure(sys);
-}
 
-pub struct Bsp(mgmt::Bsp);
-
-pub fn preinit() {
-    // Wait for the sequencer to turn on the clock
-    let seq = Sequencer::from(SEQ.get_task_id());
-    while !seq.is_clock_config_loaded().unwrap_or(false) {
-        sleep_for(10);
-    }
-}
-
-impl Bsp {
-    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
+    fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let bsp = mgmt::Config {
             // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
             power_en: Some(Port::I.pin(11)),
@@ -90,11 +93,11 @@ impl Bsp {
         Self(bsp)
     }
 
-    pub fn wake(&self, eth: &eth::Ethernet) {
+    fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
     }
 
-    pub fn phy_read(
+    fn phy_read(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
@@ -103,7 +106,7 @@ impl Bsp {
         self.0.phy_read(port, reg, eth)
     }
 
-    pub fn phy_write(
+    fn phy_write(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
@@ -113,18 +116,18 @@ impl Bsp {
         self.0.phy_write(port, reg, value, eth)
     }
 
-    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
         &self.0.ksz8463
     }
 
-    pub fn management_link_status(
+    fn management_link_status(
         &self,
         eth: &eth::Ethernet,
     ) -> Result<ManagementLinkStatus, MgmtError> {
         self.0.management_link_status(eth)
     }
 
-    pub fn management_counters(
+    fn management_counters(
         &self,
         eth: &crate::eth::Ethernet,
     ) -> Result<ManagementCounters, MgmtError> {

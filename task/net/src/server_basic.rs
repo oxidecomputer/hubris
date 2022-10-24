@@ -23,12 +23,12 @@ use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
 use crate::server::NetServer;
-use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
+use crate::{bsp_support, idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
 /// Grabs references to the server storage arrays.  Can only be called once!
-pub fn claim_server_storage_statics() -> (
+fn claim_server_storage_statics() -> (
     &'static mut [NeighborStorage; NEIGHBORS],
     &'static mut [SocketStorage<'static>; SOCKET_COUNT],
     &'static mut [IpCidr; 1],
@@ -45,15 +45,15 @@ pub fn claim_server_storage_statics() -> (
 ////////////////////////////////////////////////////////////////////////////////
 
 /// State for the running network server.
-pub struct ServerImpl<'a> {
+pub struct ServerImpl<'a, B> {
     socket_handles: [SocketHandle; SOCKET_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
     iface: Interface<'static, Smol<'a>>,
-    bsp: crate::bsp::Bsp,
+    bsp: B,
     mac: EthernetAddress,
 }
 
-impl<'a> ServerImpl<'a> {
+impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
     /// Size of buffer that must be allocated to use `dispatch`.
     pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
@@ -62,7 +62,7 @@ impl<'a> ServerImpl<'a> {
         eth: &'a eth::Ethernet,
         ipv6_addr: Ipv6Address,
         mac: EthernetAddress,
-        bsp: crate::bsp::Bsp,
+        bsp: B,
     ) -> Self {
         let eth = Smol::from(eth);
         let (neighbor_cache_storage, socket_storage, ipv6_net) =
@@ -165,7 +165,9 @@ impl<'a> ServerImpl<'a> {
     }
 }
 
-impl NetServer for ServerImpl<'_> {
+impl<B: bsp_support::Bsp> NetServer for ServerImpl<'_, B> {
+    type Bsp = B;
+
     /// Requests that a packet waiting in the rx queue of `socket` be delivered
     /// into loaned memory at `payload`.
     ///
@@ -261,7 +263,7 @@ impl NetServer for ServerImpl<'_> {
         }
     }
 
-    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
+    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut Self::Bsp) {
         (&self.iface.device().eth, &mut self.bsp)
     }
 
@@ -270,7 +272,7 @@ impl NetServer for ServerImpl<'_> {
     }
 }
 
-impl NotificationHandler for ServerImpl<'_> {
+impl<B> NotificationHandler for ServerImpl<'_, B> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for our interrupt or the wake (timer) irq
         ETH_IRQ | 1 << WAKE_IRQ_BIT
