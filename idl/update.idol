@@ -53,7 +53,14 @@ Interface(
 				err: CLike("UpdateError"),
 			),
 		),
-
+		"current_version": (
+			doc: "Get the current image version",
+			args : { },
+			reply : Result(
+				ok: "ImageVersion",
+				err: CLike("UpdateError"),
+			),
+		),
 	}
 
 )
