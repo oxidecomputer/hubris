@@ -57,12 +57,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "array-init"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfb6d71005dc22a708c7496eee5c8dc0300ee47355de6256c3b35b12b5fef596"
-
-[[package]]
 name = "atomic-polyfill"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3707,7 +3701,6 @@ name = "task-power"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "array-init",
  "build-i2c",
  "build-util",
  "cfg-if",
@@ -3716,6 +3709,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
+ "mutable-statics",
  "paste",
  "ringbuf",
  "task-sensor-api",

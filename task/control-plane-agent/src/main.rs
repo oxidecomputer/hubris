@@ -145,10 +145,10 @@ impl NetHandler {
     fn claim_static_resources() -> Self {
         let (tx_buf, rx_buf) = mutable_statics! {
             static mut NET_TX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [0; _];
+                [|| 0; _];
 
             static mut NET_RX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [0; _];
+                [|| 0; _];
         };
         Self {
             net: Net::from(NET.get_task_id()),

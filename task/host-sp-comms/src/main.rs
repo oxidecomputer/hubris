@@ -119,8 +119,8 @@ struct ServerImpl {
 impl ServerImpl {
     fn claim_static_resources() -> Self {
         let (tx_msg_buf, tx_pkt_buf) = mutable_statics! {
-                static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [0; _];
-                static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [0; _];
+                static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [|| 0; _];
+                static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [|| 0; _];
         };
         let sys = sys_api::Sys::from(SYS.get_task_id());
         let uart = configure_uart_device(&sys);

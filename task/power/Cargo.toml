@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-array-init = "2"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 zerocopy = "0.6.1"
 cfg-if = "1"
-drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
+drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
+mutable-statics = {path = "../../lib/mutable-statics"}
 task-sensor-api = {path = "../sensor-api"}
 paste = "1.0.6"
 

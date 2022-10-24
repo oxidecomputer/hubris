@@ -302,8 +302,7 @@ fn main() -> ! {
 
     let i2c_task = I2C.get_task_id();
 
-    let mut devices: [Device; CONTROLLER_CONFIG.len()] =
-        array_init::array_init(|i| CONTROLLER_CONFIG[i].get_device(i2c_task));
+    let devices = claim_devices(i2c_task);
 
     loop {
         hl::sleep_for(1000);
@@ -352,4 +351,18 @@ fn main() -> ! {
             }
         }
     }
+}
+
+/// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.
+///
+/// This function can only be called once, and will panic otherwise!
+fn claim_devices(
+    i2c_task: TaskId,
+) -> &'static mut [Device; CONTROLLER_CONFIG.len()] {
+    let mut iter = CONTROLLER_CONFIG.iter();
+    let dev = mutable_statics::mutable_statics!(
+        static mut DEVICES: [Device; CONTROLLER_CONFIG.len()] =
+            [|| iter.next().unwrap().get_device(i2c_task); _];
+    );
+    dev
 }

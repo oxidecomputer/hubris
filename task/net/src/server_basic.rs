@@ -35,9 +35,9 @@ pub fn claim_server_storage_statics() -> (
 ) {
     mutable_statics! {
         static mut NEIGHBOR_CACHE_STORAGE: [NeighborStorage; NEIGHBORS] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut SOCKET_STORAGE: [SocketStorage<'static>; SOCKET_COUNT] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut IPV6_NET: [IpCidr; 1] = [Ipv6Cidr::default().into(); _];
     }
 }
