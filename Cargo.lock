@@ -2224,6 +2224,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55_areas"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "hex",
+ "num-derive",
+ "num-traits",
+ "packed_struct",
+ "packed_struct_codegen",
+ "parse_int",
+]
+
+[[package]]
 name = "lpc55_flash"
 version = "0.1.0"
 dependencies = [
@@ -2245,7 +2260,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?rev=f7ccf6d607b1a51fcb5f93a9f53d6c2f8366cc5a#f7ccf6d607b1a51fcb5f93a9f53d6c2f8366cc5a"
+source = "git+https://github.com/oxidecomputer/lpc55_support?rev=5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2254,11 +2269,14 @@ dependencies = [
  "ecdsa",
  "elliptic-curve",
  "hex",
+ "lpc55_areas",
  "p256",
  "packed_struct",
  "packed_struct_codegen",
  "rsa",
+ "serde",
  "sha2",
+ "toml",
  "x509-parser",
 ]
 
@@ -2578,6 +2596,15 @@ checksum = "c3d55dedd501dfd02514646e0af4d7016ce36bc12ae177ef52056989966a1eec"
 dependencies = [
  "cortex-m",
  "cortex-m-semihosting 0.3.7",
+]
+
+[[package]]
+name = "parse_int"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82db48cac18f0963b10ddad303fa88447b95bbe0e6dbe3385f98402b63d0cc48"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -4433,6 +4460,7 @@ dependencies = [
  "gnarle",
  "goblin",
  "indexmap",
+ "lpc55_areas",
  "lpc55_sign",
  "memchr",
  "ordered-toml",
