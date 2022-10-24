@@ -37,12 +37,12 @@ pub fn claim_server_storage_statics() -> (
     mutable_statics! {
         static mut NEIGHBOR_CACHE_STORAGE:
             [[NeighborStorage; NEIGHBORS]; VLAN_COUNT] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut SOCKET_STORAGE:
             [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut IPV6_NET: [IpCidr; VLAN_COUNT] =
-            [Ipv6Cidr::default().into(); _];
+            [|| Ipv6Cidr::default().into(); _];
     }
 }
 

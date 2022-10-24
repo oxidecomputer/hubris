@@ -39,117 +39,103 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::sensors;
 
 #[allow(dead_code, clippy::upper_case_acronyms)]
-enum Device {
-    IBC(Bmr491),
-    Core(Raa229618),
-    SerDes(Isl68224),
-    Mem(Raa229618),
-    MemVpp(Isl68224),
-    Sys(Tps546B24A),
-    HotSwap(Adm1272),
-    Fan(Adm1272),
-    HotSwapIO(Max5970),
+enum DeviceType {
+    IBC,
+    Core,
+    SerDes,
+    Mem,
+    MemVpp,
+    Sys,
+    HotSwap(Ohms),
+    Fan(Ohms),
+    HotSwapIO(Ohms),
 }
 
-struct PowerController {
+struct PowerControllerConfig {
     state: PowerState,
-    device: Device,
+    device: DeviceType,
+    builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
     voltage: SensorId,
     current: SensorId,
     temperature: Option<SensorId>,
 }
 
-fn read_temperature<E, T: TempSensor<E>>(
-    device: &T,
-) -> Result<Celsius, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_temperature() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
+enum Device {
+    Bmr491(Bmr491),
+    Raa229618(Raa229618),
+    Isl68224(Isl68224),
+    Tps546B24A(Tps546B24A),
+    Adm1272(Adm1272),
+    Max5970(Max5970),
 }
 
-fn read_current<E, T: CurrentSensor<E>>(
-    device: &T,
-) -> Result<Amperes, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_iout() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
-}
-
-fn read_voltage<E, T: VoltageSensor<E>>(
-    device: &T,
-) -> Result<Volts, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_vout() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
-}
-
-impl PowerController {
+impl Device {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
-        match &self.device {
-            Device::IBC(dev) => read_temperature(dev),
-            Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
-            Device::SerDes(dev) => read_temperature(dev),
-            Device::Sys(dev) => read_temperature(dev),
-            Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
-            _ => panic!(),
-        }
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_temperature()?,
+            Device::Raa229618(dev) => dev.read_temperature()?,
+            Device::Isl68224(dev) => dev.read_temperature()?,
+            Device::Tps546B24A(dev) => dev.read_temperature()?,
+            Device::Adm1272(dev) => dev.read_temperature()?,
+            Device::Max5970(_dev) => return Err(ResponseCode::NoDevice),
+        };
+        Ok(r)
     }
 
     fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        match &self.device {
-            Device::IBC(dev) => read_current(dev),
-            Device::Core(dev) | Device::Mem(dev) => read_current(dev),
-            Device::MemVpp(dev) => read_current(dev),
-            Device::SerDes(dev) => read_current(dev),
-            Device::Sys(dev) => read_current(dev),
-            Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
-            Device::HotSwapIO(dev) => read_current(dev),
-        }
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_iout()?,
+            Device::Raa229618(dev) => dev.read_iout()?,
+            Device::Isl68224(dev) => dev.read_iout()?,
+            Device::Tps546B24A(dev) => dev.read_iout()?,
+            Device::Adm1272(dev) => dev.read_iout()?,
+            Device::Max5970(dev) => dev.read_iout()?,
+        };
+        Ok(r)
     }
 
     fn read_vout(&self) -> Result<Volts, ResponseCode> {
+        let r = match &self {
+            Device::Bmr491(dev) => dev.read_vout()?,
+            Device::Raa229618(dev) => dev.read_vout()?,
+            Device::Isl68224(dev) => dev.read_vout()?,
+            Device::Tps546B24A(dev) => dev.read_vout()?,
+            Device::Adm1272(dev) => dev.read_vout()?,
+            Device::Max5970(dev) => dev.read_vout()?,
+        };
+        Ok(r)
+    }
+}
+
+impl PowerControllerConfig {
+    fn get_device(&self, task: TaskId) -> Device {
+        let (dev, rail) = (self.builder)(task);
         match &self.device {
-            Device::IBC(dev) => read_voltage(dev),
-            Device::Core(dev) | Device::Mem(dev) => read_voltage(dev),
-            Device::MemVpp(dev) => read_voltage(dev),
-            Device::SerDes(dev) => read_voltage(dev),
-            Device::Sys(dev) => read_voltage(dev),
-            Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
-            Device::HotSwapIO(dev) => read_voltage(dev),
+            DeviceType::IBC => Device::Bmr491(Bmr491::new(&dev, rail)),
+            DeviceType::Core | DeviceType::Mem => {
+                Device::Raa229618(Raa229618::new(&dev, rail))
+            }
+            DeviceType::MemVpp | DeviceType::SerDes => {
+                Device::Isl68224(Isl68224::new(&dev, rail))
+            }
+            DeviceType::Sys => Device::Tps546B24A(Tps546B24A::new(&dev, rail)),
+            DeviceType::HotSwap(sense) | DeviceType::Fan(sense) => {
+                Device::Adm1272(Adm1272::new(&dev, *sense))
+            }
+            DeviceType::HotSwapIO(sense) => {
+                Device::Max5970(Max5970::new(&dev, rail, *sense))
+            }
         }
     }
 }
 
 macro_rules! rail_controller {
-    ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
+    ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
-            PowerController {
+            PowerControllerConfig {
                 state: PowerState::$state,
-                device: Device::$which({
-                    let (device, rail) = i2c_config::pmbus::$rail($task);
-                    [<$dev:camel>]::new(&device, rail)
-                }),
+                device: DeviceType::$which,
+                builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
                 temperature: Some(
@@ -162,14 +148,12 @@ macro_rules! rail_controller {
 
 #[allow(unused_macros)]
 macro_rules! rail_controller_notemp {
-    ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
+    ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
-            PowerController {
+            PowerControllerConfig {
                 state: PowerState::$state,
-                device: Device::$which({
-                    let (device, rail) = i2c_config::pmbus::$rail($task);
-                    [<$dev:camel>]::new(&device, rail)
-                }),
+                device: DeviceType::$which,
+                builder:i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
                 temperature: None,
@@ -180,14 +164,12 @@ macro_rules! rail_controller_notemp {
 
 #[allow(unused_macros)]
 macro_rules! adm1272_controller {
-    ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
-            PowerController {
+            PowerControllerConfig {
                 state: PowerState::$state,
-                device: Device::$which({
-                    let (device, _) = i2c_config::pmbus::$rail($task);
-                    Adm1272::new(&device, $rsense)
-                }),
+                device: DeviceType::$which($rsense),
+                builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
                 current: sensors::[<ADM1272_ $rail:upper _CURRENT_SENSOR>],
                 temperature: Some(
@@ -200,14 +182,12 @@ macro_rules! adm1272_controller {
 
 #[allow(unused_macros)]
 macro_rules! max5970_controller {
-    ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
-            PowerController {
+            PowerControllerConfig {
                 state: PowerState::$state,
-                device: Device::$which({
-                    let (device, rail) = i2c_config::power::$rail($task);
-                    Max5970::new(&device, rail, $rsense)
-                }),
+                device: DeviceType::$which($rsense),
+                builder: i2c_config::power::$rail,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
                 temperature: None,
@@ -216,71 +196,46 @@ macro_rules! max5970_controller {
     };
 }
 
-#[cfg(target_board = "gimlet-a")]
-fn controllers() -> [PowerController; 13] {
-    let task = I2C.get_task_id();
-
-    [
-        rail_controller!(task, IBC, bmr491, v12_sys_a2, A2),
-        rail_controller!(task, Core, raa229618, vdd_vcore, A0),
-        rail_controller!(task, Core, raa229618, vddcr_soc, A0),
-        rail_controller!(task, Mem, raa229618, vdd_mem_abcd, A0),
-        rail_controller!(task, Mem, raa229618, vdd_mem_efgh, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, vpp_abcd, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, vpp_efgh, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, v3p3_sys, A0),
-        rail_controller!(task, Sys, tps546B24A, v3p3_sp_a2, A2),
-        rail_controller!(task, Sys, tps546B24A, v1p8_sp3, A0),
-        rail_controller!(task, Sys, tps546B24A, v5_sys_a2, A2),
-        adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
-    ]
-}
-
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
-fn controllers() -> [PowerController; 37] {
-    let task = I2C.get_task_id();
-
-    [
-        rail_controller!(task, IBC, bmr491, v12_sys_a2, A2),
-        rail_controller!(task, Core, raa229618, vdd_vcore, A0),
-        rail_controller!(task, Core, raa229618, vddcr_soc, A0),
-        rail_controller!(task, Mem, raa229618, vdd_mem_abcd, A0),
-        rail_controller!(task, Mem, raa229618, vdd_mem_efgh, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, vpp_abcd, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, vpp_efgh, A0),
-        rail_controller_notemp!(task, MemVpp, isl68224, v1p8_sp3, A0),
-        rail_controller!(task, Sys, tps546B24A, v3p3_sp_a2, A2),
-        rail_controller!(task, Sys, tps546B24A, v3p3_sys_a0, A0),
-        rail_controller!(task, Sys, tps546B24A, v5_sys_a2, A2),
-        rail_controller!(task, Sys, tps546B24A, v1p8_sys_a2, A2),
-        rail_controller!(task, Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
-        adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
-        max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
-        max5970_controller!(task, HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
-        max5970_controller!(task, HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
-        max5970_controller!(task, HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
-        max5970_controller!(task, HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
-    ]
-}
+const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
+    rail_controller!(IBC, bmr491, v12_sys_a2, A2),
+    rail_controller!(Core, raa229618, vdd_vcore, A0),
+    rail_controller!(Core, raa229618, vddcr_soc, A0),
+    rail_controller!(Mem, raa229618, vdd_mem_abcd, A0),
+    rail_controller!(Mem, raa229618, vdd_mem_efgh, A0),
+    rail_controller_notemp!(MemVpp, isl68224, vpp_abcd, A0),
+    rail_controller_notemp!(MemVpp, isl68224, vpp_efgh, A0),
+    rail_controller_notemp!(MemVpp, isl68224, v1p8_sp3, A0),
+    rail_controller!(Sys, tps546B24A, v3p3_sp_a2, A2),
+    rail_controller!(Sys, tps546B24A, v3p3_sys_a0, A0),
+    rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
+    rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
+    rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
+    adm1272_controller!(HotSwap, v54_hs_output, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan, A2, Ohms(0.002)),
+    max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
+    max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
+    max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
+    max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
+];
 
 #[cfg(feature = "gimlet")]
 fn get_state() -> PowerState {
@@ -306,27 +261,23 @@ fn get_state() -> PowerState {
 }
 
 #[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
-fn controllers() -> [PowerController; 15] {
-    let task = I2C.get_task_id();
-
-    [
-        rail_controller!(task, IBC, bmr491, v12p0_sys, A2),
-        adm1272_controller!(task, Fan, v54_fan0, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_fan1, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_fan2, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_fan3, A2, Ohms(0.001)),
-        adm1272_controller!(task, Fan, v54_hsc, A2, Ohms(0.001)),
-        rail_controller!(task, Core, raa229618, v0p8_tf2_vdd_core, A0),
-        rail_controller!(task, Sys, tps546B24A, v3p3_sys, A2),
-        rail_controller!(task, Sys, tps546B24A, v5p0_sys, A2),
-        rail_controller!(task, Core, raa229618, v1p5_tf2_vdda, A0),
-        rail_controller!(task, Core, raa229618, v0p9_tf2_vddt, A0),
-        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdda, A0),
-        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdd, A0),
-        rail_controller!(task, Sys, tps546B24A, v1p0_mgmt, A2),
-        rail_controller!(task, Sys, tps546B24A, v1p8_sys, A2),
-    ]
-}
+const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
+    rail_controller!(IBC, bmr491, v12p0_sys, A2),
+    adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
+    rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
+    rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
+    rail_controller!(Sys, tps546B24A, v5p0_sys, A2),
+    rail_controller!(Core, raa229618, v1p5_tf2_vdda, A0),
+    rail_controller!(Core, raa229618, v0p9_tf2_vddt, A0),
+    rail_controller!(SerDes, isl68224, v1p8_tf2_vdda, A0),
+    rail_controller!(SerDes, isl68224, v1p8_tf2_vdd, A0),
+    rail_controller!(Sys, tps546B24A, v1p0_mgmt, A2),
+    rail_controller!(Sys, tps546B24A, v1p8_sys, A2),
+];
 
 #[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
 fn get_state() -> PowerState {
@@ -349,14 +300,16 @@ fn get_state() -> PowerState {
 fn main() -> ! {
     let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
 
-    let mut controllers = controllers();
+    let i2c_task = I2C.get_task_id();
+
+    let devices = claim_devices(i2c_task);
 
     loop {
         hl::sleep_for(1000);
 
         let state = get_state();
 
-        for c in &mut controllers {
+        for (c, dev) in CONTROLLER_CONFIG.iter().zip(devices.iter_mut()) {
             if c.state == PowerState::A0 && state != PowerState::A0 {
                 sensor.nodata(c.voltage, NoData::DeviceOff).unwrap();
                 sensor.nodata(c.current, NoData::DeviceOff).unwrap();
@@ -369,7 +322,7 @@ fn main() -> ! {
             }
 
             if let Some(id) = c.temperature {
-                match c.read_temperature() {
+                match dev.read_temperature() {
                     Ok(reading) => {
                         sensor.post(id, reading.0).unwrap();
                     }
@@ -379,7 +332,7 @@ fn main() -> ! {
                 }
             }
 
-            match c.read_iout() {
+            match dev.read_iout() {
                 Ok(reading) => {
                     sensor.post(c.current, reading.0).unwrap();
                 }
@@ -388,7 +341,7 @@ fn main() -> ! {
                 }
             }
 
-            match c.read_vout() {
+            match dev.read_vout() {
                 Ok(reading) => {
                     sensor.post(c.voltage, reading.0).unwrap();
                 }
@@ -398,4 +351,18 @@ fn main() -> ! {
             }
         }
     }
+}
+
+/// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.
+///
+/// This function can only be called once, and will panic otherwise!
+fn claim_devices(
+    i2c_task: TaskId,
+) -> &'static mut [Device; CONTROLLER_CONFIG.len()] {
+    let mut iter = CONTROLLER_CONFIG.iter();
+    let dev = mutable_statics::mutable_statics!(
+        static mut DEVICES: [Device; CONTROLLER_CONFIG.len()] =
+            [|| iter.next().unwrap().get_device(i2c_task); _];
+    );
+    dev
 }
