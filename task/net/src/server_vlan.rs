@@ -9,6 +9,7 @@
 
 use drv_stm32h7_eth as eth;
 
+use core::cell::Cell;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
@@ -23,7 +24,7 @@ use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
 use crate::server::NetServer;
-use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
+use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
@@ -36,12 +37,12 @@ pub fn claim_server_storage_statics() -> (
     mutable_statics! {
         static mut NEIGHBOR_CACHE_STORAGE:
             [[NeighborStorage; NEIGHBORS]; VLAN_COUNT] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut SOCKET_STORAGE:
             [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT] =
-            [Default::default(); _];
+            [|| Default::default(); _];
         static mut IPV6_NET: [IpCidr; VLAN_COUNT] =
-            [Ipv6Cidr::default().into(); _];
+            [|| Ipv6Cidr::default().into(); _];
     }
 }
 
@@ -50,6 +51,7 @@ pub fn claim_server_storage_statics() -> (
 pub struct VLanEthernet<'a> {
     pub eth: &'a eth::Ethernet,
     pub vid: u16,
+    mac_rx: Cell<bool>,
 }
 
 impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
@@ -58,6 +60,7 @@ impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
 
     fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
         if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
+            self.mac_rx.set(true);
             Some((
                 VLanRxToken(self.eth, self.vid),
                 VLanTxToken(self.eth, self.vid),
@@ -74,7 +77,7 @@ impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
         }
     }
     fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-        self.eth.capabilities()
+        crate::ethernet_capabilities(self.eth)
     }
 }
 
@@ -170,6 +173,7 @@ impl<'a> ServerImpl<'a> {
                 VLanEthernet {
                     eth,
                     vid: vid_iter.next().unwrap(),
+                    mac_rx: Cell::new(false),
                 },
                 &mut socket_storage[..],
             );
@@ -219,13 +223,19 @@ impl<'a> ServerImpl<'a> {
         }
     }
 
-    pub fn poll(&mut self, t: u64) -> smoltcp::Result<bool> {
+    pub(crate) fn poll(&mut self, t: u64) -> smoltcp::Result<crate::Activity> {
         let t = smoltcp::time::Instant::from_millis(t as i64);
-        let mut any_activity = false;
+        // Do not be tempted to use `Iterator::any` here, it short circuits and
+        // we really do want to poll all of them.
+        let mut ip = false;
+        let mut mac_rx = false;
         for iface in &mut self.ifaces {
-            any_activity |= iface.poll(t)?;
+            ip |= iface.poll(t)?;
+            // Test and clear our receive activity flag.
+            mac_rx |= iface.device().mac_rx.take();
         }
-        Ok(any_activity)
+
+        Ok(crate::Activity { ip, mac_rx })
     }
 
     /// Iterate over sockets, waking any that can do work.  A task can do work
@@ -400,7 +410,7 @@ impl NetServer for ServerImpl<'_> {
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for our interrupt or the wake (timer) irq
-        ETH_IRQ | WAKE_IRQ
+        ETH_IRQ | 1 << WAKE_IRQ_BIT
     }
 
     fn handle_notification(&mut self, bits: u32) {

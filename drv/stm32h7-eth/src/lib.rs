@@ -258,6 +258,12 @@ impl Ethernet {
         }
     }
 
+    /// Maximum number of packets that can be sent in a burst, assuming the
+    /// queue is totally clear.
+    pub fn max_tx_burst_len(&self) -> usize {
+        self.tx_ring.len()
+    }
+
     // This function is identical in the VLAN and non-VLAN cases, so it lives
     // in the main impl block
     pub fn can_send(&self) -> bool {
@@ -535,107 +541,5 @@ impl Ethernet {
         let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
         self.tx_notify();
         Some(result)
-    }
-}
-
-#[cfg(all(not(feature = "vlan"), feature = "with-smoltcp"))]
-mod tokens {
-    use super::Ethernet;
-    pub struct OurRxToken<'a>(pub &'a Ethernet);
-    impl<'a> OurRxToken<'a> {
-        pub fn new(eth: &'a Ethernet) -> Self {
-            Self(eth)
-        }
-    }
-    impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
-        fn consume<R, F>(
-            self,
-            _timestamp: smoltcp::time::Instant,
-            f: F,
-        ) -> smoltcp::Result<R>
-        where
-            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-        {
-            self.0.recv(f)
-        }
-    }
-
-    pub struct OurTxToken<'a>(pub &'a Ethernet);
-    impl<'a> OurTxToken<'a> {
-        pub fn new(eth: &'a Ethernet) -> Self {
-            Self(eth)
-        }
-    }
-    impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
-        fn consume<R, F>(
-            self,
-            _timestamp: smoltcp::time::Instant,
-            len: usize,
-            f: F,
-        ) -> smoltcp::Result<R>
-        where
-            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-        {
-            self.0
-                .try_send(len, f)
-                .expect("TX token existed without descriptor available")
-        }
-    }
-
-    impl<'a> smoltcp::phy::Device<'a> for &Ethernet {
-        type RxToken = OurRxToken<'a>;
-        type TxToken = OurTxToken<'a>;
-
-        fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-            // Note: smoltcp wants a transmit token every time it receives a
-            // packet. This is because it automatically handles stuff like
-            // NDP by itself, but means that if the tx queue fills up, we stop
-            // being able to receive.
-            //
-            // Note that the can_recv and can_send checks remain valid because
-            // the token mutably borrows the phy.
-            if self.can_recv() && self.can_send() {
-                Some((OurRxToken(self), OurTxToken(self)))
-            } else {
-                None
-            }
-        }
-
-        fn transmit(&'a mut self) -> Option<Self::TxToken> {
-            if self.can_send() {
-                Some(OurTxToken(self))
-            } else {
-                None
-            }
-        }
-
-        fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-            (self as &Ethernet).capabilities()
-        }
-    }
-}
-
-// This function wants to be called in both VLAN and non-VLAN modes, so we
-// implement it as part of the struct, then call this function in the
-// `impl Device` block.
-#[cfg(feature = "with-smoltcp")]
-impl Ethernet {
-    pub fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-        let mut caps = smoltcp::phy::DeviceCapabilities::default();
-        caps.max_transmission_unit = 1514;
-        caps.max_burst_size = Some(1514 * self.tx_ring.len());
-
-        use smoltcp::phy::Checksum;
-        caps.checksum.ipv4 = Checksum::None;
-        caps.checksum.udp = Checksum::None;
-        #[cfg(feature = "ipv4")]
-        {
-            caps.checksum.icmpv4 = Checksum::None;
-        }
-        #[cfg(feature = "ipv6")]
-        {
-            caps.checksum.icmpv6 = Checksum::None;
-        }
-        caps
     }
 }

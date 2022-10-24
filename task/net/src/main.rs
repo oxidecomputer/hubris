@@ -46,6 +46,8 @@ mod idl {
 }
 
 use core::sync::atomic::{AtomicU32, Ordering};
+use enum_map::Enum;
+use multitimer::{Multitimer, Repeat};
 use zerocopy::AsBytes;
 
 #[cfg(feature = "h743")]
@@ -98,11 +100,15 @@ const ETH_IRQ: u32 = 1 << 0;
 /// Notification mask for MDIO timer; must match configuration in app.toml.
 const MDIO_TIMER_IRQ: u32 = 1 << 1;
 
-/// Notification mask for optional periodic logging
-const WAKE_IRQ: u32 = 1 << 2;
+/// Notification bit for timers.
+const WAKE_IRQ_BIT: u8 = 2;
 
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
+
+/// How long to wait with no received packets before we decide the driver is
+/// b0rked and restart it.
+const RX_WATCHDOG_INTERVAL: u64 = 60_000;
 
 /////////////////////////////////////////////////////////////////////////////
 // Main driver loop.
@@ -171,37 +177,82 @@ fn main() -> ! {
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
 
-    // Some of the BSPs include a 'wake' function which allows for periodic
-    // logging.  We schedule a wake-up before entering the idol_runtime dispatch
-    // loop, to make sure that this gets called periodically.
-    let mut wake_target_time = sys_get_timer().now;
+    // We use two timers:
+    #[derive(Copy, Clone, Enum)]
+    enum Timers {
+        Wake,
+        Watchdog,
+    }
+    let mut multitimer = Multitimer::<Timers>::new(WAKE_IRQ_BIT);
+
+    let now = sys_get_timer().now;
+    if let Some(wake_interval) = bsp::WAKE_INTERVAL {
+        // Some of the BSPs include a 'wake' function which allows for periodic
+        // logging.  We schedule a wake-up before entering the idol_runtime
+        // dispatch loop, to make sure that this gets called periodically.
+        multitimer.set_timer(
+            Timers::Wake,
+            now,
+            Some(Repeat::AfterWake(wake_interval)),
+        );
+    }
+
+    // Start the watchdog timer running.
+    multitimer.set_timer(Timers::Watchdog, now + RX_WATCHDOG_INTERVAL, None);
 
     // Go!
     loop {
         ITER_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // Call into smoltcp.
-        let poll_result = server.poll(userlib::sys_get_timer().now);
-        let any_activity = poll_result.unwrap_or(true);
+        let now = sys_get_timer().now;
+        let poll_result = server.poll(now);
+        // If smoltcp reported an error we'll treat the activity flags as true
+        // so that we immediately retry.
+        let activity = poll_result.unwrap_or(Activity {
+            ip: true,
+            mac_rx: true,
+        });
 
-        if any_activity {
+        if activity.mac_rx {
+            // Whenever we observe activity we bump the timer forward. Because
+            // we're going to poll the timer below (after doing this) and we
+            // always poll and immediately consume iter_fired, this will prevent
+            // the timer from firing this iteration.
+            multitimer.set_timer(
+                Timers::Watchdog,
+                now + RX_WATCHDOG_INTERVAL,
+                None,
+            );
+        }
+
+        if activity.ip {
             // Ask the server to iterate over sockets looking for work
             server.wake_sockets();
         } else {
-            // No work to do immediately. Wait for an ethernet IRQ or an
-            // incoming message, or for a certain amount of time to pass.
-            if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-                let now = sys_get_timer().now;
-                if now >= wake_target_time {
-                    server.wake();
-                    wake_target_time = now + wake_interval;
+            multitimer.poll_now();
+            for t in multitimer.iter_fired() {
+                match t {
+                    Timers::Wake => {
+                        server.wake();
+                        // timer is set to auto-repeat
+                    }
+                    Timers::Watchdog => panic!("MAC RX watchdog"),
                 }
-                sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
             let mut msgbuf = [0u8; ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }
+}
+
+/// Struct used to describe any activity during `poll`.
+pub(crate) struct Activity {
+    /// Did the IP stack do anything? (i.e. do we need to process socket events)
+    ip: bool,
+    /// Did the MAC have anything available to receive? (i.e. is it still
+    /// working)
+    mac_rx: bool,
 }
 
 /// We can map an Ethernet MAC address into the IPv6 space as follows.
@@ -235,6 +286,19 @@ fn link_local_iface_addr(
     bytes[13..16].copy_from_slice(&mac.0[3..6]);
 
     smoltcp::wire::Ipv6Address(bytes)
+}
+
+fn ethernet_capabilities(
+    eth: &drv_stm32h7_eth::Ethernet,
+) -> smoltcp::phy::DeviceCapabilities {
+    let mut caps = smoltcp::phy::DeviceCapabilities::default();
+    caps.max_transmission_unit = 1514;
+    caps.max_burst_size = Some(1514 * eth.max_tx_burst_len());
+
+    // We do not rely on _any_ of the IP checksum features, so we can leave
+    // caps.checksum at default.
+
+    caps
 }
 
 // Place to namespace all the bits generated by our config processor.

@@ -11,17 +11,19 @@ serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 stm32h7 = {version = "0.14", default-features = false}
 zerocopy = "0.6"
+enum-map = "2.4.1"
 
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api", optional = true}
-drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6"]}
+drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["ipv6"]}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api"}
 drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
+multitimer = {path = "../../lib/multitimer"}
 mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
 task-jefe-api = {path = "../jefe-api"}

@@ -1332,7 +1332,6 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "cortex-m",
- "smoltcp",
  "stm32h7",
  "userlib",
 ]
@@ -1666,6 +1665,26 @@ name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
+name = "enum-map"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5a56d54c8dd9b3ad34752ed197a4eb2a6601bc010808eb097a04a58ae4c43e1"
+dependencies = [
+ "enum-map-derive",
+]
+
+[[package]]
+name = "enum-map-derive"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9045e2676cd5af83c3b167d917b0a5c90a4d8e266e2683d6631b235c457fc27"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "ff"
@@ -2314,6 +2333,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "multitimer"
+version = "0.1.0"
+dependencies = [
+ "enum-map",
+ "userlib",
 ]
 
 [[package]]
@@ -3609,10 +3636,12 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "drv-stm32xx-uid",
  "drv-user-leds-api",
+ "enum-map",
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
  "ksz8463",
+ "multitimer",
  "mutable-statics",
  "num-traits",
  "proc-macro2",
@@ -3682,6 +3711,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
+ "mutable-statics",
  "paste",
  "ringbuf",
  "task-sensor-api",
