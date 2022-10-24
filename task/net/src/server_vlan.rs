@@ -24,12 +24,12 @@ use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
 use crate::server::NetServer;
-use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
+use crate::{bsp_support, idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
 /// Grabs references to the server storage arrays.  Can only be called once!
-pub fn claim_server_storage_statics() -> (
+fn claim_server_storage_statics() -> (
     &'static mut [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
     &'static mut [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT],
     &'static mut [IpCidr; VLAN_COUNT],
@@ -117,18 +117,18 @@ impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
 ////////////////////////////////////////////////////////////////////////////////
 
 /// State for the running network server
-pub struct ServerImpl<'a> {
+pub struct ServerImpl<'a, B> {
     eth: &'a eth::Ethernet,
 
     socket_handles: [[SocketHandle; SOCKET_COUNT]; VLAN_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
     ifaces: [Interface<'static, VLanEthernet<'a>>; VLAN_COUNT],
-    bsp: crate::bsp::Bsp,
+    bsp: B,
 
     mac: EthernetAddress,
 }
 
-impl<'a> ServerImpl<'a> {
+impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
     /// Size of buffer that must be allocated to use `dispatch`.
     pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
@@ -137,7 +137,7 @@ impl<'a> ServerImpl<'a> {
         eth: &'a eth::Ethernet,
         mut ipv6_addr: Ipv6Address,
         mut mac: EthernetAddress,
-        bsp: crate::bsp::Bsp,
+        bsp: B,
     ) -> Self {
         // Local storage; this will end up owned by the returned ServerImpl.
         let mut socket_handles = [[Default::default(); generated::SOCKET_COUNT];
@@ -289,7 +289,9 @@ impl<'a> ServerImpl<'a> {
 }
 
 /// Implementation of the Net Idol interface.
-impl NetServer for ServerImpl<'_> {
+impl<B: bsp_support::Bsp> NetServer for ServerImpl<'_, B> {
+    type Bsp = B;
+
     /// Requests that a packet waiting in the rx queue of `socket` be delivered
     /// into loaned memory at `payload`.
     ///
@@ -398,7 +400,7 @@ impl NetServer for ServerImpl<'_> {
         }
     }
 
-    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
+    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut Self::Bsp) {
         (self.eth, &mut self.bsp)
     }
 
@@ -407,7 +409,7 @@ impl NetServer for ServerImpl<'_> {
     }
 }
 
-impl NotificationHandler for ServerImpl<'_> {
+impl<B> NotificationHandler for ServerImpl<'_, B> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for our interrupt or the wake (timer) irq
         ETH_IRQ | 1 << WAKE_IRQ_BIT
