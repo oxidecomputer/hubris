@@ -11,11 +11,12 @@ use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
+use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
-    sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
-    PowerState, ResponseError, SpComponent, SpMessage, SpMessageKind, SpPort,
-    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
+    IgnitionCommand, IgnitionState, PowerState, ResponseError, SpComponent,
+    SpMessage, SpMessageKind, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use heapless::Deque;
 use ringbuf::ringbuf_entry_root;
@@ -495,6 +496,15 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
     ) -> Result<Infallible, ResponseError> {
         self.common.reset_trigger()
+    }
+
+    fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
+        self.common.inventory_num_devices() as u32
+    }
+
+    fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
+        self.common.inventory_device_description(index as usize)
     }
 }
 

@@ -134,13 +134,21 @@ task-slots = ["sys",
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192}
+max-sizes = {flash = 65536, ram = 8192}
 stacksize = 2048
 start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys", "sequencer", "auxflash"]
+task-slots = [
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "sequencer",
+    "auxflash",
+    "validate",
+]
 features = ["sidecar", "vlan", "auxflash"]
 
 [tasks.udpecho]

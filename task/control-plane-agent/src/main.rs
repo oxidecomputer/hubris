@@ -16,6 +16,7 @@ use task_net_api::{
 };
 use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
 
+mod inventory;
 mod mgs_common;
 mod update;
 
@@ -90,6 +91,7 @@ enum MgsMessage {
     GetPowerState,
     SetPowerState(PowerState),
     ResetPrepare,
+    Inventory,
 }
 
 ringbuf!(Log, 16, Log::Empty);

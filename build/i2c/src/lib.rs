@@ -171,6 +171,12 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
+impl I2cSensors {
+    fn num_sensors(&self) -> usize {
+        self.temperature + self.power + self.current + self.voltage + self.speed
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
@@ -871,6 +877,9 @@ impl ConfigGenerator {
             match index {{"##
         )?;
 
+        // The ordering / index values of this `match` must match the ordering
+        // returned by `device_descriptions()` below: if we change the ordering
+        // here, it must be updated there as well.
         for (index, device) in self.devices.iter().enumerate() {
             if drivers.get(&device.device).is_some() {
                 let driver = device.device.to_case(Case::UpperCamel);
@@ -1216,4 +1225,31 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
     file.write_all(g.output.as_bytes())?;
 
     Ok(())
+}
+
+pub struct I2cDeviceDescription {
+    pub device: String,
+    pub description: String,
+    pub num_measurement_channels: usize,
+}
+
+///
+/// Returns a list of I2C device descriptions.
+///
+/// The order of device descriptions matches the indexing used in the generated
+/// `validate()` command.
+///
+pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
+    let g = ConfigGenerator::new(Disposition::Validation);
+
+    // Matches the ordering of the `match` produced by `generate_validation()`
+    // above; if we change the order here, it must change there as well.
+    g.devices.into_iter().map(|device| I2cDeviceDescription {
+        device: device.device,
+        description: device.description,
+        num_measurement_channels: device
+            .sensors
+            .as_ref()
+            .map_or(0, I2cSensors::num_sensors),
+    })
 }

@@ -2,8 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Log, MgsMessage};
+use crate::{inventory::Inventory, Log, MgsMessage};
 use core::convert::Infallible;
+use gateway_messages::sp_impl::DeviceDescription;
 use gateway_messages::{DiscoverResponse, ResponseError, SpPort, SpState};
 use ringbuf::ringbuf_entry_root;
 
@@ -13,12 +14,14 @@ const VERSION: u32 = 1;
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
     reset_requested: bool,
+    inventory: Inventory,
 }
 
 impl MgsCommon {
     pub(crate) fn claim_static_resources() -> Self {
         Self {
             reset_requested: false,
+            inventory: Inventory::new(),
         }
     }
 
@@ -72,5 +75,27 @@ impl MgsCommon {
 
         // If `request_reset()` returns, something has gone very wrong.
         panic!()
+    }
+
+    /// Number of devices returned in the inventory of this SP.
+    pub(crate) fn inventory_num_devices(&self) -> u32 {
+        self.inventory.num_devices() as u32
+    }
+
+    /// Get the description for the given device.
+    ///
+    /// This function should never fail, as the device inventory should be
+    /// static. Acquiring the presence of a device may fail, but that should be
+    /// indicated inline via the returned description's `presence` field.
+    ///
+    /// # Panics
+    ///
+    /// Implementors are allowed to panic if `index` is not in range (i.e., is
+    /// greater than or equal to the value returned by `num_devices()`).
+    pub(crate) fn inventory_device_description(
+        &mut self,
+        index: usize,
+    ) -> DeviceDescription<'_> {
+        self.inventory.device_description(index)
     }
 }
