@@ -15,6 +15,7 @@
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
 //! - [`mcp9808`]: MCP9808 temperature sensor
+//! - [`mwocp64_eeprom`]: MWOCP64 power shelf EEPROM
 //! - [`nvme_bmc`]: NVMe basic management control
 //! - [`pca9538`]: PCA9538 GPIO expander
 //! - [`pct2075`]: PCT2075 temperature sensor
@@ -161,6 +162,7 @@ pub mod at24csw080;
 pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
+pub mod m24c02;
 pub mod max31790;
 pub mod max5970;
 pub mod max6634;
