@@ -1,12 +1,12 @@
-name = "psc-a"
+name = "psc-b"
 target = "thumbv7em-none-eabihf"
-board = "psc-a"
+board = "psc-b"
 chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4176}
+requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -73,7 +73,7 @@ name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
-uses = ["i2c2", "i2c3", "i2c4"]
+uses = ["i2c2", "i2c3"]
 start = true
 task-slots = ["sys"]
 
@@ -82,8 +82,6 @@ task-slots = ["sys"]
 "i2c2.error" = 0b0000_0010
 "i2c3.event" = 0b0000_0100
 "i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -102,14 +100,6 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
 task-slots = ["sys", "i2c_driver"]
-
-[tasks.validate]
-name = "task-validate"
-priority = 3
-max-sizes = {flash = 16384, ram = 4096 }
-stacksize = 1000
-start = true
-task-slots = ["i2c_driver"]
 
 [tasks.net]
 name = "task-net"
@@ -132,13 +122,7 @@ start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = [
-    "jefe",
-    "net",
-    "update_server",
-    "sys",
-    "validate",
-]
+task-slots = ["jefe", "net", "update_server", "sys"]
 features = ["psc", "vlan"]
 
 [tasks.udpecho]
@@ -191,8 +175,8 @@ start = true
 controller = 2
 
 #
-# SP_I2C_LOCAL_SDA
-# SP_I2C_LOCAL_SCL
+# I2C_SP_TO_LOCAL_SDA
+# I2C_SP_TO_LOCAL_SCL
 #
 [config.i2c.controllers.ports.F]
 name = "local"
@@ -206,34 +190,13 @@ pins = [ { pins = [ 0, 1 ], af = 4 } ]
 controller = 3
 
 #
-# SP_TO_PS_I2C_BP_SCL
-# SP_TO_PS_I2C_BP_SDA
+# I2C_SP_TO_PS_SCL
+# I2C_SP_TO_PS_SDA
 #
 [config.i2c.controllers.ports.H]
 name = "backplane"
 description = "Backplane bus"
 pins = [ { pins = [ 7, 8 ], af = 4 } ]
-
-#
-# I2C4: Status bus
-#
-[[config.i2c.controllers]]
-controller = 4
-
-#
-# I2C_SP_TO_STATUS_SCL
-# I2C_SP_TO_STATUS_SDA
-#
-[config.i2c.controllers.ports.B]
-name = "status"
-description = "Status bus"
-pins = [ { pins = [ 8, 9 ], af = 6 } ]
-
-[[config.i2c.devices]]
-bus = "local"
-address = 0b1000_001
-device = "ina226"
-description = "Current sensor"
 
 [[config.i2c.devices]]
 bus = "local"
@@ -332,18 +295,6 @@ name = "psu5mcu"
 address = 0b1011_101
 device = "psumcu"
 description = "PSU 5 MCU"
-
-[[config.i2c.devices]]
-bus = "status"
-address = 0b0100_000
-device = "max7311"
-description = "I2C expander"
-
-[[config.i2c.devices]]
-bus = "status"
-address = 0b0100_100
-device = "max7311"
-description = "I2C expander"
 
 [config.spi.spi2]
 controller = 2
