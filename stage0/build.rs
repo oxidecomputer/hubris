@@ -4,7 +4,6 @@
 
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = build_util::out_dir();
