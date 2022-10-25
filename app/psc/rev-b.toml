@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 4176}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -101,6 +101,14 @@ stacksize = 1024
 start = true
 task-slots = ["sys", "i2c_driver"]
 
+[tasks.validate]
+name = "task-validate"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.net]
 name = "task-net"
 stacksize = 4640
@@ -122,7 +130,13 @@ start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["jefe", "net", "update_server", "sys"]
+task-slots = [
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "validate",
+]
 features = ["psc", "vlan"]
 
 [tasks.udpecho]
