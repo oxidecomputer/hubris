@@ -49,10 +49,14 @@ fn generate_net_config(
         writeln!(
             out,
             "{}",
-            generate_socket_state(name, socket, config.vlan.map(|v| v.count))?
+            generate_socket_state(
+                name,
+                socket,
+                config.vlan.map(|v| v.count).unwrap_or(1)
+            )?
         )?;
     }
-    writeln!(out, "{}", generate_state_struct(config)?)?;
+    writeln!(out, "{}", generate_state_struct(config))?;
     writeln!(out, "{}", generate_constructor(config)?)?;
     writeln!(out, "{}", generate_owner_info(config)?)?;
     writeln!(out, "{}", generate_port_table(config)?)?;
@@ -112,14 +116,14 @@ fn generate_owner_info(
 fn generate_socket_state(
     name: &str,
     config: &SocketConfig,
-    vlan_count: Option<usize>,
+    vlan_count: usize,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     if config.kind != "udp" {
         return Err("unsupported socket kind".into());
     }
 
-    let tx = generate_buffers(name, "TX", &config.tx, vlan_count)?;
-    let rx = generate_buffers(name, "RX", &config.rx, vlan_count)?;
+    let tx = generate_buffers(name, "TX", &config.tx, vlan_count);
+    let rx = generate_buffers(name, "RX", &config.rx, vlan_count);
     Ok(quote::quote! {
         #tx
         #rx
@@ -130,8 +134,8 @@ fn generate_buffers(
     name: &str,
     dir: &str,
     config: &BufSize,
-    vlan_count: Option<usize>,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+    vlan_count: usize,
+) -> TokenStream {
     let pktcnt = config.packets;
     let bytecnt = config.bytes;
     let upname = name.to_ascii_uppercase();
@@ -139,41 +143,25 @@ fn generate_buffers(
         syn::parse_str(&format!("SOCK_{}_HDR_{}", dir, upname)).unwrap();
     let bufname: syn::Ident =
         syn::parse_str(&format!("SOCK_{}_DAT_{}", dir, upname)).unwrap();
-    Ok(if let Some(vlan_count) = vlan_count {
-        quote::quote! {
-            static mut #hdrname: [[UdpPacketMetadata; #pktcnt]; #vlan_count] = [
-                [UdpPacketMetadata::EMPTY; #pktcnt]; #vlan_count
-            ];
-            static mut #bufname: [[u8; #bytecnt]; #vlan_count] = [[0u8; #bytecnt]; #vlan_count];
-        }
-    } else {
-        quote::quote! {
-            static mut #hdrname: [UdpPacketMetadata; #pktcnt] =
-                [UdpPacketMetadata::EMPTY; #pktcnt];
-            static mut #bufname: [u8; #bytecnt] = [0u8; #bytecnt];
-        }
-    })
+    quote::quote! {
+        static mut #hdrname: [[UdpPacketMetadata; #pktcnt]; #vlan_count] = [
+            [UdpPacketMetadata::EMPTY; #pktcnt]; #vlan_count
+        ];
+        static mut #bufname: [[u8; #bytecnt]; #vlan_count] = [[0u8; #bytecnt]; #vlan_count];
+    }
 }
 
-fn generate_state_struct(
-    config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+fn generate_state_struct(config: &NetConfig) -> TokenStream {
     let n = config.sockets.len();
-    Ok(if let Some(vlan_count) = config.vlan.map(|v| v.count) {
-        quote::quote! {
-            pub(crate) struct Sockets<'a>(pub [[UdpSocket<'a>; #n]; #vlan_count]);
-        }
-    } else {
-        quote::quote! {
-            pub(crate) struct Sockets<'a>(pub [UdpSocket<'a>; #n]);
-        }
-    })
+    quote::quote! {
+        pub(crate) struct Sockets<'a, const N: usize>(pub [[UdpSocket<'a>; #n]; N]);
+    }
 }
 
 fn generate_constructor(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
-    let name_to_sockets = |name: &String, i: Option<usize>| {
+    let name_to_sockets = |name: &String, i: usize| {
         let upname = name.to_ascii_uppercase();
         let rxhdrs: syn::Ident =
             syn::parse_str(&format!("SOCK_RX_HDR_{}", upname)).unwrap();
@@ -184,59 +172,37 @@ fn generate_constructor(
         let txbytes: syn::Ident =
             syn::parse_str(&format!("SOCK_TX_DAT_{}", upname)).unwrap();
 
-        if let Some(i) = i {
-            quote::quote! {
-                UdpSocket::new(
-                    UdpSocketBuffer::new(
+        quote::quote! {
+            UdpSocket::new(
+                UdpSocketBuffer::new(
                     unsafe { &mut #rxhdrs[#i][..] },
                     unsafe { &mut #rxbytes[#i][..] },
-                    ),
-                    UdpSocketBuffer::new(
+                ),
+                UdpSocketBuffer::new(
                     unsafe { &mut #txhdrs[#i][..] },
                     unsafe { &mut #txbytes[#i][..] },
-                    ),
-                )
-            }
-        } else {
-            quote::quote! {
-                UdpSocket::new(
-                    UdpSocketBuffer::new(
-                       unsafe { &mut #rxhdrs[..] },
-                       unsafe { &mut #rxbytes[..] },
-                    ),
-                    UdpSocketBuffer::new(
-                        unsafe { &mut #txhdrs[..] },
-                        unsafe { &mut #txbytes[..] },
-                    ),
-                )
-            }
+                ),
+            )
         }
     };
-    let sockets = if let Some(vlan_count) = config.vlan.map(|v| v.count) {
-        (0..vlan_count)
-            .map(|i| {
-                let s = config
-                    .sockets
-                    .keys()
-                    .map(|n| name_to_sockets(n, Some(i)))
-                    .collect::<Vec<_>>();
-                quote::quote! {
-                    [
-                        #( #s ),*
-                    ]
-                }
-            })
-            .collect::<Vec<_>>()
-    } else {
-        config
-            .sockets
-            .keys()
-            .map(|n| name_to_sockets(n, None))
-            .collect::<Vec<_>>()
-    };
+    let vlan_count = config.vlan.map(|v| v.count).unwrap_or(1);
+    let sockets = (0..vlan_count)
+        .map(|i| {
+            let s = config
+                .sockets
+                .keys()
+                .map(|n| name_to_sockets(n, i))
+                .collect::<Vec<_>>();
+            quote::quote! {
+                [
+                    #( #s ),*
+                ]
+            }
+        })
+        .collect::<Vec<_>>();
     Ok(quote::quote! {
         static CTOR_FLAG: AtomicBool = AtomicBool::new(false);
-        pub(crate) fn construct_sockets() -> Sockets<'static> {
+        pub(crate) fn construct_sockets() -> Sockets<'static, #vlan_count> {
             let second_time = CTOR_FLAG.swap(true, Ordering::Relaxed);
             if second_time { panic!() }
 
