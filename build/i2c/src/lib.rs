@@ -1045,7 +1045,6 @@ impl ConfigGenerator {
         let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
             let id = sensors.len();
             sensors.push(kind);
-            println!("checking {kind} {:?}[{idx}]", d);
 
             // In most cases, when the power member variable is present, sensors
             // have a one-to-one association with power rails.  However, this

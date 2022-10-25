@@ -3907,6 +3907,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-thermal-sensors"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-uartecho"
 version = "0.1.0"
 dependencies = [

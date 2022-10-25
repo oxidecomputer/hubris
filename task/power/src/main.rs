@@ -81,7 +81,10 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
             Device::Max5970(..) | Device::Mwocp68(..) => {
-                return Err(ResponseCode::NoDevice)
+                // The MWOCP68 actually has three temperature sensors, but they
+                // aren't associated with power rails, so we don't read them
+                // here.
+                return Err(ResponseCode::NoDevice);
             }
         };
         Ok(r)

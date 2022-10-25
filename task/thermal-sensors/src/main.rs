@@ -1,0 +1,166 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! Temperature and fan monitoring loop
+
+#![no_std]
+#![no_main]
+
+use drv_i2c_api::ResponseCode;
+use drv_i2c_devices::mwocp68::Mwocp68;
+use ringbuf::*;
+use task_sensor_api::{Sensor, SensorError, SensorId};
+use userlib::*;
+
+task_slot!(I2C, i2c_driver);
+task_slot!(SENSOR, sensor);
+
+/// Type containing all of our temperature sensor types, so we can store them
+/// generically in an array.  These are all `I2cDevice`s, so functions on
+/// this `enum` return an `drv_i2c_api::ResponseCode`.
+#[allow(dead_code, clippy::upper_case_acronyms)]
+pub enum Device {
+    Mwocp68,
+}
+
+/// Represents a sensor in the system.
+///
+/// The sensor includes a device type, used to decide how to read it;
+/// a free function that returns the raw `I2cDevice`, so that this can be
+/// `const`); and the sensor ID, to post data to the `sensors` task.
+pub struct TemperatureSensor {
+    device: Device,
+    builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+    temperature_sensors: &'static [SensorId],
+    speed_sensors: &'static [SensorId],
+}
+
+impl TemperatureSensor {
+    pub const fn new(
+        device: Device,
+        builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
+        temperature_sensors: &'static [SensorId],
+        speed_sensors: &'static [SensorId],
+    ) -> Self {
+        Self {
+            device,
+            builder,
+            temperature_sensors,
+            speed_sensors,
+        }
+    }
+
+    fn poll(&self, i2c_task: TaskId, sensor_api: &Sensor) {
+        let dev = (self.builder)(i2c_task);
+        match &self.device {
+            Device::Mwocp68 => {
+                let m = Mwocp68::new(&dev, 0);
+                for (i, &s) in self.temperature_sensors.iter().enumerate() {
+                    let post_result = match m.read_temperature(i) {
+                        Ok(v) => sensor_api.post(s, v.0),
+                        Err(e) => {
+                            ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
+                            sensor_api.nodata(s, e.into())
+                        }
+                    };
+                    if let Err(e) = post_result {
+                        ringbuf_entry!(Trace::TemperaturePostFailed(s, e));
+                    }
+                }
+                for (i, &s) in self.speed_sensors.iter().enumerate() {
+                    let post_result = match m.read_speed(i) {
+                        Ok(v) => sensor_api.post(s, v.0),
+                        Err(e) => {
+                            ringbuf_entry!(Trace::SpeedReadFailed(s, e));
+                            sensor_api.nodata(s, e.into())
+                        }
+                    };
+                    if let Err(e) = post_result {
+                        ringbuf_entry!(Trace::SpeedPostFailed(s, e));
+                    }
+                }
+            }
+        };
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Trace {
+    None,
+    Start,
+    SpeedReadFailed(SensorId, ResponseCode),
+    TemperatureReadFailed(SensorId, ResponseCode),
+    SpeedPostFailed(SensorId, SensorError),
+    TemperaturePostFailed(SensorId, SensorError),
+}
+ringbuf!(Trace, 32, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
+
+const TIMER_INTERVAL: u64 = 1000;
+
+#[export_name = "main"]
+fn main() -> ! {
+    let i2c_task = I2C.get_task_id();
+    let sensor_api = Sensor::from(SENSOR.get_task_id());
+
+    ringbuf_entry!(Trace::Start);
+
+    loop {
+        hl::sleep_for(TIMER_INTERVAL);
+        for s in &SENSORS {
+            s.poll(i2c_task, &sensor_api);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+use i2c_config::{devices, sensors};
+
+#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+static SENSORS: [TemperatureSensor; 6] = [
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu0mcu,
+        &sensors::MWOCP68_PSU0MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU0MCU_SPEED_SENSORS,
+    ),
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu1mcu,
+        &sensors::MWOCP68_PSU1MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU1MCU_SPEED_SENSORS,
+    ),
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu2mcu,
+        &sensors::MWOCP68_PSU2MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU2MCU_SPEED_SENSORS,
+    ),
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu3mcu,
+        &sensors::MWOCP68_PSU3MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU3MCU_SPEED_SENSORS,
+    ),
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu4mcu,
+        &sensors::MWOCP68_PSU4MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU4MCU_SPEED_SENSORS,
+    ),
+    TemperatureSensor::new(
+        Device::Mwocp68,
+        devices::mwocp68_psu5mcu,
+        &sensors::MWOCP68_PSU5MCU_TEMPERATURE_SENSORS,
+        &sensors::MWOCP68_PSU5MCU_SPEED_SENSORS,
+    ),
+];
+
+////////////////////////////////////////////////////////////////////////////////
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
