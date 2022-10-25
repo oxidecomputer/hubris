@@ -177,7 +177,7 @@ fn main() -> ! {
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = BspImpl::new(&eth, &sys);
 
-    let mut server = ServerImpl::new(&eth, ipv6_addr, mac, bsp);
+    let mut server = server_impl::new(&eth, ipv6_addr, mac, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
