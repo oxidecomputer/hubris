@@ -31,6 +31,8 @@ task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448"}
 vsc85xx = { path = "../../drv/vsc85xx"}
+itertools = { version = "0.10.5", default-features = false }
+heapless = { version = "0.7.16", default-features = false }
 
 [dependencies.smoltcp]
 version = "0.8.0"

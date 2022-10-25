@@ -10,6 +10,8 @@
 use drv_stm32h7_eth as eth;
 
 use core::cell::Cell;
+use core::iter::zip;
+use heapless::Vec;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
@@ -20,7 +22,7 @@ use smoltcp::wire::{
 use task_net_api::{
     LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
 };
-use userlib::{sys_post, sys_refresh_task_id};
+use userlib::{sys_post, sys_refresh_task_id, UnwrapLite};
 
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
 use crate::server::NetServer;
@@ -28,21 +30,26 @@ use crate::{bsp_support, idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
+struct Storage {
+    neighbors: [NeighborStorage; NEIGHBORS],
+    sockets: [SocketStorage<'static>; SOCKET_COUNT],
+    net: IpCidr,
+}
+
+impl Default for Storage {
+    fn default() -> Self {
+        Self {
+            neighbors: Default::default(),
+            sockets: Default::default(),
+            net: Ipv6Cidr::default().into(),
+        }
+    }
+}
+
 /// Grabs references to the server storage arrays.  Can only be called once!
-fn claim_server_storage_statics() -> (
-    &'static mut [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
-    &'static mut [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT],
-    &'static mut [IpCidr; VLAN_COUNT],
-) {
+fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
     mutable_statics! {
-        static mut NEIGHBOR_CACHE_STORAGE:
-            [[NeighborStorage; NEIGHBORS]; VLAN_COUNT] =
-            [|| Default::default(); _];
-        static mut SOCKET_STORAGE:
-            [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT] =
-            [|| Default::default(); _];
-        static mut IPV6_NET: [IpCidr; VLAN_COUNT] =
-            [|| Ipv6Cidr::default().into(); _];
+        static mut STORAGE: [Storage; VLAN_COUNT] = [|| Default::default(); _];
     }
 }
 
@@ -120,12 +127,16 @@ impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
 pub struct ServerImpl<'a, B> {
     eth: &'a eth::Ethernet,
 
-    socket_handles: [[SocketHandle; SOCKET_COUNT]; VLAN_COUNT],
+    vlan_state: [VLanState<'a>; VLAN_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
-    ifaces: [Interface<'static, VLanEthernet<'a>>; VLAN_COUNT],
     bsp: B,
 
     mac: EthernetAddress,
+}
+
+struct VLanState<'a> {
+    socket_handles: [SocketHandle; SOCKET_COUNT],
+    iface: Interface<'static, VLanEthernet<'a>>,
 }
 
 impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
@@ -140,71 +151,55 @@ impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
         bsp: B,
     ) -> Self {
         // Local storage; this will end up owned by the returned ServerImpl.
-        let mut socket_handles = [[Default::default(); generated::SOCKET_COUNT];
-            generated::VLAN_COUNT];
-        let mut ifaces: [Option<Interface<'_, VLanEthernet<'_>>>; VLAN_COUNT] =
-            Default::default();
+        let mut vlan_state: Vec<VLanState, VLAN_COUNT> = Vec::new();
+        let storage = claim_server_storage_statics();
 
-        let (n, s, i) = claim_server_storage_statics();
-
-        // We're iterating over a bunch of things together.  The standard
-        // library doesn't have a great multi-element zip, so we'll just
-        // manually use mutable iterators.
-        let mut neighbor_cache_iter = n.iter_mut();
-        let mut socket_storage_iter = s.iter_mut();
-        let mut socket_handles_iter = socket_handles.iter_mut();
-        let mut vid_iter = generated::VLAN_RANGE;
-        let mut ifaces_iter = ifaces.iter_mut();
-        let mut ip_addr_iter = i.chunks_mut(1);
-
-        // Create a VLAN_COUNT x SOCKET_COUNT nested array of sockets
-        let sockets = generated::construct_sockets();
-        assert_eq!(sockets.0.len(), VLAN_COUNT);
+        // Socket definitions from generated code:
+        let sockets: [_; VLAN_COUNT] = generated::construct_sockets().0;
 
         let start_mac = mac;
-        for sockets in sockets.0.into_iter() {
-            let neighbor_cache_storage = neighbor_cache_iter.next().unwrap();
-            let neighbor_cache = smoltcp::iface::NeighborCache::new(
-                &mut neighbor_cache_storage[..],
-            );
+        // Each of these is replicated once per VID. Loop over them in lockstep.
+        for (sockets, storage, vid) in
+            itertools::izip!(sockets, storage, generated::VLAN_RANGE)
+        {
+            // Make some types explicit to try and make this clearer.
+            let sockets: [UdpSocket<'_>; SOCKET_COUNT] = sockets;
 
-            let socket_storage = socket_storage_iter.next().unwrap();
+            let neighbor_cache =
+                smoltcp::iface::NeighborCache::new(&mut storage.neighbors[..]);
+
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
                     eth,
-                    vid: vid_iter.next().unwrap(),
+                    vid,
                     mac_rx: Cell::new(false),
                 },
-                &mut socket_storage[..],
+                &mut storage.sockets[..],
             );
 
-            let ipv6_net = ip_addr_iter.next().unwrap();
-            ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
+            storage.net = Ipv6Cidr::new(ipv6_addr, 64).into();
             let mut iface = builder
                 .hardware_addr(mac.into())
                 .neighbor_cache(neighbor_cache)
-                .ip_addrs(ipv6_net)
+                .ip_addrs(core::slice::from_mut(&mut storage.net))
                 .finalize();
 
             // Associate sockets with this interface.
-            let socket_handles = socket_handles_iter.next().unwrap();
-            assert_eq!(sockets.len(), SOCKET_COUNT);
-            for (s, h) in sockets.into_iter().zip(&mut socket_handles[..]) {
-                *h = iface.add_socket(s);
-            }
+            let socket_handles = sockets.map(|s| iface.add_socket(s));
             // Bind sockets to their ports.
-            assert_eq!(socket_handles.len(), SOCKET_COUNT);
-            assert_eq!(generated::SOCKET_PORTS.len(), SOCKET_COUNT);
-            for (&h, &port) in
-                socket_handles.iter().zip(&generated::SOCKET_PORTS)
-            {
+            for (&h, port) in zip(&socket_handles, generated::SOCKET_PORTS) {
                 iface
                     .get_socket::<UdpSocket<'_>>(h)
                     .bind((ipv6_addr, port))
-                    .map_err(|_| ())
-                    .unwrap();
+                    .unwrap_lite();
             }
-            *ifaces_iter.next().unwrap() = Some(iface);
+
+            vlan_state
+                .push(VLanState {
+                    socket_handles,
+                    iface,
+                })
+                .unwrap_lite();
 
             // Increment the MAC and IP addresses so that each VLAN has
             // a unique address.
@@ -212,12 +207,10 @@ impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
             mac.0[5] += 1;
         }
 
-        let ifaces = ifaces.map(|e| e.unwrap());
         Self {
             eth,
             client_waiting_to_send: [false; SOCKET_COUNT],
-            socket_handles,
-            ifaces,
+            vlan_state: vlan_state.into_array().unwrap_lite(),
             bsp,
             mac: start_mac,
         }
@@ -229,10 +222,10 @@ impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
         // we really do want to poll all of them.
         let mut ip = false;
         let mut mac_rx = false;
-        for iface in &mut self.ifaces {
-            ip |= iface.poll(t)?;
+        for vlan in &mut self.vlan_state {
+            ip |= vlan.iface.poll(t)?;
             // Test and clear our receive activity flag.
-            mac_rx |= iface.device().mac_rx.take();
+            mac_rx |= vlan.iface.device().mac_rx.take();
         }
 
         Ok(crate::Activity { ip, mac_rx })
@@ -263,17 +256,16 @@ impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
         &self,
         index: usize,
         vlan_index: usize,
-    ) -> Result<SocketHandle, ClientError> {
-        self.socket_handles
-            .get(vlan_index)
-            .ok_or(ClientError::BadMessageContents)
-            .and_then(|s| {
-                s.get(index).cloned().ok_or(ClientError::BadMessageContents)
-            })
+    ) -> Option<SocketHandle> {
+        self.vlan_state
+            .get(vlan_index)?
+            .socket_handles
+            .get(index)
+            .cloned()
     }
 
     /// Gets the socket `index`. If `index` is out of range, returns
-    /// `BadMessage`. Panics if `vlan_index` is out of range, which should
+    /// `None`. Panics if `vlan_index` is out of range, which should
     /// never happen (because messages with invalid VIDs are dropped in
     /// RxRing).
     ///
@@ -282,9 +274,14 @@ impl<'a, B: bsp_support::Bsp> ServerImpl<'a, B> {
         &mut self,
         index: usize,
         vlan_index: usize,
-    ) -> Result<&mut UdpSocket<'static>, ClientError> {
-        Ok(self.ifaces[vlan_index]
-            .get_socket::<UdpSocket<'_>>(self.get_handle(index, vlan_index)?))
+    ) -> Option<&mut UdpSocket<'static>> {
+        Some(
+            self.vlan_state[vlan_index]
+                .iface
+                .get_socket::<UdpSocket<'_>>(
+                    self.get_handle(index, vlan_index)?,
+                ),
+        )
     }
 }
 
@@ -318,7 +315,7 @@ impl<B: bsp_support::Bsp> NetServer for ServerImpl<'_, B> {
         for (i, vid) in VLAN_RANGE.enumerate() {
             let socket = self
                 .get_socket_mut(socket_index, i)
-                .map_err(RequestError::Fail)?;
+                .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
             loop {
                 match socket.recv() {
                     Ok((body, endp)) => {
@@ -380,7 +377,7 @@ impl<B: bsp_support::Bsp> NetServer for ServerImpl<'_, B> {
 
         let socket = self
             .get_socket_mut(socket_index, vlan_index as usize)
-            .map_err(RequestError::Fail)?;
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
         match socket.send(payload.len(), metadata.into()) {
             Ok(buf) => {
                 payload
