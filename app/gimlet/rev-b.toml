@@ -4,6 +4,8 @@ board = "gimlet-b"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
+version = 0x12345678
+epoch = 0xabcdef00
 
 [kernel]
 name = "gimlet"

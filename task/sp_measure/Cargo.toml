@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sha3 = { workspace = true }
+sha3 = {version = "0.10", default-features = false}
 
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+sp-access = {path = "../../lib/sp-access"}
 
 [build-dependencies]
 anyhow = { workspace = true }
