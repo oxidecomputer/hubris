@@ -184,6 +184,21 @@ stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
 
+[tasks.power]
+name = "task-power"
+priority = 4
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver", "sensor"]
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 3
+max-sizes = {flash = 8192, ram = 4096 }
+stacksize = 3800    # Sensor data is stored on the stack
+start = true
+
 [tasks.idle]
 name = "task-idle"
 priority = 5
@@ -268,8 +283,10 @@ description = "PSU 0 EEPROM"
 bus = "backplane"
 name = "psu0mcu"
 address = 0b1011_000
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 0 MCU"
+power = { rails = [ "V54_PSU0", "V12_PSU0" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -282,8 +299,10 @@ description = "PSU 1 EEPROM"
 bus = "backplane"
 name = "psu1mcu"
 address = 0b1011_001
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 1 MCU"
+power = { rails = [ "V54_PSU1", "V12_PSU1" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -296,8 +315,10 @@ description = "PSU 2 EEPROM"
 bus = "backplane"
 name = "psu2mcu"
 address = 0b1011_010
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 2 MCU"
+power = { rails = [ "V54_PSU2", "V12_PSU2" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -310,8 +331,10 @@ description = "PSU 3 EEPROM"
 bus = "backplane"
 name = "psu3mcu"
 address = 0b1011_011
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 3 MCU"
+power = { rails = [ "V54_PSU3", "V12_PSU3" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -324,8 +347,10 @@ description = "PSU 4 EEPROM"
 bus = "backplane"
 name = "psu4mcu"
 address = 0b1011_100
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 4 MCU"
+power = { rails = [ "V54_PSU4", "V12_PSU4" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -338,8 +363,10 @@ description = "PSU 5 EEPROM"
 bus = "backplane"
 name = "psu5mcu"
 address = 0b1011_101
-device = "mwocp68_mcu"
+device = "mwocp68"
 description = "PSU 5 MCU"
+power = { rails = [ "V54_PSU5", "V12_PSU5" ], sensors = ["voltage", "current"] }
+sensors = { voltage = 2, current = 2, temperature = 3, speed = 3 }
 
 [[config.i2c.devices]]
 bus = "status"

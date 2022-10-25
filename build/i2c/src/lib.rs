@@ -141,6 +141,14 @@ struct I2cPower {
 
     #[serde(default = "I2cPower::default_pmbus")]
     pmbus: bool,
+
+    /// Lists which sensor types have a one-to-one association with power rails
+    ///
+    /// When `None`, we assume that all sensor types are mapped one-to-one with
+    /// rails.  Otherwise, *only* the listed sensor types are associated with
+    /// rails (which is the case in systems with independent temperature sensors
+    /// and power rails).
+    sensors: Option<Vec<Sensor>>,
 }
 
 impl I2cPower {
@@ -195,7 +203,8 @@ pub enum Disposition {
     Validation,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
 enum Sensor {
     Temperature,
     Power,
@@ -1036,8 +1045,28 @@ impl ConfigGenerator {
         let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
             let id = sensors.len();
             sensors.push(kind);
+            println!("checking {kind} {:?}[{idx}]", d);
 
-            let name: Option<String> = if let Some(power) = &d.power {
+            // In most cases, when the power member variable is present, sensors
+            // have a one-to-one association with power rails.  However, this
+            // isn't always true: in the power shelf, for example, there are two
+            // rails and three (uncorrelated) temperature sensors.
+            //
+            // This is indicated with the `sensors` array, which allows us to
+            // specify only certain kinds of sensors being tied to rails.
+            //
+            // If the `sensors` array is `None`, then we fall back to the
+            // default case of all sensors being one-to-one associated with
+            // rails.
+            let name: Option<String> = if d.power.is_some()
+                && d.power
+                    .as_ref()
+                    .unwrap()
+                    .sensors
+                    .as_ref()
+                    .map_or(true, |s| s.contains(&kind))
+            {
+                let power = d.power.as_ref().unwrap();
                 if let Some(rails) = &power.rails {
                     if idx < rails.len() {
                         Some(rails[idx].clone())

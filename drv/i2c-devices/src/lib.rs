@@ -11,11 +11,12 @@
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`isl68224`]: ISL68224 power controller
+//! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
 //! - [`max5970`]: MAX5970 hot swap controller
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
 //! - [`mcp9808`]: MCP9808 temperature sensor
-//! - [`mwocp64_eeprom`]: MWOCP64 power shelf EEPROM
+//! - [`mwocp68`]: Murata power shelf
 //! - [`nvme_bmc`]: NVMe basic management control
 //! - [`pca9538`]: PCA9538 GPIO expander
 //! - [`pct2075`]: PCT2075 temperature sensor
@@ -167,6 +168,7 @@ pub mod max31790;
 pub mod max5970;
 pub mod max6634;
 pub mod mcp9808;
+pub mod mwocp68;
 pub mod nvme_bmc;
 pub mod pca9538;
 pub mod pct2075;
