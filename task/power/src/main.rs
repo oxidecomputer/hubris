@@ -281,7 +281,7 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
     mwocp68_controller!(PowerShelf, v12_psu5, A2),
 ];
 
-#[cfg(feature = "gimlet")]
+#[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 
@@ -345,8 +345,39 @@ fn get_state() -> PowerState {
     PowerState::A2
 }
 
+#[cfg(any(
+    target_board = "gimlet-a",
+    target_board = "gimlet-b",
+    target_board = "sidecar-a",
+    target_board = "sidecar-b"
+))]
+fn preinit() {
+    // Nothing to do here
+}
+
+#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+fn preinit() {
+    task_slot!(SYS, sys);
+    use drv_stm32xx_sys_api::*;
+
+    let sys_task = SYS.get_task_id();
+    let sys = Sys::from(sys_task);
+
+    let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
+    sys.gpio_set(i2c_en).unwrap();
+    sys.gpio_configure_output(
+        i2c_en,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+    )
+    .unwrap();
+}
+
 #[export_name = "main"]
 fn main() -> ! {
+    preinit();
+
     let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
 
     let i2c_task = I2C.get_task_id();

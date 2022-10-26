@@ -190,7 +190,8 @@ priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 1000
 start = true
-task-slots = ["i2c_driver", "sensor"]
+task-slots = ["i2c_driver", "sensor", "sys"]
+features = ["psc"]
 
 [tasks.sensor]
 name = "task-sensor"

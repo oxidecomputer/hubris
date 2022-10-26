@@ -3775,6 +3775,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
+ "drv-stm32xx-sys-api",
  "mutable-statics",
  "paste",
  "ringbuf",
