@@ -2,13 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Temperature and fan monitoring loop
+//! Temperature and fan monitoring loop, for systems without thermal control
 
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::mwocp68::Mwocp68;
+use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
 use ringbuf::*;
 use task_sensor_api::{Sensor, SensorError, SensorId};
 use userlib::*;
@@ -17,11 +16,29 @@ task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
 /// Type containing all of our temperature sensor types, so we can store them
-/// generically in an array.  These are all `I2cDevice`s, so functions on
-/// this `enum` return an `drv_i2c_api::ResponseCode`.
+/// generically in an array.  Right now, we only support
 #[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum Device {
     Mwocp68,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Error {
+    Mwocp68Error(Mwocp68Error),
+}
+
+impl From<Error> for task_sensor_api::NoData {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::Mwocp68Error(e) => match e {
+                Mwocp68Error::BadRead { code, .. }
+                | Mwocp68Error::BadWrite { code, .. }
+                | Mwocp68Error::BadValidation { code, .. } => code.into(),
+                Mwocp68Error::BadData { .. }
+                | Mwocp68Error::InvalidData { .. } => Self::DeviceError,
+            },
+        }
+    }
 }
 
 /// Represents a sensor in the system.
@@ -55,11 +72,12 @@ impl TemperatureSensor {
         let dev = (self.builder)(i2c_task);
         match &self.device {
             Device::Mwocp68 => {
-                let m = Mwocp68::new(&dev, 0);
                 for (i, &s) in self.temperature_sensors.iter().enumerate() {
-                    let post_result = match m.read_temperature(i) {
+                    let m = Mwocp68::new(&dev, i.try_into().unwrap());
+                    let post_result = match m.read_temperature() {
                         Ok(v) => sensor_api.post(s, v.0),
                         Err(e) => {
+                            let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
                             sensor_api.nodata(s, e.into())
                         }
@@ -69,9 +87,11 @@ impl TemperatureSensor {
                     }
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
-                    let post_result = match m.read_speed(i) {
+                    let m = Mwocp68::new(&dev, i.try_into().unwrap());
+                    let post_result = match m.read_speed() {
                         Ok(v) => sensor_api.post(s, v.0),
                         Err(e) => {
+                            let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::SpeedReadFailed(s, e));
                             sensor_api.nodata(s, e.into())
                         }
@@ -91,8 +111,8 @@ impl TemperatureSensor {
 enum Trace {
     None,
     Start,
-    SpeedReadFailed(SensorId, ResponseCode),
-    TemperatureReadFailed(SensorId, ResponseCode),
+    SpeedReadFailed(SensorId, Error),
+    TemperatureReadFailed(SensorId, Error),
     SpeedPostFailed(SensorId, SensorError),
     TemperaturePostFailed(SensorId, SensorError),
 }

@@ -9,16 +9,21 @@ use core::cell::Cell;
 use drv_i2c_api::*;
 use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
+use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
-use userlib::units::*;
+use userlib::units::{Amperes, Volts};
 
 pub struct Mwocp68 {
     device: I2cDevice,
-    rail: u8,
+
+    /// The index represents PMBus rail when reading voltage / current, and
+    /// the sensor index when reading temperature (0-2) or fan speed (0-1).
+    index: u8,
+
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
@@ -45,16 +50,16 @@ impl From<pmbus::Error> for Error {
 }
 
 impl Mwocp68 {
-    pub fn new(device: &I2cDevice, rail: u8) -> Self {
+    pub fn new(device: &I2cDevice, index: u8) -> Self {
         Mwocp68 {
             device: *device,
-            rail,
+            index,
             mode: Cell::new(None),
         }
     }
 
     fn set_rail(&self) -> Result<(), Error> {
-        let page = PAGE::CommandData(self.rail);
+        let page = PAGE::CommandData(self.index);
         pmbus_write!(self.device, PAGE, page)
     }
 
@@ -69,12 +74,32 @@ impl Mwocp68 {
         })
     }
 
-    pub fn read_temperature(&self, i: usize) -> Result<Celsius, ResponseCode> {
-        todo!()
+    pub fn read_temperature(&self) -> Result<Celsius, Error> {
+        // Temperatures are accessible on all pages
+        let r = match self.index {
+            0 => pmbus_read!(self.device, READ_TEMPERATURE_1)?.get()?,
+            1 => pmbus_read!(self.device, READ_TEMPERATURE_2)?.get()?,
+            2 => pmbus_read!(self.device, READ_TEMPERATURE_3)?.get()?,
+            _ => {
+                return Err(Error::InvalidData {
+                    err: pmbus::Error::InvalidCode,
+                })
+            }
+        };
+        Ok(r)
     }
 
-    pub fn read_speed(&self, i: usize) -> Result<Celsius, ResponseCode> {
-        todo!()
+    pub fn read_speed(&self) -> Result<Rpm, Error> {
+        let r = match self.index {
+            0 => pmbus_read!(self.device, READ_FAN_SPEED_1)?.get()?,
+            1 => pmbus_read!(self.device, READ_FAN_SPEED_2)?.get()?,
+            _ => {
+                return Err(Error::InvalidData {
+                    err: pmbus::Error::InvalidCode,
+                })
+            }
+        };
+        Ok(r)
     }
 }
 
