@@ -21,6 +21,7 @@ serde = "1"
 ron = "0.7"
 abi = {path = "../abi"}
 phash-gen = {path = "../../build/phash-gen"}
+anyhow = "1.0.66"
 
 [lib]
 test = false
