@@ -51,6 +51,9 @@ struct PackageConfig {
     /// Run `cargo tree --edges` before compiling, to show dependencies
     edges: bool,
 
+    /// Generate a task priority graph in dot syntax.
+    graph: Option<PathBuf>,
+
     /// Directory where the build artifacts are placed, in the form
     /// `target/$NAME/dist`.
     dist_dir: PathBuf,
@@ -72,7 +75,12 @@ struct PackageConfig {
 }
 
 impl PackageConfig {
-    fn new(app_toml_file: &Path, verbose: bool, edges: bool) -> Result<Self> {
+    fn new(
+        app_toml_file: &Path,
+        verbose: bool,
+        edges: bool,
+        graph: Option<PathBuf>,
+    ) -> Result<Self> {
         let toml = Config::from_file(app_toml_file)?;
         let dist_dir = Path::new("target").join(&toml.name).join("dist");
         let app_src_dir = app_toml_file
@@ -107,12 +115,18 @@ impl PackageConfig {
             file_data.hash(&mut extra_hash);
         }
 
+        let graph = match graph {
+            Some(graph) => Some(graph.to_path_buf()),
+            None => None,
+        };
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
             verbose,
             edges,
+            graph,
             dist_dir,
             sysroot,
             host_triple,
@@ -199,11 +213,16 @@ type AllocationMap = (Allocations, IndexMap<String, Range<u32>>);
 pub fn package(
     verbose: bool,
     edges: bool,
+    graph: Option<PathBuf>,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
     dirty_ok: bool,
 ) -> Result<BTreeMap<String, AllocationMap>> {
-    let cfg = PackageConfig::new(app_toml, verbose, edges)?;
+    let cfg = PackageConfig::new(app_toml, verbose, edges, graph)?;
+
+    if cfg.graph.is_some() {
+        task_graph(&cfg.toml, cfg.graph.as_ref().unwrap().as_path())?;
+    }
 
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
@@ -1128,6 +1147,73 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
             bail!("Task {} is not the supervisor, but has priority 0", name,);
         }
     }
+
+    Ok(())
+}
+
+/// Prints warning messages about priority inversions
+fn task_graph(toml: &Config, path: &Path) -> Result<()> {
+    // Generate dot syntax for a graph of process priorities.
+    // Collect each task in a priority group
+    // Collect each edge
+    let mut priorities = BTreeMap::new();
+    let mut edges = Vec::new();
+    let mut dot = File::create(path)?;
+
+    #[derive(Debug)]
+    struct Edge<'a> {
+        from: &'a String,
+        to: &'a String,
+        inverted: bool,
+    }
+
+    // let idle_priority = toml.tasks["idle"].priority;
+    for (_i, (name, task)) in toml.tasks.iter().enumerate() {
+        if !priorities.contains_key(&task.priority) {
+            // priorities.insert(task.priority, &mut Box::<Vec::<String>>::new(Vec::<String>{}));
+            priorities.insert(task.priority, Vec::new());
+        }
+        if let Some(v) = priorities.get_mut(&task.priority) {
+            v.push(name.to_string());
+        }
+        for callee in task.task_slots.values() {
+            let p = toml
+                .tasks
+                .get(callee)
+                .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
+                .priority;
+            let inverted = p >= task.priority && name != callee;
+            edges.push(Edge {
+                from: &name,
+                to: &callee,
+                inverted,
+            });
+        }
+    }
+
+    write!(dot, "digraph tasks {{\n")?;
+    for key in priorities.keys() {
+        if let Some(v) = priorities.get(key) {
+            write!(dot, "  {{\n    edge [ style=invis ];\n    rank=same;\n")?;
+            for name in v {
+                write!(
+                    dot,
+                    "    {} [ label=\"{}\\n{}\", shape=box ];\n",
+                    name, name, key
+                )?;
+            }
+            write!(dot, "  }}\n")?;
+        }
+    }
+    for edge in edges {
+        let attr = if edge.inverted {
+            " [color=red, penwidth=3]"
+        } else {
+            " [color=green]"
+        };
+        write!(dot, "  {} -> {}{};\n", edge.from, edge.to, attr)?;
+    }
+    write!(dot, "}}\n")?;
 
     Ok(())
 }
