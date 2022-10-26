@@ -267,6 +267,26 @@ where
     iface: Interface<'static, E>,
 }
 
+impl<E: DeviceExt> VLanState<E> {
+    fn get_handle(&self, index: usize) -> Option<SocketHandle> {
+        self.socket_handles.get(index).cloned()
+    }
+
+    /// Gets the socket `index`. If `index` is out of range, returns
+    /// `None`.
+    ///
+    /// Sockets are currently assumed to be UDP.
+    pub(crate) fn get_socket_mut(
+        &mut self,
+        index: usize,
+    ) -> Option<&mut UdpSocket<'static>> {
+        Some(
+            self.iface
+                .get_socket::<UdpSocket<'_>>(self.get_handle(index)?),
+        )
+    }
+}
+
 impl<'a, B, E, const N: usize> GenServerImpl<'a, B, E, N>
 where
     B: bsp_support::Bsp,
@@ -366,12 +386,16 @@ where
     pub fn wake_sockets(&mut self) {
         for i in 0..SOCKET_COUNT {
             // recv wake depends only on the state of the sockets.
-            let recv_wake =
-                (0..N).any(|v| self.get_socket_mut(i, v).unwrap().can_recv());
+            let recv_wake = self
+                .vlan_state
+                .iter_mut()
+                .any(|v| v.get_socket_mut(i).unwrap().can_recv());
             // send wake only happens if the wait flag is set.
             let send_wake = self.client_waiting_to_send[i]
-                && (0..N)
-                    .all(|v| self.get_socket_mut(i, v).unwrap().can_send());
+                && self
+                    .vlan_state
+                    .iter_mut()
+                    .all(|v| v.get_socket_mut(i).unwrap().can_send());
 
             if recv_wake || send_wake {
                 let (task_id, notification) = generated::SOCKET_OWNERS[i];
@@ -383,38 +407,6 @@ where
 
     pub fn wake(&self) {
         self.bsp.wake(self.eth)
-    }
-
-    fn get_handle(
-        &self,
-        index: usize,
-        vlan_index: usize,
-    ) -> Option<SocketHandle> {
-        self.vlan_state
-            .get(vlan_index)?
-            .socket_handles
-            .get(index)
-            .cloned()
-    }
-
-    /// Gets the socket `index`. If `index` is out of range, returns
-    /// `None`. Panics if `vlan_index` is out of range, which should
-    /// never happen (because messages with invalid VIDs are dropped in
-    /// RxRing).
-    ///
-    /// Sockets are currently assumed to be UDP.
-    pub(crate) fn get_socket_mut(
-        &mut self,
-        index: usize,
-        vlan_index: usize,
-    ) -> Option<&mut UdpSocket<'static>> {
-        Some(
-            self.vlan_state[vlan_index]
-                .iface
-                .get_socket::<UdpSocket<'_>>(
-                    self.get_handle(index, vlan_index)?,
-                ),
-        )
     }
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut B) {
@@ -448,9 +440,9 @@ where
 
         // Iterate over all of the per-VLAN sockets, returning the first
         // available packet with a bonus `vid` tag attached in the metadata.
-        for i in 0..N {
-            let socket = self
-                .get_socket_mut(socket_index, i)
+        for vlan in &mut self.vlan_state {
+            let socket = vlan
+                .get_socket_mut(socket_index)
                 .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
             loop {
                 match socket.recv() {
@@ -470,14 +462,11 @@ where
                         // Release borrow on self/socket
                         let body_len = body.len();
 
-                        return Ok(self.vlan_state[i]
-                            .iface
-                            .device()
-                            .make_meta(
-                                endp.port,
-                                body_len,
-                                endp.addr.try_into().map_err(|_| ()).unwrap(),
-                            ));
+                        return Ok(vlan.iface.device().make_meta(
+                            endp.port,
+                            body_len,
+                            endp.addr.try_into().map_err(|_| ()).unwrap(),
+                        ));
                     }
                     Err(smoltcp::Error::Exhausted) => {
                         // Move on to next vid
@@ -516,14 +505,15 @@ where
             if !VLAN_RANGE.contains(&metadata.vid) {
                 return Err(SendError::InvalidVLan.into());
             }
-            metadata.vid - VLAN_RANGE.start
+            usize::from(metadata.vid - VLAN_RANGE.start)
         };
         #[cfg(not(feature = "vlan"))]
         let vlan_index = 0;
 
-        let socket = self
-            .get_socket_mut(socket_index, vlan_index as usize)
-            .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+        let socket =
+            self.vlan_state[vlan_index]
+                .get_socket_mut(socket_index)
+                .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
         match socket.send(payload.len(), metadata.into()) {
             Ok(buf) => {
                 payload
