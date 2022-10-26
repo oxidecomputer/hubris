@@ -176,14 +176,6 @@ stacksize = 256
 start = true
 task-slots = ["i2c_driver"]
 
-[tasks.validate]
-name = "task-validate"
-priority = 3
-max-sizes = {flash = 16384, ram = 4096}
-stacksize = 1000
-start = true
-task-slots = ["i2c_driver"]
-
 [tasks.power]
 name = "task-power"
 priority = 4
