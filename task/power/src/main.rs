@@ -281,7 +281,7 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
     mwocp68_controller!(PowerShelf, v12_psu5, A2),
 ];
 
-#[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))]
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 
@@ -346,8 +346,8 @@ fn get_state() -> PowerState {
 }
 
 #[cfg(any(
-    target_board = "gimlet-a",
     target_board = "gimlet-b",
+    target_board = "gimlet-c",
     target_board = "sidecar-a",
     target_board = "sidecar-b"
 ))]
