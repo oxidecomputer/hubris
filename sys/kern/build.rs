@@ -6,9 +6,10 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
+use anyhow::{Context, Result};
 use serde::Deserialize;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     build_util::expose_m_profile();
 
     generate_consts()?;
@@ -17,15 +18,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
+fn generate_consts() -> Result<()> {
     let out = build_util::out_dir();
-    let mut const_file = File::create(out.join("consts.rs")).unwrap();
+    let mut const_file = File::create(out.join("consts.rs"))
+        .context("creating consts.rs file")?;
 
     writeln!(
         const_file,
         "// See build.rs for an explanation of this constant"
-    )
-    .unwrap();
+    )?;
+
     // EXC_RETURN is used on ARMv8m to return from an exception. This value
     // differs between secure and non-secure in two important ways:
     // bit 6 = S = secure or non-secure stack used
@@ -37,29 +39,31 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
             writeln!(
                 const_file,
                 "pub const EXC_RETURN_CONST : u32 = 0xFFFFFFAC;"
-            )
-            .unwrap();
+            )?;
         } else {
             writeln!(
                 const_file,
                 "pub const EXC_RETURN_CONST : u32 = 0xFFFFFFED;"
-            )
-            .unwrap();
+            )?;
         }
     } else {
-        writeln!(const_file, "pub const EXC_RETURN_CONST : u32 = 0xFFFFFFED;")
-            .unwrap();
+        writeln!(const_file, "pub const EXC_RETURN_CONST : u32 = 0xFFFFFFED;")?;
     }
+
     Ok(())
 }
 
-fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
-    let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?.parse()?;
+fn generate_statics() -> Result<()> {
+    let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?
+        .parse()
+        .context("parsing HUBRIS_IMAGE_ID")?;
     let kconfig: KernelConfig =
-        ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)?;
+        ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
+            .context("parsing kconfig from HUBRIS_KCONFIG")?;
 
     let out = build_util::out_dir();
-    let mut file = File::create(out.join("kconfig.rs")).unwrap();
+    let mut file =
+        File::create(out.join("kconfig.rs")).context("creating kconfig.rs")?;
 
     writeln!(file, "// See build.rs for details")?;
 
@@ -183,10 +187,10 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
 
     let target = build_util::target();
     if target.starts_with("thumbv6m") {
-        let task_irq_map =
-            phash_gen::OwnedSortedList::build(task_irq_map).unwrap();
-        let irq_task_map =
-            phash_gen::OwnedSortedList::build(irq_task_map).unwrap();
+        let task_irq_map = phash_gen::OwnedSortedList::build(task_irq_map)
+            .context("building task-to-IRQ map")?;
+        let irq_task_map = phash_gen::OwnedSortedList::build(irq_task_map)
+            .context("building IRQ-to-task map")?;
 
         // Generate text for the Interrupt and InterruptSet tables stored in the
         // PerfectHashes
@@ -242,7 +246,7 @@ pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<'_, abi::InterruptOwner, &'st
         } else {
             let task_irq_map =
                 phash_gen::OwnedNestedPerfectHashMap::build(task_irq_map)
-                    .unwrap();
+                    .context("building task-to-IRQ perfect hash")?;
             let task_irq_value = task_irq_map
                 .values
                 .iter()
@@ -295,7 +299,7 @@ pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<'_, abi::InterruptNum, abi::I
         } else {
             let irq_task_map =
                 phash_gen::OwnedNestedPerfectHashMap::build(irq_task_map)
-                    .unwrap();
+                    .context("building IRQ-to-task perfect hash")?;
             if !nested_import {
                 writeln!(file, "use phash::NestedPerfectHashMap;")?;
             }
