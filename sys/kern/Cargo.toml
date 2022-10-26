@@ -1,7 +1,7 @@
 [package]
 name = "kern"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 abi = {path = "../abi"}
@@ -26,6 +26,8 @@ proc-macro2 = "1.0.32"
 syn = { version = "1.0.94", features = ["parsing"] }
 quote = "1.0.10"
 call_rustfmt = {path = "../../build/call_rustfmt"}
+build-kconfig = {path = "../../build/kconfig"}
+indexmap = "1.9.1"
 
 [lib]
 test = false

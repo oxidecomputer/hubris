@@ -11,6 +11,12 @@ pub trait PerfectHash {
     fn phash(&self, b: u32) -> usize;
 }
 
+impl PerfectHash for u32 {
+    fn phash(&self, b: u32) -> usize {
+        self.wrapping_mul(b) as usize
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct PerfectHashMap<'a, K, V> {
