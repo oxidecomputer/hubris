@@ -353,16 +353,27 @@ where
         Ok(crate::Activity { ip, mac_rx })
     }
 
-    /// Iterate over sockets, waking any that can do work.  A task can do work
-    /// if all of the (internal) VLAN sockets can receive a packet, since
-    /// we don't know which VLAN it will write to.
+    /// Iterate over sockets, waking any that can do work.
+    ///
+    /// A task can do work if...
+    ///
+    /// - any of its sockets (on any VLAN) have incoming packets waiting, or
+    ///
+    /// - it is waiting to send on some socket S, and _all_ of the copies of S
+    ///   across all VLANs can accept an outgoing packet. (The "all" is
+    ///   important here since we don't keep track of which one it's trying to
+    ///   send through.)
     pub fn wake_sockets(&mut self) {
         for i in 0..SOCKET_COUNT {
-            if (0..N).any(|v| {
-                let want_to_send = self.client_waiting_to_send[i];
-                let socket = self.get_socket_mut(i, v).unwrap();
-                socket.can_recv() || (want_to_send && socket.can_send())
-            }) {
+            // recv wake depends only on the state of the sockets.
+            let recv_wake =
+                (0..N).any(|v| self.get_socket_mut(i, v).unwrap().can_recv());
+            // send wake only happens if the wait flag is set.
+            let send_wake = self.client_waiting_to_send[i]
+                && (0..N)
+                    .all(|v| self.get_socket_mut(i, v).unwrap().can_send());
+
+            if recv_wake || send_wake {
                 let (task_id, notification) = generated::SOCKET_OWNERS[i];
                 let task_id = sys_refresh_task_id(task_id);
                 sys_post(task_id, notification);
