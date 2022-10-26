@@ -53,6 +53,13 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
         }
     }
 
+    // Any time we call `sys_set_timer` we also need to record that setting in
+    // `self.current_setting`; all timer sets should go through this helper.
+    fn set_system_timer(&mut self, deadline: Option<u64>) {
+        sys_set_timer(deadline, 1 << self.notification_bit);
+        self.current_setting = deadline;
+    }
+
     /// Sets the timer chosen by `which` to go off at time `deadline`, with
     /// optional auto-repeat behavior. This replaces any prior setting for the
     /// timer and enables it.
@@ -77,8 +84,7 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
         match self.current_setting {
             Some(current) if deadline >= current => (),
             _ => {
-                sys_set_timer(Some(deadline), 1 << self.notification_bit);
-                self.current_setting = Some(deadline);
+                self.set_system_timer(Some(deadline));
             }
         }
     }
@@ -102,7 +108,7 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
                     .filter_map(|timer| timer.deadline)
                     .map(|(dl, _repeat)| dl)
                     .min();
-                sys_set_timer(new_earliest, 1 << self.notification_bit);
+                self.set_system_timer(new_earliest);
             }
         }
 
@@ -155,7 +161,7 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
             }
         }
 
-        sys_set_timer(new_earliest, 1 << self.notification_bit);
+        self.set_system_timer(new_earliest);
     }
 
     /// Checks all timer states unconditionally. This can be useful if you're
@@ -398,5 +404,35 @@ mod tests {
             uut.iter_fired().collect::<Vec<_>>(),
             [Timers::A, Timers::B],
         );
+    }
+
+    #[test]
+    fn clear_and_reset() {
+        change_time(0);
+        let mut uut = make_uut(0);
+
+        // Set A to go off at 10 and B to go off at 20
+        uut.set_timer(Timers::A, 10, None);
+        uut.set_timer(Timers::B, 20, None);
+
+        // System timer should be set to 10, the earliest deadline.
+        assert_eq!(sys_get_timer().deadline, Some(10));
+
+        // Clear A, then reset it for 15.
+        uut.clear_timer(Timers::A);
+        uut.set_timer(Timers::A, 15, None);
+
+        // System timer should be set to 15, the new earliest deadline.
+        assert_eq!(sys_get_timer().deadline, Some(15));
+
+        // Advance to T=16; A should fire.
+        change_time(16);
+        uut.handle_notification(!0);
+        assert_eq!(uut.iter_fired().collect::<Vec<_>>(), [Timers::A]);
+
+        // Set A to go off at 18, and check that the system timer is set
+        // accordingly.
+        uut.set_timer(Timers::A, 18, None);
+        assert_eq!(sys_get_timer().deadline, Some(18));
     }
 }
