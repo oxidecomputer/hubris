@@ -33,7 +33,6 @@ mod bsp;
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
 #[cfg_attr(not(feature = "vlan"), path = "server_basic.rs")]
 mod server_impl;
-use server_impl::ServerImpl;
 
 #[cfg(feature = "mgmt")]
 pub(crate) mod mgmt;
@@ -245,7 +244,7 @@ fn main() -> ! {
                     Timers::Watchdog => panic!("MAC RX watchdog"),
                 }
             }
-            let mut msgbuf = [0u8; ServerImpl::<BspImpl>::INCOMING_SIZE];
+            let mut msgbuf = [0u8; idl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }
