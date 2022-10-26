@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -15,7 +15,6 @@ use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
-use serde::Serialize;
 use zerocopy::AsBytes;
 
 use crate::{
@@ -1712,198 +1711,156 @@ fn allocate_one(
     Ok(base..end)
 }
 
-#[derive(Serialize)]
-pub struct KernelConfig {
-    tasks: Vec<abi::TaskDesc>,
-    regions: Vec<abi::RegionDesc>,
-    irqs: Vec<abi::Interrupt>,
-}
-
-/// Generate the application descriptor table that the kernel uses to find and
-/// start tasks.
-///
-/// The layout of the table is a series of structs from the `abi` crate:
-///
-/// - One `App` header.
-/// - Some number of `RegionDesc` records describing memory regions.
-/// - Some number of `TaskDesc` records describing tasks.
-/// - Some number of `Interrupt` records routing interrupts to tasks.
+/// Generate the configuration data that's passed into the kernel's build
+/// system.
 pub fn make_kconfig(
     toml: &Config,
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
     secure: &Option<SecureData>,
-) -> Result<KernelConfig> {
-    // Generate the three record sections concurrently.
-    let mut regions = vec![];
-    let mut task_descs = vec![];
-    let mut irqs = vec![];
+) -> Result<build_kconfig::KernelConfig> {
+    let mut tasks = vec![];
+    let mut irqs = BTreeMap::new();
 
-    // Region 0 is the NULL region, used as a placeholder. It gives no access to
-    // memory.
-    regions.push(abi::RegionDesc {
-        base: 0,
-        size: 32, // smallest legal size on ARMv7-M
-        attributes: abi::RegionAttributes::empty(), // no rights
-    });
+    let p2_required = toml.mpu_power_of_two_required();
 
-    // Regions 1.. are the fixed peripheral regions, shared by tasks that
-    // reference them. We'll build a lookup table so we can find them
-    // efficiently by name later.
-    let mut peripheral_index = IndexMap::new();
-    let sname = &"secure".to_string();
-
-    // Build a set of all peripheral names used by tasks, which we'll use
-    // to filter out unused peripherals.
-    let used_peripherals = toml
-        .tasks
-        .iter()
-        .flat_map(|(_name, task)| task.uses.iter())
-        .collect::<HashSet<_>>();
-
-    let power_of_two_required = toml.mpu_power_of_two_required();
-    for (name, p) in toml.peripherals.iter() {
-        if power_of_two_required && !p.size.is_power_of_two() {
-            panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
-        }
-
-        // skip periperhals that aren't in at least one task's `uses`
-        if !used_peripherals.contains(name) {
-            continue;
-        }
-
-        peripheral_index.insert(name, regions.len());
-
-        // Peripherals are always mapped as Device + Read + Write.
-        let attributes = abi::RegionAttributes::DEVICE
-            | abi::RegionAttributes::READ
-            | abi::RegionAttributes::WRITE;
-
-        regions.push(abi::RegionDesc {
-            base: p.address,
-            size: p.size,
-            attributes,
-        });
-    }
-
-    for (name, p) in toml.extratext.iter() {
-        if power_of_two_required && !p.size.is_power_of_two() {
-            panic!("Memory region for extratext '{}' is required to be a power of two, but has size {}", name, p.size);
-        }
-
-        peripheral_index.insert(name, regions.len());
-
-        // Extra text is marked as read/execute
-        let attributes =
-            abi::RegionAttributes::READ | abi::RegionAttributes::EXECUTE;
-
-        regions.push(abi::RegionDesc {
-            base: p.address,
-            size: p.size,
-            attributes,
-        });
-    }
-
-    if let Some(s) = secure {
-        peripheral_index.insert(sname, regions.len());
-
-        // Entry point needs to be read/execute
-        let attributes =
-            abi::RegionAttributes::READ | abi::RegionAttributes::EXECUTE;
-        regions.push(abi::RegionDesc {
-            base: s.nsc.start,
-            size: s.nsc.end - s.nsc.start,
-            attributes,
-        });
-    }
-
-    // The remaining regions are allocated to tasks on a first-come first-serve
-    // basis. We don't check power-of-two requirements in task_allocations
-    // because it's the result of autosizing, which already takes the MPU into
-    // account.
-    for (i, (name, task)) in toml.tasks.iter().enumerate() {
-        // Regions are referenced by index into the table we just generated.
-        // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
-        let mut task_regions = [0; 8];
-
-        if task.uses.len() + task_allocations[name].len() > 8 {
-            panic!(
-                "task {} uses {} peripherals and {} memories (too many)",
+    let mut flat_shared = BTreeMap::new();
+    for (name, p) in &toml.peripherals {
+        if p2_required && !p.size.is_power_of_two() {
+            bail!(
+                "memory region for peripheral '{}' is required to be \
+                 a power of two, but has size {}",
                 name,
-                task.uses.len(),
-                task_allocations[name].len()
+                p.size
             );
         }
 
-        // Generate a RegionDesc for each uniquely allocated memory region
-        // referenced by this task, and install them as entries 0..N in the
-        // task's region table.
-        let allocs = &task_allocations[name];
-        for (ri, (output_name, range)) in allocs.iter().enumerate() {
-            let region: Vec<&crate::config::Output> = toml.outputs[output_name]
-                .iter()
-                .filter(|o| o.name == *image_name)
-                .collect();
+        flat_shared.insert(
+            name.to_string(),
+            build_kconfig::RegionConfig {
+                base: p.address,
+                size: p.size,
+                attributes: build_kconfig::RegionAttributes {
+                    read: true,
+                    write: true,
+                    execute: false,
+                    special_role: Some(build_kconfig::SpecialRole::Device),
+                },
+            },
+        );
+    }
+    for (name, p) in &toml.extratext {
+        if p2_required && !p.size.is_power_of_two() {
+            bail!(
+                "memory region for extratext '{}' is required to be \
+                 a power of two, but has size {}",
+                name,
+                p.size
+            );
+        }
+        flat_shared.insert(
+            name.to_string(),
+            build_kconfig::RegionConfig {
+                base: p.address,
+                size: p.size,
+                attributes: build_kconfig::RegionAttributes {
+                    read: true,
+                    write: false,
+                    execute: true,
+                    special_role: None,
+                },
+            },
+        );
+    }
 
-            if region.len() > 1 {
-                bail!("Multiple regions defined for image {}", image_name);
-            }
+    if let Some(s) = secure {
+        flat_shared.insert(
+            "secure".to_string(),
+            build_kconfig::RegionConfig {
+                base: s.nsc.start,
+                size: s.nsc.end - s.nsc.start,
+                attributes: build_kconfig::RegionAttributes {
+                    read: true,
+                    write: false,
+                    execute: true,
+                    special_role: None,
+                },
+            },
+        );
+    }
 
-            let out = region[0];
+    let mut used_shared_regions = BTreeSet::new();
 
-            let mut attributes = abi::RegionAttributes::empty();
-            if out.read {
-                attributes |= abi::RegionAttributes::READ;
-            }
-            if out.write {
-                attributes |= abi::RegionAttributes::WRITE;
-            }
-            if out.execute {
-                attributes |= abi::RegionAttributes::EXECUTE;
-            }
-            if out.dma {
-                attributes |= abi::RegionAttributes::DMA;
-            }
-            // no option for setting DEVICE for this region
+    for (i, (name, task)) in toml.tasks.iter().enumerate() {
+        let stacksize = task.stacksize.or(toml.stacksize).unwrap();
 
-            task_regions[ri] = regions.len() as u8;
+        let flash = &task_allocations[name]["flash"];
+        let entry_offset = if flash.contains(&entry_points[name]) {
+            entry_points[name] - flash.start
+        } else {
+            bail!(
+                "entry point {:#x} is not in flash range {:#x?}",
+                entry_points[name],
+                flash
+            );
+        };
 
-            regions.push(abi::RegionDesc {
-                base: range.start,
-                size: range.end - range.start,
-                attributes,
-            });
+        // Mark off the regions this task uses.
+        for region in &task.uses {
+            used_shared_regions.insert(region);
         }
 
-        // For peripherals referenced by the task, we don't need to allocate
-        // _new_ regions, since we did them all in advance. Just record the
-        // entries for the TaskDesc.
-        for (j, peripheral_name) in task.uses.iter().enumerate() {
-            if let Some(&peripheral) = peripheral_index.get(&peripheral_name) {
-                task_regions[allocs.len() + j] = peripheral as u8;
-            } else {
-                bail!(
-                    "Could not find peripheral `{}` referenced by task `{}`.",
-                    peripheral_name,
-                    name
-                );
-            }
-        }
+        // Prep this task's shared region name set.
+        let shared_regions: std::collections::BTreeSet<String> =
+            task.uses.iter().cloned().collect();
 
-        let mut flags = abi::TaskFlags::empty();
-        if task.start {
-            flags |= abi::TaskFlags::START_AT_BOOT;
-        }
+        let owned_regions = task_allocations[name].iter()
+            .map(|(out_name, range)| {
+                // Look up region for this image
+                let mut regions = toml.outputs[out_name].iter()
+                    .filter(|o| &o.name == image_name);
+                let out = regions.next().expect("no region for name");
+                if regions.next().is_some() {
+                    bail!("multiple {} regions for name {}", out_name, image_name);
+                }
+                let size = range.end - range.start;
+                if p2_required && !size.is_power_of_two() {
+                    bail!("memory region for task '{}' output '{}' is required to be \
+                           a power of two, but has size {}",
+                           name, out_name, size);
+                }
 
-        task_descs.push(abi::TaskDesc {
-            regions: task_regions,
-            entry_point: entry_points[name],
-            initial_stack: task_allocations[name]["ram"].start
-                + task.stacksize.or(toml.stacksize).unwrap(),
+                Ok((out_name.to_string(), build_kconfig::RegionConfig {
+                    base: range.start,
+                    size,
+                    attributes: build_kconfig::RegionAttributes {
+                        read: out.read,
+                        write: out.write,
+                        execute: out.execute,
+                        special_role: if out.dma {
+                            Some(build_kconfig::SpecialRole::Dma)
+                        } else {
+                            None
+                        },
+                    },
+                }))
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+
+        tasks.push(build_kconfig::TaskConfig {
+            owned_regions,
+            shared_regions,
+            entry_point: build_kconfig::OwnedAddress {
+                region_name: "flash".to_string(),
+                offset: entry_offset,
+            },
+            initial_stack: build_kconfig::OwnedAddress {
+                region_name: "ram".to_string(),
+                offset: stacksize,
+            },
             priority: task.priority,
-            flags,
-            index: u16::try_from(i).expect("more than 2**16 tasks?"),
+            start_at_boot: task.start,
         });
 
         // Interrupts.
@@ -1930,13 +1887,13 @@ pub fn make_kconfig(
                         );
                     }
 
-                    irqs.push(abi::Interrupt {
-                        irq: abi::InterruptNum(irq_num),
-                        owner: abi::InterruptOwner {
-                            task: i as u32,
+                    irqs.insert(
+                        irq_num,
+                        build_kconfig::InterruptConfig {
+                            task_index: i,
                             notification,
                         },
-                    });
+                    );
                 }
                 Err(_) => {
                     // This might be an error, or might be a peripheral
@@ -1972,13 +1929,13 @@ pub fn make_kconfig(
                                     pname,
                                 )
                             })?;
-                        irqs.push(abi::Interrupt {
-                            irq: abi::InterruptNum(*irq_num),
-                            owner: abi::InterruptOwner {
-                                task: i as u32,
+                        irqs.insert(
+                            *irq_num,
+                            build_kconfig::InterruptConfig {
+                                task_index: i,
                                 notification,
                             },
-                        });
+                        );
                     } else {
                         bail!(
                             "task {}: IRQ name {} does not match any \
@@ -1993,10 +1950,13 @@ pub fn make_kconfig(
         }
     }
 
-    Ok(KernelConfig {
+    // Pare down the list of shared regions.
+    flat_shared.retain(|name, _v| used_shared_regions.contains(name));
+
+    Ok(build_kconfig::KernelConfig {
         irqs,
-        tasks: task_descs,
-        regions,
+        tasks,
+        shared_regions: flat_shared,
     })
 }
 

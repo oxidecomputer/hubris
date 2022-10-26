@@ -1,0 +1,8 @@
+# Kernel configuration data structures
+
+This module provides types used within the build system to transfer the
+kernel/image configuration from the image builder into the kernel's own build
+script, from which kernel tables and data structures can be generated.
+
+This exists to decouple the kernel's internal representation of these data
+structures from the build system.

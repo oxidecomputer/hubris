@@ -186,6 +186,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-kconfig"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "serde",
+]
+
+[[package]]
 name = "build-lpc55pins"
 version = "0.1.0"
 dependencies = [
@@ -1887,9 +1895,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.11.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "heapless"
@@ -2095,9 +2103,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.7.0"
+version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
+checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
 dependencies = [
  "autocfg",
  "hashbrown",
@@ -2132,11 +2140,13 @@ dependencies = [
  "abi",
  "anyhow",
  "bitflags",
+ "build-kconfig",
  "build-util",
  "byteorder",
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "indexmap",
  "phash",
  "phash-gen",
  "proc-macro2",
@@ -3143,9 +3153,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.145"
+version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
+checksum = "d193d69bae983fc11a79df82342761dfbf28a99fc8d203dca4c3c1b590948965"
 dependencies = [
  "serde_derive",
 ]
@@ -3161,9 +3171,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.145"
+version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
+checksum = "4f1d362ca8fc9c3e3a7484440752472d68a6caa98f1ab81d99b5dfe517cec852"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4476,6 +4486,7 @@ dependencies = [
  "abi",
  "anyhow",
  "atty",
+ "build-kconfig",
  "byteorder",
  "cargo_metadata",
  "clap",
