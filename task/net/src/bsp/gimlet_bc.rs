@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
+compile_error!("this BSP requires the ksz8463 and mgmt features");
+
 use crate::{mgmt, pins};
 use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::Spi;
@@ -17,67 +20,67 @@ use vsc7448_pac::types::PhyRegisterAddress;
 task_slot!(SPI, spi_driver);
 task_slot!(JEFE, jefe);
 
-// This system wants to be woken periodically to do logging
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
-
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Stateless function to configure ethernet pins before the Bsp struct
-/// is actually constructed
-pub fn configure_ethernet_pins(sys: &Sys) {
-    pins::RmiiPins {
-        refclk: Port::A.pin(1),
-        crs_dv: Port::A.pin(7),
-        tx_en: Port::G.pin(11),
-        txd0: Port::G.pin(13),
-        txd1: Port::G.pin(12),
-        rxd0: Port::C.pin(4),
-        rxd1: Port::C.pin(5),
-        af: Alternate::AF11,
+pub struct BspImpl(mgmt::Bsp);
+
+impl crate::bsp_support::Bsp for BspImpl {
+    // This system wants to be woken periodically to do logging
+    const WAKE_INTERVAL: Option<u64> = Some(500);
+
+    /// Stateless function to configure ethernet pins before the Bsp struct
+    /// is actually constructed
+    fn configure_ethernet_pins(sys: &Sys) {
+        pins::RmiiPins {
+            refclk: Port::A.pin(1),
+            crs_dv: Port::A.pin(7),
+            tx_en: Port::G.pin(11),
+            txd0: Port::G.pin(13),
+            txd1: Port::G.pin(12),
+            rxd0: Port::C.pin(4),
+            rxd1: Port::C.pin(5),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
+
+        pins::MdioPins {
+            mdio: Port::A.pin(2),
+            mdc: Port::C.pin(1),
+            af: Alternate::AF11,
+        }
+        .configure(sys);
     }
-    .configure(sys);
 
-    pins::MdioPins {
-        mdio: Port::A.pin(2),
-        mdc: Port::C.pin(1),
-        af: Alternate::AF11,
-    }
-    .configure(sys);
-}
+    fn preinit() {
+        // Wait for the sequencer to turn on the clock. This requires that Jefe
+        // state change notifications are routed to our notification bit 3.
+        let jefe = Jefe::from(JEFE.get_task_id());
 
-pub struct Bsp(mgmt::Bsp);
-
-pub fn preinit() {
-    // Wait for the sequencer to turn on the clock. This requires that Jefe
-    // state change notifications are routed to our notification bit 3.
-    let jefe = Jefe::from(JEFE.get_task_id());
-
-    loop {
-        // This laborious list is intended to ensure that new power states have
-        // to be added explicitly here.
-        match PowerState::from_u32(jefe.get_state()) {
-            Some(PowerState::A2)
-            | Some(PowerState::A2PlusMono)
-            | Some(PowerState::A2PlusFans)
-            | Some(PowerState::A1)
-            | Some(PowerState::A0)
-            | Some(PowerState::A0PlusHP)
-            | Some(PowerState::A0Thermtrip) => {
-                break;
-            }
-            None => {
-                // This happens before we're in a valid power state.
-                //
-                // Only listen to our Jefe notification. Discard any error since
-                // this can't fail but the compiler doesn't know that.
-                let _ = sys_recv_closed(&mut [], 1 << 3, TaskId::KERNEL);
+        loop {
+            // This laborious list is intended to ensure that new power states
+            // have to be added explicitly here.
+            match PowerState::from_u32(jefe.get_state()) {
+                Some(PowerState::A2)
+                | Some(PowerState::A2PlusMono)
+                | Some(PowerState::A2PlusFans)
+                | Some(PowerState::A1)
+                | Some(PowerState::A0)
+                | Some(PowerState::A0PlusHP)
+                | Some(PowerState::A0Thermtrip) => {
+                    break;
+                }
+                None => {
+                    // This happens before we're in a valid power state.
+                    //
+                    // Only listen to our Jefe notification. Discard any error
+                    // since this can't fail but the compiler doesn't know that.
+                    let _ = sys_recv_closed(&mut [], 1 << 3, TaskId::KERNEL);
+                }
             }
         }
     }
-}
 
-impl Bsp {
-    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
+    fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         Self(
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
@@ -110,11 +113,11 @@ impl Bsp {
         )
     }
 
-    pub fn wake(&self, eth: &eth::Ethernet) {
+    fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
     }
 
-    pub fn phy_read(
+    fn phy_read(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
@@ -123,7 +126,7 @@ impl Bsp {
         self.0.phy_read(port, reg, eth)
     }
 
-    pub fn phy_write(
+    fn phy_write(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
@@ -133,18 +136,18 @@ impl Bsp {
         self.0.phy_write(port, reg, value, eth)
     }
 
-    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
         &self.0.ksz8463
     }
 
-    pub fn management_link_status(
+    fn management_link_status(
         &self,
         eth: &eth::Ethernet,
     ) -> Result<ManagementLinkStatus, MgmtError> {
         self.0.management_link_status(eth)
     }
 
-    pub fn management_counters(
+    fn management_counters(
         &self,
         eth: &crate::eth::Ethernet,
     ) -> Result<ManagementCounters, MgmtError> {
