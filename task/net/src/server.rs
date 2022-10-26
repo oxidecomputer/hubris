@@ -6,8 +6,11 @@ use crate::bsp_support;
 use crate::generated::{self, SOCKET_COUNT};
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ_BIT};
 
+#[cfg(feature = "vlan")]
+use crate::generated::VLAN_RANGE;
+
 use drv_stm32h7_eth as eth;
-use idol_runtime::RequestError;
+use idol_runtime::{ClientError, RequestError};
 use task_net_api::{
     KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError, RecvError,
@@ -23,32 +26,9 @@ use smoltcp::wire::{
 };
 use userlib::{sys_post, sys_refresh_task_id, UnwrapLite};
 
-/// Abstraction trait to reduce code duplication between VLAN and non-VLAN
-/// server implementations.
-pub trait NetServer {
-    type Bsp: bsp_support::Bsp;
-
-    fn net_recv_packet(
-        &mut self,
-        msg: &userlib::RecvMessage,
-        socket: SocketName,
-        large_payload_behavior: LargePayloadBehavior,
-        payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<UdpMetadata, RequestError<RecvError>>;
-
-    fn net_send_packet(
-        &mut self,
-        msg: &userlib::RecvMessage,
-        socket: SocketName,
-        metadata: UdpMetadata,
-        payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
-    ) -> Result<(), RequestError<SendError>>;
-}
-
 /// Implementation of the Net Idol interface.
 impl<B, E, const N: usize> idl::InOrderNetImpl for GenServerImpl<'_, B, E, N>
 where
-    Self: NetServer,
     B: bsp_support::Bsp,
     E: DeviceExt,
 {
@@ -256,6 +236,13 @@ where
 
 pub trait DeviceExt: for<'d> smoltcp::phy::Device<'d> {
     fn read_and_clear_activity_flag(&self) -> bool;
+
+    fn make_meta(
+        &self,
+        port: u16,
+        size: usize,
+        addr: task_net_api::Address,
+    ) -> UdpMetadata;
 }
 
 /// State for the running network server
@@ -285,9 +272,6 @@ where
     B: bsp_support::Bsp,
     E: DeviceExt,
 {
-    /// Size of buffer that must be allocated to use `dispatch`.
-    pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
-
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub(crate) fn new(
         eth: &'a eth::Ethernet,
@@ -430,8 +414,122 @@ where
         &self.mac
     }
 
-    pub(crate) fn set_client_waiting_to_send(&mut self, i: usize, f: bool) {
-        self.client_waiting_to_send[i] = f;
+    /// Requests that a packet waiting in the rx queue of `socket` be delivered
+    /// into loaned memory at `payload`.
+    ///
+    /// If a packet is available and fits, copies it into `payload` and returns
+    /// its `UdpMetadata`. Otherwise, leaves `payload` untouched and returns an
+    /// error.
+    fn net_recv_packet(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        socket: SocketName,
+        large_payload_behavior: LargePayloadBehavior,
+        payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<UdpMetadata, RequestError<RecvError>> {
+        let socket_index = socket as usize;
+
+        if generated::SOCKET_OWNERS[socket_index].0.index()
+            != msg.sender.index()
+        {
+            return Err(RecvError::NotYours.into());
+        }
+
+        // Iterate over all of the per-VLAN sockets, returning the first
+        // available packet with a bonus `vid` tag attached in the metadata.
+        for i in 0..N {
+            let socket = self
+                .get_socket_mut(socket_index, i)
+                .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+            loop {
+                match socket.recv() {
+                    Ok((body, endp)) => {
+                        if payload.len() < body.len() {
+                            match large_payload_behavior {
+                                LargePayloadBehavior::Discard => continue,
+                                // If we add a `::Fail` case, we will need to
+                                // allow for caller retries (possibly by peeking
+                                // on the socket instead of recving)
+                            }
+                        }
+                        payload
+                            .write_range(0..body.len(), body)
+                            .map_err(|_| RequestError::went_away())?;
+
+                        // Release borrow on self/socket
+                        let body_len = body.len();
+
+                        return Ok(self.vlan_state[i]
+                            .iface
+                            .device()
+                            .make_meta(
+                                endp.port,
+                                body_len,
+                                endp.addr.try_into().map_err(|_| ()).unwrap(),
+                            ));
+                    }
+                    Err(smoltcp::Error::Exhausted) => {
+                        // Move on to next vid
+                        break;
+                    }
+                    Err(_) => {
+                        // uhhhh TODO
+                        // (move on to next vid in the meantime)
+                        break;
+                    }
+                }
+            }
+        }
+        Err(RecvError::QueueEmpty.into())
+    }
+
+    /// Requests to copy a packet into the tx queue of socket `socket`,
+    /// described by `metadata` and containing the bytes loaned in `payload`.
+    fn net_send_packet(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        socket: SocketName,
+        metadata: UdpMetadata,
+        payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
+    ) -> Result<(), RequestError<SendError>> {
+        let socket_index = socket as usize;
+        if generated::SOCKET_OWNERS[socket_index].0.index()
+            != msg.sender.index()
+        {
+            return Err(SendError::NotYours.into());
+        }
+
+        #[cfg(feature = "vlan")]
+        let vlan_index = {
+            // Convert from absolute VID to an index in our VLAN array
+            if !VLAN_RANGE.contains(&metadata.vid) {
+                return Err(SendError::InvalidVLan.into());
+            }
+            metadata.vid - VLAN_RANGE.start
+        };
+        #[cfg(not(feature = "vlan"))]
+        let vlan_index = 0;
+
+        let socket = self
+            .get_socket_mut(socket_index, vlan_index as usize)
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+        match socket.send(payload.len(), metadata.into()) {
+            Ok(buf) => {
+                payload
+                    .read_range(0..payload.len(), buf)
+                    .map_err(|_| RequestError::went_away())?;
+                self.client_waiting_to_send[socket_index] = false;
+                Ok(())
+            }
+            Err(smoltcp::Error::Exhausted) => {
+                self.client_waiting_to_send[socket_index] = true;
+                Err(SendError::QueueFull.into())
+            }
+            Err(_e) => {
+                // uhhhh TODO
+                Err(SendError::Other.into())
+            }
+        }
     }
 }
 
