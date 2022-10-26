@@ -15,6 +15,7 @@ mod config;
 mod dist;
 mod elf;
 mod flash;
+mod graph;
 mod humility;
 mod sizes;
 mod task_slot;
@@ -33,9 +34,6 @@ enum Xtask {
         /// `cargo rustc ...`
         #[clap(short, long)]
         edges: bool,
-        /// Generate a dot language graph of tasks, priorities, and calls.
-        #[clap(short, long)]
-        graph: Option<PathBuf>,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
         /// Allow operation in a dirty checkout, i.e. don't clean before
@@ -55,9 +53,6 @@ enum Xtask {
         /// `cargo rustc ...`
         #[clap(short, long, conflicts_with = "list")]
         edges: bool,
-        /// Generate a dot language graph of tasks, priorities, and calls.
-        #[clap(short, long)]
-        graph: Option<PathBuf>,
         /// Print a list of all tasks
         #[clap(short, long)]
         list: bool,
@@ -151,6 +146,23 @@ enum Xtask {
         /// Path to task executable
         task_bin: PathBuf,
     },
+
+    /// Generate a graph of task_slot dependencies ordered by priority.
+    ///
+    /// Priority inversions are denoted by thick red arrows.
+    /// Normal task_slot dependencies are thin green arrows.
+    /// Example:
+    ///
+    ///   cargo xtask graph -o app.dot $APP_TOML;
+    ///   dot -Tsvg app.dot > app.svg;
+    ///   xdg-open app.xvg
+    Graph {
+        /// Output file for Graphviz dot syntax graph.
+        #[clap(short, long)]
+        output: PathBuf,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -195,12 +207,10 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::Dist {
             verbose,
             edges,
-            graph,
             cfg,
             dirty,
         } => {
-            let allocs =
-                dist::package(verbose, edges, graph, &cfg, None, dirty)?;
+            let allocs = dist::package(verbose, edges, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, true, false, false)?;
             }
@@ -208,7 +218,6 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::Build {
             verbose,
             edges,
-            graph,
             list,
             cfg,
             tasks,
@@ -217,11 +226,11 @@ fn run(xtask: Xtask) -> Result<()> {
             if list {
                 dist::list_tasks(&cfg)?;
             } else {
-                dist::package(verbose, edges, graph, &cfg, Some(tasks), dirty)?;
+                dist::package(verbose, edges, &cfg, Some(tasks), dirty)?;
             }
         }
         Xtask::Flash { dirty, mut args } => {
-            dist::package(args.verbose, false, None, &args.cfg, None, dirty)?;
+            dist::package(args.verbose, false, &args.cfg, None, dirty)?;
             let toml = Config::from_file(&args.cfg)?;
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
             args.extra_options.push("--force".to_string());
@@ -244,8 +253,7 @@ fn run(xtask: Xtask) -> Result<()> {
             save,
             dirty,
         } => {
-            let allocs =
-                dist::package(verbose, false, None, &cfg, None, dirty)?;
+            let allocs = dist::package(verbose, false, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, false, compare, save)?;
             }
@@ -273,14 +281,7 @@ fn run(xtask: Xtask) -> Result<()> {
                 &toml.image_names[0]
             };
             if !noflash {
-                dist::package(
-                    args.verbose,
-                    false,
-                    None,
-                    &args.cfg,
-                    None,
-                    false,
-                )?;
+                dist::package(args.verbose, false, &args.cfg, None, false)?;
                 // Delegate flashing to `humility gdb`, which also modifies
                 // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
@@ -315,6 +316,9 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
+        }
+        Xtask::Graph { output, cfg } => {
+            graph::task_graph(&cfg, &output)?;
         }
     }
 

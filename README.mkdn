@@ -201,6 +201,43 @@ requires = {flash = 1024, ram = 1024}
 start = true
 ```
 
+## Graphing task relationships and priorities
+
+A graph can be generated that show the relationships of the various tasks
+and their priorities. The resulting file is in [Graphvis](https://grahviz.org)'s
+`dot` format. `Dot` source [can be included](https://docs.asciidoctor.org/diagram-extension/latest/) in [Asciidoctor](https://asciidoctor.org) source
+or rendered to a variety of formats.
+
+To create and view an SVG graph for `gimletlet` on Ubuntu, ensure that the `graphviz` package is installed. Then generate the graph:
+
+```console
+$ cargo xtask graph -o gimletlet.dot app/gimletlet/app.toml
+$ dot -Tsvg gimletlet.dot > gimletlet.svg
+$ xdg-open gimletlet.svg
+```
+
+### Generating all graphs under Linux
+
+Bash commands to generate all graphs:
+
+```console
+  APPS=( $(find app -name '*.toml' ! -name Cargo.toml) )
+  for app in "${APPS[@]}"
+  do
+    out=$(basename ${app//\//_} .toml).dot
+    svg=$(basename $out .dot).svg
+    cargo xtask graph -o $out $app
+    dot -Tsvg $out > $svg
+  done
+  first="${APPS[0]}"
+  out="$(basename ${first//\//_} .toml).dot"
+  svg="$(basename $out .dot).svg"
+  xdg-open "${svg}"
+```
+
+If `eog` is the default viewer, opening the first SVG in a directory will
+allow cycling through all of the available graphs using the same window.
+
 # Using Hubris
 Hubris is tightly coupled to its debugger,
 [Humility](https://github.com/oxidecomputer/humility),
