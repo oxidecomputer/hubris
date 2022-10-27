@@ -3098,6 +3098,7 @@ name = "psc"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
