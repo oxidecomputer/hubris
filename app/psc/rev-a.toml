@@ -189,7 +189,7 @@ features = ["psc"]
 name = "task-sensor"
 priority = 3
 max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 3800    # Sensor data is stored on the stack
+stacksize = 1504    # Sensor data is stored on the stack
 start = true
 
 [tasks.thermal]
