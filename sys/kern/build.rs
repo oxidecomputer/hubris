@@ -22,8 +22,9 @@ fn main() -> Result<()> {
 
 fn generate_consts() -> Result<()> {
     let out = build_util::out_dir();
-    let mut const_file = File::create(out.join("consts.rs"))
-        .context("creating consts.rs file")?;
+    let consts_path = out.join("consts.rs");
+    let mut const_file =
+        File::create(&consts_path).context("creating consts.rs file")?;
 
     writeln!(
         const_file,
@@ -55,6 +56,9 @@ fn generate_consts() -> Result<()> {
         },
     )?;
 
+    drop(const_file);
+    call_rustfmt::rustfmt(consts_path)?;
+
     Ok(())
 }
 
@@ -67,8 +71,9 @@ fn generate_statics() -> Result<()> {
             .context("parsing kconfig from HUBRIS_KCONFIG")?;
 
     let out = build_util::out_dir();
+    let kconfig_path = out.join("kconfig.rs");
     let mut file =
-        File::create(out.join("kconfig.rs")).context("creating kconfig.rs")?;
+        File::create(&kconfig_path).context("creating kconfig.rs")?;
 
     writeln!(file, "// See build.rs for details")?;
 
@@ -310,6 +315,9 @@ fn generate_statics() -> Result<()> {
     } else {
         panic!("Don't know the target {}", target);
     }
+
+    drop(file);
+    call_rustfmt::rustfmt(kconfig_path)?;
 
     Ok(())
 }

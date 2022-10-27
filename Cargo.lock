@@ -250,6 +250,9 @@ dependencies = [
 [[package]]
 name = "call_rustfmt"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+]
 
 [[package]]
 name = "cargo-platform"
@@ -2131,6 +2134,7 @@ dependencies = [
  "bitflags",
  "build-util",
  "byteorder",
+ "call_rustfmt",
  "cfg-if",
  "cortex-m",
  "phash",

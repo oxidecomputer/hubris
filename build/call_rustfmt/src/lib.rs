@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::{bail, Result};
 use std::path::Path;
 use std::process::Command;
 
@@ -9,18 +10,12 @@ use std::process::Command;
 ///
 /// Rustfmt likes to rewrite files in-place. If this concerns you, copy your
 /// important file to a temporary file, and then call this on it.
-pub fn rustfmt(
-    path: impl AsRef<Path>,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn rustfmt(path: impl AsRef<Path>) -> Result<()> {
     let which_out =
         Command::new("rustup").args(["which", "rustfmt"]).output()?;
 
     if !which_out.status.success() {
-        return Err(format!(
-            "rustup which returned status {}",
-            which_out.status
-        )
-        .into());
+        bail!("rustup which returned status {}", which_out.status);
     }
 
     let out_str = std::str::from_utf8(&which_out.stdout)?.trim();
@@ -29,7 +24,7 @@ pub fn rustfmt(
 
     let fmt_status = Command::new(out_str).arg(path.as_ref()).status()?;
     if !fmt_status.success() {
-        return Err(format!("rustfmt returned status {}", fmt_status).into());
+        bail!("rustfmt returned status {}", fmt_status);
     }
     Ok(())
 }
