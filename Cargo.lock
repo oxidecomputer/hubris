@@ -2135,9 +2135,12 @@ dependencies = [
  "cortex-m",
  "phash",
  "phash-gen",
+ "proc-macro2",
+ "quote",
  "ron 0.7.0",
  "serde",
  "ssmarshal",
+ "syn",
  "unwrap-lite",
  "zerocopy",
 ]
