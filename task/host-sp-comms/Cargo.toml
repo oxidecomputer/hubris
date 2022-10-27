@@ -7,6 +7,7 @@ edition = "2018"
 cfg-if = "1"
 corncobs = "0.1.1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
+enum-map = "2.4.1"
 heapless = "0.7.16"
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
@@ -16,6 +17,7 @@ drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api"}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
 host-sp-messages = {path = "../../lib/host-sp-messages"}
+multitimer = {path = "../../lib/multitimer"}
 mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
 task-host-sp-comms-api = {path = "../host-sp-comms-api"}
