@@ -25,6 +25,7 @@ anyhow = "1.0.66"
 proc-macro2 = "1.0.32"
 syn = { version = "1.0.94", features = ["parsing"] }
 quote = "1.0.10"
+call_rustfmt = {path = "../../build/call_rustfmt"}
 
 [lib]
 test = false
