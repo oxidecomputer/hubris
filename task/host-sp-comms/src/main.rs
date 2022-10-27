@@ -5,8 +5,6 @@
 #![no_std]
 #![no_main]
 
-use core::ops::Range;
-
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
@@ -17,19 +15,24 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
-    SpToHost, Status, MAX_MESSAGE_SIZE,
+    Bsu, DebugReg, DecodeFailureReason, HostToSp, HubpackError, SpToHost,
+    Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
-use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_control_plane_agent_api::{ControlPlaneAgent, ControlPlaneAgentError};
 use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
 
-task_slot!(SYS, sys);
+mod tx_buf;
+
+use tx_buf::TxBuf;
+
+task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
 task_slot!(GIMLET_SEQ, gimlet_seq);
 task_slot!(HOST_FLASH, hf);
+task_slot!(SYS, sys);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
@@ -73,6 +76,11 @@ const JEFE_STATE_CHANGE_IRQ: u32 = 1 << 1;
 /// Notification bit for the timer we set for ourselves.
 const TIMER_IRQ_BIT: u8 = 2;
 const TIMER_IRQ: u32 = 1 << TIMER_IRQ_BIT;
+
+/// Notification bit for control-plane-agent to tell us the phase 2 data the
+/// host wants from MGS has arrived.
+const CONTROL_PLANE_AGENT_IRQ_BIT: u8 = 3;
+const CONTROL_PLANE_AGENT_IRQ: u32 = 1 << CONTROL_PLANE_AGENT_IRQ_BIT;
 
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
@@ -122,23 +130,18 @@ struct ServerImpl {
     uart: Usart,
     sys: sys_api::Sys,
     timers: Multitimer<Timers>,
-    tx_msg_buf: &'static mut [u8; MAX_MESSAGE_SIZE],
-    tx_pkt_buf: &'static mut [u8; MAX_PACKET_SIZE],
-    tx_pkt_to_write: Range<usize>,
+    tx_buf: TxBuf,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
     debug: DebugReg,
     sequencer: Sequencer,
     hf: HostFlash,
+    cp_agent: ControlPlaneAgent,
     reboot_state: Option<RebootState>,
 }
 
 impl ServerImpl {
     fn claim_static_resources() -> Self {
-        let (tx_msg_buf, tx_pkt_buf) = mutable_statics! {
-                static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [|| 0; _];
-                static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE] = [|| 0; _];
-        };
         let sys = sys_api::Sys::from(SYS.get_task_id());
         let uart = configure_uart_device(&sys);
         sp_to_sp3_interrupt_enable(&sys);
@@ -154,14 +157,15 @@ impl ServerImpl {
             uart,
             sys,
             timers,
-            tx_msg_buf,
-            tx_pkt_buf,
-            tx_pkt_to_write: 0..0,
+            tx_buf: TxBuf::claim_static_resources(),
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
             debug: DebugReg::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
+            cp_agent: ControlPlaneAgent::from(
+                CONTROL_PLANE_AGENT.get_task_id(),
+            ),
             reboot_state: None,
         }
     }
@@ -364,12 +368,9 @@ impl ServerImpl {
             // Do we have data to transmit? If so, write as much as we can until
             // either the fifo fills (in which case we return before trying to
             // receive more) or we finish flushing.
-            while !self.tx_pkt_to_write.is_empty() {
-                if try_tx_push(
-                    &self.uart,
-                    self.tx_pkt_buf[self.tx_pkt_to_write.start],
-                ) {
-                    self.tx_pkt_to_write.start += 1;
+            while let Some(b) = self.tx_buf.next_byte_to_send() {
+                if try_tx_push(&self.uart, b) {
+                    self.tx_buf.advance_one_byte();
                 } else {
                     // We have more data to send but the TX FIFO is full; enable
                     // the TX FIFO empty interrupt and wait for it.
@@ -391,40 +392,37 @@ impl ServerImpl {
 
             // Receive until there's no more data or we get a 0x00, signifying
             // the end of a corncobs packet.
-            while let Some(byte) = self.uart.try_rx_pop() {
+            'rx: while let Some(byte) = self.uart.try_rx_pop() {
                 ringbuf_entry!(Trace::UartRx(byte));
 
-                if byte == 0x00 {
-                    // Host may send extra cobs terminators; skip any empty
-                    // packets.
-                    if self.rx_buf.is_empty() {
-                        continue;
+                if byte != 0x00 {
+                    // This is the end of a packet; buffer it and continue.
+                    if self.rx_buf.push(byte).is_err() {
+                        // Message overflow - nothing we can do here except
+                        // discard data. We'll drop this byte and wait til we
+                        // see a 0 to respond, at which point our
+                        // deserialization will presumably fail and we'll send
+                        // back an error. Should we record that we overflowed
+                        // here?
                     }
+                    continue 'rx;
+                }
 
-                    // Process message and populate our response into
-                    // `tx_msg_buf`.
-                    let msg_len = self.process_message();
-                    self.rx_buf.clear();
+                // Host may send extra cobs terminators; skip any empty
+                // packets.
+                if self.rx_buf.is_empty() {
+                    continue 'rx;
+                }
 
-                    if let Some(msg_len) = msg_len {
-                        // Encode our outgoing packet.
-                        let pkt_len = corncobs::encode_buf(
-                            &self.tx_msg_buf[..msg_len],
-                            &mut self.tx_pkt_buf[..],
-                        );
-                        self.tx_pkt_to_write = 0..pkt_len;
+                // Process message and set up `self.tx_buf` with our response
+                // (or intermediate state if we don't have a response yet).
+                self.process_message();
+                self.rx_buf.clear();
 
-                        // Loop back to the top and start transmitting our
-                        // response immediately.
-                        continue 'tx;
-                    }
-                } else if self.rx_buf.push(byte).is_err() {
-                    // Message overflow - nothing we can do here except
-                    // discard data. We'll drop this byte and wait til we
-                    // see a 0 to respond, at which point our
-                    // deserialization will presumably fail and we'll send
-                    // back an error. Should we record that we overflowed
-                    // here?
+                // If we have data to send now, immediately loop back to the top
+                // and start trying to send it.
+                if self.tx_buf.next_byte_to_send().is_some() {
+                    continue 'tx;
                 }
             }
 
@@ -447,62 +445,95 @@ impl ServerImpl {
         }
     }
 
+    fn handle_control_plane_agent_notification(&mut self) {
+        // If control-plane-agent notified us, presumably it's telling us that
+        // the data we asked it to fetch is ready.
+        if let Some(phase2) = self.tx_buf.is_waiting_for_phase2_data() {
+            // Borrow `cp_agent` to avoid borrowing `self` in the closure below.
+            let cp_agent = &self.cp_agent;
+
+            self.tx_buf.encode_response(
+                phase2.sequence,
+                &SpToHost::Phase2Data,
+                |dst| {
+                    // Fetch the phase two data directly into `dst` (the buffer
+                    // where we're serializing our response), which is maximally
+                    // sized for what we can send the host in one packet. It is
+                    // almost certainly larger than what control-plane-agent can
+                    // fetch in a single UDP packet.
+                    match cp_agent.get_host_phase2_data(
+                        phase2.hash,
+                        phase2.offset,
+                        dst,
+                    ) {
+                        Ok(n) => n,
+                        // If we can't get data, all we can do is send the
+                        // host a response with no data; it can decide to
+                        // retry later.
+                        Err(ControlPlaneAgentError::DataUnavailable) => 0,
+                    }
+                },
+            );
+
+            // Call our usart handler, because we now have data to send.
+            self.handle_usart_notification();
+        }
+    }
+
     // Process the framed packet sitting in `self.rx_buf`. If it warrants a
-    // response, we return `Some(n)` where n is the length of the outgoing,
-    // unframed message we wrote to `self.tx_msg_buf`.
-    fn process_message(&mut self) -> Option<usize> {
+    // response, we configure `self.tx_buf` appropriate: either populating it
+    // with a response if we can come up with that response immediately, or
+    // instructing it that we'll fill it in with our response later.
+    fn process_message(&mut self) {
         let deframed = match corncobs::decode_in_place(self.rx_buf) {
             Ok(n) => &self.rx_buf[..n],
             Err(_) => {
-                return Some(populate_with_decode_error(
-                    self.tx_msg_buf,
-                    DecodeFailureReason::Cobs,
-                ));
+                self.tx_buf
+                    .encode_decode_failure_reason(DecodeFailureReason::Cobs);
+                return;
             }
         };
 
-        let (mut header, request, data) =
+        let (header, request, _data) =
             match host_sp_messages::deserialize::<HostToSp>(deframed) {
                 Ok((header, request, data)) => (header, request, data),
                 Err(HubpackError::Custom) => {
-                    return Some(populate_with_decode_error(
-                        self.tx_msg_buf,
-                        DecodeFailureReason::Crc,
-                    ));
+                    self.tx_buf
+                        .encode_decode_failure_reason(DecodeFailureReason::Crc);
+                    return;
                 }
                 Err(_) => {
-                    return Some(populate_with_decode_error(
-                        self.tx_msg_buf,
+                    self.tx_buf.encode_decode_failure_reason(
                         DecodeFailureReason::Deserialize,
-                    ));
+                    );
+                    return;
                 }
             };
 
         if header.magic != host_sp_messages::MAGIC {
-            return Some(populate_with_decode_error(
-                self.tx_msg_buf,
+            self.tx_buf.encode_decode_failure_reason(
                 DecodeFailureReason::MagicMismatch,
-            ));
+            );
+            return;
         }
 
         if header.version != host_sp_messages::version::V1 {
-            return Some(populate_with_decode_error(
-                self.tx_msg_buf,
+            self.tx_buf.encode_decode_failure_reason(
                 DecodeFailureReason::VersionMismatch,
-            ));
+            );
+            return;
         }
 
         if header.sequence & SEQ_REPLY != 0 {
-            return Some(populate_with_decode_error(
-                self.tx_msg_buf,
+            self.tx_buf.encode_decode_failure_reason(
                 DecodeFailureReason::SequenceInvalid,
-            ));
+            );
+            return;
         }
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
         let mut action = None;
-        let mut response_data: &[u8] = &[];
         let response = match request {
             HostToSp::_Unused => {
                 Some(SpToHost::DecodeFailure(DecodeFailureReason::Deserialize))
@@ -574,37 +605,43 @@ impl ServerImpl {
                 Some(SpToHost::Alert { action: 0 })
             }
             HostToSp::RotRequest => {
-                // TODO forward request to RoT; for now just echo
-                response_data = data;
+                // TODO forward request to RoT
                 Some(SpToHost::RotResponse)
             }
             HostToSp::RotAddHostMeasurements => {
                 // TODO forward request to RoT
                 Some(SpToHost::Ack)
             }
-            HostToSp::GetPhase2Data { start, count: _ } => {
-                // TODO forward real data
-                response_data = b"hello world";
-                Some(SpToHost::Phase2Data { start })
+            HostToSp::GetPhase2Data { hash, offset } => {
+                // We don't have a response to transmit now, but need to avoid
+                // sending periodic 0s until we do have a response. Instruct
+                // `tx_buf` that we're waiting for the host phase2 data to show
+                // up.
+                self.tx_buf.set_waiting_for_phase2_data(
+                    header.sequence,
+                    hash,
+                    offset,
+                );
+
+                // Ask control-plane-agent to fetch this data for us; it will
+                // notify us when it arrives.
+                self.cp_agent
+                    .fetch_host_phase2_data(
+                        hash,
+                        offset,
+                        CONTROL_PLANE_AGENT_IRQ_BIT,
+                    )
+                    .unwrap_lite();
+                None
             }
         };
 
-        // We set the high bit of the sequence number before responding.
-        header.sequence |= SEQ_REPLY;
-
-        // TODO this can panic if `response_data` is too large; where do we
-        // check it before sending a response?
-        let tx_msg_buf = &mut self.tx_msg_buf; // borrow checker workaround
-        let n = response.map(|response| {
-            host_sp_messages::serialize(
-                tx_msg_buf,
-                &header,
-                &response,
-                response_data,
-            )
-            .unwrap_lite()
-            .0
-        });
+        if let Some(response) = response {
+            // If we have a response immediately, we have no extra data to
+            // pack into the packet, hence the 0-returning closure.
+            self.tx_buf
+                .encode_response(header.sequence, &response, |_| 0);
+        }
 
         // Now that all buffer borrowing is done, we can borrow `self` mutably
         // again to perform any necessary action.
@@ -617,14 +654,12 @@ impl ServerImpl {
                 }
             }
         }
-
-        n
     }
 }
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        USART_IRQ | JEFE_STATE_CHANGE_IRQ | TIMER_IRQ
+        USART_IRQ | JEFE_STATE_CHANGE_IRQ | TIMER_IRQ | CONTROL_PLANE_AGENT_IRQ
     }
 
     fn handle_notification(&mut self, bits: u32) {
@@ -639,6 +674,10 @@ impl NotificationHandler for ServerImpl {
             self.handle_jefe_notification(
                 self.sequencer.get_state().unwrap_lite(),
             );
+        }
+
+        if bits & CONTROL_PLANE_AGENT_IRQ != 0 {
+            self.handle_control_plane_agent_notification();
         }
 
         // We may want to clear our TX periodic zero byte timer (if the TX FIFO
@@ -659,7 +698,7 @@ impl NotificationHandler for ServerImpl {
                 Timers::TxPeriodicZeroByte => {
                     tx_timer_disposition = handle_tx_periodic_zero_byte_timer(
                         &self.uart,
-                        &self.tx_pkt_to_write,
+                        &self.tx_buf,
                         &self.rx_buf,
                     );
                 }
@@ -702,10 +741,10 @@ fn handle_reboot_waiting_in_a2_timer(
 // several of its fields instead of `self` to avoid borrow checker issues.
 fn handle_tx_periodic_zero_byte_timer(
     uart: &Usart,
-    tx_pkt_to_write: &Range<usize>,
+    tx_buf: &TxBuf,
     rx_buf: &Vec<u8, MAX_PACKET_SIZE>,
 ) -> TimerDisposition {
-    if tx_pkt_to_write.is_empty() && rx_buf.is_empty() {
+    if tx_buf.should_send_periodic_zero_bytes() && rx_buf.is_empty() {
         // We don't have a real packet we're sending and we haven't
         // started receiving a request from the host; try to send a
         // 0x00 terminator. If we can, reset the deadline to send
@@ -797,25 +836,6 @@ fn try_tx_push(uart: &Usart, val: u8) -> bool {
         ringbuf_entry!(Trace::UartTxFull);
     }
     ret
-}
-
-fn populate_with_decode_error(
-    out: &mut [u8; MAX_MESSAGE_SIZE],
-    reason: DecodeFailureReason,
-) -> usize {
-    let header = Header {
-        magic: host_sp_messages::MAGIC,
-        version: host_sp_messages::version::V1,
-        // We failed to decode, so don't know the sequence number.
-        sequence: 0xffff_ffff_ffff_ffff,
-    };
-    let response = SpToHost::DecodeFailure(reason);
-
-    // Serializing can only fail if we pass unexpected types as `response`, but
-    // we're using `SpToHost`, so it cannot fail.
-    host_sp_messages::serialize(out, &header, &response, &[])
-        .unwrap_lite()
-        .0
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]

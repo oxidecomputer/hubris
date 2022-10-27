@@ -79,9 +79,11 @@ pub enum HostToSp {
     GetAlert,
     RotRequest, // Followed by a binary data blob (the request)
     RotAddHostMeasurements, // Followed by a binary data blob?
+    /// Get as much phase 2 data as we can from the image identified by `hash`
+    /// starting at `offset`.
     GetPhase2Data {
-        start: u64, // units TBD
-        count: u64,
+        hash: [u8; 32],
+        offset: u64,
     },
 }
 
@@ -97,7 +99,6 @@ pub enum HostToSp {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-// TODO phase 2 image-related response(s)
 pub enum SpToHost {
     // Microoptimization: insert a dummy variant first, so we never serialize a
     // command value of `0` to make COBS's life slightly easier.
@@ -128,9 +129,7 @@ pub enum SpToHost {
     // Followed by a binary data blob (the response)
     RotResponse,
     // Followed by a binary data blob (the data)
-    Phase2Data {
-        start: u64, // units TBD
-    },
+    Phase2Data,
 }
 
 // See RFD 316 for values.
@@ -193,22 +192,36 @@ bitflags::bitflags! {
     }
 }
 
-/// On success, returns the length of the message serialized into `out` and any
-/// leftover data from `data_blob` that did not fit into this message.
+/// Serializes a response packet containing
+///
+/// ```text
+/// [header | command | data]
+/// ```
+///
+/// where `data` is provided by the `fill_data` closure, which should populate
+/// the slice it's given and return the length of data written to that slice.
+///
+/// On success, returns the length of the message serialized into `out`.
 ///
 /// # Errors
 ///
 /// Only fails if `command` fails to serialize into
 /// `out[header_length..out.len() - 2]` (i.e., the space available between the
-/// header and our trailing checksum). If the serialized command is maximal size
-/// (i.e., exactly `MAX_MESSAGE_SIZE - header_length - 2`), none of `data_blob`
-/// will be included in the serialized message.
-pub fn serialize<'a>(
+/// header and our trailing checksum).
+///
+/// # Panics
+///
+/// Panics if `fill_data` returns a size greater than the length of the slice it
+/// was given.
+pub fn serialize<'a, F>(
     out: &mut [u8; MAX_MESSAGE_SIZE],
     header: &Header,
     command: &impl Serialize,
-    data_blob: &'a [u8],
-) -> Result<(usize, &'a [u8]), HubpackError> {
+    fill_data: F,
+) -> Result<usize, HubpackError>
+where
+    F: FnOnce(&mut [u8]) -> usize,
+{
     let mut n = hubpack::serialize(out, header)?;
 
     // We know `Header::MAX_SIZE` is much smaller than out.len(), so this
@@ -220,13 +233,8 @@ pub fn serialize<'a>(
 
     n += hubpack::serialize(&mut out[n..out_data_end], command)?;
 
-    // After packing in `header` and `command`, how much more data can we fit
-    // (while still leaving room for our checksum)?
-    let data_this_message = usize::min(out_data_end - n, data_blob.len());
-
-    // Pack in as much of `data_blob` as we can.
-    out[n..][..data_this_message]
-        .copy_from_slice(&data_blob[..data_this_message]);
+    let data_this_message = fill_data(&mut out[n..out_data_end]);
+    assert!(data_this_message <= out_data_end - n);
     n += data_this_message;
 
     // Compute checksum over the full message.
@@ -234,9 +242,17 @@ pub fn serialize<'a>(
     out[n..][..CHECKSUM_SIZE].copy_from_slice(&checksum.to_le_bytes()[..]);
     n += CHECKSUM_SIZE;
 
-    Ok((n, &data_blob[data_this_message..]))
+    Ok(n)
 }
 
+/// Deserializes a response packet containing
+///
+/// ```text
+/// [header | command | data]
+/// ```
+///
+/// and returning those three separate parts.
+///
 /// # Errors
 ///
 /// Returns [`HubpackError::Custom`] for checksum mismatches.
@@ -289,7 +305,13 @@ mod tests {
             (0x0a, HostToSp::GetAlert),
             (0x0b, HostToSp::RotRequest),
             (0x0c, HostToSp::RotAddHostMeasurements),
-            (0x0d, HostToSp::GetPhase2Data { start: 0, count: 0 }),
+            (
+                0x0d,
+                HostToSp::GetPhase2Data {
+                    hash: [0; 32],
+                    offset: 0,
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -333,7 +355,7 @@ mod tests {
             ),
             (0x07, SpToHost::Alert { action: 0 }),
             (0x08, SpToHost::RotResponse),
-            (0x09, SpToHost::Phase2Data { start: 0 }),
+            (0x09, SpToHost::Phase2Data),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -352,9 +374,12 @@ mod tests {
         let data_blob = &[1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         let mut buf = [0; MAX_MESSAGE_SIZE];
-        let (n, leftover) =
-            serialize(&mut buf, &header, &host_to_sp, data_blob).unwrap();
-        assert!(leftover.is_empty());
+        let n = serialize(&mut buf, &header, &host_to_sp, |out| {
+            let n = data_blob.len();
+            out[..n].copy_from_slice(data_blob);
+            n
+        })
+        .unwrap();
 
         let deserialized = deserialize(&buf[..n]).unwrap();
 
@@ -378,8 +403,14 @@ mod tests {
             .collect::<Vec<_>>();
 
         let mut buf = [0; MAX_MESSAGE_SIZE];
-        let (n, leftover) =
-            serialize(&mut buf, &header, &host_to_sp, &data_blob).unwrap();
+        let mut leftover: &[u8] = &[];
+        let n = serialize(&mut buf, &header, &host_to_sp, |out| {
+            let n = usize::min(out.len(), data_blob.len());
+            out[..n].copy_from_slice(&data_blob[..n]);
+            leftover = &data_blob[n..];
+            n
+        })
+        .unwrap();
         assert!(!leftover.is_empty());
 
         let deserialized = deserialize(&buf[..n]).unwrap();
@@ -406,9 +437,7 @@ mod tests {
 
         // Message including `Bsu`, which uses `Serialize_repr`.
         let message = SpToHost::BootStorageUnit(Bsu::A);
-        let (n, leftover) =
-            serialize(&mut buf, &header, &message, &[]).unwrap();
-        assert!(leftover.is_empty());
+        let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
             // magic
@@ -427,9 +456,7 @@ mod tests {
         // Message including `DecodeFailureReason`, which uses `Serialize_repr`.
         let message =
             SpToHost::DecodeFailure(DecodeFailureReason::SequenceInvalid);
-        let (n, leftover) =
-            serialize(&mut buf, &header, &message, &[]).unwrap();
-        assert!(leftover.is_empty());
+        let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
             // magic
@@ -450,9 +477,7 @@ mod tests {
             status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
             debug: DebugReg::DEBUG_KMDB | DebugReg::DEBUG_KMDB_BOOT,
         };
-        let (n, leftover) =
-            serialize(&mut buf, &header, &message, &[]).unwrap();
-        assert!(leftover.is_empty());
+        let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
             // magic

@@ -20,6 +20,7 @@ host-sp-messages = {path = "../../lib/host-sp-messages"}
 multitimer = {path = "../../lib/multitimer"}
 mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
+task-control-plane-agent-api = {path = "../control-plane-agent-api"}
 task-host-sp-comms-api = {path = "../host-sp-comms-api"}
 userlib = {path = "../../sys/userlib"}
 

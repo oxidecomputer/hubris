@@ -3812,6 +3812,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "userlib",
  "zerocopy",
