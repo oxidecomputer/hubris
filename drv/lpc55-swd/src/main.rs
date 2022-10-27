@@ -758,6 +758,8 @@ impl ServerImpl {
             transaction.read_cnt += 1;
             if transaction.read_cnt == transaction.total_word_cnt {
                 self.transaction = None;
+            } else {
+                self.transaction = Some(transaction);
             }
             Ok(Some(val))
         } else {
