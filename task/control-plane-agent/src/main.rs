@@ -8,13 +8,15 @@
 use gateway_messages::{
     sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId,
 };
+use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
+use userlib::{sys_post, sys_set_timer, task_slot};
 
 mod inventory;
 mod mgs_common;
@@ -107,32 +109,84 @@ const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]
 fn main() {
-    let mut mgs_handler = MgsHandler::claim_static_resources();
-    let mut net_handler = NetHandler::claim_static_resources();
+    let mut server = ServerImpl::claim_static_resources();
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        sys_set_timer(mgs_handler.timer_deadline(), TIMER_IRQ);
+        sys_set_timer(server.timer_deadline(), TIMER_IRQ);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
+    }
+}
 
-        let note = sys_recv_closed(
-            &mut [],
-            NET_IRQ | USART_IRQ | TIMER_IRQ,
-            TaskId::KERNEL,
-        )
-        .unwrap_lite()
-        .operation;
-        ringbuf_entry!(Log::Wake(note));
+struct ServerImpl {
+    mgs_handler: MgsHandler,
+    net_handler: NetHandler,
+}
 
-        if (note & USART_IRQ) != 0 {
-            mgs_handler.drive_usart();
+impl ServerImpl {
+    fn claim_static_resources() -> Self {
+        Self {
+            mgs_handler: MgsHandler::claim_static_resources(),
+            net_handler: NetHandler::claim_static_resources(),
+        }
+    }
+
+    fn timer_deadline(&self) -> Option<u64> {
+        self.mgs_handler.timer_deadline()
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        NET_IRQ | USART_IRQ | TIMER_IRQ
+    }
+
+    fn handle_notification(&mut self, bits: u32) {
+        ringbuf_entry!(Log::Wake(bits));
+
+        if (bits & USART_IRQ) != 0 {
+            self.mgs_handler.drive_usart();
         }
 
-        if (note & TIMER_IRQ) != 0 {
-            mgs_handler.handle_timer_fired();
+        if (bits & TIMER_IRQ) != 0 {
+            self.mgs_handler.handle_timer_fired();
         }
 
-        if (note & NET_IRQ) != 0 || mgs_handler.wants_to_send_packet_to_mgs() {
-            net_handler.run_until_blocked(&mut mgs_handler);
+        if (bits & NET_IRQ) != 0
+            || self.mgs_handler.wants_to_send_packet_to_mgs()
+        {
+            self.net_handler.run_until_blocked(&mut self.mgs_handler);
         }
+    }
+}
+
+impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
+    fn fetch_host_phase2_data(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        _image_hash: [u8; 32],
+        _offset: u64,
+        notification_bit: u8,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        // TODO: Actually fetch data! For now, we immediately notify our caller,
+        // allowing them to call `get_host_phase2_data()`.
+        sys_post(msg.sender, 1 << notification_bit);
+        Ok(())
+    }
+
+    fn get_host_phase2_data(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _image_hash: [u8; 32],
+        _offset: u64,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        // TODO: Actually supply real data!
+        for i in 0..data.len() {
+            data.write_at(i, i as u8)
+                .map_err(|_| RequestError::went_away())?;
+        }
+        Ok(data.len())
     }
 }
 
@@ -271,4 +325,9 @@ const fn usize_max(a: usize, b: usize) -> usize {
     } else {
         b
     }
+}
+
+mod idl {
+    use task_control_plane_agent_api::ControlPlaneAgentError;
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

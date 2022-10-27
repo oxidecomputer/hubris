@@ -1,0 +1,39 @@
+// Control Plane Agent API
+
+Interface(
+    name: "ControlPlaneAgent",
+    ops: {
+        "fetch_host_phase2_data": (
+            doc: "Instruct the control plane agent to fetch a portion of a host phase 2 image, identified by `hash` and starting at `offset`. When the data arrives, the control plane agent will notify the calling task, at which point it should call `get_host_phase2_data`.",
+            args: {
+                // Hash of the phase 2 image the host wants.
+                "image_hash": "[u8; 32]",
+                // Offset within the image the host wants.
+                "offset": "u64",
+                // Notification bit (i.e., log2 of the actual IRQ value) we
+                // should use when the data has been fetched.
+                "notification_bit": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ControlPlaneAgentError"),
+            ),
+        ),
+        "get_host_phase2_data": (
+            doc: "Get already-fetched host phase 2 data.",
+            args: {
+                // Hash of the phase 2 image the host wants.
+                "image_hash": "[u8; 32]",
+                // Offset within the image the host wants.
+                "offset": "u64",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("ControlPlaneAgentError"),
+            ),
+        ),
+    },
+)

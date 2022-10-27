@@ -3731,17 +3731,33 @@ dependencies = [
  "drv-update-api",
  "gateway-messages",
  "heapless",
+ "idol",
+ "idol-runtime",
  "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
  "ssmarshal",
  "static_assertions",
+ "task-control-plane-agent-api",
  "task-jefe-api",
  "task-net-api",
  "task-validate-api",
  "update-buffer",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-control-plane-agent-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "ssmarshal",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

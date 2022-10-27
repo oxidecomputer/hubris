@@ -10,7 +10,9 @@ num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 static_assertions = "1.1"
+zerocopy = "0.6.1"
 
+task-control-plane-agent-api = {path = "../control-plane-agent-api"}
 drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
@@ -27,6 +29,10 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 update-buffer = {path = "../../lib/update-buffer"}
 
 gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "c1484109c394f45e08018e0f35adc4a136cd207d"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]
