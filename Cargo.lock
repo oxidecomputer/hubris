@@ -3827,6 +3827,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-sensor-polling"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-sp-measure"
 version = "0.1.0"
 dependencies = [
@@ -3903,22 +3919,6 @@ dependencies = [
  "num-traits",
  "serde",
  "ssmarshal",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-thermal-sensors"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-i2c",
- "build-util",
- "cortex-m",
- "drv-i2c-api",
- "drv-i2c-devices",
- "ringbuf",
- "task-sensor-api",
  "userlib",
  "zerocopy",
 ]

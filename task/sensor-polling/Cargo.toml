@@ -1,5 +1,5 @@
 [package]
-name = "task-thermal-sensors"
+name = "task-sensor-polling"
 description = "Monitoring-only task for temperature and fan sensors"
 version = "0.1.0"
 edition = "2021"
@@ -20,6 +20,6 @@ build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
 
 [[bin]]
-name = "task-thermal-sensors"
+name = "task-sensor-polling"
 test = false
 bench = false

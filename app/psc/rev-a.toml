@@ -192,8 +192,8 @@ max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1504    # Sensor data is stored on the stack
 start = true
 
-[tasks.thermal]
-name = "task-thermal-sensors"
+[tasks.sensor_polling]
+name = "task-sensor-polling"
 priority = 4
 max-sizes = {flash = 16384, ram = 2048 }
 start = true
