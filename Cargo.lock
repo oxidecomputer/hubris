@@ -3776,6 +3776,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
+ "drv-stm32xx-sys-api",
  "mutable-statics",
  "paste",
  "ringbuf",
@@ -3822,6 +3823,22 @@ dependencies = [
  "drv-i2c-api",
  "idol",
  "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-sensor-polling"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "task-sensor-api",
  "userlib",
  "zerocopy",
 ]
