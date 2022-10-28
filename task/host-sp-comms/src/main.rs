@@ -398,32 +398,9 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::UartRxOverrun);
             }
 
-            // Receive until there's no more data or we get a 0x00, signifying
-            // the end of a corncobs packet.
-            'rx: while let Some(byte) = self.uart.try_rx_pop() {
-                ringbuf_entry!(Trace::UartRx(byte));
-
-                if byte != 0x00 {
-                    // This is the end of a packet; buffer it and continue.
-                    if self.rx_buf.push(byte).is_err() {
-                        // Message overflow - nothing we can do here except
-                        // discard data. We'll drop this byte and wait til we
-                        // see a 0 to respond, at which point our
-                        // deserialization will presumably fail and we'll send
-                        // back an error. Should we record that we overflowed
-                        // here?
-                    }
-                    continue 'rx;
-                }
-
-                // Host may send extra cobs terminators; skip any empty
-                // packets.
-                if self.rx_buf.is_empty() {
-                    continue 'rx;
-                }
-
-                // Process message and set up `self.tx_buf` with our response
-                // (or intermediate state if we don't have a response yet).
+            // Receive until we either get a packet or have no more data.
+            if self.uart_rx_until_maybe_packet() {
+                // We received a packet; handle it.
                 self.process_message();
 
                 // If we have data to send now, immediately loop back to the top
@@ -450,6 +427,33 @@ impl ServerImpl {
             }
             return;
         }
+    }
+
+    fn uart_rx_until_maybe_packet(&mut self) -> bool {
+        while let Some(byte) = self.uart.try_rx_pop() {
+            ringbuf_entry!(Trace::UartRx(byte));
+
+            if byte == 0x00 {
+                // COBS terminator; did we get any data?
+                if self.rx_buf.is_empty() {
+                    continue;
+                } else {
+                    return true;
+                }
+            }
+
+            // Not a COBS terminator; buffer it.
+            if self.rx_buf.push(byte).is_err() {
+                // Message overflow - nothing we can do here except
+                // discard data. We'll drop this byte and wait til we
+                // see a 0 to respond, at which point our
+                // deserialization will presumably fail and we'll send
+                // back an error. Should we record that we overflowed
+                // here?
+            }
+        }
+
+        false
     }
 
     fn handle_control_plane_agent_notification(&mut self) {
