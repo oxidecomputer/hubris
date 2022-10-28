@@ -384,41 +384,28 @@ struct FlashConfig {
 }
 
 fn get_system_clock_speed_mhz() -> u32 {
-    const CMPA_BOOT_CFG: u32 = 0x9e400;
-    const BOOT_SPEED_SHIFT: u32 = 7;
-    const BOOT_SPEED_MASK: u32 = 0b11;
+    let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
 
-    // This is ...sort of documented in NXP APIs
-    const NMPA_SYSTEM_SPEED: u32 = 0x9fc08;
-    const SYSTEM_SPEED_SHIFT: u32 = 0;
-    const SYSTEM_SPEED_MASK: u32 = 0b11;
+    let a = syscon.mainclksela.read().bits();
+    let b = syscon.mainclkselb.read().bits();
+    let div = syscon.ahbclkdiv.read().bits();
 
-    let cmpa_setting = unsafe {
-        (core::ptr::read_volatile(CMPA_BOOT_CFG as *const u32)
-            >> BOOT_SPEED_SHIFT)
-            & BOOT_SPEED_MASK
-    };
+    // corresponds to FRO 96 MHz, see 4.5.34 in user manual
+    const EXPECTED_MAINCLKSELA: u32 = 3;
+    // corresponds to Main Clock A, see 4.5.45 in user manual
+    const EXPECTED_MAINCLKSELB: u32 = 0;
 
-    // All of this actually is documented by NXP across the mcux-sdk and
-    // spsdk repositories.
-    match cmpa_setting {
-        0b10 => 48,
-        0b01 => 96,
-        0b00 => {
-            let nmpa_setting = unsafe {
-                (core::ptr::read_volatile(NMPA_SYSTEM_SPEED as *const u32)
-                    >> SYSTEM_SPEED_SHIFT)
-                    & SYSTEM_SPEED_MASK
-            };
-            match nmpa_setting {
-                0b00 => 12,
-                0b01 => 24,
-                0b10 => 48,
-                0b11 => 96,
-                _ => panic!(),
-            }
-        }
-        _ => panic!(),
+    // We expect the 96MHz clock to be used based on the ROM.
+    // If it's not there are probably more (bad) surprises coming
+    // and panicking is reasonable
+    if a != EXPECTED_MAINCLKSELA || b != EXPECTED_MAINCLKSELB {
+        panic!();
+    }
+
+    if div == 0 {
+        96
+    } else {
+        48
     }
 }
 
