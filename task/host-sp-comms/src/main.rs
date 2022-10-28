@@ -56,6 +56,8 @@ enum Trace {
     AckSpStart,
     SetState { now: u64, state: PowerState },
     JefeNotification { now: u64, state: PowerState },
+    OutOfSyncRequest,
+    OutOfSyncRxNoise,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -373,12 +375,47 @@ impl ServerImpl {
     //          └─────────────────┘
     fn handle_usart_notification(&mut self) {
         'tx: loop {
+            // Clear any RX overrun errors. If we hit this, we will likely fail
+            // to decode the next message from the host, which will cause us to
+            // send a `DecodeFailure` response.
+            if self.uart.check_and_clear_rx_overrun() {
+                ringbuf_entry!(Trace::UartRxOverrun);
+            }
+
+            let mut processed_out_of_sync_message = false;
+
             // Do we have data to transmit? If so, write as much as we can until
             // either the fifo fills (in which case we return before trying to
             // receive more) or we finish flushing.
             while let Some(b) = self.tx_buf.next_byte_to_send() {
                 if try_tx_push(&self.uart, b) {
                     self.tx_buf.advance_one_byte();
+                } else if self.uart_rx_until_maybe_packet() {
+                    // We still have data to send, but the host has sent us a
+                    // packet! First, we'll try to decode it: if that succeeds,
+                    // something has gone wrong (from our point of view the host
+                    // has broken protocol). We'll deal with this by:
+                    //
+                    // 1. Discarding any remaining data we have from the old
+                    //    response.
+                    // 2. Sending a 0x00 terminator so the host can detect the
+                    //    end of that old (partial) packet.
+                    // 3. Handling the new request.
+                    //
+                    // 1 and 2 are covered by calling `tx_buf.reset()`, which
+                    // `process_message` does at our request only if the
+                    // packet decodes successfully. If the packet does not
+                    // decode successfully, we discard it and assume it was line
+                    // noise.
+                    match self.process_message(true) {
+                        Ok(()) => {
+                            processed_out_of_sync_message = true;
+                            ringbuf_entry!(Trace::OutOfSyncRequest);
+                        }
+                        Err(_) => {
+                            ringbuf_entry!(Trace::OutOfSyncRxNoise);
+                        }
+                    }
                 } else {
                     // We have more data to send but the TX FIFO is full; enable
                     // the TX FIFO empty interrupt and wait for it.
@@ -391,23 +428,23 @@ impl ServerImpl {
             // We're done flushing data; disable the tx fifo interrupt.
             self.uart.disable_tx_fifo_empty_interrupt();
 
-            // Clear any RX overrun errors. If we hit this, we will likely fail
-            // to decode the next message from the host, which will cause us to
-            // send a `DecodeFailure` response.
-            if self.uart.check_and_clear_rx_overrun() {
-                ringbuf_entry!(Trace::UartRxOverrun);
+            // It's possible (but unlikely) we've already received a message in
+            // this loop iteration. If we have, skip trying to read a request
+            // here and move on to either looping back to start sending the
+            // response or setting up timers for future interrupts.
+            if !processed_out_of_sync_message {
+                if self.uart_rx_until_maybe_packet() {
+                    // We received a packet; handle it.
+                    if let Err(reason) = self.process_message(false) {
+                        self.tx_buf.encode_decode_failure_reason(reason);
+                    }
+                }
             }
 
-            // Receive until we either get a packet or have no more data.
-            if self.uart_rx_until_maybe_packet() {
-                // We received a packet; handle it.
-                self.process_message();
-
-                // If we have data to send now, immediately loop back to the top
-                // and start trying to send it.
-                if self.tx_buf.next_byte_to_send().is_some() {
-                    continue 'tx;
-                }
+            // If we have data to send now, immediately loop back to the
+            // top and start trying to send it.
+            if self.tx_buf.next_byte_to_send().is_some() {
+                continue 'tx;
             }
 
             // We received everything we could out of the rx fifo and we have
@@ -496,17 +533,32 @@ impl ServerImpl {
     // with a response if we can come up with that response immediately, or
     // instructing it that we'll fill it in with our response later.
     //
-    // This method clears `rx_buf` before returning to prepare for the next
-    // packet.
-    fn process_message(&mut self) {
+    // If `reset_tx_buf` is true AND we successfully decode a packet, we will
+    // call `self.tx_buf.reset()` prior to populating it with a response. This
+    // should only be set to true if we're being called in an "out of sync"
+    // path; see the comments in `handle_usart_notification()` where we check
+    // for an incoming request while we're still trying to send a previous
+    // response.
+    //
+    // This method always (i.e., on success or failure) clears `rx_buf` before
+    // returning to prepare for the next packet.
+    fn process_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
         let (header, request) = match parse_received_message(&mut self.rx_buf) {
             Ok((header, request, _data)) => (header, request),
             Err(err) => {
-                self.tx_buf.encode_decode_failure_reason(err);
                 self.rx_buf.clear();
-                return;
+                return Err(err);
             }
         };
+
+        // Reset tx_buf if our caller wanted us to in response to a valid
+        // packet.
+        if reset_tx_buf {
+            self.tx_buf.reset();
+        }
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
@@ -634,6 +686,8 @@ impl ServerImpl {
 
         // We've processed the message sitting in rx_buf; clear it.
         self.rx_buf.clear();
+
+        Ok(())
     }
 }
 
