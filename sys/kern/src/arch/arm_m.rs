@@ -1130,7 +1130,7 @@ pub unsafe extern "C" fn DefaultHandler() {
             let irq_num = exception_num - 16;
             let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
                 .get(abi::InterruptNum(irq_num))
-                .unwrap_or_else(|| panic!("unhandled IRQ {}", irq_num));
+                .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
 
             let switch = with_task_table(|tasks| {
                 disable_irq(irq_num);
@@ -1145,7 +1145,7 @@ pub unsafe extern "C" fn DefaultHandler() {
             }
         }
 
-        _ => panic!("unknown exception {}", exception_num),
+        _ => panic!("unknown exception {exception_num}"),
     }
     crate::profiling::event_isr_exit();
 }
@@ -1417,7 +1417,7 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
         };
 
         if next == idx {
-            panic!("attempt to return to Task #{} after fault", idx);
+            panic!("attempt to return to Task #{idx} after fault");
         }
 
         let next = &mut tasks[next];
@@ -1594,7 +1594,7 @@ unsafe extern "C" fn handle_fault(
         };
 
         if next == idx {
-            panic!("attempt to return to Task #{} after fault", idx);
+            panic!("attempt to return to Task #{idx} after fault");
         }
 
         let next = &mut tasks[next];
