@@ -16,7 +16,7 @@ task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
 /// Type containing all of our temperature sensor types, so we can store them
-/// generically in an array.  Right now, we only support
+/// generically in an array.  Right now, we only support the MWOCP68.
 #[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum Device {
     Mwocp68,
