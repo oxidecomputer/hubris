@@ -358,6 +358,7 @@ fn preinit() {
 
 #[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
 fn preinit() {
+    // Before talking to the power shelves, we have to enable an I2C buffer
     task_slot!(SYS, sys);
     use drv_stm32xx_sys_api::*;
 
