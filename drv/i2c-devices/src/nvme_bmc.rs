@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Validate;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::Celsius;
 use zerocopy::{AsBytes, FromBytes};
@@ -15,6 +16,19 @@ pub enum Error {
     Reserved,
     InvalidLength,
     BadChecksum,
+}
+
+impl From<Error> for ResponseCode {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::I2cError(r) => r,
+            Error::NoData
+            | Error::SensorFailure
+            | Error::Reserved
+            | Error::InvalidLength
+            | Error::BadChecksum => ResponseCode::BadDeviceState,
+        }
+    }
 }
 
 pub struct NvmeBmc {
@@ -72,5 +86,16 @@ impl NvmeBmc {
             // Cast to i8, since this is a two's complement value
             0xC5..=0xFF => Ok(Celsius((v.temperature as i8) as f32)),
         }
+    }
+}
+
+impl Validate<ResponseCode> for NvmeBmc {
+    fn validate(device: &drv_i2c_api::I2cDevice) -> Result<bool, ResponseCode> {
+        // Do a temperature read and see if it works
+        let dev = NvmeBmc::new(device);
+        let t = dev.read_temperature()?;
+
+        // Confirm that the temperature is not unreasonable
+        Ok(t.0 >= 0.0 && t.0 <= 100.0)
     }
 }
