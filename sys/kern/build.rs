@@ -26,6 +26,7 @@ fn main() -> Result<()> {
 }
 
 struct Generated {
+    image_id: u64,
     tasks: Vec<TokenStream>,
     regions: Vec<TokenStream>,
     irq_code: TokenStream,
@@ -39,6 +40,17 @@ enum RegionKey {
 }
 
 fn process_config() -> Result<Generated> {
+    if build_util::env_var("HUBRIS_KERNEL_TEST_MODE").is_ok() {
+        // Short circuit this, don't look at the remaining env vars, return a
+        // canned config.
+        println!("cargo:rustc-cfg=kernel_test_mode");
+        return fake_config();
+    }
+
+    let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?
+        .parse()
+        .context("parsing HUBRIS_IMAGE_ID")?;
+
     let kconfig: KernelConfig =
         ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
             .context("parsing kconfig from HUBRIS_KCONFIG")?;
@@ -281,8 +293,44 @@ fn process_config() -> Result<Generated> {
     };
 
     Ok(Generated {
+        image_id,
         tasks: task_descs,
         regions: region_descs,
+        irq_code,
+    })
+}
+
+/// Produces placeholder generated code that is sufficient to build the kernel
+/// for testing.
+fn fake_config() -> Result<Generated> {
+    let mut tasks = vec![];
+    let mut regions = vec![];
+
+    let irq_code = quote::quote! {
+        pub const HUBRIS_IRQ_TASK_LOOKUP:
+            phash::PerfectHashMap<
+                '_,
+                abi::InterruptNum,
+                abi::InterruptOwner,
+            > = phash::PerfectHashMap {
+                m: 0,
+                values: &[],
+            };
+        pub const HUBRIS_TASK_IRQ_LOOKUP:
+            phash::PerfectHashMap<
+                '_,
+                abi::InterruptOwner,
+                &'static [abi::InterruptNum],
+            > = phash::PerfectHashMap {
+                m: 0,
+                values: &[],
+            };
+    };
+
+    Ok(Generated {
+        image_id: 1234,
+        tasks,
+        regions,
         irq_code,
     })
 }
@@ -387,10 +435,6 @@ fn generate_consts() -> Result<()> {
 }
 
 fn generate_statics(gen: &Generated) -> Result<()> {
-    let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?
-        .parse()
-        .context("parsing HUBRIS_IMAGE_ID")?;
-
     let out = build_util::out_dir();
     let kconfig_path = out.join("kconfig.rs");
     let mut file =
@@ -402,6 +446,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     // Basic constants and empty space
 
     let task_count = gen.tasks.len();
+    let image_id = gen.image_id;
     writeln!(
         file,
         "{}",
