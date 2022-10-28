@@ -165,10 +165,12 @@ impl ServerImpl {
     fn set_status_impl(&mut self, status: Status) {
         if status != self.status {
             self.status = status;
+            // SP_TO_SP3_INT_L: `INT_L` is "interrupt low", so we assert the pin
+            // when we do not have status and deassert it when we do.
             if self.status.is_empty() {
-                self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
-            } else {
                 self.sys.gpio_set(SP_TO_SP3_INT_L).unwrap_lite();
+            } else {
+                self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
             }
         }
     }
@@ -851,7 +853,7 @@ cfg_if::cfg_if! {
 }
 
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
-    sys.gpio_reset(SP_TO_SP3_INT_L).unwrap();
+    sys.gpio_set(SP_TO_SP3_INT_L).unwrap();
 
     sys.gpio_configure_output(
         SP_TO_SP3_INT_L,
