@@ -127,7 +127,7 @@ fn mac_address_from_uid() -> MacAddressBlock {
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<MacAddressBlock> {
     let i2c_task = I2C.get_task_id();
-    drv_local_vpd::read_config(i2c_task, *b"MACS").ok()
+    drv_local_vpd::read_config(i2c_task, *b"MAC0").ok()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
