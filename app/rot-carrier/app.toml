@@ -32,7 +32,7 @@ priority = 6
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
-uses = ["rom", "secure_syscon", "flash"]
+uses = ["rom", "secure_syscon", "syscon", "flash"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
