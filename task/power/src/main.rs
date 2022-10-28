@@ -14,6 +14,7 @@ use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
 use drv_i2c_devices::max5970::*;
+use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use task_sensor_api as sensor_api;
@@ -49,6 +50,7 @@ enum DeviceType {
     HotSwap(Ohms),
     Fan(Ohms),
     HotSwapIO(Ohms),
+    PowerShelf,
 }
 
 struct PowerControllerConfig {
@@ -67,6 +69,7 @@ enum Device {
     Tps546B24A(Tps546B24A),
     Adm1272(Adm1272),
     Max5970(Max5970),
+    Mwocp68(Mwocp68),
 }
 
 impl Device {
@@ -77,7 +80,12 @@ impl Device {
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
-            Device::Max5970(_dev) => return Err(ResponseCode::NoDevice),
+            Device::Max5970(..) | Device::Mwocp68(..) => {
+                // The MWOCP68 actually has three temperature sensors, but they
+                // aren't associated with power rails, so we don't read them
+                // here.
+                return Err(ResponseCode::NoDevice);
+            }
         };
         Ok(r)
     }
@@ -90,6 +98,7 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_iout()?,
             Device::Adm1272(dev) => dev.read_iout()?,
             Device::Max5970(dev) => dev.read_iout()?,
+            Device::Mwocp68(dev) => dev.read_iout()?,
         };
         Ok(r)
     }
@@ -102,6 +111,7 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_vout()?,
             Device::Adm1272(dev) => dev.read_vout()?,
             Device::Max5970(dev) => dev.read_vout()?,
+            Device::Mwocp68(dev) => dev.read_vout()?,
         };
         Ok(r)
     }
@@ -125,10 +135,12 @@ impl PowerControllerConfig {
             DeviceType::HotSwapIO(sense) => {
                 Device::Max5970(Max5970::new(&dev, rail, *sense))
             }
+            DeviceType::PowerShelf => Device::Mwocp68(Mwocp68::new(&dev, rail)),
         }
     }
 }
 
+#[allow(unused_macros)]
 macro_rules! rail_controller {
     ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
@@ -196,6 +208,23 @@ macro_rules! max5970_controller {
     };
 }
 
+#[allow(unused_macros)]
+macro_rules! mwocp68_controller {
+    ($which:ident, $rail:ident, $state:ident) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: PowerState::$state,
+                device: DeviceType::$which,
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
+                current: sensors::[<MWOCP68_ $rail:upper _CURRENT_SENSOR>],
+                temperature: None, // Temperature sensors are independent of
+                                   // power rails and measured separately
+            }
+        }
+    };
+}
+
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
@@ -237,7 +266,23 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
 ];
 
-#[cfg(feature = "gimlet")]
+#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
+    mwocp68_controller!(PowerShelf, v54_psu0, A2),
+    mwocp68_controller!(PowerShelf, v12_psu0, A2),
+    mwocp68_controller!(PowerShelf, v54_psu1, A2),
+    mwocp68_controller!(PowerShelf, v12_psu1, A2),
+    mwocp68_controller!(PowerShelf, v54_psu2, A2),
+    mwocp68_controller!(PowerShelf, v12_psu2, A2),
+    mwocp68_controller!(PowerShelf, v54_psu3, A2),
+    mwocp68_controller!(PowerShelf, v12_psu3, A2),
+    mwocp68_controller!(PowerShelf, v54_psu4, A2),
+    mwocp68_controller!(PowerShelf, v12_psu4, A2),
+    mwocp68_controller!(PowerShelf, v54_psu5, A2),
+    mwocp68_controller!(PowerShelf, v12_psu5, A2),
+];
+
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 
@@ -296,8 +341,45 @@ fn get_state() -> PowerState {
     }
 }
 
+#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+fn get_state() -> PowerState {
+    PowerState::A2
+}
+
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "sidecar-a",
+    target_board = "sidecar-b"
+))]
+fn preinit() {
+    // Nothing to do here
+}
+
+#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+fn preinit() {
+    // Before talking to the power shelves, we have to enable an I2C buffer
+    task_slot!(SYS, sys);
+    use drv_stm32xx_sys_api::*;
+
+    let sys_task = SYS.get_task_id();
+    let sys = Sys::from(sys_task);
+
+    let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
+    sys.gpio_set(i2c_en).unwrap();
+    sys.gpio_configure_output(
+        i2c_en,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+    )
+    .unwrap();
+}
+
 #[export_name = "main"]
 fn main() -> ! {
+    preinit();
+
     let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
 
     let i2c_task = I2C.get_task_id();

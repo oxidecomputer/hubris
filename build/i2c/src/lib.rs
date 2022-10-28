@@ -106,6 +106,27 @@ struct I2cDevice {
     removable: bool,
 }
 
+impl I2cDevice {
+    /// Checks whether the given sensor kind is associated with an `I2cPower`
+    /// struct stored in this device, returning it if that's the case.
+    ///
+    /// In most cases, when the power member variable is present, sensors have a
+    /// one-to-one association with power rails.  However, this isn't always
+    /// true: in the power shelf, for example, there are two rails and three
+    /// (uncorrelated) temperature sensors.
+    ///
+    /// This is indicated with the `sensors` array, which allows us to specify
+    /// only certain kinds of sensors being tied to rails.
+    ///
+    /// If the `sensors` array is `None`, then we fall back to the default case
+    /// of all sensors being one-to-one associated with rails.
+    fn power_for_kind(&self, kind: Sensor) -> Option<&I2cPower> {
+        self.power.as_ref().filter(|power| {
+            power.sensors.as_ref().map_or(true, |s| s.contains(&kind))
+        })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPort {
@@ -141,6 +162,14 @@ struct I2cPower {
 
     #[serde(default = "I2cPower::default_pmbus")]
     pmbus: bool,
+
+    /// Lists which sensor types have a one-to-one association with power rails
+    ///
+    /// When `None`, we assume that all sensor types are mapped one-to-one with
+    /// rails.  Otherwise, *only* the listed sensor types are associated with
+    /// rails (which is the case in systems with independent temperature sensors
+    /// and power rails).
+    sensors: Option<Vec<Sensor>>,
 }
 
 impl I2cPower {
@@ -195,7 +224,8 @@ pub enum Disposition {
     Validation,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
 enum Sensor {
     Temperature,
     Power,
@@ -1037,29 +1067,30 @@ impl ConfigGenerator {
             let id = sensors.len();
             sensors.push(kind);
 
-            let name: Option<String> = if let Some(power) = &d.power {
-                if let Some(rails) = &power.rails {
-                    if idx < rails.len() {
-                        Some(rails[idx].clone())
+            let name: Option<String> =
+                if let Some(power) = d.power_for_kind(kind) {
+                    if let Some(rails) = &power.rails {
+                        if idx < rails.len() {
+                            Some(rails[idx].clone())
+                        } else {
+                            panic!("sensor count exceeds rails for {:?}", d);
+                        }
                     } else {
-                        panic!("sensor count exceeds rails for {:?}", d);
+                        d.name.clone()
                     }
-                } else {
-                    d.name.clone()
-                }
-            } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
-                if idx >= names.len() {
-                    panic!(
+                } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
+                    if idx >= names.len() {
+                        panic!(
                         "name array is too short ({}) for sensor index ({})",
                         names.len(),
                         idx
                     );
+                    } else {
+                        Some(names[idx].clone())
+                    }
                 } else {
-                    Some(names[idx].clone())
-                }
-            } else {
-                d.name.clone()
-            };
+                    d.name.clone()
+                };
 
             if let Some(bus) = &d.bus {
                 bybus.insert((d.device.clone(), bus.clone(), kind), id);
