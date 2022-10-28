@@ -218,7 +218,8 @@ macro_rules! mwocp68_controller {
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
                 current: sensors::[<MWOCP68_ $rail:upper _CURRENT_SENSOR>],
-                temperature: None, // TODO
+                temperature: None, // Temperature sensors are independent of
+                                   // power rails and measured separately
             }
         }
     };
