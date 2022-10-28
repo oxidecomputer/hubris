@@ -1,5 +1,5 @@
 [toolchain]
 channel = "nightly-2022-07-27"
-targets = [ "thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf" ]
+targets = [ "thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf", "armv7-unknown-linux-gnueabihf" ]
 profile = "minimal"
-components = [ "rustfmt" ]
+components = [ "rustfmt", "miri" ]

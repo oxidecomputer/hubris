@@ -1,0 +1,52 @@
+name: miri
+on: [push, pull_request]
+
+jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
+  build:
+    needs: skip_duplicate_jobs
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
+    name: miri
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        build: [fake-armv7]
+        include:
+          - build: fake-armv7
+            target: armv7-unknown-linux-gnueabihf
+          - os: ubuntu-latest
+            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
+
+    steps:
+      # check out our code
+      - uses: actions/checkout@v2
+
+      # install rust toolchain
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache build output
+        uses: Swatinem/rust-cache@v1
+
+      - name: Install dependencies
+        run: '${{ matrix.deps }}'
+
+      - name: Run kernel tests
+        uses: actions-rs/cargo@v1
+        env:
+          RUST_BACKTRACE: 1
+          HUBRIS_KERNEL_TEST_MODE: 1
+        with:
+          command: miri
+          args: test --target=${{ matrix.target }} -p kern
