@@ -5,6 +5,7 @@
 //! Kernel startup.
 
 use crate::atomic::AtomicExt;
+use crate::descs::{RegionDesc, REGIONS_PER_TASK};
 use crate::task::Task;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -69,7 +70,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // these.
 
     // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
-    let region_tables: &mut [[MaybeUninit<&'static abi::RegionDesc>; abi::REGIONS_PER_TASK];
+    let region_tables: &mut [[MaybeUninit<&'static RegionDesc>; REGIONS_PER_TASK];
              HUBRIS_TASK_COUNT] =
         unsafe { &mut *(region_tables as *mut _ as *mut _) };
 
@@ -81,7 +82,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     // Safety: we have fully initialized this and can shed the uninit part.
     // We're also dropping &mut.
-    let region_tables: &[[&'static abi::RegionDesc; abi::REGIONS_PER_TASK];
+    let region_tables: &[[&'static RegionDesc; REGIONS_PER_TASK];
          HUBRIS_TASK_COUNT] = unsafe { &*(region_tables as *mut _ as *mut _) };
 
     // Now, generate the task table.
@@ -145,4 +146,5 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     r
 }
 
+use crate::descs::*;
 include!(concat!(env!("OUT_DIR"), "/kconfig.rs"));
