@@ -7,12 +7,13 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, FaultSource, Generation, Priority, RegionAttributes, RegionDesc,
-    ReplyFaultReason, SchedState, TaskDesc, TaskFlags, TaskId, TaskState,
+    FaultInfo, FaultSource, Generation,
+    ReplyFaultReason, SchedState, TaskId, TaskState,
     ULease, UsageError,
 };
 use zerocopy::FromBytes;
 
+use crate::descs::{TaskDesc, TaskFlags, RegionDesc, RegionAttributes, Priority};
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
@@ -59,7 +60,7 @@ impl Task {
         region_table: &'static [&'static RegionDesc],
     ) -> Self {
         Task {
-            priority: abi::Priority(descriptor.priority),
+            priority: Priority(descriptor.priority),
             state: if descriptor.flags.contains(TaskFlags::START_AT_BOOT) {
                 TaskState::Healthy(SchedState::Runnable)
             } else {
@@ -860,7 +861,7 @@ pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
 }
 
 /// Tests whether `slice` is fully enclosed by `region`.
-fn region_covers<T>(region: &abi::RegionDesc, slice: &USlice<T>) -> bool {
+fn region_covers<T>(region: &RegionDesc, slice: &USlice<T>) -> bool {
     // We don't allow regions to butt up against the end of the address space,
     // so we can compute our off-by-one end address as follows:
     let region_end = region.base.wrapping_add(region.size) as usize;
