@@ -4,6 +4,8 @@
 
 //! Descriptor types, used to statically define application resources.
 
+use crate::umem::USlice;
+
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -96,6 +98,17 @@ pub struct RegionDesc {
     pub size: u32,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
+}
+
+impl RegionDesc {
+    /// Tests whether `slice` is fully enclosed by `self`.
+    pub fn covers<T>(&self, slice: &USlice<T>) -> bool {
+        // We don't allow regions to butt up against the end of the address
+        // space, so we can compute our off-by-one end address as follows:
+        let end = self.base.wrapping_add(self.size) as usize;
+
+        (self.base as usize) <= slice.base_addr() && slice.end_addr() <= end
+    }
 }
 
 bitflags::bitflags! {
