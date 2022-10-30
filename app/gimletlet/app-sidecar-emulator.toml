@@ -1,11 +1,10 @@
 name = "gimletlet-sidecar-emulator"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
-chip = "../../chips/stm32h7.toml"
+chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]
-path = "."
 name = "gimletlet"
 requires = {flash = 32768, ram = 4096}
 #
@@ -20,11 +19,7 @@ requires = {flash = 32768, ram = 4096}
 #
 features = ["itm"]
 
-[supervisor]
-notification = 1
-
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 2048}
@@ -37,7 +32,6 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
@@ -47,7 +41,6 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
-path = "../../drv/stm32xx-i2c-server"
 name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 2
@@ -63,7 +56,6 @@ task-slots = ["sys"]
 "i2c4.error" = 0b0000_1000
 
 [tasks.spi_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
@@ -78,7 +70,6 @@ task-slots = ["sys"]
 global_config = "spi4"
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
@@ -87,7 +78,6 @@ start = true
 task-slots = ["sys"]
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 3
 max-sizes = {flash = 8192, ram = 1024}
@@ -95,7 +85,6 @@ start = true
 task-slots = ["user_leds"]
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
 priority = 3
@@ -105,7 +94,6 @@ start = true
 task-slots = ["sys", "i2c_driver", "user_leds"]
 
 [tasks.fpga]
-path = "../../drv/fpga-server"
 name = "drv-fpga-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
@@ -115,14 +103,12 @@ start = true
 task-slots = ["sys", "spi_driver"]
 
 [tasks.i2c_emulator]
-path = "../../drv/sidecar-mainboard-i2c-emulator"
 name = "drv-sidecar-mainboard-i2c-emulator"
 priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 start = true
 
 [tasks.sequencer]
-path = "../../drv/sidecar-seq-server"
 name = "drv-sidecar-seq-server"
 features = []
 priority = 4
@@ -132,7 +118,6 @@ start = true
 task-slots = ["sys", {i2c_driver = "i2c_emulator"}, "fpga", "spi_driver"]
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 256}
@@ -176,7 +161,6 @@ controller = 4
 [[config.i2c.controllers.ports.F.pins]]
 pins = [ 14, 15 ]
 af = 4
-
 
 [config.spi.spi3]
 controller = 3

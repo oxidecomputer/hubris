@@ -15,6 +15,7 @@ mod config;
 mod dist;
 mod elf;
 mod flash;
+mod graph;
 mod humility;
 mod sizes;
 mod task_slot;
@@ -144,6 +145,23 @@ enum Xtask {
     TaskSlots {
         /// Path to task executable
         task_bin: PathBuf,
+    },
+
+    /// Generate a graph of task_slot dependencies ordered by priority.
+    ///
+    /// Priority inversions are denoted by thick red arrows.
+    /// Normal task_slot dependencies are thin green arrows.
+    /// Example:
+    ///
+    ///   cargo xtask graph -o app.dot $APP_TOML;
+    ///   dot -Tsvg app.dot > app.svg;
+    ///   xdg-open app.xvg
+    Graph {
+        /// Output file for Graphviz dot syntax graph.
+        #[clap(short, long)]
+        output: PathBuf,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
     },
 }
 
@@ -298,6 +316,9 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
+        }
+        Xtask::Graph { output, cfg } => {
+            graph::task_graph(&cfg, &output)?;
         }
     }
 
