@@ -857,9 +857,9 @@ fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
 
     sys.gpio_configure_output(
         SP_TO_SP3_INT_L,
-        sys_api::OutputType::PushPull,
+        sys_api::OutputType::OpenDrain,
         sys_api::Speed::Low,
-        sys_api::Pull::Down,
+        sys_api::Pull::None,
     )
     .unwrap();
 }
