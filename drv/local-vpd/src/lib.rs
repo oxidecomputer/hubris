@@ -4,6 +4,20 @@
 
 #![no_std]
 
+//! Driver to read vital product data (VPD) from the local FRU ID EEPROM.
+//!
+//! The *local* EEPROM is the one soldered to the PCB itself; the system may
+//! have additional EEPROMs on FRUs that plug into the board (e.g. fans). We
+//! assume that the local EEPROM is an AT24CSW080, and that it contains keys in
+//! TLV-C format (see RFD 148 for a general description, or RFD 320 for the
+//! specific example of MAC addresses)
+//!
+//! The app TOML file must declare which I2C bus contains the local EEPROM, e.g.
+//! ```toml
+//! [config.local-vpd]
+//! vpd-bus = "south2"
+//! ```
+
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
@@ -38,7 +52,7 @@ impl<'a> TlvcRead for EepromReader<'a> {
     }
 }
 
-/// Searches for the given tag in the local VPD and reads it
+/// Searches for the given TLV-C tag in the local VPD and reads it
 ///
 /// Returns an error if the tag is not present, the data is of an unexpected
 /// size (i.e. not size_of<V>), or any checksum is corrupt.
