@@ -42,7 +42,7 @@ impl<'a> TlvcRead for EepromReader<'a> {
 ///
 /// Returns an error if the tag is not present, the data is of an unexpected
 /// size (i.e. not size_of<V>), or any checksum is corrupt.
-pub fn read_config<V: Default + AsBytes + FromBytes>(
+pub fn read_config<V: AsBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
 ) -> Result<V, LocalVpdError> {
@@ -62,7 +62,7 @@ pub fn read_config<V: Default + AsBytes + FromBytes>(
                 return Err(LocalVpdError::InvalidChunkSize);
             }
 
-            let mut out = V::default();
+            let mut out = V::new_zeroed();
             chunk
                 .read_exact(0, out.as_bytes_mut())
                 .map_err(|_| LocalVpdError::DeviceError)?;
