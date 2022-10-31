@@ -44,11 +44,11 @@ pub struct TaskDesc {
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
-    pub entry_point: u32,
+    pub entry_point: *const u8,
     /// Address of the task's initial stack pointer, to be loaded at (re)start.
     /// It must be pointing into or *just past* one of the task's memory
     /// regions (the kernel *will* check this).
-    pub initial_stack: u32,
+    pub initial_stack: *mut u8,
     /// Initial priority of this task.
     pub priority: u8,
     /// Collection of boolean flags controlling task behavior.
@@ -66,6 +66,8 @@ pub struct TaskDesc {
     /// other factors limit us to fewer than `2**16` tasks.
     pub index: u16,
 }
+
+unsafe impl Sync for TaskDesc {}
 
 bitflags::bitflags! {
     #[repr(transparent)]
@@ -89,18 +91,20 @@ pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
     /// must be naturally aligned for the size.)
-    pub base: u32,
+    pub base: *mut u8,
     /// Size of region, in bytes. The platform likely has alignment requirements
     /// for this; it must meet them. (For example, on ARMv7-M, it must be a
     /// power of two greater than 16.)
-    pub size: u32,
+    pub size: usize,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
 }
 
+unsafe impl Sync for RegionDesc {}
+
 impl RegionDesc {
     /// Tests whether `self` contains `addr`.
-    pub fn contains(&self, addr: usize) -> bool {
+    pub fn contains<T>(&self, addr: *const T) -> bool {
         let next_addr = addr.wrapping_add(1);
         if next_addr < addr {
             return false;
@@ -109,8 +113,8 @@ impl RegionDesc {
         // space, so we can compute our off-by-one end address as follows:
         let end = self.base.wrapping_add(self.size) as usize;
 
-        (self.base as usize) <= addr
-            && next_addr <= end
+        (self.base as usize) <= addr as usize
+            && next_addr as usize <= end
     }
 
     /// Tests whether `slice` is fully enclosed by `self`.

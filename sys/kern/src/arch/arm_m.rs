@@ -267,29 +267,29 @@ pub unsafe fn set_clock_freq(tick_divisor: u32) {
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
-    let initial_stack = task.descriptor().initial_stack as usize;
+    let initial_stack = task.descriptor().initial_stack;
 
     // Modern ARMvX-M machines require 8-byte stack alignment. Make sure that's
     // still true. Note that this carries the risk of panic on task re-init if
     // the task table is corrupted -- this is deliberate.
-    uassert!(initial_stack & 0x7 == 0);
+    uassert!(initial_stack as usize & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     // The subtract below can overflow if the task table is corrupt -- let's
     // make that failure a little easier to read:
-    uassert!(initial_stack >= frame_size);
+    uassert!(initial_stack as usize >= frame_size);
     // Ok. Generate a uslice for the task's starting stack frame.
     let mut frame_uslice: USlice<ExtendedExceptionFrame> =
-        USlice::from_raw(initial_stack - frame_size, 1).unwrap_lite();
+        USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap_lite();
     // Before we set our frame, find the region that contains our initial stack
     // pointer, and zap the region from the base to the stack pointer with a
     // distinct (and storied) pattern.
     if let Some(region) = task.region_table().iter().find(|region| region.contains(initial_stack)) {
         let mut uslice: USlice<u32> = USlice::from_raw(
             region.base as usize,
-            (initial_stack - frame_size - region.base as usize) >> 2,
+            (initial_stack as usize - frame_size - region.base as usize) >> 2,
         )
         .unwrap_lite();
 
@@ -305,7 +305,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();
     // Now fill in the bits we actually care about.
-    frame.base.pc = descriptor.entry_point | 1; // for thumb
+    frame.base.pc = descriptor.entry_point as u32 | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
     #[cfg(any(armv7m, armv8m))]
@@ -335,7 +335,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     for (i, region) in task.region_table().iter().enumerate() {
         let rbar = (i as u32)  // region number
             | (1 << 4)  // honor the region number
-            | region.base;
+            | region.base as u32;
         let ratts = region.attributes;
         let xn = !ratts.contains(RegionAttributes::EXECUTE);
         // These AP encodings are chosen such that we never deny *privileged*

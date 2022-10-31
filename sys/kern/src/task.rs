@@ -859,27 +859,28 @@ pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
 mod tests {
     use super::*;
 
+
     const ALICE_TEXT_BASE: u32 = 0xDEAD_0000;
-    const ALICE_TEXT_SIZE: u32 = 0x1_0000;
+    const ALICE_TEXT_SIZE: usize = 0x1_0000;
     const ALICE_RAM_BASE: u32 = 1024;
-    const ALICE_RAM_SIZE: u32 = 1024;
+    const ALICE_RAM_SIZE: usize = 1024;
 
     const BOB_TEXT_BASE: u32 = 0xBAAD_0000;
-    const BOB_TEXT_SIZE: u32 = 0x1_0000;
+    const BOB_TEXT_SIZE: usize = 0x1_0000;
     const BOB_RAM_BASE: u32 = 4096;
-    const BOB_RAM_SIZE: u32 = 4096;
+    const BOB_RAM_SIZE: usize = 4096;
 
     static ALICE: TaskDesc = TaskDesc {
-        entry_point: ALICE_TEXT_BASE + 0xBEEF,
-        initial_stack: ALICE_RAM_BASE + 210,
+        entry_point: (ALICE_TEXT_BASE + 0xBEEF) as _,
+        initial_stack: (ALICE_RAM_BASE + 210) as _,
         priority: 12,
         flags: TaskFlags::START_AT_BOOT,
         index: 0,
         regions: [1, 2, 0, 0, 0, 0, 0, 0],
     };
     static BOB: TaskDesc = TaskDesc {
-        entry_point: BOB_TEXT_BASE + 0xF00D,
-        initial_stack: BOB_RAM_BASE + 1582,
+        entry_point: (BOB_TEXT_BASE + 0xF00D) as _,
+        initial_stack: (BOB_RAM_BASE + 1582) as _,
         priority: 1,
         flags: TaskFlags::START_AT_BOOT,
         index: 1,
@@ -899,13 +900,13 @@ mod tests {
     static ALICE_REGIONS: &'static [&'static RegionDesc] = &[
         // NULL region confers no access:
         &RegionDesc {
-            base: 0,
+            base: core::ptr::null_mut(),
             size: 32,
             attributes: RegionAttributes::empty(),
         },
         // Alice text
         &RegionDesc {
-            base: ALICE_TEXT_BASE,
+            base: ALICE_TEXT_BASE as _,
             size: ALICE_TEXT_SIZE,
             attributes: mkatt([
                 RegionAttributes::READ,
@@ -914,7 +915,7 @@ mod tests {
         },
         // Alice ram
         &RegionDesc {
-            base: ALICE_RAM_BASE,
+            base: ALICE_RAM_BASE as _,
             size: ALICE_RAM_SIZE,
             attributes: mkatt([
                 RegionAttributes::READ,
@@ -925,13 +926,13 @@ mod tests {
     static BOB_REGIONS: &'static [&'static RegionDesc] = &[
         // NULL region confers no access:
         &RegionDesc {
-            base: 0,
+            base: core::ptr::null_mut(),
             size: 32,
             attributes: RegionAttributes::empty(),
         },
         // Bob text
         &RegionDesc {
-            base: BOB_TEXT_BASE,
+            base: BOB_TEXT_BASE as _,
             size: BOB_TEXT_SIZE,
             attributes: mkatt([
                 RegionAttributes::READ,
@@ -940,7 +941,7 @@ mod tests {
         },
         // Bob ram
         &RegionDesc {
-            base: BOB_RAM_BASE,
+            base: BOB_RAM_BASE as _,
             size: BOB_RAM_SIZE,
             attributes: mkatt([
                 RegionAttributes::READ,
@@ -1012,26 +1013,26 @@ mod tests {
 
         let alice = &tasks[0];
         let alice_reads = [
-            (ALICE_RAM_BASE, 32),
-            (ALICE_RAM_BASE, ALICE_RAM_SIZE),
-            (ALICE_RAM_BASE + ALICE_RAM_SIZE - 16, 16),
+            (ALICE_RAM_BASE as usize, 32),
+            (ALICE_RAM_BASE as usize, ALICE_RAM_SIZE),
+            (ALICE_RAM_BASE as usize + ALICE_RAM_SIZE - 16, 16),
         ];
         for (addr, size) in alice_reads {
             let slice =
-                USlice::<u8>::from_raw(addr as usize, size as usize).unwrap();
+                USlice::<u8>::from_raw(addr, size).unwrap();
             assert!(
                 alice.can_read(&slice),
                 "alice should be able to read {size} bytes at {addr:#x}",
             );
         }
         let alice_no_reads = [
-            (ALICE_RAM_BASE - 16, 32),
-            (ALICE_RAM_BASE + ALICE_RAM_SIZE - 16, 32),
-            (BOB_RAM_BASE, 1),
+            (ALICE_RAM_BASE as usize - 16, 32),
+            (ALICE_RAM_BASE as usize + ALICE_RAM_SIZE - 16, 32),
+            (BOB_RAM_BASE as usize, 1),
         ];
         for (addr, size) in alice_no_reads {
             let slice =
-                USlice::<u8>::from_raw(addr as usize, size as usize).unwrap();
+                USlice::<u8>::from_raw(addr, size).unwrap();
             assert!(
                 !alice.can_read(&slice),
                 "alice should NOT be able to read {size} bytes at {addr:#x}"

@@ -167,8 +167,8 @@ fn process_config() -> Result<Generated> {
         task_descs.push(quote::quote! {
             TaskDesc {
                 regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
-                entry_point: #entry_point,
-                initial_stack: #initial_stack,
+                entry_point: #entry_point as *const u8,
+                initial_stack: #initial_stack as *mut u8,
                 priority: #priority,
                 index: #index,
                 flags: #flags,
@@ -376,6 +376,7 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
         size,
         attributes,
     } = region;
+    let size = *size as usize;
 
     let mut atts = vec![];
     if attributes.read {
@@ -411,7 +412,7 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
 
     quote::quote! {
         RegionDesc {
-            base: #base,
+            base: #base as *mut u8,
             size: #size,
             attributes: #atts,
         }
