@@ -3887,6 +3887,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "drv-gimlet-state",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
@@ -3894,6 +3895,7 @@ dependencies = [
  "ringbuf",
  "spd",
  "stm32h7",
+ "task-jefe-api",
  "userlib",
 ]
 

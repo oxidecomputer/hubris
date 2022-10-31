@@ -23,14 +23,19 @@
 
 use core::cell::Cell;
 use core::cell::RefCell;
+use drv_gimlet_state::PowerState;
 use drv_i2c_api::*;
 use drv_stm32xx_i2c::*;
 use drv_stm32xx_sys_api::*;
 use ringbuf::*;
+use task_jefe_api::Jefe;
 use userlib::*;
 
 task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
+task_slot!(JEFE, jefe);
+
+const JEFE_STATE_NOTIFICATION_BIT: u8 = 8;
 
 mod ltc4306;
 
@@ -63,7 +68,7 @@ type Bank = (Controller, drv_i2c_api::PortIndex, Option<(Mux, Segment)>);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Found(usize),
-    Ready(u32),
+    Ready,
     Initiate(u8, bool),
     Rx(u8, u8),
     Tx(u8, Option<u8>),
@@ -199,19 +204,7 @@ fn main() -> ! {
     use i2c_config::ports::*;
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "gemini-bu-1")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C4, i2c4_d(), None),
-                (Controller::I2C4, i2c4_f(), Some((Mux::M1, Segment::S4))),
-            ];
-        } else if #[cfg(target_board = "gimletlet-2")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_c(), None),
-                (Controller::I2C4, i2c4_f(), None),
-            ];
-        } else if #[cfg(any(
+        if #[cfg(any(
             target_board = "gimlet-a",
             target_board = "gimlet-b",
             target_board = "gimlet-c",
@@ -220,7 +213,7 @@ fn main() -> ! {
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:
             //
             // - ABCD DIMMs are on the mid bus (I2C3, port H)
-            // - EFGH DIMMS are on the read bus (I2C4, port F)
+            // - EFGH DIMMS are on the rear bus (I2C4, port F)
             //
             // It should go without saying that the ordering here is essential
             // to assure that the SPD data that we return for a DIMM corresponds
@@ -243,25 +236,42 @@ fn main() -> ! {
 
     // The actual SPD data itself
     let spd_data = unsafe { &mut SPD_DATA };
-    let mut ndelay = 0;
 
     //
     // It's conceivable that we are racing the sequencer and that DIMMs may
-    // not be immediately visible; until we have a better way of synchronously
-    // waiting on the sequencer, loop until we have found DIMMs.
+    // not be immediately visible. Wait for entry to A2.
     //
+    let jefe = Jefe::from(JEFE.get_task_id());
     loop {
-        let ndimms = read_spd_data(&BANKS, &mut present, &mut spd_data[..]);
-
-        ringbuf_entry!(Trace::Found(ndimms));
-
-        if ndimms != 0 {
-            break;
+        // This laborious list is intended to ensure that new power states
+        // have to be added explicitly here.
+        match PowerState::from_u32(jefe.get_state()) {
+            Some(PowerState::A2)
+            | Some(PowerState::A2PlusMono)
+            | Some(PowerState::A2PlusFans)
+            | Some(PowerState::A1)
+            | Some(PowerState::A0)
+            | Some(PowerState::A0PlusHP)
+            | Some(PowerState::A0Thermtrip) => {
+                break;
+            }
+            None => {
+                // This happens before we're in a valid power state.
+                //
+                // Only listen to our Jefe notification. Discard any error
+                // since this can't fail but the compiler doesn't know that.
+                let _ = sys_recv_closed(
+                    &mut [],
+                    1 << JEFE_STATE_NOTIFICATION_BIT,
+                    TaskId::KERNEL,
+                );
+            }
         }
-
-        ndelay += 1;
-        hl::sleep_for(10);
     }
+
+    let ndimms = read_spd_data(&BANKS, &mut present, &mut spd_data[..]);
+
+    ringbuf_entry!(Trace::Found(ndimms));
 
     // Enable the controller
     let sys = Sys::from(SYS.get_task_id());
@@ -271,7 +281,7 @@ fn main() -> ! {
     // Configure our pins
     configure_pins(&pins);
 
-    ringbuf_entry!(Trace::Ready(ndelay));
+    ringbuf_entry!(Trace::Ready);
 
     //
     // Initialize our virtual state.  Note that we initialize with bank 0

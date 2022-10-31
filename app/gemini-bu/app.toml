@@ -57,19 +57,6 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
-[tasks.spd]
-name = "task-spd"
-features = ["h753", "itm"]
-priority = 3
-max-sizes = {flash = 16384, ram = 16384 }
-uses = ["i2c2"]
-start = true
-task-slots = ["sys", "i2c_driver"]
-
-[tasks.spd.interrupts]
-"i2c2.event" = 0b0000_0010
-"i2c2.error" = 0b0000_0010
-
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
