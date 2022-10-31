@@ -31,6 +31,7 @@ stacksize = 1536
 [tasks.jefe.config.on-state-change]
 net = {bit-number = 3}
 host_sp_comms = {bit-number = 1}
+spd = {bit-number = 8}
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -110,7 +111,7 @@ priority = 2
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys", "i2c_driver", "jefe"]
 
 [tasks.spd.interrupts]
 "i2c1.event" = 0b0000_0001
