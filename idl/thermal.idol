@@ -60,6 +60,7 @@ Interface(
         ),
         "set_pid": (
             args: {
+                "z": "f32",
                 "p": "f32",
                 "i": "f32",
                 "d": "f32",

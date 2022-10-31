@@ -200,6 +200,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     fn set_pid(
         &mut self,
         _: &RecvMessage,
+        z: f32,
         p: f32,
         i: f32,
         d: f32,
@@ -207,7 +208,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         if self.mode != ThermalMode::Auto {
             return Err(ThermalError::NotInAutoMode.into());
         }
-        self.control.set_pid(p, i, d)?;
+        self.control.set_pid(z, p, i, d)?;
         Ok(())
     }
 
