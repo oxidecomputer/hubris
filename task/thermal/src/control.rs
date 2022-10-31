@@ -292,6 +292,7 @@ enum TemperatureReading {
 /// Configuration for a PID controller
 #[derive(Copy, Clone)]
 pub struct PidConfig {
+    pub zero: f32,
     pub gain_p: f32,
     pub gain_i: f32,
     pub gain_d: f32,
@@ -330,7 +331,7 @@ impl OneSidedPidState {
         // Calculate the P+D contribution separately, which is used to clamp the
         // integral term.
         let pd_contribution = p_contribution + d_contribution;
-        let out = pd_contribution + self.integral;
+        let out = cfg.zero + pd_contribution + self.integral;
 
         if out > output_limit {
             // Clamp the integral to the maximum value at which it can
@@ -456,6 +457,7 @@ impl<'a> ThermalControl<'a> {
 
     pub fn set_pid(
         &mut self,
+        z: f32,
         p: f32,
         i: f32,
         d: f32,
@@ -479,6 +481,7 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
+        self.pid_config.zero = z;
         self.pid_config.gain_p = p;
         self.pid_config.gain_i = i;
         self.pid_config.gain_d = d;
