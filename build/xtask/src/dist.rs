@@ -886,6 +886,7 @@ fn build_kernel(
         image_name,
         secure,
     )?;
+    let region_symbols = collect_owned_region_symbols(&kconfig);
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -896,6 +897,7 @@ fn build_kernel(
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &cfg.toml.image_memories("flash".to_string())?,
+        &region_symbols,
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -1215,6 +1217,7 @@ fn generate_kernel_linker_script(
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
+    region_symbols: &BTreeMap<String, u32>,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1286,6 +1289,10 @@ fn generate_kernel_linker_script(
             name.to_uppercase(),
         )
         .unwrap();
+    }
+
+    for (name, base) in region_symbols {
+        writeln!(linkscr, "{name} = {base:#x};")?;
     }
     Ok(())
 }
@@ -2360,4 +2367,17 @@ fn resolve_task_slots(
     }
 
     Ok(std::fs::write(task_bin, out_task_bin)?)
+}
+
+fn collect_owned_region_symbols(kconfig: &build_kconfig::KernelConfig) -> BTreeMap<String, u32> {
+    let mut symbols = BTreeMap::new();
+    for (i, task) in kconfig.tasks.iter().enumerate() {
+        for (name, region) in &task.owned_regions {
+            symbols.insert(
+                format!("TASK_{i}_REGION_{}", name.to_uppercase()),
+                region.base,
+            );
+        }
+    }
+    symbols
 }
