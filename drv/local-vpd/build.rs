@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     build_i2c::codegen(build_i2c::Disposition::Devices)?;
 
-    let out_dir = std::env::var("OUT_DIR")?;
+    let out_dir = build_util::out_dir();
     let dest_path = std::path::Path::new(&out_dir).join("vpd_config.rs");
     let mut out = std::fs::File::create(&dest_path)?;
 
