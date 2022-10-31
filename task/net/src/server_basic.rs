@@ -16,7 +16,6 @@ use crate::{
 };
 use core::cell::Cell;
 use mutable_statics::mutable_statics;
-use smoltcp::wire::{EthernetAddress, Ipv6Address};
 use task_net_api::UdpMetadata;
 
 /// Grabs references to the server storage arrays.  Can only be called once!
