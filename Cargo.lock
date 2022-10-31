@@ -707,9 +707,12 @@ name = "dice"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dice-mfg-msgs",
  "hkdf",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lib-lpc55-usart",
  "lpc55-pac",
+ "nb 1.0.0",
  "salty",
  "serde",
  "serde-big-array",
@@ -718,6 +721,18 @@ dependencies = [
  "unwrap-lite",
  "zerocopy",
  "zeroize",
+]
+
+[[package]]
+name = "dice-mfg-msgs"
+version = "0.1.0"
+source = "git+https://github.com/flihp/dice-util?branch=serial-number-to-11#58f2e5dcd389d279636e14e2410afdc743912247"
+dependencies = [
+ "corncobs",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde-big-array",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3371,12 +3386,15 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "dice",
  "digest 0.10.3",
  "ecdsa",
  "hmac 0.10.1",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lib-lpc55-usart",
  "lpc55-pac",
  "lpc55_romapi",
  "nb 1.0.0",
@@ -3384,7 +3402,9 @@ dependencies = [
  "panic-halt",
  "panic-semihosting",
  "salty",
+ "serde",
  "sha3",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
 ]

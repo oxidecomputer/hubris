@@ -4,9 +4,10 @@
 
 use crate::{
     alias_cert_tmpl, deviceid_cert_tmpl, spmeasure_cert_tmpl,
-    trust_quorum_dhe_cert_tmpl, CertSerialNumber, SerialNumber,
+    trust_quorum_dhe_cert_tmpl, CertSerialNumber,
 };
 use core::ops::Range;
+use dice_mfg_msgs::SerialNumber;
 use hubpack::SerializedSize;
 use salty::constants::{
     PUBLICKEY_SERIALIZED_LENGTH, SIGNATURE_SERIALIZED_LENGTH,
@@ -48,13 +49,13 @@ pub trait Cert {
     const ISSUER_SN_RANGE: Range<usize>;
 
     fn get_issuer_sn(&self) -> SerialNumber {
-        SerialNumber::from_bytes(self.get_range(Self::ISSUER_SN_RANGE))
+        SerialNumber::new(self.get_range(Self::ISSUER_SN_RANGE))
     }
 
     const SUBJECT_SN_RANGE: Range<usize>;
 
     fn get_subject_sn(&self) -> SerialNumber {
-        SerialNumber::from_bytes(self.get_range(Self::SUBJECT_SN_RANGE))
+        SerialNumber::new(self.get_range(Self::SUBJECT_SN_RANGE))
     }
 
     const PUB_RANGE: Range<usize>;

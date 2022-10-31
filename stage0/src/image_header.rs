@@ -71,14 +71,14 @@ impl Image {
         self.0 as *const ImageVectors as u32
     }
 
-    #[cfg(feature = "dice")]
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     fn get_img_size(&self) -> Option<usize> {
         use core::convert::TryFrom;
 
         usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
     }
 
-    #[cfg(feature = "dice")]
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     pub fn as_bytes(&self) -> &[u8] {
         use unwrap_lite::UnwrapLite;
 

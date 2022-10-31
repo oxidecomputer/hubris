@@ -4,7 +4,7 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use core::{mem, slice, str::FromStr};
+use core::{mem, slice};
 use hkdf::Hkdf;
 use hubpack::SerializedSize;
 use salty::constants::SECRETKEY_SEED_LENGTH;
@@ -13,26 +13,32 @@ use sha3::Sha3_256;
 use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+// re-export useful types from dice-mfg-msgs making them part of our API
+pub use dice_mfg_msgs::{SerialNumber, SizedBlob};
+
 mod cert;
 pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdSelfCert,
     DeviceIdSelfCertBuilder, SpMeasureCert, SpMeasureCertBuilder,
     TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
+mod csr;
+pub use crate::csr::DeviceIdCsrBuilder;
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
+mod deviceid_csr_tmpl;
 mod handoff;
+mod mfg;
+pub use crate::mfg::{
+    DeviceIdSelfMfg, DeviceIdSerialMfg, DiceMfg, DiceMfgState,
+};
 mod spmeasure_cert_tmpl;
 mod trust_quorum_dhe_cert_tmpl;
 pub use crate::handoff::{
-    AliasData, Handoff, HandoffData, RngData, SpMeasureData,
+    AliasData, CertData, Handoff, HandoffData, RngData, SpMeasureData,
 };
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
-// We define the length of the serial number using the values from the alias
-// cert template though it's consistent across all templates.
-pub const SN_LENGTH: usize = alias_cert_tmpl::ISSUER_SN_RANGE.end
-    - alias_cert_tmpl::ISSUER_SN_RANGE.start;
 const REG_ADDR_NONSEC: u32 = 0x40000900;
 
 fn get_cdi_reg_slice() -> &'static mut [u32] {
@@ -166,35 +172,6 @@ impl CertSerialNumber {
         self.0 += 1;
 
         next
-    }
-}
-
-#[repr(C)]
-#[derive(
-    AsBytes, Clone, Copy, Debug, Deserialize, Serialize, SerializedSize,
-)]
-pub struct SerialNumber([u8; SN_LENGTH]);
-
-#[derive(Clone, Copy, Debug)]
-pub enum SNError {
-    BadSize,
-}
-
-impl FromStr for SerialNumber {
-    type Err = SNError;
-
-    // TODO: Limit serialNumber values to PrintableStrings per x.520
-    // https://github.com/oxidecomputer/hubris/issues/735
-    fn from_str(sn: &str) -> Result<Self, Self::Err> {
-        let sn: [u8; SN_LENGTH] =
-            sn.as_bytes().try_into().map_err(|_| SNError::BadSize)?;
-        Ok(Self(sn))
-    }
-}
-
-impl SerialNumber {
-    pub fn from_bytes(sn: &[u8; SN_LENGTH]) -> Self {
-        Self(*sn)
     }
 }
 

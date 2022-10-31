@@ -48,16 +48,20 @@ size = 4096
 
 # this is the start of the USB SRAM AHB peripheral (0x4000 bytes total)
 # we appropriate this SRAM for passing DICE artifacts
-[dice_alias]
+[dice_certs]
 address = 0x40100000
 size = 0x800
 
-[dice_spmeasure]
+[dice_alias]
 address = 0x40100800
 size = 0x800
 
-[dice_rng]
+[dice_spmeasure]
 address = 0x40101000
+size = 0x800
+
+[dice_rng]
+address = 0x40101800
 size = 0x100
 
 [secure_syscon]
