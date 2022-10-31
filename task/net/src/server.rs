@@ -352,8 +352,14 @@ where
             // Increment the MAC and IP addresses based on the stride in the
             // configuration block, so that each VLAN has a unique address.
             //
-            // We take advantage of the fact that the top 3 octets are the OUI,
-            // and convert into a u32 to do the incrementing.
+            // We only want to increment the lower 3 octets, leaving the OUI
+            // (top 3 octets) the same.
+            //
+            // It's a *little* awkward:
+            // We need a `[u8; 4]` to call `u32::from_be_bytes`, but only care
+            // about the lower 24 bits. To work around this, we include one
+            // octet of the OUI when converting into a `u32`, then mask the
+            // resulting value with `0xFFFFFF` afterwards.
             let next_mac = (u32::from_be_bytes(mac[2..].try_into().unwrap())
                 & 0xFFFFFF)
                 + mac_address_block.stride as u32;

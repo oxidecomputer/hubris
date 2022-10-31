@@ -75,7 +75,8 @@ task_slot!(I2C, i2c_driver);
 
 /// Represents a range of allocated MAC addresses, per RFD 320
 ///
-/// The SP will claim the first two addresses
+/// The SP will claim the first `N` addresses based on VLAN configuration
+/// (typically either 1 or 2).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
 #[repr(C)]
 pub struct MacAddressBlock {
@@ -84,7 +85,12 @@ pub struct MacAddressBlock {
     stride: u8,
 }
 
-/// Claims and calculates the MAC address.  This can only be called once.
+/// Calculates a locally administered, unicast MAC address from the chip ID
+///
+/// This uses a hash of the chip ID and returns a block with starting MAC
+/// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
+/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
+/// VLANs enabled).
 fn mac_address_from_uid() -> MacAddressBlock {
     let mut buf = [0u8; 6];
     let uid = drv_stm32xx_uid::read_uid();
@@ -105,13 +111,6 @@ fn mac_address_from_uid() -> MacAddressBlock {
 
     // Set the lower 32-bits based on the hashed UID
     buf[2..].copy_from_slice(&hash.to_be_bytes());
-
-    // Mask the highest non-OUI octet, since we reserve `F0:00:00` and above for
-    // software stuff.  It's still *theoretically* possible to overflow, if
-    // literally every other bit of the MAC address is 1 and we're running with
-    // VLANs enabled; this seems unlikely enough to disregard, since we'll be
-    // use the MAC address from the VPD in production.
-    buf[3] &= 0xEF;
 
     MacAddressBlock {
         base_mac: buf,
