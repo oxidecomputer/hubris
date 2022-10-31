@@ -24,12 +24,14 @@
 use core::cell::Cell;
 use core::cell::RefCell;
 use drv_gimlet_state::PowerState;
-use drv_i2c_api::*;
-use drv_stm32xx_i2c::*;
-use drv_stm32xx_sys_api::*;
-use ringbuf::*;
+use drv_i2c_api::{Controller, I2cDevice, Mux, Segment};
+use drv_stm32xx_i2c::{I2cControl, I2cPin};
+use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
+use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
-use userlib::*;
+use userlib::{
+    sys_irq_control, sys_recv_closed, task_slot, FromPrimitive, TaskId,
+};
 
 task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
