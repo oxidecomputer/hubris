@@ -24,5 +24,26 @@ Interface(
                 err: CLike("HostSpCommsError"),
             ),
         ),
+        "set_debug": (
+            doc: "Set the SP debug word",
+            args: {
+		// Arguably this should be `DebugReg` (our bitflags type), but
+		// in practice we only call this function from hiffy, so it's
+		// easier to just use a plain `u64`. We convert it to a
+		// `DebugReg` internally (returning an error if the supplied
+		// u64 contains any invalid bits).
+                "debug": "u64",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HostSpCommsError"),
+            ),
+        ),
+        "get_debug": (
+            reply: Result(
+                ok: "DebugReg",
+                err: CLike("HostSpCommsError"),
+            ),
+        ),
     },
 )

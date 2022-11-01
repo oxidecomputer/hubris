@@ -17,8 +17,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
-    MAX_MESSAGE_SIZE,
+    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
+    SpToHost, Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -96,6 +96,8 @@ fn main() -> ! {
 
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
+    // XXX For now, we want to default to these options.
+    server.set_debug_impl(DebugReg::DEBUG_KMDB | DebugReg::DEBUG_PROM);
 
     sys_irq_control(USART_IRQ, true);
 
@@ -125,6 +127,7 @@ struct ServerImpl {
     tx_pkt_to_write: Range<usize>,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
+    debug: DebugReg,
     sequencer: Sequencer,
     hf: HostFlash,
     reboot_state: Option<RebootState>,
@@ -156,6 +159,7 @@ impl ServerImpl {
             tx_pkt_to_write: 0..0,
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
+            debug: DebugReg::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             reboot_state: None,
@@ -172,6 +176,12 @@ impl ServerImpl {
             } else {
                 self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
             }
+        }
+    }
+
+    fn set_debug_impl(&mut self, debug: DebugReg) {
+        if debug != self.debug {
+            self.debug = debug;
         }
     }
 
@@ -549,7 +559,10 @@ impl ServerImpl {
                 // TODO log event and/or forward to MGS
                 Some(SpToHost::Ack)
             }
-            HostToSp::GetStatus => Some(SpToHost::Status(self.status)),
+            HostToSp::GetStatus => Some(SpToHost::Status {
+                status: self.status,
+                debug: self.debug,
+            }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
                 action =
@@ -744,6 +757,26 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
     ) -> Result<Status, RequestError<HostSpCommsError>> {
         Ok(self.status)
     }
+
+    fn set_debug(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        debug: u64,
+    ) -> Result<(), RequestError<HostSpCommsError>> {
+        let debug =
+            DebugReg::from_bits(debug).ok_or(HostSpCommsError::InvalidDebug)?;
+
+        self.set_debug_impl(debug);
+
+        Ok(())
+    }
+
+    fn get_debug(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<DebugReg, RequestError<HostSpCommsError>> {
+        Ok(self.debug)
+    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
@@ -882,6 +915,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::{HostSpCommsError, Status};
+    use task_host_sp_comms_api::{DebugReg, HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

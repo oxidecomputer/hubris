@@ -9,11 +9,12 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
-pub use host_sp_messages::Status;
+pub use host_sp_messages::{DebugReg, Status};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HostSpCommsError {
     InvalidStatus = 1,
+    InvalidDebug,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
