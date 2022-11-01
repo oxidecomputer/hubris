@@ -35,14 +35,13 @@ impl Priority {
 /// Record describing a single task.
 #[derive(Clone, Debug)]
 pub struct TaskDesc {
-    /// Identifies memory regions this task has access to, by index in the
-    /// `RegionDesc` table. If the task needs fewer than `REGIONS_PER_TASK`
+    /// Identifies memory regions this task has access to, with references into
+    /// the `RegionDesc` table. If the task needs fewer than `REGIONS_PER_TASK`
     /// regions, it should use remaining entries to name a region that confers
     /// no access; by convention, this region is usually entry 0 in the table.
-    ///
-    /// Note: because these region indices are 8 bits, this is going to get
-    /// restrictive in applications that approach 128 tasks.
-    pub regions: [u8; REGIONS_PER_TASK],
+    /// (This is why we use pointers into a table, to avoid making many copies
+    /// of that region.)
+    pub regions: [&'static RegionDesc; REGIONS_PER_TASK],
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
@@ -101,6 +100,19 @@ pub struct RegionDesc {
 }
 
 impl RegionDesc {
+    /// Tests whether `self` contains `addr`.
+    pub fn contains(&self, addr: usize) -> bool {
+        let next_addr = addr.wrapping_add(1);
+        if next_addr < addr {
+            return false;
+        };
+        // We don't allow regions to butt up against the end of the address
+        // space, so we can compute our off-by-one end address as follows:
+        let end = self.base.wrapping_add(self.size) as usize;
+
+        (self.base as usize) <= addr && next_addr <= end
+    }
+
     /// Tests whether `slice` is fully enclosed by `self`.
     pub fn covers<T>(&self, slice: &USlice<T>) -> bool {
         // We don't allow regions to butt up against the end of the address
