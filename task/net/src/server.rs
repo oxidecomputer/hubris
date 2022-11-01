@@ -365,8 +365,10 @@ where
                 + mac_address_block.stride as u32;
 
             // Per https://github.com/oxidecomputer/oana/#mac-addresses, we
-            // reserve `F0:00:00` and above for software stuff.
-            if next_mac > 0xEFFFFF {
+            // reserve `F0:00:00` and above for software stuff if we're using
+            // the Oxide OUI
+            const OXIDE_OUI: [u8; 3] = [0xa8, 0x40, 0x25];
+            if mac[..3] == OXIDE_OUI && next_mac > 0xEFFFFF {
                 panic!("MAC overflow: {:?}", mac);
             }
 
