@@ -115,7 +115,10 @@ pub enum SpToHost {
         count: u16,
         stride: u8,
     },
-    Status(Status),
+    Status {
+        status: Status,
+        debug: DebugReg,
+    },
     // Followed by a binary data blob (the alert), or maybe action is another
     // hubpack-encoded enum?
     Alert {
@@ -177,6 +180,16 @@ bitflags::bitflags! {
         const ALERTS_AVAILABLE  = 1 << 1;
         // Resync is a WIP; omit for now.
         // const READY_FOR_RESYNC  = 1 << 2;
+    }
+
+    #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
+    #[repr(transparent)]
+    pub struct DebugReg: u64 {
+        const DEBUG_KBM = 1 << 0;
+        const DEBUG_BOOTRD = 1 << 1;
+        const DEBUG_PROM = 1 << 2;
+        const DEBUG_KMDB = 1 << 3;
+        const DEBUG_KMDB_BOOT = 1 << 4;
     }
 }
 
@@ -270,14 +283,7 @@ mod tests {
             (0x04, HostToSp::GetIdentity),
             (0x05, HostToSp::GetMacAddresses),
             (0x06, HostToSp::HostBootFailure { reason: 0 }),
-            (
-                0x07,
-                HostToSp::HostPanic {
-                    status: 0,
-                    cpu: 0,
-                    thread: 0,
-                },
-            ),
+            (0x07, HostToSp::HostPanic { code: 0 }),
             (0x08, HostToSp::GetStatus),
             (0x09, HostToSp::AckSpStart),
             (0x0a, HostToSp::GetAlert),
@@ -305,7 +311,7 @@ mod tests {
             (
                 0x04,
                 SpToHost::Identity {
-                    model: 0,
+                    model: [0; 11],
                     revision: 0,
                     serial: [0; 11],
                 },
@@ -318,7 +324,13 @@ mod tests {
                     stride: 0,
                 },
             ),
-            (0x06, SpToHost::Status(Status::empty())),
+            (
+                0x06,
+                SpToHost::Status {
+                    status: Status::empty(),
+                    debug: DebugReg::empty(),
+                },
+            ),
             (0x07, SpToHost::Alert { action: 0 }),
             (0x08, SpToHost::RotResponse),
             (0x09, SpToHost::Phase2Data { start: 0 }),
@@ -336,11 +348,7 @@ mod tests {
             version: 123,
             sequence: 456,
         };
-        let host_to_sp = HostToSp::HostPanic {
-            status: 78,
-            cpu: 90,
-            thread: 12345,
-        };
+        let host_to_sp = HostToSp::HostPanic { code: 78 };
         let data_blob = &[1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         let mut buf = [0; MAX_MESSAGE_SIZE];
@@ -362,11 +370,7 @@ mod tests {
             version: 123,
             sequence: 456,
         };
-        let host_to_sp = HostToSp::HostPanic {
-            status: 78,
-            cpu: 90,
-            thread: 12345,
-        };
+        let host_to_sp = HostToSp::HostPanic { code: 78 };
         let data_blob = (0_u32..)
             .into_iter()
             .map(|x| x as u8)
@@ -442,9 +446,10 @@ mod tests {
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
 
         // Message including `Status`, which is defined by `bitflags!`.
-        let message = SpToHost::Status(
-            Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
-        );
+        let message = SpToHost::Status {
+            status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
+            debug: DebugReg::DEBUG_KMDB | DebugReg::DEBUG_KMDB_BOOT,
+        };
         let (n, leftover) =
             serialize(&mut buf, &header, &message, &[]).unwrap();
         assert!(leftover.is_empty());
@@ -460,6 +465,7 @@ mod tests {
             0x06,
             // payload
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
     }
