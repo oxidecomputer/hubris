@@ -14,6 +14,7 @@ use zerocopy::FromBytes;
 
 use crate::descs::{
     Priority, RegionAttributes, RegionDesc, TaskDesc, TaskFlags,
+    REGIONS_PER_TASK,
 };
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
@@ -42,9 +43,6 @@ pub struct Task {
     /// the task. The low bits of this become the task's generation number.
     generation: u32,
 
-    /// Static table defining this task's memory regions.
-    region_table: &'static [&'static RegionDesc],
-
     /// Notification status.
     notifications: u32,
 
@@ -56,10 +54,7 @@ pub struct Task {
 impl Task {
     /// Creates a `Task` in its initial state, filling in fields from
     /// `descriptor`.
-    pub fn from_descriptor(
-        descriptor: &'static TaskDesc,
-        region_table: &'static [&'static RegionDesc],
-    ) -> Self {
+    pub fn from_descriptor(descriptor: &'static TaskDesc) -> Self {
         Task {
             priority: Priority(descriptor.priority),
             state: if descriptor.flags.contains(TaskFlags::START_AT_BOOT) {
@@ -69,7 +64,6 @@ impl Task {
             },
 
             descriptor,
-            region_table,
 
             generation: 0,
             notifications: 0,
@@ -182,7 +176,7 @@ impl Task {
             // according to the task's region map... but fine with us.
             return true;
         }
-        self.region_table.iter().any(|region| {
+        self.region_table().iter().any(|region| {
             region.covers(slice)
                 && region.attributes.contains(atts)
                 && !region.attributes.contains(RegionAttributes::DEVICE)
@@ -295,8 +289,8 @@ impl Task {
     }
 
     /// Returns a reference to the task's memory region descriptor table.
-    pub fn region_table(&self) -> &'static [&'static RegionDesc] {
-        self.region_table
+    pub fn region_table(&self) -> &[&'static RegionDesc; REGIONS_PER_TASK] {
+        &self.descriptor.regions
     }
 
     /// Returns this task's current generation number.

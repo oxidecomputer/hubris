@@ -5,7 +5,7 @@
 //! Kernel startup.
 
 use crate::atomic::AtomicExt;
-use crate::descs::{RegionDesc, REGIONS_PER_TASK};
+use crate::descs::RegionDesc;
 use crate::task::Task;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -49,12 +49,9 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     // Grab references to all our statics.
     let task_descs = &HUBRIS_TASK_DESCS;
-    let region_descs = &HUBRIS_REGION_DESCS;
-    // Safety: these references will remain unique so long as the "only called
+    // Safety: this reference will remain unique so long as the "only called
     // once per boot" contract on this function is upheld.
-    let (task_table, region_tables) = unsafe {
-        (&mut HUBRIS_TASK_TABLE_SPACE, &mut HUBRIS_REGION_TABLE_SPACE)
-    };
+    let task_table = unsafe { &mut HUBRIS_TASK_TABLE_SPACE };
 
     // Initialize our RAM data structures.
 
@@ -65,35 +62,12 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // and (2) moving them into RAM where random accesses don't imply wait
     // states.
 
-    // As a small optimization, we equip each task with an array of references
-    // to RegionDecs, instead of looking them up by index each time. Generate
-    // these.
-
-    // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
-    let region_tables: &mut [[MaybeUninit<&'static RegionDesc>; REGIONS_PER_TASK];
-             HUBRIS_TASK_COUNT] =
-        unsafe { &mut *(region_tables as *mut _ as *mut _) };
-
-    for (i, table) in region_tables.iter_mut().enumerate() {
-        for (slot, &index) in table.iter_mut().zip(&task_descs[i].regions) {
-            *slot = MaybeUninit::new(&region_descs[index as usize]);
-        }
-    }
-
-    // Safety: we have fully initialized this and can shed the uninit part.
-    // We're also dropping &mut.
-    let region_tables: &[[&'static RegionDesc; REGIONS_PER_TASK];
-         HUBRIS_TASK_COUNT] = unsafe { &*(region_tables as *mut _ as *mut _) };
-
     // Now, generate the task table.
     // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
     let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
         unsafe { &mut *(task_table as *mut _ as *mut _) };
     for (i, task) in task_table.iter_mut().enumerate() {
-        *task = MaybeUninit::new(Task::from_descriptor(
-            &task_descs[i],
-            &region_tables[i],
-        ));
+        task.write(Task::from_descriptor(&task_descs[i]));
     }
 
     // Safety: we have fully initialized this and can shed the uninit part.
