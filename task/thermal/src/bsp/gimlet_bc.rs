@@ -29,7 +29,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS
     + sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
-    + sensors::NUM_NVME_BMC_BAD_MUX_TEMPERATURE_SENSORS;
+    + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
@@ -245,8 +245,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::M2,
-            devices::nvme_bmc_bad_mux_m2_a,
-            sensors::NVME_BMC_BAD_MUX_M2_A_TEMPERATURE_SENSOR,
+            devices::m2_hp_only_m2_a,
+            sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2A,
@@ -255,8 +255,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::M2,
-            devices::nvme_bmc_bad_mux_m2_b,
-            sensors::NVME_BMC_BAD_MUX_M2_B_TEMPERATURE_SENSOR,
+            devices::m2_hp_only_m2_b,
+            sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2B,

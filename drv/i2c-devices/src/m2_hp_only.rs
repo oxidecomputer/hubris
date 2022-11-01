@@ -9,12 +9,14 @@ use userlib::units::Celsius;
 pub use crate::nvme_bmc::{Error, NvmeBmc};
 
 /// Wrapper for an NVME BMC device on the far end of an I2C mux that exhibits
-/// lock-up behavior; see `hardware-gimlet#1804`
-pub struct NvmeBmcBadMux {
+/// lock-up behavior; see `hardware-gimlet#1804`.  The end result is that we can
+/// only talk to the device when we know _for sure_ that it is powered; the `Hp`
+/// in its name is our standard abbreviation for "hot-plug".
+pub struct M2HpOnly {
     dev: NvmeBmc,
 }
 
-impl NvmeBmcBadMux {
+impl M2HpOnly {
     pub fn new(device: &I2cDevice) -> Self {
         Self {
             dev: NvmeBmc::new(device),
@@ -26,7 +28,7 @@ impl NvmeBmcBadMux {
     }
 }
 
-impl Validate<ResponseCode> for NvmeBmcBadMux {
+impl Validate<ResponseCode> for M2HpOnly {
     fn validate(
         _device: &drv_i2c_api::I2cDevice,
     ) -> Result<bool, ResponseCode> {
