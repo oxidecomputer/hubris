@@ -39,12 +39,14 @@ pub enum Register {
 #[derive(Debug)]
 pub enum Error {
     BadRegisterRead { reg: Register, code: ResponseCode },
+    BadRegisterWrite { reg: Register, code: ResponseCode },
 }
 
 impl From<Error> for ResponseCode {
     fn from(err: Error) -> Self {
         match err {
-            Error::BadRegisterRead { code, .. } => code,
+            Error::BadRegisterRead { code, .. }
+            | Error::BadRegisterWrite { code, .. } => code,
         }
     }
 }
@@ -81,6 +83,11 @@ impl Tmp451 {
         self.device
             .read_reg::<u8, u8>(reg as u8)
             .map_err(|code| Error::BadRegisterRead { reg, code })
+    }
+    pub fn write_reg(&self, reg: Register, value: u8) -> Result<(), Error> {
+        self.device
+            .write(&[reg as u8, value])
+            .map_err(|code| Error::BadRegisterWrite { reg, code })
     }
 }
 
