@@ -28,7 +28,8 @@ const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS
-    + sensors::NUM_NVMEBMC_TEMPERATURE_SENSORS;
+    + sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
+    + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
@@ -244,8 +245,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::M2,
-            devices::nvmebmc_m2_a,
-            sensors::NVMEBMC_M2_A_TEMPERATURE_SENSOR,
+            devices::m2_hp_only_m2_a,
+            sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2A,
@@ -254,8 +255,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::M2,
-            devices::nvmebmc_m2_b,
-            sensors::NVMEBMC_M2_B_TEMPERATURE_SENSOR,
+            devices::m2_hp_only_m2_b,
+            sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2B,
@@ -445,8 +446,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n0,
-            sensors::NVMEBMC_U2_N0_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n0,
+            sensors::NVME_BMC_U2_N0_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -455,8 +456,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n1,
-            sensors::NVMEBMC_U2_N1_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n1,
+            sensors::NVME_BMC_U2_N1_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -465,8 +466,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n2,
-            sensors::NVMEBMC_U2_N2_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n2,
+            sensors::NVME_BMC_U2_N2_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -475,8 +476,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n3,
-            sensors::NVMEBMC_U2_N3_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n3,
+            sensors::NVME_BMC_U2_N3_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -485,8 +486,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n4,
-            sensors::NVMEBMC_U2_N4_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n4,
+            sensors::NVME_BMC_U2_N4_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -495,8 +496,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n5,
-            sensors::NVMEBMC_U2_N5_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n5,
+            sensors::NVME_BMC_U2_N5_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -505,8 +506,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n6,
-            sensors::NVMEBMC_U2_N6_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n6,
+            sensors::NVME_BMC_U2_N6_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -515,8 +516,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n7,
-            sensors::NVMEBMC_U2_N7_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n7,
+            sensors::NVME_BMC_U2_N7_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -525,8 +526,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n8,
-            sensors::NVMEBMC_U2_N8_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n8,
+            sensors::NVME_BMC_U2_N8_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
@@ -535,8 +536,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     InputChannel::new(
         TemperatureSensor::new(
             Device::U2,
-            devices::nvmebmc_u2_n9,
-            sensors::NVMEBMC_U2_N9_TEMPERATURE_SENSOR,
+            devices::nvme_bmc_u2_n9,
+            sensors::NVME_BMC_U2_N9_TEMPERATURE_SENSOR,
         ),
         U2_THERMALS,
         PowerBitmask::A0,
