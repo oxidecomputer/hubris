@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 
 use crate::config::Config;
@@ -17,6 +17,7 @@ mod elf;
 mod flash;
 mod graph;
 mod humility;
+mod print;
 mod sizes;
 mod task_slot;
 
@@ -162,6 +163,22 @@ enum Xtask {
         output: PathBuf,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
+    },
+
+    /// Print out information related to the build.
+    ///
+    /// Currently only useful to print the archive path, but may grow over time.
+    Print {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Print the path to the archive
+        #[clap(long)]
+        archive: bool,
+
+        /// If there are multiple possible images, print this one
+        #[clap(long)]
+        image_name: Option<String>,
     },
 }
 
@@ -319,6 +336,14 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::Graph { output, cfg } => {
             graph::task_graph(&cfg, &output)?;
+        }
+        Xtask::Print {
+            cfg,
+            archive,
+            image_name,
+        } => {
+            print::run(&cfg, archive, image_name)
+                .context("could not print information about the build")?;
         }
     }
 

@@ -35,7 +35,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 ///
 /// It should be trivial to calculate and kept constant during the build;
 /// mutable build information should be accumulated elsewhere.
-struct PackageConfig {
+pub struct PackageConfig {
     /// Path to the `app.toml` file being built
     app_toml_file: PathBuf,
 
@@ -43,7 +43,7 @@ struct PackageConfig {
     app_src_dir: PathBuf,
 
     /// Loaded configuration
-    toml: Config,
+    pub toml: Config,
 
     /// Add `-v` to various build commands
     verbose: bool,
@@ -72,7 +72,11 @@ struct PackageConfig {
 }
 
 impl PackageConfig {
-    fn new(app_toml_file: &Path, verbose: bool, edges: bool) -> Result<Self> {
+    pub fn new(
+        app_toml_file: &Path,
+        verbose: bool,
+        edges: bool,
+    ) -> Result<Self> {
         let toml = Config::from_file(app_toml_file)?;
         let dist_dir = Path::new("target").join(&toml.name).join("dist");
         let app_src_dir = app_toml_file
@@ -125,11 +129,11 @@ impl PackageConfig {
         self.dist_dir.join(img_name)
     }
 
-    fn img_file(&self, name: impl AsRef<Path>, img_name: &str) -> PathBuf {
+    pub fn img_file(&self, name: impl AsRef<Path>, img_name: &str) -> PathBuf {
         self.img_dir(img_name).join(name)
     }
 
-    fn dist_file(&self, name: impl AsRef<Path>) -> PathBuf {
+    pub fn dist_file(&self, name: impl AsRef<Path>) -> PathBuf {
         self.dist_dir.join(name)
     }
 

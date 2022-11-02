@@ -78,7 +78,8 @@ pub struct Config {
 
 impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
-        let cfg_contents = std::fs::read(&cfg)?;
+        let cfg_contents = std::fs::read(&cfg)
+            .with_context(|| format!("could not read {}", cfg.display()))?;
         let toml: RawConfig = toml::from_slice(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
