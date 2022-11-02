@@ -700,15 +700,20 @@ impl BuildConfig<'_> {
             None => PathBuf::from("cargo"),
         });
 
-        // nightly features that we use: asm_sym,asm_const,
-        // named-profiles,naked_functions,cmse_nonsecure_entry,array_methods
-        //
-        // nightly features that our dependencies use: backtrace,proc_macro_span
+        let mut nightly_features = vec![];
+        // nightly features that we use:
+        nightly_features.extend([
+            "array_methods",
+            "asm_const",
+            "asm_sym",
+            "cmse_nonsecure_entry",
+            "naked_functions",
+            "named-profiles",
+        ]);
+        // nightly features that our dependencies use:
+        nightly_features.extend(["backtrace", "proc_macro_span"]);
 
-        cmd.arg(
-            "-Zallow-features=asm_sym,asm_const,named-profiles,naked_functions,\
-cmse_nonsecure_entry,array_methods,backtrace,proc_macro_span",
-        );
+        cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
 
         cmd.arg(subcommand);
         cmd.arg("-p").arg(&self.crate_name);
