@@ -171,7 +171,7 @@ pub struct Pca9956B {
 
 pub const NUM_LEDS: usize = 24;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     /// The low-level I2C communication returned an error
     I2cError(ResponseCode),
@@ -204,7 +204,7 @@ impl Pca9956B {
     fn read_reg(&self, reg: Register) -> Result<u8, Error> {
         self.device
             .read_reg::<u8, u8>(reg as u8)
-            .map_err(|code| Error::I2cError(code))
+            .map_err(Error::I2cError)
     }
 
     /// Read a number of Registers into `buf`
@@ -215,7 +215,7 @@ impl Pca9956B {
     fn read_buffer(&self, reg: Register, buf: &mut [u8]) -> Result<(), Error> {
         self.device
             .read_reg_into((reg as u8) | CTRL_AUTO_INCR_MASK, buf)
-            .map_err(|code| Error::I2cError(code))?;
+            .map_err(Error::I2cError)?;
 
         Ok(())
     }
@@ -225,7 +225,7 @@ impl Pca9956B {
         let buffer = [reg as u8, val];
         self.device
             .write(&buffer)
-            .map_err(|code| Error::I2cError(code))
+            .map_err(Error::I2cError)
     }
 
     /// Write a number of Registers into `buf`
@@ -239,7 +239,7 @@ impl Pca9956B {
 
         self.device
             .write(&data[..=buf.len()])
-            .map_err(|code| Error::I2cError(code))
+            .map_err(Error::I2cError)
     }
 
     /// Sets the device's IREFALL register to `val`
@@ -271,7 +271,7 @@ impl Pca9956B {
                 vals.len().try_into().unwrap_or(0xFF),
             ));
         }
-        self.write_buffer(Register::PWM0, &vals)
+        self.write_buffer(Register::PWM0, vals)
     }
 
     /// Queries the MODE2 register and to check the OVERTEMP and ERROR bits
@@ -286,28 +286,28 @@ impl Pca9956B {
         let error = (mode2 & MODE2_ERROR_MASK) != 0;
 
         let mut err_state = Pca9956BErrorState {
-            overtemp: overtemp,
+            overtemp,
             ..Default::default()
         };
 
         if error {
             let mut eflags: [u8; 6] = [0; 6];
-            for i in 0..eflags.len() {
+            for (i, eflagx) in eflags.iter_mut().enumerate() {
                 // Notably, the auto-increment function does not apply to these
                 // registers, so they must be fetched individually
                 let reg =
                     FromPrimitive::from_u8(Register::EFLAG0 as u8 + i as u8)
                         .unwrap();
-                eflags[i] = self.read_reg(reg)?;
+                *eflagx = self.read_reg(reg)?;
             }
 
             // Convert the EFLAGx contents into LedErr values
-            for i in 0..eflags.len() {
-                let eflag = eflags[i];
+            for (i, eflagx) in eflags.iter_mut().enumerate() {
+                let eflag = *eflagx;
                 for j in 0..=3 {
                     let led_idx = (i * 4) + j;
-                    let errn_mask: u8 = 0b11 << j * 2;
-                    let err = (eflag & errn_mask) >> j * 2;
+                    let errx_mask: u8 = 0b11 << (j * 2);
+                    let err = (eflag & errx_mask) >> (j * 2);
                     err_state.led_errors[led_idx] = LedErr::from(err);
                 }
             }

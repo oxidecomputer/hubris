@@ -26,7 +26,7 @@ const DEFAULT_LED_PWM: u8 = 255;
 
 /// There are two LED controllers, each controlling the LEDs on either the left
 /// or right of the board.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum LedController {
     Left = 0,
     Right = 1,
