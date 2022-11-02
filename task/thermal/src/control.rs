@@ -114,6 +114,7 @@ impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
         use drv_i2c_devices::tmp451::Error::*;
         match s {
             BadRegisterRead { code, .. } => Self::I2cError(code),
+            BadRegisterWrite { .. } => panic!(),
         }
     }
 }
@@ -328,30 +329,23 @@ impl OneSidedPidState {
         };
         self.prev_error = Some(error);
 
-        // Calculate the P+D contribution separately, which is used to clamp the
-        // integral term.
-        let pd_contribution = p_contribution + d_contribution;
-        let out = cfg.zero + pd_contribution + self.integral;
+        // To prevent integral windup, integral term needs to be clamped to values
+        // can effect the output.
+        let out_pd = cfg.zero + p_contribution + d_contribution;
+        let (integral_min, integral_max) = if out_pd > output_limit {
+            (-out_pd, 0.0)
+        } else if out_pd < 0.0 {
+            (0.0, -out_pd + output_limit)
+        } else {
+            (-out_pd, output_limit - out_pd)
+        };
+        self.integral = self.integral.max(integral_min).min(integral_max);
 
+        // Clamp output values to valid range.
+        let out = out_pd + self.integral;
         if out > output_limit {
-            // Clamp the integral to the maximum value at which it can
-            // contribute to the output.  For example:
-            //
-            // pd_contribution = 100 => clamp i to < 0
-            // pd_contribution = 110 => clamp i to < 0
-            // pd_contribution = 80  => clamp i to < 20
-            let clamp = (output_limit - pd_contribution).max(0.0);
-            self.integral = self.integral.min(clamp);
-
             output_limit
         } else if out < 0.0 {
-            // Same idea as above, on the negative side.  For example:
-            //
-            // pd_contribution = 10  => clamp i to > -10
-            // pd_contribution = -10 => clamp i to > 0
-            let clamp = (-pd_contribution).min(0.0);
-            self.integral = self.integral.max(clamp);
-
             0.0
         } else {
             out

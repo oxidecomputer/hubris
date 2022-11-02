@@ -12,6 +12,9 @@
 //! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`isl68224`]: ISL68224 power controller
 //! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
+//! - [`m2_hp_only`]: M.2 drive; identical to `nvme_bmc`, with the limitation
+//!   that communication is **only allowed** when the device is known to be
+//!   powered (at the cost of locking up the I2C bus if you get it wrong).
 //! - [`max5970`]: MAX5970 hot swap controller
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
@@ -164,6 +167,7 @@ pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
 pub mod m24c02;
+pub mod m2_hp_only;
 pub mod max31790;
 pub mod max5970;
 pub mod max6634;

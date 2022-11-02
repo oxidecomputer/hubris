@@ -10,6 +10,8 @@ spd = { git = "https://github.com/oxidecomputer/spd" }
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
 drv-stm32xx-i2c = {path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394"]}
+drv-gimlet-state = {path = "../../drv/gimlet-state"}
+task-jefe-api = {path = "../jefe-api"}
 drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"

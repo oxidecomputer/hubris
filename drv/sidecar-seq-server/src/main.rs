@@ -567,6 +567,20 @@ fn main() -> ! {
         ringbuf_entry!(Trace::NoFrontIOBoardPresent);
     }
 
+    // Configure the TMP451 attached to the Tofino to trigger its THERM_B
+    // line at 90°C, rather than the default of 108°C.  The THERM_B line
+    // is monitored by the sequencer FPGA and will cut power to the system,
+    // because the Tofino doesn't have built-in protection against thermal
+    // overruns.
+    let i2c_task = I2C.get_task_id();
+    let tmp451 = drv_i2c_devices::tmp451::Tmp451::new(
+        &i2c_config::devices::tmp451_tf2(i2c_task),
+        drv_i2c_devices::tmp451::Target::Remote,
+    );
+    tmp451
+        .write_reg(drv_i2c_devices::tmp451::Register::RemoteTempThermBLimit, 90)
+        .unwrap();
+
     //
     // This will put our timer in the past, and should immediately kick us.
     //
