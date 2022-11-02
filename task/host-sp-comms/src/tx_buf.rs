@@ -48,7 +48,6 @@ impl TxBuf {
     /// we've sent a partial packet. We always prefix packets with a 0x00
     /// terminator, but such a case means the host will receive an incomplete
     /// packet.
-    #[allow(dead_code)] // TODO this is currently unused but will be used soon
     pub(crate) fn reset(&mut self) {
         self.state = State::Idle;
     }
