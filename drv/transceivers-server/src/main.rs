@@ -232,7 +232,7 @@ impl NotificationHandler for ServerImpl {
                     if self.leds_initialized {
                         match self.leds.update_led_state(presence) {
                             Ok(_) => (),
-                            Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e));
+                            Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e))
                         }
                     }
                 }
@@ -304,7 +304,7 @@ fn main() -> ! {
                 server.leds_initialized = true;
                 ringbuf_entry!(Trace::LEDInitComplete);
             } else {
-                match server.leds.initialize_current().and_then(server.leds.turn_on_system_led()) {
+                match server.leds.initialize_current().and(server.leds.turn_on_system_led()) {
                     Ok(_) => {
                         server.leds_initialized = true;
                         ringbuf_entry!(Trace::LEDInitComplete);
