@@ -1,0 +1,180 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! Server for interacting with Ignition Controllers.
+
+#![no_std]
+#![no_main]
+
+use drv_ignition_api::*;
+use drv_sidecar_mainboard_controller::ignition::*;
+use drv_sidecar_seq_api::Sequencer;
+use ringbuf::*;
+use userlib::*;
+
+task_slot!(FPGA, fpga);
+task_slot!(SEQUENCER, sequencer);
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    AwaitingMainboardControllerReady,
+    PortCount(usize),
+    PresenceUpdate(u64),
+}
+ringbuf!(Trace, 16, Trace::None);
+
+const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 1000;
+
+#[export_name = "main"]
+fn main() -> ! {
+    let mut incoming = [0u8; idl::INCOMING_SIZE];
+    let mut server = ServerImpl {
+        controller: IgnitionController::new(FPGA.get_task_id(), 0x300),
+        port_count: 0,
+        last_presence_summary: 0,
+    };
+    let sequencer = Sequencer::from(SEQUENCER.get_task_id());
+
+    // Poll the sequencer to determine if the mainboard controller is ready.
+    ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
+    while !sequencer.mainboard_controller_ready().unwrap_or(false) {
+        hl::sleep_for(25);
+    }
+
+    // Determine the number of Ignition controllers available.
+    server.port_count = server.controller.port_count().unwrap_lite();
+    ringbuf_entry!(Trace::PortCount(server.port_count));
+
+    // Set a timer in the past causing the presence state to be polled an
+    // updated as soon as the serving loop starts.
+    sys_set_timer(Some(sys_get_timer().now), TIMER_NOTIFICATION_MASK);
+
+    loop {
+        idol_runtime::dispatch_n(&mut incoming, &mut server);
+    }
+}
+
+struct ServerImpl {
+    controller: IgnitionController,
+    port_count: usize,
+    last_presence_summary: u64,
+}
+
+impl ServerImpl {
+    pub fn poll_presence(&mut self) -> Result<(), IgnitionError> {
+        let current_presence_summary = self.controller.presence_summary()?;
+
+        if current_presence_summary != self.last_presence_summary {
+            ringbuf_entry!(Trace::PresenceUpdate(current_presence_summary));
+            self.last_presence_summary = current_presence_summary;
+        }
+
+        Ok(())
+    }
+}
+
+type RequestError = idol_runtime::RequestError<IgnitionError>;
+
+impl idl::InOrderIgnitionImpl for ServerImpl {
+    fn port_count(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<usize, RequestError> {
+        self.controller
+            .port_count()
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn presence_summary(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u64, RequestError> {
+        self.controller
+            .presence_summary()
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn state(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<ControllerState, RequestError> {
+        self.controller
+            .state(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn counters(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<[u8; 4], RequestError> {
+        self.controller
+            .counters(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn request(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<u8, RequestError> {
+        self.controller
+            .request(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn set_request(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+        request: Request,
+    ) -> Result<(), RequestError> {
+        self.controller
+            .set_request(port, request)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_NOTIFICATION_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        let start = sys_get_timer().now;
+
+        // Only one notification is expected, so let's get to it.
+        if let Err(_e) = self.poll_presence() {}
+
+        let finish = sys_get_timer().now;
+
+        // We now know when we were notified and when any work was completed.
+        // Note that the assumption here is that `start` < `finish` and that
+        // this won't hold if the system time rolls over. But, the system timer
+        // is a u64, with each bit representing a ms, so in practice this should
+        // be fine. Anyway, armed with this information, find the next deadline
+        // some multiple of `TIMER_INTERVAL` in the future.
+
+        let delta = finish - start;
+        let next_deadline = finish + TIMER_INTERVAL - (delta % TIMER_INTERVAL);
+
+        sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
+    }
+}
+
+mod idl {
+    use drv_ignition_api::*;
+    use drv_sidecar_mainboard_controller::ignition::*;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}

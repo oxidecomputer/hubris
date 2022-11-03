@@ -31,5 +31,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "\npub const SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM: [u8; 32] = {};",
         checksum,
     )?;
+
     Ok(())
 }
