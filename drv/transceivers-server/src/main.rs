@@ -6,8 +6,7 @@
 #![no_main]
 
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary, leds::Leds,
-    transceivers::Transceivers,
+    leds::FullErrorSummary, leds::Leds, transceivers::Transceivers,
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
@@ -246,11 +245,13 @@ fn main() -> ! {
             match ready {
                 Ok(true) => {
                     ringbuf_entry!(Trace::FrontIOReady(true));
-                    break
+                    break;
                 }
                 Err(SeqError::NoFrontIOBoard) => {
-                    ringbuf_entry!(Trace::FrontIOSeqErr(SeqError::NoFrontIOBoard));
-                    break
+                    ringbuf_entry!(Trace::FrontIOSeqErr(
+                        SeqError::NoFrontIOBoard
+                    ));
+                    break;
                 }
                 _ => {
                     ringbuf_entry!(Trace::FrontIOReady(false));
