@@ -625,8 +625,11 @@ impl<'a> ThermalControl<'a> {
                             // a reading on this control cycle, then time_ms ==
                             // now_ms, so this becomes v.value (i.e. the most
                             // recent reading).
+                            //
+                            // Otherwise, time_ms is earlier (less) than now_ms,
+                            // so this subtraction is safe.
                             let temperature = value.0
-                                + (time_ms - now_ms) as f32 / 1000.0
+                                + (now_ms - time_ms) as f32 / 1000.0
                                     * i.temps.temperature_slew_deg_per_sec;
                             any_power_down |=
                                 temperature >= i.temps.power_down_temperature.0;
