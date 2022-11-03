@@ -65,6 +65,8 @@ enum Trace {
     ControlError(ThermalError),
 }
 ringbuf!(Trace, 32, Trace::None);
+const BLACKBOX_SIZE: usize = 32;
+ringbuf!(BLACKBOX_RINGBUF, Trace, BLACKBOX_SIZE, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

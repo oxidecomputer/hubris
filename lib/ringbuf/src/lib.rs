@@ -240,6 +240,9 @@ macro_rules! ringbuf_entry_root {
     ($payload:expr) => {
         $crate::ringbuf_entry!(crate::__RINGBUF, $payload);
     };
+    ($buf:ident, $payload:expr) => {
+        $crate::ringbuf_entry!(crate::$buf, $payload);
+    };
 }
 
 #[cfg(feature = "disabled")]

@@ -4,7 +4,7 @@
 
 use crate::{
     bsp::{self, Bsp, PowerBitmask},
-    Fan, ThermalError, Trace,
+    Fan, ThermalError, Trace, BLACKBOX_SIZE,
 };
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::{
@@ -278,6 +278,12 @@ pub(crate) struct ThermalControl<'a> {
 
     /// PID parameters, pulled from the BSP by default but user-modifiable
     pid_config: PidConfig,
+
+    /// Current index into the `BLACKBOX_RINGBUF` ringbuf
+    ///
+    /// The ring buffer captures the first `BLACKBOX_SIZE` sensor failures,
+    /// then stops recording.
+    blackbox_index: usize,
 }
 
 /// Represents a temperature reading at the time at which it was taken
@@ -446,6 +452,7 @@ impl<'a> ThermalControl<'a> {
             overheat_timeout_ms: 60_000,
 
             power_mode: PowerBitmask::empty(), // no sensors active
+            blackbox_index: 0,
         }
     }
 
@@ -542,6 +549,13 @@ impl<'a> ThermalControl<'a> {
             let post_result = match s.read_temp(self.i2c_task) {
                 Ok(v) => self.sensor_api.post(s.sensor_id, v.0),
                 Err(e) => {
+                    if self.blackbox_index < BLACKBOX_SIZE {
+                        ringbuf_entry!(
+                            BLACKBOX_RINGBUF,
+                            Trace::MiscReadFailed(i, e)
+                        );
+                        self.blackbox_index += 1;
+                    }
                     ringbuf_entry!(Trace::MiscReadFailed(i, e));
                     self.sensor_api.nodata(s.sensor_id, e.into())
                 }
@@ -584,6 +598,14 @@ impl<'a> ThermalControl<'a> {
                             // loop will eventually handle it (once the modelled
                             // worst-case temperature is sufficiently high)
                             ringbuf_entry!(Trace::SensorReadFailed(i, e));
+
+                            if self.blackbox_index < BLACKBOX_SIZE {
+                                ringbuf_entry!(
+                                    BLACKBOX_RINGBUF,
+                                    Trace::SensorReadFailed(i, e)
+                                );
+                                self.blackbox_index += 1;
+                            }
                         }
                         self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                     }
