@@ -11,6 +11,192 @@ pub struct Transceivers {
     fpgas: [FpgaUserDesign; 2],
 }
 
+// There are two FPGA controllers, each controlling the FPGA on either the left
+// or right of the board.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum FpgaController {
+    Left = 0,
+    Right = 1,
+}
+
+// The necessary information to control a given port.
+#[derive(Copy, Clone)]
+struct PortLocation {
+    controller: FpgaController,
+    port: u8,
+}
+
+/// Port Map
+///
+/// Each index in this map represents the location of its transceiver port, so
+/// index 0 is for port 0, and so on. The ports numbered 0-15 left to right
+/// across the top of the board and 16-31 left to right across the bottom. The
+/// ports are split up between the FPGAs based on locality, not logically and
+/// the FPGAs share code, resulting in each one reporting in terms of ports 0-15
+/// . This is the FPGA -> logical mapping.
+const PORT_MAP: [PortLocation; 32] = [
+    // Port 0
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 0,
+    },
+    // Port 1
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 1,
+    },
+    // Port 2
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 2,
+    },
+    // Port 3
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 3,
+    },
+    // Port 4
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 4,
+    },
+    // Port 5
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 5,
+    },
+    // Port 6
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 6,
+    },
+    // Port 7
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 7,
+    },
+    // Port 8
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 0,
+    },
+    // Port 9
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 1,
+    },
+    // Port 10
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 2,
+    },
+    // Port 11
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 3,
+    },
+    // Port 12
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 4,
+    },
+    // Port 13
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 5,
+    },
+    // Port 14
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 6,
+    },
+    // Port 15
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 7,
+    },
+    // Port 16
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 8,
+    },
+    // Port 17
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 9,
+    },
+    // Port 18
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 10,
+    },
+    // Port 19
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 11,
+    },
+    // Port 20
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 12,
+    },
+    // Port 21
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 13,
+    },
+    // Port 22
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 14,
+    },
+    // Port 23
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 15,
+    },
+    // Port 24
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 8,
+    },
+    // Port 25
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 9,
+    },
+    // Port 26
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 10,
+    },
+    // Port 27
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 11,
+    },
+    // Port 28
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 12,
+    },
+    // Port 29
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 13,
+    },
+    // Port 30
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 14,
+    },
+    // Port 31
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 15,
+    },
+];
+
 impl Transceivers {
     pub fn new(fpga_task: userlib::TaskId) -> Self {
         Self {
@@ -28,12 +214,36 @@ impl Transceivers {
         let f1: [U16<byteorder::BigEndian>; 7] =
             self.fpgas[1].read(Addr::QSFP_CTRL_EN_H)?;
 
-        let mut data: [u32; 7] = [0; 7];
-        for (data, (lo, hi)) in data.iter_mut().zip(f0.iter().zip(f1.iter())) {
-            *data = (lo.get() as u32) | ((hi.get() as u32) << 16);
+        let mut status_masks: [u32; 7] = [0; 7];
+
+        // loop through the 7 different fields we need to map
+        for (i, mask) in status_masks.iter_mut().enumerate() {
+            // loop through each port
+            for port_loc in PORT_MAP {
+                // get a mask for where the current logical port is mapped
+                // locally on the FPGA
+                let local_port_mask = 1 << port_loc.port;
+
+                // get the relevant data from the correct FPGA
+                let local_data: u16 = match port_loc.controller {
+                    FpgaController::Left => f0[i],
+                    FpgaController::Right => f1[i],
+                }.into();
+
+                // if the bit is set, update our status mask at the correct
+                // logical position
+                if (local_data & local_port_mask) != 0 {
+                    let controller_offset = 16 * port_loc.controller as u32;
+                    *mask |= (local_port_mask as u32) << controller_offset;
+                }
+            }
         }
 
-        Ok(ModulesStatus::read_from(data.as_bytes()).unwrap())
+        // for (data, (lo, hi)) in data.iter_mut().zip(f0.iter().zip(f1.iter())) {
+        //     *data = (lo.get() as u32) | ((hi.get() as u32) << 16);
+        // }
+
+        Ok(ModulesStatus::read_from(status_masks.as_bytes()).unwrap())
     }
 
     pub fn masked_op(
@@ -42,8 +252,18 @@ impl Transceivers {
         mask: u32,
         addr: Addr,
     ) -> Result<(), FpgaError> {
-        let fpga0_mask = (mask & 0xFFFF) as u16;
-        let fpga1_mask = ((mask & 0xFFFF0000) >> 16) as u16;
+        let mut fpga0_mask: u16 = 0;
+        let mut fpga1_mask: u16 = 0;
+
+        for (i, port_loc) in PORT_MAP.iter().enumerate() {
+            let port_mask: u32 = 1 << i;
+            if (mask & port_mask) != 0 {
+                match port_loc.controller {
+                    FpgaController::Left => fpga0_mask |= 1 << port_loc.port,
+                    FpgaController::Right => fpga1_mask |= 1 << port_loc.port,
+                }
+            }
+        }
 
         if fpga0_mask != 0 {
             let wdata: U16<byteorder::BigEndian> = U16::new(fpga0_mask);
