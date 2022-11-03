@@ -6,9 +6,10 @@
 #![no_main]
 
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary, leds::Leds, phy_smi::PhySmi,
+    leds::FullErrorSummary, leds::Leds,
     transceivers::Transceivers,
 };
+use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
     ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
 };
@@ -20,6 +21,7 @@ use userlib::*;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
+task_slot!(SEQ, seq);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -27,6 +29,8 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Trace {
     None,
+    FrontIOReady(bool),
+    FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
     LEDErrorUpdate(FullErrorSummary),
@@ -236,9 +240,23 @@ fn main() -> ! {
         // This is a temporary workaround that makes sure the FPGAs are up
         // before we start doing things with them. A more sophisticated
         // notification system will be put in place.
-        let phy_smi = PhySmi::new(FRONT_IO.get_task_id());
-        while !phy_smi.phy_powered_up_and_ready().unwrap() {
-            userlib::hl::sleep_for(10);
+        let seq = Sequencer::from(SEQ.get_task_id());
+        loop {
+            let ready = seq.front_io_phy_ready();
+            match ready {
+                Ok(true) => {
+                    ringbuf_entry!(Trace::FrontIOReady(true));
+                    break
+                }
+                Err(SeqError::NoFrontIOBoard) => {
+                    ringbuf_entry!(Trace::FrontIOSeqErr(SeqError::NoFrontIOBoard));
+                    break
+                }
+                _ => {
+                    ringbuf_entry!(Trace::FrontIOReady(false));
+                    userlib::hl::sleep_for(10)
+                }
+            }
         }
 
         let transceivers = Transceivers::new(FRONT_IO.get_task_id());

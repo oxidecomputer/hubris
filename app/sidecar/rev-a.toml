@@ -246,11 +246,15 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 [tasks.transceivers]
 name = "drv-transceivers-server"
 features = []
-priority = 4
+priority = 5
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", {front_io = "ecp5_front_io"}]
+task-slots = [
+    "sys",
+    "i2c_driver",
+    {front_io = "ecp5_front_io"},
+    {seq = "sequencer"}]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"

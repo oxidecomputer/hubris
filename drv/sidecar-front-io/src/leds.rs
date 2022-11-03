@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use drv_i2c_api::I2cDevice;
-use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B, NUM_LEDS};
+use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
 
 pub struct Leds {
     controllers: [Pca9956B; 2],
