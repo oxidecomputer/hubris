@@ -186,7 +186,7 @@ impl Transceivers {
 
     /// Releases the LED controller from reset and enables the output
     pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
-        for (_i, fpga) in self.fpgas.iter_mut().enumerate() {
+        for fpga in &self.fpgas {
             fpga.write(
                 WriteOp::BitClear,
                 Addr::LED_CTRL,

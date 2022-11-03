@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use drv_i2c_api::I2cDevice;
-use drv_i2c_devices::pca9956b::{Error, LedErrSummary, Pca9956B};
+use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B, NUM_LEDS};
 
 pub struct Leds {
     controllers: [Pca9956B; 2],
@@ -26,22 +26,29 @@ const DEFAULT_LED_PWM: u8 = 255;
 
 /// There are two LED controllers, each controlling the LEDs on either the left
 /// or right of the board.
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LedController {
     Left = 0,
     Right = 1,
 }
 
 // The necessary information to control a given LED.
+#[derive(Copy, Clone)]
 struct LedLocation {
     controller: LedController,
     output: u8,
 }
 
+/// FullErrorSummary takes the errors reported by each individual PCA9956B and
+/// maps them to a by-transceiver-port representation for the masks
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct FullErrorSummary {
-    pub left: LedErrSummary,
-    pub right: LedErrSummary,
+    pub overtemp_left: bool,
+    pub overtemp_right: bool,
+    pub system_led_err: bool,
+    pub open_circuit: u32,
+    pub short_circuit: u32,
+    pub invalid: u32,
 }
 
 /// System LED IDX
@@ -237,6 +244,10 @@ impl Leds {
         }
     }
 
+    fn controller(&self, c: LedController) -> &Pca9956B {
+        &self.controllers[c as usize]
+    }
+
     /// Set the current to whatever DEFAULT_LED_CURRENT is
     pub fn initialize_current(&self) -> Result<(), Error> {
         self.set_current(DEFAULT_LED_CURRENT)?;
@@ -246,7 +257,7 @@ impl Leds {
 
     /// Set the current to `value`
     pub fn set_current(&self, value: u8) -> Result<(), Error> {
-        for (_i, controller) in self.controllers.iter().enumerate() {
+        for controller in &self.controllers {
             controller.set_iref_all(value)?;
         }
 
@@ -255,35 +266,33 @@ impl Leds {
 
     /// Turns on the System LED to a PWM value of DEFAULT_LED_PWM
     pub fn turn_on_system_led(&self) -> Result<(), Error> {
-        self.controllers[LED_MAP[SYSTEM_LED_IDX].controller as usize]
-            .set_a_led_pwm(LED_MAP[SYSTEM_LED_IDX].output, DEFAULT_LED_PWM)?;
+        const SYSTEM_LED: LedLocation = LED_MAP[SYSTEM_LED_IDX];
+        self.controllers[SYSTEM_LED.controller as usize]
+            .set_a_led_pwm(SYSTEM_LED.output, DEFAULT_LED_PWM)?;
 
         Ok(())
     }
 
-    /// Takes a `mask` of which ports need their LEDs turned on
+    /// Takes a `mask` of which ports need their LEDs turned on, which, for any
+    /// bit set in the mask, sets its PWMx register to DEFAULT_LED_PWM
     pub fn update_led_state(&self, mask: u32) -> Result<(), Error> {
         let mut data_l: [u8; 16] = [0; 16];
         let mut data_r: [u8; 16] = [0; 16];
 
-        for i in 0..32 {
+        for (i, led_loc) in LED_MAP.iter().enumerate().take(32) {
             let bit_mask: u32 = 1 << i;
-            let pwm_value = if (mask & bit_mask) != 0 {
-                DEFAULT_LED_PWM
-            } else {
-                0
-            };
-
-            if LED_MAP[i].controller == LedController::Left {
-                data_l[LED_MAP[i].output as usize] = pwm_value;
-            } else {
-                data_r[LED_MAP[i].output as usize] = pwm_value;
+            if (mask & bit_mask) != 0 {
+                let index = led_loc.output as usize;
+                match led_loc.controller {
+                    LedController::Left => data_l[index] = DEFAULT_LED_PWM,
+                    LedController::Right => data_r[index] = DEFAULT_LED_PWM,
+                }
             }
         }
 
-        self.controllers[LedController::Left as usize]
+        self.controller(LedController::Left)
             .set_all_led_pwm(&data_l)?;
-        self.controllers[LedController::Right as usize]
+        self.controller(LedController::Right)
             .set_all_led_pwm(&data_r)?;
 
         Ok(())
@@ -291,29 +300,56 @@ impl Leds {
 
     /// Query device registers and return a summary of observed errors
     pub fn error_summary(&self) -> Result<FullErrorSummary, Error> {
-        // Errors are being temporarily suppressed here due to a miswiring of
-        // the I2C bus at the LED controller parts. They will not be accessible
-        // without rework to older hardware, and newer (correct) hardware will
-        // be replacing the hold stuff very soon.
-        // TODO: remove error suppression here once Rev B hardware is in
-        let summary = FullErrorSummary {
-            left: match self.controllers[LedController::Left as usize]
-                .check_errors()
-            {
-                Ok(errs) => errs,
-                Err(_) => LedErrSummary {
-                    ..Default::default()
-                },
-            },
-            right: match self.controllers[LedController::Right as usize]
-                .check_errors()
-            {
-                Ok(errs) => errs,
-                Err(_) => LedErrSummary {
-                    ..Default::default()
-                },
-            },
+        // Errors are being suppressed here due to a miswiring of the I2C bus at
+        // the LED controller parts. They will not be accessible without rework
+        // to older hardware, and newer (correct) hardware will be replacing the
+        // hold stuff very soon.
+        // TODO: remove conditional compilation path once sidecar-a is sunset
+        cfg_if::cfg_if! {
+            if #[cfg(target_board = "sidecar-a")] {
+                let left_errs = self.controller(LedController::Left)
+                        .check_errors().unwrap_or_default();
+                let right_errs = self.controller(LedController::Right)
+                        .check_errors().unwrap_or_default();
+            } else {
+                let left_errs = self.controller(LedController::Left)
+                        .check_errors()?;
+                let right_errs = self.controller(LedController::Right)
+                        .check_errors()?;
+            }
+        }
+
+        let mut summary: FullErrorSummary = FullErrorSummary {
+            overtemp_left: left_errs.overtemp,
+            overtemp_right: right_errs.overtemp,
+            ..Default::default()
         };
+
+        for (i, led_loc) in LED_MAP.iter().enumerate().take(32) {
+            let port_mask = 1 << i;
+            let output: usize = led_loc.output as usize;
+
+            let err: LedErr = match led_loc.controller {
+                LedController::Left => left_errs.errors[output],
+                LedController::Right => right_errs.errors[output],
+            };
+
+            match err {
+                LedErr::OpenCircuit => summary.open_circuit |= port_mask,
+                LedErr::ShortCircuit => summary.short_circuit |= port_mask,
+                LedErr::Invalid => summary.invalid |= port_mask,
+                LedErr::NoError => (),
+            }
+        }
+
+        // handle the system LED outside the loop since it is the 33rd index
+        let sys_led_loc = LED_MAP[SYSTEM_LED_IDX];
+        let sys_output: usize = sys_led_loc.output as usize;
+        let sys_err: LedErr = match sys_led_loc.controller {
+            LedController::Left => left_errs.errors[sys_output],
+            LedController::Right => right_errs.errors[sys_output],
+        };
+        summary.system_led_err = sys_err != LedErr::NoError;
 
         Ok(summary)
     }

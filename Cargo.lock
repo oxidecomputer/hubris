@@ -1222,6 +1222,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "cfg-if",
  "drv-auxflash-api",
  "drv-fpga-api",
  "drv-i2c-api",
@@ -1580,6 +1581,7 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
+ "cfg-if",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-front-io",

@@ -4,15 +4,13 @@
 
 //! Driver for the PCA9956B LED driver
 
-use core::convert::TryInto;
-
 use crate::Validate;
 use drv_i2c_api::*;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Register {
     MODE1 = 0x00,
     MODE2 = 0x01,
@@ -87,6 +85,14 @@ pub enum Register {
     EFLAG5 = 0x46,
 }
 
+/// The auto-increment feature of the PCA9956B's internal address will only go
+/// up to 0x3E (ALLCALLADR) at its highest configuration. Attempting to
+/// auto-increment outside a range (as specified by Table 6 in the datasheet)
+/// will not work.
+const MAX_AUTO_INC_REG: Register = Register::ALLCALLADR;
+const MAX_BUF_SIZE: usize = MAX_AUTO_INC_REG as usize;
+
+/// ERR representations per Table 21 of the datasheet
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LedErr {
     NoError = 0b00,
@@ -112,44 +118,13 @@ impl From<u8> for LedErr {
     }
 }
 
-/// LedErrSummary is used to summarize the types of errors seen
-/// overtemp - true if MODE2_OVERTEMP was 1
-/// short_circuit - number of LEDs with LedErr::ShortCircuit
-/// open_circuit - number of LEDs with LedErr::OpenCircuit
-/// invald - number of LEDs with LedErr::Invalid
+/// Pca9956BErrorState is used to summarize the types of errors seen
+/// Overtemp is true if MODE2_OVERTEMP was 1
+/// The other u32 fields are masks of which LED output the error was observed.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct LedErrSummary {
+pub struct Pca9956BErrorState {
     pub overtemp: bool,
-    pub short_circuit: u8,
-    pub open_circuit: u8,
-    pub invalid: u8,
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-struct Pca9956BErrorState {
-    led_errors: [LedErr; NUM_LEDS],
-    overtemp: bool,
-}
-
-impl Pca9956BErrorState {
-    fn summary(&self) -> LedErrSummary {
-        let mut summary = LedErrSummary {
-            overtemp: self.overtemp,
-            ..Default::default()
-        };
-
-        for err in self.led_errors {
-            if err == LedErr::OpenCircuit {
-                summary.open_circuit += 1;
-            } else if err == LedErr::ShortCircuit {
-                summary.short_circuit += 1;
-            } else if err == LedErr::Invalid {
-                summary.invalid += 1;
-            }
-        }
-
-        summary
-    }
+    pub errors: [LedErr; NUM_LEDS],
 }
 
 /// Auto-increment flag is Bit 7 of the control register. Bits 6..0 are address.
@@ -178,20 +153,17 @@ pub enum Error {
 
     /// The LED index is too large
     InvalidLED(u8),
+
+    /// Write buffer too large
+    WriteBufferTooLarge(usize),
+
+    /// Register is outside a valid auto-increment range
+    InvalidAutoIncReg(Register),
 }
 
 impl From<ResponseCode> for Error {
     fn from(err: ResponseCode) -> Self {
         Error::I2cError(err)
-    }
-}
-
-impl From<Error> for ResponseCode {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::I2cError(code) => code,
-            _ => panic!(),
-        }
     }
 }
 
@@ -223,9 +195,7 @@ impl Pca9956B {
     /// Write a single Register
     fn write_reg(&self, reg: Register, val: u8) -> Result<(), Error> {
         let buffer = [reg as u8, val];
-        self.device
-            .write(&buffer)
-            .map_err(Error::I2cError)
+        self.device.write(&buffer).map_err(Error::I2cError)
     }
 
     /// Write a number of Registers into `buf`
@@ -233,7 +203,13 @@ impl Pca9956B {
     /// auto-increment feature, which has varying behaviors and limitations that
     /// must be accounted for.
     fn write_buffer(&self, reg: Register, buf: &[u8]) -> Result<(), Error> {
-        let mut data: [u8; 25] = [0; 25];
+        if buf.len() > MAX_BUF_SIZE {
+            return Err(Error::WriteBufferTooLarge(buf.len()));
+        } else if reg > MAX_AUTO_INC_REG {
+            return Err(Error::InvalidAutoIncReg(reg));
+        }
+
+        let mut data: [u8; MAX_BUF_SIZE + 1] = [0; MAX_BUF_SIZE + 1];
         data[0] = (reg as u8) | CTRL_AUTO_INCR_MASK;
         data[1..=buf.len()].copy_from_slice(buf);
 
@@ -267,9 +243,7 @@ impl Pca9956B {
     /// PWM0.
     pub fn set_all_led_pwm(&self, vals: &[u8]) -> Result<(), Error> {
         if vals.len() > NUM_LEDS {
-            return Err(Error::InvalidLED(
-                vals.len().try_into().unwrap_or(0xFF),
-            ));
+            return Err(Error::InvalidLED(NUM_LEDS as u8));
         }
         self.write_buffer(Register::PWM0, vals)
     }
@@ -278,9 +252,9 @@ impl Pca9956B {
     /// If ERROR is set, each EFLAGx register will be read and parsed.
     /// An important thing to note about this device is that in order to do
     /// error detection (reflected in EFLAGx) the PWMx associated with the LED
-    /// must be higher than 0x08. So if the PWMx is set to zero, not error can
+    /// must be higher than 0x08. So if the PWMx is set to zero, no error can
     /// be detected.
-    pub fn check_errors(&self) -> Result<LedErrSummary, Error> {
+    pub fn check_errors(&self) -> Result<Pca9956BErrorState, Error> {
         let mode2 = self.read_reg(Register::MODE2)?;
         let overtemp = (mode2 & MODE2_OVERTEMP_MASK) != 0;
         let error = (mode2 & MODE2_ERROR_MASK) != 0;
@@ -306,16 +280,15 @@ impl Pca9956B {
                 let eflag = *eflagx;
                 for j in 0..=3 {
                     let led_idx = (i * 4) + j;
-                    let errx_mask: u8 = 0b11 << (j * 2);
-                    let err = (eflag & errx_mask) >> (j * 2);
-                    err_state.led_errors[led_idx] = LedErr::from(err);
+                    err_state.errors[led_idx] =
+                        LedErr::from((eflag >> (j * 2)) & 0b11);
                 }
             }
 
             self.write_reg(Register::MODE2, mode2 | MODE2_CLRERR_MASK)?;
         }
 
-        Ok(err_state.summary())
+        Ok(err_state)
     }
 }
 
@@ -323,9 +296,15 @@ impl Pca9956B {
 // which is the type of information we typically like to validate against.
 // MODE2[2:0] are set to read only an initialized to b101, so use that to
 // validate.
-impl Validate<Error> for Pca9956B {
-    fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let mode = Pca9956B::new(device).read_reg(Register::MODE2)?;
+impl Validate<ResponseCode> for Pca9956B {
+    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
+        let mode = Pca9956B::new(device).read_reg(Register::MODE2).map_err(
+            |e| match e {
+                // read_reg can only return Error::I2cError
+                Error::I2cError(e) => e,
+                _ => panic!(),
+            },
+        )?;
 
         Ok(mode & MODE2_RSVD_MASK == MODE2_RSVD)
     }

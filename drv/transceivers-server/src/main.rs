@@ -192,6 +192,7 @@ impl NotificationHandler for ServerImpl {
         TIMER_NOTIFICATION_MASK
     }
 
+    // We currently only have one notification source so we are ignoring _bits
     fn handle_notification(&mut self, _bits: u32) {
         // Check for errors
         let errors = self.leds.error_summary().unwrap();
@@ -207,12 +208,19 @@ impl NotificationHandler for ServerImpl {
         };
 
         if presence != self.modules_present {
-            // Errors are being temporarily suppressed here due to a miswiring of
-            // the I2C bus at the LED controller parts. They will not be accessible
-            // without rework to older hardware, and newer (correct) hardware will
-            // be replacing the hold stuff very soon.
-            // TODO: remove error suppression here once Rev B hardware is in
-            let _ = self.leds.update_led_state(presence);
+            // Errors are being suppressed here due to a miswiring of the I2C bus at
+            // the LED controller parts. They will not be accessible without rework
+            // to older hardware, and newer (correct) hardware will be replacing the
+            // hold stuff very soon.
+            // TODO: remove conditional compilation path once sidecar-a is sunset
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "sidecar-a")] {
+                    let _ = self.leds.update_led_state(presence);
+                } else {
+                    self.leds.update_led_state(presence).unwrap();
+                }
+            }
+
             self.modules_present = presence;
             ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
         }
@@ -235,29 +243,35 @@ fn main() -> ! {
 
         let transceivers = Transceivers::new(FRONT_IO.get_task_id());
         let leds = Leds::new(
-            &i2c_config::devices::pca9956b_left_front_io(I2C.get_task_id())[0],
-            &i2c_config::devices::pca9956b_right_front_io(I2C.get_task_id())[0],
+            &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
+            &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
         );
 
         let mut server = ServerImpl {
             transceivers,
             leds,
             modules_present: 0,
-            led_error: FullErrorSummary {
-                ..Default::default()
-            },
+            led_error: Default::default(),
         };
 
         ringbuf_entry!(Trace::LEDInit);
 
         server.transceivers.enable_led_controllers().unwrap();
-        // Errors are being temporarily suppressed here due to a miswiring of
-        // the I2C bus at the LED controller parts. They will not be accessible
-        // without rework to older hardware, and newer (correct) hardware will
-        // be replacing the hold stuff very soon.
-        // TODO: remove error suppression here once Rev B hardware is in
-        let _ = server.leds.initialize_current();
-        let _ = server.leds.turn_on_system_led();
+
+        // Errors are being suppressed here due to a miswiring of the I2C bus at
+        // the LED controller parts. They will not be accessible without rework
+        // to older hardware, and newer (correct) hardware will be replacing the
+        // hold stuff very soon.
+        // TODO: remove conditional compilation path once sidecar-a is sunset
+        cfg_if::cfg_if! {
+            if #[cfg(target_board = "sidecar-a")] {
+                let _ = server.leds.initialize_current();
+                let _ = server.leds.turn_on_system_led();
+            } else {
+                server.leds.initialize_current().unwrap();
+                server.leds.turn_on_system_led().unwrap();
+            }
+        }
 
         ringbuf_entry!(Trace::LEDInitComplete);
 
