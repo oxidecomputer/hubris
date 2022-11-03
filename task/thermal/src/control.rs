@@ -680,7 +680,7 @@ impl<'a> ThermalControl<'a> {
                 for (v, i) in values.iter().zip(self.bsp.inputs.iter()) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (time_ms - now_ms) as f32 / 1000.0
+                            + (now_ms - time_ms) as f32 / 1000.0
                                 * i.temps.temperature_slew_deg_per_sec;
                         any_power_down |=
                             temperature >= i.temps.power_down_temperature.0;
