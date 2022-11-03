@@ -45,7 +45,7 @@ struct LedLocation {
 pub struct FullErrorSummary {
     pub overtemp_left: bool,
     pub overtemp_right: bool,
-    pub system_led_err: bool,
+    pub system_led_err: LedErr,
     pub open_circuit: u32,
     pub short_circuit: u32,
     pub invalid: u32,
@@ -250,9 +250,7 @@ impl Leds {
 
     /// Set the current to whatever DEFAULT_LED_CURRENT is
     pub fn initialize_current(&self) -> Result<(), Error> {
-        self.set_current(DEFAULT_LED_CURRENT)?;
-
-        Ok(())
+        self.set_current(DEFAULT_LED_CURRENT)
     }
 
     /// Set the current to `value`
@@ -268,9 +266,7 @@ impl Leds {
     pub fn turn_on_system_led(&self) -> Result<(), Error> {
         const SYSTEM_LED: LedLocation = LED_MAP[SYSTEM_LED_IDX];
         self.controllers[SYSTEM_LED.controller as usize]
-            .set_a_led_pwm(SYSTEM_LED.output, DEFAULT_LED_PWM)?;
-
-        Ok(())
+            .set_a_led_pwm(SYSTEM_LED.output, DEFAULT_LED_PWM)
     }
 
     /// Takes a `mask` of which ports need their LEDs turned on, which, for any
@@ -345,11 +341,10 @@ impl Leds {
         // handle the system LED outside the loop since it is the 33rd index
         let sys_led_loc = LED_MAP[SYSTEM_LED_IDX];
         let sys_output: usize = sys_led_loc.output as usize;
-        let sys_err: LedErr = match sys_led_loc.controller {
+        summary.system_led_err = match sys_led_loc.controller {
             LedController::Left => left_errs.errors[sys_output],
             LedController::Right => right_errs.errors[sys_output],
         };
-        summary.system_led_err = sys_err != LedErr::NoError;
 
         Ok(summary)
     }

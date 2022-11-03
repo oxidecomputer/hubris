@@ -11,6 +11,6 @@ Sidecar's Front IO board. Things this task can provide are:
 module presence
 - ability to read/write up to 128 bytes on modules' I2C interface
 
-Currently, the task does not track any internal state, it is merely a
-communication conduit. Things like module monitoring (temperature, voltage, etc)
-will be added in the future.
+
+Failure to communicate with the LED drivers (which indicate module presence and
+control the System LED) will not crash this task.

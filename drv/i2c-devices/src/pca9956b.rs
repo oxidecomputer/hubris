@@ -185,6 +185,12 @@ impl Pca9956B {
     /// must be accounted for.
     #[allow(dead_code)]
     fn read_buffer(&self, reg: Register, buf: &mut [u8]) -> Result<(), Error> {
+        if buf.len() > MAX_BUF_SIZE {
+            return Err(Error::WriteBufferTooLarge(buf.len()));
+        } else if reg > MAX_AUTO_INC_REG {
+            return Err(Error::InvalidAutoIncReg(reg));
+        }
+
         self.device
             .read_reg_into((reg as u8) | CTRL_AUTO_INCR_MASK, buf)
             .map_err(Error::I2cError)?;
@@ -235,7 +241,7 @@ impl Pca9956B {
         if led >= NUM_LEDS as u8 {
             return Err(Error::InvalidLED(led));
         }
-        let reg = FromPrimitive::from_u8((Register::PWM0 as u8) + led).unwrap();
+        let reg = Register::from_u8((Register::PWM0 as u8) + led).unwrap();
         self.write_reg(reg, val)
     }
 
@@ -269,9 +275,8 @@ impl Pca9956B {
             for (i, eflagx) in eflags.iter_mut().enumerate() {
                 // Notably, the auto-increment function does not apply to these
                 // registers, so they must be fetched individually
-                let reg =
-                    FromPrimitive::from_u8(Register::EFLAG0 as u8 + i as u8)
-                        .unwrap();
+                let reg = Register::from_u8(Register::EFLAG0 as u8 + i as u8)
+                    .unwrap();
                 *eflagx = self.read_reg(reg)?;
             }
 

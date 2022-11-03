@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
     leds::FullErrorSummary, leds::Leds, transceivers::Transceivers,
 };
@@ -32,7 +33,10 @@ enum Trace {
     FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
-    LEDErrorUpdate(FullErrorSummary),
+    LEDInitError(Error),
+    LEDErrorSummary(FullErrorSummary),
+    LEDUninitialized,
+    LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
 }
@@ -43,6 +47,7 @@ struct ServerImpl {
     leds: Leds,
     modules_present: u32,
     led_error: FullErrorSummary,
+    leds_initialized: bool,
 }
 
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
@@ -198,10 +203,14 @@ impl NotificationHandler for ServerImpl {
     // We currently only have one notification source so we are ignoring _bits
     fn handle_notification(&mut self, _bits: u32) {
         // Check for errors
-        let errors = self.leds.error_summary().unwrap();
-        if errors != self.led_error {
-            self.led_error = errors;
-            ringbuf_entry!(Trace::LEDErrorUpdate(errors))
+        if self.leds_initialized {
+            let errors = self.leds.error_summary().unwrap();
+            if errors != self.led_error {
+                self.led_error = errors;
+                ringbuf_entry!(Trace::LEDErrorSummary(errors));
+            }
+        } else {
+            ringbuf_entry!(Trace::LEDUninitialized);
         }
 
         // Query module presence and update LEDs accordingly
@@ -220,7 +229,12 @@ impl NotificationHandler for ServerImpl {
                 if #[cfg(target_board = "sidecar-a")] {
                     let _ = self.leds.update_led_state(presence);
                 } else {
-                    self.leds.update_led_state(presence).unwrap();
+                    if self.leds_initialized {
+                        match self.leds.update_led_state(presence) {
+                            Ok(_) => (),
+                            Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e));
+                        }
+                    }
                 }
             }
 
@@ -271,6 +285,7 @@ fn main() -> ! {
             leds,
             modules_present: 0,
             led_error: Default::default(),
+            leds_initialized: false,
         };
 
         ringbuf_entry!(Trace::LEDInit);
@@ -286,13 +301,18 @@ fn main() -> ! {
             if #[cfg(target_board = "sidecar-a")] {
                 let _ = server.leds.initialize_current();
                 let _ = server.leds.turn_on_system_led();
+                server.leds_initialized = true;
+                ringbuf_entry!(Trace::LEDInitComplete);
             } else {
-                server.leds.initialize_current().unwrap();
-                server.leds.turn_on_system_led().unwrap();
+                match server.leds.initialize_current().and_then(server.leds.turn_on_system_led()) {
+                    Ok(_) => {
+                        server.leds_initialized = true;
+                        ringbuf_entry!(Trace::LEDInitComplete);
+                    }
+                    Err(e) => ringbuf_entry!(Trace::LEDInitError(e)),
+                };
             }
         }
-
-        ringbuf_entry!(Trace::LEDInitComplete);
 
         // This will put our timer in the past, immediately forcing an update
         let deadline = sys_get_timer().now;
