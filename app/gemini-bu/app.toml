@@ -129,13 +129,13 @@ priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot"]
+task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
 priority = 5
-max-sizes = {flash = 16384, ram = 32768}
-stacksize = 16384
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 4096
 start = true
 task-slots = ["sys", {spi_driver = "spi4_driver"}]
 

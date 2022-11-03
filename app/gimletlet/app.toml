@@ -4,6 +4,8 @@ board = "gimletlet-2"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
+epoch = 0
+version = 0
 
 [kernel]
 name = "gimletlet"
@@ -79,7 +81,7 @@ global_config = "spi3"
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 16384, ram = 2048}
 features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
@@ -107,7 +109,7 @@ task-slots = ["jefe"]
 
 [tasks.pong]
 name = "task-pong"
-priority = 7
+priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
@@ -128,7 +130,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
 uses = ["uart7"]
 interrupts = {"uart7.irq" = 0b01}
-priority = 3
+priority = 7
 max-sizes = {flash = 16384, ram = 16384}
 stacksize = 2048
 start = true
@@ -157,7 +159,7 @@ task-slots = ["sys", "hash_driver"]
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
-priority = 5
+priority = 2
 max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
@@ -211,7 +213,7 @@ interrupts = {"usart1.irq" = 0b10}
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
 priority = 5
-max-sizes = {flash = 16384, ram = 32768}
+max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys", {spi_driver = "spi3_driver"}]
@@ -301,8 +303,8 @@ input = {port = "C", pin = 11, af = 6}
 [config.spi.spi3.devices.spi3_header]
 mux = "port_c"
 cs = [{port = "A", pin = 15}]
-clock_divider = "DIV256" # 774 kHz, works
-# clock_divider = "DIV128" # 1.5 MHz, fails
+clock_divider = "DIV256" # 774 kHz, works with LPC55 clock at 48MHz
+# clock_divider = "DIV128" # 1.5 MHz, fails unless LPC55 clock is at 96MHz
 
 [config.spi.spi4]
 controller = 4
@@ -336,5 +338,4 @@ rx = { packets = 3, bytes = 2048 }
 
 [config.sprot]
 # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-# {port = "D", pins = [0], af = 0},
 rot_irq = { port = "D", pin = 0, af = 0}

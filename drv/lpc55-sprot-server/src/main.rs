@@ -10,7 +10,7 @@
 
 mod handler;
 
-use drv_lpc55_gpio_api::{Direction, Pin, Value};
+use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::*;
@@ -18,53 +18,49 @@ use lpc55_pac as device;
 
 use crc::{Crc, CRC_32_CKSUM};
 use lpc55_romapi::bootrom;
+use ringbuf::*;
 use userlib::*;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    RotIrqAssert,
+    RotIrqDeassert,
+    Transmit(usize, usize),
+    Pio(bool),
+    HandlerReturnSize(usize),
+    HandleReturnNone,
+}
+ringbuf!(Trace, 32, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
 
 // See drv/sprot-api/README.md
-// Messages are received from the Service Processor (SP).
+// Messages are received from the Service Processor (SP) over a SPI interface.
 //
-// Messages are framed at the physical layer by the SP asserting the
-// `Chip Select` (negated) (`CSn`) signal.
+// The RoT indicates that a response is ready by asserting ROT_IRQ to the SP.
 //
-// Responses to messages from the SP are not available until ROT_IRQ is
-// asserted by the RoT.
+// It is possible for the SP to send a new message to the SP while receiving
+// the RoT's reponse to the SP's previous message.
 //
-// The RoT has control of the ROT_IRQ line which is used to indicate that the
-// RoT has a message ready for the SP to read.
-//
-// The RoT will always process incoming bytes even if it is transmitting a
-// previously queued message.
-//
-// Messages for protocol 1 are composed of a four-byte header:
-//   - a protocol version (0x01)
-//   - the lease significant byte of the payload length
-//   - the most significant byte of the payload length
-//   - a message type
-//   - the payload, not to exceed a maximum length
+// See drv/sprot-api for message layout.
 //
 // If the payload length exceeds the maximum size or not all bytes are received
-// before CSn is de-asserted, the message is malformed and an error message
-// will be queued if Tx is idle.
+// before CSn is de-asserted, the message is malformed and an ErrorRsp message
+// will be sent to the SP.
 //
-// RoT Tx messages will not be written to the Tx FIFO until CSn is de-asserted.
-// ROT_IRQ will not be asserted until data has been written to the Tx FIFO.
-// This allows the RoT to take an arbitrary amount of time to prepare a
-// response message and allows the RoT to make a best effort to meet
-// the real time requirements of feeding the Tx FIFO when the SP clocks out
-// the response message.
+// Messages from the SP are not processed until the SPI chip-select signal
+// is deasserted.
 //
-// ROT_IRQ is expected to be an edge triggered interrupt on the SP.
-// ROT_IRQ is de-asserted only after all Tx bytes have drained.
-// That gives a bit more information when looking at logic analyzer traces.
+// ROT_IRQ is intended to be an edge triggered interrupt on the SP.
+// ROT_IRQ is de-asserted only after CSn is deasserted.
 //
-// Always setup to transfer the full Tx buffer contents to SP
+// The RoT sets up to transfer the full Tx buffer contents to SP
 // even if it is longer than the valid message or if there is no valid message.
-// This keeps the inner IO loop simple.
-// Ensure that there are no bytes from any previous Tx message still in
-// the Tx buffer.
+// Extra bytes are set to zero.
+// This keeps the inner IO loop simple and ensures that there are no bytes from
+// any previous Tx message still in the Tx buffer.
 //
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -73,20 +69,18 @@ pub enum IoStatus {
     IOResult { overrun: bool, underrun: bool },
 }
 
-#[repr(C, align(8))]
+#[repr(C)]
 struct IO {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
     // Transmit Buffer
-    tx: [u8; RSP_BUF_SIZE],
+    tx_buf: [u8; BUF_SIZE],
     // Receive Buffer
-    rx: [u8; REQ_BUF_SIZE],
+    rx_buf: [u8; BUF_SIZE],
     // Number of bytes copied into the receive buffer
     rxcount: usize,
     // Number of bytes copied from the transmit buffer into the FIFO
     txcount: usize,
-    // Number of bytes left in FIFOWR at the end of the frame.
-    txremainder: usize,
     // Failed to keep up with FIFORD
     overrun: bool,
     // Failed to keep up with FIFOWR
@@ -116,6 +110,7 @@ fn main() -> ! {
     // Ensure that ROT_IRQ is not asserted
     gpio.set_dir(ROT_IRQ, Direction::Output).unwrap_lite();
     gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+    ringbuf_entry!(Trace::RotIrqDeassert);
 
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual SPI block. These are technically
@@ -140,17 +135,6 @@ fn main() -> ! {
     // Set SPI mode for Flexcomm
     flexcomm.pselid.write(|w| w.persel().spi());
     spi.enable(); // Drain and configure FIFOs
-                  // If there were any HW interrupts pending, clear those conditions.
-                  // The kernel may still deliver a "spurious" interrupt.
-                  // spi.rxerr_clear();
-                  // spi.txerr_clear();
-
-    // Take interrupts on CSn asserted and de-asserted.
-    // spi.ssa_clear();
-    // spi.ssd_clear();
-
-    // spi.enable_rx(); // Enable FIFO Rx interrupts
-    // spi.enable_tx(); // Enable FIFO Tx interrupts
     spi.ssa_enable(); // Interrupt on CSn changing to asserted.
     spi.ssd_enable(); // Interrupt on CSn changing to deasserted.
     spi.drain(); // Probably not necessary, drain Rx and Tx after config.
@@ -159,27 +143,27 @@ fn main() -> ! {
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let mut io = IO {
-        tx: [0u8; RSP_BUF_SIZE],
-        rx: [0u8; REQ_BUF_SIZE],
+        tx_buf: [0u8; BUF_SIZE],
+        rx_buf: [0u8; BUF_SIZE],
         gpio,
         spi,
         rxcount: 0,
         txcount: 0,
-        txremainder: 0,
         overrun: false,
         underrun: false,
     };
     let mut status = Status {
-        supported: 1_u32 << VERSION_1,
+        supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-        fwversion: 0, // TODO: Put something useful in here.
-        buffer_size: REQ_BUF_SIZE as u32,
+        system_clock_speed_mhz: 0, // TODO
+        epoch: 0,
+        version: 0,
+        buffer_size: BUF_SIZE as u32,
         rx_received: 0,
         rx_overrun: 0,
         tx_underrun: 0,
         rx_invalid: 0,
         tx_incomplete: 0,
-        handler_error: 0,
     };
 
     let server = &mut Server {
@@ -188,33 +172,51 @@ fn main() -> ! {
         handler: &mut handler::new(),
     };
 
+    if let Ok(image_version) = server.handler.update.current_version() {
+        server.status.epoch = image_version.epoch;
+        server.status.version = image_version.version;
+    };
+
+    let mut transmit = false;
+
     // Process a null message as if it had been just received.
     // Expect that the Tx buffer is cleared.
     server.handler.handle(
-        false,
+        transmit,
         crate::IoStatus::Flush,
-        &server.io.rx,
-        &mut server.io.tx,
-        0,
+        &server.io.rx_buf[0..0],
+        &mut server.io.tx_buf[..],
         server.status,
     );
-    let mut transmit = false;
 
     loop {
         server.io.pio(transmit);
-        transmit = match server.handler.handle(
-            transmit, // true if previous loop transmitted.
+        let iostat = if server.io.rxcount == 0
+            && !server.io.underrun
+            && !server.io.overrun
+        {
+            IoStatus::Flush
+        } else {
             IoStatus::IOResult {
                 underrun: server.io.underrun,
                 overrun: server.io.overrun,
-            },
-            &server.io.rx,
-            &mut server.io.tx,
-            server.io.rxcount,
+            }
+        };
+        transmit = match server.handler.handle(
+            transmit, // true if previous loop transmitted.
+            iostat,
+            &server.io.rx_buf[0..server.io.rxcount],
+            &mut server.io.tx_buf[..],
             server.status,
         ) {
-            Some(_txlen) => true,
-            None => false,
+            Some(_txlen) => {
+                ringbuf_entry!(Trace::HandlerReturnSize(_txlen));
+                true
+            }
+            None => {
+                ringbuf_entry!(Trace::HandleReturnNone);
+                false
+            }
         }
     }
 }
@@ -223,19 +225,17 @@ impl IO {
     /// Wait for chip select to be asserted then service the FIFOs until end of frame.
     /// Returns false on spurious interrupt.
     fn pio(&mut self, transmit: bool) {
-        let tx_end = self.tx.len(); // Available bytes and trailing zeros
-        let rx_end = self.rx.len(); // All of the available bytes
+        ringbuf_entry!(Trace::Pio(transmit));
+        let tx_end = self.tx_buf.len(); // Available bytes and trailing zeros
+        let rx_end = self.rx_buf.len(); // All of the available bytes
         self.txcount = 0;
         self.rxcount = 0;
-        self.txremainder = 0;
         self.overrun = false;
         self.underrun = false;
 
         if !transmit {
             // Ensure that unused Tx buffer is zero-filled.
-            // TODO: Is there a way to do this that is more efficient while in
-            // critical real-time sections? DMA may require this too.
-            self.tx.fill(0);
+            self.tx_buf.fill(0);
         }
 
         // Prime FIFOWR in order to be ready for start of frame.
@@ -249,19 +249,16 @@ impl IO {
             if self.txcount >= tx_end || !self.spi.can_tx() {
                 break;
             }
-            // TODO don't generate panic code below.
-            let b = self.tx[self.txcount];
+            let b = self.tx_buf[self.txcount];
             self.spi.send_u8(b);
             self.txcount += 1;
         }
 
         if transmit {
+            ringbuf_entry!(Trace::Transmit(self.txcount, tx_end));
             self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
-        } else {
-            self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+            ringbuf_entry!(Trace::RotIrqAssert);
         }
-        sys_irq_control(1, true);
-        sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap_lite();
 
         // TODO: SP RESET needs to be monitored, otherwise, any
         // forced looping here could be a denial of service attack against
@@ -276,6 +273,8 @@ impl IO {
         let mut inframe = false;
         'outer: loop {
             // restart here on the one expected spurious interrupt.
+            sys_irq_control(1, true);
+            sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap_lite();
             loop {
                 // Get frame start/end interrupt from intstat (SSA/SSD).
                 let intstat = self.spi.intstat();
@@ -294,16 +293,12 @@ impl IO {
                     // This is a spurious interrupt.
                     // These are only happening just after queuing a
                     // response.
-                    // TODO: It would be nice to eliminate the spurious interrupt
-                    // through careful disablement/enablement of certain interrupts.
-                    // If we could "peek" for posted interrupt in the kernel and clear it
-                    // Would that open us up to missing start of frame in some corner case?
+                    // TODO: It would be nice to eliminate the spurious interrupt.
                     continue 'outer;
                 }
-                // There is work to do.
 
                 // Track Spi Select Asserted and Deasserted to determine if
-                // we are in freame and update Rx/Tx state as needed.
+                // we are in frame and update Rx/Tx state as needed.
                 if intstat.ssa().bit() {
                     self.spi.ssa_clear();
                     inframe = true;
@@ -313,17 +308,10 @@ impl IO {
                 // FIFORD may still have bytes to read.
                 if intstat.ssd().bit() {
                     self.spi.ssd_clear();
-                    // ROT_IRQ will only be asserted if there was a Tx
-                    // message from RoT to SP.
-                    // For simplicity, deassert unconditionally.
-                    if self.gpio.set_val(ROT_IRQ, Value::One).is_err() {
-                        // XXX this can never happen
-                        return;
+                    if transmit {
+                        self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
                     }
                     inframe = false;
-                    // TODO: Is it interesting to keep track of the exact number of bytes
-                    // sent and received? Tx bytes left in FIFOWR would be part of that
-                    // calculation.
                 }
 
                 // Note that `fifostat` is fresh from waking from interrupt or
@@ -347,7 +335,7 @@ impl IO {
                     if self.spi.can_tx() {
                         let (b, incr) = if self.txcount < tx_end {
                             io = true;
-                            (self.tx[self.txcount], 1)
+                            (self.tx_buf[self.txcount], 1)
                         } else {
                             (0, 0)
                         };
@@ -358,7 +346,7 @@ impl IO {
                         let b = self.spi.read_u8();
                         let incr = if self.rxcount < rx_end {
                             io = true;
-                            self.rx[self.rxcount] = b;
+                            self.rx_buf[self.rxcount] = b;
                             1
                         } else {
                             0
@@ -370,23 +358,28 @@ impl IO {
                     }
                 }
                 if !inframe {
-                    // If CSn was deasserted, then the IO loop just completed
-                    // would have fetched the remaining bytes out of FIFORD
-                    // and our work is done.
-                    // We're sending out trailing bytes in FIFOWR to avoid
-                    // Tx underrun errors when we get more Rx bytes than we
-                    // are sending. So, expect that there are always some bytes
-                    // remaining in FIFOWR.
+                    // If CSn was deasserted, then the IO loop that was just
+                    // completed would have fetched the remaining bytes out of
+                    // FIFORD and our work is done.
+                    //
+                    // The SP is allowed to send a long message to us at the
+                    // same time it is retrieving a short response from us.
+                    //
+                    // We keep FIFOWR full with zeros when we run out of Tx data
+                    // in order to avoid Tx underrun errors.
+                    //
+                    // So, there will always be "unsent" bytes in FIFOWR.
+                    //
                     // Actual transmitted bytes are always going to equal the
                     // number of received bytes. Since the rx_count is not
-                    // scewed by the Tx trailing bytes still in FIFOWR, just
+                    // skewed by the Tx trailing bytes still in FIFOWR, just
                     // use rx_count for both.
-
-                    // let fifostat = self.spi.fifostat();
 
                     // Update Tx state and account for trailing bytes
                     // left in FIFOWR if present.
-                    self.txremainder = fifostat.txlvl().bits() as usize;
+                    //
+                    // If we cared about those remaining FIFOWR bytes:
+                    // let txremainder = fifostat.txlvl().bits() as usize;
                     break 'outer;
                 }
             } // FIFO polling loop
@@ -408,8 +401,12 @@ impl IO {
         // a message, then we will see an underrun, and possibly an
         // overrun, when we come back instead of just a Tx not full interrupt.
         self.spi.drain_tx();
-        self.spi.send_u8(VERSION_BUSY);
-        self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+        // Put a Protocol::Busy value in FIFOWR so that SP/logic analyzer knows we're away.
+        self.spi.send_u8(Protocol::Busy as u8);
+        if transmit {
+            self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+            ringbuf_entry!(Trace::RotIrqDeassert);
+        }
     }
 }
 
@@ -418,9 +415,6 @@ fn turn_on_flexcomm(syscon: &Syscon) {
     // The L stands for Let this just be named consistently for once
     syscon.enable_clock(Peripheral::HsLspi).unwrap_lite();
     syscon.leave_reset(Peripheral::HsLspi).unwrap_lite();
-
-    syscon.enable_clock(Peripheral::Fc3).unwrap_lite();
-    syscon.leave_reset(Peripheral::Fc3).unwrap_lite();
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));

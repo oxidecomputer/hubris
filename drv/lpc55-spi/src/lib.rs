@@ -165,7 +165,7 @@ impl Spi {
     }
 
     pub fn ssa_enable(&mut self) {
-        self.reg.intenset.write(|w| w.ssaen().enabled());
+        self.reg.intenset.write(|w| w.ssaen().set_bit());
     }
 
     pub fn ssa_disable(&mut self) {
@@ -178,7 +178,7 @@ impl Spi {
     }
 
     pub fn ssd_enable(&mut self) {
-        self.reg.intenset.write(|w| w.ssden().enabled());
+        self.reg.intenset.write(|w| w.ssden().set_bit());
     }
 
     pub fn ssd_disable(&mut self) {
@@ -229,7 +229,11 @@ impl Spi {
         len_bits: u8,
     ) {
         // SPI hardware only supports lengths of range 4-16 bits
-        assert!((4..=16).contains(&len_bits));
+        #[allow(clippy::manual_range_contains)]
+        if len_bits > 16 || len_bits < 4 {
+            panic!()
+        }
+
         self.reg.fifowr.write(|w| unsafe {
             w.len()
                 // Data length, per NXP docs:

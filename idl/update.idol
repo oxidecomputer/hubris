@@ -61,6 +61,14 @@ Interface(
 				err: CLike("UpdateError"),
 			),
 		),
+		"clock_speed": (
+			doc: "Get the current system clock speed in MHz",
+			args : { },
+			reply : Result(
+				ok: "u32",
+				err: CLike("UpdateError"),
+			),
+		),
 	}
 
 )

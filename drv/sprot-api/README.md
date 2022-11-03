@@ -2,14 +2,14 @@
 
 ## Overview
 
-The SPI based communications between the Service Processor (SP) and the
-Root of Trust (RoT) is described.
+The communications between the Service Processor (SP) and the
+Root of Trust (RoT) over SPI is described.
 
 In the Gimlet compute sled, and designs sharing Gimlet's SP/RoT implementation,
 the LPC55 RoT has three means of communication only one of which is available
 after boot is complete:
 
-  - An SWD interface that can be used for development.
+  - A Single Wire Debug (SWD) interface
   - A serial port for personalization during manufacturing.
   - A SPI link to the SP for production use.
 
@@ -30,11 +30,10 @@ The message transport over SPI shall have:
       - Encapsulation of higher layer communications
   - Resilience to data corruption due to:
       - bit errors,
-      - Tx FIFO underflow, and
-      - Rx FIFO overflow
-  - Ability to resynchronize SP/RoT communication state
+      - FIFO underflow or overflow
+      - loss of synchronized SP/RoT communication state
   - Support for re-establishment of trust
-      - Identification of the RoT firmware
+      - Simple identification of the RoT firmware (pre-attestation)
       - Updating firmware
 
 
@@ -44,59 +43,57 @@ The message transport over SPI shall have:
 
 It should be assumed that units shipped from a factory will have some
 initial working version of firmware and configuration installed. However,
-it may be that a system shipped is not be put into service for
-a significant amount of time.
+it may be that a system shipped is not be put into service for a
+significant amount of time. Such a system may have missed many important
+updates, some which may knowingly or unknowingly break various management
+interfaces with respect to an old implementation.
 
-An extreme example would be a unit set aside by a customer as a spare that is
-not racked until several firmware releases have already been deployed.
-The outdated firmware on such a spare needs to be brought into compliance
-with the current rack release before it can participate in production workflows.
-The customer must be able to perform any updates with normal firmware update workflows.
+There is a conflict between maintaining backward compatibility with
+everything previously released and shipping what is thought to be the
+best implementation.  The burden of backwards compatibility amplifies
+the test matrix exponentially, bloats code, and makes maintenance
+increasingly difficult. If one is able to enforce version N across the
+entire rack, or N and N-1 during transition, that burden is minimized.
 
-Oxide would like to retain some ability to have interface breaking
-releases without carrying an undue backwards compatibility burden.
-For example, when some API or protocol has been found to be fundamentally
-flawed, or other meaningful improvements necessitate abandoning old
-message formats, it should only be necessary to maintain compatibility with
-the original firmware update interface that enables RoT and SP updates
-over a management network.  After that point, new update mechanisms
-could be used and old ones could be retired.
+The ability to discard or fix other interfaces remains if low-level update
+interfaces are maintained. Low-level update interfaces can be changed,
+but may require maintaining multiple implementations for each incompatible
+version or upgrading through a strict series of releases in order to
+arrive at a currently supported release. To be avoided are cases where
+field service or RMA service is required to bring a unit into conformance.
 
-Oxide would like to be able to re-key or otherwise update security-related
-mechanisms and policies. This goal is largely orthogonal to SP/RoT
-firmware update, and may be available via DICE at boot. But any scheme
-that assumes proper keying before being operational may not be available
-at the earliest stages of boot or when a system requires re-keying.
+One would also like to be able to re-key or otherwise update
+security-related mechanisms and policies.  Such capabilities would be
+enabled by the firmware that is installed and are outside the scope of
+this document.
 
-  Expect that Oxide will have a facility at some point that has sleds
-  keyed for development, production, and RMA, if only to develop the
-  associated workflows. A sled placed in the wrong rack should be easily
-  identifiable so that it can be returned to its proper location without
-  disturbing its non-volatile state.
+From experience with large-fleet root of trust updates, it is important
+to have some unsecured information available when things go wrong.
 
-Due to resource constraints, these goals are harder to meet at the lowest
-layers of the stack and the SP/RoT communications protocol is a small
-part of that solution, not the entire answer.
+If higher-level messages carried by the SP to RoT communications are
+allowed to change, then the base-level should still be able to provide
+information needed to determine what updates are necessary.  Namely,
+any version or communications parameters needed to perform an update.
+One still needs to use proper attestation to verify this unsecured
+information.  But in cases where, perhaps, the right keys aren't
+installed, or an installation has been botched but an automated update
+is still possible, there is some information to get started with.
 
-In order to support the larger goals above, the SP/RoT link's base level
-requirements are that it:
-
-  1)  Is reliable.
-  2)  Can report basic facts needed to test and drive towards compliance, e.g.:
+  1)  Can report basic facts needed to test and drive towards compliance, e.g.:
       1)  LPC55 version information (part number, ROM CRC)
-      2)  Current Oxide firmware version(s)
+      2)  Current running version.
       3)  Serial number or other unique instance identifier.
-      4)  Communications parameters (buffer sizes, max CLK speed, max burst size)
+      4)  Communications parameters (buffer sizes, max CLK speed, FIFO depth)
       5)  Current boot policy (e.g. A/B image selection, FW update state machine state)
       6)  Key ID(s) of trusted keys.
       7)  Key ID(s) of own keys.
-  7)  Can support delivery of a properly signed firmware blob for installation.
-  8)  Can transport alternate protocols if they become available.
+  2)  Reliably deliver a properly signed firmware blob for installation.
+  3)  Can transport alternate protocols if they become available.
  
-Some of these items may be sufficiently supported by other means, such as
-Sprockets and DICE. But when things go wrong with secured communications,
-this sort of basic information is needed to support automated diagnosis
-and repairs.
+Some of these items may be sufficiently supported by other stable APIs,
+such as those offered by the Update Server, Sprockets and DICE.
+Those APIs, or portions of APIs that are to be considered part of the stable
+update capability must be identified as such.
 
 ## Protocol
 
@@ -105,17 +102,21 @@ and repairs.
 The SP implements a basic SPI controller (master) and the RoT a SPI
 target (slave). Master Out Slave In (MOSI) and Master In Slave Out
 (MISO) are sampled on the rising edge of the clock signal (SCLK) when
-Chip Select(CSn negated, active low) is asserted. The RoT indicates
-that it has a response ready be asserting `ROT_IRQ` (also active low), and
+Chip Select is asserted (CSn is active low). The RoT indicates
+that it has a response ready by asserting `ROT_IRQ` (also active low), and
 deasserts at the end of the SPI frame (CSn deasserted).
 
 #### Performance
 
+The SPI bus has no flow control and the SP has control of the data rate used.
+
 In the case of the NXP LPC55, performance may be improved over the
 initial programmed I/O implementation by using a wider FIFO configuration
-(16-bits instead of 8), or by using a DMA controller.
+(16-bits instead of 8), or by using DMA.
 
-The SP is currently required to use the slowest clock possible at about 800kHz.
+The SP is currently required to use the slowest clock possible (about 800kHz)
+for the LPC55 to keep up with the data flow.
+That rate can be doubled if the LPC55 is running at 96Mhz instead of 48Mhz.
 Using DMA on the RoT should allow much faster clocking.
 
 Note that if the programmed IO implementation is the one that first goes
@@ -124,83 +125,93 @@ query the RoT implementation and only configure a faster clock if the
 RoT is able.
 
 Alternatively, during the RoT's SWD bringup of the SP, SPI clock
-configuration could be left for the SP.
+configuration could be deposited in the SP RAM for use during SP initialization.
 
 #### Reliability
 
-Programmed I/O is can be susceptible to underflow or overflow issues and
-can be aggravated by changes in overall firmware behavior.  These problems
-not become evident until firmware is more widely deployed.
+SPI is not a flow-controlled interface, therefore any SPI I/O is
+susceptible to underflow or overflow issues and can be aggravated by
+changes in overall firmware behavior.  These problems may not become
+evident until firmware is more widely deployed.
 
 Use of DMA can result in a better performing and therefore more reliable
 implementation.
 
-Though the SP to RoT connection is not seen as a risk for signal integrity
-issues, one still needs to consider the possibility of transient errors
-from hardware or software.
+Though the SP to RoT connection is not seen as a risk for signal
+integrity issues, one still needs to consider the possibility of transient
+communication errors.
 
-While physical attacks on the SP to RoT SPI connection are generally
-considered out of scope, measures to improve data reliability can make
-an attacker's job more challenging.
+While physical attacks on the SP to RoT SPI connection are considered
+out of scope, measures to improve data reliability can make an attacker's
+job more challenging.
 
-The RoT, as the target device, does not control the SPI clock. It does have
-hardware that catches flow errors, i.e. receive overrun and transmit underrun.
+The RoT, as the target device, does not control the SPI clock. It does
+detect flow errors, i.e. receive overrun and transmit underrun.
 
-The SP is able to set the pace and does not suffer flow errors and
-also does not have direct evidence of RoT flow errors.
+The SP is able to set the pace and does not suffer flow errors and also
+does not have direct evidence of RoT flow errors.
 
 #### Data Integrity
 
-The SPI physical layer does not have mechanisms to enhance data integrity.
+The SPI physical layer does not address data integrity.
 
-Introducing a CRC to the message header makes detection on either side of the
+Introducing a CRC to the message makes detection on either side of the
 interface much easier.
 
-The addition of an explicit message, `ErrorRsp`, in the protocol, informs
-the SP that the RoT did not successfully transmit or receive the previous message.
+The `ErrorRsp` message informs the SP that the RoT did not successfully
+transmit or receive the previous message.  Error response codes include
+flow and CRC errors which are transient. The SP can retransmit to recover
+from these errors.
 
-As long as the likelihood of a flow error is sufficiently low, overall performance of the SPI interface remains acceptable, even with retries. Only a small number of
-retries (only one retry required for each failed transfer), has been needed in testing.
+As long as the likelihood of a flow error is sufficiently low,
+overall performance of the SPI interface remains acceptable, even
+with retries. Only one retry has been required for any failed transfer
+during testing.
 
 ### Message Structure
 
-A message consists of an eight byte header and a variable payload which
-is not to exceed the length specified in the sprot-api crate.
+A message consists of an four byte header, a variable payload, and a trailing 16-bit CRC.
+The total message length cannot exceed the length specified in the sprot-api crate.
 
     The first 8-bytes of a message received by the LPC55 are special
     in that they will fit completely into the receive FIFO and are
-    therefore less susesptible to software induced overrun errors
+    therefore much less susesptible to software induced overrun errors
     manifesting as dropped bytes.
 
-    If the LPC55 FIFOs are configured for 16-bit widths, then 16 bytes
+    If the LPC55 FIFOs are configured for 16-bit widths, then 16 byte
     message can be accomodated before lack of software service would
     result in a flow error.
-
-    CRC32 is already in use to measure the LPC55 bootrom.
-    In the interest of reducing code size, the same CRC32 is used
-    in the header.
 
 The message header is encoded in four bytes:
 
   - A Protocol identifier (`VERSION_1 = 0x01`),
   - enum MsgType as a `u8` describing the content of the message.
   - Payload length `U16<byteorder::LittleEndian>` length (LSB, MSB)
-  - A 4-byte CRC32 over the header and payload without the CRC32 itself.
+
+The payload must accommodate at least one 512-byte block plus overhead
+for the Update Server's flash write operation.
+
+A trailing 2-byte CRC16 follows the payload. It is computed over the
+header and payload without the CRC16 itself.
 
 Initial supported protocols are:
 
  - 0x00, the null protocol. Any subsequent byte is ignored by the receiver.
  - 0x01, the protocol documented here (`VERSION_1`)
+ - 0xb2, indicates that the RoT is not currently servicing its FIFOs.
+   (0xb2 = BZ = Busy)
  - 0xff, reserved for internal use to denote an unsupported protocol
  - All others are reserved for future implementations.
 
 The payload length is a u16 and may be zero bytes in cases where
-the MsgType carries sufficient information to not carry a payload.
-Error conditions are recognized where messages exceed the receiver's
-buffering limits, there is a flow error, or where insufficient data is received.
+the MsgType is enough, e.g. a status request.
 
-The MsgType is used to allow for multiplexing the communications
-link. While Sprockets is intended to be the primary user, MsgType allows
+Error conditions include indication that messages exceed the receiver's
+buffering limits, there is a flow error, or where insufficient data
+is received.
+
+The MsgType allows for multiplexing the communications link.
+While Sprockets is intended to be the primary user, MsgType allows
 for satisfying the previously stated requirements for non-Sprockets
 messages and for accommodating future work without invalidating the
 needs for day-one interface stability.
@@ -210,10 +221,10 @@ the SP is clocking data. If the SP clocks more data in or out than the
 RoT's buffers allow, the RoT will discard or zero-fill FIFO data until
 the end of frame.
 
-Note that it is common that the message being sent from the SP to the RoT
+Note that it is allowed that the message being sent from the SP to the RoT
 has a length different than the message being sent from the RoT to the SP.
-The validity of any received message is based on message validation and, in the
-case of the RoT, lack of any flow errors.
+The validity of any received message is based on message validation and,
+in the case of the RoT, lack of any flow errors.
 
 When the RoT has no response for a previously received SP message,
 it will have queued up a buffer of zero bytes before waiting for start of frame.
@@ -229,9 +240,10 @@ payload length as specified in the header should be zeros and are ignored.
 
 ### Message Types
 
+See drv/sprot-api/src/lib.rs for the full list of messages.
 Message types include:
 
-  - _Invalid_: 0x00 is reserved and invalid as a message type.
+  - _Invalid_: 0x00 is reserved and invalid as a message type. It is ignored.
   - _ErrorRsp_: 0x01 Errors are reported via a one byte payload containing
             a `MsgError` documented in `drv/sprot-api`.
   - _EchoReq/EchoRsp_ - 0x02/0x03 A simple echo message type for testing communications between SP and RoT.
@@ -259,7 +271,6 @@ needs to be understood to develop an appropriate policy.
 
     TODO: SP timeout is not yet tuned. It needs review.
 
-
 ## Testing
 
 ### Test cases
@@ -273,12 +284,10 @@ If the RoT is busy processing the previous SP request message, then
 the pulse may be ignored or delayed until processing of that previous
 message is complete.
 
-    TODO: Testing needed for lengthy processing case such as firmware update.
+If the pulse happens while Rx is idle the (possibly all-zeros) message that the RoT
+has queued will be discarded and an all-zeros message will then be queued.
 
-If the pulse happens while Rx is idle the (possibly null) message that the RoT
-has queued will be discarded and a null message will then be queued.
-
-CSn pulse duration should be appropriately tuned to the implementation.
+CSn pulse duration is 10ms, but this may be adjusted later.
 
   1 Test with SP and RoT idle, fetch message from RoT and expect all zero bytes.
   2 Use lower-level SPI driver to send an `EchoReq`. Do not send pulse, Use lower level SPI driver to fetch RoT message, expect an `EchoRsp` or `ErrorRsp` if a correct CRC32 was not included in the header.
@@ -293,14 +302,12 @@ The RoT has no explicit ready state visible to the SP other than the SP trying t
 
 The SP sending a CSn pulse, or using a timeout while sending a message seem to cover all the cases.
 
-If an SP-visible busy condition was deemed useful, the RoT could fill its transmit FIFO with a `BUSY` code when busy and zeros or the next message to transmit when ready.
+The RoT queus up a `BUSY` code (0xB2) when not attending its FIFOs.
 
 ### Running tests
 
-The implementation has been tested on Gemini and Gimletlet against the rot-carrier.
-
-The RoT `EchoReq` and `EchoRsp` handling can be tested through the SP using
-the existing humility spi command:
+The implementation has been tested on Gimlet, Gemini, and Gimletlet
+Sidecar and PSC also require testing.
 
 #### Test EchoReq and EchoRsp:
 
@@ -308,13 +315,19 @@ the existing humility spi command:
   $ SPI=3 # if Gimletlet
   $ SPI=4 # if Gemini
   $ APP=<path to app.toml>
-  $ cargo xtask humility $APP -- spi -p $SPI -w 1,2,1,0,35,236,249,41,9
+  $ # Send an EchoReq with a 1-byte payload of 0x09 and corresponding CRC16
+  $ # of 0xE120
+  $ cargo xtask humility $APP -- spi -p $SPI -w 1,2,1,0,9,32,225
+
   ...
   [Ok([])]
   $ # Until the next command is executed, `ROT_IRQ` will be asserted.
-  $ cargo xtask humility $APP -- spi -p $SPI -r -n9
+  $ cargo xtask humility $APP -- spi -p 3 -r -n 7
+  humility: attached to 0483:374f:0046001F3039510834393838 via ST-Link V3
+  humility: SPI master is spi3_driver
                \/  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-  0x00000000 | 01 03 01 00 94 76 94 f5 09                      | .....v...
+  0x00000000 | 01 03 01 00 09 94 97
+
 ```
 
 #### Test EchoReq and pulse CSn to clear RoT Tx and `ROT_IRQ`:
@@ -322,126 +335,32 @@ the existing humility spi command:
 Same as above, but pulse CSn to clear the RoT Tx buffer.
 
 ```sh
-$ cargo xtask humility $APP -- spi -p $SPI -w 1,2,1,0,35,236,249,41,9
+$ cargo xtask humility $APP -- spi -p $SPI -w 1,2,1,0,9,32,225
 ...
 [Ok([])]
 
-$ cargo xtask humility $APP -- sprot --pulse 10
-...
-empty data: None
-results=Ok([Ok([0x1, 0x0,],), ],)
+$ humility hiffy -c SpRot.pulse_cs -a delay=10
 
 # Note that the `humility sprot --pulse $DELAY` command returns the state of
 `ROT_IRQ` before and after the pulse (asserted=1).
 
-$ cargo xtask humility $APP -- spi -p $SPI -r -n6
+$ cargo xtask humility $APP -- spi -p $SPI -r -n7
 ..
 humility: SPI master is spi3_driver
              \/  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-0x00000000 | 00 00 00 00 00 00                               | ......
+0x00000000 | 00 00 00 00 00 00 00                            | ......
 $
 ```
 
 #### Test sinking various count and size buffers from SP to RoT
 
-##### Success for 10 messages with payload of 10 bytes (4 header + 10 payload)
-```
-slab:~/Oxide/src/hubris,gimletlet$ sp sprot --status
-humility: attached to 0483:374f:0046001F3039510834393838 via ST-Link V3
-subargs=SpRotArgs { send: None, pulse: None, sink: None, status: true, msgtype: "echoreq", timeout: 5000 }
-ops=[Call(TargetFunction(34)), Done]
-empty data: None
-status=Status {
-    supported: 0x00000002,
-    bootrom_crc32: 0x47ae8b8d,
-    rx_invalid: 0x00000001,
-    rx_nop: 0x00000001,
-    rx_overrun: 0x00000000,
-    rx_received: 0x00000003,
-    tx_incomplete: 0x00000000,
-    tx_underrun: 0x00000000,
-}
-slab:~/Oxide/src/hubris,gimletlet$ rot reset
-humility: Opened 1fc9:0143:MMLBHACB24IDJ via CMSIS-DAP
-slab:~/Oxide/src/hubris,gimletlet$ sp reset
-humility: Opened 0483:374f:0046001F3039510834393838 via ST-Link V3
-slab:~/Oxide/src/hubris,gimletlet$ sp sprot -T10000 --sink 200,512
-humility: attached to 0483:374f:0046001F3039510834393838 via ST-Link V3
-subargs=SpRotArgs { send: None, pulse: None, sink: Some("200,512"), status: false, msgtype: "echoreq", timeout: 10000 }
-ops=[Push32(200), Push32(512), Call(TargetFunction(33)), Done]
-empty data: None
-results=[
-    Ok(
-        [
-            0xc8,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0xf,
-            0x0,
-        ],
-    ),
-]
-slab:~/Oxide/src/hubris,gimletlet$ sp sprot --status
-humility: attached to 0483:374f:0046001F3039510834393838 via ST-Link V3
-subargs=SpRotArgs { send: None, pulse: None, sink: None, status: true, msgtype: "echoreq", timeout: 5000 }
-ops=[Call(TargetFunction(34)), Done]
-empty data: None
-status=Status {
-    supported: 0x00000002,
-    bootrom_crc32: 0x47ae8b8d,
-    rx_invalid: 0x00000000,
-    rx_nop: 0x00000001,
-    rx_overrun: 0x00000012,
-    rx_received: 0x000001af,
-    tx_incomplete: 0x00000000,
-    tx_underrun: 0x00000013,
-}
-```
+See test runs
 
 The ErrorReq/ErrorRsp and SinkReq/SinkRsp messages are not expected to be useful in production and should be conditionally compiled or removed.
 
-The returned SinkRsp message contains a SpRotSinkStatus struct:
-
-```rust
-#[repr(C, packed)]
-pub struct SpRotSinkStatus {
-    pub sent: u16,
-    pub req_crc_err: u16,
-    pub rsp_crc_err: u16,
-    pub flow_err: u16,
-}
-```
-
-So in the above test, 200 messages were sent by the RoT (`SinkRsp`) and there
-were 15 flow errors. There were no CRC errors.
-
-The test code in the SP successfully retried those 15 messages and returned `Ok`
-for the test.
-
 #### Test StatusReq and StatusRsp:
 
-The exact values in the status structure are expected to change and stabilize
-before first customer ship.
-
-/Discussion on contents are appreciated/.
-
-  $ cargo xtask humility $APP -- sprot --status
-...
-status=Status {
-    supported: 0x00000002,
-    bootrom_crc32: 0x47ae8b8d,
-    rx_invalid: 0x00000000,
-    rx_nop: 0x00000001,
-    rx_overrun: 0x00000001,
-    rx_received: 0x000000cd,
-    tx_incomplete: 0x00000000,
-    tx_underrun: 0x00000001,
-}
-
-```
+See test runs
 
 #### Test sprockets messages from laptop RS232 to SP to RoT and back:
 
@@ -496,15 +415,113 @@ In a [sprockets workspace](https://github.com/oxidecomputer/sprockets):
 | GND  | SCK  | MOSI | CSn  |
 +------+------+------+------+
 
+### Test runs
+
+Retrieve the status structure from the RoT.
+```sh
+$ humility hiffy -c SpRot.status
+SpRot.status() => Status {
+    supported: 0x2,
+    bootrom_crc32: 0x47ae8b8d,
+    system_clock_speed_mhz: 0x0,
+    epoch: 0x0,
+    version: 0x0,
+    buffer_size: 0x446,
+    rx_received: 0x1,
+    rx_overrun: 0x0,
+    tx_underrun: 0x0,
+    rx_invalid: 0x0,
+    tx_incomplete: 0x0
+}
+```
+
+Pulse the chip select signal to clear the RoT Tx buffer.
+One can send a bad message first using direct SPI hiffy calls to elicit an error
+response.
+```sh
+$ humility hiffy -c SpRot.pulse_cs -a delay=10
+SpRot.pulse_cs() => PulseStatus {
+    rot_irq_begin: 0x0,
+    rot_irq_end: 0x0
+}
+```
+
+If the sink feature is enabled, then the SP can be asked to generate N messages
+of M size to send to the RoT, simulating a firmware image delivery.
+A large transfer like this will usually require some retries for individual messages.
+```sh
+$ humility hiffy -c SpRot.rot_sink -a count=300 -a size=512
+SpRot.rot_sink() => SinkStatus { sent: 0x12c }
+```
+
+Test the Update API over SpRot.
+Retrieve the LPC55 flash block size.
+```sh
+$ humility hiffy -c SpRot.block_size
+SpRot.block_size() => 0x200
+```
+
+Update API: set update destination
+```sh
+$ humility hiffy -c SpRot.prep_image_update -a image_type=ImageB
+SpRot.prep_image_update() => ()
+```
+
+Update API: abort update
+```sh
+$ humility hiffy -c SpRot.abort_update
+SpRot.abort_update() => ()
+```
+
+Update API: start another update
+```sh
+$ humility hiffy -c SpRot.prep_image_update -a image_type=ImageB
+SpRot.prep_image_update() => ()
+```
+
+Update API: write a block of zeros
+```sh
+$ humility hiffy -c SpRot.write_one_block -a block_num=0 -i <(dd if=/dev/zero bs=512 count=1)
+SpRot.write_one_block() => ()
+```
+
+Update API: finish the update
+```sh
+$ humility hiffy -c SpRot.finish_image_update
+SpRot.finish_image_update() => ()
+```
+
+Retrieve final status. Note the 17 overruns that occurred during this successful run.
+```sh
+$ humility hiffy -c SpRot.status
+SpRot.status() => Status {
+    supported: 0x2,
+    bootrom_crc32: 0x47ae8b8d,
+    system_clock_speed_mhz: 0x0,
+    epoch: 0x0,
+    version: 0x0,
+    buffer_size: 0x446,
+    rx_received: 0x134,
+    rx_overrun: 0x11,
+    tx_underrun: 0x0,
+    rx_invalid: 0x0,
+    tx_incomplete: 0x0
+}
+```
+
+Update API, retrieve current version.
+This information is redundant with information in the Status structure.
+```sh
+$ humility hiffy -c SpRot.current_version
+SpRot.current_version() => ImageVersion {
+    epoch: 0x0,
+    version: 0x0
+}
+
+```
+
 ## TODO/Issues
 
-  - A general retry scheme may be useful to improve reliability. At the moment
-    only the `sink` code in the SP demonstrates retries.
-  - The SP may need to make a trade-off between SPI clock speed and reliability.
-      - The error rate at different clock speeds should be characterized.
-      - Stats on number of retries and other information related to reliability is needed to measure any improvements and to identify problems early.
   - Agree on identification information needed at earliest, unsecured boot for manufacturing and production workflows.
-  - Agree on RoT firmware update workflows.
-  - If more a more detailed MsgType::Error payload is useful, work that out early.
   - Complete testing is needed to ensure that the interface has a high degree of stability and reliability.
   - This doc belongs in an RFD.

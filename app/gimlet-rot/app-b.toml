@@ -5,6 +5,8 @@ chip = "../../chips/lpc55"
 memory = "256k.toml"
 stacksize = 1024
 image-names = ["a", "b"]
+epoch = 0
+version = 0
 
 [kernel]
 name = "gimlet-rot"
@@ -22,18 +24,26 @@ stacksize = 1536
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 5
-features = ["lpc55", "gpio", "spctrl", "spi"]
+features = ["lpc55", "gpio", "spctrl", "spi", "update"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "swd"]
+task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 6
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.update_server]
+name = "lpc55-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["rom", "secure_syscon", "syscon", "flash"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
@@ -66,38 +76,31 @@ pins = [
 { pin = { port = 0, pin = 30}, alt = 1}
 ]
 
-[tasks.rng_driver]
-name = "drv-lpc55-rng"
-priority = 4
-max-sizes = {flash = 16384, ram = 4096}
-uses = ["rng", "pmc"]
-start = true
-stacksize = 2200
-task-slots = ["syscon_driver"]
-
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 4
 max-sizes = {flash = 32768, ram = 32768}
-uses = ["iocon", "flexcomm3", "flexcomm8"]
+uses = ["iocon", "flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server"]
 
 [tasks.sprot.config]
 pins = [
 # HS_SPI_MOSI = P0_26 = FUN9
-{ pin = { port = 0, pin = 26}, alt = 9, mode = "NoPull"},
+{ pin = { port = 0, pin = 26}, alt = 9},
 # HS_SPI_MISO = P1_3 = FUN6
-{ pin = { port = 1, pin = 3}, alt = 6, mode = "NoPull"},
+{ pin = { port = 1, pin = 3}, alt = 6},
 # HS_SPI_SCK = P1_2 = FUN6
-{ pin = { port = 1, pin = 2}, alt = 6, mode = "NoPull"},
+{ pin = { port = 1, pin = 2}, alt = 6},
 # HS_SSEL1 = P1_1 = FUN5
-{ pin = { port = 1, pin = 1}, alt = 5, mode = "NoPull"},
-{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, mode = "NoPull", direction = "output"},
-{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, mode = "NoPull", direction = "input"},
+{ pin = { port = 1, pin = 1}, alt = 5},
+# ROT_IRQ = P0_18 = FUN0
+{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
+# SP_RESET = P0_9 = FUN0
+{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
 ]
 
 [tasks.swd]
@@ -136,9 +139,13 @@ spi_num = 5
 [tasks.sp_measure]
 name = "task-sp-measure"
 priority = 5
-max-sizes = {flash = 32768, ram = 8192}
+max-sizes = {flash = 131072, ram = 8192}
 task-slots = ["swd"]
 stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-b/dist/default/final.bin"
+
+[extratext.rom]
+address = 0x13000000
+size = 0x20000
