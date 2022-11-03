@@ -168,6 +168,13 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             version: HUBRIS_BUILD_VERSION,
         })
     }
+
+    fn clock_speed(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<UpdateError>> {
+        Err(UpdateError::Unknown.into()) // TODO
+    }
 }
 
 #[export_name = "main"]
