@@ -22,6 +22,7 @@
 //! - [`mwocp68`]: Murata power shelf
 //! - [`nvme_bmc`]: NVMe basic management control
 //! - [`pca9538`]: PCA9538 GPIO expander
+//! - [`pca9956b`]: PCA9956B LED driver
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
@@ -175,6 +176,7 @@ pub mod mcp9808;
 pub mod mwocp68;
 pub mod nvme_bmc;
 pub mod pca9538;
+pub mod pca9956b;
 pub mod pct2075;
 pub mod raa229618;
 pub mod sbtsi;

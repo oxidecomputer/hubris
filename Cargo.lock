@@ -970,6 +970,7 @@ dependencies = [
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
+ "num-derive",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1221,8 +1222,11 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "cfg-if",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-transceivers-api",
  "gnarle",
  "num-traits",
@@ -1575,12 +1579,18 @@ dependencies = [
 name = "drv-transceivers-server"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
+ "cfg-if",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-sidecar-front-io",
+ "drv-sidecar-seq-api",
  "drv-transceivers-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "stm32h7",
  "userlib",
  "zerocopy",

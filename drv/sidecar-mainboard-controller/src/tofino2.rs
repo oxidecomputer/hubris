@@ -234,7 +234,7 @@ impl Sequencer {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes, FromBytes)]
     #[repr(C)]
     pub struct DebugPortState(u8);
     pub send_buffer_empty, set_send_buffer_empty: 0;
@@ -246,7 +246,7 @@ bitfield! {
     pub byte_nack_error, set_byte_nack_error: 6;
 }
 
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum DebugRequestOpcode {
     LocalWrite = 0b0000_0000,
@@ -263,7 +263,7 @@ impl From<DebugRequestOpcode> for u8 {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
 #[repr(u32)]
 pub enum DirectBarSegment {
     Bar0 = 0,
@@ -274,7 +274,7 @@ pub enum DirectBarSegment {
 /// A few of the Tofino registers which are used in code below. These are found
 /// in 631384-0001_TF2-Top-Level_Register_Map_05062021.html as provided by
 /// Intel.
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
 #[repr(u32)]
 pub enum TofinoRegisters {
     Scratchpad = 0x0,
@@ -294,7 +294,7 @@ impl From<TofinoRegisters> for u32 {
 
 /// SPI EEPROM instructions, as per for example
 /// https://octopart.com/datasheet/cat25512vi-gt3-onsemi-22302617.
-#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum SpiEepromInstruction {
     // WREN, enable write operations
@@ -461,11 +461,9 @@ impl DebugPort {
         assert!(n_bytes_to_write <= 8);
         assert!(n_bytes_to_read <= 4);
 
-        return (0x80
-            | ((n_bytes_to_read & 0x7) << 4)
-            | (n_bytes_to_write & 0xf))
+        (0x80 | ((n_bytes_to_read & 0x7) << 4) | (n_bytes_to_write & 0xf))
             .try_into()
-            .unwrap();
+            .unwrap()
     }
 
     /// Wait for a SPI request to complete.

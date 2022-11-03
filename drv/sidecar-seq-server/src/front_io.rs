@@ -13,6 +13,7 @@ pub(crate) struct FrontIOBoard {
     pub state_reset: bool,
     fpga_task: userlib::TaskId,
     auxflash_task: userlib::TaskId,
+    i2c_task: userlib::TaskId,
 }
 
 impl FrontIOBoard {
@@ -30,6 +31,7 @@ impl FrontIOBoard {
             state_reset: false,
             fpga_task,
             auxflash_task,
+            i2c_task,
         }
     }
 
@@ -85,7 +87,7 @@ impl FrontIOBoard {
                     ringbuf_entry!(Trace::FpgaBitstreamError(
                         u32::try_from(e).unwrap()
                     ));
-                    return Err(e);
+                    return Err(FpgaError::from(e));
                 }
 
                 (ident, ident_valid) = controller.ident_valid()?;
