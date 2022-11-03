@@ -162,12 +162,10 @@ impl Bsp {
 
             // Based on experimental tuning!
             pid_config: PidConfig {
-                // If we're > 10 degrees from the target temperature, fans
-                // should be on at full power.
                 zero: 35.0,
-                gain_p: 6.75,
-                gain_i: 0.17,
-                gain_d: 4.5,
+                gain_p: 6.1,
+                gain_i: 0.09,
+                gain_d: 2.75,
             },
 
             inputs: &INPUTS,
