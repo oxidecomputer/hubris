@@ -495,15 +495,14 @@ impl ServerImpl {
     // This method clears `rx_buf` before returning to prepare for the next
     // packet.
     fn process_message(&mut self) {
-        let (header, request, _data) =
-            match parse_received_message(&mut self.rx_buf) {
-                Ok((header, request, data)) => (header, request, data),
-                Err(err) => {
-                    self.tx_buf.encode_decode_failure_reason(err);
-                    self.rx_buf.clear();
-                    return;
-                }
-            };
+        let (header, request) = match parse_received_message(&mut self.rx_buf) {
+            Ok((header, request, _data)) => (header, request),
+            Err(err) => {
+                self.tx_buf.encode_decode_failure_reason(err);
+                self.rx_buf.clear();
+                return;
+            }
+        };
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
