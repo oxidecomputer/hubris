@@ -11,6 +11,218 @@ pub struct Transceivers {
     fpgas: [FpgaUserDesign; 2],
 }
 
+// There are two FPGA controllers, each controlling the FPGA on either the left
+// or right of the board.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum FpgaController {
+    Left = 0,
+    Right = 1,
+}
+
+// The necessary information to control a given port.
+#[derive(Copy, Clone)]
+struct PortLocation {
+    controller: FpgaController,
+    port: u8,
+}
+
+struct FpgaPortMasks {
+    left: u16,
+    right: u16,
+}
+
+/// Port Map
+///
+/// Each index in this map represents the location of its transceiver port, so
+/// index 0 is for port 0, and so on. The ports numbered 0-15 left to right
+/// across the top of the board and 16-31 left to right across the bottom. The
+/// ports are split up between the FPGAs based on locality, not logically and
+/// the FPGAs share code, resulting in each one reporting in terms of ports 0-15
+/// . This is the FPGA -> logical mapping.
+const PORT_MAP: [PortLocation; 32] = [
+    // Port 0
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 0,
+    },
+    // Port 1
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 1,
+    },
+    // Port 2
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 2,
+    },
+    // Port 3
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 3,
+    },
+    // Port 4
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 4,
+    },
+    // Port 5
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 5,
+    },
+    // Port 6
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 6,
+    },
+    // Port 7
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 7,
+    },
+    // Port 8
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 0,
+    },
+    // Port 9
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 1,
+    },
+    // Port 10
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 2,
+    },
+    // Port 11
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 3,
+    },
+    // Port 12
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 4,
+    },
+    // Port 13
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 5,
+    },
+    // Port 14
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 6,
+    },
+    // Port 15
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 7,
+    },
+    // Port 16
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 8,
+    },
+    // Port 17
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 9,
+    },
+    // Port 18
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 10,
+    },
+    // Port 19
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 11,
+    },
+    // Port 20
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 12,
+    },
+    // Port 21
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 13,
+    },
+    // Port 22
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 14,
+    },
+    // Port 23
+    PortLocation {
+        controller: FpgaController::Left,
+        port: 15,
+    },
+    // Port 24
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 8,
+    },
+    // Port 25
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 9,
+    },
+    // Port 26
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 10,
+    },
+    // Port 27
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 11,
+    },
+    // Port 28
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 12,
+    },
+    // Port 29
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 13,
+    },
+    // Port 30
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 14,
+    },
+    // Port 31
+    PortLocation {
+        controller: FpgaController::Right,
+        port: 15,
+    },
+];
+
+// Maps logical port `mask` to physical FPGA locations
+fn logical_to_local_map(mask: u32) -> FpgaPortMasks {
+    let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
+
+    for (i, port_loc) in PORT_MAP.iter().enumerate() {
+        let port_mask: u32 = 1 << i;
+        if (mask & port_mask) != 0 {
+            match port_loc.controller {
+                FpgaController::Left => {
+                    fpga_port_masks.left |= 1 << port_loc.port
+                }
+                FpgaController::Right => {
+                    fpga_port_masks.right |= 1 << port_loc.port
+                }
+            }
+        }
+    }
+
+    fpga_port_masks
+}
+
 impl Transceivers {
     pub fn new(fpga_task: userlib::TaskId) -> Self {
         Self {
@@ -22,65 +234,102 @@ impl Transceivers {
         }
     }
 
-    pub fn get_modules_status(&self) -> Result<ModulesStatus, FpgaError> {
-        let f0: [U16<byteorder::BigEndian>; 7] =
-            self.fpgas[0].read(Addr::QSFP_CTRL_EN_H)?;
-        let f1: [U16<byteorder::BigEndian>; 7] =
-            self.fpgas[1].read(Addr::QSFP_CTRL_EN_H)?;
-
-        let mut data: [u32; 7] = [0; 7];
-        for (data, (lo, hi)) in data.iter_mut().zip(f0.iter().zip(f1.iter())) {
-            *data = (lo.get() as u32) | ((hi.get() as u32) << 16);
-        }
-
-        Ok(ModulesStatus::read_from(data.as_bytes()).unwrap())
+    fn fpga(&self, c: FpgaController) -> &FpgaUserDesign {
+        &self.fpgas[c as usize]
     }
 
-    pub fn masked_op(
+    /// Get the current status of all low speed signals for all ports. This is
+    /// Enable, Reset, LpMode/TxDis, Power Good, Power Good Timeout, Present,
+    /// and IRQ/RxLos.
+    pub fn get_modules_status(&self) -> Result<ModulesStatus, FpgaError> {
+        let f0: [U16<byteorder::BigEndian>; 7] =
+            self.fpga(FpgaController::Left).read(Addr::QSFP_CTRL_EN_H)?;
+        let f1: [U16<byteorder::BigEndian>; 7] = self
+            .fpga(FpgaController::Right)
+            .read(Addr::QSFP_CTRL_EN_H)?;
+
+        let mut status_masks: [u32; 7] = [0; 7];
+
+        // loop through each port
+        for (port, port_loc) in PORT_MAP.iter().enumerate() {
+            // get a mask for where the current logical port is mapped
+            // locally on the FPGA
+            let local_port_mask = 1 << port_loc.port;
+
+            // get the relevant data from the correct FPGA
+            let local_data = match port_loc.controller {
+                FpgaController::Left => &f0,
+                FpgaController::Right => &f1,
+            };
+            // loop through the 7 different fields we need to map
+            for (word, out) in local_data.iter().zip(status_masks.iter_mut()) {
+                // if the bit is set, update our status mask at the correct
+                // logical position
+                let word: u16 = (*word).into();
+                if (word & local_port_mask) != 0 {
+                    *out |= 1 << port;
+                }
+            }
+        }
+
+        Ok(ModulesStatus::read_from(status_masks.as_bytes()).unwrap())
+    }
+
+    /// Executes a specified WriteOp (`op`) at `addr` for all ports specified by
+    /// the `mask`.
+    pub fn masked_port_op(
         &self,
         op: WriteOp,
         mask: u32,
         addr: Addr,
     ) -> Result<(), FpgaError> {
-        let fpga0_mask = (mask & 0xFFFF) as u16;
-        let fpga1_mask = ((mask & 0xFFFF0000) >> 16) as u16;
+        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
 
-        if fpga0_mask != 0 {
-            let wdata: U16<byteorder::BigEndian> = U16::new(fpga0_mask);
-            self.fpgas[0].write(op, addr, wdata)?;
+        if fpga_masks.left != 0 {
+            let wdata: U16<byteorder::BigEndian> = U16::new(fpga_masks.left);
+            self.fpga(FpgaController::Left).write(op, addr, wdata)?;
         }
-        if fpga1_mask != 0 {
-            let wdata: U16<byteorder::BigEndian> = U16::new(fpga1_mask);
-            self.fpgas[1].write(op, addr, wdata)?;
+        if fpga_masks.right != 0 {
+            let wdata: U16<byteorder::BigEndian> = U16::new(fpga_masks.right);
+            self.fpga(FpgaController::Right).write(op, addr, wdata)?;
         }
 
         Ok(())
     }
 
+    /// Set power enable bits per the specified `mask`
     pub fn set_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_EN_H)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_EN_H)
     }
 
+    /// Clear power enable bits per the specified `mask`
     pub fn clear_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_EN_H)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_EN_H)
     }
 
+    /// Set reset bits per the specified `mask`
     pub fn set_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_RESET_H)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_RESET_H)
     }
 
+    /// Clear reset bits per the specified `mask`
     pub fn clear_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_RESET_H)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_RESET_H)
     }
 
+    /// Set lpmode bits per the specified `mask`
     pub fn set_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_LPMODE_H)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_LPMODE_H)
     }
 
+    /// Clear reset bits per the specified `mask`
     pub fn clear_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_LPMODE_H)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_LPMODE_H)
     }
 
+    /// Initiate an I2C operation on all ports per the specified `mask`. When
+    /// `is_read` is true, the operation will be a random-read, not a pure I2C
+    /// read. The maximum value of `num_bytes` is 128.
     pub fn setup_i2c_op(
         &self,
         is_read: bool,
@@ -88,8 +337,7 @@ impl Transceivers {
         num_bytes: u8,
         mask: u32,
     ) -> Result<(), FpgaError> {
-        let fpga0_mask = (mask & 0xFFFF) as u16;
-        let fpga1_mask = ((mask & 0xFFFF0000) >> 16) as u16;
+        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
 
         let i2c_op = if is_read {
             // Defaulting to RandomRead, rather than Read, because RandomRead
@@ -101,29 +349,29 @@ impl Transceivers {
             TransceiverI2COperation::Write
         };
 
-        if fpga0_mask != 0 {
+        if fpga_masks.left != 0 {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga0_mask),
+                mask: U16::new(fpga_masks.left),
                 op: i2c_op as u8,
             };
 
-            self.fpgas[0].write(
+            self.fpga(FpgaController::Left).write(
                 WriteOp::Write,
                 Addr::QSFP_I2C_REG_ADDR,
                 request,
             )?;
         }
 
-        if fpga1_mask != 0 {
+        if fpga_masks.right != 0 {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga1_mask),
+                mask: U16::new(fpga_masks.right),
                 op: i2c_op as u8,
             };
-            self.fpgas[1].write(
+            self.fpga(FpgaController::Right).write(
                 WriteOp::Write,
                 Addr::QSFP_I2C_REG_ADDR,
                 request,
@@ -133,27 +381,33 @@ impl Transceivers {
         Ok(())
     }
 
+    /// Get `buf.len()` bytes of data from the I2C read buffer for a `port`. The
+    /// buffer stores data from the last I2C read transaction done and thus only
+    /// the number of bytes read will be valid in the buffer.
     pub fn get_i2c_read_buffer(
         &self,
         port: u8,
         buf: &mut [u8],
     ) -> Result<(), FpgaError> {
-        let fpga_idx: usize = if port < 16 { 0 } else { 1 };
-        self.fpgas[fpga_idx].read_bytes(Self::read_buffer_address(port), buf)
+        let port_loc = PORT_MAP[port as usize];
+        self.fpga(port_loc.controller)
+            .read_bytes(Self::read_buffer_address(port_loc.port), buf)
     }
 
-    // Setting data in the write buffer does not require a port be specified.
-    // This is because in the FPGA implementation, the write buffer being
-    // written to simply pushes a copy of the data into each individual port's
-    // write buffer. This keeps us from needing to write to them all
-    // individually.
+    /// Write `buf.len()` bytes of data into the I2C write buffer. Upon a write
+    /// transaction happening, the number of bytes specified will be pulled from
+    /// the write buffer. Setting data in the write buffer does not require a
+    /// port be specified. This is because in the FPGA implementation, the write
+    /// buffer being written to simply pushes a copy of the data into each
+    /// individual port's write buffer. This keeps us from needing to write to
+    /// them all individually.
     pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> Result<(), FpgaError> {
-        self.fpgas[0].write_bytes(
+        self.fpga(FpgaController::Left).write_bytes(
             WriteOp::Write,
             Addr::QSFP_WRITE_BUFFER,
             buf,
         )?;
-        self.fpgas[1].write_bytes(
+        self.fpga(FpgaController::Right).write_bytes(
             WriteOp::Write,
             Addr::QSFP_WRITE_BUFFER,
             buf,
@@ -162,8 +416,9 @@ impl Transceivers {
         Ok(())
     }
 
-    pub fn read_buffer_address(port: u8) -> Addr {
-        match port % 16 {
+    /// For a given `local_port`, return the Addr where its read buffer begins
+    pub fn read_buffer_address(local_port: u8) -> Addr {
+        match local_port % 16 {
             0 => Addr::QSFP_PORT0_READ_BUFFER,
             1 => Addr::QSFP_PORT1_READ_BUFFER,
             2 => Addr::QSFP_PORT2_READ_BUFFER,
