@@ -15,8 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DebugReg, DecodeFailureReason, HostToSp, HubpackError, SpToHost,
-    Status, MAX_MESSAGE_SIZE,
+    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
+    SpToHost, Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -425,7 +425,6 @@ impl ServerImpl {
                 // Process message and set up `self.tx_buf` with our response
                 // (or intermediate state if we don't have a response yet).
                 self.process_message();
-                self.rx_buf.clear();
 
                 // If we have data to send now, immediately loop back to the top
                 // and start trying to send it.
@@ -492,52 +491,19 @@ impl ServerImpl {
     // response, we configure `self.tx_buf` appropriate: either populating it
     // with a response if we can come up with that response immediately, or
     // instructing it that we'll fill it in with our response later.
+    //
+    // This method clears `rx_buf` before returning to prepare for the next
+    // packet.
     fn process_message(&mut self) {
-        let deframed = match corncobs::decode_in_place(self.rx_buf) {
-            Ok(n) => &self.rx_buf[..n],
-            Err(_) => {
-                self.tx_buf
-                    .encode_decode_failure_reason(DecodeFailureReason::Cobs);
-                return;
-            }
-        };
-
         let (header, request, _data) =
-            match host_sp_messages::deserialize::<HostToSp>(deframed) {
+            match parse_received_message(&mut self.rx_buf) {
                 Ok((header, request, data)) => (header, request, data),
-                Err(HubpackError::Custom) => {
-                    self.tx_buf
-                        .encode_decode_failure_reason(DecodeFailureReason::Crc);
-                    return;
-                }
-                Err(_) => {
-                    self.tx_buf.encode_decode_failure_reason(
-                        DecodeFailureReason::Deserialize,
-                    );
+                Err(err) => {
+                    self.tx_buf.encode_decode_failure_reason(err);
+                    self.rx_buf.clear();
                     return;
                 }
             };
-
-        if header.magic != host_sp_messages::MAGIC {
-            self.tx_buf.encode_decode_failure_reason(
-                DecodeFailureReason::MagicMismatch,
-            );
-            return;
-        }
-
-        if header.version != host_sp_messages::version::V1 {
-            self.tx_buf.encode_decode_failure_reason(
-                DecodeFailureReason::VersionMismatch,
-            );
-            return;
-        }
-
-        if header.sequence & SEQ_REPLY != 0 {
-            self.tx_buf.encode_decode_failure_reason(
-                DecodeFailureReason::SequenceInvalid,
-            );
-            return;
-        }
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
@@ -662,6 +628,9 @@ impl ServerImpl {
                 }
             }
         }
+
+        // We've processed the message sitting in rx_buf; clear it.
+        self.rx_buf.clear();
     }
 }
 
@@ -720,6 +689,41 @@ impl NotificationHandler for ServerImpl {
             }
         }
     }
+}
+
+// This is conceptually a method on `ServerImpl`, but it takes a reference to
+// `rx_buf` instead of `self` to avoid borrow checker issues.
+fn parse_received_message(
+    rx_buf: &mut [u8],
+) -> Result<(Header, HostToSp, &[u8]), DecodeFailureReason> {
+    let n = corncobs::decode_in_place(rx_buf)
+        .map_err(|_| DecodeFailureReason::Cobs)?;
+    let deframed = &rx_buf[..n];
+
+    let (header, request, data) =
+        match host_sp_messages::deserialize::<HostToSp>(deframed) {
+            Ok((header, request, data)) => (header, request, data),
+            Err(HubpackError::Custom) => {
+                return Err(DecodeFailureReason::Crc);
+            }
+            Err(_) => {
+                return Err(DecodeFailureReason::Deserialize);
+            }
+        };
+
+    if header.magic != host_sp_messages::MAGIC {
+        return Err(DecodeFailureReason::MagicMismatch);
+    }
+
+    if header.version != host_sp_messages::version::V1 {
+        return Err(DecodeFailureReason::VersionMismatch);
+    }
+
+    if header.sequence & SEQ_REPLY != 0 {
+        return Err(DecodeFailureReason::SequenceInvalid);
+    }
+
+    Ok((header, request, data))
 }
 
 // This is conceptually a method on `ServerImpl`, but it takes references to
