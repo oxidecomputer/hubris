@@ -455,7 +455,7 @@ impl ServerImpl {
     fn handle_control_plane_agent_notification(&mut self) {
         // If control-plane-agent notified us, presumably it's telling us that
         // the data we asked it to fetch is ready.
-        if let Some(phase2) = self.tx_buf.is_waiting_for_phase2_data() {
+        if let Some(phase2) = self.tx_buf.get_waiting_for_phase2_data() {
             // Borrow `cp_agent` to avoid borrowing `self` in the closure below.
             let cp_agent = &self.cp_agent;
 

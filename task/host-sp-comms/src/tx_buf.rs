@@ -59,7 +59,7 @@ impl TxBuf {
     ///
     /// While in this state:
     ///
-    /// * `is_waiting_for_phase2_data()` returns `Some(_)`
+    /// * `get_waiting_for_phase2_data()` returns `Some(_)`
     /// * `next_byte_to_send()` returns `None` (i.e., we have no data to send to
     ///   the host yet)
     /// * `should_send_periodic_zero_bytes()` returns false (i.e., we are _not_
@@ -85,7 +85,7 @@ impl TxBuf {
 
     /// If we're waiting for phase 2 data, returns the hash and offset of the
     /// desired data.
-    pub(crate) fn is_waiting_for_phase2_data(
+    pub(crate) fn get_waiting_for_phase2_data(
         &self,
     ) -> Option<WaitingForPhase2Data> {
         match &self.state {
