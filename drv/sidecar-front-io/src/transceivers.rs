@@ -250,25 +250,24 @@ impl Transceivers {
 
         let mut status_masks: [u32; 7] = [0; 7];
 
-        // loop through the 7 different fields we need to map
-        for (i, mask) in status_masks.iter_mut().enumerate() {
-            // loop through each port
-            for (j, port_loc) in PORT_MAP.iter().enumerate() {
-                // get a mask for where the current logical port is mapped
-                // locally on the FPGA
-                let local_port_mask = 1 << port_loc.port;
+        // loop through each port
+        for (port, port_loc) in PORT_MAP.iter().enumerate() {
+            // get a mask for where the current logical port is mapped
+            // locally on the FPGA
+            let local_port_mask = 1 << port_loc.port;
 
-                // get the relevant data from the correct FPGA
-                let local_data: u16 = match port_loc.controller {
-                    FpgaController::Left => f0[i],
-                    FpgaController::Right => f1[i],
-                }
-                .into();
-
+            // get the relevant data from the correct FPGA
+            let local_data = match port_loc.controller {
+                FpgaController::Left => &f0,
+                FpgaController::Right => &f1,
+            };
+            // loop through the 7 different fields we need to map
+            for (word, out) in local_data.iter().zip(status_masks.iter_mut()) {
                 // if the bit is set, update our status mask at the correct
                 // logical position
-                if (local_data & local_port_mask) != 0 {
-                    *mask |= 1 << j;
+                let word: u16 = (*word).into();
+                if (word & local_port_mask) != 0 {
+                    *out |= 1 << port;
                 }
             }
         }
