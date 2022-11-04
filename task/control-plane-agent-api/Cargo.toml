@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 num-traits = { version = "0.2.12", default-features = false }
-ssmarshal = {version = "1", default-features = false}
 zerocopy = "0.6.1"
 
 userlib = {path = "../../sys/userlib"}

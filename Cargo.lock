@@ -3755,7 +3755,6 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
- "ssmarshal",
  "userlib",
  "zerocopy",
 ]
