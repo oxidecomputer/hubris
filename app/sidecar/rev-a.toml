@@ -692,6 +692,7 @@ bus = "south2"
 address = 0b1010_000
 device = "at24csw080"
 description = "Mainboard FRUID"
+name = "local_vpd"
 refdes = "U91"
 
 [[config.i2c.devices]]
@@ -824,9 +825,6 @@ cs = [{port = "K", pin = 1}]
 [config.spi.spi5.devices.ecp5_mainboard_user_design]
 mux = "port_jk"
 cs = [{port = "J", pin = 6}]
-
-[config.local-vpd]
-vpd-bus = "south2"
 
 [config.net]
 vlan = { start = 0x301, count = 2 }

@@ -12,11 +12,8 @@
 //! an AT24CSW080, and that it contains keys in TLV-C format (see RFD 148 for a
 //! general description, or RFD 320 for the specific example of MAC addresses)
 //!
-//! The app TOML file must declare which I2C bus contains the local EEPROM, e.g.
-//! ```toml
-//! [config.local-vpd]
-//! vpd-bus = "south2"
-//! ```
+//! The app TOML file must have one AT24xx named `local_vpd`; we use that name
+//! to pick which EEPROM to read.
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
@@ -75,20 +72,22 @@ pub fn read_config<V: AsBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
 ) -> Result<V, LocalVpdError> {
-    let eeprom = get_vpd_eeprom(i2c_task);
+    let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
+        i2c_config::devices::at24csw080_local_vpd(i2c_task),
+    );
     let eeprom_reader = EepromReader { eeprom: &eeprom };
     let mut reader = TlvcReader::begin(eeprom_reader)
         .map_err(|_| LocalVpdError::DeviceError)?;
 
     while let Ok(Some(chunk)) = reader.next() {
+        let mut scratch = [0u8; 32];
         if chunk.header().tag == *b"FRU0" {
             chunk
                 .check_body_checksum(&mut scratch)
                 .map_err(|_| LocalVpdError::InvalidChecksum)?;
-            let inner = chunk.read_as_chunks();
+            let mut inner = chunk.read_as_chunks();
             while let Ok(Some(chunk)) = inner.next() {
                 if &chunk.header().tag == &tag {
-                    let mut scratch = [0u8; 32];
                     chunk
                         .check_body_checksum(&mut scratch)
                         .map_err(|_| LocalVpdError::InvalidChecksum)?;
@@ -104,10 +103,10 @@ pub fn read_config<V: AsBytes + FromBytes>(
                     return Ok(out);
                 }
             }
-            Err(LocalVpdError::NoSuchChunk.into())
+            return Err(LocalVpdError::NoSuchChunk.into());
         }
     }
     Err(LocalVpdError::NoRootChunk.into())
 }
 
-include!(concat!(env!("OUT_DIR"), "/vpd_config.rs"));
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

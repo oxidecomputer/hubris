@@ -113,7 +113,7 @@ task-slots = ["i2c_driver"]
 name = "task-net"
 stacksize = 4640
 priority = 3
-features = ["mgmt", "h753", "vlan"]
+features = ["mgmt", "h753", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash", "tim16"]
@@ -245,6 +245,7 @@ description = "Temperature sensor"
 bus = "local"
 address = 0b1010_000
 device = "at24csw080"
+name = "local_vpd"
 description = "FRU ID EEPROM"
 
 # NOTE: the schematic labels the PSUs as 1-6 (matching Murata's numbering

@@ -121,7 +121,7 @@ task-slots = ["sys"]
 name = "task-net"
 stacksize = 4640
 priority = 5
-features = ["mgmt", "h753", "sidecar", "vlan"]
+features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash", "tim16"]
@@ -670,6 +670,7 @@ bus = "south2"
 address = 0b1010_000
 device = "at24csw080"
 description = "Mainboard FRUID"
+name = "local_vpd"
 refdes = "U91"
 
 [[config.i2c.devices]]
