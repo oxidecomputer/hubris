@@ -163,9 +163,9 @@ impl Bsp {
             // Based on experimental tuning!
             pid_config: PidConfig {
                 zero: 35.0,
-                gain_p: 6.1,
-                gain_i: 0.09,
-                gain_d: 2.75,
+                gain_p: 1.75,
+                gain_i: 0.0135,
+                gain_d: 0.4,
             },
 
             inputs: &INPUTS,
