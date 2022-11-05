@@ -23,7 +23,7 @@ stacksize = 1536
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -142,6 +142,21 @@ pins = [
 # { pin = {port = 0, pin = 20}, alt =  1},
 ]
 spi_num = 3
+
+[tasks.ping]
+name = "task-ping"
+features = ["uart"]
+priority = 8
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+task-slots = [{peer = "pong"}, "usart_driver"]
+
+[tasks.pong]
+name = "task-pong"
+priority = 7
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["user_leds"]
 
 [tasks.hiffy]
 name = "task-hiffy"

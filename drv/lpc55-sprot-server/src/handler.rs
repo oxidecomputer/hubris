@@ -7,21 +7,43 @@ mod sprockets;
 use crate::IoStatus;
 use drv_sprot_api::*;
 use drv_update_api::*;
+use ringbuf::*;
 use userlib::*;
 
 task_slot!(UPDATE_SERVER, update_server);
 
+#[derive(Copy, Clone, PartialEq)]
+enum PrevMsg {
+    None,
+    Flush,
+    Good(MsgType),
+    Overrun,
+}
+
 pub struct Handler {
     sprocket: sprockets_rot::RotSprocket,
     pub update: Update,
+    count: usize,
+    prev: PrevMsg,
 }
 
 pub fn new() -> Handler {
     Handler {
         sprocket: crate::handler::sprockets::init(),
         update: drv_update_api::Update::from(UPDATE_SERVER.get_task_id()),
+        prev: PrevMsg::None,
+        count: 0,
     }
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Prev(usize, PrevMsg),
+    ErrHeader(usize, PrevMsg, u8, u8, u8, u8),
+    Overrun(usize),
+}
+ringbuf!(Trace, 16, Trace::None);
 
 impl Handler {
     /// The Sp RoT target message handler processes the incoming message
@@ -42,6 +64,7 @@ impl Handler {
         status: &mut Status, // for responses and updating
     ) -> Option<usize> {
         let tx_payload = payload_buf_mut(None, tx_buf);
+        self.count = self.count.wrapping_add(1);
 
         // Before looking at the received message, check for explicit flush or
         // a receive overrun condition.
@@ -66,9 +89,18 @@ impl Handler {
                             status.rx_overrun =
                                 status.rx_overrun.wrapping_add(1);
                             tx_payload[0] = MsgError::FlowError as u8;
+                            ringbuf_entry!(Trace::Prev(self.count, self.prev));
+                            self.prev = PrevMsg::Overrun;
+                            ringbuf_entry!(Trace::ErrHeader(
+                                self.count, self.prev, rx_buf[0], rx_buf[1],
+                                rx_buf[2], rx_buf[3]
+                            ));
                             return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
                         }
                     } else {
+                        ringbuf_entry!(Trace::Prev(self.count, self.prev));
+                        ringbuf_entry!(Trace::Overrun(self.count));
+                        self.prev = PrevMsg::Overrun;
                         return None;
                     }
                 }
@@ -78,6 +110,7 @@ impl Handler {
                     status.tx_incomplete = status.tx_incomplete.wrapping_add(1);
                     // Our message was not delivered
                 }
+                self.prev = PrevMsg::Flush;
                 return None;
             }
         }
@@ -90,11 +123,19 @@ impl Handler {
 
         // Parse the header which also checks the CRC.
         let (msgtype, rx_payload) = match parse(rx_buf) {
-            Ok((msgtype, payload)) => (msgtype, payload),
+            Ok((msgtype, payload)) => {
+                self.prev = PrevMsg::Good(msgtype);
+                (msgtype, payload)
+            }
             Err(msgerr) => {
                 if msgerr == MsgError::NoMessage {
+                    self.prev = PrevMsg::None;
                     return None;
                 }
+                ringbuf_entry!(Trace::ErrHeader(
+                    self.count, self.prev, rx_buf[0], rx_buf[1], rx_buf[2],
+                    rx_buf[3]
+                ));
                 tx_payload[0] = msgerr as u8;
                 return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
             }

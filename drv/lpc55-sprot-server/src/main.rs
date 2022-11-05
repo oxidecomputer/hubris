@@ -24,12 +24,14 @@ use userlib::*;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    HandleReturnNone,
+    HandlerReturnSize(usize),
+    Overrun(usize),
+    Pio(bool),
     RotIrqAssert,
     RotIrqDeassert,
     Transmit(usize, usize),
-    Pio(bool),
-    HandlerReturnSize(usize),
-    HandleReturnNone,
+    Underrun(usize),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -155,7 +157,6 @@ fn main() -> ! {
     let mut status = Status {
         supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-        system_clock_speed_mhz: 0, // TODO
         epoch: 0,
         version: 0,
         buffer_size: BUF_SIZE as u32,
@@ -256,8 +257,8 @@ impl IO {
 
         if transmit {
             ringbuf_entry!(Trace::Transmit(self.txcount, tx_end));
-            self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
             ringbuf_entry!(Trace::RotIrqAssert);
+            self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
         }
 
         // TODO: SP RESET needs to be monitored, otherwise, any
@@ -320,11 +321,13 @@ impl IO {
                 if fifostat.rxerr().bit() {
                     self.spi.rxerr_clear();
                     self.overrun = true;
+                    ringbuf_entry!(Trace::Overrun(self.rxcount));
                     // Overrun accounting is done in handler.
                 }
                 if fifostat.txerr().bit() {
                     self.spi.txerr_clear();
                     // Underrun accounting is done in handler.
+                    ringbuf_entry!(Trace::Underrun(self.rxcount));
                     self.underrun = true;
                 }
                 // Service the FIFOs

@@ -143,7 +143,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_server", "hash_driver", "sprot"]
+task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "update_server", "user_leds"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
@@ -337,5 +337,10 @@ tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "D", pin = 0, af = 0}
+# TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
+pins = [
+# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
+{ name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+# SPI6 CS repurposed for debugging
+{ name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
+]

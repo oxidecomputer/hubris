@@ -23,7 +23,7 @@ stacksize = 1536
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 5
+priority = 6
 features = ["lpc55", "gpio", "spctrl", "spi", "update"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
@@ -32,7 +32,7 @@ task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -63,7 +63,7 @@ task-slots = ["syscon_driver"]
 
 [tasks.usart_driver]
 name = "drv-lpc55-usart"
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["iocon", "flexcomm0"]
 start = true
@@ -80,7 +80,7 @@ pins = [
 name = "drv-lpc55-sprot-server"
 priority = 4
 max-sizes = {flash = 32768, ram = 32768}
-uses = ["iocon", "flexcomm8", "bootrom"]
+uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
@@ -105,7 +105,7 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
 start = true
@@ -138,7 +138,7 @@ spi_num = 5
 # debug connection.
 [tasks.sp_measure]
 name = "task-sp-measure"
-priority = 5
+priority = 6
 max-sizes = {flash = 131072, ram = 8192}
 task-slots = ["swd"]
 stacksize = 2048

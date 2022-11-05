@@ -165,9 +165,6 @@ pub struct Status {
     /// its boot ROM contents and there are known issues with old boot ROMs.
     pub bootrom_crc32: u32,
 
-    /// LPC55 Clock Speed can affect data rate.
-    pub system_clock_speed_mhz: u32,
-
     /// Firmware epoch (defines update window)
     pub epoch: u32,
 

@@ -423,7 +423,6 @@ $ humility hiffy -c SpRot.status
 SpRot.status() => Status {
     supported: 0x2,
     bootrom_crc32: 0x47ae8b8d,
-    system_clock_speed_mhz: 0x0,
     epoch: 0x0,
     version: 0x0,
     buffer_size: 0x446,
@@ -497,7 +496,6 @@ $ humility hiffy -c SpRot.status
 SpRot.status() => Status {
     supported: 0x2,
     bootrom_crc32: 0x47ae8b8d,
-    system_clock_speed_mhz: 0x0,
     epoch: 0x0,
     version: 0x0,
     buffer_size: 0x446,

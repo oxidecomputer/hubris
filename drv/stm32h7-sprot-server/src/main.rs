@@ -19,6 +19,7 @@ use zerocopy::{ByteOrder, LittleEndian};
 task_slot!(SPI, spi_driver);
 task_slot!(SYS, sys);
 
+#[allow(unused_variables)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -26,34 +27,51 @@ enum Trace {
     BlockSize(usize),
     CSnAssert,
     CSnDeassert,
+    Debug(bool),
     Error(MsgError),
     FailedRetries { retries: u16, errcode: MsgError },
-    // HubpackError(hubpack::Error),
     MsgError(MsgError),
+    ParseErr(u8, u8, u8, u8),
+    PulseFailed,
     RotNotReady,
     RotReadyTimeout,
-    SendRecv(usize),
-    UnexpectedRotIrq,
-    WrongMsgType(MsgType),
-    UpdResponse(UpdateRspHeader),
-    TxSize(usize),
-    TxPart1(usize),
-    TxPart2(usize),
     RxPart1(usize),
     RxPart2(usize),
+    RxPayloadRemainingMutErr(u8, u8, u8, u8),
+    SendRecv(usize),
+    SinkFail(MsgError, u16),
+    SinkLoop(u16),
+    TxPart1(usize),
+    TxPart2(usize),
+    TxSize(usize),
+    UnexpectedRotIrq,
+    UpdResponse(UpdateRspHeader),
+    WrongMsgType(MsgType),
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 64, Trace::None);
 
 const SP_TO_ROT_SPI_DEVICE: u8 = 0;
 
 // TODO: These timeouts are somewhat arbitrary.
 
 /// Timeout for status message
-const TIMEOUT_QUICK: u32 = 500;
+const TIMEOUT_QUICK: u32 = 1000;
 /// Maximum timeout for an arbitrary message
 const TIMEOUT_MAX: u32 = 2_000;
 // XXX tune the RoT flash write timeout
 const TIMEOUT_WRITE_ONE_BLOCK: u32 = 2_000;
+// Delay between sending the portion of a message that fits entirely in the
+// RoT's FIFO and the remainder of the message. This gives time for the RoT
+// sprot task to respond to its interrupt.
+const PART1_DELAY: u64 = 0;
+const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
+
+const MAX_UPD_ATTEMPTS: u16 = 3;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "sink_test")] {
+        const MAX_SINKREQ_ATTEMPTS: u16 = 2; // TODO parameterize
+    }
+}
 
 // ROT_IRQ comes from app.toml
 // We use spi3 on gimletlet and spi4 on gemini and gimlet.
@@ -72,11 +90,31 @@ cfg_if::cfg_if! {
             port: sys_api::Port::E,
             pin_mask: 1 << 3,
         };
+        fn debug_config(_sys: &sys_api::Sys) { }
+        fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
     } else if #[cfg(target_board = "gimletlet-2")] {
         const ROT_IRQ: sys_api::PinSet = sys_api::PinSet {
             port: sys_api::Port::D,
             pin_mask: 1 << 0,
         };
+        const DEBUG_PIN: sys_api::PinSet = sys_api::PinSet {
+            port: sys_api::Port::E,
+            pin_mask: 1 << 6,
+        };
+        fn debug_config(sys: &sys_api::Sys) {
+            sys.gpio_configure_output(
+                DEBUG_PIN,
+                sys_api::OutputType::OpenDrain,
+                sys_api::Speed::High,
+                sys_api::Pull::Up
+            ).unwrap_lite();
+            debug_set(sys, true);
+        }
+
+        fn debug_set(sys: &sys_api::Sys, asserted: bool) {
+            ringbuf_entry!(Trace::Debug(asserted));
+            sys.gpio_set_to(DEBUG_PIN, asserted).unwrap_lite();
+        }
     } else {
         compile_error!("No configuration for ROT_IRQ");
     }
@@ -97,6 +135,7 @@ fn main() -> ! {
 
     sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None)
         .unwrap_lite();
+    debug_config(&sys);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -145,11 +184,14 @@ impl ServerImpl {
             // ROT_IRQ asserted when not expected.
             //
             // TODO: configuration parameters for delays below
-            if !self.wait_rot_irq(false, TIMEOUT_QUICK)
-                && self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1
-            {
-                // Did not clear ROT_IRQ
-                return Err(MsgError::RotNotReady);
+            if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
+                ringbuf_entry!(Trace::UnexpectedRotIrq);
+                if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
+                    ringbuf_entry!(Trace::PulseFailed);
+                    // Did not clear ROT_IRQ
+                    debug_set(&self.sys, false); // XXX
+                    return Err(MsgError::RotNotReady);
+                }
             }
         }
         let buf = match self.tx_buf.get(0..size) {
@@ -174,25 +216,34 @@ impl ServerImpl {
         let part2 = buf.get(part1.len()..).unwrap_lite(); // empty or not
         ringbuf_entry!(Trace::TxPart1(part1.len()));
         ringbuf_entry!(Trace::TxPart2(part2.len()));
-        if !part2.is_empty() {
+        if (PART1_DELAY != 0) || !part2.is_empty() {
             ringbuf_entry!(Trace::CSnAssert);
             self.spi
                 .lock(CsState::Asserted)
                 .map_err(|_| MsgError::SpiServerError)?;
+            if PART1_DELAY != 0 {
+                hl::sleep_for(PART1_DELAY);
+            }
         }
         if self.spi.write(part1).is_err() {
-            if !part2.is_empty() {
+            if (PART1_DELAY != 0) || !part2.is_empty() {
                 ringbuf_entry!(Trace::CSnDeassert);
                 _ = self.spi.release();
             }
             return Err(MsgError::SpiServerError);
         }
         if !part2.is_empty() {
-            hl::sleep_for(2); // TODO: configurable
+            hl::sleep_for(PART2_DELAY); // TODO: configurable
             ringbuf_entry!(Trace::CSnDeassert);
-            if self.spi.write(part2).is_err() || self.spi.release().is_err() {
+            if self.spi.write(part2).is_err() {
+                _ = self.spi.release();
                 return Err(MsgError::SpiServerError);
             }
+        }
+        if ((PART1_DELAY != 0) || !part2.is_empty())
+            && self.spi.release().is_err()
+        {
+            return Err(MsgError::SpiServerError);
         }
 
         /*
@@ -229,6 +280,9 @@ impl ServerImpl {
         self.spi
             .lock(CsState::Asserted)
             .map_err(|_| MsgError::SpiServerError)?;
+        if PART1_DELAY != 0 {
+            hl::sleep_for(PART1_DELAY);
+        }
 
         // We can fetch FIFO size number of bytes reliably.
         // After that, a short delay and fetch the rest if there is
@@ -250,14 +304,22 @@ impl ServerImpl {
                 Ok(buf) => {
                     ringbuf_entry!(Trace::RxPart2(buf.len()));
                     // Allow RoT time to rouse itself.
-                    hl::sleep_for(1); // XXX configure duration
+                    hl::sleep_for(PART2_DELAY);
                     if self.spi.read(buf).is_err() {
                         Err(MsgError::SpiServerError)
                     } else {
                         Ok(part1_len + buf.len())
                     }
                 }
-                Err(err) => Err(err),
+                Err(err) => {
+                    ringbuf_entry!(Trace::RxPayloadRemainingMutErr(
+                        self.rx_buf[0],
+                        self.rx_buf[1],
+                        self.rx_buf[2],
+                        self.rx_buf[3]
+                    ));
+                    Err(err)
+                }
             }
         };
 
@@ -266,9 +328,25 @@ impl ServerImpl {
             Err(MsgError::SpiServerError)
         } else {
             match result {
-                Err(e) => Err(e),
+                Err(e) => {
+                    ringbuf_entry!(Trace::ParseErr(
+                        self.rx_buf[0],
+                        self.rx_buf[1],
+                        self.rx_buf[2],
+                        self.rx_buf[3]
+                    ));
+                    Err(e)
+                }
                 Ok(rlen) => match parse(&self.rx_buf[0..rlen]) {
-                    Err(e) => Err(e),
+                    Err(e) => {
+                        ringbuf_entry!(Trace::ParseErr(
+                            self.rx_buf[0],
+                            self.rx_buf[1],
+                            self.rx_buf[2],
+                            self.rx_buf[3]
+                        ));
+                        Err(e)
+                    }
                     Ok((msgtype, payload_buf)) => {
                         Ok((msgtype, payload_buf.len()))
                     }
@@ -327,10 +405,17 @@ impl ServerImpl {
                             );
                             errcode =
                                 MsgError::from_u8(payload[0]).unwrap_lite();
+                            ringbuf_entry!(Trace::MsgError(errcode));
                             if matches!(
                                 errcode,
-                                MsgError::FlowError | MsgError::InvalidCrc
+                                MsgError::FlowError
+                                    | MsgError::InvalidCrc
+                                    | MsgError::UnsupportedProtocol
                             ) {
+                                // TODO: There are rare cases where
+                                // the RoT dose not receive
+                                // a 0x01 as the first byte in a message.
+                                // See issue XXX.
                                 continue;
                             }
                             // Other codes from RoT are not recoverable
@@ -398,7 +483,7 @@ impl ServerImpl {
         ringbuf_entry!(Trace::CSnDeassert);
         self.spi.release().unwrap_lite();
         if delay_after != 0 {
-            hl::sleep_for(delay); // TODO: make this a 2nd parameter?
+            hl::sleep_for(delay_after);
         }
         let rot_irq_end = self.is_rot_irq_asserted();
         let status = PulseStatus {
@@ -591,11 +676,12 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                 size: u16,
             ) -> Result<SinkStatus, RequestError<MsgError>> {
                 let size = size as usize;
+                debug_set(&self.sys, false);
 
                 if size > core::mem::size_of::<u16>() {
                     // The payload is big enough to contain the sequence number
                     // and additional bytes.
-                    let mut n: u8 = HEADER_SIZE as u8;  // truncation is appropriate.
+                    let mut n: u8 = HEADER_SIZE as u8;
                     let buf = payload_buf_mut(Some(size), &mut self.tx_buf[..]);
                     buf.fill_with(|| {
                         let seq = n;
@@ -605,11 +691,11 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                 }
 
                 let mut sent = 0u16;
-                const MAX_SINKREQ_ATTEMPTS: u16 = 4;    // XXX hard coded retry limit
                 let result = loop {
                     if sent == count {
                         break Ok(sent);
                     }
+                    ringbuf_entry!(Trace::SinkLoop(sent));
                     // For debugging: Make sure each message is distinct.
                     // The first two payload bytes are a message
                     // sequence number if there is space for it.
@@ -621,7 +707,10 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                         Err(_err) => break Err(MsgError::Serialization),
                         Ok(size) => {
                             match self.do_send_recv_retries(size, TIMEOUT_QUICK, MAX_SINKREQ_ATTEMPTS) {
-                                Err(err) => break Err(err),
+                                Err(err) => {
+                                    ringbuf_entry!(Trace::SinkFail(err, sent));
+                                    break Err(err)
+                                },
                                 Ok((msgtype, payload_len)) => {
                                     match msgtype {
                                         MsgType::SinkRsp => {
@@ -657,6 +746,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                         },
                     }
                 };
+                debug_set(&self.sys, true);
                 match result {
                     Ok(sent) => {
                         Ok(SinkStatus { sent })
@@ -763,7 +853,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
             payload_len,
             MsgType::UpdWriteOneBlockRsp,
             TIMEOUT_WRITE_ONE_BLOCK,
-            4,
+            MAX_UPD_ATTEMPTS,
         ) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
