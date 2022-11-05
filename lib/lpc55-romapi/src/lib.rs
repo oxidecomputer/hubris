@@ -383,7 +383,7 @@ struct FlashConfig {
     mode_config: FlashModeConfig,
 }
 
-pub fn get_system_clock_speed_mhz() -> u32 {
+fn get_system_clock_speed_mhz() -> u32 {
     let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
 
     let a = syscon.mainclksela.read().bits();
