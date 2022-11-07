@@ -989,6 +989,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-local-vpd"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "serde",
+ "tlvc",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -3723,6 +3737,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-gimlet-seq-api",
+ "drv-local-vpd",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",

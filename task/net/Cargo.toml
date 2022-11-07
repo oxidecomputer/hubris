@@ -15,6 +15,7 @@ enum-map = "2.4.1"
 
 drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
+drv-local-vpd = {path = "../../drv/local-vpd", optional = true}
 drv-spi-api = {path = "../../drv/spi-api", optional = true}
 drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["ipv6"]}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api"}
@@ -46,6 +47,7 @@ features = [
 
 [features]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
+vpd-mac = ["drv-local-vpd"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]

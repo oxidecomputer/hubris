@@ -49,7 +49,7 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -65,14 +65,34 @@ use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
 
+#[cfg(feature = "vpd-mac")]
+task_slot!(I2C, i2c_driver);
+
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
 //
 // Much of this needs to move into the board-level configuration.
 
-/// Claims and calculates the MAC address.  This can only be called once.
-fn mac_address() -> &'static [u8; 6] {
-    let buf = crate::buf::claim_mac_address();
+/// Represents a range of allocated MAC addresses, per RFD 320
+///
+/// The SP will claim the first `N` addresses based on VLAN configuration
+/// (typically either 1 or 2).
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
+#[repr(C)]
+pub struct MacAddressBlock {
+    base_mac: [u8; 6],
+    count: U16<LittleEndian>,
+    stride: u8,
+}
+
+/// Calculates a locally administered, unicast MAC address from the chip ID
+///
+/// This uses a hash of the chip ID and returns a block with starting MAC
+/// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
+/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
+/// VLANs enabled).
+fn mac_address_from_uid() -> MacAddressBlock {
+    let mut buf = [0u8; 6];
     let uid = drv_stm32xx_uid::read_uid();
     // Jenkins hash
     let mut hash: u32 = 0;
@@ -91,8 +111,25 @@ fn mac_address() -> &'static [u8; 6] {
 
     // Set the lower 32-bits based on the hashed UID
     buf[2..].copy_from_slice(&hash.to_be_bytes());
-    buf
+
+    MacAddressBlock {
+        base_mac: buf,
+        #[cfg(feature = "vlan")]
+        count: U16::new(crate::generated::VLAN_COUNT.try_into().unwrap()),
+
+        #[cfg(not(feature = "vlan"))]
+        count: U16::new(1),
+        stride: 1,
+    }
 }
+
+#[cfg(feature = "vpd-mac")]
+fn mac_address_from_vpd() -> Option<MacAddressBlock> {
+    let i2c_task = I2C.get_task_id();
+    drv_local_vpd::read_config(i2c_task, *b"MAC0").ok()
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 const TX_RING_SZ: usize = 4;
 
@@ -167,16 +204,17 @@ fn main() -> ! {
     );
 
     // Set up the network stack.
-    use smoltcp::wire::EthernetAddress;
-    let mac = EthernetAddress::from_bytes(mac_address());
+    #[cfg(feature = "vpd-mac")]
+    let mac_address =
+        mac_address_from_vpd().unwrap_or_else(mac_address_from_uid);
 
-    // Configure the server and its local storage arrays (on the stack)
-    let ipv6_addr = link_local_iface_addr(mac);
+    #[cfg(not(feature = "vpd-mac"))]
+    let mac_address = mac_address_from_uid();
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = BspImpl::new(&eth, &sys);
 
-    let mut server = server_impl::new(&eth, ipv6_addr, mac, bsp);
+    let mut server = server_impl::new(&eth, mac_address, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);

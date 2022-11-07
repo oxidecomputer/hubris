@@ -11,12 +11,14 @@ use drv_stm32h7_eth as eth;
 
 use core::cell::Cell;
 use mutable_statics::mutable_statics;
-use smoltcp::wire::{EthernetAddress, Ipv6Address};
 use task_net_api::UdpMetadata;
 
 use crate::bsp_support;
 use crate::generated::{self, VLAN_COUNT, VLAN_RANGE};
-use crate::server::{DeviceExt, GenServerImpl, Storage};
+use crate::{
+    server::{DeviceExt, GenServerImpl, Storage},
+    MacAddressBlock,
+};
 
 /// Grabs references to the server storage arrays.  Can only be called once!
 fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
@@ -119,8 +121,7 @@ pub type ServerImpl<'a, B> = GenServerImpl<'a, B, VLanEthernet<'a>, VLAN_COUNT>;
 
 pub fn new<'a, B>(
     eth: &'a eth::Ethernet,
-    ipv6_addr: Ipv6Address,
-    mac: EthernetAddress,
+    mac: MacAddressBlock,
     bsp: B,
 ) -> ServerImpl<'a, B>
 where
@@ -128,7 +129,6 @@ where
 {
     ServerImpl::new(
         eth,
-        ipv6_addr,
         mac,
         bsp,
         claim_server_storage_statics(),
