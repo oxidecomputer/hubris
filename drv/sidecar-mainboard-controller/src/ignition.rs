@@ -37,7 +37,11 @@ impl IgnitionController {
             + u16::from(offset)
     }
 
-    fn read_port_register<A, T>(&self, port: u8, offset: A) -> Result<T, FpgaError>
+    fn read_port_register<A, T>(
+        &self,
+        port: u8,
+        offset: A,
+    ) -> Result<T, FpgaError>
     where
         u16: From<A>,
         T: AsBytes + Default + FromBytes,

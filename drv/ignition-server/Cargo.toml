@@ -8,12 +8,15 @@ cfg-if = "1"
 drv-fpga-api = {path = "../fpga-api"}
 drv-ignition-api = {path = "../ignition-api"}
 drv-sidecar-mainboard-controller = {path = "../../drv/sidecar-mainboard-controller"}
-drv-sidecar-seq-api = {path = "../sidecar-seq-api"}
+drv-sidecar-seq-api = {path = "../sidecar-seq-api", optional = true}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 num-traits = { version = "0.2.12", default-features = false }
 ringbuf = {path = "../../lib/ringbuf" }
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 zerocopy = "0.6.1"
+
+[features]
+sequencer = ["dep:drv-sidecar-seq-api"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

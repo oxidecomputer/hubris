@@ -297,6 +297,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.ignition]
 name = "drv-ignition-server"
+features = ["sequencer"]
 priority = 5
 max-sizes = {flash = 16384, ram = 2048}
 stacksize = 1024

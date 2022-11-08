@@ -9,13 +9,14 @@
 
 use drv_ignition_api::*;
 use drv_sidecar_mainboard_controller::ignition::*;
-use drv_sidecar_seq_api::Sequencer;
 use ringbuf::*;
 use userlib::*;
 
 task_slot!(FPGA, fpga);
+#[cfg(feature = "sequencer")]
 task_slot!(SEQUENCER, sequencer);
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
@@ -36,12 +37,25 @@ fn main() -> ! {
         port_count: 0,
         last_presence_summary: 0,
     };
-    let sequencer = Sequencer::from(SEQUENCER.get_task_id());
 
-    // Poll the sequencer to determine if the mainboard controller is ready.
-    ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
-    while !sequencer.mainboard_controller_ready().unwrap_or(false) {
-        hl::sleep_for(25);
+    // This task is expected to run in an environment where a sequencer is
+    // responsible for configuring the mainboard controller/Ignition Controller
+    // logic. But for development purposes it may make sense for this assumption
+    // not to be true and run this task with something else guaranteeing that
+    // the mainboard controller (or something which looks like it) is present
+    // and ready.
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sequencer")] {
+            let sequencer =
+                drv_sidecar_seq_api::Sequencer::from(SEQUENCER.get_task_id());
+
+            // Poll the sequencer to determine if the mainboard controller is
+            // ready.
+            ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
+            while !sequencer.mainboard_controller_ready().unwrap_or(false) {
+                hl::sleep_for(25);
+            }
+        }
     }
 
     // Determine the number of Ignition controllers available.
@@ -167,8 +181,12 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, _bits: u32) {
         let start = sys_get_timer().now;
 
-        // Only one notification is expected, so let's get to it.
-        if let Err(_e) = self.poll_presence() {}
+        // Only poll the presence summary if the port count seems reasonable. A
+        // count of 0xff may occur if the FPGA is running an incorrect
+        // bitstream.
+        if self.port_count > 0 && self.port_count != 0xff {
+            if let Err(_e) = self.poll_presence() {}
+        }
 
         let finish = sys_get_timer().now;
 
