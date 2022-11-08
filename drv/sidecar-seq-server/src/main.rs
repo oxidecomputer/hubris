@@ -383,7 +383,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<SeqError>> {
-        // If this request is handled it implicitely means the
         self.mainboard_controller
             .ready()
             .map_err(SeqError::from)
