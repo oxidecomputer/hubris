@@ -28,7 +28,7 @@ task-validate-api = {path = "../validate-api"}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 update-buffer = {path = "../../lib/update-buffer"}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "d6c896c4e7af05860ad97b389cc72915084c9fd4"}
+gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "07063d2e594d127452a96379dc082bef7439a924"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]

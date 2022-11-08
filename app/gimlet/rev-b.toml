@@ -238,7 +238,7 @@ features = ["vlan"]
 name = "task-control-plane-agent"
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
-stacksize = 2048
+stacksize = 2560
 start = true
 uses = [
     "usart1",

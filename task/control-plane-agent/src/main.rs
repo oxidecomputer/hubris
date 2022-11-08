@@ -6,7 +6,7 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId,
+    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId, MgsError,
 };
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
@@ -16,7 +16,7 @@ use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use userlib::{sys_post, sys_set_timer, task_slot};
+use userlib::{sys_set_timer, task_slot};
 
 mod inventory;
 mod mgs_common;
@@ -94,6 +94,15 @@ enum MgsMessage {
     SetPowerState(PowerState),
     ResetPrepare,
     Inventory,
+    HostPhase2Data {
+        hash: [u8; 32],
+        offset: u64,
+        data_len: usize,
+    },
+    MgsError {
+        message_id: u32,
+        err: MgsError,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -164,29 +173,27 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     fn fetch_host_phase2_data(
         &mut self,
         msg: &userlib::RecvMessage,
-        _image_hash: [u8; 32],
-        _offset: u64,
+        image_hash: [u8; 32],
+        offset: u64,
         notification_bit: u8,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
-        // TODO: Actually fetch data! For now, we immediately notify our caller,
-        // allowing them to call `get_host_phase2_data()`.
-        sys_post(msg.sender, 1 << notification_bit);
-        Ok(())
+        self.mgs_handler.fetch_host_phase2_data(
+            msg,
+            image_hash,
+            offset,
+            notification_bit,
+        )
     }
 
     fn get_host_phase2_data(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _image_hash: [u8; 32],
-        _offset: u64,
+        image_hash: [u8; 32],
+        offset: u64,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
-        // TODO: Actually supply real data!
-        for i in 0..data.len() {
-            data.write_at(i, i as u8)
-                .map_err(|_| RequestError::went_away())?;
-        }
-        Ok(data.len())
+        self.mgs_handler
+            .get_host_phase2_data(image_hash, offset, data)
     }
 }
 
@@ -290,8 +297,10 @@ impl NetHandler {
             self.tx_buf,
         );
 
-        meta.size = n as u32;
-        self.packet_to_send = Some(meta);
+        if n > 0 {
+            meta.size = n as u32;
+            self.packet_to_send = Some(meta);
+        }
     }
 }
 

@@ -108,7 +108,7 @@ pub enum SpToHost {
     BootStorageUnit(Bsu),
     Identity {
         model: [u8; 11], // TODO model format?
-        revision: u8,
+        revision: u32,
         serial: [u8; 11], // TODO serial format?
     },
     MacAddresses {
@@ -177,8 +177,13 @@ bitflags::bitflags! {
     pub struct Status: u64 {
         const SP_TASK_RESTARTED = 1 << 0;
         const ALERTS_AVAILABLE  = 1 << 1;
+
         // Resync is a WIP; omit for now.
         // const READY_FOR_RESYNC  = 1 << 2;
+
+        // Instruct the host to go into recovery mode and fetch its phase2 image
+        // from the SP.
+        const PHASE2_RECOVERY = 1 << 3;
     }
 
     #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]

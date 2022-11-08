@@ -625,8 +625,9 @@ impl ServerImpl {
             }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
-                action =
-                    Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
+                action = Some(Action::ClearStatusBits(
+                    Status::SP_TASK_RESTARTED | Status::PHASE2_RECOVERY,
+                ));
                 Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {

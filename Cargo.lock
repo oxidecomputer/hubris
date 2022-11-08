@@ -381,6 +381,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
 
 [[package]]
+name = "corncobs"
+version = "0.1.2"
+source = "git+https://github.com/jgallagher/corncobs.git?branch=fix-encode-buf#3390268ef07a53be28156151b41ce12309ed4f28"
+
+[[package]]
 name = "cortex-m"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,7 +735,7 @@ name = "dice-mfg-msgs"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/dice-util?rev=5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
- "corncobs",
+ "corncobs 0.1.1",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde-big-array",
@@ -1911,7 +1916,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=d6c896c4e7af05860ad97b389cc72915084c9fd4#d6c896c4e7af05860ad97b389cc72915084c9fd4"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=07063d2e594d127452a96379dc082bef7439a924#07063d2e594d127452a96379dc082bef7439a924"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -3796,7 +3801,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
- "corncobs",
+ "corncobs 0.1.2",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
