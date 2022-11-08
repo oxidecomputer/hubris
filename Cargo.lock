@@ -994,9 +994,9 @@ dependencies = [
 name = "drv-ignition-api"
 version = "0.1.0"
 dependencies = [
+ "bitfield",
  "derive-idol-err",
  "drv-fpga-api",
- "drv-sidecar-mainboard-controller",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1322,6 +1322,7 @@ dependencies = [
  "build-util",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-ignition-api",
  "gnarle",
  "num-traits",
  "serde",

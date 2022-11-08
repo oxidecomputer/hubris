@@ -7,7 +7,7 @@ Interface(
             doc: "Return the number of ports in the system",
             args: {},
             reply: Result(
-                ok: "usize",
+                ok: "u8",
                 err: CLike("IgnitionError"),
             ),
         ),
@@ -26,7 +26,7 @@ Interface(
             },
             reply: Result(
                 ok: (
-                    type: "ControllerState",
+                    type: "PortState",
                     recv: FromPrimitive("u64")
                 ),
                 err: CLike("IgnitionError"),
@@ -38,22 +38,12 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "[u8; 4]",
+                ok: "Counters",
                 err: CLike("IgnitionError"),
             ),
         ),
-        "request": (
-            doc: "Return the Target request register for the given controller port",
-            args: {
-                "port": "u8",
-            },
-            reply: Result(
-                ok: "u8",
-                err: CLike("IgnitionError"),
-            ),
-        ),
-        "set_request": (
-            doc: "Set the request register for the given controller port",
+        "send_request": (
+            doc: "Send a request to the Target for the given controller port",
             args: {
                 "port": "u8",
                 "request": (

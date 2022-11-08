@@ -20,7 +20,7 @@ task_slot!(SEQUENCER, sequencer);
 enum Trace {
     None,
     AwaitingMainboardControllerReady,
-    PortCount(usize),
+    PortCount(u8),
     PresenceUpdate(u64),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -32,7 +32,7 @@ const TIMER_INTERVAL: u64 = 1000;
 fn main() -> ! {
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        controller: IgnitionController::new(FPGA.get_task_id(), 0x300),
+        controller: IgnitionController::new(FPGA.get_task_id()),
         port_count: 0,
         last_presence_summary: 0,
     };
@@ -59,12 +59,12 @@ fn main() -> ! {
 
 struct ServerImpl {
     controller: IgnitionController,
-    port_count: usize,
+    port_count: u8,
     last_presence_summary: u64,
 }
 
 impl ServerImpl {
-    pub fn poll_presence(&mut self) -> Result<(), IgnitionError> {
+    fn poll_presence(&mut self) -> Result<(), IgnitionError> {
         let current_presence_summary = self.controller.presence_summary()?;
 
         if current_presence_summary != self.last_presence_summary {
@@ -74,6 +74,10 @@ impl ServerImpl {
 
         Ok(())
     }
+
+    fn port_state(&self, port: u8) -> Result<PortState, IgnitionError> {
+        self.controller.state(port).map_err(IgnitionError::from)
+    }
 }
 
 type RequestError = idol_runtime::RequestError<IgnitionError>;
@@ -82,7 +86,7 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
     fn port_count(
         &mut self,
         _: &userlib::RecvMessage,
-    ) -> Result<usize, RequestError> {
+    ) -> Result<u8, RequestError> {
         self.controller
             .port_count()
             .map_err(IgnitionError::from)
@@ -103,41 +107,51 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-    ) -> Result<ControllerState, RequestError> {
-        self.controller
-            .state(port)
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
+    ) -> Result<PortState, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.port_state(port).map_err(RequestError::from)
     }
 
     fn counters(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-    ) -> Result<[u8; 4], RequestError> {
+    ) -> Result<Counters, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
         self.controller
             .counters(port)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
 
-    fn request(
-        &mut self,
-        _: &userlib::RecvMessage,
-        port: u8,
-    ) -> Result<u8, RequestError> {
-        self.controller
-            .request(port)
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
-    }
-
-    fn set_request(
+    fn send_request(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
         request: Request,
     ) -> Result<(), RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        let port_state = self.port_state(port).map_err(RequestError::from)?;
+        let target_state = port_state
+            .target()
+            .ok_or(RequestError::from(IgnitionError::NoTargetPresent))?;
+
+        if target_state.system_reset_in_progress()
+            || target_state.system_power_off_in_progress()
+            || target_state.system_power_on_in_progress()
+        {
+            return Err(RequestError::from(IgnitionError::RequestInProgress));
+        }
+
         self.controller
             .set_request(port, request)
             .map_err(IgnitionError::from)
@@ -174,7 +188,6 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
 mod idl {
     use drv_ignition_api::*;
-    use drv_sidecar_mainboard_controller::ignition::*;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
