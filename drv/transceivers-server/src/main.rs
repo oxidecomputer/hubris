@@ -17,11 +17,13 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
+use task_net_api::*;
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
+task_slot!(NET, net);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -50,7 +52,8 @@ struct ServerImpl {
     leds_initialized: bool,
 }
 
-const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
+const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
+const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
 const TIMER_INTERVAL: u64 = 500;
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
@@ -197,53 +200,61 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_NOTIFICATION_MASK
+        TIMER_NOTIFICATION_MASK | NET_NOTIFICATION_MASK
     }
 
-    // We currently only have one notification source so we are ignoring _bits
-    fn handle_notification(&mut self, _bits: u32) {
-        // Check for errors
-        if self.leds_initialized {
-            let errors = self.leds.error_summary().unwrap();
-            if errors != self.led_error {
-                self.led_error = errors;
-                ringbuf_entry!(Trace::LEDErrorSummary(errors));
-            }
-        } else {
-            ringbuf_entry!(Trace::LEDUninitialized);
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & NET_NOTIFICATION_MASK) != 0 {
+            // Nothing to do here; we'll handle it in the main loop
         }
 
-        // Query module presence and update LEDs accordingly
-        let presence = match self.transceivers.get_modules_status() {
-            Ok(status) => status.present,
-            Err(_) => 0,
-        };
+        if (bits & TIMER_NOTIFICATION_MASK) != 0 {
+            // Check for errors
+            if self.leds_initialized {
+                let errors = self.leds.error_summary().unwrap();
+                if errors != self.led_error {
+                    self.led_error = errors;
+                    ringbuf_entry!(Trace::LEDErrorSummary(errors));
+                }
+            } else {
+                ringbuf_entry!(Trace::LEDUninitialized);
+            }
 
-        if presence != self.modules_present {
-            // Errors are being suppressed here due to a miswiring of the I2C bus at
-            // the LED controller parts. They will not be accessible without rework
-            // to older hardware, and newer (correct) hardware will be replacing the
-            // hold stuff very soon.
-            // TODO: remove conditional compilation path once sidecar-a is sunset
-            cfg_if::cfg_if! {
-                if #[cfg(target_board = "sidecar-a")] {
-                    let _ = self.leds.update_led_state(presence);
-                } else {
-                    if self.leds_initialized {
-                        match self.leds.update_led_state(presence) {
-                            Ok(_) => (),
-                            Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e))
+            // Query module presence and update LEDs accordingly
+            let presence = match self.transceivers.get_modules_status() {
+                Ok(status) => status.present,
+                Err(_) => 0,
+            };
+
+            if presence != self.modules_present {
+                // Errors are being suppressed here due to a miswiring of the
+                // I2C bus at the LED controller parts. They will not be
+                // accessible without rework to older hardware, and newer
+                // (correct) hardware will be replacing the hold stuff very
+                // soon.
+                //
+                // TODO: remove conditional compilation path once sidecar-a is
+                // sunset
+                cfg_if::cfg_if! {
+                    if #[cfg(target_board = "sidecar-a")] {
+                        let _ = self.leds.update_led_state(presence);
+                    } else {
+                        if self.leds_initialized {
+                            match self.leds.update_led_state(presence) {
+                                Ok(_) => (),
+                                Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e))
+                            }
                         }
                     }
                 }
+
+                self.modules_present = presence;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
             }
 
-            self.modules_present = presence;
-            ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
+            let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
+            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK)
         }
-
-        let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-        sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK)
     }
 }
 
@@ -279,6 +290,10 @@ fn main() -> ! {
             &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
             &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
         );
+
+        let net = NET.get_task_id();
+        let net = Net::from(net);
+        const SOCKET: SocketName = SocketName::transceivers;
 
         let mut server = ServerImpl {
             transceivers,
@@ -320,6 +335,22 @@ fn main() -> ! {
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
+            let mut rx_data_buf = [0u8; 1024];
+            let mut tx_data_buf = [0u8; 1024];
+            match net.recv_packet(
+                SOCKET,
+                LargePayloadBehavior::Discard,
+                &mut rx_data_buf,
+            ) {
+                Ok(mut meta) => {
+                    // TODO: here's where we do stuff
+                }
+                Err(RecvError::QueueEmpty) => {
+                    // Our incoming queue is empty. Wait for more packets
+                    // in dispatch_n below.
+                }
+                Err(RecvError::NotYours | RecvError::Other) => panic!(),
+            }
             idol_runtime::dispatch_n(&mut buffer, &mut server);
         }
     }

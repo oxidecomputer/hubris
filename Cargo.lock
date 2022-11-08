@@ -1732,6 +1732,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "stm32h7",
+ "task-net-api",
  "userlib",
  "zerocopy",
 ]
