@@ -1728,6 +1728,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "idol-runtime",
  "mutable-statics",

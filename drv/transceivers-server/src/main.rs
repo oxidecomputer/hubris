@@ -102,6 +102,17 @@ impl ServerImpl {
     }
 }
 
+impl ServerImpl {
+    fn handle_message(
+        &mut self,
+        msg: transceiver_messages::message::Message,
+        data: &[u8],
+    ) -> transceiver_messages::message::HostResponse {
+        todo!()
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
+
 impl idl::InOrderTransceiversImpl for ServerImpl {
     fn get_modules_status(
         &mut self,
@@ -340,15 +351,29 @@ fn main() -> ! {
         sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
 
         let mut buffer = [0; idl::INCOMING_SIZE];
-        let (mut tx_data_buf, mut rx_data_buf) = claim_statics();
+        let (tx_data_buf, rx_data_buf) = claim_statics();
         loop {
+            use transceiver_messages::message::*;
             match net.recv_packet(
                 SOCKET,
                 LargePayloadBehavior::Discard,
                 rx_data_buf.as_mut_slice(),
             ) {
                 Ok(mut meta) => {
-                    // TODO: here's where we do stuff
+                    let (msg, data) =
+                        hubpack::deserialize(rx_data_buf.as_slice()).unwrap();
+                    let reply = server.handle_message(msg, data);
+                    let out = Message {
+                        header: msg.header,
+                        modules: msg.modules,
+                        body: MessageBody::HostResponse(reply),
+                    };
+                    let out_size =
+                        hubpack::serialize(tx_data_buf.as_mut_slice(), &out)
+                            .unwrap();
+                    meta.size = out_size as u32;
+                    net.send_packet(SOCKET, meta, tx_data_buf.as_slice())
+                        .unwrap();
                 }
                 Err(RecvError::QueueEmpty) => {
                     // Our incoming queue is empty. Wait for more packets
