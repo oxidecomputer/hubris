@@ -11,8 +11,8 @@ use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{Address, Ipv6Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_post, TaskId, UnwrapLite};
 
-const ALL_NODES_MULTICAST: Address = Address::Ipv6(Ipv6Address([
-    0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+const SP_TO_MGS_MULTICAST_ADDR: Address = Address::Ipv6(Ipv6Address([
+    0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xde, 0, 1,
 ]));
 const MGS_UDP_PORT: u16 = 22222;
 
@@ -162,7 +162,7 @@ impl HostPhase2Requester {
         let n = gateway_messages::serialize(tx_buf, &message).unwrap_lite();
 
         Some(UdpMetadata {
-            addr: ALL_NODES_MULTICAST,
+            addr: SP_TO_MGS_MULTICAST_ADDR,
             port: MGS_UDP_PORT,
             size: n as u32,
             vid: vlan_id_from_sp_port(port),
