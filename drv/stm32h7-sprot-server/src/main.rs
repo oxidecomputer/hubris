@@ -19,7 +19,7 @@ use zerocopy::{ByteOrder, LittleEndian};
 task_slot!(SPI, spi_driver);
 task_slot!(SYS, sys);
 
-#[allow(unused_variables)]
+#[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
