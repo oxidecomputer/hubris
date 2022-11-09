@@ -25,6 +25,10 @@ task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
 
+use hubpack::SerializedSize;
+const MAX_UDP_MESSAGE_SIZE: usize =
+    transceiver_messages::message::Message::MAX_SIZE;
+
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
@@ -47,6 +51,7 @@ ringbuf!(Trace, 16, Trace::None);
 struct ServerImpl {
     transceivers: Transceivers,
     leds: Leds,
+    net: Net,
     modules_present: u32,
     led_error: FullErrorSummary,
     leds_initialized: bool,
@@ -103,6 +108,34 @@ impl ServerImpl {
 }
 
 impl ServerImpl {
+    fn check_net(&mut self, rx_data_buf: &mut [u8], tx_data_buf: &mut [u8]) {
+        const SOCKET: SocketName = SocketName::transceivers;
+
+        use transceiver_messages::message::*;
+        match self.net.recv_packet(
+            SOCKET,
+            LargePayloadBehavior::Discard,
+            rx_data_buf,
+        ) {
+            Ok(mut meta) => {
+                let (msg, data) = hubpack::deserialize(rx_data_buf).unwrap();
+                let reply = self.handle_message(msg, data);
+                let out = Message {
+                    header: msg.header,
+                    modules: msg.modules,
+                    body: MessageBody::HostResponse(reply),
+                };
+                let out_size = hubpack::serialize(tx_data_buf, &out).unwrap();
+                meta.size = out_size as u32;
+                self.net.send_packet(SOCKET, meta, tx_data_buf).unwrap();
+            }
+            Err(RecvError::QueueEmpty) => {
+                // Our incoming queue is empty. Wait for more packets
+                // in dispatch_n below.
+            }
+            Err(RecvError::NotYours | RecvError::Other) => panic!(),
+        }
+    }
     fn handle_message(
         &mut self,
         msg: transceiver_messages::message::Message,
@@ -329,13 +362,12 @@ fn main() -> ! {
             &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
         );
 
-        let net = NET.get_task_id();
-        let net = Net::from(net);
-        const SOCKET: SocketName = SocketName::transceivers;
-
+        let net = Net::from(NET.get_task_id());
+        let (tx_data_buf, rx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             transceivers,
             leds,
+            net,
             modules_present: 0,
             led_error: Default::default(),
             leds_initialized: false,
@@ -351,36 +383,11 @@ fn main() -> ! {
         sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
 
         let mut buffer = [0; idl::INCOMING_SIZE];
-        let (tx_data_buf, rx_data_buf) = claim_statics();
         loop {
-            use transceiver_messages::message::*;
-            match net.recv_packet(
-                SOCKET,
-                LargePayloadBehavior::Discard,
+            server.check_net(
+                tx_data_buf.as_mut_slice(),
                 rx_data_buf.as_mut_slice(),
-            ) {
-                Ok(mut meta) => {
-                    let (msg, data) =
-                        hubpack::deserialize(rx_data_buf.as_slice()).unwrap();
-                    let reply = server.handle_message(msg, data);
-                    let out = Message {
-                        header: msg.header,
-                        modules: msg.modules,
-                        body: MessageBody::HostResponse(reply),
-                    };
-                    let out_size =
-                        hubpack::serialize(tx_data_buf.as_mut_slice(), &out)
-                            .unwrap();
-                    meta.size = out_size as u32;
-                    net.send_packet(SOCKET, meta, tx_data_buf.as_slice())
-                        .unwrap();
-                }
-                Err(RecvError::QueueEmpty) => {
-                    // Our incoming queue is empty. Wait for more packets
-                    // in dispatch_n below.
-                }
-                Err(RecvError::NotYours | RecvError::Other) => panic!(),
-            }
+            );
             idol_runtime::dispatch_n(&mut buffer, &mut server);
         }
     }
@@ -389,10 +396,14 @@ fn main() -> ! {
 
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
-pub fn claim_statics() -> (&'static mut [u8; 1024], &'static mut [u8; 1024]) {
+pub fn claim_statics() -> (
+    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
+    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
+) {
+    const S: usize = MAX_UDP_MESSAGE_SIZE;
     mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; 1024] = [|| 0u8; _];
-        static mut RX_BUF: [u8; 1024] = [|| 0u8; _];
+        static mut TX_BUF: [u8; S] = [|| 0u8; _];
+        static mut RX_BUF: [u8; S] = [|| 0u8; _];
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
