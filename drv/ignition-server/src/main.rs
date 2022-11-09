@@ -144,6 +144,38 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    fn link_events(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+        link: LinkSelect,
+    ) -> Result<LinkEvents, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.controller
+            .link_events(port, link)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn clear_link_events(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+        link: LinkSelect,
+    ) -> Result<(), RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.controller
+            .clear_link_events(port, link)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
     fn send_request(
         &mut self,
         _: &userlib::RecvMessage,

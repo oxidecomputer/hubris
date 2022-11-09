@@ -164,4 +164,38 @@ impl Default for Counters {
     }
 }
 
+bitfield! {
+    #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, FromBytes, AsBytes)]
+    #[repr(C)]
+    pub struct LinkEvents(u8);
+    encoding_error, _: 0;
+    decoding_error, _: 1;
+    ordered_set_invalid, _: 2;
+    message_version_invalid, _: 3;
+    message_type_invalid, _: 4;
+    message_checksum_invalid, _: 5;
+}
+
+impl Default for LinkEvents {
+    fn default() -> Self {
+        LinkEvents(0)
+    }
+}
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, AsBytes,
+)]
+#[repr(u8)]
+pub enum LinkSelect {
+    Controller = 1,
+    TargetLink0 = 2,
+    TargetLink1 = 3,
+}
+
+impl From<LinkSelect> for u8 {
+    fn from(link: LinkSelect) -> Self {
+        link as u8
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
