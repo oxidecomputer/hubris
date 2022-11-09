@@ -4,6 +4,8 @@ board = "gimletlet-2"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
+epoch = 0
+version = 0
 
 [kernel]
 name = "gimletlet"
@@ -62,6 +64,20 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
+[tasks.spi3_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+features = ["h753", "spi3"]
+uses = ["spi3"]
+start = true
+interrupts = {"spi3.irq" = 1}
+stacksize = 880
+task-slots = ["sys"]
+
+[tasks.spi3_driver.config.spi]
+global_config = "spi3"
+
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -79,7 +95,7 @@ global_config = "spi4"
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
-priority = 2
+priority = 5
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
@@ -93,7 +109,7 @@ task-slots = ["jefe"]
 
 [tasks.pong]
 name = "task-pong"
-priority = 3
+priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
@@ -114,7 +130,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
 uses = ["uart7"]
 interrupts = {"uart7.irq" = 0b01}
-priority = 3
+priority = 7
 max-sizes = {flash = 16384, ram = 16384}
 stacksize = 2048
 start = true
@@ -122,22 +138,33 @@ task-slots = ["sys", "gimlet_seq", "hf"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update"]
-priority = 4
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update", "hash", "sprot"]
+priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_server"]
+task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "update_server", "user_leds"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753"]
-priority = 3
-max-sizes = {flash = 16384, ram = 2048}
+features = ["h753", "hash"]
+priority = 6
+max-sizes = {flash = 16384, ram = 4096}
 stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {"quadspi.irq" = 1}
+task-slots = ["sys", "hash_driver"]
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.net]
@@ -163,7 +190,7 @@ features = ["vlan"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 4
+priority = 7
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 2048
 start = true
@@ -183,6 +210,15 @@ task-slots = [
 features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
 
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys", {spi_driver = "spi3_driver"}]
+features = ["sink_test"]
+
 [tasks.validate]
 name = "task-validate"
 priority = 3
@@ -193,7 +229,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 5
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -201,7 +237,7 @@ start = true
 [tasks.rng_driver]
 features = ["h753"]
 name = "drv-stm32h7-rng"
-priority = 3
+priority = 6
 max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
@@ -258,14 +294,17 @@ controller = 3
 
 [config.spi.spi3.mux_options.port_c]
 outputs = [
+    # SPI3_SCK, SPI3_MOSI
     {port = "C", pins = [10, 12], af = 6},
 ]
+# SPI3_MISO
 input = {port = "C", pin = 11, af = 6}
 
 [config.spi.spi3.devices.spi3_header]
 mux = "port_c"
 cs = [{port = "A", pin = 15}]
-
+clock_divider = "DIV256" # 774 kHz, works with LPC55 clock at 48MHz
+# clock_divider = "DIV128" # 1.5 MHz, fails unless LPC55 clock is at 96MHz
 
 [config.spi.spi4]
 controller = 4
@@ -296,3 +335,12 @@ owner = {name = "control_plane_agent", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.sprot]
+# TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
+pins = [
+# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
+{ name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+# SPI6 CS repurposed for debugging
+{ name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
+]

@@ -5,6 +5,8 @@ chip = "../../chips/lpc55"
 memory = "256k.toml"
 stacksize = 1024
 image-names = ["a", "b"]
+epoch = 0
+version = 0
 
 [kernel]
 name = "rot-carrier"
@@ -21,14 +23,14 @@ stacksize = 1536
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.update_server]
 name = "lpc55-update-server"
-priority = 6
+priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
@@ -53,14 +55,14 @@ task-slots = ["syscon_driver"]
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["lpc55"]
-priority = 4
+priority = 6
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
 
 [tasks.usart_driver]
 name = "drv-lpc55-usart"
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm0"]
 start = true
@@ -75,25 +77,25 @@ pins = [
 
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
-priority = 3
+priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
 stacksize = 2200
 task-slots = ["syscon_driver"]
 
-[tasks.spi0_driver]
-name = "drv-lpc55-spi-server"
+[tasks.sprot]
+name = "drv-lpc55-sprot-server"
 priority = 4
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 32768, ram = 32768}
+uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
-uses = ["flexcomm3", "flexcomm8"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
-stacksize = 1000
-task-slots = ["gpio_driver", "syscon_driver"]
+stacksize = 16384
+task-slots = ["gpio_driver", "syscon_driver", "update_server"]
 
-[tasks.spi0_driver.config]
+[tasks.sprot.config]
 pins = [
 # HS_SPI_MOSI = P0_26 = FUN9
 { pin = { port = 0, pin = 26}, alt = 9},
@@ -104,14 +106,14 @@ pins = [
 # HS_SSEL1 = P1_1 = FUN5
 { pin = { port = 1, pin = 1}, alt = 5},
 # ROT_IRQ = P0_18 = FUN0
-{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, mode = "NoPull", direction = "output"},
+{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
 # SP_RESET = P0_9 = FUN0
-{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, mode = "NoPull", direction = "input"},
+{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
 ]
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm3", "iocon"]
 start = true
@@ -137,29 +139,29 @@ pins = [
 # SCK
 { pin =  { port = 0, pin = 6 }, alt = 1 },
 # CS, not strictly necessary but handy for debugging
-{ pin = {port = 0, pin = 20}, alt =  1},
+# { pin = {port = 0, pin = 20}, alt =  1},
 ]
 spi_num = 3
 
 [tasks.ping]
 name = "task-ping"
 features = ["uart"]
-priority = 6
+priority = 8
 max-sizes = {flash = 8192, ram = 2048}
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 name = "task-pong"
-priority = 5
+priority = 7
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 5
-features = ["lpc55", "gpio", "spi", "spctrl", "update"]
+priority = 6
+features = ["lpc55", "gpio", "spctrl", "spi", "update"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
@@ -167,7 +169,7 @@ task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.sp_measure]
 name = "task-sp-measure"
-priority = 3
+priority = 6
 max-sizes = {flash = 131072, ram = 8192}
 task-slots = ["swd"]
 stacksize = 2048
@@ -178,5 +180,3 @@ binary_path = "../../target/gemini-bu/dist/final.bin"
 [extratext.rom]
 address = 0x13000000
 size = 0x20000
-
-

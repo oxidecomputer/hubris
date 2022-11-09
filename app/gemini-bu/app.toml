@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "gemini-bu"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -88,14 +88,14 @@ global_config = "spi4"
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
-priority = 2
+priority = 5
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
 [tasks.pong]
 name = "task-pong"
-priority = 3
+priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
@@ -103,7 +103,7 @@ task-slots = ["user_leds"]
 [tasks.hf]
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
-priority = 4
+priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
@@ -114,7 +114,7 @@ task-slots = ["sys", "hash_driver"]
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
-priority = 3
+priority = 5
 max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
@@ -124,12 +124,20 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash"]
-priority = 5
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
+task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 4096
+start = true
+task-slots = ["sys", {spi_driver = "spi4_driver"}]
 
 [tasks.validate]
 name = "task-validate"
@@ -141,10 +149,28 @@ task-slots = ["i2c_driver"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 6
+max-sizes = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys", "user_leds"]
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
 
 [config]
 [[config.i2c.controllers]]
@@ -284,3 +310,9 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
+clock_divider = "DIV256"
+
+[config.sprot]
+# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
+# {port = "D", pins = [0], af = 0},
+rot_irq = { port = "E", pin = 3, af = 0}

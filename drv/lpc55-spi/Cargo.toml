@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 lpc55-pac = "0.4"
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}

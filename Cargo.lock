@@ -697,8 +697,10 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
+ "rustc_version 0.4.0",
  "syn",
 ]
 
@@ -713,7 +715,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726)",
  "serde",
  "serde-big-array",
  "sha3",
@@ -1087,6 +1089,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-sprot-server"
+version = "0.1.0"
+dependencies = [
+ "build-lpc55pins",
+ "build-util",
+ "crc",
+ "drv-lpc55-gpio-api",
+ "drv-lpc55-spi",
+ "drv-lpc55-syscon-api",
+ "drv-sprot-api",
+ "drv-update-api",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "idol-runtime",
+ "if_chain",
+ "lpc55-pac",
+ "lpc55_romapi",
+ "num-traits",
+ "quote",
+ "ringbuf",
+ "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "sprockets-common",
+ "sprockets-rot",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-swd"
 version = "0.1.0"
 dependencies = [
@@ -1336,6 +1366,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sprot-api"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "derive-idol-err",
+ "drv-update-api",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "idol",
+ "if_chain",
+ "memoffset",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
+ "unwrap-lite",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
@@ -1466,6 +1516,27 @@ dependencies = [
  "serde",
  "stm32h7",
  "syn",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-sprot-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "drv-spi-api",
+ "drv-sprot-api",
+ "drv-stm32xx-sys-api",
+ "drv-update-api",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]
@@ -1615,8 +1686,11 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "idol",
  "num-traits",
+ "serde",
+ "serde_repr",
  "userlib",
  "zerocopy",
 ]
@@ -1804,7 +1878,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=c1484109c394f45e08018e0f35adc4a136cd207d#c1484109c394f45e08018e0f35adc4a136cd207d"
 dependencies = [
  "bitflags",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -2047,9 +2121,9 @@ dependencies = [
 [[package]]
 name = "hubpack"
 version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
- "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
 ]
 
@@ -2076,7 +2150,7 @@ dependencies = [
 [[package]]
 name = "hubpack_derive"
 version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2139,6 +2213,12 @@ dependencies = [
  "userlib",
  "zerocopy",
 ]
+
+[[package]]
+name = "if_chain"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
 
 [[package]]
 name = "indexmap"
@@ -2381,9 +2461,9 @@ checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 
 [[package]]
 name = "memoffset"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
 ]
@@ -3108,6 +3188,17 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "salty"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
+dependencies = [
+ "ed25519",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "salty"
+version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
@@ -3383,6 +3474,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "sprockets-common"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+dependencies = [
+ "derive_more",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde-big-array",
+]
+
+[[package]]
+name = "sprockets-rot"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+dependencies = [
+ "corncobs",
+ "derive_more",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "sprockets-common",
+ "tinyvec",
+]
+
+[[package]]
 name = "srec"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3425,7 +3542,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726)",
  "serde",
  "sha3",
  "static_assertions",
@@ -3609,6 +3726,7 @@ dependencies = [
  "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
+ "drv-sprot-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "drv-update-api",
@@ -4316,6 +4434,12 @@ dependencies = [
  "libc",
  "winapi",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "tlvc"

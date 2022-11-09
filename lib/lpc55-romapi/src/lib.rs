@@ -419,6 +419,17 @@ fn bootloader_tree() -> &'static BootloaderTree {
     unsafe { &*(LPC55_ROM_TABLE) }
 }
 
+const LPC55_BOOT_ROM: *const BootRom = 0x0300_0000 as *const BootRom;
+
+#[repr(C)]
+pub struct BootRom {
+    pub data: [u8; 0x00010000],
+}
+
+pub fn bootrom() -> &'static BootRom {
+    unsafe { &*(LPC55_BOOT_ROM) }
+}
+
 fn handle_flash_status(ret: u32) -> Result<(), FlashStatus> {
     let result = match FlashStatus::from_u32(ret) {
         Some(a) => a,

@@ -4,12 +4,25 @@
 
 #![no_std]
 
+use core::convert::TryFrom;
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{/*de::DeserializeOwned,*/ Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 #[repr(u8)]
-#[derive(FromPrimitive, AsBytes, Eq, PartialEq, Clone, Copy)]
+#[derive(
+    FromPrimitive,
+    AsBytes,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 pub enum UpdateTarget {
     // Represents targets where we only ever write to a single
     // alternate flash location. This is typically used in
@@ -20,16 +33,28 @@ pub enum UpdateTarget {
     ImageA = 2,
     ImageB = 3,
     Bootloader = 4,
+    // For testing
+    DevNull = 0xff,
 }
 
-#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    FromBytes,
+    AsBytes,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(C)]
 pub struct ImageVersion {
     pub epoch: u32,
     pub version: u32,
 }
 
-#[derive(Clone, Copy, FromPrimitive, IdolError)]
+#[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,
@@ -51,6 +76,42 @@ pub enum UpdateError {
     UpdateNotStarted = 16,
     RunningImage = 17,
     FlashError = 18,
+    // Specific to RoT (LPC55)
+    SpRotError = 19,
+    Unknown = 0xff,
+}
+
+impl TryFrom<u8> for UpdateError {
+    type Error = ();
+
+    fn try_from(byte: u8) -> Result<Self, Self::Error> {
+        match byte {
+            1 => Ok(UpdateError::BadLength),
+            2 => Ok(UpdateError::UpdateInProgress),
+            3 => Ok(UpdateError::OutOfBounds),
+            4 => Ok(UpdateError::Timeout),
+            5 => Ok(UpdateError::EccDoubleErr),
+            6 => Ok(UpdateError::EccSingleErr),
+            7 => Ok(UpdateError::SecureErr),
+            8 => Ok(UpdateError::ReadProtErr),
+            9 => Ok(UpdateError::WriteEraseErr),
+            10 => Ok(UpdateError::InconsistencyErr),
+            11 => Ok(UpdateError::StrobeErr),
+            12 => Ok(UpdateError::ProgSeqErr),
+            13 => Ok(UpdateError::WriteProtErr),
+            14 => Ok(UpdateError::BadImageType),
+            15 => Ok(UpdateError::UpdateAlreadyFinished),
+            16 => Ok(UpdateError::UpdateNotStarted),
+            17 => Ok(UpdateError::RunningImage),
+            18 => Ok(UpdateError::FlashError),
+            19 => Ok(UpdateError::SpRotError),
+            _ => Err(()),
+        }
+    }
+}
+
+impl hubpack::SerializedSize for UpdateError {
+    const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
 }
 
 pub mod stm32h7 {
