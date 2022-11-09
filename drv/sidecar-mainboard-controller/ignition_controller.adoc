@@ -1,0 +1,193 @@
+
+Test Output:
+
+Controller Status
+[caption="Address: "]
+.0x0000 - CONTROLLER_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:1] |  | - | Reserved
+|[0] | r | TARGET_PRESENT | A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid
+|===
+
+Controller Link Status
+[caption="Address: "]
+.0x0001 - CONTROLLER_LINK_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target System Type
+[caption="Address: "]
+.0x0002 - TARGET_SYSTEM_TYPE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | SYSTEM_TYPE | The system type as advertised by the Target
+|===
+
+Target System Status
+[caption="Address: "]
+.0x0003 - TARGET_SYSTEM_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3] | r | SYSTEM_POWER_ABORT | Flag indicating system power was turned off due to power fault
+|[2] | r | SYSTEM_POWER_ENABLED | Flag indicating system power of the Target system is enabled
+|[1] | r | CONTROLLER1_DETECTED | Flag indicating the Target has observed a Controller on link 1
+|[0] | r | CONTROLLER0_DETECTED | Flag indicating the Target has observed a Controller on link 0
+|===
+
+Target System Faults
+[caption="Address: "]
+.0x0004 - TARGET_SYSTEM_FAULTS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | ROT_FAULT | Flag indicating an unrecoverable fault was detected by the RoT
+|[4] | r | SP_FAULT | Flag indicating an unrecoverable fault was detected by the SP
+|[3] | r | RESERVED2 | Reserved fault flag
+|[2] | r | RESERVED1 | Reserved fault flag
+|[1] | r | POWER_FAULT_A2 | Flag indicating a power fault in A2
+|[0] | r | POWER_FAULT_A3 | Flag indicating a power fault in A3
+|===
+
+TARGET_REQUEST_STATUS
+[caption="Address: "]
+.0x0005 - TARGET_REQUEST_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | SYSTEM_RESET_IN_PROGRESS | Flag indicating a system reset request is in progress
+|[1] | r | POWER_ON_IN_PROGRESS | Flag indicating a power on request is in progress
+|[0] | r | POWER_OFF_IN_PROGRESS | Flag indicating a power off request is in progress
+|===
+
+Target Link 0 Status
+[caption="Address: "]
+.0x0006 - TARGET_LINK0_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Link 1 Status
+[caption="Address: "]
+.0x0007 - TARGET_LINK1_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Request
+[caption="Address: "]
+.0x0008 - TARGET_REQUEST Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PENDING | Flag indicating a request is (still) pending
+|[6:2] |  | - | Reserved
+|[1:0] | rw | KIND | Value indicating the kind of request
+|===
+
+Controller Status Received Count
+[caption="Address: "]
+.0x0010 - CONTROLLER_STATUS_RECEIVED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of Status messages received by the Controller since last reset
+|===
+
+Controller Hello Sent Count
+[caption="Address: "]
+.0x0011 - CONTROLLER_HELLO_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of hello messages sent by the Controller since last reset
+|===
+
+Controller Request Sent Count
+[caption="Address: "]
+.0x0012 - CONTROLLER_REQUEST_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of request messages sent by the Controller since last reset
+|===
+
+Controller Message Dropped Count
+[caption="Address: "]
+.0x0013 - CONTROLLER_MESSAGE_DROPPED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of messages dropped by the Controller since last reset
+|===
+
+Controller Link Events Summary
+[caption="Address: "]
+.0x0020 - CONTROLLER_LINK_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 0 Events Summary
+[caption="Address: "]
+.0x0030 - TARGET_LINK0_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 1 Events Summary
+[caption="Address: "]
+.0x0040 - TARGET_LINK1_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+
+
+

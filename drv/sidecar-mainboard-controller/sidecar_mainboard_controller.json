@@ -1038,6 +1038,186 @@
                     "desc": "Field indicating the type of I2C error occured"
                 }
             ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_CONTROLLERS_COUNT",
+            "addr_offset": 768,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "COUNT",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The number of present/active Ignition Controllers"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT0",
+            "addr_offset": 769,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 0 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT1",
+            "addr_offset": 770,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 1 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT2",
+            "addr_offset": 771,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 2 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT3",
+            "addr_offset": 772,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 3 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT4",
+            "addr_offset": 773,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY4",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 4 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT5",
+            "addr_offset": 774,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY5",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 5 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT6",
+            "addr_offset": 775,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY6",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 6 of Ignition Target Present summary"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT7",
+            "addr_offset": 776,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT_SUMMARY7",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 7 of Ignition Target Present summary"
+                }
+            ]
         }
     ]
 }

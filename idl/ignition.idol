@@ -1,0 +1,88 @@
+// Ignition Server IPC interface
+
+Interface(
+    name: "Ignition",
+    ops: {
+        "port_count": (
+            doc: "Return the number of ports in the system",
+            args: {},
+            reply: Result(
+                ok: "u8",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "presence_summary": (
+            doc: "A bit vector indicating whether or not a Target is present on the given port",
+            args: {},
+            reply: Result(
+                ok: "u64",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "state": (
+            doc: "Return the state for the given controller port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: (
+                    type: "PortState",
+                    recv: FromPrimitive("u64"),
+                ),
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "counters": (
+            doc: "Return the counters for the given controller port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "Counters",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "link_events": (
+            doc: "Return the link events summary for the given controller port and link",
+            args: {
+                "port": "u8",
+                "link": (
+                    type: "LinkSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "LinkEvents",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "clear_link_events": (
+            doc: "Clear the link events for the given controller port and link",
+            args: {
+                "port": "u8",
+                "link": (
+                    type: "LinkSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+        "send_request": (
+            doc: "Send a request to the Target for the given controller port",
+            args: {
+                "port": "u8",
+                "request": (
+                    type: "Request",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+    }
+)

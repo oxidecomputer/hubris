@@ -1,0 +1,17 @@
+[package]
+name = "drv-ignition-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitfield = "0.13"
+derive_more = "0.99"
+derive-idol-err = {path = "../../lib/derive-idol-err" }
+drv-fpga-api = {path = "../fpga-api"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+num-traits = {version = "0.2.12", default-features = false}
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

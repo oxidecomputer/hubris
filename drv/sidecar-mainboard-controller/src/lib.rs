@@ -8,6 +8,7 @@ use drv_fpga_api::*;
 
 include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
 
+pub mod ignition;
 pub mod tofino2;
 
 pub struct MainboardController {
@@ -30,6 +31,12 @@ impl MainboardController {
         self.fpga.reset()
     }
 
+    pub fn ready(&self) -> Result<bool, FpgaError> {
+        self.fpga
+            .state()
+            .map(|s| s == DeviceState::RunningUserDesign)
+    }
+
     /// Poll the device state of the FPGA to determine if it is ready to receive
     /// a bitstream, resetting the device if needed.
     pub fn await_fpga_ready(
@@ -39,7 +46,13 @@ impl MainboardController {
         await_fpga_ready(&mut self.fpga, sleep_ticks)
     }
 
+    /// Read the design ident.
+    pub fn read_ident(&self) -> Result<FpgaUserDesignIdent, FpgaError> {
+        self.user_design.read(Addr::ID0)
+    }
+
     /// Load the mainboard controller bitstream.
+    #[cfg(feature = "bitstream")]
     pub fn load_bitstream(
         &mut self,
         auxflash: userlib::TaskId,
@@ -59,7 +72,8 @@ impl MainboardController {
 
     /// Returns the expected (short) checksum, which simply a prefix of the full
     /// SHA3-256 hash of the bitstream.
-    pub fn short_checksum() -> u32 {
+    #[cfg(feature = "bitstream")]
+    pub fn short_bitstream_checksum() -> u32 {
         u32::from_le_bytes(
             SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM[..4]
                 .try_into()
@@ -67,30 +81,30 @@ impl MainboardController {
         )
     }
 
-    /// Read the design ident.
-    pub fn read_ident(&self) -> Result<FpgaUserDesignIdent, FpgaError> {
-        self.user_design.read(Addr::ID0)
+    /// Set the checksum write-once registers to the expected checksum.
+    ///
+    /// In concert with `short_bitstream_checksum_valid`, this will detect when
+    /// the bitstream of an already running mainboard controller does
+    /// (potentially) not match the APIs used to build Hubris.
+    #[cfg(feature = "bitstream")]
+    pub fn set_short_bitstream_checksum(&self) -> Result<(), FpgaError> {
+        self.user_design.write(
+            WriteOp::Write,
+            Addr::CS0,
+            Self::short_bitstream_checksum().to_be(),
+        )
     }
 
-    /// Check whether the Ident checksum matches the expected checksum.
+    /// Check whether the Ident checksum matches the short bitstream checksum.
     ///
     /// This allows us to detect cases where the Hubris image has been updated
     /// while the FPGA remained powered: if the checksum of the FPGA bitstream
     /// in the new Hubris image has changed it will no longer match the Ident.
-    pub fn checksum_valid(&self, ident: &FpgaUserDesignIdent) -> bool {
-        ident.checksum.get() == Self::short_checksum()
-    }
-
-    /// Set the checksum fuse registers to the expected checksum.
-    ///
-    /// In concert with `checksum_valid`, this will detect when the bitstream of
-    /// an already running mainboard controller does (potentially) not match the
-    /// APIs used to build Hubris.
-    pub fn write_checksum(&self) -> Result<(), FpgaError> {
-        self.user_design.write(
-            WriteOp::Write,
-            Addr::CS0,
-            Self::short_checksum().to_be(),
-        )
+    #[cfg(feature = "bitstream")]
+    pub fn short_bitstream_checksum_valid(
+        &self,
+        ident: &FpgaUserDesignIdent,
+    ) -> bool {
+        ident.checksum.get() == Self::short_bitstream_checksum()
     }
 }

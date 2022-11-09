@@ -1,0 +1,1081 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+        "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script>
+    $(document).ready(function(){
+    $(".toggler").click(function(e){
+        e.preventDefault();
+        $('.cat'+$(this).attr('data-prod-cat')).toggle();
+    });
+    });
+</script>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>RegisterMap</title>
+    </head>
+    <body>
+    <style type="text/css" media="screen,print">
+    <!--
+    A:link {text-decorations: none; color: black}
+    A:hover {text-decorations: underline; color: black}
+    -->
+    body, html{
+        margin:0;
+        padding:0;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+    p{
+        margin-left:auto;
+        margin-right:auto;
+        padding:1em;
+        font-family:Verdana,Geneva,Arial,sans-serif;
+        font-size: 1em;
+    }
+
+    h1, h3 {
+        margin:0;
+        position: relative; left: 20px;
+        line-height: 1.45;
+    }
+
+    /* registers table */
+    table.register {
+        margin-left:auto;
+        margin-right:auto;
+        width: 98%;
+        border: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Header{
+        background-color: darkgrey;
+        height: 2em;
+        font-size: 100%;
+        border-bottom: medium solid #000;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register tr.Register{
+        height: 2em;
+        font-size: 75%;
+        border: thin solid #aaa;
+        border-collapse: collapse;
+        border-spacing:0;
+        }
+    table.register td.RegisterName {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        }
+    table.register td.Offset {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.Slice {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+
+        }
+    table.register td.Bitfield {
+        width: 10em;
+        text-align: left;
+        font-weight: bold;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        }
+    table.register td.validbitdef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdbitdef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: left;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.validspandef {
+        background-color: #D1FFD4;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.rsvdspandef {
+        background-color: lightgrey;
+        width: 10em;
+        max-width: 0;
+        text-align: center;
+        padding: 5px;
+        white-space: nowrap;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        font-size: 75%;
+        table-layout: fixed;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        }
+    table.register td.Description {
+        background-color: lightblue;
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.Blank {
+        width: 10em;
+        text-align: left;
+        padding: 5px
+        }
+    table.register td.FieldHeader {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        font-weight: bold;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #bbb;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    table.register td.FieldDesc {
+        width: 10em;
+        text-align: left;
+        padding: 5px;
+        border-left: 2px solid #aaa;
+        border-right: 2px solid #aaa;
+        border-collapse: collapse;
+        border-spacing: 0;
+        border-bottom: 2px solid #aaa;
+        overflow: hidden;              /* "overflow" value must be different from "visible" */
+        text-overflow: ellipsis;
+        }
+    .offset_tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    .offset_tooltip .tooltip_text {
+        visibility: hidden;
+        width: 120px;
+        background-color: grey;
+        color: #fff;
+        text-align: center;
+        padding: 5px 0;
+        border-radius: 6px;
+        /* Position the tooltip */
+        position: absolute;
+        z-index: 1;
+        bottom: 100%;
+        left: 50%;
+        margin-left: -60px;
+    }
+    .offset_tooltip:hover .tooltip_text {
+        visibility: visible;
+    }
+    </style>
+    <div id="header">
+        <h1>ignition_controller</h1>
+        <!--$optional_header -->
+    </div>
+    <table class="register">
+    <tr class="Header">
+        <td class="RegisterName" colspan="3*">Register Name</td>
+        <td class="Offset" colspan="2*">Byte Offset</td>
+        <td class="Slice" colspan="1*">Slice</td>
+        <td class="Bitfield" colspan="2*">Bit<br>7</td>
+        <td class="Bitfield" colspan="2*">Bit<br>6</td>
+        <td class="Bitfield" colspan="2*">Bit<br>5</td>
+        <td class="Bitfield" colspan="2*">Bit<br>4</td>
+        <td class="Bitfield" colspan="2*">Bit<br>3</td>
+        <td class="Bitfield" colspan="2*">Bit<br>2</td>
+        <td class="Bitfield" colspan="2*">Bit<br>1</td>
+        <td class="Bitfield" colspan="2*">Bit<br>0</td>
+
+    </tr>
+
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="0">CONTROLLER_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x0
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat0" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="validspandef" colspan="2*">TARGET_PRESENT</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">TARGET_PRESENT</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="1">CONTROLLER_LINK_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Link Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat1" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">POLARITY_INVERTED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_LOCKED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_ALIGNED</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="2">TARGET_SYSTEM_TYPE</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x2
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target System Type</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat2" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">SYSTEM_TYPE</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SYSTEM_TYPE</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The system type as advertised by the Target</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="3">TARGET_SYSTEM_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x3
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target System Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat3" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="8*">RSVD</td>
+                <td class="validspandef" colspan="2*">SYSTEM_POWER_ABORT</td>
+                <td class="validspandef" colspan="2*">SYSTEM_POWER_ENABLED</td>
+                <td class="validspandef" colspan="2*">CONTROLLER1_DETECTED</td>
+                <td class="validspandef" colspan="2*">CONTROLLER0_DETECTED</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SYSTEM_POWER_ABORT</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating system power was turned off due to power fault</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SYSTEM_POWER_ENABLED</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating system power of the Target system is enabled</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">CONTROLLER1_DETECTED</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 1</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">CONTROLLER0_DETECTED</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 0</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="4">TARGET_SYSTEM_FAULTS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x4
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target System Faults</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat4" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="4*">RSVD</td>
+                <td class="validspandef" colspan="2*">ROT_FAULT</td>
+                <td class="validspandef" colspan="2*">SP_FAULT</td>
+                <td class="validspandef" colspan="2*">RESERVED2</td>
+                <td class="validspandef" colspan="2*">RESERVED1</td>
+                <td class="validspandef" colspan="2*">POWER_FAULT_A2</td>
+                <td class="validspandef" colspan="2*">POWER_FAULT_A3</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ROT_FAULT</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the RoT</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SP_FAULT</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the SP</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESERVED2</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Reserved fault flag</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESERVED1</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Reserved fault flag</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POWER_FAULT_A2</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A2</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POWER_FAULT_A3</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A3</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="5">TARGET_REQUEST_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x5
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;TARGET_REQUEST_STATUS</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">SYSTEM_RESET_IN_PROGRESS</td>
+                <td class="validspandef" colspan="2*">POWER_ON_IN_PROGRESS</td>
+                <td class="validspandef" colspan="2*">POWER_OFF_IN_PROGRESS</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">SYSTEM_RESET_IN_PROGRESS</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a system reset request is in progress</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POWER_ON_IN_PROGRESS</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power on request is in progress</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POWER_OFF_IN_PROGRESS</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power off request is in progress</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="6">TARGET_LINK0_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x6
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target Link 0 Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat6" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">POLARITY_INVERTED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_LOCKED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_ALIGNED</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="7">TARGET_LINK1_STATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x7
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target Link 1 Status</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat7" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">POLARITY_INVERTED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_LOCKED</td>
+                <td class="validspandef" colspan="2*">RECEIVER_ALIGNED</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="8">TARGET_REQUEST</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x8
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target Request</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat8" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PENDING</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="4*">KIND</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PENDING</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a request is (still) pending</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">KIND</td>
+        <td class="FieldDesc" colspan="1*">1:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Value indicating the kind of request</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="9">CONTROLLER_STATUS_RECEIVED_COUNT</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x10
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Status Received Count</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat9" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COUNT</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The number of Status messages received by the Controller since last reset</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="10">CONTROLLER_HELLO_SENT_COUNT</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x11
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Hello Sent Count</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat10" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COUNT</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The number of hello messages sent by the Controller since last reset</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="11">CONTROLLER_REQUEST_SENT_COUNT</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x12
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Request Sent Count</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat11" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COUNT</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The number of request messages sent by the Controller since last reset</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">CONTROLLER_MESSAGE_DROPPED_COUNT</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x13
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Message Dropped Count</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">COUNT</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">The number of messages dropped by the Controller since last reset</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">CONTROLLER_LINK_EVENTS_SUMMARY</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x20
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Controller Link Events Summary</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="4*">RSVD</td>
+                <td class="validspandef" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_TYPE_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_VERSION_INVALID</td>
+                <td class="validspandef" colspan="2*">ORDERED_SET_INVALID</td>
+                <td class="validspandef" colspan="2*">DECODING_ERROR</td>
+                <td class="validspandef" colspan="2*">ENCODING_ERROR</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">TARGET_LINK0_EVENTS_SUMMARY</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x30
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target Link 0 Events Summary</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="4*">RSVD</td>
+                <td class="validspandef" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_TYPE_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_VERSION_INVALID</td>
+                <td class="validspandef" colspan="2*">ORDERED_SET_INVALID</td>
+                <td class="validspandef" colspan="2*">DECODING_ERROR</td>
+                <td class="validspandef" colspan="2*">ENCODING_ERROR</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">TARGET_LINK1_EVENTS_SUMMARY</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x40
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Target Link 1 Events Summary</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="4*">RSVD</td>
+                <td class="validspandef" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_TYPE_INVALID</td>
+                <td class="validspandef" colspan="2*">MESSAGE_VERSION_INVALID</td>
+                <td class="validspandef" colspan="2*">ORDERED_SET_INVALID</td>
+                <td class="validspandef" colspan="2*">DECODING_ERROR</td>
+                <td class="validspandef" colspan="2*">ENCODING_ERROR</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+    </tr>
+    </table>
+    </body>
+</html>

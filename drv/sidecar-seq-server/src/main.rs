@@ -378,6 +378,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn mainboard_controller_ready(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<SeqError>> {
+        self.mainboard_controller
+            .ready()
+            .map_err(SeqError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -461,10 +471,13 @@ fn main() -> ! {
                     }
                     panic!();
                 }
-                // Write the checksum fuses to lock the design until the FPGA is
-                // reset.
+                // Set the checksum write-once registers to lock the design
+                // until the FPGA is reset.
                 Ok(()) => {
-                    server.mainboard_controller.write_checksum().unwrap_lite();
+                    server
+                        .mainboard_controller
+                        .set_short_bitstream_checksum()
+                        .unwrap_lite();
                 }
             }
         }
@@ -495,9 +508,12 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::MainboardControllerChecksum(ident.checksum.into()));
 
-    if !server.mainboard_controller.checksum_valid(&ident) {
+    if !server
+        .mainboard_controller
+        .short_bitstream_checksum_valid(&ident)
+    {
         ringbuf_entry!(Trace::ExpectedMainboardControllerChecksum(
-            MainboardController::short_checksum()
+            MainboardController::short_bitstream_checksum()
         ));
 
         // The mainboard controller does not match the checksum of the

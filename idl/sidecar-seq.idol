@@ -252,5 +252,13 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+
+        "mainboard_controller_ready": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

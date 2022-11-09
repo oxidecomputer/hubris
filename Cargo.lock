@@ -991,6 +991,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ignition-api"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "derive-idol-err",
+ "derive_more",
+ "drv-fpga-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-ignition-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "drv-fpga-api",
+ "drv-ignition-api",
+ "drv-sidecar-mainboard-controller",
+ "drv-sidecar-seq-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-local-vpd"
 version = "0.1.0"
 dependencies = [
@@ -1290,6 +1323,7 @@ dependencies = [
  "build-util",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-ignition-api",
  "gnarle",
  "num-traits",
  "serde",

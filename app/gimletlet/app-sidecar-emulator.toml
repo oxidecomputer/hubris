@@ -2,11 +2,12 @@ name = "gimletlet-sidecar-emulator"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
 name = "gimletlet"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -102,24 +103,32 @@ stacksize = 2048
 start = true
 task-slots = ["sys", "spi_driver"]
 
-[tasks.i2c_emulator]
-name = "drv-sidecar-mainboard-i2c-emulator"
-priority = 2
-max-sizes = {flash = 8192, ram = 2048}
-start = true
+#[tasks.i2c_emulator]
+#name = "drv-sidecar-mainboard-i2c-emulator"
+#priority = 2
+#max-sizes = {flash = 8192, ram = 2048}
+#start = true
 
-[tasks.sequencer]
-name = "drv-sidecar-seq-server"
-features = []
-priority = 4
-max-sizes = {flash = 262144, ram = 2048}
+#[tasks.sequencer]
+#name = "drv-sidecar-seq-server"
+#features = []
+#priority = 4
+#max-sizes = {flash = 262144, ram = 2048}
+#stacksize = 1024
+#start = true
+#task-slots = ["sys", {i2c_driver = "i2c_emulator"}, "fpga", "spi_driver"]
+
+[tasks.ignition]
+name = "drv-ignition-server"
+priority = 5
+max-sizes = {flash = 16384, ram = 2048}
 stacksize = 1024
 start = true
-task-slots = ["sys", {i2c_driver = "i2c_emulator"}, "fpga", "spi_driver"]
+task-slots = ["fpga"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 5
+priority = 6
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -211,7 +220,7 @@ bus = "i2c2"
 address = 0b1100_011
 device = "raa229618"
 description = "TF2 VDD rail"
-pmbus = { rails = [ "V0P8_TF2_VDD_CORE" ] }
+power = { rails = [ "V0P8_TF2_VDD_CORE" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U31"
 
