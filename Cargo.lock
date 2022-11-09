@@ -1711,6 +1711,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
+ "transceiver-messages",
  "userlib",
  "zerocopy",
 ]
@@ -2180,7 +2181,16 @@ dependencies = [
 [[package]]
 name = "hubpack"
 version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+source = "git+https://github.com/cbiffle/hubpack?rev=d98084b85cc45fe589a49dd95403d7b41533375c#d98084b85cc45fe589a49dd95403d7b41533375c"
+dependencies = [
+ "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=d98084b85cc45fe589a49dd95403d7b41533375c)",
+ "serde",
+]
+
+[[package]]
+name = "hubpack"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
  "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
@@ -4505,6 +4515,15 @@ version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "transceiver-messages"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=d98084b85cc45fe589a49dd95403d7b41533375c)",
  "serde",
 ]
 

@@ -121,12 +121,13 @@ lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
-salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroize", default-features = false }
+salty = { git = "https://github.com/oxidecomputer/salty", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
+transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
