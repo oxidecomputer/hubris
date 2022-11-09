@@ -7,12 +7,15 @@
 
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary, leds::Leds, transceivers::Transceivers,
+    leds::FullErrorSummary,
+    leds::Leds,
+    transceivers::{FpgaPortMasks, Transceivers},
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
     ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
 };
+use hubpack::SerializedSize;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -25,7 +28,8 @@ task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
 
-use hubpack::SerializedSize;
+// Both incoming and outgoing messages use the Message type, so we use it to
+// size our Tx / Rx buffers.
 const MAX_UDP_MESSAGE_SIZE: usize =
     transceiver_messages::message::Message::MAX_SIZE;
 
@@ -107,6 +111,7 @@ impl ServerImpl {
     }
 }
 
+// Hardware-independent server code
 impl ServerImpl {
     fn check_net(&mut self, rx_data_buf: &mut [u8], tx_data_buf: &mut [u8]) {
         const SOCKET: SocketName = SocketName::transceivers;
@@ -119,15 +124,21 @@ impl ServerImpl {
         ) {
             Ok(mut meta) => {
                 let (msg, data) = hubpack::deserialize(rx_data_buf).unwrap();
-                let reply = self.handle_message(msg, data);
+                let reply = match self.handle_message(msg, data) {
+                    Ok(r) => r,
+                    Err(e) => HostResponse::Error(e),
+                };
                 let out = Message {
                     header: msg.header,
                     modules: msg.modules,
                     body: MessageBody::HostResponse(reply),
                 };
+                // Serialize into the tx buffer and send it out!
                 let out_size = hubpack::serialize(tx_data_buf, &out).unwrap();
                 meta.size = out_size as u32;
-                self.net.send_packet(SOCKET, meta, tx_data_buf).unwrap();
+                self.net
+                    .send_packet(SOCKET, meta, &tx_data_buf[0..out_size])
+                    .unwrap();
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets
@@ -136,12 +147,83 @@ impl ServerImpl {
             Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
     }
+
     fn handle_message(
         &mut self,
         msg: transceiver_messages::message::Message,
         data: &[u8],
-    ) -> transceiver_messages::message::HostResponse {
-        todo!()
+    ) -> Result<
+        transceiver_messages::message::HostResponse,
+        transceiver_messages::Error,
+    > {
+        use transceiver_messages::message::*;
+        if msg.header.version != 1 {
+            return Err(transceiver_messages::Error::VersionMismatch);
+        }
+
+        // Convert from the over-the-network type to our local port mask type
+        let fpga_ports: u32 = msg.modules.ports.into();
+        let fpga_mask = match msg.modules.fpga {
+            transceiver_messages::Fpga::LEFT => FpgaPortMasks {
+                left: fpga_ports as u16,
+                right: 0,
+            },
+            transceiver_messages::Fpga::RIGHT => FpgaPortMasks {
+                left: 0,
+                right: fpga_ports as u16,
+            },
+            i => {
+                return Err(
+                    // TODO: Fpga -> u8 conversion
+                    transceiver_messages::Error::InvalidFpga(todo!()),
+                );
+            }
+        };
+
+        match msg.body {
+            MessageBody::SpRequest(..)
+            | MessageBody::SpResponse(..)
+            | MessageBody::HostResponse(..) => {
+                return Err(transceiver_messages::Error::ProtocolError);
+            }
+            MessageBody::HostRequest(h) => {
+                self.handle_host_request(h, fpga_mask, data)
+            }
+        }
+    }
+
+    fn handle_host_request(
+        &mut self,
+        h: transceiver_messages::message::HostRequest,
+        mask: FpgaPortMasks,
+        data: &[u8],
+    ) -> Result<
+        transceiver_messages::message::HostResponse,
+        transceiver_messages::Error,
+    > {
+        use transceiver_messages::message::*;
+        match h {
+            HostRequest::Reset => {
+                // TODO: use a more correct error code
+                self.transceivers
+                    .set_reset(mask)
+                    .map_err(|_e| transceiver_messages::Error::ReadFailed)?;
+                userlib::hl::sleep_for(1);
+                self.transceivers
+                    .clear_reset(mask)
+                    .map_err(|_e| transceiver_messages::Error::ReadFailed)?;
+                Ok(HostResponse::Reset)
+            }
+            HostRequest::Status => {
+                todo!()
+            }
+            HostRequest::Read(mem) => {
+                todo!()
+            }
+            HostRequest::Write(mem) => {
+                todo!()
+            }
+        }
     }
 }
 ////////////////////////////////////////////////////////////////////////////////

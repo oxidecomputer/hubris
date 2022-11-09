@@ -26,9 +26,11 @@ struct PortLocation {
     port: u8,
 }
 
-struct FpgaPortMasks {
-    left: u16,
-    right: u16,
+/// Physical port maps, using bitfields to mark active ports
+#[derive(Copy, Clone)]
+pub struct FpgaPortMasks {
+    pub left: u16,
+    pub right: u16,
 }
 
 /// Port Map
@@ -203,24 +205,26 @@ const PORT_MAP: [PortLocation; 32] = [
 ];
 
 // Maps logical port `mask` to physical FPGA locations
-fn logical_to_local_map(mask: u32) -> FpgaPortMasks {
-    let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
+impl From<u32> for FpgaPortMasks {
+    fn from(mask: u32) -> FpgaPortMasks {
+        let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
 
-    for (i, port_loc) in PORT_MAP.iter().enumerate() {
-        let port_mask: u32 = 1 << i;
-        if (mask & port_mask) != 0 {
-            match port_loc.controller {
-                FpgaController::Left => {
-                    fpga_port_masks.left |= 1 << port_loc.port
-                }
-                FpgaController::Right => {
-                    fpga_port_masks.right |= 1 << port_loc.port
+        for (i, port_loc) in PORT_MAP.iter().enumerate() {
+            let port_mask: u32 = 1 << i;
+            if (mask & port_mask) != 0 {
+                match port_loc.controller {
+                    FpgaController::Left => {
+                        fpga_port_masks.left |= 1 << port_loc.port
+                    }
+                    FpgaController::Right => {
+                        fpga_port_masks.right |= 1 << port_loc.port
+                    }
                 }
             }
         }
-    }
 
-    fpga_port_masks
+        fpga_port_masks
+    }
 }
 
 impl Transceivers {
@@ -280,11 +284,9 @@ impl Transceivers {
     pub fn masked_port_op(
         &self,
         op: WriteOp,
-        mask: u32,
+        fpga_masks: FpgaPortMasks,
         addr: Addr,
     ) -> Result<(), FpgaError> {
-        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
-
         if fpga_masks.left != 0 {
             let wdata: U16<byteorder::BigEndian> = U16::new(fpga_masks.left);
             self.fpga(FpgaController::Left).write(op, addr, wdata)?;
@@ -298,46 +300,84 @@ impl Transceivers {
     }
 
     /// Set power enable bits per the specified `mask`
-    pub fn set_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_EN_H)
+    pub fn set_power_enable<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitSet, mask.into(), Addr::QSFP_CTRL_EN_H)
     }
 
     /// Clear power enable bits per the specified `mask`
-    pub fn clear_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_EN_H)
+    pub fn clear_power_enable<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_EN_H,
+        )
     }
 
     /// Set reset bits per the specified `mask`
-    pub fn set_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_RESET_H)
+    pub fn set_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_CTRL_RESET_H,
+        )
     }
 
     /// Clear reset bits per the specified `mask`
-    pub fn clear_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_RESET_H)
+    pub fn clear_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_RESET_H,
+        )
     }
 
     /// Set lpmode bits per the specified `mask`
-    pub fn set_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_LPMODE_H)
+    pub fn set_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_CTRL_LPMODE_H,
+        )
     }
 
     /// Clear reset bits per the specified `mask`
-    pub fn clear_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_LPMODE_H)
+    pub fn clear_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_LPMODE_H,
+        )
     }
 
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
     /// read. The maximum value of `num_bytes` is 128.
-    pub fn setup_i2c_op(
+    pub fn setup_i2c_op<M: Into<FpgaPortMasks>>(
         &self,
         is_read: bool,
         reg: u8,
         num_bytes: u8,
-        mask: u32,
+        mask: M,
     ) -> Result<(), FpgaError> {
-        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
+        let fpga_masks: FpgaPortMasks = mask.into();
 
         let i2c_op = if is_read {
             // Defaulting to RandomRead, rather than Read, because RandomRead
