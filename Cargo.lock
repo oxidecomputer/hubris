@@ -719,7 +719,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
  "serde",
  "serde-big-array",
  "sha3",
@@ -1730,10 +1730,12 @@ dependencies = [
  "drv-transceivers-api",
  "idol",
  "idol-runtime",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "stm32h7",
  "task-net-api",
+ "transceiver-messages",
  "userlib",
  "zerocopy",
 ]
@@ -2190,7 +2192,7 @@ dependencies = [
 [[package]]
 name = "hubpack"
 version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
  "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
@@ -2201,6 +2203,16 @@ name = "hubpack_derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35bd74819b334bf50982a40ec2a44cdf4e197ebbc74c02624897ecb66dbf828c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "hubpack_derive"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack?rev=d98084b85cc45fe589a49dd95403d7b41533375c#d98084b85cc45fe589a49dd95403d7b41533375c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3235,7 +3247,7 @@ dependencies = [
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize#eb3c31858f631a7fb9934246c8efdef080d05726"
+source = "git+https://github.com/oxidecomputer/salty#a9f17911a5024698406b75c0fac56ab5ccf6a8c7"
 dependencies = [
  "ed25519",
  "subtle",
@@ -3578,7 +3590,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
  "serde",
  "sha3",
  "static_assertions",
@@ -4521,6 +4533,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/transceiver-control#eee0b37b71788d3cd3de6fec341a5e4a7a600dd4"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=d98084b85cc45fe589a49dd95403d7b41533375c)",

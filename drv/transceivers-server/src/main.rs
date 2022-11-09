@@ -56,6 +56,52 @@ const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
 const TIMER_INTERVAL: u64 = 500;
 
+// Errors are being suppressed here due to a miswiring of the I2C bus at the
+// LED controller parts. They will not be accessible without rework to older
+// hardware, and newer (correct) hardware will be replacing the hold stuff
+// very soon.
+//
+// TODO: remove conditional compilation path once sidecar-a is sunset
+#[cfg(target_board = "sidecar-a")]
+impl ServerImpl {
+    fn led_init(&mut self) {
+        let _ = self.leds.initialize_current();
+        let _ = self.leds.turn_on_system_led();
+        self.leds_initialized = true;
+        ringbuf_entry!(Trace::LEDInitComplete);
+    }
+
+    fn led_update(&self, presence: u32) {
+        let _ = self.leds.update_led_state(presence);
+    }
+}
+
+#[cfg(not(target_board = "sidecar-a"))]
+impl ServerImpl {
+    fn led_init(&mut self) {
+        match self
+            .leds
+            .initialize_current()
+            .and(self.leds.turn_on_system_led())
+        {
+            Ok(_) => {
+                self.leds_initialized = true;
+                ringbuf_entry!(Trace::LEDInitComplete);
+            }
+            Err(e) => ringbuf_entry!(Trace::LEDInitError(e)),
+        };
+    }
+
+    fn led_update(&self, presence: u32) {
+        if self.leds_initialized {
+            match self.leds.update_led_state(presence) {
+                Ok(_) => (),
+                Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e)),
+            }
+        }
+    }
+}
+
 impl idl::InOrderTransceiversImpl for ServerImpl {
     fn get_modules_status(
         &mut self,
@@ -227,26 +273,7 @@ impl NotificationHandler for ServerImpl {
             };
 
             if presence != self.modules_present {
-                // Errors are being suppressed here due to a miswiring of the
-                // I2C bus at the LED controller parts. They will not be
-                // accessible without rework to older hardware, and newer
-                // (correct) hardware will be replacing the hold stuff very
-                // soon.
-                //
-                // TODO: remove conditional compilation path once sidecar-a is
-                // sunset
-                cfg_if::cfg_if! {
-                    if #[cfg(target_board = "sidecar-a")] {
-                        let _ = self.leds.update_led_state(presence);
-                    } else {
-                        if self.leds_initialized {
-                            match self.leds.update_led_state(presence) {
-                                Ok(_) => (),
-                                Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e))
-                            }
-                        }
-                    }
-                }
+                self.led_update(presence);
 
                 self.modules_present = presence;
                 ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
@@ -306,41 +333,19 @@ fn main() -> ! {
         ringbuf_entry!(Trace::LEDInit);
 
         server.transceivers.enable_led_controllers().unwrap();
-
-        // Errors are being suppressed here due to a miswiring of the I2C bus at
-        // the LED controller parts. They will not be accessible without rework
-        // to older hardware, and newer (correct) hardware will be replacing the
-        // hold stuff very soon.
-        // TODO: remove conditional compilation path once sidecar-a is sunset
-        cfg_if::cfg_if! {
-            if #[cfg(target_board = "sidecar-a")] {
-                let _ = server.leds.initialize_current();
-                let _ = server.leds.turn_on_system_led();
-                server.leds_initialized = true;
-                ringbuf_entry!(Trace::LEDInitComplete);
-            } else {
-                match server.leds.initialize_current().and(server.leds.turn_on_system_led()) {
-                    Ok(_) => {
-                        server.leds_initialized = true;
-                        ringbuf_entry!(Trace::LEDInitComplete);
-                    }
-                    Err(e) => ringbuf_entry!(Trace::LEDInitError(e)),
-                };
-            }
-        }
+        server.led_init();
 
         // This will put our timer in the past, immediately forcing an update
         let deadline = sys_get_timer().now;
         sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
 
         let mut buffer = [0; idl::INCOMING_SIZE];
+        let (mut tx_data_buf, mut rx_data_buf) = claim_statics();
         loop {
-            let mut rx_data_buf = [0u8; 1024];
-            let mut tx_data_buf = [0u8; 1024];
             match net.recv_packet(
                 SOCKET,
                 LargePayloadBehavior::Discard,
-                &mut rx_data_buf,
+                rx_data_buf.as_mut_slice(),
             ) {
                 Ok(mut meta) => {
                     // TODO: here's where we do stuff
@@ -355,7 +360,16 @@ fn main() -> ! {
         }
     }
 }
+////////////////////////////////////////////////////////////////////////////////
 
+/// Grabs references to the static descriptor/buffer receive rings. Can only be
+/// called once.
+pub fn claim_statics() -> (&'static mut [u8; 1024], &'static mut [u8; 1024]) {
+    mutable_statics::mutable_statics! {
+        static mut TX_BUF: [u8; 1024] = [|| 0u8; _];
+        static mut RX_BUF: [u8; 1024] = [|| 0u8; _];
+    }
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
