@@ -23,6 +23,7 @@ enum Trace {
     AwaitingMainboardControllerReady,
     PortCount(u8),
     PresenceUpdate(u64),
+    PresencePollError(IgnitionError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -44,17 +45,16 @@ fn main() -> ! {
     // not to be true and run this task with something else guaranteeing that
     // the mainboard controller (or something which looks like it) is present
     // and ready.
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sequencer")] {
-            let sequencer =
-                drv_sidecar_seq_api::Sequencer::from(SEQUENCER.get_task_id());
+    #[cfg(feature = "sequencer")]
+    {
+        let sequencer =
+            drv_sidecar_seq_api::Sequencer::from(SEQUENCER.get_task_id());
 
-            // Poll the sequencer to determine if the mainboard controller is
-            // ready.
-            ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
-            while !sequencer.mainboard_controller_ready().unwrap_or(false) {
-                hl::sleep_for(25);
-            }
+        // Poll the sequencer to determine if the mainboard controller is
+        // ready.
+        ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
+        while !sequencer.mainboard_controller_ready().unwrap_or(false) {
+            hl::sleep_for(25);
         }
     }
 
@@ -62,7 +62,7 @@ fn main() -> ! {
     server.port_count = server.controller.port_count().unwrap_lite();
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
-    // Set a timer in the past causing the presence state to be polled an
+    // Set a timer in the past causing the presence state to be polled and
     // updated as soon as the serving loop starts.
     sys_set_timer(Some(sys_get_timer().now), TIMER_NOTIFICATION_MASK);
 
@@ -101,10 +101,17 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
     ) -> Result<u8, RequestError> {
-        self.controller
+        let count = self
+            .controller
             .port_count()
             .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
+            .map_err(RequestError::from)?;
+
+        if count == 0xff {
+            Err(RequestError::from(IgnitionError::FpgaError))
+        } else {
+            Ok(count)
+        }
     }
 
     fn presence_summary(
@@ -187,9 +194,9 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         }
 
         let port_state = self.port_state(port).map_err(RequestError::from)?;
-        let target_state = port_state
-            .target()
-            .ok_or(RequestError::from(IgnitionError::NoTargetPresent))?;
+        let target_state = port_state.target().ok_or_else(|| {
+            RequestError::from(IgnitionError::NoTargetPresent)
+        })?;
 
         if target_state.system_reset_in_progress()
             || target_state.system_power_off_in_progress()
@@ -217,7 +224,9 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         // count of 0xff may occur if the FPGA is running an incorrect
         // bitstream.
         if self.port_count > 0 && self.port_count != 0xff {
-            if let Err(_e) = self.poll_presence() {}
+            if let Err(e) = self.poll_presence() {
+                ringbuf_entry!(Trace::PresencePollError(e));
+            }
         }
 
         let finish = sys_get_timer().now;

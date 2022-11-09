@@ -29,17 +29,19 @@ impl IgnitionController {
             + u16::from(offset)
     }
 
+    #[inline]
     fn read_port_register<T>(
         &self,
         port: u8,
         offset: IgnitionAddr,
     ) -> Result<T, FpgaError>
     where
-        T: AsBytes + Default + FromBytes,
+        T: AsBytes + FromBytes,
     {
         self.fpga.read(self.port_addr(port, offset))
     }
 
+    #[inline]
     fn write_port_register<T>(
         &self,
         port: u8,
@@ -47,7 +49,7 @@ impl IgnitionController {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: AsBytes + Default + FromBytes,
+        T: AsBytes + FromBytes,
     {
         self.fpga
             .write(WriteOp::Write, self.port_addr(port, offset), value)
@@ -111,7 +113,7 @@ impl IgnitionController {
         self.write_port_register(
             port,
             Self::link_events_addr(link),
-            LinkEvents(0b111111), // Clear all events
+            LinkEvents::ALL,
         )
     }
 

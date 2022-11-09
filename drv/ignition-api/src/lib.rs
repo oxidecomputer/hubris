@@ -8,13 +8,14 @@
 
 use bitfield::bitfield;
 use derive_idol_err::IdolError;
+use derive_more::From;
 use drv_fpga_api::FpgaError;
 use idol_runtime::ServerDeath;
 use userlib::{sys_send, FromPrimitive, ToPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, IdolError,
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive, IdolError,
 )]
 pub enum IgnitionError {
     ServerDied,
@@ -38,28 +39,26 @@ impl From<FpgaError> for IgnitionError {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, FromBytes, AsBytes)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, From, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct PortState(u64);
     pub target_present, _: 0;
+    pub u8, into ReceiverStatus, receiver_status, _: 15, 8;
+    u64, into Target, raw_target, _: 63, 16;
 }
 
 impl PortState {
     pub fn target(&self) -> Option<Target> {
         if self.target_present() {
-            Some(Target(self.0 & 0xffffffffffff0000))
+            Some(self.raw_target())
         } else {
             None
         }
     }
-
-    pub fn receiver_status(&self) -> ReceiverStatus {
-        ReceiverStatus((self.0 >> 8) as u8)
-    }
 }
 
 bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, FromBytes, AsBytes)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct ReceiverStatus(u8);
     pub aligned, _: 0;
@@ -68,60 +67,43 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, FromBytes, AsBytes)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct Target(u64);
-    pub controller0_present, _: 24;
-    pub controller1_present, _: 25;
-    pub system_power_abort, _: 27;
-    pub system_power_fault_a3, _: 32;
-    pub system_power_fault_a2, _: 33;
-    pub reserved_fault1, _: 34;
-    pub reserved_fault2, _: 35;
-    pub sp_fault, _: 36;
-    pub rot_fault, _: 37;
-    pub system_power_off_in_progress, _: 40;
-    pub system_power_on_in_progress, _: 41;
-    pub system_reset_in_progress, _: 42;
+    pub u8, into SystemType, system_type, _: 7, 0;
+    pub controller0_present, _: 8;
+    pub controller1_present, _: 9;
+    raw_system_power_state, _: 10;
+    pub system_power_abort, _: 11;
+    pub system_power_fault_a3, _: 16;
+    pub system_power_fault_a2, _: 17;
+    pub reserved_fault1, _: 18;
+    pub reserved_fault2, _: 19;
+    pub sp_fault, _: 20;
+    pub rot_fault, _: 21;
+    pub system_power_off_in_progress, _: 24;
+    pub system_power_on_in_progress, _: 25;
+    pub system_reset_in_progress, _: 26;
+    pub u8, into ReceiverStatus, link0_receiver_status, _: 39, 32;
+    pub u8, into ReceiverStatus, link1_receiver_status, _: 47, 40;
 }
 
 impl Target {
-    pub fn system_type(&self) -> SystemType {
-        SystemType(self.0.as_bytes()[2])
-    }
-
+    #[inline]
     pub fn system_power_state(&self) -> PowerState {
-        match self.0.as_bytes()[3] & 0x4 != 0 {
-            true => PowerState::On,
-            false => PowerState::Off,
+        if self.raw_system_power_state() {
+            PowerState::On
+        } else {
+            PowerState::Off
         }
-    }
-
-    pub fn link0_receiver_status(&self) -> ReceiverStatus {
-        ReceiverStatus(self.0.as_bytes()[6])
-    }
-
-    pub fn link1_receiver_status(&self) -> ReceiverStatus {
-        ReceiverStatus(self.0.as_bytes()[7])
     }
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    FromPrimitive,
-    ToPrimitive,
-    FromBytes,
-    AsBytes,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct SystemType(pub u8);
 
-#[derive(
-    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, AsBytes,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, From, AsBytes)]
 #[repr(u8)]
 pub enum PowerState {
     Off = 0,
@@ -129,7 +111,7 @@ pub enum PowerState {
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, AsBytes,
+    Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
 )]
 #[repr(u8)]
 pub enum Request {
@@ -144,7 +126,7 @@ impl From<Request> for u8 {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, AsBytes, FromBytes)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct Counters {
     status_received: u8,
@@ -153,19 +135,8 @@ pub struct Counters {
     messages_dropped: u8,
 }
 
-impl Default for Counters {
-    fn default() -> Self {
-        Counters {
-            status_received: 0,
-            hello_sent: 0,
-            request_sent: 0,
-            messages_dropped: 0,
-        }
-    }
-}
-
 bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, FromBytes, AsBytes)]
+    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct LinkEvents(u8);
     encoding_error, _: 0;
@@ -176,26 +147,19 @@ bitfield! {
     message_checksum_invalid, _: 5;
 }
 
-impl Default for LinkEvents {
-    fn default() -> Self {
-        LinkEvents(0)
-    }
+impl LinkEvents {
+    pub const NONE: Self = Self(0b000000);
+    pub const ALL: Self = Self(0b111111);
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, AsBytes,
+    Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
 )]
 #[repr(u8)]
 pub enum LinkSelect {
     Controller = 1,
     TargetLink0 = 2,
     TargetLink1 = 3,
-}
-
-impl From<LinkSelect> for u8 {
-    fn from(link: LinkSelect) -> Self {
-        link as u8
-    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

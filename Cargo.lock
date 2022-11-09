@@ -996,6 +996,7 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "derive-idol-err",
+ "derive_more",
  "drv-fpga-api",
  "idol",
  "idol-runtime",

@@ -261,6 +261,7 @@ impl FpgaUserDesign {
         self.server.reset_user_design(self.device_index)
     }
 
+    #[inline]
     pub fn read<T>(&self, addr: impl Into<u16>) -> Result<T, FpgaError>
     where
         T: AsBytes + FromBytes,
@@ -270,6 +271,7 @@ impl FpgaUserDesign {
         Ok(v)
     }
 
+    #[inline]
     pub fn read_bytes(
         &self,
         addr: impl Into<u16>,
@@ -279,6 +281,7 @@ impl FpgaUserDesign {
             .user_design_read(self.device_index, addr.into(), data)
     }
 
+    #[inline]
     pub fn write<T>(
         &self,
         op: WriteOp,
@@ -291,6 +294,7 @@ impl FpgaUserDesign {
         self.write_bytes(op, addr, value.as_bytes())
     }
 
+    #[inline]
     pub fn write_bytes(
         &self,
         op: WriteOp,

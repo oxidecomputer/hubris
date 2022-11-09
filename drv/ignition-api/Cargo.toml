@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bitfield = "0.13"
+derive_more = "0.99"
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 drv-fpga-api = {path = "../fpga-api"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
