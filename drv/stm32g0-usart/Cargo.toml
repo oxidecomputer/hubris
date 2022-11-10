@@ -1,16 +1,17 @@
 [package]
 name = "drv-stm32g0-usart"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-initial-support", default-features = false }
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-semihosting = { version = "0.5.0" }
+cortex-m = { workspace = true }
+cortex-m-semihosting = { workspace = true }
+num-traits = { workspace = true }
+stm32g0 = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", default-features = false }
+userlib = { path = "../../sys/userlib" }
 
 [features]
 g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]

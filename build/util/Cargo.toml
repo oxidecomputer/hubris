@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "build-util"
 version = "0.1.0"

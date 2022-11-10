@@ -1,14 +1,15 @@
 [package]
 name = "drv-stm32h7-spi"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-ringbuf = {path = "../../lib/ringbuf"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-vcell = "0.1.2"
-stm32h7 = { version = "0.14", default-features = false }
+num-traits = { workspace = true }
+stm32h7 = { workspace = true }
+vcell = { workspace = true }
+zerocopy = { workspace = true }
+
+ringbuf = { path = "../../lib/ringbuf" }
 
 [features]
 h743 = ["stm32h7/stm32h743"]

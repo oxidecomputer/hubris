@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "xtask"
 version = "1.0.0"

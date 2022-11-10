@@ -1,18 +1,16 @@
 [package]
 name = "lpc55-iocon-gen"
 version = "0.1.0"
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
 
 [dependencies]
-zerocopy = "0.6.1"
-quote = "1.0.9"
-cfg-if = "1"
-proc-macro2 = "1.0.9"
+cfg-if = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+zerocopy = { workspace = true }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
+build-util = { path = "../../build/util" }
 
 [lib]
 proc-macro = true

@@ -46,7 +46,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]
@@ -620,7 +620,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]
@@ -1135,7 +1135,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-sprot-api",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol-runtime",
  "if_chain",
  "lpc55-pac",
@@ -1408,7 +1408,7 @@ dependencies = [
  "crc",
  "derive-idol-err",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "if_chain",
  "memoffset",
@@ -1451,7 +1451,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "userlib",
  "zerocopy",
 ]
@@ -1566,7 +1566,7 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1601,7 +1601,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1617,7 +1617,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1638,7 +1638,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
 ]
@@ -1654,7 +1654,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "task-jefe-api",
  "userlib",
@@ -1722,7 +1722,7 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "num-traits",
  "serde",
@@ -3631,16 +3631,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stm32g0"
-version = "0.15.1"
-source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
-dependencies = [
- "bare-metal 1.0.0",
- "cortex-m",
- "vcell",
-]
-
-[[package]]
 name = "stm32h7"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4439,7 +4429,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]

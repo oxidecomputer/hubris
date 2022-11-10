@@ -708,7 +708,6 @@ impl BuildConfig<'_> {
             "cmse_nonsecure_entry",
             "naked_functions",
             "named-profiles",
-            "workspace-inheritance",
         ]);
         // nightly features that our dependencies use:
         nightly_features.extend([

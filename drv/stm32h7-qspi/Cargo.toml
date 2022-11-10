@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-drv-qspi-api = {path = "../qspi-api"}
-stm32h7 = { version = "0.14", default-features = false }
-vcell = "0.1.2"
-zerocopy = "0.6.1"
-userlib = {path = "../../sys/userlib"}
+stm32h7 = { workspace = true }
+vcell = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-qspi-api = { path = "../qspi-api" }
+userlib = { path = "../../sys/userlib" }
 
 [features]
 h743 = ["stm32h7/stm32h743"]

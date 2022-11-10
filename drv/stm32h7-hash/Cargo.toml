@@ -1,16 +1,17 @@
 [package]
 name = "drv-stm32h7-hash"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-stm32h7 = { version = "0.14", default-features = false }
-vcell = "0.1.2"
-drv-hash-api = {path = "../hash-api"}
-zerocopy = "0.6.1"
-userlib = {path = "../../sys/userlib"}
+stm32h7 = { workspace = true }
+vcell = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-hash-api = { path = "../hash-api" }
+userlib = { path = "../../sys/userlib" }
 
 [features]
 h753 = ["stm32h7/stm32h753"]

@@ -1,11 +1,9 @@
 [package]
 name = "drv-ice40-spi-program"
 version = "0.1.0"
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-drv-spi-api = {path = "../spi-api"}
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api"}
+drv-spi-api = { path = "../spi-api" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+userlib = { path = "../../sys/userlib" }

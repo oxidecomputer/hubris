@@ -1,15 +1,16 @@
 [package]
 name = "drv-lpc55-gpio-api"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-cfg-if = "1"
-derive-idol-err = {path = "../../lib/derive-idol-err" }
+cfg-if = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-util = { path = "../../build/util" }
+idol = { workspace = true }

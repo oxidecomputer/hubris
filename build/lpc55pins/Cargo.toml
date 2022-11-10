@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "build-lpc55pins"
 version = "0.1.0"

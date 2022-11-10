@@ -1,5 +1,3 @@
-cargo-features = ["workspace-inheritance"]
-
 [package]
 name = "drv-fpga-server"
 version = "0.1.0"
