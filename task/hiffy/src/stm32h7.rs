@@ -391,7 +391,7 @@ fn gpio_args(
     };
 
     let mask = match stack[fp + 1] {
-        Some(pin) if pin < 16 => (1u16 << pin),
+        Some(pin) if pin < 16 => 1u16 << pin,
         Some(_) => {
             return Err(Failure::Fault(Fault::BadParameter(1)));
         }
