@@ -162,20 +162,20 @@ impl ServerImpl {
         }
 
         // Convert from the over-the-network type to our local port mask type
-        let fpga_ports: u32 = msg.modules.ports.into();
-        let fpga_mask = match msg.modules.fpga {
-            transceiver_messages::Fpga::LEFT => FpgaPortMasks {
-                left: fpga_ports as u16,
+        let fpga_ports: u16 = msg.modules.ports.0;
+        let fpga_mask = match msg.modules.fpga_id {
+            0 => FpgaPortMasks {
+                left: fpga_ports,
                 right: 0,
             },
-            transceiver_messages::Fpga::RIGHT => FpgaPortMasks {
+            1 => FpgaPortMasks {
                 left: 0,
-                right: fpga_ports as u16,
+                right: fpga_ports,
             },
             i => {
                 return Err(
                     // TODO: Fpga -> u8 conversion
-                    transceiver_messages::Error::InvalidFpga(todo!()),
+                    transceiver_messages::Error::InvalidFpga(i),
                 );
             }
         };
@@ -212,7 +212,7 @@ impl ServerImpl {
                 self.transceivers
                     .clear_reset(mask)
                     .map_err(|_e| transceiver_messages::Error::ReadFailed)?;
-                Ok(HostResponse::Reset)
+                Ok(HostResponse::Ack)
             }
             HostRequest::Status => {
                 todo!()
@@ -221,6 +221,12 @@ impl ServerImpl {
                 todo!()
             }
             HostRequest::Write(mem) => {
+                todo!()
+            }
+            HostRequest::SetPowerMode(mode) => {
+                todo!()
+            }
+            HostRequest::ManagementInterface(i) => {
                 todo!()
             }
         }
