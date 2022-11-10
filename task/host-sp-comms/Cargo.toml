@@ -5,8 +5,7 @@ edition = "2018"
 
 [dependencies]
 cfg-if = "1"
-#corncobs = "0.1.1"
-corncobs = {git = "https://github.com/jgallagher/corncobs.git", branch = "fix-encode-buf"}
+corncobs = "0.1.3"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 enum-map = "2.4.1"
 heapless = "0.7.16"

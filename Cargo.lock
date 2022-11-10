@@ -376,14 +376,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "corncobs"
-version = "0.1.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
-
-[[package]]
-name = "corncobs"
-version = "0.1.2"
-source = "git+https://github.com/jgallagher/corncobs.git?branch=fix-encode-buf#3390268ef07a53be28156151b41ce12309ed4f28"
+checksum = "f9236877021b66ad90f833d8a73a7acb702b985b64c5986682d9f1f1a184f0fb"
 
 [[package]]
 name = "cortex-m"
@@ -735,7 +730,7 @@ name = "dice-mfg-msgs"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/dice-util?rev=5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
- "corncobs 0.1.1",
+ "corncobs",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde-big-array",
@@ -3802,7 +3797,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
- "corncobs 0.1.2",
+ "corncobs",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
