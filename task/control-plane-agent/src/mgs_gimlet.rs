@@ -601,7 +601,8 @@ impl SpHandler for MgsHandler {
             data_len: data.len(),
         }));
 
-        self.host_phase2.ingest_incoming_data(port, hash, offset, data);
+        self.host_phase2
+            .ingest_incoming_data(port, hash, offset, data);
     }
 }
 

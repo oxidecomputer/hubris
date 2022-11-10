@@ -6,7 +6,8 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId, MgsError,
+    sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
+    UpdateId,
 };
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
