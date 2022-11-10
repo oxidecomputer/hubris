@@ -18,8 +18,8 @@ zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_de
 zerocopy = "0.6"
 
 [dependencies.dice-mfg-msgs]
-git = "https://github.com/flihp/dice-util"
-branch = "serial-number-to-11"
+git = "https://github.com/oxidecomputer/dice-util"
+rev = "5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 
 [dependencies.salty]
 git = "https://github.com/oxidecomputer/salty"
