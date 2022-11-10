@@ -4,14 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cfg-if = "1"
 bitfield = "0.13"
 derive_more = "0.99"
 derive-idol-err = {path = "../../lib/derive-idol-err" }
-drv-fpga-api = {path = "../fpga-api"}
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-fpga-api = {path = "../fpga-api", optional = true}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git", optional = true}
 num-traits = {version = "0.2.12", default-features = false}
-userlib = {path = "../../sys/userlib"}
+num-derive = {version = "0.3.0", features = [ "full-syntax" ]}
+userlib = {path = "../../sys/userlib", optional = true}
 zerocopy = "0.6.1"
+
+[features]
+default = ["idol-client"]
+idol-client = ["drv-fpga-api", "idol-runtime", "userlib"]
 
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

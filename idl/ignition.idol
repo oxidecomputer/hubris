@@ -84,5 +84,13 @@ Interface(
                 err: CLike("IgnitionError"),
             ),
         ),
+        "state_dump": (
+            doc: "Return the state of all ports",
+            args: {},
+            reply: Result(
+                ok: "[u64; 40]",
+                err: CLike("IgnitionError"),
+            ),
+        ),
     }
 )

@@ -9,13 +9,27 @@
 use bitfield::bitfield;
 use derive_idol_err::IdolError;
 use derive_more::From;
-use drv_fpga_api::FpgaError;
-use idol_runtime::ServerDeath;
-use userlib::{sys_send, FromPrimitive, ToPrimitive};
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
+// The `presence_summary` vector (see `ignition-server`) is implicitly capped at 40 bits by (the RTL of
+// the) mainboard controller. This constant is used to conservatively allocate
+// an array type which can contain the port state for all ports. The actual
+// number of pors configured in the system can be learned through the
+// `port_count()` function below.
+pub const PORT_MAX: usize = 40;
+
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive, IdolError,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    IdolError,
 )]
 pub enum IgnitionError {
     ServerDied,
@@ -26,20 +40,8 @@ pub enum IgnitionError {
     RequestInProgress,
 }
 
-impl From<ServerDeath> for IgnitionError {
-    fn from(_e: ServerDeath) -> Self {
-        Self::ServerDied
-    }
-}
-
-impl From<FpgaError> for IgnitionError {
-    fn from(_e: FpgaError) -> Self {
-        Self::FpgaError
-    }
-}
-
 bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, From, FromBytes, AsBytes)]
+    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, FromPrimitive, From, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct PortState(u64);
     pub target_present, _: 0;
@@ -69,21 +71,34 @@ bitfield! {
 bitfield! {
     #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
     #[repr(C)]
+    pub struct SystemFaults(u8);
+    pub power_a3, _: 0;
+    pub power_a2, _: 1;
+    pub reserved1, _: 2;
+    pub reserved2, _: 3;
+    pub sp, _: 4;
+    pub rot, _: 5;
+}
+
+impl SystemFaults {
+    pub fn count(&self) -> usize {
+        self.0.count_ones().try_into().unwrap()
+    }
+}
+
+bitfield! {
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
+    #[repr(C)]
     pub struct Target(u64);
     pub u8, into SystemType, system_type, _: 7, 0;
     pub controller0_present, _: 8;
     pub controller1_present, _: 9;
     raw_system_power_state, _: 10;
     pub system_power_abort, _: 11;
-    pub system_power_fault_a3, _: 16;
-    pub system_power_fault_a2, _: 17;
-    pub reserved_fault1, _: 18;
-    pub reserved_fault2, _: 19;
-    pub sp_fault, _: 20;
-    pub rot_fault, _: 21;
+    pub u8, into SystemFaults, faults, _: 23, 16;
     pub system_power_off_in_progress, _: 24;
     pub system_power_on_in_progress, _: 25;
-    pub system_reset_in_progress, _: 26;
+    pub system_power_reset_in_progress, _: 26;
     pub u8, into ReceiverStatus, link0_receiver_status, _: 39, 32;
     pub u8, into ReceiverStatus, link1_receiver_status, _: 47, 40;
 }
@@ -117,7 +132,7 @@ pub enum PowerState {
 pub enum Request {
     SystemPowerOff = 1,
     SystemPowerOn = 2,
-    SystemReset = 3,
+    SystemPowerReset = 3,
 }
 
 impl From<Request> for u8 {
@@ -162,4 +177,24 @@ pub enum LinkSelect {
     TargetLink1 = 3,
 }
 
-include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+cfg_if::cfg_if! {
+    if #[cfg(feature = "idol-client")] {
+        use drv_fpga_api::FpgaError;
+        use idol_runtime::ServerDeath;
+        use userlib::sys_send;
+
+        impl From<ServerDeath> for IgnitionError {
+            fn from(_e: ServerDeath) -> Self {
+                Self::ServerDied
+            }
+        }
+
+        impl From<FpgaError> for IgnitionError {
+            fn from(_e: FpgaError) -> Self {
+                Self::FpgaError
+            }
+        }
+
+        include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+    }
+}
