@@ -7,9 +7,7 @@
 
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary,
-    leds::Leds,
-    transceivers::{FpgaPortMasks, Transceivers},
+    leds::FullErrorSummary, leds::Leds, transceivers::Transceivers,
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
@@ -20,8 +18,9 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
-use task_net_api::*;
 use userlib::*;
+
+mod net_api;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
@@ -30,8 +29,9 @@ task_slot!(NET, net);
 
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
+const MAX_DATA_PAYLOAD: usize = transceiver_messages::MAX_MESSAGE_SIZE;
 const MAX_UDP_MESSAGE_SIZE: usize =
-    transceiver_messages::message::Message::MAX_SIZE;
+    transceiver_messages::message::Message::MAX_SIZE + MAX_DATA_PAYLOAD;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -55,7 +55,7 @@ ringbuf!(Trace, 16, Trace::None);
 struct ServerImpl {
     transceivers: Transceivers,
     leds: Leds,
-    net: Net,
+    net: task_net_api::Net,
     modules_present: u32,
     led_error: FullErrorSummary,
     leds_initialized: bool,
@@ -111,127 +111,6 @@ impl ServerImpl {
     }
 }
 
-// Hardware-independent server code
-impl ServerImpl {
-    fn check_net(&mut self, rx_data_buf: &mut [u8], tx_data_buf: &mut [u8]) {
-        const SOCKET: SocketName = SocketName::transceivers;
-
-        use transceiver_messages::message::*;
-        match self.net.recv_packet(
-            SOCKET,
-            LargePayloadBehavior::Discard,
-            rx_data_buf,
-        ) {
-            Ok(mut meta) => {
-                let (msg, data) = hubpack::deserialize(rx_data_buf).unwrap();
-                let reply = match self.handle_message(msg, data) {
-                    Ok(r) => r,
-                    Err(e) => HostResponse::Error(e),
-                };
-                let out = Message {
-                    header: msg.header,
-                    modules: msg.modules,
-                    body: MessageBody::HostResponse(reply),
-                };
-                // Serialize into the tx buffer and send it out!
-                let out_size = hubpack::serialize(tx_data_buf, &out).unwrap();
-                meta.size = out_size as u32;
-                self.net
-                    .send_packet(SOCKET, meta, &tx_data_buf[0..out_size])
-                    .unwrap();
-            }
-            Err(RecvError::QueueEmpty) => {
-                // Our incoming queue is empty. Wait for more packets
-                // in dispatch_n below.
-            }
-            Err(RecvError::NotYours | RecvError::Other) => panic!(),
-        }
-    }
-
-    fn handle_message(
-        &mut self,
-        msg: transceiver_messages::message::Message,
-        data: &[u8],
-    ) -> Result<
-        transceiver_messages::message::HostResponse,
-        transceiver_messages::Error,
-    > {
-        use transceiver_messages::message::*;
-        if msg.header.version != 1 {
-            return Err(transceiver_messages::Error::VersionMismatch);
-        }
-
-        // Convert from the over-the-network type to our local port mask type
-        let fpga_ports: u16 = msg.modules.ports.0;
-        let fpga_mask = match msg.modules.fpga_id {
-            0 => FpgaPortMasks {
-                left: fpga_ports,
-                right: 0,
-            },
-            1 => FpgaPortMasks {
-                left: 0,
-                right: fpga_ports,
-            },
-            i => {
-                return Err(
-                    // TODO: Fpga -> u8 conversion
-                    transceiver_messages::Error::InvalidFpga(i),
-                );
-            }
-        };
-
-        match msg.body {
-            MessageBody::SpRequest(..)
-            | MessageBody::SpResponse(..)
-            | MessageBody::HostResponse(..) => {
-                return Err(transceiver_messages::Error::ProtocolError);
-            }
-            MessageBody::HostRequest(h) => {
-                self.handle_host_request(h, fpga_mask, data)
-            }
-        }
-    }
-
-    fn handle_host_request(
-        &mut self,
-        h: transceiver_messages::message::HostRequest,
-        mask: FpgaPortMasks,
-        data: &[u8],
-    ) -> Result<
-        transceiver_messages::message::HostResponse,
-        transceiver_messages::Error,
-    > {
-        use transceiver_messages::message::*;
-        match h {
-            HostRequest::Reset => {
-                // TODO: use a more correct error code
-                self.transceivers
-                    .set_reset(mask)
-                    .map_err(|_e| transceiver_messages::Error::ReadFailed)?;
-                userlib::hl::sleep_for(1);
-                self.transceivers
-                    .clear_reset(mask)
-                    .map_err(|_e| transceiver_messages::Error::ReadFailed)?;
-                Ok(HostResponse::Ack)
-            }
-            HostRequest::Status => {
-                todo!()
-            }
-            HostRequest::Read(mem) => {
-                todo!()
-            }
-            HostRequest::Write(mem) => {
-                todo!()
-            }
-            HostRequest::SetPowerMode(mode) => {
-                todo!()
-            }
-            HostRequest::ManagementInterface(i) => {
-                todo!()
-            }
-        }
-    }
-}
 ////////////////////////////////////////////////////////////////////////////////
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
@@ -450,7 +329,7 @@ fn main() -> ! {
             &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
         );
 
-        let net = Net::from(NET.get_task_id());
+        let net = task_net_api::Net::from(NET.get_task_id());
         let (tx_data_buf, rx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             transceivers,

@@ -238,7 +238,7 @@ impl Transceivers {
         }
     }
 
-    fn fpga(&self, c: FpgaController) -> &FpgaUserDesign {
+    pub fn fpga(&self, c: FpgaController) -> &FpgaUserDesign {
         &self.fpgas[c as usize]
     }
 
