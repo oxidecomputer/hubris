@@ -9,6 +9,7 @@
 
 use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
@@ -107,9 +108,11 @@ pub enum SpToHost {
     DecodeFailure(DecodeFailureReason),
     BootStorageUnit(Bsu),
     Identity {
-        model: [u8; 11], // TODO model format?
+        #[serde(with = "BigArray")]
+        model: [u8; 51], // TODO model format?
         revision: u32,
-        serial: [u8; 11], // TODO serial format?
+        #[serde(with = "BigArray")]
+        serial: [u8; 51], // TODO serial format?
     },
     MacAddresses {
         base: [u8; 6],
@@ -118,7 +121,7 @@ pub enum SpToHost {
     },
     Status {
         status: Status,
-        debug: DebugReg,
+        startup: StartupOptions,
     },
     // Followed by a binary data blob (the alert), or maybe action is another
     // hubpack-encoded enum?
@@ -180,20 +183,17 @@ bitflags::bitflags! {
 
         // Resync is a WIP; omit for now.
         // const READY_FOR_RESYNC  = 1 << 2;
-
-        // Instruct the host to go into recovery mode and fetch its phase2 image
-        // from the SP.
-        const PHASE2_RECOVERY = 1 << 3;
     }
 
     #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
     #[repr(transparent)]
-    pub struct DebugReg: u64 {
-        const DEBUG_KBM = 1 << 0;
-        const DEBUG_BOOTRD = 1 << 1;
-        const DEBUG_PROM = 1 << 2;
-        const DEBUG_KMDB = 1 << 3;
-        const DEBUG_KMDB_BOOT = 1 << 4;
+    pub struct StartupOptions: u64 {
+        const PHASE2_RECOVERY_MODE = 1 << 0;
+        const DEBUG_KBM = 1 << 1;
+        const DEBUG_BOOTRD = 1 << 2;
+        const DEBUG_PROM = 1 << 3;
+        const DEBUG_KMDB = 1 << 4;
+        const DEBUG_KMDB_BOOT = 1 << 5;
     }
 }
 
@@ -338,9 +338,9 @@ mod tests {
             (
                 0x04,
                 SpToHost::Identity {
-                    model: [0; 11],
+                    model: [0; 51],
                     revision: 0,
-                    serial: [0; 11],
+                    serial: [0; 51],
                 },
             ),
             (
@@ -355,7 +355,7 @@ mod tests {
                 0x06,
                 SpToHost::Status {
                     status: Status::empty(),
-                    debug: DebugReg::empty(),
+                    startup: StartupOptions::empty(),
                 },
             ),
             (0x07, SpToHost::Alert { action: 0 }),
@@ -480,7 +480,8 @@ mod tests {
         // Message including `Status`, which is defined by `bitflags!`.
         let message = SpToHost::Status {
             status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
-            debug: DebugReg::DEBUG_KMDB | DebugReg::DEBUG_KMDB_BOOT,
+            startup: StartupOptions::DEBUG_KMDB
+                | StartupOptions::DEBUG_KMDB_BOOT,
         };
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
@@ -495,7 +496,47 @@ mod tests {
             0x06,
             // payload
             0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
+
+        // Message including `Identity`, which uses serde_big_array.
+        let fake_model = b"913-0000019";
+        let fake_serial = b"OXE99990000";
+        let mut model = [0; 51];
+        let mut serial = [0; 51];
+        model[..fake_model.len()].copy_from_slice(&fake_model[..]);
+        serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
+        let message = SpToHost::Identity {
+            model,
+            revision: 2,
+            serial,
+        };
+        let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
+        #[rustfmt::skip]
+        let expected_without_cksum: &[u8] = &[
+            // magic
+            0xcc, 0x19, 0xde, 0x01,
+            // version
+            0x67, 0x45, 0x23, 0x01,
+            // sequence
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+            // command
+            0x04,
+            // model (51 bytes)
+            b'9', b'1', b'3', b'-', b'0', b'0', b'0', b'0', b'0', b'1', b'9',
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            // revision (4 bytes)
+            0x02, 0x00, 0x00, 0x00,
+            // serial (51 bytes)
+            b'O', b'X', b'E', b'9', b'9', b'9', b'9', b'0', b'0', b'0', b'0',
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
     }

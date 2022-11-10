@@ -2144,6 +2144,7 @@ dependencies = [
  "fletcher",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "serde",
+ "serde-big-array",
  "serde_repr",
  "unwrap-lite",
  "zerocopy",

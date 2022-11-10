@@ -15,8 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
-    SpToHost, Status, MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost,
+    StartupOptions, Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -107,7 +107,9 @@ fn main() -> ! {
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
     // XXX For now, we want to default to these options.
-    server.set_debug_impl(DebugReg::DEBUG_KMDB | DebugReg::DEBUG_PROM);
+    server.set_startup_options_impl(
+        StartupOptions::DEBUG_KMDB | StartupOptions::DEBUG_PROM,
+    );
 
     sys_irq_control(USART_IRQ, true);
 
@@ -135,7 +137,7 @@ struct ServerImpl {
     tx_buf: TxBuf,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
-    debug: DebugReg,
+    startup_options: StartupOptions,
     sequencer: Sequencer,
     hf: HostFlash,
     cp_agent: ControlPlaneAgent,
@@ -162,7 +164,7 @@ impl ServerImpl {
             tx_buf: TxBuf::claim_static_resources(),
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
-            debug: DebugReg::empty(),
+            startup_options: StartupOptions::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
@@ -185,10 +187,8 @@ impl ServerImpl {
         }
     }
 
-    fn set_debug_impl(&mut self, debug: DebugReg) {
-        if debug != self.debug {
-            self.debug = debug;
-        }
+    fn set_startup_options_impl(&mut self, startup_options: StartupOptions) {
+        self.startup_options = startup_options;
     }
 
     /// Power off the host (i.e., transition to A2).
@@ -597,10 +597,16 @@ impl ServerImpl {
             }
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
+                let fake_model = b"913-0000019";
+                let fake_serial = b"OXE99990000";
+                let mut model = [0; 51];
+                let mut serial = [0; 51];
+                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
+                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
                 Some(SpToHost::Identity {
-                    model: *b"913-0000019",
+                    model,
                     revision: 2,
-                    serial: *b"OXE99990000",
+                    serial,
                 })
             }
             HostToSp::GetMacAddresses => {
@@ -621,13 +627,12 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
                 status: self.status,
-                debug: self.debug,
+                startup: self.startup_options,
             }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
-                action = Some(Action::ClearStatusBits(
-                    Status::SP_TASK_RESTARTED | Status::PHASE2_RECOVERY,
-                ));
+                action =
+                    Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
                 Some(SpToHost::Ack)
             }
             HostToSp::GetAlert => {
@@ -867,24 +872,24 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
         Ok(self.status)
     }
 
-    fn set_debug(
+    fn set_startup_options(
         &mut self,
         _msg: &userlib::RecvMessage,
-        debug: u64,
+        startup_options: u64,
     ) -> Result<(), RequestError<HostSpCommsError>> {
-        let debug =
-            DebugReg::from_bits(debug).ok_or(HostSpCommsError::InvalidDebug)?;
+        let startup_options = StartupOptions::from_bits(startup_options)
+            .ok_or(HostSpCommsError::InvalidStartupOptions)?;
 
-        self.set_debug_impl(debug);
+        self.set_startup_options_impl(startup_options);
 
         Ok(())
     }
 
-    fn get_debug(
+    fn get_startup_options(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<DebugReg, RequestError<HostSpCommsError>> {
-        Ok(self.debug)
+    ) -> Result<StartupOptions, RequestError<HostSpCommsError>> {
+        Ok(self.startup_options)
     }
 }
 
@@ -1005,6 +1010,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::{DebugReg, HostSpCommsError, Status};
+    use task_host_sp_comms_api::{HostSpCommsError, StartupOptions, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
