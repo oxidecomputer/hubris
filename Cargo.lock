@@ -46,7 +46,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.15.1",
+ "stm32g0 0.14.0",
 ]
 
 [[package]]
@@ -3637,7 +3637,6 @@ source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
- "cortex-m-rt",
  "vcell",
 ]
 

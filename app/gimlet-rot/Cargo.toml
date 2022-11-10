@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 edition = "2018"
 readme = "README.md"
@@ -9,18 +11,16 @@ itm = ["panic-itm"]
 semihosting = ["panic-semihosting"]
 
 [dependencies]
-cortex-m = {version = "0.7", features = ["inline-asm"]}
-cortex-m-rt = "0.6.12"
-panic-itm = { version = "0.4.1", optional = true }
-panic-halt = { version = "0.2.0", optional = true }
-panic-semihosting = { version = "0.5.3", optional = true }
-lpc55-pac = {version = "0.4", features = ["rt"]}
-cfg-if = "1"
-abi = { path = "../../sys/abi"}
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+panic-itm = { workspace = true, optional = true }
+panic-halt = { workspace = true, optional = true }
+panic-semihosting = { workspace = true, optional = true }
+lpc55-pac = { workspace = true, features = ["rt"]}
+cfg-if = { workspace = true }
 
-[dependencies.kern]
-path = "../../sys/kern"
-default-features = false
+abi = { path = "../../sys/abi"}
+kern = { path = "../../sys/kern", default-features = false }
 
 # this lets you use `cargo fix`!
 [[bin]]

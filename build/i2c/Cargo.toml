@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "build-i2c"
 version = "0.1.0"
@@ -5,13 +7,13 @@ edition = "2018"
 
 [dependencies]
 build-util = {path = "../util"}
-serde = { version = "1.0.114", features = ["derive"] }
-indexmap = { version = "1.4.0", features = ["serde-1"] }
-anyhow = "1.0.31"
-cfg-if = "1"
-multimap = "0.8.3"
-convert_case = "0.4"
-cargo_metadata = "0.12.0"
+anyhow = { workspace = true }
+cargo_metadata = { workspace = true }
+cfg-if = { workspace = true }
+convert_case = { workspace = true }
+indexmap = { workspace = true }
+multimap = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 [features]
 h743 = []

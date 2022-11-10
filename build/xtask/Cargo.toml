@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "xtask"
 version = "1.0.0"
@@ -6,47 +8,44 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-atty = "0.2"
-colored = "2.0"
-clap = { version = "3.0.14", features = ["derive"] }
-anyhow = "1.0.32"
-cargo_metadata = "0.12.0"
-ordered-toml = {git = "https://github.com/oxidecomputer/ordered-toml"}
-strsim = "0.10.0"
-memchr = "2.4"
+anyhow = { workspace = true }
+atty = { workspace = true }
+cargo_metadata = { workspace = true }
+clap = { workspace = true }
+colored = { workspace = true }
+memchr = { workspace = true }
+ordered-toml = { workspace = true }
+strsim = { workspace = true }
 
 # for dist
-serde = { version = "1.0.114", features = ["derive"] }
-toml = "0.5.6"
-ron = "0.7"
-indexmap = { version = "1.4.0", features = ["serde-1"] }
-srec = "0.2.0"
-goblin = { version = "0.4.3", features = ["std", "elf32", "endian_fd"] }
-serde_json = "1.0.56"
-path-slash = "0.1.3"
-ctrlc = "3.1.5"
-dunce = "1.0.2"
-tlvc = {git = "https://github.com/oxidecomputer/tlvc"}
-tlvc-text = {git = "https://github.com/oxidecomputer/tlvc"}
-gnarle = {path = "../../lib/gnarle", features=["std"]}
-sha3 = {version = "0.10", default-features = false}
-build-kconfig = {path = "../kconfig"}
+serde = { workspace = true }
+toml = { workspace = true }
+ron = { workspace = true }
+indexmap = { workspace = true }
+srec = { workspace = true }
+goblin = { workspace = true }
+serde_json = { workspace = true }
+path-slash = { workspace = true }
+ctrlc = { workspace = true }
+dunce = { workspace = true }
+tlvc = { workspace = true }
+tlvc-text = { workspace = true }
+sha3 = { workspace = true }
+byteorder = { workspace = true }
+filetime = { workspace = true }
+scroll = { workspace = true }
+walkdir = { workspace = true }
+fnv = { workspace = true }
+zerocopy = { workspace = true }
+
 # a feature of zip we use is deprecated in 0.5.7, so let's make sure we stay
 # on the version that works for us
 zip = "=0.5.6"
+
+gnarle = { path = "../../lib/gnarle", features = ["std"] }
+build-kconfig = { path = "../kconfig" }
 abi = { path = "../../sys/abi" }
-byteorder = "1.3.4"
-filetime = "0.2.12"
-scroll = "0.10"
-walkdir = "2.0.0"
-fnv = "1.0.7"
-zerocopy = "0.6.1"
 
 # For NXP signing
-[dependencies.lpc55_sign]
-git = "https://github.com/oxidecomputer/lpc55_support"
-rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
-
-[dependencies.lpc55_areas]
-git = "https://github.com/oxidecomputer/lpc55_support"
-rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+lpc55_sign = { workspace = true }
+lpc55_areas = { workspace = true }
