@@ -181,9 +181,19 @@ impl ServerImpl {
                 Ok((HostResponse::Status, count))
             }
             HostRequest::Read(mem) => {
+                if mem.len() as usize * modules.ports.0.count_ones() as usize
+                    > transceiver_messages::MAX_MESSAGE_SIZE
+                {
+                    return Err(Error::RequestTooLarge);
+                }
                 todo!()
             }
             HostRequest::Write(mem) => {
+                if mem.len() as usize * modules.ports.0.count_ones() as usize
+                    > transceiver_messages::MAX_MESSAGE_SIZE
+                {
+                    return Err(Error::RequestTooLarge);
+                }
                 todo!()
             }
             HostRequest::SetPowerMode(mode) => {
