@@ -29,6 +29,7 @@ ringbuf!(Trace, 16, Trace::None);
 
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
+const PORT_MAX: usize = 40;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -101,16 +102,10 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
     ) -> Result<u8, RequestError> {
-        let count = self
-            .controller
-            .port_count()
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)?;
-
-        if count == 0xff {
+        if self.port_count == 0xff {
             Err(RequestError::from(IgnitionError::FpgaError))
         } else {
-            Ok(count)
+            Ok(self.port_count)
         }
     }
 
@@ -198,7 +193,7 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             RequestError::from(IgnitionError::NoTargetPresent)
         })?;
 
-        if target_state.system_reset_in_progress()
+        if target_state.system_power_reset_in_progress()
             || target_state.system_power_off_in_progress()
             || target_state.system_power_on_in_progress()
         {
@@ -209,6 +204,30 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .set_request(port, request)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
+    }
+
+    fn state_dump(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<[u64; PORT_MAX], RequestError> {
+        let mut state = [0u64; PORT_MAX];
+        let mut summary = self
+            .controller
+            .presence_summary()
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)?;
+
+        for i in 0..core::cmp::min(state.len(), self.port_count as usize) {
+            // Check if the present bit is set in the summary.
+            if summary & 0x1 != 0 {
+                state[i] =
+                    self.port_state(i as u8).map_err(RequestError::from)?.0;
+            }
+            // Advance to the next port.
+            summary = summary >> 1;
+        }
+
+        Ok(state)
     }
 }
 

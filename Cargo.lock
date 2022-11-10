@@ -995,11 +995,13 @@ name = "drv-ignition-api"
 version = "0.1.0"
 dependencies = [
  "bitfield",
+ "cfg-if",
  "derive-idol-err",
  "derive_more",
  "drv-fpga-api",
  "idol",
  "idol-runtime",
+ "num-derive",
  "num-traits",
  "userlib",
  "zerocopy",
