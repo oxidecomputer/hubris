@@ -145,3 +145,7 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-b/dist/default/final.bin"
+
+[extratext.rom]
+address = 0x13000000
+size = 0x20000

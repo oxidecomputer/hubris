@@ -83,6 +83,20 @@ task-slots = ["sys"]
 [tasks.spi3_driver.config.spi]
 global_config = "spi3"
 
+[tasks.spi4_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 2048}
+features = ["spi4", "h753"]
+uses = ["spi4"]
+start = true
+interrupts = {"spi4.irq" = 1}
+stacksize = 872
+task-slots = ["sys"]
+
+[tasks.spi4_driver.config.spi]
+global_config = "spi4"
+
 [tasks.spi5_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -151,6 +165,15 @@ task-slots = [
 ]
 features = ["sidecar", "vlan", "auxflash"]
 
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 4
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys", {spi_driver = "spi4_driver"}]
+features = ["sink_test"]
+
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 6
@@ -210,12 +233,12 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "spi", "stm32h7", "itm", "i2c", "gpio"]
+features = ["h753", "spi", "stm32h7", "itm", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -795,6 +818,19 @@ input = {port = "C", pin = 11, af = 6} # SPI_SP_TO_EPE_MISO
 mux = "port_c"
 cs = [{port = "A", pin = 4}] # SPI_SP_TO_EPE_CS_L
 
+[config.spi.spi4]
+controller = 4
+
+[config.spi.spi4.devices.rot]
+mux = "rot"
+cs = [{port = "E", pin = 4}]
+clock_divider = "DIV256"
+
+[config.spi.spi4.mux_options.rot]
+outputs = [
+    {port = "E", pins = [2, 6], af = 5},
+]
+input = {port = "E", pin = 5, af = 5}
 
 [config.spi.spi5]
 controller = 5
