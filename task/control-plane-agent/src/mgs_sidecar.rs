@@ -8,8 +8,8 @@ use drv_sidecar_seq_api::Sequencer;
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
     BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, PowerState, ResponseError, SpComponent,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    IgnitionCommand, IgnitionState, PowerState, SpComponent, SpError, SpPort,
+    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
@@ -86,7 +86,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         port: SpPort,
-    ) -> Result<DiscoverResponse, ResponseError> {
+    ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(port)
     }
 
@@ -95,20 +95,20 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         target: u8,
-    ) -> Result<IgnitionState, ResponseError> {
+    ) -> Result<IgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn bulk_ignition_state(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<BulkIgnitionState, ResponseError> {
+    ) -> Result<BulkIgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_command(
@@ -117,19 +117,19 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
         command: IgnitionCommand,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn sp_state(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpState, ResponseError> {
+    ) -> Result<SpState, SpError> {
         self.common.sp_state()
     }
 
@@ -138,7 +138,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         update: SpUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.aux_flash_size + update.sp_image_size,
             component: SpComponent::SP_ITSELF,
@@ -154,7 +154,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         update: ComponentUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
@@ -163,7 +163,7 @@ impl SpHandler for MgsHandler {
         }));
 
         // We currently don't have any updateable components on sidecar.
-        Err(ResponseError::RequestUnsupportedForComponent)
+        Err(SpError::RequestUnsupportedForComponent)
     }
 
     fn update_status(
@@ -171,14 +171,14 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         component: SpComponent,
-    ) -> Result<UpdateStatus, ResponseError> {
+    ) -> Result<UpdateStatus, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
             component
         }));
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -188,7 +188,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         chunk: UpdateChunk,
         data: &[u8],
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
@@ -198,7 +198,7 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -208,14 +208,14 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
         id: UpdateId,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
         }));
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -223,7 +223,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<PowerState, ResponseError> {
+    ) -> Result<PowerState, SpError> {
         use drv_sidecar_seq_api::TofinoSeqState;
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
 
@@ -232,7 +232,7 @@ impl SpHandler for MgsHandler {
         let state = match self
             .sequencer
             .tofino_seq_state()
-            .map_err(|e| ResponseError::PowerStateError(e as u32))?
+            .map_err(|e| SpError::PowerStateError(e as u32))?
         {
             TofinoSeqState::Initial
             | TofinoSeqState::InPowerDown
@@ -248,7 +248,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         power_state: PowerState,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         use drv_sidecar_seq_api::TofinoSequencerPolicy;
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
             power_state
@@ -257,12 +257,12 @@ impl SpHandler for MgsHandler {
         let policy = match power_state {
             PowerState::A0 => TofinoSequencerPolicy::LatchOffOnFault,
             PowerState::A2 => TofinoSequencerPolicy::Disabled,
-            PowerState::A1 => return Err(ResponseError::PowerStateError(0)),
+            PowerState::A1 => return Err(SpError::PowerStateError(0)),
         };
 
         self.sequencer
             .set_tofino_seq_policy(policy)
-            .map_err(|e| ResponseError::PowerStateError(e as u32))
+            .map_err(|e| SpError::PowerStateError(e as u32))
     }
 
     fn serial_console_attach(
@@ -270,9 +270,9 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         _component: SpComponent,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn serial_console_write(
@@ -281,28 +281,28 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         offset: u64,
         data: &[u8],
-    ) -> Result<u64, ResponseError> {
+    ) -> Result<u64, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn serial_console_detach(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn reset_prepare(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         self.common.reset_prepare()
     }
 
@@ -310,7 +310,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<Infallible, ResponseError> {
+    ) -> Result<Infallible, SpError> {
         self.common.reset_trigger()
     }
 

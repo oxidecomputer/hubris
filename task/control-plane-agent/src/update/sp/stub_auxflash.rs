@@ -6,7 +6,7 @@
 /// `auxflash` module (our sibling). All method implementations panic: none of
 /// them should ever be called.
 use crate::mgs_handler::BorrowedUpdateBuffer;
-use gateway_messages::{ResponseError, UpdateId, UpdateStatus};
+use gateway_messages::{SpError, UpdateId, UpdateStatus};
 use userlib::TaskId;
 
 // Provide a fake `AuxFlash` idol client for our parent to import.
@@ -113,7 +113,7 @@ impl AcceptingData {
         _offset: u32,
         _data: &[u8],
         _aux_flash_size: u32,
-    ) -> (IngestDataResult, Result<(), ResponseError>) {
+    ) -> (IngestDataResult, Result<(), SpError>) {
         panic!()
     }
 }

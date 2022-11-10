@@ -4,7 +4,7 @@
 
 use crate::mgs_handler::UpdateBuffer;
 use gateway_messages::{
-    ComponentUpdatePrepare, ResponseError, UpdateId, UpdateStatus,
+    ComponentUpdatePrepare, SpError, UpdateId, UpdateStatus,
 };
 
 #[cfg(feature = "gimlet")]
@@ -38,7 +38,7 @@ pub(crate) trait ComponentUpdater {
         &mut self,
         buffer: &'static UpdateBuffer,
         update: ComponentUpdatePrepare,
-    ) -> Result<(), ResponseError>;
+    ) -> Result<(), SpError>;
 
     /// Returns true if this task needs `step_preparation()` called.
     fn is_preparing(&self) -> bool;
@@ -55,12 +55,12 @@ pub(crate) trait ComponentUpdater {
         id: &UpdateId,
         offset: u32,
         data: &[u8],
-    ) -> Result<(), ResponseError>;
+    ) -> Result<(), SpError>;
 
     /// Abort the current update if it matches `id`.
     ///
     /// If no update is in progress, should return `Ok(())`; i.e., this should
     /// only return an error if we attempted to abort the update with id `id`
     /// and that abort failed.
-    fn abort(&mut self, id: &UpdateId) -> Result<(), ResponseError>;
+    fn abort(&mut self, id: &UpdateId) -> Result<(), SpError>;
 }

@@ -13,10 +13,10 @@ use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
-    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, PowerState, ResponseError, SpComponent,
-    SpMessage, SpMessageKind, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus,
+    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse, Header,
+    IgnitionCommand, IgnitionState, Message, MessageKind, PowerState,
+    SpComponent, SpError, SpPort, SpRequest, SpState, SpUpdatePrepare,
+    UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
 use ringbuf::ringbuf_entry_root;
@@ -69,6 +69,7 @@ pub(crate) struct MgsHandler {
     usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     serial_console_write_offset: u64,
+    next_message_id: u32,
 }
 
 impl MgsHandler {
@@ -84,6 +85,7 @@ impl MgsHandler {
             usart,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
+            next_message_id: 0,
         }
     }
 
@@ -131,6 +133,12 @@ impl MgsHandler {
         self.usart.should_flush_to_mgs()
     }
 
+    fn next_message_id(&mut self) -> u32 {
+        let id = self.next_message_id;
+        self.next_message_id = id.wrapping_add(1);
+        id
+    }
+
     pub(crate) fn packet_to_mgs(
         &mut self,
         tx_buf: &mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
@@ -155,12 +163,15 @@ impl MgsHandler {
             buffered: self.usart.from_rx.len(),
         });
 
-        let message = SpMessage {
-            version: gateway_messages::version::V1,
-            kind: SpMessageKind::SerialConsole {
+        let message = Message {
+            header: Header {
+                version: gateway_messages::version::V2,
+                message_id: self.next_message_id(),
+            },
+            kind: MessageKind::SpRequest(SpRequest::SerialConsole {
                 component: SpComponent::SP3_HOST_CPU,
                 offset: self.usart.from_rx_offset,
-            },
+            }),
         };
 
         let (from_rx0, from_rx1) = self.usart.from_rx.as_slices();
@@ -190,7 +201,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         port: SpPort,
-    ) -> Result<DiscoverResponse, ResponseError> {
+    ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(port)
     }
 
@@ -199,20 +210,20 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         target: u8,
-    ) -> Result<IgnitionState, ResponseError> {
+    ) -> Result<IgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn bulk_ignition_state(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<BulkIgnitionState, ResponseError> {
+    ) -> Result<BulkIgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_command(
@@ -221,19 +232,19 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
         command: IgnitionCommand,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn sp_state(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpState, ResponseError> {
+    ) -> Result<SpState, SpError> {
         self.common.sp_state()
     }
 
@@ -242,7 +253,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         update: SpUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.aux_flash_size + update.sp_image_size,
             component: SpComponent::SP_ITSELF,
@@ -258,7 +269,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         update: ComponentUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
@@ -270,7 +281,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -280,7 +291,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         chunk: UpdateChunk,
         data: &[u8],
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
@@ -293,7 +304,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -302,7 +313,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         component: SpComponent,
-    ) -> Result<UpdateStatus, ResponseError> {
+    ) -> Result<UpdateStatus, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
             component
         }));
@@ -317,7 +328,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            _ => return Err(ResponseError::RequestUnsupportedForComponent),
+            _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
         Ok(status)
@@ -329,7 +340,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
         id: UpdateId,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
         }));
@@ -346,7 +357,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
-            _ => Err(ResponseError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -354,7 +365,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<PowerState, ResponseError> {
+    ) -> Result<PowerState, SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
 
@@ -366,7 +377,7 @@ impl SpHandler for MgsHandler {
         let state = match self
             .sequencer
             .get_state()
-            .map_err(|e| ResponseError::PowerStateError(e as u32))?
+            .map_err(|e| SpError::PowerStateError(e as u32))?
         {
             DrvPowerState::A2
             | DrvPowerState::A2PlusMono
@@ -385,7 +396,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         power_state: PowerState,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
             power_state
@@ -399,7 +410,7 @@ impl SpHandler for MgsHandler {
 
         self.sequencer
             .set_state(power_state)
-            .map_err(|e| ResponseError::PowerStateError(e as u32))
+            .map_err(|e| SpError::PowerStateError(e as u32))
     }
 
     fn serial_console_attach(
@@ -407,18 +418,18 @@ impl SpHandler for MgsHandler {
         sender: SocketAddrV6,
         port: SpPort,
         component: SpComponent,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
 
         // Including a component in the serial console messages is half-baked at
         // the moment; we can at least check that it's the one component we
         // expect (the host CPU).
         if component != SpComponent::SP3_HOST_CPU {
-            return Err(ResponseError::RequestUnsupportedForComponent);
+            return Err(SpError::RequestUnsupportedForComponent);
         }
 
         if self.attached_serial_console_mgs.is_some() {
-            return Err(ResponseError::SerialConsoleAlreadyAttached);
+            return Err(SpError::SerialConsoleAlreadyAttached);
         }
 
         // TODO: Add some kind of auth check before allowing a serial console
@@ -435,7 +446,7 @@ impl SpHandler for MgsHandler {
         port: SpPort,
         mut offset: u64,
         mut data: &[u8],
-    ) -> Result<u64, ResponseError> {
+    ) -> Result<u64, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
@@ -447,7 +458,7 @@ impl SpHandler for MgsHandler {
         // As a temporary measure, we can at least ensure that we only allow
         // writes from the attached console.
         if Some((sender, port)) != self.attached_serial_console_mgs {
-            return Err(ResponseError::SerialConsoleNotAttached);
+            return Err(SpError::SerialConsoleNotAttached);
         }
 
         // Have we already received some or all of this data? (MGS may resend
@@ -476,7 +487,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
         Ok(())
@@ -486,7 +497,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         self.common.reset_prepare()
     }
 
@@ -494,7 +505,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<Infallible, ResponseError> {
+    ) -> Result<Infallible, SpError> {
         self.common.reset_trigger()
     }
 

@@ -218,9 +218,7 @@ const fn assert_device_tlv_fits_in_one_packet(
     device: &'static str,
     description: &'static str,
 ) {
-    use gateway_messages::{
-        tlv, SerializedSize, MIN_SP_MESSAGE_TRAILING_TRAILING_DATA_LEN,
-    };
+    use gateway_messages::{tlv, SerializedSize, MIN_TRAILING_DATA_LEN};
 
     let encoded_len = tlv::tlv_len(
         gateway_messages::DeviceDescriptionHeader::MAX_SIZE
@@ -228,7 +226,7 @@ const fn assert_device_tlv_fits_in_one_packet(
             + description.len(),
     );
 
-    if encoded_len > MIN_SP_MESSAGE_TRAILING_TRAILING_DATA_LEN {
+    if encoded_len > MIN_TRAILING_DATA_LEN {
         panic!(concat!(
             "The device details (device and description) of at least one ",
             "device in the current app.toml are too long to fit in a single ",
