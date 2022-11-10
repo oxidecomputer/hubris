@@ -728,7 +728,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.1.0"
-source = "git+https://github.com/flihp/dice-util?branch=serial-number-to-11#58f2e5dcd389d279636e14e2410afdc743912247"
+source = "git+https://github.com/oxidecomputer/dice-util?rev=5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
  "corncobs",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
