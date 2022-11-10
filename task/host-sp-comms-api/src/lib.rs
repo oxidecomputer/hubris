@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
-pub use host_sp_messages::{StartupOptions, Status};
+pub use host_sp_messages::{HostStartupOptions, Status};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HostSpCommsError {

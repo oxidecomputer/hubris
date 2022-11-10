@@ -11,6 +11,7 @@ use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use static_assertions::const_assert_eq;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -121,7 +122,7 @@ pub enum SpToHost {
     },
     Status {
         status: Status,
-        startup: StartupOptions,
+        startup: HostStartupOptions,
     },
     // Followed by a binary data blob (the alert), or maybe action is another
     // hubpack-encoded enum?
@@ -185,15 +186,67 @@ bitflags::bitflags! {
         // const READY_FOR_RESYNC  = 1 << 2;
     }
 
+    // When adding fields to this struct, update the static assertions below to
+    // ensure our conversions to/from `gateway_messages::StartupOptions` remain
+    // valid!
     #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
     #[repr(transparent)]
-    pub struct StartupOptions: u64 {
+    pub struct HostStartupOptions: u64 {
         const PHASE2_RECOVERY_MODE = 1 << 0;
         const DEBUG_KBM = 1 << 1;
         const DEBUG_BOOTRD = 1 << 2;
         const DEBUG_PROM = 1 << 3;
         const DEBUG_KMDB = 1 << 4;
         const DEBUG_KMDB_BOOT = 1 << 5;
+    }
+}
+
+// `HostStartupOptions` and `gateway_messages::StartupOptions` should be
+// identical; statically assert that each field matches (i.e., each bit is in
+// the same position) and that the full set of all bits match (i.e., neither
+// struct has bits the other doesn't).
+const_assert_eq!(
+    HostStartupOptions::PHASE2_RECOVERY_MODE.bits(),
+    gateway_messages::StartupOptions::PHASE2_RECOVERY_MODE.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::DEBUG_KBM.bits(),
+    gateway_messages::StartupOptions::DEBUG_KBM.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::DEBUG_BOOTRD.bits(),
+    gateway_messages::StartupOptions::DEBUG_BOOTRD.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::DEBUG_PROM.bits(),
+    gateway_messages::StartupOptions::DEBUG_PROM.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::DEBUG_KMDB.bits(),
+    gateway_messages::StartupOptions::DEBUG_KMDB.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::DEBUG_KMDB_BOOT.bits(),
+    gateway_messages::StartupOptions::DEBUG_KMDB_BOOT.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::all().bits(),
+    gateway_messages::StartupOptions::all().bits()
+);
+
+impl From<gateway_messages::StartupOptions> for HostStartupOptions {
+    fn from(opts: gateway_messages::StartupOptions) -> Self {
+        // Our static assertions above guarantee that all our bits between these
+        // two types match, so we can safely convert via raw bit values.
+        Self::from_bits(opts.bits()).unwrap_lite()
+    }
+}
+
+impl From<HostStartupOptions> for gateway_messages::StartupOptions {
+    fn from(opts: HostStartupOptions) -> Self {
+        // Our static assertions above guarantee that all our bits between these
+        // two types match, so we can safely convert via raw bit values.
+        Self::from_bits(opts.bits()).unwrap_lite()
     }
 }
 
@@ -355,7 +408,7 @@ mod tests {
                 0x06,
                 SpToHost::Status {
                     status: Status::empty(),
-                    startup: StartupOptions::empty(),
+                    startup: HostStartupOptions::empty(),
                 },
             ),
             (0x07, SpToHost::Alert { action: 0 }),
@@ -480,8 +533,8 @@ mod tests {
         // Message including `Status`, which is defined by `bitflags!`.
         let message = SpToHost::Status {
             status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
-            startup: StartupOptions::DEBUG_KMDB
-                | StartupOptions::DEBUG_KMDB_BOOT,
+            startup: HostStartupOptions::DEBUG_KMDB
+                | HostStartupOptions::DEBUG_KMDB_BOOT,
         };
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]

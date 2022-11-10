@@ -1911,7 +1911,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=07063d2e594d127452a96379dc082bef7439a924#07063d2e594d127452a96379dc082bef7439a924"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=d7791e4d02571b8414b4c2976b0439234aa4d8c7#d7791e4d02571b8414b4c2976b0439234aa4d8c7"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -2137,10 +2137,12 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "fletcher",
+ "gateway-messages",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "serde",
  "serde-big-array",
  "serde_repr",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -3732,6 +3734,7 @@ dependencies = [
  "drv-update-api",
  "gateway-messages",
  "heapless",
+ "host-sp-messages",
  "idol",
  "idol-runtime",
  "mutable-statics",
@@ -3754,8 +3757,11 @@ name = "task-control-plane-agent-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "host-sp-messages",
  "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]
