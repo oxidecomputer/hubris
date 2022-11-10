@@ -29,7 +29,6 @@ ringbuf!(Trace, 16, Trace::None);
 
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
-const PORT_MAX: usize = 40;
 
 #[export_name = "main"]
 fn main() -> ! {

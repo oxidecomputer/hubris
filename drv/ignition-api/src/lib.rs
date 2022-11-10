@@ -13,6 +13,13 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
+// The `presence_summary` vector (see `ignition-server`) is implicitly capped at 40 bits by (the RTL of
+// the) mainboard controller. This constant is used to conservatively allocate
+// an array type which can contain the port state for all ports. The actual
+// number of pors configured in the system can be learned through the
+// `port_count()` function below.
+pub const PORT_MAX: usize = 40;
+
 #[derive(
     Copy,
     Clone,
@@ -75,7 +82,7 @@ bitfield! {
 
 impl SystemFaults {
     pub fn count(&self) -> usize {
-        self.0 as usize
+        self.0.count_ones().try_into().unwrap()
     }
 }
 
