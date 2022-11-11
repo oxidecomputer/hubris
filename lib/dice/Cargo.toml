@@ -21,4 +21,4 @@ lib-lpc55-usart = { path = "../lpc55-usart/" }
 unwrap-lite = { path = "../unwrap-lite" }
 
 [dev-dependencies]
-chrono = "0.4"
+chrono = { workspace = true }
