@@ -21,9 +21,9 @@ pub enum FpgaController {
 
 // The necessary information to control a given port.
 #[derive(Copy, Clone)]
-struct PortLocation {
-    controller: FpgaController,
-    port: u8,
+pub struct PortLocation {
+    pub controller: FpgaController,
+    pub port: u8,
 }
 
 /// Physical port maps, using bitfields to mark active ports
@@ -227,6 +227,12 @@ impl From<u32> for FpgaPortMasks {
     }
 }
 
+impl From<u8> for PortLocation {
+    fn from(port: u8) -> PortLocation {
+        PORT_MAP[port as usize]
+    }
+}
+
 impl Transceivers {
     pub fn new(fpga_task: userlib::TaskId) -> Self {
         Self {
@@ -367,6 +373,30 @@ impl Transceivers {
         )
     }
 
+    /// Initiate an I2C random read on all ports per the specified `mask`.
+    ///
+    /// The maximum value of `num_bytes` is 128.
+    pub fn setup_i2c_read<M: Into<FpgaPortMasks>>(
+        &self,
+        reg: u8,
+        num_bytes: u8,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.setup_i2c_op(true, reg, num_bytes, mask)
+    }
+
+    /// Initiate an I2C write on all ports per the specified `mask`.
+    ///
+    /// The maximum value of `num_bytes` is 128.
+    pub fn setup_i2c_write<M: Into<FpgaPortMasks>>(
+        &self,
+        reg: u8,
+        num_bytes: u8,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.setup_i2c_op(false, reg, num_bytes, mask)
+    }
+
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
     /// read. The maximum value of `num_bytes` is 128.
@@ -424,12 +454,12 @@ impl Transceivers {
     /// Get `buf.len()` bytes of data from the I2C read buffer for a `port`. The
     /// buffer stores data from the last I2C read transaction done and thus only
     /// the number of bytes read will be valid in the buffer.
-    pub fn get_i2c_read_buffer(
+    pub fn get_i2c_read_buffer<P: Into<PortLocation>>(
         &self,
-        port: u8,
+        port: P,
         buf: &mut [u8],
     ) -> Result<(), FpgaError> {
-        let port_loc = PORT_MAP[port as usize];
+        let port_loc = port.into();
         self.fpga(port_loc.controller)
             .read_bytes(Self::read_buffer_address(port_loc.port), buf)
     }

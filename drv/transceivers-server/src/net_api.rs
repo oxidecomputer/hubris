@@ -4,10 +4,32 @@
 //! imports from the `transceiver_messages` crate; it simply adds more functions
 //! to our existing `ServerImpl`.
 use crate::ServerImpl;
-use drv_sidecar_front_io::transceivers::FpgaPortMasks;
+use drv_sidecar_front_io::transceivers::{
+    FpgaController, FpgaPortMasks, PortLocation,
+};
 use hubpack::SerializedSize;
 use task_net_api::*;
-use transceiver_messages::{message::*, mgmt::MemoryRegion, Error, ModuleId};
+use transceiver_messages::{
+    message::*,
+    mgmt::{MemoryRegion, UpperPage},
+    Error, ModuleId,
+};
+
+fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
+    // Convert from the over-the-network type to our local port mask type
+    let fpga_ports: u16 = m.ports.0;
+    match m.fpga_id {
+        0 => Ok(FpgaPortMasks {
+            left: fpga_ports,
+            right: 0,
+        }),
+        1 => Ok(FpgaPortMasks {
+            left: 0,
+            right: fpga_ports,
+        }),
+        i => Err(Error::InvalidFpga(i)),
+    }
+}
 
 impl ServerImpl {
     pub fn check_net(
@@ -79,22 +101,6 @@ impl ServerImpl {
             return Err(Error::VersionMismatch);
         }
 
-        // Convert from the over-the-network type to our local port mask type
-        let fpga_ports: u16 = msg.modules.ports.0;
-        let fpga_mask = match msg.modules.fpga_id {
-            0 => FpgaPortMasks {
-                left: fpga_ports,
-                right: 0,
-            },
-            1 => FpgaPortMasks {
-                left: 0,
-                right: fpga_ports,
-            },
-            i => {
-                return Err(Error::InvalidFpga(i));
-            }
-        };
-
         match msg.body {
             MessageBody::SpRequest(..)
             | MessageBody::SpResponse(..)
@@ -102,7 +108,7 @@ impl ServerImpl {
                 return Err(Error::ProtocolError);
             }
             MessageBody::HostRequest(h) => {
-                self.handle_host_request(h, msg.modules, fpga_mask, data, out)
+                self.handle_host_request(h, msg.modules, data, out)
             }
         }
     }
@@ -111,12 +117,12 @@ impl ServerImpl {
         &mut self,
         h: HostRequest,
         modules: ModuleId,
-        mask: FpgaPortMasks,
         data: &[u8],
         out: &mut [u8],
     ) -> Result<(HostResponse, usize), Error> {
         match h {
             HostRequest::Reset => {
+                let mask = get_mask(modules)?;
                 // TODO: use a more correct error code
                 self.transceivers
                     .set_reset(mask)
@@ -128,11 +134,10 @@ impl ServerImpl {
                 Ok((HostResponse::Ack, 0))
             }
             HostRequest::Status => {
-                use drv_sidecar_front_io::{
-                    transceivers::FpgaController, Addr,
-                };
+                use drv_sidecar_front_io::Addr;
                 use zerocopy::{BigEndian, U16};
 
+                // TODO: this is hard-coded right now
                 let fpga = self.transceivers.fpga(FpgaController::Left);
 
                 // This is a bit awkward: the FPGA will get _every_ module's
@@ -195,6 +200,7 @@ impl ServerImpl {
                 Ok((HostResponse::Write(mem), 0))
             }
             HostRequest::SetPowerMode(mode) => {
+                let mask = get_mask(modules)?;
                 // TODO: do we need delays in between any of these operations?
                 match mode {
                     PowerMode::Off => {
@@ -234,13 +240,72 @@ impl ServerImpl {
         }
     }
 
+    fn select_page(
+        &mut self,
+        upper_page: UpperPage,
+        modules: ModuleId,
+    ) -> Result<(), Error> {
+        let mask = get_mask(modules)?;
+        match upper_page {
+            UpperPage::Cmis(page) => {
+                self.transceivers
+                    .set_i2c_write_buffer(&[page.page()])
+                    .map_err(|_e| Error::ReadFailed)?;
+                self.transceivers
+                    .setup_i2c_write(0x7F, 1, mask)
+                    .map_err(|_e| Error::ReadFailed)?;
+                // Poll until done?
+
+                if let Some(bank) = page.bank() {
+                    self.transceivers
+                        .set_i2c_write_buffer(&[bank])
+                        .map_err(|_e| Error::ReadFailed)?;
+                    self.transceivers
+                        .setup_i2c_write(0x7E, 1, mask)
+                        .map_err(|_e| Error::ReadFailed)?;
+                    // Poll until done?
+                }
+            }
+            UpperPage::Sff8636(page) => {
+                self.transceivers
+                    .set_i2c_write_buffer(&[page.page()])
+                    .map_err(|_e| Error::ReadFailed)?;
+                self.transceivers
+                    .setup_i2c_write(0x7F, 1, mask)
+                    .map_err(|_e| Error::ReadFailed)?;
+                // Poll until done?
+            }
+        }
+        Ok(())
+    }
+
     fn read(
         &mut self,
         mem: MemoryRegion,
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        todo!()
+        self.select_page(*mem.upper_page(), modules)?;
+        self.transceivers
+            .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
+            .map_err(|_e| Error::ReadFailed)?;
+        // TODO: wait for completion
+
+        let controller = match modules.fpga_id {
+            0 => FpgaController::Left,
+            1 => FpgaController::Right,
+            i => return Err(Error::InvalidFpga(i)),
+        };
+        for (port, out) in modules
+            .ports
+            .to_indices()
+            .zip(out.chunks_mut(mem.len() as usize))
+        {
+            self.transceivers
+                .get_i2c_read_buffer(PortLocation { controller, port }, out)
+                .map_err(|_e| Error::ReadFailed)?;
+        }
+        Ok(())
     }
 
     fn write(
@@ -249,6 +314,8 @@ impl ServerImpl {
         modules: ModuleId,
         data: &[u8],
     ) -> Result<(), Error> {
+        self.select_page(*mem.upper_page(), modules)
+            .map_err(|_e| Error::ReadFailed)?;
         todo!()
     }
 }
