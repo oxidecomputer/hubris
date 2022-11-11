@@ -7,7 +7,7 @@ use crate::ServerImpl;
 use drv_sidecar_front_io::transceivers::FpgaPortMasks;
 use hubpack::SerializedSize;
 use task_net_api::*;
-use transceiver_messages::{message::*, Error, ModuleId};
+use transceiver_messages::{message::*, mgmt::MemoryRegion, Error, ModuleId};
 
 impl ServerImpl {
     pub fn check_net(
@@ -91,10 +91,7 @@ impl ServerImpl {
                 right: fpga_ports,
             },
             i => {
-                return Err(
-                    // TODO: Fpga -> u8 conversion
-                    Error::InvalidFpga(i),
-                );
+                return Err(Error::InvalidFpga(i));
             }
         };
 
@@ -181,20 +178,21 @@ impl ServerImpl {
                 Ok((HostResponse::Status, count))
             }
             HostRequest::Read(mem) => {
-                if mem.len() as usize * modules.ports.0.count_ones() as usize
-                    > transceiver_messages::MAX_MESSAGE_SIZE
-                {
+                let out_size = mem.len() as u32 * modules.ports.0.count_ones();
+                if out_size as usize > transceiver_messages::MAX_MESSAGE_SIZE {
                     return Err(Error::RequestTooLarge);
                 }
-                todo!()
+                self.read(mem, modules, out)?;
+                Ok((HostResponse::Read(mem), out_size as usize))
             }
             HostRequest::Write(mem) => {
-                if mem.len() as usize * modules.ports.0.count_ones() as usize
-                    > transceiver_messages::MAX_MESSAGE_SIZE
-                {
+                let data_size = mem.len() as u32 * modules.ports.0.count_ones();
+                // TODO: check equality here and return a different error?
+                if data_size as usize > data.len() {
                     return Err(Error::RequestTooLarge);
                 }
-                todo!()
+                self.write(mem, modules, data)?;
+                Ok((HostResponse::Write(mem), 0))
             }
             HostRequest::SetPowerMode(mode) => {
                 // TODO: do we need delays in between any of these operations?
@@ -234,5 +232,23 @@ impl ServerImpl {
                 todo!()
             }
         }
+    }
+
+    fn read(
+        &mut self,
+        mem: MemoryRegion,
+        modules: ModuleId,
+        out: &mut [u8],
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn write(
+        &mut self,
+        mem: MemoryRegion,
+        modules: ModuleId,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        todo!()
     }
 }
