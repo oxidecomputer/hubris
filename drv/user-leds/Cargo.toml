@@ -8,8 +8,8 @@ cfg-if = { workspace = true }
 idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true, optional = true }
 num-traits = { workspace = true }
-stm32f3 = { workspace = true, optional = true }
-stm32f4 = { workspace = true, optional = true }
+stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
+stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
 zerocopy = { workspace = true }
 
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api", optional = true }

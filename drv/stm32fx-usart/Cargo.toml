@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 num-traits = { workspace = true }
-stm32f3 = { workspace = true }
-stm32f4 = { workspace = true }
+stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
+stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
 zerocopy = { workspace = true }
 
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
