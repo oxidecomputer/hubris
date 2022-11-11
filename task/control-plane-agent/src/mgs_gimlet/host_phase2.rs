@@ -36,9 +36,24 @@ const MGS_UDP_PORT: u16 = 22222;
 //    have attempted fewer than `MAX_ATTEMPTS`, we will switch back to the first
 //    port and go to step 2. If we have exceeded `MAX_ATTEMPTS`, we'll notify
 //    our caller (and give them an error when they request the data).
+//
+// The overall flow of data is:
+//
+// 1. Host requests data over the uart to `host-sp-comms`
+// 2. `host-sp-comms` calls our `fetch_host_phase2_data` idol function, which
+//    results in a call to `start_fetch()` below. We record the requesting task
+//    ID and a notification bit but return immediately.
+// 3. We request data from MGS; this follows the process above to attempt both
+//    ports, retry, etc.
+// 4. Once data arrives from MGS (or if we give up after `MAX_ATTEMPTS`), we
+//    notify `host-sp-comms` that the fetch is complete.
+// 5. `host-sp-comms` calls our `get_host_phase2_data` idol function, which
+//    results in a call to `get_data()` below.
+// 6. `host-sp-comms` relays the data (or failure) back to the host over the
+//    uart.
 const DELAY_TRY_OTHER_MGS: u64 = 500;
 const DELAY_RETRY: u64 = 1_000;
-const MAX_ATTEMPTS: u8 = 3;
+const MAX_ATTEMPTS: u8 = 6;
 
 pub(crate) struct HostPhase2Requester {
     current: Option<CurrentRequest>,
@@ -47,6 +62,8 @@ pub(crate) struct HostPhase2Requester {
 }
 
 impl HostPhase2Requester {
+    // This function can only be called once; it acquires static memory set
+    // aside for buffering data from MGS.
     pub(crate) fn claim_static_resources() -> Self {
         Self {
             current: None,
@@ -182,10 +199,43 @@ impl HostPhase2Requester {
             {
                 current
             }
+            // If we either don't have a `current` request or the data we've
+            // just received doesn't match our current request, we can silently
+            // discard it. This shouldn't be common but is entirely possible if
+            // we've sent multiple requests for the same data (particularly to
+            // both MGS instances). One possible such sequence:
+            //
+            // 1. Host requests data at offset 0
+            // 2. We send a request for offset 0 to MGS 0
+            // 3. No response within our timeout window, so we send a request
+            //    for offset 0 to MGS 1
+            // 4. MGS 1 responds with data at offset 0; we forward it back to
+            //    the host
+            // 5. Host requests data at offset N
+            // 6. We send a request for offset N to MGS 1
+            // 7. MGS 0 finally replies to the request for data at offset 0 we
+            //    sent back in step 1; we no longer care about this data, so we
+            //    ignore it here.
             _ => return,
         };
 
-        self.buffer.clear();
+        // Have we already ingested the data we need for our request? If so, we
+        // again have sent multiple requests, and have received multiple
+        // (presumed duplicate!) replies.
+        if matches!(current.state, State::Fetched) {
+            return;
+        }
+
+        // If we're expecting to ingest data, our buffer should be empty.
+        assert!(self.buffer.is_empty());
+
+        // Given `self.buffer` is sized to
+        // `gateway_messages::MAX_SERIALIZED_SIZE` and `data` is coming from MGS
+        // (so therefore <= `gateway_messages::MAX_SERIALIZED_SIZE`), we always
+        // expect this `min` to return `data.len()`. If somehow we end up in a
+        // position where that isn't the case, this will still work but will
+        // discard some data, wasting some bandwidth but otherwise not having an
+        // adverse effect.
         let n = usize::min(self.buffer.capacity(), data.len());
         self.buffer.extend_from_slice(&data[..n]).unwrap_lite();
 
@@ -259,7 +309,7 @@ impl State {
 
     fn timer_deadline(&self) -> Option<u64> {
         match self {
-            State::NeedToSendFirstMgs(_) => Some(sys_get_timer().now + 1),
+            State::NeedToSendFirstMgs(_) => Some(sys_get_timer().now),
             State::Fetched => None,
             State::WaitingForFirstMgs { deadline, .. }
             | State::WaitingForSecondMgs { deadline, .. } => Some(*deadline),
