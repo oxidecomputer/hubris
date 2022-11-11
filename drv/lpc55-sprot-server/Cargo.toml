@@ -17,8 +17,8 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 ringbuf = {path = "../../lib/ringbuf"}
 lpc55_romapi = { path = "../../lib/lpc55-romapi" }
 crc = "3.0.0"
-sprockets-common = {git = "https://github.com/oxidecomputer/sprockets.git", default-features = false}
-sprockets-rot = {git = "https://github.com/oxidecomputer/sprockets.git", default-features = false}
+sprockets-common = {git = "https://github.com/oxidecomputer/sprockets.git", rev = "77df31efa5619d0767ffc837ef7468101608aee9", default-features = false}
+sprockets-rot = {git = "https://github.com/oxidecomputer/sprockets.git", rev = "77df31efa5619d0767ffc837ef7468101608aee9", default-features = false}
 hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
 salty = "0.2.0"
 if_chain = "1"
