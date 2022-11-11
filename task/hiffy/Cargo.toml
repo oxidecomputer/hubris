@@ -1,37 +1,38 @@
 [package]
 name = "task-hiffy"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
-ringbuf = {path = "../../lib/ringbuf" }
-drv-sp-ctrl-api = {path = "../../drv/sp-ctrl-api", optional = true}
-drv-i2c-api = {path = "../../drv/i2c-api"}
-drv-spi-api = {path = "../../drv/spi-api"}
-drv-stm32xx-i2c = {path = "../../drv/stm32xx-i2c", default-features = false, optional = true }
-drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
-drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
-drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false, optional = true}
-drv-hash-api = {path = "../../drv/hash-api", optional = true}
-drv-sprot-api = {path = "../../drv/sprot-api", default-features = false, optional = true}
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cfg-if = "1"
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-hif = { git = "https://github.com/oxidecomputer/hif" }
-serde = { version = "1.0.114", default-features = false }
-byteorder = { version = "1.3.4", default-features = false }
-armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
+drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
+drv-hash-api = { path = "../../drv/hash-api", optional = true }
+drv-i2c-api = { path = "../../drv/i2c-api" }
+drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api", optional = true }
 drv-rng-api = { path = "../../drv/rng-api", optional = true }
+drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api", optional = true }
+drv-spi-api = { path = "../../drv/spi-api" }
+drv-sprot-api = { path = "../../drv/sprot-api", default-features = false, optional = true }
+drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", default-features = false, optional = true  }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", default-features = false, optional = true }
 drv-update-api = {path = "../../drv/update-api", optional = true}
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
+ringbuf = { path = "../../lib/ringbuf"  }
+userlib = { path = "../../sys/userlib" }
+
+byteorder = { workspace = true }
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+hif = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+zerocopy = { workspace = true }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-build-i2c = {path = "../../build/i2c"}
-anyhow = "1.0.31"
-cfg-if = "1"
+build-util = { path = "../../build/util" }
+build-i2c = { path = "../../build/i2c" }
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
 
 [features]
 itm = [ "userlib/log-itm" ]

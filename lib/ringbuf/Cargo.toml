@@ -1,7 +1,7 @@
 [package]
 name = "ringbuf"
 version = "0.2.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 # To disable a ring buffer (but leave it otherwise present), enable the
@@ -9,4 +9,4 @@ edition = "2018"
 disabled = []
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
+userlib = { path = "../../sys/userlib" }

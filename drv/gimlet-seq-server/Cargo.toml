@@ -3,8 +3,6 @@ name = "drv-gimlet-seq-server"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
 drv-gimlet-seq-api = { path = "../gimlet-seq-api" }

@@ -10,26 +10,22 @@ mgmt = ["ksz8463"]
 ksz8463 = ["drv-spi-api", "dep:ksz8463"]
 
 [dependencies]
-derive-idol-err = {path = "../../lib/derive-idol-err" }
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-userlib = {path = "../../sys/userlib"}
-serde = {version = "1", default-features = false, features = ["derive"]}
-ssmarshal = {version = "1", default-features = false}
-num-traits = {version = "0.2", default-features = false}
-zerocopy = "0.6"
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
+zerocopy = { workspace = true }
+smoltcp = { workspace = true, optional = true }
 
+derive-idol-err = { path = "../../lib/derive-idol-err"  }
+drv-spi-api = { path = "../../drv/spi-api", optional = true }
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
-drv-spi-api = {path = "../../drv/spi-api", optional = true}
-
-[dependencies.smoltcp]
-version = "0.8.0"
-optional = true
-default-features = false
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-build-net = {path = "../../build/net"}
-build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-net = { path = "../../build/net" }
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

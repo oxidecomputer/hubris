@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-serde = {version = "1", default-features = false, features = ["derive"]}
-ssmarshal = {version = "1", default-features = false}
-num-traits = {version = "0.2", default-features = false}
-task-net-api = {path = "../net-api"}
+num-traits = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
+
+task-net-api = { path = "../net-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [features]
 vlan = ["task-net-api/vlan"]

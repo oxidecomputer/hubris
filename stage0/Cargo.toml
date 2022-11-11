@@ -1,7 +1,7 @@
 [package]
 name = "stage0"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 dice-mfg = ["dice_crate", "digest", "hubpack", "salty", "serde", "sha3",
@@ -22,13 +22,11 @@ nb = { workspace = true }
 p256 = { workspace = true }
 panic-halt = { workspace = true }
 panic-semihosting = { workspace = true }
+salty = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 sha3 = { workspace = true, optional = true }
 static_assertions = { workspace = true, optional = true }
 zerocopy = { workspace = true }
-
-# Special-case for the Oxide fork of Salty
-salty = { git = "https://github.com/oxidecomputer/salty", rev = "eb3c31858f631a7fb9934246c8efdef080d05726", optional = true}
 
 abi = { path = "../sys/abi" }
 lib-lpc55-usart = { path = "../lib/lpc55-usart", optional = true }

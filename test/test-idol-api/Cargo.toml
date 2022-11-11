@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-serde = {version = "1", default-features = false, features = ["derive"]}
-ssmarshal = {version = "1", default-features = false}
+num-traits = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
+zerocopy = { workspace = true }
+
+userlib = { path = "../../sys/userlib" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
@@ -17,4 +18,4 @@ test = false
 bench = false
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }

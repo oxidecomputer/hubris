@@ -1,34 +1,33 @@
 [package]
 name = "task-host-sp-comms"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-cfg-if = "1"
-corncobs = "0.1.3"
-cortex-m = {version = "0.7", features = ["inline-asm"]}
-enum-map = "2.4.1"
-heapless = "0.7.16"
-num-traits = { version = "0.2.12", default-features = false }
-zerocopy = "0.6.1"
+cfg-if = { workspace = true }
+corncobs = { workspace = true }
+cortex-m = { workspace = true }
+enum-map = { workspace = true }
+heapless = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
 
-drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api"}
-drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api"}
-drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
-drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
-host-sp-messages = {path = "../../lib/host-sp-messages"}
-multitimer = {path = "../../lib/multitimer"}
-mutable-statics = {path = "../../lib/mutable-statics"}
-ringbuf = {path = "../../lib/ringbuf"}
-task-control-plane-agent-api = {path = "../control-plane-agent-api"}
-task-host-sp-comms-api = {path = "../host-sp-comms-api"}
-userlib = {path = "../../sys/userlib"}
-
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api" }
+drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
+drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", default-features = false }
+host-sp-messages = { path = "../../lib/host-sp-messages" }
+multitimer = { path = "../../lib/multitimer" }
+mutable-statics = { path = "../../lib/mutable-statics" }
+ringbuf = { path = "../../lib/ringbuf" }
+task-control-plane-agent-api = { path = "../control-plane-agent-api" }
+task-host-sp-comms-api = { path = "../host-sp-comms-api" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
 
 [features]
 stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743"]

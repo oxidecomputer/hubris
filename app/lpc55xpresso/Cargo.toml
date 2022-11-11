@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 name = "lpc55xpresso"
 version = "0.1.0"
