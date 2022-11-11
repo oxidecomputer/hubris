@@ -82,6 +82,10 @@ cfg_if::cfg_if! {
     if #[cfg(any(
             target_board = "gimlet-b",
             target_board = "gimlet-c",
+            target_board = "sidecar-a",
+            target_board = "sidecar-b",
+            target_board = "psc-a",
+            target_board = "psc-b",
             target_board = "gemini-bu-1"
             ))] {
         const ROT_IRQ: sys_api::PinSet = sys_api::PinSet {

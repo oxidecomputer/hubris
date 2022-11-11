@@ -362,51 +362,6 @@ The ErrorReq/ErrorRsp and SinkReq/SinkRsp messages are not expected to be useful
 
 See test runs
 
-#### Test sprockets messages from laptop RS232 to SP to RoT and back:
-
-Connect a USB to RS232 adaptor, such as the "[OIKWAN USB Serial Adapter with FTDI Chipset](https://www.amazon.com/gp/product/B0759HSLP1)"
-
-A "[9 Pin Serial Male to 10 Pin Motherboard Header Panel Mount Cable](https://www.amazon.com/StarTech-com-Serial-Motherboard-Header-Panel/dp/B0067DB6RU)" makes simple work of the connection. With these particular cables, a female/female DB9 adapter or Dupont wires between pins 2, 3, and 5 are needed to finish the connections.
-
-Alternatively, use dupont wires directly to the Gemini J302 connector:
-
-Use dupont female to female wires to connect pins:
-  - `DB9:2(RXD)` to `J302:3(RS232_TX)`
-  - `DB9:3(TXD)` to `J302:5(RS232_RX)`
-  - `DB9:5(GND)` to `J302:9(GND)`
-
-DB9, looking at the pins:
-```
- ___________
-( 1 2 3 4 5 )
- \ 6 7 8 9 /
-  \_______/
-```
-
-Gemini connector J302 labeled:
-
-```
-        "SERIAL TO HOST"
-    (TODO NOTE SIGNAL LEVELS)
-       +-----------------+
-J302   |  2  4  6  8 10  |
-       |  1  3  5  7  9  |
-       +-------   -------+
-```
-
-Identify the device path for your USB to RS232 adaptor. On the author's Linux laptop, it shows up as `/dev/ttyUSB0`.
-
-```sh
-SERIAL=/dev/ttyUSB0
-```
-
-In a [sprockets workspace](https://github.com/oxidecomputer/sprockets):
-
-```sh
-  cargo run -- -b 115200 -p $SERIAL get-certificates
-  cargo run -- -b 115200 -p $SERIAL get-measurements
-```
-
 ### Gimletlet Test Points
 
 +------+------+------+------+
