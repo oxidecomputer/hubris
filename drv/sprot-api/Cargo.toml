@@ -17,7 +17,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
-hubpack = { git = "https://github.com/cbiffle/hubpack" }
+hubpack = "0.1"
 ssmarshal = {version = "1", default-features = false}
 
 [build-dependencies]

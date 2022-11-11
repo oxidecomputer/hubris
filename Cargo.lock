@@ -1135,7 +1135,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-sprot-api",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol-runtime",
  "if_chain",
  "lpc55-pac",
@@ -1408,7 +1408,7 @@ dependencies = [
  "crc",
  "derive-idol-err",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "if_chain",
  "memoffset",
@@ -1566,7 +1566,7 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1722,7 +1722,7 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "idol",
  "num-traits",
  "serde",
@@ -2137,7 +2137,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "fletcher",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_repr",
  "unwrap-lite",
@@ -2164,15 +2164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hubpack"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
-dependencies = [
- "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack)",
- "serde",
-]
-
-[[package]]
 name = "hubpack_derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2187,16 +2178,6 @@ dependencies = [
 name = "hubpack_derive"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "hubpack_derive"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -8,7 +8,7 @@ derive-idol-err = {path = "../../lib/derive-idol-err" }
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
-hubpack = { git = "https://github.com/cbiffle/hubpack" }
+hubpack = "0.1"
 serde = {version = "1.0.145", default-features = false, features = ["derive"]}
 serde_repr = "0.1"
 

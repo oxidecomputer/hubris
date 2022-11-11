@@ -10,6 +10,6 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_repr = "0.1"
 zerocopy = "0.6.1"
 
-hubpack = { git = "https://github.com/cbiffle/hubpack" }
+hubpack = "0.1"
 
 unwrap-lite = { path = "../unwrap-lite" }

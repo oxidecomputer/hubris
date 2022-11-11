@@ -15,7 +15,7 @@ drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-s
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 cfg-if = "1"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-hubpack = { git = "https://github.com/cbiffle/hubpack" }
+hubpack = "0.1"
 ssmarshal = {version = "1", default-features = false}
 
 [build-dependencies]
