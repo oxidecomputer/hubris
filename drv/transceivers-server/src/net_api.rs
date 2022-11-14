@@ -316,6 +316,16 @@ impl ServerImpl {
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
+        // Reading beyond a 128-byte page boundary will wrap around; return an
+        // error if that's going to happen.
+        let page_end = (mem.offset() as u32 / 128 + 1) * 128;
+        if mem.offset() as u32 + mem.len() as u32 > page_end {
+            // TODO use a more descriptive error name here?
+            return Err(Error::InvalidMemoryAccess {
+                offset: mem.offset(),
+                len: mem.len(),
+            });
+        }
         self.select_page(*mem.upper_page(), modules)?;
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
