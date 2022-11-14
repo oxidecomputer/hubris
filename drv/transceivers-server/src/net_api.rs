@@ -33,6 +33,7 @@ fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
 }
 
 impl ServerImpl {
+    /// Attempt to read and handle data from the `net` socket
     pub fn check_net(
         &mut self,
         rx_data_buf: &mut [u8],
@@ -46,10 +47,10 @@ impl ServerImpl {
             rx_data_buf,
         ) {
             Ok(mut meta) => {
-                // Write data to the out buffer and modify `meta`
-                let out_size = match hubpack::deserialize(rx_data_buf) {
+                // Modify meta.size based on the output packet size
+                meta.size = match hubpack::deserialize(rx_data_buf) {
                     Ok((msg, data)) => {
-                        let (reply, size) = match self.handle_message(
+                        let (reply, data_len) = match self.handle_message(
                             msg,
                             data,
                             &mut tx_data_buf[Message::MAX_SIZE..],
@@ -63,17 +64,17 @@ impl ServerImpl {
                             body: MessageBody::HostResponse(reply),
                         };
                         // Serialize into the front of the tx buffer
-                        let out_size =
+                        let msg_len =
                             hubpack::serialize(tx_data_buf, &out).unwrap();
 
                         // At this point, any supplementary data is written to
-                        // tx_buf[Message::MAX_SIZE..].  Let's shift it backwards based
-                        // on the side of the leading `Message`:
+                        // tx_buf[Message::MAX_SIZE..].  Let's shift it
+                        // backwards based on the side of the leading `Message`:
                         tx_data_buf.copy_within(
-                            Message::MAX_SIZE..(Message::MAX_SIZE + size),
-                            out_size,
+                            Message::MAX_SIZE..(Message::MAX_SIZE + data_len),
+                            msg_len,
                         );
-                        (out_size + size) as u32
+                        (msg_len + data_len) as u32
                     }
                     Err(_e) => hubpack::serialize(
                         tx_data_buf,
@@ -91,7 +92,6 @@ impl ServerImpl {
                     .unwrap() as u32,
                 };
 
-                meta.size = out_size;
                 self.net
                     .send_packet(
                         SOCKET,
@@ -394,7 +394,7 @@ impl ServerImpl {
 
         // Copy data into the FPGA write buffer
         self.transceivers
-            .set_i2c_write_buffer(&data[..mem.len()])
+            .set_i2c_write_buffer(&data[..mem.len() as usize])
             .map_err(|_e| Error::WriteFailed)?;
 
         // Trigger a multicast write to all transceivers in the mask
@@ -403,6 +403,6 @@ impl ServerImpl {
             .map_err(|_e| Error::WriteFailed)?;
         sleep_for(5); // TODO: wait for completion
 
-        todo!()
+        Ok(())
     }
 }
