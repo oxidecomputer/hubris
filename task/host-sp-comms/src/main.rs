@@ -15,13 +15,13 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
-    SpToHost, Status, MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
+    MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::{ControlPlaneAgent, ControlPlaneAgentError};
+use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
 
@@ -56,6 +56,8 @@ enum Trace {
     AckSpStart,
     SetState { now: u64, state: PowerState },
     JefeNotification { now: u64, state: PowerState },
+    OutOfSyncRequest,
+    OutOfSyncRxNoise,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -104,8 +106,6 @@ fn main() -> ! {
 
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
-    // XXX For now, we want to default to these options.
-    server.set_debug_impl(DebugReg::DEBUG_KMDB | DebugReg::DEBUG_PROM);
 
     sys_irq_control(USART_IRQ, true);
 
@@ -133,7 +133,6 @@ struct ServerImpl {
     tx_buf: TxBuf,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
-    debug: DebugReg,
     sequencer: Sequencer,
     hf: HostFlash,
     cp_agent: ControlPlaneAgent,
@@ -160,7 +159,6 @@ impl ServerImpl {
             tx_buf: TxBuf::claim_static_resources(),
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
-            debug: DebugReg::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
@@ -180,12 +178,6 @@ impl ServerImpl {
             } else {
                 self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
             }
-        }
-    }
-
-    fn set_debug_impl(&mut self, debug: DebugReg) {
-        if debug != self.debug {
-            self.debug = debug;
         }
     }
 
@@ -319,44 +311,44 @@ impl ServerImpl {
     // │   │no      │yes           │   │
     // │   │    ┌───▼────────┐     │   │TX FIFO full
     // │   │    │Cancel timer│     │ ┌─▼─────────────┐
-    // │   │    └────────────┘     │ │Enable TX FIFO ◄────────────┐
-    // │   │                       │ │empty interrupt│            │
-    // │ ┌─▼────────────────────┐no│ └─┬─────────────┘            │
-    // │ │Do we have packet data├──┘   │                          │
-    // │ │to tx, or have we rx'd│yes┌──▼────────────────────┐     │
-    // │ │   a partial packet?  ├───►Wait for Uart interrupt◄─────┼─┐
-    // │ └──────────────────────┘   └─┬─────────────────────┘     │ │
-    // │                              │                           │ │
-    // │                              │interrupt received         │ │
-    // │Timer Interrupt Handler       │                           │ │
-    //=│==============================▼===========================│=│====
-    // │Uart Interrupt Handler                                    │ │
-    // │   ┌─────────────────────────────┐                        │ │
-    // │   │Do we have packet data to tx?├───┐                    │ │
-    // │   └──────────────┬───────▲──────┘   │yes                 │ │
-    // │                  │no     │          │                    │ │
-    // │       ┌──────────▼────┐  │  ┌───────▼───────────┐        │ │
-    // │       │Disable TX FIFO│  │  │try to tx data byte│        │ │
-    // │       │empty interrupt│  │  └─┬──────────▲──┬───┘        │ │
-    // │       └──────────┬────┘  │    │success   │  │tx fifo full│ │
-    // │                  │       └────┘          │  └────────────┘ │
-    // │                  │                       │                 │
-    // │         fail ┌───▼──────────────┐◄─────┐ │                 │
-    // │         ┌────┤Try to rx one byte│      │ │                 │
-    // │         │    └───┬──────────────┘◄──┐  │ │                 │
-    // │         │        │success           │  │ │                 │
-    // │         │    ┌───▼──────────────┐no │  │ │                 │
-    // │         │    │ Is this a packet ├───┘  │ │                 │
-    // │         │    │terminator (0x00)?│      │ │                 │
-    // │         │    └───┬──────────────┘      │ │                 │
-    // │         │        │yes                  │ │                 │
-    // │         │      ┌─▼────────────┐ yes    │ │                 │
-    // │         │      │Is this packet├────────┘ │                 │
-    // │         │      │    empty?    │          │                 │
-    // │         │      └─┬────────────┘          │                 │
-    // │         │        │no                     │                 │
-    // │         │      ┌─▼─────────────┐         │                 │
-    // │         │      │Process Message│         │                 │
+    // │   │    └────────────┘     │ │Enable TX FIFO ◄────────────────┐
+    // │   │                       │ │empty interrupt│                │
+    // │ ┌─▼────────────────────┐no│ └─┬─────────────┘                │
+    // │ │Do we have packet data├──┘   │                              │
+    // │ │to tx, or have we rx'd│yes┌──▼────────────────────┐         │
+    // │ │   a partial packet?  ├───►Wait for Uart interrupt◄───── ─┐ │
+    // │ └──────────────────────┘   └─┬─────────────────────┘       │ │
+    // │                              │                             │ │
+    // │                              │interrupt received           │ │
+    // │Timer Interrupt Handler       │                             │ │
+    //=│==============================▼=============================│=│==
+    // │Uart Interrupt Handler                                      │ │
+    // │   ┌─────────────────────────────┐                          │ │
+    // │   │Do we have packet data to tx?├───┐                      │ │
+    // │   └──────────────┬───────▲──────┘   │yes                   │ │
+    // │                  │no     │          │                      │ │
+    // │       ┌──────────▼────┐  │  ┌───────▼───────────┐          │ │
+    // │       │Disable TX FIFO│  │  │try to tx data byte│          │ │
+    // │       │empty interrupt│  │  └─┬──────────▲──┬───┘          │ │
+    // │       └──────────┬────┘  │    │success   │  │tx fifo full  │ │
+    // │                  │       └────┘          │  │              │ │
+    // │                  │                       │  │              │ │
+    // │         fail ┌───▼──────────────┐◄─────┐ │ ┌▼────────────┐ │ │
+    // │         ┌────┤Try to rx one byte│      │ │ │Do we have an│ │ │no
+    // │         │    └───┬──────────────┘◄──┐  │ │ │out-of-order ├─┼─┘
+    // │         │        │success           │  │ │ │request from │ │
+    // │         │    ┌───▼──────────────┐no │  │ │ │the host?    │ │
+    // │         │    │ Is this a packet ├───┘  │ │ └─┬───────────┘ │
+    // │         │    │terminator (0x00)?│      │ │   │             │
+    // │         │    └───┬──────────────┘      │ │ ┌─▼─────────┐   │
+    // │         │        │yes                  │ │ │Discard any│   │
+    // │         │      ┌─▼────────────┐ yes    │ │ │remaining  │   │
+    // │         │      │Is this packet├────────┘ │ │tx data    │   │
+    // │         │      │    empty?    │          │ └──┬────────┘   │
+    // │         │      └─┬────────────┘          │    │            │
+    // │         │        │no                     │    │            │
+    // │         │      ┌─▼─────────────┐         │    │            │
+    // │         │      │Process Message◄─────────┼────┘            │
     // │         │      └─┬─────────────┘         │                 │
     // │         │        │                       │                 │
     // │         │      ┌─▼─────────────┐ yes     │                 │
@@ -373,12 +365,47 @@ impl ServerImpl {
     //          └─────────────────┘
     fn handle_usart_notification(&mut self) {
         'tx: loop {
+            // Clear any RX overrun errors. If we hit this, we will likely fail
+            // to decode the next message from the host, which will cause us to
+            // send a `DecodeFailure` response.
+            if self.uart.check_and_clear_rx_overrun() {
+                ringbuf_entry!(Trace::UartRxOverrun);
+            }
+
+            let mut processed_out_of_sync_message = false;
+
             // Do we have data to transmit? If so, write as much as we can until
             // either the fifo fills (in which case we return before trying to
             // receive more) or we finish flushing.
             while let Some(b) = self.tx_buf.next_byte_to_send() {
                 if try_tx_push(&self.uart, b) {
                     self.tx_buf.advance_one_byte();
+                } else if self.uart_rx_until_maybe_packet() {
+                    // We still have data to send, but the host has sent us a
+                    // packet! First, we'll try to decode it: if that succeeds,
+                    // something has gone wrong (from our point of view the host
+                    // has broken protocol). We'll deal with this by:
+                    //
+                    // 1. Discarding any remaining data we have from the old
+                    //    response.
+                    // 2. Sending a 0x00 terminator so the host can detect the
+                    //    end of that old (partial) packet.
+                    // 3. Handling the new request.
+                    //
+                    // 1 and 2 are covered by calling `tx_buf.reset()`, which
+                    // `process_message` does at our request only if the
+                    // packet decodes successfully. If the packet does not
+                    // decode successfully, we discard it and assume it was line
+                    // noise.
+                    match self.process_message(true) {
+                        Ok(()) => {
+                            processed_out_of_sync_message = true;
+                            ringbuf_entry!(Trace::OutOfSyncRequest);
+                        }
+                        Err(_) => {
+                            ringbuf_entry!(Trace::OutOfSyncRxNoise);
+                        }
+                    }
                 } else {
                     // We have more data to send but the TX FIFO is full; enable
                     // the TX FIFO empty interrupt and wait for it.
@@ -391,46 +418,23 @@ impl ServerImpl {
             // We're done flushing data; disable the tx fifo interrupt.
             self.uart.disable_tx_fifo_empty_interrupt();
 
-            // Clear any RX overrun errors. If we hit this, we will likely fail
-            // to decode the next message from the host, which will cause us to
-            // send a `DecodeFailure` response.
-            if self.uart.check_and_clear_rx_overrun() {
-                ringbuf_entry!(Trace::UartRxOverrun);
+            // It's possible (but unlikely) we've already received a message in
+            // this loop iteration. If we have, skip trying to read a request
+            // here and move on to either looping back to start sending the
+            // response or setting up timers for future interrupts.
+            if !processed_out_of_sync_message {
+                if self.uart_rx_until_maybe_packet() {
+                    // We received a packet; handle it.
+                    if let Err(reason) = self.process_message(false) {
+                        self.tx_buf.encode_decode_failure_reason(reason);
+                    }
+                }
             }
 
-            // Receive until there's no more data or we get a 0x00, signifying
-            // the end of a corncobs packet.
-            'rx: while let Some(byte) = self.uart.try_rx_pop() {
-                ringbuf_entry!(Trace::UartRx(byte));
-
-                if byte != 0x00 {
-                    // This is the end of a packet; buffer it and continue.
-                    if self.rx_buf.push(byte).is_err() {
-                        // Message overflow - nothing we can do here except
-                        // discard data. We'll drop this byte and wait til we
-                        // see a 0 to respond, at which point our
-                        // deserialization will presumably fail and we'll send
-                        // back an error. Should we record that we overflowed
-                        // here?
-                    }
-                    continue 'rx;
-                }
-
-                // Host may send extra cobs terminators; skip any empty
-                // packets.
-                if self.rx_buf.is_empty() {
-                    continue 'rx;
-                }
-
-                // Process message and set up `self.tx_buf` with our response
-                // (or intermediate state if we don't have a response yet).
-                self.process_message();
-
-                // If we have data to send now, immediately loop back to the top
-                // and start trying to send it.
-                if self.tx_buf.next_byte_to_send().is_some() {
-                    continue 'tx;
-                }
+            // If we have data to send now, immediately loop back to the
+            // top and start trying to send it.
+            if self.tx_buf.next_byte_to_send().is_some() {
+                continue 'tx;
             }
 
             // We received everything we could out of the rx fifo and we have
@@ -450,6 +454,33 @@ impl ServerImpl {
             }
             return;
         }
+    }
+
+    fn uart_rx_until_maybe_packet(&mut self) -> bool {
+        while let Some(byte) = self.uart.try_rx_pop() {
+            ringbuf_entry!(Trace::UartRx(byte));
+
+            if byte == 0x00 {
+                // COBS terminator; did we get any data?
+                if self.rx_buf.is_empty() {
+                    continue;
+                } else {
+                    return true;
+                }
+            }
+
+            // Not a COBS terminator; buffer it.
+            if self.rx_buf.push(byte).is_err() {
+                // Message overflow - nothing we can do here except
+                // discard data. We'll drop this byte and wait til we
+                // see a 0 to respond, at which point our
+                // deserialization will presumably fail and we'll send
+                // back an error. Should we record that we overflowed
+                // here?
+            }
+        }
+
+        false
     }
 
     fn handle_control_plane_agent_notification(&mut self) {
@@ -477,7 +508,7 @@ impl ServerImpl {
                         // If we can't get data, all we can do is send the
                         // host a response with no data; it can decide to
                         // retry later.
-                        Err(ControlPlaneAgentError::DataUnavailable) => 0,
+                        Err(_) => 0,
                     }
                 },
             );
@@ -492,17 +523,32 @@ impl ServerImpl {
     // with a response if we can come up with that response immediately, or
     // instructing it that we'll fill it in with our response later.
     //
-    // This method clears `rx_buf` before returning to prepare for the next
-    // packet.
-    fn process_message(&mut self) {
+    // If `reset_tx_buf` is true AND we successfully decode a packet, we will
+    // call `self.tx_buf.reset()` prior to populating it with a response. This
+    // should only be set to true if we're being called in an "out of sync"
+    // path; see the comments in `handle_usart_notification()` where we check
+    // for an incoming request while we're still trying to send a previous
+    // response.
+    //
+    // This method always (i.e., on success or failure) clears `rx_buf` before
+    // returning to prepare for the next packet.
+    fn process_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
         let (header, request) = match parse_received_message(&mut self.rx_buf) {
             Ok((header, request, _data)) => (header, request),
             Err(err) => {
-                self.tx_buf.encode_decode_failure_reason(err);
                 self.rx_buf.clear();
-                return;
+                return Err(err);
             }
         };
+
+        // Reset tx_buf if our caller wanted us to in response to a valid
+        // packet.
+        if reset_tx_buf {
+            self.tx_buf.reset();
+        }
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
@@ -541,10 +587,16 @@ impl ServerImpl {
             }
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
+                let fake_model = b"913-0000019";
+                let fake_serial = b"OXE99990000";
+                let mut model = [0; 51];
+                let mut serial = [0; 51];
+                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
+                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
                 Some(SpToHost::Identity {
-                    model: *b"913-0000019",
+                    model,
                     revision: 2,
-                    serial: *b"OXE99990000",
+                    serial,
                 })
             }
             HostToSp::GetMacAddresses => {
@@ -565,7 +617,7 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
                 status: self.status,
-                debug: self.debug,
+                startup: self.cp_agent.get_startup_options().unwrap_lite(),
             }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
@@ -630,6 +682,8 @@ impl ServerImpl {
 
         // We've processed the message sitting in rx_buf; clear it.
         self.rx_buf.clear();
+
+        Ok(())
     }
 }
 
@@ -807,26 +861,6 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
     ) -> Result<Status, RequestError<HostSpCommsError>> {
         Ok(self.status)
     }
-
-    fn set_debug(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        debug: u64,
-    ) -> Result<(), RequestError<HostSpCommsError>> {
-        let debug =
-            DebugReg::from_bits(debug).ok_or(HostSpCommsError::InvalidDebug)?;
-
-        self.set_debug_impl(debug);
-
-        Ok(())
-    }
-
-    fn get_debug(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<DebugReg, RequestError<HostSpCommsError>> {
-        Ok(self.debug)
-    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
@@ -946,6 +980,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::{DebugReg, HostSpCommsError, Status};
+    use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
