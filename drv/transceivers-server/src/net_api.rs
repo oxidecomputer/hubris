@@ -16,8 +16,8 @@ use transceiver_messages::{
 };
 use userlib::hl::sleep_for;
 
+/// Convert from the over-the-network type to our local port mask type
 fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
-    // Convert from the over-the-network type to our local port mask type
     let fpga_ports: u16 = m.ports.0;
     match m.fpga_id {
         0 => Ok(FpgaPortMasks {
@@ -69,7 +69,7 @@ impl ServerImpl {
 
                         // At this point, any supplementary data is written to
                         // tx_buf[Message::MAX_SIZE..].  Let's shift it
-                        // backwards based on the side of the leading `Message`:
+                        // backwards based on the size of the leading `Message`:
                         tx_data_buf.copy_within(
                             Message::MAX_SIZE..(Message::MAX_SIZE + data_len),
                             msg_len,
@@ -184,24 +184,26 @@ impl ServerImpl {
                     .read(Addr::QSFP_STATUS_IRQ_H)
                     .map_err(|_e| Error::ReadFailed)?;
 
+                // Write one bitfield per active port in the ModuleId
                 let mut count = 0;
-                for port in modules.ports.to_indices() {
+                for mask in modules.ports.to_indices().map(|i| 1 << i) {
                     let mut status = Status::empty();
-                    if (enable.get() & (1 << port)) != 0 {
+                    if (enable.get() & mask) != 0 {
                         status |= Status::ENABLED;
                     }
-                    if (reset.get() & (1 << port)) != 0 {
+                    if (reset.get() & mask) != 0 {
                         status |= Status::RESET;
                     }
-                    if (lpmode.get() & (1 << port)) != 0 {
+                    if (lpmode.get() & mask) != 0 {
                         status |= Status::LOW_POWER_MODE;
                     }
-                    if (present.get() & (1 << port)) != 0 {
+                    if (present.get() & mask) != 0 {
                         status |= Status::PRESENT;
                     }
-                    if (irq.get() & (1 << port)) != 0 {
+                    if (irq.get() & mask) != 0 {
                         status |= Status::INTERRUPT;
                     }
+                    // Convert from Status -> u8 and write to the output buffer
                     out[count] = status.bits();
                     count += 1;
                 }
