@@ -129,7 +129,7 @@ Interface(
                 "addr": "u16",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(128)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Result(
                 ok: "()",
@@ -147,7 +147,7 @@ Interface(
                 "addr": "u16",
             },
             leases: {
-                "data": (type: "[u8]", read: true, max_len: Some(128)),
+                "data": (type: "[u8]", read: true),
             },
             reply: Result(
                 ok: "()",
