@@ -14,6 +14,7 @@ use transceiver_messages::{
     mgmt::{MemoryRegion, UpperPage},
     Error, ModuleId,
 };
+use userlib::hl::sleep_for;
 
 fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
     // Convert from the over-the-network type to our local port mask type
@@ -45,32 +46,52 @@ impl ServerImpl {
             rx_data_buf,
         ) {
             Ok(mut meta) => {
-                let (msg, data) = hubpack::deserialize(rx_data_buf).unwrap();
-                let (reply, size) = match self.handle_message(
-                    msg,
-                    data,
-                    &mut tx_data_buf[Message::MAX_SIZE..],
-                ) {
-                    Ok(r) => r,
-                    Err(e) => (HostResponse::Error(e), 0),
-                };
-                let out = Message {
-                    header: msg.header,
-                    modules: msg.modules,
-                    body: MessageBody::HostResponse(reply),
-                };
-                // Serialize into the front of the tx buffer
-                let out_size = hubpack::serialize(tx_data_buf, &out).unwrap();
+                // Write data to the out buffer and modify `meta`
+                let out_size = match hubpack::deserialize(rx_data_buf) {
+                    Ok((msg, data)) => {
+                        let (reply, size) = match self.handle_message(
+                            msg,
+                            data,
+                            &mut tx_data_buf[Message::MAX_SIZE..],
+                        ) {
+                            Ok(r) => r,
+                            Err(e) => (HostResponse::Error(e), 0),
+                        };
+                        let out = Message {
+                            header: msg.header,
+                            modules: msg.modules,
+                            body: MessageBody::HostResponse(reply),
+                        };
+                        // Serialize into the front of the tx buffer
+                        let out_size =
+                            hubpack::serialize(tx_data_buf, &out).unwrap();
 
-                // At this point, any supplementary data is written to
-                // tx_buf[Message::MAX_SIZE..].  Let's shift it backwards based
-                // on the side of the leading `Message`:
-                tx_data_buf.copy_within(
-                    Message::MAX_SIZE..(Message::MAX_SIZE + size),
-                    out_size,
-                );
+                        // At this point, any supplementary data is written to
+                        // tx_buf[Message::MAX_SIZE..].  Let's shift it backwards based
+                        // on the side of the leading `Message`:
+                        tx_data_buf.copy_within(
+                            Message::MAX_SIZE..(Message::MAX_SIZE + size),
+                            out_size,
+                        );
+                        (out_size + size) as u32
+                    }
+                    Err(_e) => hubpack::serialize(
+                        tx_data_buf,
+                        &Message {
+                            header: Header {
+                                version: 1,
+                                message_id: u64::MAX,
+                            },
+                            modules: ModuleId::default(),
+                            body: MessageBody::HostResponse(
+                                HostResponse::Error(Error::ProtocolError),
+                            ),
+                        },
+                    )
+                    .unwrap() as u32,
+                };
 
-                meta.size = (out_size + size) as u32;
+                meta.size = out_size;
                 self.net
                     .send_packet(
                         SOCKET,
@@ -137,8 +158,12 @@ impl ServerImpl {
                 use drv_sidecar_front_io::Addr;
                 use zerocopy::{BigEndian, U16};
 
-                // TODO: this is hard-coded right now
-                let fpga = self.transceivers.fpga(FpgaController::Left);
+                let fpga = match modules.fpga_id {
+                    0 => FpgaController::Left,
+                    1 => FpgaController::Right,
+                    i => return Err(Error::InvalidFpga(i)),
+                };
+                let fpga = self.transceivers.fpga(fpga);
 
                 // This is a bit awkward: the FPGA will get _every_ module's
                 // status (for the given FPGA), then we'll unpack to only the
@@ -210,6 +235,9 @@ impl ServerImpl {
                             .clear_power_enable(mask)
                             .map_err(|_e| Error::ReadFailed)?;
                         self.transceivers
+                            .set_reset(mask)
+                            .map_err(|_e| Error::ReadFailed)?;
+                        self.transceivers
                             .set_lpmode(mask)
                             .map_err(|_e| Error::ReadFailed)?;
                     }
@@ -220,6 +248,9 @@ impl ServerImpl {
                             .map_err(|_e| Error::ReadFailed)?;
                         self.transceivers
                             .set_power_enable(mask)
+                            .map_err(|_e| Error::ReadFailed)?;
+                        self.transceivers
+                            .clear_reset(mask)
                             .map_err(|_e| Error::ReadFailed)?;
                     }
                     PowerMode::High => {
@@ -254,7 +285,7 @@ impl ServerImpl {
                 self.transceivers
                     .setup_i2c_write(0x7F, 1, mask)
                     .map_err(|_e| Error::ReadFailed)?;
-                // Poll until done?
+                sleep_for(5); // TODO: Poll instead
 
                 if let Some(bank) = page.bank() {
                     self.transceivers
@@ -263,7 +294,7 @@ impl ServerImpl {
                     self.transceivers
                         .setup_i2c_write(0x7E, 1, mask)
                         .map_err(|_e| Error::ReadFailed)?;
-                    // Poll until done?
+                    sleep_for(5); // TODO: Poll instead
                 }
             }
             UpperPage::Sff8636(page) => {
@@ -273,7 +304,7 @@ impl ServerImpl {
                 self.transceivers
                     .setup_i2c_write(0x7F, 1, mask)
                     .map_err(|_e| Error::ReadFailed)?;
-                // Poll until done?
+                sleep_for(5); // TODO: Poll instead
             }
         }
         Ok(())
@@ -289,7 +320,7 @@ impl ServerImpl {
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
             .map_err(|_e| Error::ReadFailed)?;
-        // TODO: wait for completion
+        sleep_for(5); // TODO: wait for completion
 
         let controller = match modules.fpga_id {
             0 => FpgaController::Left,
