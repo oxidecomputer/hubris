@@ -362,8 +362,47 @@ impl ServerImpl {
         modules: ModuleId,
         data: &[u8],
     ) -> Result<(), Error> {
+        // Writing beyond a 128-byte page boundary will wrap around; return an
+        // error if that's going to happen.
+        let page_end = (mem.offset() as u32 / 128 + 1) * 128;
+        if mem.offset() as u32 + mem.len() as u32 > page_end {
+            // TODO use a more descriptive error name here?
+            return Err(Error::InvalidMemoryAccess {
+                offset: mem.offset(),
+                len: mem.len(),
+            });
+        }
+        match *mem.upper_page() {
+            // CMIS 5.0, §5.2.2.2: only guarantee an 8-byte write
+            UpperPage::Cmis(..) => {
+                if mem.len() > 8 {
+                    // TODO: more specialized error
+                    return Err(Error::RequestTooLarge);
+                }
+            }
+            // SFF-8636, §5.3.3: max of 4 bytes in one write transaction
+            UpperPage::Sff8636(..) => {
+                if mem.len() > 4 {
+                    // TODO: more specialized error
+                    return Err(Error::RequestTooLarge);
+                }
+            }
+        }
+
         self.select_page(*mem.upper_page(), modules)
-            .map_err(|_e| Error::ReadFailed)?;
+            .map_err(|_e| Error::WriteFailed)?;
+
+        // Copy data into the FPGA write buffer
+        self.transceivers
+            .set_i2c_write_buffer(&data[..mem.len()])
+            .map_err(|_e| Error::WriteFailed)?;
+
+        // Trigger a multicast write to all transceivers in the mask
+        self.transceivers
+            .setup_i2c_write(mem.offset(), mem.len(), get_mask(modules)?)
+            .map_err(|_e| Error::WriteFailed)?;
+        sleep_for(5); // TODO: wait for completion
+
         todo!()
     }
 }
