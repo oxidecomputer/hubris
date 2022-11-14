@@ -2,6 +2,7 @@ name = "psc-a"
 target = "thumbv7em-none-eabihf"
 board = "psc-a"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
@@ -96,12 +97,12 @@ interrupts = {"flash_controller.irq" = 0b1}
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
-priority = 3
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "sprot"]
+priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.validate]
 name = "task-validate"
@@ -140,6 +141,15 @@ task-slots = [
     "validate",
 ]
 features = ["psc", "vlan"]
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys", {spi_driver = "spi4_driver"}]
+features = ["sink_test"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -201,7 +211,7 @@ task-slots = ["i2c_driver", "sensor"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 5
+priority = 6
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -406,7 +416,7 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV16"
+clock_divider = "DIV256"
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
