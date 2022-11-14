@@ -9,7 +9,7 @@ use drv_auxflash_api::{
     SECTOR_SIZE_BYTES, SLOT_COUNT, SLOT_SIZE,
 };
 use gateway_messages::{
-    ResponseError, SpComponent, UpdateId, UpdateInProgressStatus,
+    SpComponent, SpError, UpdateId, UpdateInProgressStatus,
     UpdatePreparationProgress, UpdatePreparationStatus, UpdateStatus,
 };
 
@@ -278,7 +278,7 @@ impl AcceptingData {
         offset: u32,
         mut data: &[u8],
         aux_flash_size: u32,
-    ) -> (IngestDataResult, Result<(), ResponseError>) {
+    ) -> (IngestDataResult, Result<(), SpError>) {
         // Check that this chunk starts where our data ends.
         let expected_offset = self.next_write_offset + self.buffer.len() as u32;
         if offset != expected_offset
@@ -286,7 +286,7 @@ impl AcceptingData {
         {
             return (
                 IngestDataResult::NewState(State::AcceptingData(self)),
-                Err(ResponseError::InvalidUpdateChunk),
+                Err(SpError::InvalidUpdateChunk),
             );
         }
 
@@ -305,7 +305,7 @@ impl AcceptingData {
                 ) {
                     return (
                         IngestDataResult::NewState(State::Failed(err)),
-                        Err(ResponseError::UpdateFailed(err as u32)),
+                        Err(SpError::UpdateFailed(err as u32)),
                     );
                 }
 
@@ -321,7 +321,7 @@ impl AcceptingData {
                 Err(err) => {
                     return (
                         IngestDataResult::NewState(State::Failed(err)),
-                        Err(ResponseError::UpdateFailed(err as u32)),
+                        Err(SpError::UpdateFailed(err as u32)),
                     );
                 }
             };
@@ -330,7 +330,7 @@ impl AcceptingData {
                 let err = AuxFlashError::ChckMismatch;
                 return (
                     IngestDataResult::NewState(State::Failed(err)),
-                    Err(ResponseError::UpdateFailed(err as u32)),
+                    Err(SpError::UpdateFailed(err as u32)),
                 );
             }
 

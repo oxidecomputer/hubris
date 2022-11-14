@@ -6,15 +6,19 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId,
+    sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
+    UpdateId,
 };
+use host_sp_messages::HostStartupOptions;
+use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
+use userlib::{sys_set_timer, task_slot};
 
 mod inventory;
 mod mgs_common;
@@ -92,6 +96,17 @@ enum MgsMessage {
     SetPowerState(PowerState),
     ResetPrepare,
     Inventory,
+    HostPhase2Data {
+        hash: [u8; 32],
+        offset: u64,
+        data_len: usize,
+    },
+    MgsError {
+        message_id: u32,
+        err: MgsError,
+    },
+    GetStartupOptions,
+    SetStartupOptions(gateway_messages::StartupOptions),
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -107,32 +122,100 @@ const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]
 fn main() {
-    let mut mgs_handler = MgsHandler::claim_static_resources();
-    let mut net_handler = NetHandler::claim_static_resources();
+    let mut server = ServerImpl::claim_static_resources();
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        sys_set_timer(mgs_handler.timer_deadline(), TIMER_IRQ);
+        sys_set_timer(server.timer_deadline(), TIMER_IRQ);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
+    }
+}
 
-        let note = sys_recv_closed(
-            &mut [],
-            NET_IRQ | USART_IRQ | TIMER_IRQ,
-            TaskId::KERNEL,
+struct ServerImpl {
+    mgs_handler: MgsHandler,
+    net_handler: NetHandler,
+}
+
+impl ServerImpl {
+    fn claim_static_resources() -> Self {
+        Self {
+            mgs_handler: MgsHandler::claim_static_resources(),
+            net_handler: NetHandler::claim_static_resources(),
+        }
+    }
+
+    fn timer_deadline(&self) -> Option<u64> {
+        self.mgs_handler.timer_deadline()
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        NET_IRQ | USART_IRQ | TIMER_IRQ
+    }
+
+    fn handle_notification(&mut self, bits: u32) {
+        ringbuf_entry!(Log::Wake(bits));
+
+        if (bits & USART_IRQ) != 0 {
+            self.mgs_handler.drive_usart();
+        }
+
+        if (bits & TIMER_IRQ) != 0 {
+            self.mgs_handler.handle_timer_fired();
+        }
+
+        if (bits & NET_IRQ) != 0
+            || self.mgs_handler.wants_to_send_packet_to_mgs()
+        {
+            self.net_handler.run_until_blocked(&mut self.mgs_handler);
+        }
+    }
+}
+
+impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
+    fn fetch_host_phase2_data(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        image_hash: [u8; 32],
+        offset: u64,
+        notification_bit: u8,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.fetch_host_phase2_data(
+            msg,
+            image_hash,
+            offset,
+            notification_bit,
         )
-        .unwrap_lite()
-        .operation;
-        ringbuf_entry!(Log::Wake(note));
+    }
 
-        if (note & USART_IRQ) != 0 {
-            mgs_handler.drive_usart();
-        }
+    fn get_host_phase2_data(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        image_hash: [u8; 32],
+        offset: u64,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler
+            .get_host_phase2_data(image_hash, offset, data)
+    }
 
-        if (note & TIMER_IRQ) != 0 {
-            mgs_handler.handle_timer_fired();
-        }
+    fn get_startup_options(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.startup_options()
+    }
 
-        if (note & NET_IRQ) != 0 || mgs_handler.wants_to_send_packet_to_mgs() {
-            net_handler.run_until_blocked(&mut mgs_handler);
-        }
+    fn set_startup_options(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        startup_options: u64,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        let startup_options = HostStartupOptions::from_bits(startup_options)
+            .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
+
+        self.mgs_handler.set_startup_options(startup_options)
     }
 }
 
@@ -228,16 +311,16 @@ impl NetHandler {
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
         assert!(self.packet_to_send.is_none());
-        let n = sp_impl::handle_message(
+        if let Some(n) = sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
             self.tx_buf,
-        );
-
-        meta.size = n as u32;
-        self.packet_to_send = Some(meta);
+        ) {
+            meta.size = n as u32;
+            self.packet_to_send = Some(meta);
+        }
     }
 }
 
@@ -271,4 +354,11 @@ const fn usize_max(a: usize, b: usize) -> usize {
     } else {
         b
     }
+}
+
+mod idl {
+    use task_control_plane_agent_api::{
+        ControlPlaneAgentError, HostStartupOptions,
+    };
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

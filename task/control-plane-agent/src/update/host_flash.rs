@@ -10,7 +10,7 @@ use drv_gimlet_hf_api::{
     SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
-    ComponentUpdatePrepare, ResponseError, SpComponent, UpdateId,
+    ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
     UpdateInProgressStatus, UpdatePreparationProgress, UpdatePreparationStatus,
     UpdateStatus,
 };
@@ -43,12 +43,12 @@ impl ComponentUpdater for HostFlashUpdate {
         &mut self,
         buffer: &'static UpdateBuffer,
         update: ComponentUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(CurrentUpdate::state) {
             Some(State::ErasingSectors { .. })
             | Some(State::AcceptingData { .. }) => {
-                return Err(ResponseError::UpdateInProgress(self.status()));
+                return Err(SpError::UpdateInProgress(self.status()));
             }
             Some(State::Complete)
             | Some(State::Aborted)
@@ -63,36 +63,36 @@ impl ComponentUpdater for HostFlashUpdate {
         let buffer = buffer
             .borrow(SpComponent::HOST_CPU_BOOT_FLASH, Self::BLOCK_SIZE)
             .map_err(|component| {
-                ResponseError::OtherComponentUpdateInProgress(component)
+                SpError::OtherComponentUpdateInProgress(component)
             })?;
 
         // Which slot are we updating?
         let slot = match update.slot {
             0 => HfDevSelect::Flash0,
             1 => HfDevSelect::Flash1,
-            _ => return Err(ResponseError::InvalidSlotForComponent),
+            _ => return Err(SpError::InvalidSlotForComponent),
         };
 
         // Do we have control of the host flash?
         match self
             .task
             .get_mux()
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?
+            .map_err(|err| SpError::UpdateFailed(err as u32))?
         {
             HfMuxState::SP => (),
-            HfMuxState::HostCPU => return Err(ResponseError::UpdateSlotBusy),
+            HfMuxState::HostCPU => return Err(SpError::UpdateSlotBusy),
         }
 
         // Swap to the chosen slot.
         self.task
             .set_dev(slot)
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
         // What is the total capacity of the device?
         let capacity = self
             .task
             .capacity()
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
         // How many total sectors do we need to erase? For gimlet, we know that
         // capacity is an exact multiple of the sector size, which is probably
@@ -102,7 +102,7 @@ impl ComponentUpdater for HostFlashUpdate {
             // We don't have an error case for "our assumptions are wrong", so
             // we'll fill in an easily-greppable update failure code. In case it
             // shows up in logs in base 10, 0x1de_0001 == 31326209.
-            return Err(ResponseError::UpdateFailed(0x1de_0001));
+            return Err(SpError::UpdateFailed(0x1de_0001));
         }
         let num_sectors = (capacity / SECTOR_SIZE_BYTES) as u32;
 
@@ -209,12 +209,10 @@ impl ComponentUpdater for HostFlashUpdate {
         id: &UpdateId,
         offset: u32,
         mut data: &[u8],
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         // Ensure we are expecting data.
-        let current = self
-            .current
-            .as_mut()
-            .ok_or(ResponseError::UpdateNotPrepared)?;
+        let current =
+            self.current.as_mut().ok_or(SpError::UpdateNotPrepared)?;
 
         let current_id = current.id();
         let total_size = current.total_size();
@@ -225,16 +223,16 @@ impl ComponentUpdater for HostFlashUpdate {
                 next_write_offset,
             } => (buffer, next_write_offset),
             State::ErasingSectors { .. } | State::Complete | State::Aborted => {
-                return Err(ResponseError::UpdateNotPrepared)
+                return Err(SpError::UpdateNotPrepared)
             }
             State::Failed(err) => {
-                return Err(ResponseError::UpdateFailed(*err as u32))
+                return Err(SpError::UpdateFailed(*err as u32))
             }
         };
 
         // Reject chunks that don't match our current update ID.
         if *id != current_id {
-            return Err(ResponseError::InvalidUpdateId {
+            return Err(SpError::InvalidUpdateId {
                 sp_update_id: current_id,
             });
         }
@@ -245,7 +243,7 @@ impl ComponentUpdater for HostFlashUpdate {
         if offset != expected_offset
             || expected_offset + data.len() as u32 > total_size
         {
-            return Err(ResponseError::InvalidUpdateChunk);
+            return Err(SpError::InvalidUpdateChunk);
         }
 
         while !data.is_empty() {
@@ -259,7 +257,7 @@ impl ComponentUpdater for HostFlashUpdate {
                     self.task.page_program(*next_write_offset, buffer)
                 {
                     *current.state_mut() = State::Failed(err);
-                    return Err(ResponseError::UpdateFailed(err as u32));
+                    return Err(SpError::UpdateFailed(err as u32));
                 }
 
                 *next_write_offset += buffer.len() as u32;
@@ -277,16 +275,16 @@ impl ComponentUpdater for HostFlashUpdate {
         Ok(())
     }
 
-    fn abort(&mut self, id: &UpdateId) -> Result<(), ResponseError> {
+    fn abort(&mut self, id: &UpdateId) -> Result<(), SpError> {
         // Do we have an update in progress? If not, nothing to do.
         let current = match self.current.as_mut() {
             Some(current) => current,
-            None => return Err(ResponseError::UpdateNotPrepared),
+            None => return Err(SpError::UpdateNotPrepared),
         };
 
         // Only proceed if the requested ID matches ours.
         if *id != current.id() {
-            return Err(ResponseError::UpdateInProgress(self.status()));
+            return Err(SpError::UpdateInProgress(self.status()));
         }
 
         match current.state() {
@@ -305,9 +303,7 @@ impl ComponentUpdater for HostFlashUpdate {
             State::Aborted => Ok(()),
 
             // Update has already completed - too late to abort.
-            State::Complete => {
-                Err(ResponseError::UpdateInProgress(self.status()))
-            }
+            State::Complete => Err(SpError::UpdateInProgress(self.status())),
         }
     }
 }

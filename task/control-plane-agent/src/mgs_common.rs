@@ -5,7 +5,7 @@
 use crate::{inventory::Inventory, Log, MgsMessage};
 use core::convert::Infallible;
 use gateway_messages::sp_impl::DeviceDescription;
-use gateway_messages::{DiscoverResponse, ResponseError, SpPort, SpState};
+use gateway_messages::{DiscoverResponse, SpError, SpPort, SpState};
 use ringbuf::ringbuf_entry_root;
 
 // TODO How are we versioning SP images? This is a placeholder.
@@ -28,12 +28,12 @@ impl MgsCommon {
     pub(crate) fn discover(
         &mut self,
         port: SpPort,
-    ) -> Result<DiscoverResponse, ResponseError> {
+    ) -> Result<DiscoverResponse, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse { sp_port: port })
     }
 
-    pub(crate) fn sp_state(&mut self) -> Result<SpState, ResponseError> {
+    pub(crate) fn sp_state(&mut self) -> Result<SpState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SpState));
 
         // TODO Replace with the real serial number once it's available; for now
@@ -53,7 +53,7 @@ impl MgsCommon {
         })
     }
 
-    pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
+    pub(crate) fn reset_prepare(&mut self) -> Result<(), SpError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ResetPrepare));
@@ -61,13 +61,11 @@ impl MgsCommon {
         Ok(())
     }
 
-    pub(crate) fn reset_trigger(
-        &mut self,
-    ) -> Result<Infallible, ResponseError> {
+    pub(crate) fn reset_trigger(&mut self) -> Result<Infallible, SpError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
         if !self.reset_requested {
-            return Err(ResponseError::ResetTriggerWithoutPrepare);
+            return Err(SpError::ResetTriggerWithoutPrepare);
         }
 
         let jefe = task_jefe_api::Jefe::from(crate::JEFE.get_task_id());

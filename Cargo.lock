@@ -376,9 +376,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "corncobs"
-version = "0.1.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
+checksum = "f9236877021b66ad90f833d8a73a7acb702b985b64c5986682d9f1f1a184f0fb"
 
 [[package]]
 name = "cortex-m"
@@ -1911,7 +1911,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=c1484109c394f45e08018e0f35adc4a136cd207d#c1484109c394f45e08018e0f35adc4a136cd207d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=d7791e4d02571b8414b4c2976b0439234aa4d8c7#d7791e4d02571b8414b4c2976b0439234aa4d8c7"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -2137,9 +2137,12 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "fletcher",
+ "gateway-messages",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "serde",
+ "serde-big-array",
  "serde_repr",
+ "static_assertions",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -3731,17 +3734,36 @@ dependencies = [
  "drv-update-api",
  "gateway-messages",
  "heapless",
+ "host-sp-messages",
+ "idol",
+ "idol-runtime",
  "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
  "ssmarshal",
  "static_assertions",
+ "task-control-plane-agent-api",
  "task-jefe-api",
  "task-net-api",
  "task-validate-api",
  "update-buffer",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-control-plane-agent-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "host-sp-messages",
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3796,6 +3818,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "userlib",
  "zerocopy",

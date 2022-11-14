@@ -60,8 +60,8 @@ use core::ops::{Deref, DerefMut};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateError, UpdateTarget};
 use gateway_messages::{
-    ResponseError, SpComponent, SpUpdatePrepare, UpdateId,
-    UpdateInProgressStatus, UpdateStatus,
+    SpComponent, SpError, SpUpdatePrepare, UpdateId, UpdateInProgressStatus,
+    UpdateStatus,
 };
 
 cfg_if! {
@@ -116,13 +116,13 @@ impl SpUpdate {
         &mut self,
         buffer: &'static UpdateBuffer,
         update: SpUpdatePrepare,
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(|c| c.state()) {
             Some(State::AuxFlash(_))
             | Some(State::FoundMatchingAuxFlashChck { .. })
             | Some(State::AcceptingData { .. }) => {
-                return Err(ResponseError::UpdateInProgress(self.status()));
+                return Err(SpError::UpdateInProgress(self.status()));
             }
             Some(State::Complete)
             | Some(State::Aborted)
@@ -137,18 +137,18 @@ impl SpUpdate {
         let buffer = buffer
             .borrow(SpComponent::SP_ITSELF, BLOCK_SIZE_BYTES)
             .map_err(|component| {
-                ResponseError::OtherComponentUpdateInProgress(component)
+                SpError::OtherComponentUpdateInProgress(component)
             })?;
 
         // Can we handle an auxflash update?
         if update.aux_flash_size > 0 && cfg!(not(feature = "auxflash")) {
-            return Err(ResponseError::RequestUnsupportedForSp);
+            return Err(SpError::RequestUnsupportedForSp);
         }
 
         // Attempt to prepare for an update (erases our flash).
         self.sp_task
             .prep_image_update(UpdateTarget::Alternate)
-            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
         let state = if update.aux_flash_size > 0 {
             State::AuxFlash(AuxFlashState::new(
@@ -265,16 +265,14 @@ impl SpUpdate {
         id: &UpdateId,
         offset: u32,
         data: &[u8],
-    ) -> Result<(), ResponseError> {
+    ) -> Result<(), SpError> {
         // Ensure we are expecting data.
-        let current = self
-            .current
-            .as_mut()
-            .ok_or(ResponseError::UpdateNotPrepared)?;
+        let current =
+            self.current.as_mut().ok_or(SpError::UpdateNotPrepared)?;
 
         // Reject chunks that don't match our current update ID.
         if *id != current.id() {
-            return Err(ResponseError::InvalidUpdateId {
+            return Err(SpError::InvalidUpdateId {
                 sp_update_id: current.id(),
             });
         }
@@ -295,7 +293,7 @@ impl SpUpdate {
             if *component != SpComponent::SP_AUX_FLASH {
                 return (
                     State::AuxFlash(auxflash_state),
-                    Some(Err(ResponseError::InvalidUpdateChunk)),
+                    Some(Err(SpError::InvalidUpdateChunk)),
                 );
             }
 
@@ -309,13 +307,13 @@ impl SpUpdate {
                 | AuxFlashState::ErasingSlot(_) => {
                     return (
                         State::AuxFlash(auxflash_state),
-                        Some(Err(ResponseError::UpdateNotPrepared)),
+                        Some(Err(SpError::UpdateNotPrepared)),
                     );
                 }
                 AuxFlashState::Failed(err) => {
                     return (
                         State::AuxFlash(auxflash_state),
-                        Some(Err(ResponseError::UpdateFailed(err as u32))),
+                        Some(Err(SpError::UpdateFailed(err as u32))),
                     );
                 }
             };
@@ -350,7 +348,7 @@ impl SpUpdate {
 
         // We're not in an aux flash state, so check that this chunk is SP data.
         if *component != SpComponent::SP_ITSELF {
-            return Err(ResponseError::InvalidUpdateChunk);
+            return Err(SpError::InvalidUpdateChunk);
         }
 
         // Handle SP image states.
@@ -363,13 +361,10 @@ impl SpUpdate {
                 },
                 State::AcceptingData(a) => a,
                 State::Complete | State::Aborted => {
-                    return (state, Err(ResponseError::UpdateNotPrepared))
+                    return (state, Err(SpError::UpdateNotPrepared))
                 }
                 State::Failed(err) => {
-                    return (
-                        state,
-                        Err(ResponseError::UpdateFailed(err as u32)),
-                    )
+                    return (state, Err(SpError::UpdateFailed(err as u32)))
                 }
             };
 
@@ -377,15 +372,15 @@ impl SpUpdate {
         })
     }
 
-    pub(crate) fn abort(&mut self, id: &UpdateId) -> Result<(), ResponseError> {
+    pub(crate) fn abort(&mut self, id: &UpdateId) -> Result<(), SpError> {
         // Do we have an update in progress? If not, nothing to do.
         let current = match self.current.as_mut() {
             Some(current) => current,
-            None => return Err(ResponseError::UpdateNotPrepared),
+            None => return Err(SpError::UpdateNotPrepared),
         };
 
         if *id != current.id() {
-            return Err(ResponseError::UpdateInProgress(self.status()));
+            return Err(SpError::UpdateInProgress(self.status()));
         }
 
         match current.state() {
@@ -408,9 +403,7 @@ impl SpUpdate {
                         *current.state_mut() = State::Aborted;
                         Ok(())
                     }
-                    Err(other) => {
-                        Err(ResponseError::UpdateFailed(other as u32))
-                    }
+                    Err(other) => Err(SpError::UpdateFailed(other as u32)),
                 }
             }
 
@@ -418,9 +411,7 @@ impl SpUpdate {
             State::Aborted => Ok(()),
 
             // Update has already completed - too late to abort.
-            State::Complete => {
-                Err(ResponseError::UpdateInProgress(self.status()))
-            }
+            State::Complete => Err(SpError::UpdateInProgress(self.status())),
         }
     }
 }
@@ -485,7 +476,7 @@ impl AcceptingData {
         sp_image_size: u32,
         offset: u32,
         mut data: &[u8],
-    ) -> (State, Result<(), ResponseError>) {
+    ) -> (State, Result<(), SpError>) {
         // Check that this chunk starts where our data ends.
         let expected_offset = self.next_write_offset + self.buffer.len() as u32;
         if offset != expected_offset
@@ -493,7 +484,7 @@ impl AcceptingData {
         {
             return (
                 State::AcceptingData(self),
-                Err(ResponseError::InvalidUpdateChunk),
+                Err(SpError::InvalidUpdateChunk),
             );
         }
 
@@ -509,7 +500,7 @@ impl AcceptingData {
                 if let Err(err) = sp_task.write_one_block(block, &self.buffer) {
                     return (
                         State::Failed(err),
-                        Err(ResponseError::UpdateFailed(err as u32)),
+                        Err(SpError::UpdateFailed(err as u32)),
                     );
                 }
 
@@ -522,10 +513,9 @@ impl AcceptingData {
         if self.next_write_offset == sp_image_size {
             match sp_task.finish_image_update() {
                 Ok(()) => (State::Complete, Ok(())),
-                Err(err) => (
-                    State::Failed(err),
-                    Err(ResponseError::UpdateFailed(err as u32)),
-                ),
+                Err(err) => {
+                    (State::Failed(err), Err(SpError::UpdateFailed(err as u32)))
+                }
             }
         } else {
             (State::AcceptingData(self), Ok(()))
