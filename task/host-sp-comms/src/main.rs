@@ -15,13 +15,13 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DebugReg, DecodeFailureReason, Header, HostToSp, HubpackError,
-    SpToHost, Status, MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
+    MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::{ControlPlaneAgent, ControlPlaneAgentError};
+use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
 
@@ -106,8 +106,6 @@ fn main() -> ! {
 
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
-    // XXX For now, we want to default to these options.
-    server.set_debug_impl(DebugReg::DEBUG_KMDB | DebugReg::DEBUG_PROM);
 
     sys_irq_control(USART_IRQ, true);
 
@@ -135,7 +133,6 @@ struct ServerImpl {
     tx_buf: TxBuf,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
-    debug: DebugReg,
     sequencer: Sequencer,
     hf: HostFlash,
     cp_agent: ControlPlaneAgent,
@@ -162,7 +159,6 @@ impl ServerImpl {
             tx_buf: TxBuf::claim_static_resources(),
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
-            debug: DebugReg::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
@@ -182,12 +178,6 @@ impl ServerImpl {
             } else {
                 self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
             }
-        }
-    }
-
-    fn set_debug_impl(&mut self, debug: DebugReg) {
-        if debug != self.debug {
-            self.debug = debug;
         }
     }
 
@@ -518,7 +508,7 @@ impl ServerImpl {
                         // If we can't get data, all we can do is send the
                         // host a response with no data; it can decide to
                         // retry later.
-                        Err(ControlPlaneAgentError::DataUnavailable) => 0,
+                        Err(_) => 0,
                     }
                 },
             );
@@ -597,10 +587,16 @@ impl ServerImpl {
             }
             HostToSp::GetIdentity => {
                 // TODO how do we get our real identity?
+                let fake_model = b"913-0000019";
+                let fake_serial = b"OXE99990000";
+                let mut model = [0; 51];
+                let mut serial = [0; 51];
+                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
+                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
                 Some(SpToHost::Identity {
-                    model: *b"913-0000019",
+                    model,
                     revision: 2,
-                    serial: *b"OXE99990000",
+                    serial,
                 })
             }
             HostToSp::GetMacAddresses => {
@@ -621,7 +617,7 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
                 status: self.status,
-                debug: self.debug,
+                startup: self.cp_agent.get_startup_options().unwrap_lite(),
             }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
@@ -865,26 +861,6 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
     ) -> Result<Status, RequestError<HostSpCommsError>> {
         Ok(self.status)
     }
-
-    fn set_debug(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        debug: u64,
-    ) -> Result<(), RequestError<HostSpCommsError>> {
-        let debug =
-            DebugReg::from_bits(debug).ok_or(HostSpCommsError::InvalidDebug)?;
-
-        self.set_debug_impl(debug);
-
-        Ok(())
-    }
-
-    fn get_debug(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<DebugReg, RequestError<HostSpCommsError>> {
-        Ok(self.debug)
-    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
@@ -1004,6 +980,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::{DebugReg, HostSpCommsError, Status};
+    use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

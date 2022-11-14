@@ -7,11 +7,13 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+pub use host_sp_messages::HostStartupOptions;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ControlPlaneAgentError {
     DataUnavailable = 1,
+    InvalidStartupOptions,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

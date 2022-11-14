@@ -6,8 +6,10 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, IgnitionCommand, PowerState, SpComponent, SpPort, UpdateId,
+    sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
+    UpdateId,
 };
+use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -16,7 +18,7 @@ use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use userlib::{sys_post, sys_set_timer, task_slot};
+use userlib::{sys_set_timer, task_slot};
 
 mod inventory;
 mod mgs_common;
@@ -94,6 +96,17 @@ enum MgsMessage {
     SetPowerState(PowerState),
     ResetPrepare,
     Inventory,
+    HostPhase2Data {
+        hash: [u8; 32],
+        offset: u64,
+        data_len: usize,
+    },
+    MgsError {
+        message_id: u32,
+        err: MgsError,
+    },
+    GetStartupOptions,
+    SetStartupOptions(gateway_messages::StartupOptions),
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -164,29 +177,45 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     fn fetch_host_phase2_data(
         &mut self,
         msg: &userlib::RecvMessage,
-        _image_hash: [u8; 32],
-        _offset: u64,
+        image_hash: [u8; 32],
+        offset: u64,
         notification_bit: u8,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
-        // TODO: Actually fetch data! For now, we immediately notify our caller,
-        // allowing them to call `get_host_phase2_data()`.
-        sys_post(msg.sender, 1 << notification_bit);
-        Ok(())
+        self.mgs_handler.fetch_host_phase2_data(
+            msg,
+            image_hash,
+            offset,
+            notification_bit,
+        )
     }
 
     fn get_host_phase2_data(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _image_hash: [u8; 32],
-        _offset: u64,
+        image_hash: [u8; 32],
+        offset: u64,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
-        // TODO: Actually supply real data!
-        for i in 0..data.len() {
-            data.write_at(i, i as u8)
-                .map_err(|_| RequestError::went_away())?;
-        }
-        Ok(data.len())
+        self.mgs_handler
+            .get_host_phase2_data(image_hash, offset, data)
+    }
+
+    fn get_startup_options(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.startup_options()
+    }
+
+    fn set_startup_options(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        startup_options: u64,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        let startup_options = HostStartupOptions::from_bits(startup_options)
+            .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
+
+        self.mgs_handler.set_startup_options(startup_options)
     }
 }
 
@@ -282,16 +311,16 @@ impl NetHandler {
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
         assert!(self.packet_to_send.is_none());
-        let n = sp_impl::handle_message(
+        if let Some(n) = sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
             self.tx_buf,
-        );
-
-        meta.size = n as u32;
-        self.packet_to_send = Some(meta);
+        ) {
+            meta.size = n as u32;
+            self.packet_to_send = Some(meta);
+        }
     }
 }
 
@@ -328,6 +357,8 @@ const fn usize_max(a: usize, b: usize) -> usize {
 }
 
 mod idl {
-    use task_control_plane_agent_api::ControlPlaneAgentError;
+    use task_control_plane_agent_api::{
+        ControlPlaneAgentError, HostStartupOptions,
+    };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
