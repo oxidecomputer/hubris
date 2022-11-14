@@ -122,6 +122,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46afbd2983a5d5a7bd740ccb198caf5b82f45c40c09c0eed36052d91cb92e719"
 
 [[package]]
+name = "bitfield"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7e60934ceec538daadb9d8432424ed043a904d8e0243f3c6446bce549a46ac"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -384,7 +390,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd20d4ac4aa86f4f75f239d59e542ef67de87cce2c282818dc6e84155d3ea126"
 dependencies = [
  "bare-metal 0.2.5",
- "bitfield",
+ "bitfield 0.13.2",
  "embedded-hal",
  "volatile-register",
 ]
@@ -822,7 +828,7 @@ dependencies = [
 name = "drv-fpga-devices"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bitfield 0.13.2",
  "cfg-if",
  "drv-fpga-api",
  "drv-i2c-api",
@@ -965,7 +971,7 @@ dependencies = [
 name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bitfield 0.13.2",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
@@ -991,7 +997,7 @@ dependencies = [
 name = "drv-ignition-api"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bitfield 0.13.2",
  "cfg-if",
  "derive-idol-err",
  "derive_more",
@@ -1317,7 +1323,7 @@ dependencies = [
 name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bitfield 0.13.2",
  "build-fpga-regmap",
  "build-util",
  "drv-auxflash-api",
@@ -1608,7 +1614,7 @@ dependencies = [
 name = "drv-stm32xx-i2c"
 version = "0.1.0"
 dependencies = [
- "bitfield",
+ "bitfield 0.13.2",
  "cfg-if",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
@@ -2395,9 +2401,10 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
 dependencies = [
  "anyhow",
+ "bitfield 0.14.0",
  "byteorder",
  "hex",
  "num-derive",
@@ -2405,6 +2412,7 @@ dependencies = [
  "packed_struct",
  "packed_struct_codegen",
  "parse_int",
+ "serde",
 ]
 
 [[package]]
@@ -2429,7 +2437,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
 dependencies = [
  "anyhow",
  "byteorder",

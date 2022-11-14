@@ -13,7 +13,8 @@ use serde::Deserialize;
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 use lpc55_areas::{
-    BootSpeed, CFPAPage, CMPAPage, DefaultIsp, RKTHRevoke, SecureBootCfg,
+    BootSpeed, CFPAPage, CMPAPage, DebugSettings, DefaultIsp, RKTHRevoke,
+    ROTKeyStatus, SecureBootCfg,
 };
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
@@ -507,6 +508,20 @@ pub struct RoTMfgSettings {
     pub dice_cust_cfg: bool,
     #[serde(default)]
     pub dice_inc_sec_epoch: bool,
+    #[serde(default)]
+    pub cmpa_settings: DebugSettings,
+    #[serde(default)]
+    pub cfpa_settings: DebugSettings,
+    #[serde(default = "ROTKeyStatus::enabled")]
+    pub rotk0: ROTKeyStatus,
+    #[serde(default = "ROTKeyStatus::invalid")]
+    pub rotk1: ROTKeyStatus,
+    #[serde(default = "ROTKeyStatus::invalid")]
+    pub rotk2: ROTKeyStatus,
+    #[serde(default = "ROTKeyStatus::invalid")]
+    pub rotk3: ROTKeyStatus,
+    #[serde(default = "DefaultIsp::auto")]
+    pub default_isp: DefaultIsp,
 }
 
 impl RoTMfgSettings {
@@ -527,8 +542,9 @@ impl RoTMfgSettings {
         cmpa.set_secure_boot_cfg(sec_boot)?;
 
         cmpa.set_rotkh(rkth);
-        // ISP will eventually want to be a config setting
-        cmpa.set_boot_cfg(DefaultIsp::Auto, BootSpeed::Fro96mhz)?;
+        cmpa.set_boot_cfg(self.default_isp, BootSpeed::Fro96mhz)?;
+
+        cmpa.set_debug_fields(self.cmpa_settings)?;
 
         Ok(cmpa)
     }
@@ -541,11 +557,14 @@ impl RoTMfgSettings {
 
         let mut rkth = RKTHRevoke::new();
 
-        // Just set a single key for now. Once we figure out our
-        // key strategy we can set the bits appropriately
-        rkth.enable_keys(true, false, false, false);
+        rkth.rotk0 = self.rotk0.into();
+        rkth.rotk1 = self.rotk1.into();
+        rkth.rotk2 = self.rotk2.into();
+        rkth.rotk3 = self.rotk3.into();
 
         cfpa.update_rkth_revoke(rkth)?;
+
+        cfpa.set_debug_fields(self.cfpa_settings)?;
 
         Ok(cfpa)
     }
