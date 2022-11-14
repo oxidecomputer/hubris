@@ -8,10 +8,13 @@ use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
     BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, PowerState, SpComponent, SpError, SpPort,
-    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
+    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
+use host_sp_messages::HostStartupOptions;
+use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
+use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
 
@@ -74,6 +77,42 @@ impl MgsHandler {
         _tx_buf: &mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
     ) -> Option<UdpMetadata> {
         None
+    }
+
+    pub(crate) fn fetch_host_phase2_data(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _image_hash: [u8; 32],
+        _offset: u64,
+        _notification_bit: u8,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        Err(ControlPlaneAgentError::DataUnavailable.into())
+    }
+
+    pub(crate) fn get_host_phase2_data(
+        &mut self,
+        _image_hash: [u8; 32],
+        _offset: u64,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        Err(ControlPlaneAgentError::DataUnavailable.into())
+    }
+
+    pub(crate) fn startup_options(
+        &self,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        // We don't have a host to give startup options; no one should be
+        // calling this method.
+        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
+    }
+
+    pub(crate) fn set_startup_options(
+        &mut self,
+        _startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        // We don't have a host to give startup options; no one should be
+        // calling this method.
+        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
 }
 
@@ -296,5 +335,55 @@ impl SpHandler for MgsHandler {
 
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
         self.common.inventory_device_description(index as usize)
+    }
+
+    fn get_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<gateway_messages::StartupOptions, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn set_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        options: gateway_messages::StartupOptions,
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn mgs_response_error(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        message_id: u32,
+        err: MgsError,
+    ) {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
+            message_id,
+            err
+        }));
+    }
+
+    fn mgs_response_host_phase2_data(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        _message_id: u32,
+        hash: [u8; 32],
+        offset: u64,
+        data: &[u8],
+    ) {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::HostPhase2Data {
+            hash,
+            offset,
+            data_len: data.len(),
+        }));
     }
 }

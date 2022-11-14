@@ -14,14 +14,24 @@ use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
     BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse, Header,
-    IgnitionCommand, IgnitionState, Message, MessageKind, PowerState,
+    IgnitionCommand, IgnitionState, Message, MessageKind, MgsError, PowerState,
     SpComponent, SpError, SpPort, SpRequest, SpState, SpUpdatePrepare,
     UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
+use host_sp_messages::HostStartupOptions;
+use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
+use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
+
+// We're included under a special `path` cfg from main.rs, which confuses rustc
+// about where our submodules live. Pass explicit paths to correct it.
+#[path = "mgs_gimlet/host_phase2.rs"]
+mod host_phase2;
+
+use host_phase2::HostPhase2Requester;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks or host flash pages.
@@ -66,7 +76,9 @@ pub(crate) struct MgsHandler {
     sequencer: Sequencer,
     sp_update: SpUpdate,
     host_flash_update: HostFlashUpdate,
+    host_phase2: HostPhase2Requester,
     usart: UsartHandler,
+    startup_options: HostStartupOptions,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     serial_console_write_offset: u64,
     next_message_id: u32,
@@ -77,12 +89,19 @@ impl MgsHandler {
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources() -> Self {
         let usart = UsartHandler::claim_static_resources();
+
+        // XXX For now, we want to default to these options.
+        let startup_options =
+            HostStartupOptions::DEBUG_KMDB | HostStartupOptions::DEBUG_PROM;
+
         Self {
             common: MgsCommon::claim_static_resources(),
             host_flash_update: HostFlashUpdate::new(),
+            host_phase2: HostPhase2Requester::claim_static_resources(),
             sp_update: SpUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
+            startup_options,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
@@ -103,7 +122,15 @@ impl MgsHandler {
         {
             Some(sys_get_timer().now + 1)
         } else {
-            self.usart.from_rx_flush_deadline
+            match (
+                self.usart.from_rx_flush_deadline,
+                self.host_phase2.timer_deadline(),
+            ) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (Some(a), None) => Some(a),
+                (None, Some(b)) => Some(b),
+                (None, None) => None,
+            }
         }
     }
 
@@ -114,9 +141,10 @@ impl MgsHandler {
         self.host_flash_update.step_preparation();
         self.sp_update.step_preparation();
         // Even though `timer_deadline()` can return a timer related to usart
-        // flushing, we don't need to do anything here; `NetHandler` in main.rs
-        // will call `wants_to_send_packet_to_mgs()` below when it's ready to
-        // grab any data we want to flush.
+        // flushing or host phase2 data handling, we don't need to do anything
+        // here; `NetHandler` in main.rs will call
+        // `wants_to_send_packet_to_mgs()` below when it's ready to grab any
+        // data we want to send.
     }
 
     pub(crate) fn drive_usart(&mut self) {
@@ -127,10 +155,10 @@ impl MgsHandler {
         // Do we have an attached serial console session MGS?
         if self.attached_serial_console_mgs.is_none() {
             self.usart.clear_rx_data();
-            return false;
         }
 
         self.usart.should_flush_to_mgs()
+            || self.host_phase2.wants_to_send_packet()
     }
 
     fn next_message_id(&mut self) -> u32 {
@@ -143,6 +171,16 @@ impl MgsHandler {
         &mut self,
         tx_buf: &mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
     ) -> Option<UdpMetadata> {
+        // Do we need to request host phase2 data?
+        if self.host_phase2.wants_to_send_packet() {
+            let message_id = self.next_message_id();
+            if let Some(meta) =
+                self.host_phase2.packet_to_mgs(message_id, tx_buf)
+            {
+                return Some(meta);
+            }
+        }
+
         // Should we flush any buffered usart data out to MGS?
         if !self.usart.should_flush_to_mgs() {
             return None;
@@ -193,6 +231,45 @@ impl MgsHandler {
             size: n as u32,
             vid: vlan_id_from_sp_port(sp_port),
         })
+    }
+
+    pub(crate) fn fetch_host_phase2_data(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        image_hash: [u8; 32],
+        offset: u64,
+        notification_bit: u8,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        self.host_phase2.start_fetch(
+            msg.sender,
+            notification_bit,
+            image_hash,
+            offset,
+        );
+        Ok(())
+    }
+
+    pub(crate) fn get_host_phase2_data(
+        &mut self,
+        image_hash: [u8; 32],
+        offset: u64,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.host_phase2.get_data(image_hash, offset, data)
+    }
+
+    pub(crate) fn startup_options(
+        &self,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        Ok(self.startup_options)
+    }
+
+    pub(crate) fn set_startup_options(
+        &mut self,
+        startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        self.startup_options = startup_options;
+        Ok(())
     }
 }
 
@@ -516,6 +593,63 @@ impl SpHandler for MgsHandler {
 
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
         self.common.inventory_device_description(index as usize)
+    }
+
+    fn get_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<gateway_messages::StartupOptions, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+
+        Ok(self.startup_options.into())
+    }
+
+    fn set_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        options: gateway_messages::StartupOptions,
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
+
+        self.startup_options = options.into();
+
+        Ok(())
+    }
+
+    fn mgs_response_error(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        message_id: u32,
+        err: MgsError,
+    ) {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
+            message_id,
+            err
+        }));
+    }
+
+    fn mgs_response_host_phase2_data(
+        &mut self,
+        _sender: SocketAddrV6,
+        port: SpPort,
+        _message_id: u32,
+        hash: [u8; 32],
+        offset: u64,
+        data: &[u8],
+    ) {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::HostPhase2Data {
+            hash,
+            offset,
+            data_len: data.len(),
+        }));
+
+        self.host_phase2
+            .ingest_incoming_data(port, hash, offset, data);
     }
 }
 
