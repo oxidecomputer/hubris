@@ -1378,14 +1378,14 @@ software control</td>
         <td class="FieldDesc" colspan="14">'1' to start next transaction.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">QSFP_CTRL_EN_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">QSFP_I2C_BUSY_H</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1006
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Enable Control</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 I2C core status. '1' is busy.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat27" style="display: none">
@@ -1413,7 +1413,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1421,7 +1421,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1429,7 +1429,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1437,7 +1437,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1445,7 +1445,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1453,7 +1453,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1461,7 +1461,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1469,19 +1469,19 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">QSFP_CTRL_EN_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">QSFP_I2C_BUSY_L</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1007
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Enable Control</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 I2C core status. '1' is busy.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat28" style="display: none">
@@ -1509,7 +1509,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1517,7 +1517,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1525,7 +1525,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1533,7 +1533,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1541,7 +1541,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1549,7 +1549,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1557,7 +1557,7 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -1565,33 +1565,29 @@ software control</td>
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">QSFP_CTRL_RESET_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">QSFP_I2C_ERROR_0_1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1008
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Reset Control (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 1/0 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat29" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT15</td>
-                <td class="validspandef" colspan="2*">PORT14</td>
-                <td class="validspandef" colspan="2*">PORT13</td>
-                <td class="validspandef" colspan="2*">PORT12</td>
-                <td class="validspandef" colspan="2*">PORT11</td>
-                <td class="validspandef" colspan="2*">PORT10</td>
-                <td class="validspandef" colspan="2*">PORT9</td>
-                <td class="validspandef" colspan="2*">PORT8</td>
+                <td class="validspandef" colspan="2*">PORT1_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT1_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT0_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT0_ERROR_TYPE</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1603,91 +1599,55 @@ software control</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="2*">PORT1_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT14</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT1_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT13</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat29" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT12</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat29" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="2*">PORT0_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT10</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat29" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT9</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat29" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT8</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT0_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">QSFP_CTRL_RESET_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">QSFP_I2C_ERROR_2_3</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1009
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Reset Control (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 3/2 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat30" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT7</td>
-                <td class="validspandef" colspan="2*">PORT6</td>
-                <td class="validspandef" colspan="2*">PORT5</td>
-                <td class="validspandef" colspan="2*">PORT4</td>
-                <td class="validspandef" colspan="2*">PORT3</td>
-                <td class="validspandef" colspan="2*">PORT2</td>
-                <td class="validspandef" colspan="2*">PORT1</td>
-                <td class="validspandef" colspan="2*">PORT0</td>
+                <td class="validspandef" colspan="2*">PORT3_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT3_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT2_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT2_ERROR_TYPE</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1699,91 +1659,55 @@ software control</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="2*">PORT3_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT6</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT3_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT5</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT4</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="2*">PORT2_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT2</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT1</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT0</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT2_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">QSFP_CTRL_LPMODE_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">QSFP_I2C_ERROR_4_5</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 LPMode/TxDis Control</td>
+        <td class="Description" colspan="16">&nbsp;Ports 5/4 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat31" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT15</td>
-                <td class="validspandef" colspan="2*">PORT14</td>
-                <td class="validspandef" colspan="2*">PORT13</td>
-                <td class="validspandef" colspan="2*">PORT12</td>
-                <td class="validspandef" colspan="2*">PORT11</td>
-                <td class="validspandef" colspan="2*">PORT10</td>
-                <td class="validspandef" colspan="2*">PORT9</td>
-                <td class="validspandef" colspan="2*">PORT8</td>
+                <td class="validspandef" colspan="2*">PORT5_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT5_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT4_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT4_ERROR_TYPE</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1795,91 +1719,55 @@ software control</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="2*">PORT5_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT14</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT5_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT13</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat31" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT12</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat31" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="2*">PORT4_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT10</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat31" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT9</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat31" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT8</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT4_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">QSFP_CTRL_LPMODE_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">QSFP_I2C_ERROR_6_7</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 LPMode/TxDis Control</td>
+        <td class="Description" colspan="16">&nbsp;Ports 7/6 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat32" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT7</td>
-                <td class="validspandef" colspan="2*">PORT6</td>
-                <td class="validspandef" colspan="2*">PORT5</td>
-                <td class="validspandef" colspan="2*">PORT4</td>
-                <td class="validspandef" colspan="2*">PORT3</td>
-                <td class="validspandef" colspan="2*">PORT2</td>
-                <td class="validspandef" colspan="2*">PORT1</td>
-                <td class="validspandef" colspan="2*">PORT0</td>
+                <td class="validspandef" colspan="2*">PORT7_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT7_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT6_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT6_ERROR_TYPE</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1891,91 +1779,55 @@ software control</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="2*">PORT7_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT6</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT7_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT5</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT4</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="2*">PORT6_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT2</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT1</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT0</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">1</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="2*">PORT6_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">QSFP_STATUS_PG_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">QSFP_I2C_ERROR_8_9</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
+        <td class="Description" colspan="16">&nbsp;Ports 9/8 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat33" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT15</td>
-                <td class="validspandef" colspan="2*">PORT14</td>
-                <td class="validspandef" colspan="2*">PORT13</td>
-                <td class="validspandef" colspan="2*">PORT12</td>
-                <td class="validspandef" colspan="2*">PORT11</td>
-                <td class="validspandef" colspan="2*">PORT10</td>
-                <td class="validspandef" colspan="2*">PORT9</td>
-                <td class="validspandef" colspan="2*">PORT8</td>
+                <td class="validspandef" colspan="2*">PORT9_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT9_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT8_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT8_ERROR_TYPE</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1987,91 +1839,55 @@ software control</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="2*">PORT9_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT14</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT9_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT13</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT12</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="2*">PORT8_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT10</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT8_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT9</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT8</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">QSFP_STATUS_PG_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">QSFP_I2C_ERROR_10_11</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
+        <td class="Description" colspan="16">&nbsp;Ports 11/10 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat34" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT7</td>
-                <td class="validspandef" colspan="2*">PORT6</td>
-                <td class="validspandef" colspan="2*">PORT5</td>
-                <td class="validspandef" colspan="2*">PORT4</td>
-                <td class="validspandef" colspan="2*">PORT3</td>
-                <td class="validspandef" colspan="2*">PORT2</td>
-                <td class="validspandef" colspan="2*">PORT1</td>
-                <td class="validspandef" colspan="2*">PORT0</td>
+                <td class="validspandef" colspan="2*">PORT11_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT11_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT10_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT10_ERROR_TYPE</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2083,91 +1899,55 @@ software control</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="2*">PORT11_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT6</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT11_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT5</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT4</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="2*">PORT10_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT2</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT10_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT1</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT0</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">QSFP_STATUS_PG_TIMEOUT_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">QSFP_I2C_ERROR_12_13</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good timeout</td>
+        <td class="Description" colspan="16">&nbsp;Ports 13/12 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat35" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT15</td>
-                <td class="validspandef" colspan="2*">PORT14</td>
-                <td class="validspandef" colspan="2*">PORT13</td>
-                <td class="validspandef" colspan="2*">PORT12</td>
-                <td class="validspandef" colspan="2*">PORT11</td>
-                <td class="validspandef" colspan="2*">PORT10</td>
-                <td class="validspandef" colspan="2*">PORT9</td>
-                <td class="validspandef" colspan="2*">PORT8</td>
+                <td class="validspandef" colspan="2*">PORT13_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT13_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT12_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT12_ERROR_TYPE</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2179,91 +1959,55 @@ software control</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="2*">PORT13_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT14</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT13_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT13</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT12</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="2*">PORT12_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT10</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT12_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT9</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT8</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">QSFP_STATUS_PG_TIMEOUT_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">QSFP_I2C_ERROR_14_15</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x100f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good timeout</td>
+        <td class="Description" colspan="16">&nbsp;Ports 15/14 I2C core error status</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat36" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">PORT7</td>
-                <td class="validspandef" colspan="2*">PORT6</td>
-                <td class="validspandef" colspan="2*">PORT5</td>
-                <td class="validspandef" colspan="2*">PORT4</td>
-                <td class="validspandef" colspan="2*">PORT3</td>
-                <td class="validspandef" colspan="2*">PORT2</td>
-                <td class="validspandef" colspan="2*">PORT1</td>
-                <td class="validspandef" colspan="2*">PORT0</td>
+                <td class="validspandef" colspan="2*">PORT15_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT15_ERROR_TYPE</td>
+                <td class="validspandef" colspan="2*">PORT14_ERROR</td>
+                <td class="validspandef" colspan="6*">PORT14_ERROR_TYPE</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2275,77 +2019,45 @@ software control</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="2*">PORT15_ERROR</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT6</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT15_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT5</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT4</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="2*">PORT14_ERROR</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">'1' if there was an error on the most recent transaction.</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT2</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">PORT14_ERROR_TYPE</td>
+        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT1</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PORT0</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">None</td>
+        <td class="FieldDesc" colspan="14">Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">QSFP_STATUS_PRESENT_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">QSFP_CTRL_EN_H</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1010
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Enable Control</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat37" style="display: none">
@@ -2434,14 +2146,14 @@ software control</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">QSFP_STATUS_PRESENT_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">QSFP_CTRL_EN_L</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1011
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Enable Control</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat38" style="display: none">
@@ -2530,14 +2242,14 @@ software control</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">QSFP_STATUS_IRQ_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">QSFP_CTRL_RESET_H</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1012
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Reset Control (logic inverted at the pin)</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat39" style="display: none">
@@ -2566,7 +2278,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2574,7 +2286,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2582,7 +2294,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2590,7 +2302,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2598,7 +2310,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2606,7 +2318,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2614,7 +2326,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2622,18 +2334,18 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">QSFP_STATUS_IRQ_L</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">QSFP_CTRL_RESET_L</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x1013
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Reset Control (logic inverted at the pin)</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat40" style="display: none">
@@ -2662,7 +2374,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2670,7 +2382,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2678,7 +2390,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2686,7 +2398,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2694,7 +2406,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2702,7 +2414,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2710,7 +2422,7 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="2*">1</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2718,6 +2430,966 @@ software control</td>
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="41">QSFP_CTRL_LPMODE_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1014
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 LPMode/TxDis Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat41" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="42">QSFP_CTRL_LPMODE_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1015
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 LPMode/TxDis Control</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat42" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">1</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="43">QSFP_STATUS_PG_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1016
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat43" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="44">QSFP_STATUS_PG_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1017
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat44" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="45">QSFP_STATUS_PG_TIMEOUT_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1018
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good timeout</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat45" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="46">QSFP_STATUS_PG_TIMEOUT_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x1019
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good timeout</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="47">QSFP_STATUS_PRESENT_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x101a
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="48">QSFP_STATUS_PRESENT_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x101b
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="49">QSFP_STATUS_IRQ_H</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x101c
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="50">QSFP_STATUS_IRQ_L</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x101d
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 IntL/RxLOS signal for the module (logic inverted at the pin)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">None</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">None</td>
     </tr>
@@ -2732,12 +3404,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat41" style="display: none">
+    <tr class="cat51" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat41" style="display: none">
+    <tr class="cat51" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2756,12 +3428,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat42" style="display: none">
+    <tr class="cat52" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat42" style="display: none">
+    <tr class="cat52" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2780,12 +3452,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat43" style="display: none">
+    <tr class="cat53" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat43" style="display: none">
+    <tr class="cat53" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2804,12 +3476,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat44" style="display: none">
+    <tr class="cat54" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat44" style="display: none">
+    <tr class="cat54" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2828,12 +3500,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat45" style="display: none">
+    <tr class="cat55" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat45" style="display: none">
+    <tr class="cat55" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2852,12 +3524,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat46" style="display: none">
+    <tr class="cat56" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat46" style="display: none">
+    <tr class="cat56" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2876,12 +3548,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat47" style="display: none">
+    <tr class="cat57" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat47" style="display: none">
+    <tr class="cat57" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2900,12 +3572,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat48" style="display: none">
+    <tr class="cat58" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat48" style="display: none">
+    <tr class="cat58" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2924,12 +3596,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat49" style="display: none">
+    <tr class="cat59" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat49" style="display: none">
+    <tr class="cat59" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2948,12 +3620,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat50" style="display: none">
+    <tr class="cat60" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat50" style="display: none">
+    <tr class="cat60" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2972,12 +3644,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat51" style="display: none">
+    <tr class="cat61" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat51" style="display: none">
+    <tr class="cat61" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2996,12 +3668,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat52" style="display: none">
+    <tr class="cat62" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat52" style="display: none">
+    <tr class="cat62" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3020,12 +3692,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat53" style="display: none">
+    <tr class="cat63" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat53" style="display: none">
+    <tr class="cat63" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3044,12 +3716,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat54" style="display: none">
+    <tr class="cat64" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat54" style="display: none">
+    <tr class="cat64" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3068,12 +3740,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat55" style="display: none">
+    <tr class="cat65" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat55" style="display: none">
+    <tr class="cat65" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3092,12 +3764,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat56" style="display: none">
+    <tr class="cat66" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat56" style="display: none">
+    <tr class="cat66" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3116,12 +3788,12 @@ software control</td>
         <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat57" style="display: none">
+    <tr class="cat67" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
     </tr>
-    <tr class="cat57" style="display: none">
+    <tr class="cat67" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
