@@ -9,8 +9,10 @@ fletcher = "0.3"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-big-array = "0.4"
 serde_repr = "0.1"
+static_assertions = "1.1"
 zerocopy = "0.6.1"
 
 hubpack = { git = "https://github.com/cbiffle/hubpack" }
+gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "d7791e4d02571b8414b4c2976b0439234aa4d8c7"}
 
 unwrap-lite = { path = "../unwrap-lite" }

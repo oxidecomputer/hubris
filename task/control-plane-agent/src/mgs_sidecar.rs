@@ -11,6 +11,7 @@ use gateway_messages::{
     IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
     SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
+use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use task_control_plane_agent_api::ControlPlaneAgentError;
@@ -99,6 +100,23 @@ impl MgsHandler {
         _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
         Err(ControlPlaneAgentError::DataUnavailable.into())
+    }
+
+    pub(crate) fn startup_options(
+        &self,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        // We don't have a host to give startup options; no one should be
+        // calling this method.
+        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
+    }
+
+    pub(crate) fn set_startup_options(
+        &mut self,
+        _startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        // We don't have a host to give startup options; no one should be
+        // calling this method.
+        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
 }
 
@@ -342,6 +360,27 @@ impl SpHandler for MgsHandler {
 
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
         self.common.inventory_device_description(index as usize)
+    }
+
+    fn get_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<gateway_messages::StartupOptions, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn set_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        options: gateway_messages::StartupOptions,
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn mgs_response_error(

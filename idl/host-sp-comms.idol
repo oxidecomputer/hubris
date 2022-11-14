@@ -24,26 +24,5 @@ Interface(
                 err: CLike("HostSpCommsError"),
             ),
         ),
-        "set_startup_options": (
-            doc: "Set the SP startup options word",
-            args: {
-                // Arguably this should be `StartupOptions` (our bitflags type),
-                // but in practice we only call this function from hiffy, so
-                // it's easier to just use a plain `u64`. We convert it to a
-                // `StartupOptions` internally (returning an error if the
-                // supplied u64 contains any invalid bits).
-                "startup_options": "u64",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("HostSpCommsError"),
-            ),
-        ),
-        "get_startup_options": (
-            reply: Result(
-                ok: "StartupOptions",
-                err: CLike("HostSpCommsError"),
-            ),
-        ),
     },
 )

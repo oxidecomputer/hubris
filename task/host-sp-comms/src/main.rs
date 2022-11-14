@@ -15,13 +15,13 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost,
-    StartupOptions, Status, MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
+    MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::{ControlPlaneAgent, ControlPlaneAgentError};
+use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
 use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
 
@@ -106,10 +106,6 @@ fn main() -> ! {
 
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
-    // XXX For now, we want to default to these options.
-    server.set_startup_options_impl(
-        StartupOptions::DEBUG_KMDB | StartupOptions::DEBUG_PROM,
-    );
 
     sys_irq_control(USART_IRQ, true);
 
@@ -137,7 +133,6 @@ struct ServerImpl {
     tx_buf: TxBuf,
     rx_buf: &'static mut Vec<u8, MAX_PACKET_SIZE>,
     status: Status,
-    startup_options: StartupOptions,
     sequencer: Sequencer,
     hf: HostFlash,
     cp_agent: ControlPlaneAgent,
@@ -164,7 +159,6 @@ impl ServerImpl {
             tx_buf: TxBuf::claim_static_resources(),
             rx_buf: claim_uart_rx_buf(),
             status: Status::empty(),
-            startup_options: StartupOptions::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
@@ -185,10 +179,6 @@ impl ServerImpl {
                 self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
             }
         }
-    }
-
-    fn set_startup_options_impl(&mut self, startup_options: StartupOptions) {
-        self.startup_options = startup_options;
     }
 
     /// Power off the host (i.e., transition to A2).
@@ -518,7 +508,7 @@ impl ServerImpl {
                         // If we can't get data, all we can do is send the
                         // host a response with no data; it can decide to
                         // retry later.
-                        Err(ControlPlaneAgentError::DataUnavailable) => 0,
+                        Err(_) => 0,
                     }
                 },
             );
@@ -627,7 +617,7 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
                 status: self.status,
-                startup: self.startup_options,
+                startup: self.cp_agent.get_startup_options().unwrap_lite(),
             }),
             HostToSp::AckSpStart => {
                 ringbuf_entry!(Trace::AckSpStart);
@@ -871,26 +861,6 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
     ) -> Result<Status, RequestError<HostSpCommsError>> {
         Ok(self.status)
     }
-
-    fn set_startup_options(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        startup_options: u64,
-    ) -> Result<(), RequestError<HostSpCommsError>> {
-        let startup_options = StartupOptions::from_bits(startup_options)
-            .ok_or(HostSpCommsError::InvalidStartupOptions)?;
-
-        self.set_startup_options_impl(startup_options);
-
-        Ok(())
-    }
-
-    fn get_startup_options(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<StartupOptions, RequestError<HostSpCommsError>> {
-        Ok(self.startup_options)
-    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
@@ -1010,6 +980,6 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
 }
 
 mod idl {
-    use task_host_sp_comms_api::{HostSpCommsError, StartupOptions, Status};
+    use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

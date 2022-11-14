@@ -19,6 +19,7 @@ use gateway_messages::{
     UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
+use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use task_control_plane_agent_api::ControlPlaneAgentError;
@@ -77,6 +78,7 @@ pub(crate) struct MgsHandler {
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
+    startup_options: HostStartupOptions,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     serial_console_write_offset: u64,
     next_message_id: u32,
@@ -87,6 +89,11 @@ impl MgsHandler {
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources() -> Self {
         let usart = UsartHandler::claim_static_resources();
+
+        // XXX For now, we want to default to these options.
+        let startup_options =
+            HostStartupOptions::DEBUG_KMDB | HostStartupOptions::DEBUG_PROM;
+
         Self {
             common: MgsCommon::claim_static_resources(),
             host_flash_update: HostFlashUpdate::new(),
@@ -94,6 +101,7 @@ impl MgsHandler {
             sp_update: SpUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
+            startup_options,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
@@ -248,6 +256,20 @@ impl MgsHandler {
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
         self.host_phase2.get_data(image_hash, offset, data)
+    }
+
+    pub(crate) fn startup_options(
+        &self,
+    ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        Ok(self.startup_options)
+    }
+
+    pub(crate) fn set_startup_options(
+        &mut self,
+        startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        self.startup_options = startup_options;
+        Ok(())
     }
 }
 
@@ -571,6 +593,31 @@ impl SpHandler for MgsHandler {
 
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
         self.common.inventory_device_description(index as usize)
+    }
+
+    fn get_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<gateway_messages::StartupOptions, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+
+        Ok(self.startup_options.into())
+    }
+
+    fn set_startup_options(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        options: gateway_messages::StartupOptions,
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
+
+        self.startup_options = options.into();
+
+        Ok(())
     }
 
     fn mgs_response_error(
