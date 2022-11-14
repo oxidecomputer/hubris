@@ -16,9 +16,9 @@ derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api", optional = true }
 userlib = { path = "../../sys/userlib", optional = true }
 
+[build-dependencies]
+idol = { workspace = true, optional = true }
+
 [features]
 default = ["idol-client"]
-idol-client = ["drv-fpga-api", "idol-runtime", "userlib"]
-
-[build-dependencies]
-idol = { workspace = true }
+idol-client = ["drv-fpga-api", "idol", "idol-runtime", "userlib"]

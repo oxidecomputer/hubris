@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "idol-client")]
     idol::client::build_client_stub(
         "../../idl/ignition.idol",
         "client_stub.rs",

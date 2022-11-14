@@ -8,16 +8,16 @@
 
 use bitfield::bitfield;
 use derive_idol_err::IdolError;
-use derive_more::From;
+use derive_more::{Display, From, LowerHex, UpperHex};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
-// The `presence_summary` vector (see `ignition-server`) is implicitly capped at 40 bits by (the RTL of
-// the) mainboard controller. This constant is used to conservatively allocate
-// an array type which can contain the port state for all ports. The actual
-// number of pors configured in the system can be learned through the
-// `port_count()` function below.
+// The `presence_summary` vector (see `ignition-server`) is implicitly capped at
+// 40 bits by (the RTL of the) mainboard controller. This constant is used to
+// conservatively allocate an array type which can contain the port state for
+// all ports. The actual number of pors configured in the system can be learned
+// through the `port_count()` function below.
 pub const PORT_MAX: usize = 40;
 
 #[derive(
@@ -50,6 +50,7 @@ bitfield! {
 }
 
 impl PortState {
+    #[inline]
     pub fn target(&self) -> Option<Target> {
         if self.target_present() {
             Some(self.raw_target())
@@ -71,26 +72,8 @@ bitfield! {
 bitfield! {
     #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
     #[repr(C)]
-    pub struct SystemFaults(u8);
-    pub power_a3, _: 0;
-    pub power_a2, _: 1;
-    pub reserved1, _: 2;
-    pub reserved2, _: 3;
-    pub sp, _: 4;
-    pub rot, _: 5;
-}
-
-impl SystemFaults {
-    pub fn count(&self) -> usize {
-        self.0.count_ones().try_into().unwrap()
-    }
-}
-
-bitfield! {
-    #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
-    #[repr(C)]
     pub struct Target(u64);
-    pub u8, into SystemType, system_type, _: 7, 0;
+    pub u8, into SystemId, id, _: 7, 0;
     pub controller0_present, _: 8;
     pub controller1_present, _: 9;
     raw_system_power_state, _: 10;
@@ -114,15 +97,77 @@ impl Target {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    From,
+    FromBytes,
+    AsBytes,
+    UpperHex,
+    LowerHex,
+)]
 #[repr(C)]
-pub struct SystemType(pub u8);
+pub struct SystemId(pub u8);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, From, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    AsBytes,
+)]
+#[repr(u8)]
+pub enum SystemType {
+    Unknown = 0,
+    Compute = 1,
+    Network = 2,
+    Power = 3,
+}
+
+impl From<SystemId> for SystemType {
+    fn from(id: SystemId) -> Self {
+        match id.0 {
+            0x2 => SystemType::Power,
+            0x11 => SystemType::Compute,
+            0x12 => SystemType::Network,
+            _ => SystemType::Unknown,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Display, PartialEq, Eq, From, AsBytes)]
 #[repr(u8)]
 pub enum PowerState {
     Off = 0,
     On = 1,
+}
+
+bitfield! {
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, From, FromBytes, AsBytes)]
+    #[repr(C)]
+    pub struct SystemFaults(u8);
+    pub power_a3, _: 0;
+    pub power_a2, _: 1;
+    pub reserved1, _: 2;
+    pub reserved2, _: 3;
+    pub sp, _: 4;
+    pub rot, _: 5;
+}
+
+impl SystemFaults {
+    #[inline]
+    pub fn count(&self) -> usize {
+        self.0.count_ones().try_into().unwrap()
+    }
 }
 
 #[derive(
@@ -144,37 +189,56 @@ impl From<Request> for u8 {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct Counters {
-    status_received: u8,
-    hello_sent: u8,
-    request_sent: u8,
-    messages_dropped: u8,
+    pub status_received: u8,
+    pub hello_sent: u8,
+    pub request_sent: u8,
+    pub message_dropped: u8,
 }
 
 bitfield! {
     #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, FromBytes, AsBytes)]
     #[repr(C)]
     pub struct LinkEvents(u8);
-    encoding_error, _: 0;
-    decoding_error, _: 1;
-    ordered_set_invalid, _: 2;
-    message_version_invalid, _: 3;
-    message_type_invalid, _: 4;
-    message_checksum_invalid, _: 5;
+    pub encoding_error, _: 0;
+    pub decoding_error, _: 1;
+    pub ordered_set_invalid, _: 2;
+    pub message_version_invalid, _: 3;
+    pub message_type_invalid, _: 4;
+    pub message_checksum_invalid, _: 5;
 }
 
 impl LinkEvents {
     pub const NONE: Self = Self(0b000000);
     pub const ALL: Self = Self(0b111111);
+
+    #[inline]
+    pub fn count(&self) -> usize {
+        self.0.count_ones().try_into().unwrap()
+    }
 }
 
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    AsBytes,
 )]
 #[repr(u8)]
-pub enum LinkSelect {
+pub enum TransceiverSelect {
     Controller = 1,
     TargetLink0 = 2,
     TargetLink1 = 3,
+}
+
+impl TransceiverSelect {
+    pub const ALL: [Self; 3] =
+        [Self::Controller, Self::TargetLink0, Self::TargetLink1];
 }
 
 cfg_if::cfg_if! {

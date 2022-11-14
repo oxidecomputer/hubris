@@ -81,15 +81,15 @@ impl IgnitionController {
     }
 
     #[inline]
-    fn link_events_addr(link: LinkSelect) -> IgnitionAddr {
-        match link {
-            LinkSelect::Controller => {
+    fn link_events_addr(txr: TransceiverSelect) -> IgnitionAddr {
+        match txr {
+            TransceiverSelect::Controller => {
                 IgnitionAddr::CONTROLLER_LINK_EVENTS_SUMMARY
             }
-            LinkSelect::TargetLink0 => {
+            TransceiverSelect::TargetLink0 => {
                 IgnitionAddr::TARGET_LINK0_EVENTS_SUMMARY
             }
-            LinkSelect::TargetLink1 => {
+            TransceiverSelect::TargetLink1 => {
                 IgnitionAddr::TARGET_LINK1_EVENTS_SUMMARY
             }
         }
@@ -99,20 +99,20 @@ impl IgnitionController {
     pub fn link_events(
         &self,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<LinkEvents, FpgaError> {
-        self.read_port_register(port, Self::link_events_addr(link))
+        self.read_port_register(port, Self::link_events_addr(txr))
     }
 
     /// Clear the events for the given port, link.
     pub fn clear_link_events(
         &self,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<(), FpgaError> {
         self.write_port_register(
             port,
-            Self::link_events_addr(link),
+            Self::link_events_addr(txr),
             LinkEvents::ALL,
         )
     }

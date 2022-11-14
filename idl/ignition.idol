@@ -43,11 +43,11 @@ Interface(
             ),
         ),
         "link_events": (
-            doc: "Return the link events summary for the given controller port and link",
+            doc: "Return the link events summary for the given controller port and transceiver",
             args: {
                 "port": "u8",
-                "link": (
-                    type: "LinkSelect",
+                "txr": (
+                    type: "TransceiverSelect",
                     recv: FromPrimitive("u8"),
                 ),
             },
@@ -57,11 +57,11 @@ Interface(
             ),
         ),
         "clear_link_events": (
-            doc: "Clear the link events for the given controller port and link",
+            doc: "Clear the link events for the given controller port and transceiver",
             args: {
                 "port": "u8",
-                "link": (
-                    type: "LinkSelect",
+                "txr": (
+                    type: "TransceiverSelect",
                     recv: FromPrimitive("u8"),
                 ),
             },

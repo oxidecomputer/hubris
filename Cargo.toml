@@ -49,7 +49,7 @@ cortex-m-rt = { version = "0.6.12", default-features = false }
 cortex-m-semihosting = { version = "0.5.0", default-features = false }
 crc = { version = "3.0.0", default-features = false }
 ctrlc = { version = "3.1.5", default-features = false }
-derive_more = { version = "0.99", default-features = false, features = ["from"] }
+derive_more = { version = "0.99", default-features = false, features = ["from", "display"] }
 digest = { version = "0.10", default-features = false }
 dunce = { version = "1.0.2", default-features = false }
 ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
@@ -129,4 +129,3 @@ stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch 
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
-

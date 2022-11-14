@@ -24,6 +24,9 @@ enum Trace {
     PortCount(u8),
     PresenceUpdate(u64),
     PresencePollError(IgnitionError),
+    TargetError(u8, IgnitionError),
+    TargetArrive(u8),
+    TargetDepart(u8),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -78,19 +81,94 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
+    /// Poll the presence summary and track Targets arriving and departing.
     fn poll_presence(&mut self) -> Result<(), IgnitionError> {
         let current_presence_summary = self.controller.presence_summary()?;
 
         if current_presence_summary != self.last_presence_summary {
-            ringbuf_entry!(Trace::PresenceUpdate(current_presence_summary));
-            self.last_presence_summary = current_presence_summary;
+            let arriving_targets =
+                current_presence_summary & !self.last_presence_summary;
+            let departing_targets =
+                !current_presence_summary & self.last_presence_summary;
+
+            let arrived_targets = Self::map_ports(arriving_targets, |port| {
+                self.target_arrive(port)
+            });
+            let departed_targets = Self::map_ports(departing_targets, |port| {
+                self.target_depart(port)
+            });
+
+            // Update the presence summary based on targets which were
+            // succesfully processed. If a target wasn't processed it'll get
+            // retried on the next cycle.
+            self.last_presence_summary = arrived_targets
+                | (self.last_presence_summary & !departed_targets);
+
+            ringbuf_entry!(Trace::PresenceUpdate(self.last_presence_summary));
         }
 
         Ok(())
     }
 
+    /// Apply the given function to each port for which a bit in the `ports`
+    /// vector is set. Returns a bit vector with bits set for ports for which
+    /// the operation was succesfull. Under normal circumstances this output
+    /// vector is expected to match the input vector.
+    fn map_ports<F>(mut ports: u64, mut f: F) -> u64
+    where
+        F: FnMut(u8) -> Result<(), IgnitionError>,
+    {
+        let mut success = 0u64;
+
+        for port in 0..PORT_MAX as u8 {
+            if ports & 0x1 != 0 {
+                match f(port) {
+                    Ok(()) => success |= 1 << PORT_MAX,
+                    Err(e) => ringbuf_entry!(Trace::TargetError(port, e)),
+                }
+            }
+            // Advance to the next port.
+            ports >>= 1;
+            success >>= 1;
+        }
+
+        success
+    }
+
+    /// Get the state for the given port.
     fn port_state(&self, port: u8) -> Result<PortState, IgnitionError> {
         self.controller.state(port).map_err(IgnitionError::from)
+    }
+
+    /// Callback which gets called whenever a Target is first seen.
+    fn target_arrive(&self, port: u8) -> Result<(), IgnitionError> {
+        ringbuf_entry!(Trace::TargetArrive(port));
+
+        // Clear counters.
+        self.controller.counters(port)?;
+
+        // Reset the link events for each transceiver if the register is set to
+        // its default value.
+        for txr in &TransceiverSelect::ALL {
+            if self
+                .controller
+                .link_events(port, *txr)
+                .map_err(IgnitionError::from)?
+                == LinkEvents::ALL
+            {
+                self.controller
+                    .clear_link_events(port, *txr)
+                    .map_err(IgnitionError::from)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Callback which gets called whenever a Target goes away.
+    fn target_depart(&self, port: u8) -> Result<(), IgnitionError> {
+        ringbuf_entry!(Trace::TargetDepart(port));
+        Ok(())
     }
 }
 
@@ -112,10 +190,7 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
     ) -> Result<u64, RequestError> {
-        self.controller
-            .presence_summary()
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
+        Ok(self.last_presence_summary)
     }
 
     fn state(
@@ -149,14 +224,14 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<LinkEvents, RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .link_events(port, link)
+            .link_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
@@ -165,14 +240,14 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<(), RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .clear_link_events(port, link)
+            .clear_link_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
@@ -209,6 +284,8 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
     ) -> Result<[u64; PORT_MAX], RequestError> {
+        use core::cmp::min;
+
         let mut state = [0u64; PORT_MAX];
         let mut summary = self
             .controller
@@ -216,14 +293,14 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)?;
 
-        for i in 0..core::cmp::min(state.len(), self.port_count as usize) {
+        for i in 0..min(state.len(), self.port_count as usize) {
             // Check if the present bit is set in the summary.
             if summary & 0x1 != 0 {
                 state[i] =
                     self.port_state(i as u8).map_err(RequestError::from)?.0;
             }
             // Advance to the next port.
-            summary = summary >> 1;
+            summary >>= 1;
         }
 
         Ok(state)
