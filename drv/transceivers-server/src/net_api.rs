@@ -326,6 +326,13 @@ impl ServerImpl {
                 len: mem.len(),
             });
         }
+        // CMIS spec only guarantee an 8-byte read (?!)
+        // (see CMIS 5.0, 5.2.2.1)
+        if matches!(mem.upper_page(), UpperPage::Cmis(..)) && mem.len() > 8 {
+            // TODO: more specialized error
+            return Err(Error::RequestTooLarge);
+        }
+
         self.select_page(*mem.upper_page(), modules)?;
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
