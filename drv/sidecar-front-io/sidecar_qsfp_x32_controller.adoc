@@ -313,81 +313,21 @@ Ports 0 -> 7 I2C core status. '1' is busy.
 |[0] | r | PORT0 | None
 |===
 
-Ports 15/14 I2C core error status
+Ports 1/0 I2C core error status
 [caption="Address: "]
-.0x1008 - QSFP_I2C_ERROR0 Register
+.0x1008 - QSFP_I2C_ERROR_0_1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT15_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT15_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT14_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT14_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|===
-
-Ports 13/12 I2C core error status
-[caption="Address: "]
-.0x1009 - QSFP_I2C_ERROR1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT13_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT13_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT12_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT12_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|===
-
-Ports 11/10 I2C core error status
-[caption="Address: "]
-.0x100a - QSFP_I2C_ERROR2 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT11_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT11_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT10_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT10_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|===
-
-Ports 9/8 I2C core error status
-[caption="Address: "]
-.0x100b - QSFP_I2C_ERROR3 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT9_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT9_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT8_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT8_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|===
-
-Ports 7/6 I2C core error status
-[caption="Address: "]
-.0x100c - QSFP_I2C_ERROR4 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT7_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT6_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT6_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|===
-
-Ports 5/4 I2C core error status
-[caption="Address: "]
-.0x100d - QSFP_I2C_ERROR5 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT5_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT5_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT4_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT4_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7] | r | PORT1_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT1_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT0_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT0_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
 Ports 3/2 I2C core error status
 [caption="Address: "]
-.0x100e - QSFP_I2C_ERROR6 Register
+.0x1009 - QSFP_I2C_ERROR_2_3 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -397,16 +337,76 @@ Ports 3/2 I2C core error status
 |[2:0] | r | PORT2_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 1/0 I2C core error status
+Ports 5/4 I2C core error status
 [caption="Address: "]
-.0x100f - QSFP_I2C_ERROR7 Register
+.0x100a - QSFP_I2C_ERROR_4_5 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT1_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT1_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT0_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT0_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7] | r | PORT5_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT5_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT4_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT4_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Ports 7/6 I2C core error status
+[caption="Address: "]
+.0x100b - QSFP_I2C_ERROR_6_7 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT7_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT6_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT6_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Ports 9/8 I2C core error status
+[caption="Address: "]
+.0x100c - QSFP_I2C_ERROR_8_9 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT9_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT9_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT8_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT8_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Ports 11/10 I2C core error status
+[caption="Address: "]
+.0x100d - QSFP_I2C_ERROR_10_11 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT11_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT11_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT10_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT10_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Ports 13/12 I2C core error status
+[caption="Address: "]
+.0x100e - QSFP_I2C_ERROR_12_13 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT13_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT13_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT12_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT12_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Ports 15/14 I2C core error status
+[caption="Address: "]
+.0x100f - QSFP_I2C_ERROR_14_15 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15_ERROR | '1' if there was an error on the most recent transaction.
+|[6:4] | r | PORT15_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[3] | r | PORT14_ERROR | '1' if there was an error on the most recent transaction.
+|[2:0] | r | PORT14_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
 Ports 8 -> 15 Enable Control
