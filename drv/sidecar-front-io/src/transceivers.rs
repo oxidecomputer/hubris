@@ -400,7 +400,7 @@ impl Transceivers {
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
     /// read. The maximum value of `num_bytes` is 128.
-    pub fn setup_i2c_op<M: Into<FpgaPortMasks>>(
+    fn setup_i2c_op<M: Into<FpgaPortMasks>>(
         &self,
         is_read: bool,
         reg: u8,

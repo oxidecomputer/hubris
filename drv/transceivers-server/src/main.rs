@@ -191,10 +191,9 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         Ok(())
     }
 
-    fn setup_i2c_op(
+    fn setup_i2c_read(
         &mut self,
         _msg: &userlib::RecvMessage,
-        is_read: bool,
         reg: u8,
         num_bytes: u8,
         mask: u32,
@@ -204,7 +203,24 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         }
 
         self.transceivers
-            .setup_i2c_op(is_read, reg, num_bytes, mask)
+            .setup_i2c_read(reg, num_bytes, mask)
+            .map_err(TransceiversError::from)?;
+        Ok(())
+    }
+
+    fn setup_i2c_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        reg: u8,
+        num_bytes: u8,
+        mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        if usize::from(num_bytes) > PAGE_SIZE_BYTES {
+            return Err(TransceiversError::InvalidNumberOfBytes.into());
+        }
+
+        self.transceivers
+            .setup_i2c_write(reg, num_bytes, mask)
             .map_err(TransceiversError::from)?;
         Ok(())
     }
