@@ -712,7 +712,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
  "serde",
  "serde-big-array",
  "sha3",
@@ -3212,7 +3212,7 @@ dependencies = [
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/salty#eb3c31858f631a7fb9934246c8efdef080d05726"
+source = "git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
  "subtle",
@@ -3555,7 +3555,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
  "serde",
  "sha3",
  "static_assertions",
