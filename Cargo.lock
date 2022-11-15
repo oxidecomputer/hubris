@@ -3783,6 +3783,7 @@ dependencies = [
  "ringbuf",
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
+ "task-net-api",
  "userlib",
  "zerocopy",
 ]

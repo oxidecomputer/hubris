@@ -23,6 +23,7 @@ use multitimer::{Multitimer, Repeat};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
+use task_net_api::Net;
 use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
 
 mod tx_buf;
@@ -32,6 +33,7 @@ use tx_buf::TxBuf;
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
 task_slot!(GIMLET_SEQ, gimlet_seq);
 task_slot!(HOST_FLASH, hf);
+task_slot!(NET, net);
 task_slot!(SYS, sys);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
@@ -44,6 +46,20 @@ const A2_REBOOT_DELAY: u64 = 5_000;
 // applies if our current tx_buf/rx_buf are empty (i.e., we don't have a real
 // response to send, and we haven't yet started to receive a request).
 const UART_ZERO_DELAY: u64 = 200;
+
+// How many MAC addresses should we report to the host? Per RFD 320, a gimlet
+// currently needs 5 total:
+//
+// * 2 for the T6
+// * 2 for the management network (already claimed by `net`)
+// * 1 for the bootstrap network prefix
+//
+// Subtracting out the 2 already claimed by `net`, we will only give the host 3
+// MAC addresses, even if `net` tells us more are available. In the future, if
+// we need to increase the number given to the host, that's easy to do here; if
+// we need to increase the number used by the SP, ideally `net` will take care
+// of that for us.
+const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
@@ -135,6 +151,7 @@ struct ServerImpl {
     status: Status,
     sequencer: Sequencer,
     hf: HostFlash,
+    net: Net,
     cp_agent: ControlPlaneAgent,
     reboot_state: Option<RebootState>,
 }
@@ -161,6 +178,7 @@ impl ServerImpl {
             status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
+            net: Net::from(NET.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
@@ -600,12 +618,28 @@ impl ServerImpl {
                 })
             }
             HostToSp::GetMacAddresses => {
-                // TODO where do we get host MAC addrs?
-                Some(SpToHost::MacAddresses {
-                    base: [0; 6],
-                    count: 1,
-                    stride: 1,
-                })
+                let response = match self.net.get_leftover_mac_addresses() {
+                    Ok(block) if block.count.get() > 0 => {
+                        let count =
+                            u16::min(block.count.get(), NUM_HOST_MAC_ADDRESSES);
+                        SpToHost::MacAddresses {
+                            base: block.base_mac,
+                            count,
+                            stride: block.stride,
+                        }
+                    }
+                    _ => {
+                        // If getting the MAC addrs fails, or if `net` tells us
+                        // there are no MACs available, all we can do is report
+                        // an empty set to the host.
+                        SpToHost::MacAddresses {
+                            base: [0; 6],
+                            count: 0,
+                            stride: 0,
+                        }
+                    }
+                };
+                Some(response)
             }
             HostToSp::HostBootFailure { .. } => {
                 // TODO what do we do in reaction to this? reboot?

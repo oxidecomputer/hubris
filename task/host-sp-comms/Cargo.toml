@@ -23,6 +23,7 @@ mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-host-sp-comms-api = { path = "../host-sp-comms-api" }
+task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
@@ -35,6 +36,7 @@ stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753"]
 uart7 = []
 baud_rate_3M = []
 hardware_flow_control = []
+vlan = ["task-net-api/vlan"]
 
 [[bin]]
 name = "task-host-sp-comms"
