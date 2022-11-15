@@ -705,13 +705,17 @@ impl BuildConfig<'_> {
         nightly_features.extend([
             "array_methods",
             "asm_const",
-            "asm_sym",
             "cmse_nonsecure_entry",
             "naked_functions",
             "named-profiles",
         ]);
         // nightly features that our dependencies use:
-        nightly_features.extend(["backtrace", "proc_macro_span"]);
+        nightly_features.extend([
+            "backtrace",
+            "error_generic_member_access",
+            "proc_macro_span",
+            "provide_any",
+        ]);
 
         cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
 

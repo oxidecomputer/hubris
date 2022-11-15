@@ -480,8 +480,8 @@ impl ServerImpl {
         let (rd, abits) = get_addr_and_rw(reg);
 
         let port_bit: u8 = match port {
-            Port::DP => (0 << APDP_BIT),
-            Port::AP => (1 << APDP_BIT),
+            Port::DP => 0 << APDP_BIT,
+            Port::AP => 1 << APDP_BIT,
         };
 
         byte |= abits | rd | port_bit;

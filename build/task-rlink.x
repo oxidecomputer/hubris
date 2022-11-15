@@ -57,13 +57,6 @@ SECTIONS
     __sheap = .;
   }
 
-  /* ## .got */
-  /* Dynamic relocations are unsupported. This section is only used to detect relocatable code in
-     the input files and raise an error if relocatable code is found */
-  .got (NOLOAD) : {
-    KEEP(*(.got .got.*));
-  }
-
   /* ## .task_slot_table */
   /* Table of TaskSlot instances and their names. Used to resolve task
      dependencies during packaging. */
@@ -85,5 +78,6 @@ SECTIONS
     *(.ARM.exidx);
     *(.ARM.exidx.*);
     *(.ARM.extab.*);
+    *(.got .got.*);
   }
 }

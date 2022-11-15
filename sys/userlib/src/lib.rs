@@ -26,7 +26,6 @@
 
 #![no_std]
 #![feature(asm_const)]
-#![feature(asm_sym)]
 #![feature(naked_functions)]
 
 #[macro_use]

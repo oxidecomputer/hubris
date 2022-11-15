@@ -456,7 +456,7 @@ impl Transceivers {
 // The I2C control register looks like:
 // [2..1] - Operation (0 - Read, 1 - Write, 2 - RandomRead)
 // [0] - Start
-#[derive(AsBytes)]
+#[derive(Copy, Clone, Debug, AsBytes)]
 #[repr(u8)]
 pub enum TransceiverI2COperation {
     Read = 0x01,

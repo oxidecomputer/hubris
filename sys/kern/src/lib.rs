@@ -28,7 +28,6 @@
 
 #![cfg_attr(target_os = "none", no_std)]
 #![feature(naked_functions)]
-#![feature(asm_sym)]
 #![feature(asm_const)]
 // Require an unsafe block even in an unsafe fn, because unsafe fns are about
 // contract, not implementation.

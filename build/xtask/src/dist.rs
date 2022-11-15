@@ -745,6 +745,16 @@ struct LoadSegment {
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     // Use relocatable linker script for this build
     fs::copy("build/task-rlink.x", "target/link.x")?;
+    // Append any task-specific sections.
+    {
+        let task_toml = &cfg.toml.tasks[name];
+        let mut linkscr = std::fs::OpenOptions::new()
+            .create(false)
+            .append(true)
+            .open("target/link.x")?;
+        append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
+    }
+
     if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
@@ -1196,15 +1206,24 @@ fn generate_task_linker_script(
         )?;
     }
 
+    append_task_sections(&mut linkscr, sections)?;
+
+    Ok(())
+}
+
+fn append_task_sections(
+    out: &mut std::fs::File,
+    sections: Option<&IndexMap<String, String>>,
+) -> Result<()> {
     // The task may have defined additional section-to-memory mappings.
     if let Some(map) = sections {
-        writeln!(linkscr, "SECTIONS {{")?;
+        writeln!(out, "SECTIONS {{")?;
         for (section, memory) in map {
-            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
-            writeln!(linkscr, "    *(.{} .{}.*);", section, section)?;
-            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())?;
+            writeln!(out, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
+            writeln!(out, "    *(.{} .{}.*);", section, section)?;
+            writeln!(out, "  }} > {}", memory.to_ascii_uppercase())?;
         }
-        writeln!(linkscr, "}} INSERT AFTER .uninit")?;
+        writeln!(out, "}} INSERT AFTER .uninit")?;
     }
 
     Ok(())
@@ -1441,9 +1460,15 @@ fn link(
     dst_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
 ) -> Result<()> {
     let mut ld = cfg.sysroot.clone();
-    for p in ["lib", "rustlib", &cfg.host_triple, "bin", "gcc-ld", "ld"] {
-        ld.push(p);
-    }
+    ld.extend([
+        "lib",
+        "rustlib",
+        &cfg.host_triple,
+        "bin",
+        "gcc-ld",
+        "ld.lld",
+    ]);
+
     let mut cmd = Command::new(ld);
     if cfg.verbose {
         cmd.arg("--verbose");
@@ -1472,7 +1497,6 @@ fn link(
     cmd.arg("-m").arg(m);
     cmd.arg("-z").arg("common-page-size=0x20");
     cmd.arg("-z").arg("max-page-size=0x20");
-    cmd.arg("-rustc-lld-flavor=ld");
 
     cmd.current_dir(working_dir);
 
