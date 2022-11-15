@@ -1,24 +1,25 @@
 [package]
 name = "drv-user-leds"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-drv-user-leds-api = {path = "../user-leds-api"}
-stm32f3 = { version = "0.13.0", features = ["stm32f303"], optional = true }
-stm32f4 = { version = "0.13.0", features = ["stm32f407"], optional = true }
-lpc55-pac = { version = "0.4", optional = true }
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", optional = true}
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api", optional = true}
-cfg-if = "1"
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+cfg-if = { workspace = true }
+idol-runtime = { workspace = true }
+lpc55-pac = { workspace = true, optional = true }
+num-traits = { workspace = true }
+stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
+stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
+zerocopy = { workspace = true }
+
+drv-lpc55-gpio-api = { path = "../lpc55-gpio-api", optional = true }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", optional = true }
+drv-user-leds-api = { path = "../user-leds-api" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
 
 [features]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]

@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 name = "app-donglet"
 version = "0.1.0"
@@ -11,17 +11,15 @@ g030 = ["stm32g0/stm32g030"]
 g031 = ["stm32g0/stm32g031"]
 
 [dependencies]
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-rt = "0.6.12"
-panic-itm = { version = "0.4.1", optional = true }
-panic-halt = { version = "0.2.0", optional = true }
-panic-semihosting = { version = "0.5.3", optional = true }
-cfg-if = "1"
-stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false, features = ["rt"] }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+panic-itm = { workspace = true, optional = true }
+panic-halt = { workspace = true, optional = true }
+panic-semihosting = { workspace = true, optional = true }
+cfg-if = { workspace = true }
+stm32g0 = { workspace = true, features = ["rt"] }
 
-[dependencies.kern]
-path = "../../sys/kern"
-default-features = false
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

@@ -1,23 +1,24 @@
 [package]
 name = "drv-lpc55-usart"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-lib-lpc55-usart = {path = "../../lib/lpc55-usart"}
-nb = "1.0"
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-zerocopy = "0.6.1"
-lpc55-pac = "0.4"
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+lpc55-pac = { workspace = true }
+nb = { workspace = true }
+zerocopy = { workspace = true }
 
+drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
+drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
+lib-lpc55-usart = { path = "../../lib/lpc55-usart" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-build-lpc55pins = {path = "../../build/lpc55pins"}
-serde = "1"
-anyhow = "1.0.31"
+anyhow = { workspace = true }
+serde = { workspace = true }
+
+build-lpc55pins = { path = "../../build/lpc55pins" }
+build-util = { path = "../../build/util" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

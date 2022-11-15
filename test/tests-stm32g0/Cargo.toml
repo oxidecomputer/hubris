@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 name = "tests-stm32g0"
 version = "0.1.0"
@@ -10,20 +10,18 @@ semihosting = ["panic-semihosting"]
 g070 = ["stm32g0/stm32g070"]
 
 [dependencies]
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-rt = "0.6.12"
-panic-itm = { version = "0.4.1", optional = true }
-panic-halt = { version = "0.2.0", optional = true }
-panic-semihosting = { version = "0.5.3", optional = true }
-cfg-if = "1"
-stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-initial-support", default-features = false }
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+panic-halt = { workspace = true, optional = true }
+panic-itm = { workspace = true, optional = true }
+panic-semihosting = { workspace = true, optional = true }
+stm32g0 = { workspace = true }
 
-[dependencies.kern]
-path = "../../sys/kern"
-default-features = false
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
+build-util = { path = "../../build/util" }
 
 # this lets you use `cargo fix`!
 [[bin]]

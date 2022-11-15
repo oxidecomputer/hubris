@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = { path = "../../sys/userlib" }
+stm32h7 = { workspace = true }
 
-drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
-stm32h7 = { version = "0.14", default-features = false }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
+userlib = { path = "../../sys/userlib" }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]

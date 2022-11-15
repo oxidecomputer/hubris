@@ -1,29 +1,29 @@
 [package]
 name = "drv-lpc55-swd"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-lpc55-pac = "0.4"
-drv-lpc55-spi = {path = "../lpc55-spi"}
-ringbuf = {path = "../../lib/ringbuf"}
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-cortex-m = {version = "0.7", features = ["inline-asm"]}
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
-drv-sp-ctrl-api = {path = "../sp-ctrl-api"}
-num-traits = { version = "0.2.12", default-features = false }
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-zerocopy = "0.6.1"
+cortex-m = { workspace = true }
+idol-runtime = { workspace = true }
+lpc55-pac = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
 
+drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
+drv-lpc55-spi = { path = "../lpc55-spi" }
+drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
+drv-sp-ctrl-api = { path = "../sp-ctrl-api" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
-build-lpc55pins = {path = "../../build/lpc55pins"}
-anyhow = "1.0.31"
-serde = "1"
-quote = "1"
+build-lpc55pins = { path = "../../build/lpc55pins" }
+build-util = { path = "../../build/util" }
+anyhow = { workspace = true }
+idol = { workspace = true }
+quote = { workspace = true }
+serde = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

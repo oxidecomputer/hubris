@@ -1,12 +1,12 @@
 [package]
 name = "drv-stm32h7-startup"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-stm32h7 = { version = "0.14", default-features = false, features = ["rt"] }
-cortex-m = {version = "0.7", features = ["inline-asm"]}
-cortex-m-rt = "0.6.12"
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+stm32h7 = { workspace = true }
 
 [features]
 h743 = ["stm32h7/stm32h743"]

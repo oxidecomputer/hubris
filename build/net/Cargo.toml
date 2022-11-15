@@ -8,4 +8,4 @@ vlan = []
 
 [dependencies]
 build-util = {path = "../util"}
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { workspace = true }

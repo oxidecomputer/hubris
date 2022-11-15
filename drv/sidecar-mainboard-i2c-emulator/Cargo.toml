@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ringbuf = {path = "../../lib/ringbuf"}
-userlib = {path = "../../sys/userlib"}
-drv-i2c-api = {path = "../i2c-api"}
+drv-i2c-api = { path = "../i2c-api" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

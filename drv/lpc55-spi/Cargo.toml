@@ -1,11 +1,12 @@
 [package]
 name = "drv-lpc55-spi"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-zerocopy = "0.6.1"
-lpc55-pac = "0.4"
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-num-traits = { version = "0.2.12", default-features = false }
+lpc55-pac = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
+userlib = { path = "../../sys/userlib" }

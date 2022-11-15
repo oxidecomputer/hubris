@@ -1,19 +1,20 @@
 [package]
 name = "test-assist"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-cortex-m = {version = "0.7", features = ["inline-asm"]}
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-hubris-num-tasks = {path = "../../sys/num-tasks"}
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-test-api = {path = "../test-api"}
-cortex-m-semihosting = { version = "0.5.0", optional = true }
+cortex-m = { workspace = true }
+cortex-m-semihosting = { workspace = true, optional = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+hubris-num-tasks = { path = "../../sys/num-tasks" }
+test-api = { path = "../test-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
+build-util = { path = "../../build/util" }
 
 [features]
 itm = [ "userlib/log-itm" ]

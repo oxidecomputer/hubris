@@ -1,24 +1,23 @@
 [package]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-stm32h7 = { version = "0.14", default-features = false }
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
-num-traits = { version = "0.2.12", default-features = false }
-drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
-drv-hash-api = {path = "../hash-api", default-features = false}
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-zerocopy = "0.6.1"
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+stm32h7 = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
+drv-hash-api = { path = "../hash-api" }
+drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }
 
 [features]
 host_access = []

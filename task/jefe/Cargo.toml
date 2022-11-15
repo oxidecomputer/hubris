@@ -1,28 +1,30 @@
 [package]
 name = "task-jefe"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-abi = {path = "../../sys/abi"}
-userlib = {path = "../../sys/userlib"}
-hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
-ringbuf = {path = "../../lib/ringbuf" }
-num-traits = { version = "0.2.12", default-features = false }
-serde = {version = "1", default-features = false, features = ["derive"]}
-ssmarshal = {version = "1", default-features = false}
-zerocopy = "0.6.1"
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-semihosting = { version = "0.5.0", optional = true }
-armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-task-jefe-api = {path = "../jefe-api"}
+cortex-m = { workspace = true }
+cortex-m-semihosting = { workspace = true, optional = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
+zerocopy = { workspace = true }
+
+abi = { path = "../../sys/abi" }
+armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
+ringbuf = { path = "../../lib/ringbuf"  }
+task-jefe-api = { path = "../jefe-api" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-serde = {version = "1", features = ["derive"]}
-anyhow = "1"
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+anyhow = { workspace = true }
+idol = { workspace = true }
+serde = { workspace = true }
+
+build-util = { path = "../../build/util" }
 
 [features]
 itm = [ "userlib/log-itm" ]

@@ -1,19 +1,20 @@
 [package]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-lpc55-pac = "0.4"
-num-traits = { version = "0.2.12", default-features = false }
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-zerocopy = "0.6.1"
+idol-runtime = { workspace = true }
+lpc55-pac = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
+drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

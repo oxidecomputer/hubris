@@ -73,8 +73,6 @@ impl Image {
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     fn get_img_size(&self) -> Option<usize> {
-        use core::convert::TryFrom;
-
         usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
     }
 

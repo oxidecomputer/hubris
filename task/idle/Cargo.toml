@@ -1,7 +1,7 @@
 [package]
 name = "task-idle"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [features]
 default = []
@@ -10,8 +10,8 @@ insomniac = []
 [dependencies]
 # The idle task cannot panic, so we deliberately don't request panic-messages
 # to keep the binary tiny.
-userlib = {path = "../../sys/userlib"}
-cortex-m = { version = "0.7", features = ["inline-asm"] }
+userlib = { path = "../../sys/userlib" }
+cortex-m = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

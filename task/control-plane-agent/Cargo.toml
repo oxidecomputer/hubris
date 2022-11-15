@@ -4,36 +4,35 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = "1"
-heapless = "0.7.16"
-num-traits = {version = "0.2", default-features = false}
-serde = {version = "1", default-features = false, features = ["derive"]}
-ssmarshal = {version = "1", default-features = false}
-static_assertions = "1.1"
-zerocopy = "0.6.1"
+cfg-if = { workspace = true }
+gateway-messages = { workspace = true }
+heapless = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
+static_assertions = { workspace = true }
+zerocopy = { workspace = true }
 
-drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
-drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
-drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
-drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
-drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", features = ["h753"], optional = true}
-drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
-drv-update-api = {path = "../../drv/update-api"}
-host-sp-messages = {path = "../../lib/host-sp-messages"}
-mutable-statics = {path = "../../lib/mutable-statics"}
-ringbuf = {path = "../../lib/ringbuf"}
-task-control-plane-agent-api = {path = "../control-plane-agent-api"}
-task-jefe-api = {path = "../jefe-api"}
-task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
-task-validate-api = {path = "../validate-api"}
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-update-buffer = {path = "../../lib/update-buffer"}
-
-gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "d7791e4d02571b8414b4c2976b0439234aa4d8c7"}
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
+drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
+drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
+drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
+drv-stm32xx-uid = { path = "../../drv/stm32xx-uid", features = ["family-stm32h7"] }
+drv-update-api = { path = "../../drv/update-api" }
+host-sp-messages = { path = "../../lib/host-sp-messages" }
+mutable-statics = { path = "../../lib/mutable-statics" }
+ringbuf = { path = "../../lib/ringbuf" }
+task-control-plane-agent-api = { path = "../control-plane-agent-api" }
+task-jefe-api = { path = "../jefe-api" }
+task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
+task-validate-api = { path = "../validate-api" }
+update-buffer = { path = "../../lib/update-buffer" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]

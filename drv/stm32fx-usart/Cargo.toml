@@ -1,14 +1,15 @@
 [package]
 name = "drv-stm32fx-usart"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-stm32f3 = { version = "0.13.2", features = ["stm32f303"], optional = true }
-stm32f4 = { version = "0.13.0", features = ["stm32f407"], optional = true }
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
+num-traits = { workspace = true }
+stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
+stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
+zerocopy = { workspace = true }
+
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

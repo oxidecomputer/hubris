@@ -1,26 +1,28 @@
 [package]
 name = "drv-stm32xx-i2c-server"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-fixedmap = {path = "../../lib/fixedmap"}
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-ringbuf = {path = "../../lib/ringbuf"}
-num-traits = { version = "0.2.12", default-features = false }
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-drv-stm32xx-i2c = {path = "../stm32xx-i2c", default-features = false }
-drv-i2c-api = {path = "../i2c-api"}
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cfg-if = "1"
-stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false, optional = true }
-stm32h7 = { version = "0.14", default-features = false }
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+num-traits = { workspace = true }
+stm32g0 = { workspace = true }
+stm32h7 = { workspace = true }
+
+drv-i2c-api = { path = "../i2c-api" }
+drv-stm32xx-i2c = { path = "../stm32xx-i2c"  }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+fixedmap = { path = "../../lib/fixedmap" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
-build-i2c = {path = "../../build/i2c"}
-anyhow = "1.0.31"
-cfg-if = "1"
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
+
+build-util = { path = "../../build/util" }
+build-i2c = { path = "../../build/i2c" }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
@@ -35,4 +37,3 @@ itm = []
 name = "drv-stm32xx-i2c-server"
 test = false
 bench = false
-

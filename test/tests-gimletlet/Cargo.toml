@@ -1,5 +1,5 @@
 [package]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 name = "tests-gimletlet"
 version = "0.1.0"
@@ -10,20 +10,18 @@ semihosting = ["panic-semihosting"]
 h753 = ["stm32h7/stm32h753"]
 
 [dependencies]
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-rt = "0.6.12"
-panic-itm = { version = "0.4.1", optional = true }
-panic-halt = { version = "0.2.0", optional = true }
-panic-semihosting = { version = "0.5.3", optional = true }
-cfg-if = "1"
-stm32h7 = { version = "0.14.0", default-features = false, features = ["rt"] }
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+panic-halt = { workspace= true, optional = true }
+panic-itm = { workspace = true, optional = true }
+panic-semihosting = { workspace = true, optional = true }
+stm32h7 = { workspace = true, features = ["rt"] }
 
-[dependencies.kern]
-path = "../../sys/kern"
-default-features = false
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
+build-util = { path = "../../build/util" }
 
 # this lets you use `cargo fix`!
 [[bin]]

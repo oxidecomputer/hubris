@@ -8,16 +8,15 @@ hiffy = []
 auxflash = ["drv-auxflash-api", "tlvc", "sha3"]
 
 [dependencies]
-drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
-drv-spi-api = {path = "../../drv/spi-api"}
-userlib = {path = "../../sys/userlib"}
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+sha3 = { workspace = true, optional = true }
+tlvc = { workspace = true, optional = true}
+zerocopy = { workspace = true }
 
-idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-tlvc = {git = "https://github.com/oxidecomputer/tlvc.git", optional = true}
-
-num-traits = {version = "0.2.12", default-features = false}
-sha3 = {version = "0.10", default-features = false, optional = true}
-zerocopy = "0.6.1"
+drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
+drv-spi-api = { path = "../../drv/spi-api" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

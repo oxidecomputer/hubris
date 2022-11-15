@@ -1,22 +1,23 @@
 [package]
 name = "drv-rng-api"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-abi = { path = "../../sys/abi" }
-userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-num = { version = "0.4", default-features = false }
-num-traits = { version = "0.2.12", default-features = false }
-getrandom = { version = "0.2", default-features = false, optional = true}
-rand_core = { version = "0.6" }
-zerocopy = "0.6.1"
+getrandom = { workspace = true, optional = true }
+num = { workspace = true }
+num-traits = { workspace = true }
+rand_core = { workspace = true }
+zerocopy = { workspace = true }
+
+abi = {  path = "../../sys/abi"  }
+userlib = {  path = "../../sys/userlib", features = ["panic-messages"]  }
 
 [features]
 custom-getrandom = ["getrandom/custom"]
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }
 
 [lib]
 name = "drv_rng_api"
