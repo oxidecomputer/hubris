@@ -6,10 +6,15 @@
 
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
-use userlib::{FromPrimitive, ToPrimitive};
+use userlib::*;
+
+pub use vsc85xx::{
+    tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch},
+    vsc8562::{Sd6gObCfg, Sd6gObCfg1},
+};
 
 pub use vsc7448::{
-    config::{PortConfig, PortDev, PortMode},
+    config::{PortConfig, PortDev, PortMode, PortSerdes, Speed},
     VscError,
 };
 
@@ -207,3 +212,5 @@ pub struct MacTableEntry {
     pub mac: [u8; 6],
     pub port: u16,
 }
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

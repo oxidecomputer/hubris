@@ -1,15 +1,17 @@
 [package]
-name = "monorail-api"
+name = "drv-monorail-api"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-derive-idol-err = { path = "../../lib/derive-idol-err"  }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }
 vsc7448 = { path = "../vsc7448" }
+vsc85xx = { path = "../vsc85xx" }
 
 num-traits = { workspace = true }
 serde = { workspace = true }
+ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
@@ -17,3 +19,6 @@ zerocopy = { workspace = true }
 [lib]
 test = false
 bench = false
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

@@ -1256,6 +1256,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-monorail-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "userlib",
+ "vsc7448",
+ "vsc85xx",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
@@ -2499,18 +2514,6 @@ checksum = "a92518e98c078586bc6c934028adcca4c92a53d6a958196de835170a01d84e4b"
 dependencies = [
  "adler",
  "autocfg",
-]
-
-[[package]]
-name = "monorail-api"
-version = "0.1.0"
-dependencies = [
- "derive-idol-err",
- "num-traits",
- "serde",
- "userlib",
- "vsc7448",
- "zerocopy",
 ]
 
 [[package]]
@@ -3849,6 +3852,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-spi-api",
@@ -3856,7 +3860,6 @@ dependencies = [
  "drv-user-leds-api",
  "idol",
  "idol-runtime",
- "monorail-api",
  "num-traits",
  "ringbuf",
  "serde",
