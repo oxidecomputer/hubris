@@ -115,6 +115,13 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+        "get_leftover_mac_addresses": (
+            doc: "Reports any remaining MAC addresses after the net task has claimed its own; e.g., leftover macs from local VPD for use by the host on a gimlet",
+            reply: Result(
+                ok: "MacAddressBlock",
+                err: ServerDeath,
+            ),
+        ),
         "management_link_status": (
             doc: "Checks the client side management network status",
             reply: Result(
