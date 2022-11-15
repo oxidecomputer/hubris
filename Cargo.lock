@@ -712,7 +712,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
  "serde",
  "serde-big-array",
  "sha3",
@@ -725,7 +725,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util?rev=5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
+source = "git+https://github.com/oxidecomputer/dice-util#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
  "corncobs",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1908,7 +1908,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=d7791e4d02571b8414b4c2976b0439234aa4d8c7#d7791e4d02571b8414b4c2976b0439234aa4d8c7"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#d7791e4d02571b8414b4c2976b0439234aa4d8c7"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -2395,7 +2395,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?rev=5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+source = "git+https://github.com/oxidecomputer/lpc55_support#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2429,7 +2429,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?rev=5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
+source = "git+https://github.com/oxidecomputer/lpc55_support#5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -3212,7 +3212,7 @@ dependencies = [
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726#eb3c31858f631a7fb9934246c8efdef080d05726"
+source = "git+https://github.com/oxidecomputer/salty#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
  "subtle",
@@ -3555,7 +3555,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty)",
  "serde",
  "sha3",
  "static_assertions",

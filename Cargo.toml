@@ -112,21 +112,21 @@ zerocopy = { version = "0.6.1", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 
 # Oxide forks and repos
-dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", rev = "5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad" }
-gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", rev = "d7791e4d02571b8414b4c2976b0439234aa4d8c7"}
-hif = { git = "https://github.com/oxidecomputer/hif" }
-idol = { git = "https://github.com/oxidecomputer/idolatry.git" }
-idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
-lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23" }
-lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", rev = "5fe64fda52c218cd8d7b31f95a445d8d4ce2cb23" }
-ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml" }
-pmbus = { git = "https://github.com/oxidecomputer/pmbus" }
-salty = { git = "https://github.com/oxidecomputer/salty", rev = "eb3c31858f631a7fb9934246c8efdef080d05726" }
-spd = { git = "https://github.com/oxidecomputer/spd" }
+dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
+gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
+idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
+idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
+lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
+lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
+ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
+salty = { git = "https://github.com/oxidecomputer/salty", default-features = false }
+spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false }
-tlvc = { git = "https://github.com/oxidecomputer/tlvc" }
-tlvc-text = { git = "https://github.com/oxidecomputer/tlvc" }
-vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
+tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
