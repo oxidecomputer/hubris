@@ -313,105 +313,201 @@ Ports 0 -> 7 I2C core status. '1' is busy.
 |[0] | r | PORT0 | None
 |===
 
-Ports 1/0 I2C core error status
+Port 0 I2C core status information
 [caption="Address: "]
-.0x1008 - QSFP_I2C_ERROR_0_1 Register
+.0x1008 - QSFP_I2C_STATUS_PORT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT1_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT1_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT0_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT0_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 3/2 I2C core error status
+Port 1 I2C core status information
 [caption="Address: "]
-.0x1009 - QSFP_I2C_ERROR_2_3 Register
+.0x1009 - QSFP_I2C_STATUS_PORT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT3_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT3_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT2_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT2_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 5/4 I2C core error status
+Port 2 I2C core status information
 [caption="Address: "]
-.0x100a - QSFP_I2C_ERROR_4_5 Register
+.0x100a - QSFP_I2C_STATUS_PORT2 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT5_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT5_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT4_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT4_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 7/6 I2C core error status
+Port 3 I2C core status information
 [caption="Address: "]
-.0x100b - QSFP_I2C_ERROR_6_7 Register
+.0x100b - QSFP_I2C_STATUS_PORT3 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT7_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT7_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT6_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT6_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 9/8 I2C core error status
+Port 4 I2C core status information
 [caption="Address: "]
-.0x100c - QSFP_I2C_ERROR_8_9 Register
+.0x100c - QSFP_I2C_STATUS_PORT4 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT9_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT9_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT8_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT8_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 11/10 I2C core error status
+Port 5 I2C core status information
 [caption="Address: "]
-.0x100d - QSFP_I2C_ERROR_10_11 Register
+.0x100d - QSFP_I2C_STATUS_PORT5 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT11_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT11_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT10_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT10_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 13/12 I2C core error status
+Port 6 I2C core status information
 [caption="Address: "]
-.0x100e - QSFP_I2C_ERROR_12_13 Register
+.0x100e - QSFP_I2C_STATUS_PORT6 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT13_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT13_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT12_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT12_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
-Ports 15/14 I2C core error status
+Port 7 I2C core status information
 [caption="Address: "]
-.0x100f - QSFP_I2C_ERROR_14_15 Register
+.0x100f - QSFP_I2C_STATUS_PORT7 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] | r | PORT15_ERROR | '1' if there was an error on the most recent transaction.
-|[6:4] | r | PORT15_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
-|[3] | r | PORT14_ERROR | '1' if there was an error on the most recent transaction.
-|[2:0] | r | PORT14_ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 8 I2C core status information
+[caption="Address: "]
+.0x1010 - QSFP_I2C_STATUS_PORT8 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 9 I2C core status information
+[caption="Address: "]
+.0x1011 - QSFP_I2C_STATUS_PORT9 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 10 I2C core status information
+[caption="Address: "]
+.0x1012 - QSFP_I2C_STATUS_PORT10 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 11 I2C core status information
+[caption="Address: "]
+.0x1013 - QSFP_I2C_STATUS_PORT11 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 12 I2C core status information
+[caption="Address: "]
+.0x1014 - QSFP_I2C_STATUS_PORT12 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 13 I2C core status information
+[caption="Address: "]
+.0x1015 - QSFP_I2C_STATUS_PORT13 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 14 I2C core status information
+[caption="Address: "]
+.0x1016 - QSFP_I2C_STATUS_PORT14 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
+|===
+
+Port 15 I2C core status information
+[caption="Address: "]
+.0x1017 - QSFP_I2C_STATUS_PORT15 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4] | r | BUSY | '1' if the bus is busy.
+|[3] | r | ERROR | '1' if there was an error on the most recent transaction done by this port.
+|[2:0] | r | ERROR_TYPE | Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack.
 |===
 
 Ports 8 -> 15 Enable Control
 [caption="Address: "]
-.0x1010 - QSFP_CTRL_EN_H Register
+.0x1018 - QSFP_CTRL_EN_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -427,7 +523,7 @@ Ports 8 -> 15 Enable Control
 
 Ports 0 -> 7 Enable Control
 [caption="Address: "]
-.0x1011 - QSFP_CTRL_EN_L Register
+.0x1019 - QSFP_CTRL_EN_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -443,7 +539,7 @@ Ports 0 -> 7 Enable Control
 
 Ports 8 -> 15 Reset Control (logic inverted at the pin)
 [caption="Address: "]
-.0x1012 - QSFP_CTRL_RESET_H Register
+.0x101a - QSFP_CTRL_RESET_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -459,7 +555,7 @@ Ports 8 -> 15 Reset Control (logic inverted at the pin)
 
 Ports 0 -> 7 Reset Control (logic inverted at the pin)
 [caption="Address: "]
-.0x1013 - QSFP_CTRL_RESET_L Register
+.0x101b - QSFP_CTRL_RESET_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -475,7 +571,7 @@ Ports 0 -> 7 Reset Control (logic inverted at the pin)
 
 Ports 8 -> 15 LPMode/TxDis Control
 [caption="Address: "]
-.0x1014 - QSFP_CTRL_LPMODE_H Register
+.0x101c - QSFP_CTRL_LPMODE_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -491,7 +587,7 @@ Ports 8 -> 15 LPMode/TxDis Control
 
 Ports 0 -> 7 LPMode/TxDis Control
 [caption="Address: "]
-.0x1015 - QSFP_CTRL_LPMODE_L Register
+.0x101d - QSFP_CTRL_LPMODE_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -507,7 +603,7 @@ Ports 0 -> 7 LPMode/TxDis Control
 
 Ports 8 -> 15 HSC power good
 [caption="Address: "]
-.0x1016 - QSFP_STATUS_PG_H Register
+.0x101e - QSFP_STATUS_PG_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -523,7 +619,7 @@ Ports 8 -> 15 HSC power good
 
 Ports 0 -> 7 HSC power good
 [caption="Address: "]
-.0x1017 - QSFP_STATUS_PG_L Register
+.0x101f - QSFP_STATUS_PG_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -539,7 +635,7 @@ Ports 0 -> 7 HSC power good
 
 Ports 8 -> 15 HSC power good timeout
 [caption="Address: "]
-.0x1018 - QSFP_STATUS_PG_TIMEOUT_H Register
+.0x1020 - QSFP_STATUS_PG_TIMEOUT_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -555,7 +651,7 @@ Ports 8 -> 15 HSC power good timeout
 
 Ports 0 -> 7 HSC power good timeout
 [caption="Address: "]
-.0x1019 - QSFP_STATUS_PG_TIMEOUT_L Register
+.0x1021 - QSFP_STATUS_PG_TIMEOUT_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -571,7 +667,7 @@ Ports 0 -> 7 HSC power good timeout
 
 Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)
 [caption="Address: "]
-.0x101a - QSFP_STATUS_PRESENT_H Register
+.0x1022 - QSFP_STATUS_PRESENT_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -587,7 +683,7 @@ Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)
 
 Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)
 [caption="Address: "]
-.0x101b - QSFP_STATUS_PRESENT_L Register
+.0x1023 - QSFP_STATUS_PRESENT_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -603,7 +699,7 @@ Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)
 
 Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)
 [caption="Address: "]
-.0x101c - QSFP_STATUS_IRQ_H Register
+.0x1024 - QSFP_STATUS_IRQ_H Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -619,7 +715,7 @@ Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)
 
 Ports 0 -> 7 IntL/RxLOS signal for the module (logic inverted at the pin)
 [caption="Address: "]
-.0x101d - QSFP_STATUS_IRQ_L Register
+.0x1025 - QSFP_STATUS_IRQ_L Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
