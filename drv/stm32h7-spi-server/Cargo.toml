@@ -11,9 +11,9 @@ num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 zerocopy = { workspace = true }
 
-drv-spi-api = { path = "../spi-api", default-features = false }
-drv-stm32h7-spi = { path = "../stm32h7-spi", default-features = false }
-drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", default-features = false }
+drv-spi-api = { path = "../spi-api" }
+drv-stm32h7-spi = { path = "../stm32h7-spi" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

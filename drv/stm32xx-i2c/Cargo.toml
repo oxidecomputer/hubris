@@ -12,7 +12,7 @@ stm32h7 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 
 drv-i2c-api = { path = "../i2c-api" }
-drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", default-features = false }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib" }
 

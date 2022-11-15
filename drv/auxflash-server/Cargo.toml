@@ -12,9 +12,9 @@ stm32h7 = { workspace = true }
 tlvc = { workspace = true }
 zerocopy = { workspace = true }
 
-drv-auxflash-api = { path = "../auxflash-api", default-features = false }
-drv-stm32h7-qspi = { path = "../stm32h7-qspi", default-features = false }
-drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", default-features = false }
+drv-auxflash-api = { path = "../auxflash-api" }
+drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

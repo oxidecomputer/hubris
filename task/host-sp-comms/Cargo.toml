@@ -16,7 +16,7 @@ zerocopy = { workspace = true }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api" }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
-drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", default-features = false }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 multitimer = { path = "../../lib/multitimer" }
 mutable-statics = { path = "../../lib/mutable-statics" }

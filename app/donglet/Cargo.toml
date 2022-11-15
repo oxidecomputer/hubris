@@ -19,7 +19,7 @@ panic-semihosting = { workspace = true, optional = true }
 cfg-if = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt"] }
 
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

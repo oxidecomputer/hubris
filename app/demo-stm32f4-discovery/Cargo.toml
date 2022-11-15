@@ -17,7 +17,7 @@ panic-semihosting = { workspace = true, optional = true }
 stm32f3 = { workspace = true, optional = true, features = ["stm32f303", "rt"] }
 stm32f4 = { workspace = true, optional = true, features = ["stm32f407", "rt"] }
 
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 # this lets you use `cargo fix`!
 [[bin]]

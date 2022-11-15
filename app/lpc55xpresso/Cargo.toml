@@ -18,7 +18,7 @@ lpc55-pac = { workspace = true, features = ["rt"]}
 cfg-if = { workspace = true }
 
 abi = { path = "../../sys/abi"}
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 # this lets you use `cargo fix`!
 [[bin]]

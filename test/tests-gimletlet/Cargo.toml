@@ -18,7 +18,7 @@ panic-itm = { workspace = true, optional = true }
 panic-semihosting = { workspace = true, optional = true }
 stm32h7 = { workspace = true, features = ["rt"] }
 
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

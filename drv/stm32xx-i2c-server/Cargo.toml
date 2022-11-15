@@ -11,8 +11,8 @@ stm32g0 = { workspace = true }
 stm32h7 = { workspace = true }
 
 drv-i2c-api = { path = "../i2c-api" }
-drv-stm32xx-i2c = { path = "../stm32xx-i2c", default-features = false  }
-drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", default-features = false }
+drv-stm32xx-i2c = { path = "../stm32xx-i2c"  }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 fixedmap = { path = "../../lib/fixedmap" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

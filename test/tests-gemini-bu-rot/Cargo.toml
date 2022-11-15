@@ -19,7 +19,7 @@ panic-halt = { workspace= true, optional = true }
 panic-itm = { workspace = true, optional = true }
 panic-semihosting = { workspace = true, optional = true }
 
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 # this lets you use `cargo fix`!
 [[bin]]

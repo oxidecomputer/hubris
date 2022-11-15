@@ -20,7 +20,7 @@ panic-semihosting = { workspace = true, optional = true }
 stm32h7 = { workspace = true, features = ["rt"] }
 
 drv-stm32h7-startup = {path = "../../drv/stm32h7-startup"}
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
