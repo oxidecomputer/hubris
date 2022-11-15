@@ -15,7 +15,7 @@ use hubpack::SerializedSize;
 use task_net_api::*;
 use transceiver_messages::{
     message::*,
-    mgmt::{MemoryRegion, UpperPage},
+    mgmt::{MemoryRead, MemoryWrite, Page},
     Error, ModuleId,
 };
 
@@ -75,12 +75,12 @@ impl ServerImpl {
                             &mut tx_data_buf[Message::MAX_SIZE..],
                         ) {
                             Ok(r) => r,
-                            Err(e) => (HostResponse::Error(e), 0),
+                            Err(e) => (SpResponse::Error(e), 0),
                         };
                         let out = Message {
                             header: msg.header,
                             modules: msg.modules,
-                            body: MessageBody::HostResponse(reply),
+                            body: MessageBody::SpResponse(reply),
                         };
                         // Serialize into the front of the tx buffer
                         let msg_len =
@@ -103,9 +103,9 @@ impl ServerImpl {
                                 message_id: u64::MAX,
                             },
                             modules: ModuleId::default(),
-                            body: MessageBody::HostResponse(
-                                HostResponse::Error(Error::ProtocolError),
-                            ),
+                            body: MessageBody::SpResponse(SpResponse::Error(
+                                Error::ProtocolError,
+                            )),
                         },
                     )
                     .unwrap() as u32,
@@ -136,15 +136,15 @@ impl ServerImpl {
         msg: Message,
         data: &[u8],
         out: &mut [u8],
-    ) -> Result<(HostResponse, usize), Error> {
+    ) -> Result<(SpResponse, usize), Error> {
         if msg.header.version != 1 {
             return Err(Error::VersionMismatch);
         }
 
         match msg.body {
             MessageBody::SpRequest(..)
-            | MessageBody::SpResponse(..)
-            | MessageBody::HostResponse(..) => {
+            | MessageBody::HostResponse(..)
+            | MessageBody::SpResponse(..) => {
                 return Err(Error::ProtocolError);
             }
             MessageBody::HostRequest(h) => {
@@ -159,7 +159,7 @@ impl ServerImpl {
         modules: ModuleId,
         data: &[u8],
         out: &mut [u8],
-    ) -> Result<(HostResponse, usize), Error> {
+    ) -> Result<(SpResponse, usize), Error> {
         match h {
             HostRequest::Reset => {
                 let mask = get_mask(modules)?;
@@ -171,7 +171,7 @@ impl ServerImpl {
                 self.transceivers
                     .clear_reset(mask)
                     .map_err(|_e| Error::ReadFailed)?;
-                Ok((HostResponse::Ack, 0))
+                Ok((SpResponse::Ack, 0))
             }
             HostRequest::Status => {
                 use drv_sidecar_front_io::Addr;
@@ -222,7 +222,7 @@ impl ServerImpl {
                     out[count] = status.bits();
                     count += 1;
                 }
-                Ok((HostResponse::Status, count))
+                Ok((SpResponse::Status, count))
             }
             HostRequest::Read(mem) => {
                 let out_size = mem.len() as u32 * modules.ports.0.count_ones();
@@ -230,7 +230,7 @@ impl ServerImpl {
                     return Err(Error::RequestTooLarge);
                 }
                 self.read(mem, modules, out)?;
-                Ok((HostResponse::Read(mem), out_size as usize))
+                Ok((SpResponse::Read(mem), out_size as usize))
             }
             HostRequest::Write(mem) => {
                 let data_size = mem.len() as u32 * modules.ports.0.count_ones();
@@ -239,7 +239,7 @@ impl ServerImpl {
                     return Err(Error::RequestTooLarge);
                 }
                 self.write(mem, modules, data)?;
-                Ok((HostResponse::Write(mem), 0))
+                Ok((SpResponse::Write(mem), 0))
             }
             HostRequest::SetPowerMode(mode) => {
                 let mask = get_mask(modules)?;
@@ -280,7 +280,7 @@ impl ServerImpl {
                             .map_err(|_e| Error::ReadFailed)?;
                     }
                 }
-                Ok((HostResponse::Ack, 0))
+                Ok((SpResponse::Ack, 0))
             }
             HostRequest::ManagementInterface(i) => {
                 todo!()
@@ -290,7 +290,7 @@ impl ServerImpl {
 
     fn select_page(
         &mut self,
-        upper_page: UpperPage,
+        page: Page,
         modules: ModuleId,
     ) -> Result<(), Error> {
         let mask = get_mask(modules)?;
@@ -299,35 +299,26 @@ impl ServerImpl {
         const BANK_SELECT: u8 = 0x7E;
         const PAGE_SELECT: u8 = 0x7F;
 
-        match upper_page {
-            UpperPage::Cmis(page) => {
-                self.transceivers
-                    .set_i2c_write_buffer(&[page.page()])
-                    .map_err(|_e| Error::WriteFailed)?;
-                self.transceivers
-                    .setup_i2c_write(PAGE_SELECT, 1, mask)
-                    .map_err(|_e| Error::WriteFailed)?;
-                self.wait_and_check_i2c(modules)?;
+        // We can always write the lower page; upper pages require modifying
+        // registers in the transceiver to select it.
+        if let Some(page) = page.page() {
+            self.transceivers
+                .set_i2c_write_buffer(&[page])
+                .map_err(|_e| Error::WriteFailed)?;
+            self.transceivers
+                .setup_i2c_write(PAGE_SELECT, 1, mask)
+                .map_err(|_e| Error::WriteFailed)?;
+            self.wait_and_check_i2c(modules)?;
+        }
 
-                if let Some(bank) = page.bank() {
-                    self.transceivers
-                        .set_i2c_write_buffer(&[bank])
-                        .map_err(|_e| Error::ReadFailed)?;
-                    self.transceivers
-                        .setup_i2c_write(BANK_SELECT, 1, mask)
-                        .map_err(|_e| Error::ReadFailed)?;
-                    self.wait_and_check_i2c(modules)?;
-                }
-            }
-            UpperPage::Sff8636(page) => {
-                self.transceivers
-                    .set_i2c_write_buffer(&[page.page()])
-                    .map_err(|_e| Error::ReadFailed)?;
-                self.transceivers
-                    .setup_i2c_write(PAGE_SELECT, 1, mask)
-                    .map_err(|_e| Error::ReadFailed)?;
-                self.wait_and_check_i2c(modules)?;
-            }
+        if let Some(bank) = page.bank() {
+            self.transceivers
+                .set_i2c_write_buffer(&[bank])
+                .map_err(|_e| Error::ReadFailed)?;
+            self.transceivers
+                .setup_i2c_write(BANK_SELECT, 1, mask)
+                .map_err(|_e| Error::ReadFailed)?;
+            self.wait_and_check_i2c(modules)?;
         }
         Ok(())
     }
@@ -351,28 +342,11 @@ impl ServerImpl {
 
     fn read(
         &mut self,
-        mem: MemoryRegion,
+        mem: MemoryRead,
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        // Reading beyond a 128-byte page boundary will wrap around; return an
-        // error if that's going to happen.
-        let page_end = (mem.offset() as u32 / 128 + 1) * 128;
-        if mem.offset() as u32 + mem.len() as u32 > page_end {
-            // TODO use a more descriptive error name here?
-            return Err(Error::InvalidMemoryAccess {
-                offset: mem.offset(),
-                len: mem.len(),
-            });
-        }
-        // CMIS spec only guarantee an 8-byte read (?!)
-        // (see CMIS 5.0, 5.2.2.1)
-        if matches!(mem.upper_page(), UpperPage::Cmis(..)) && mem.len() > 8 {
-            // TODO: more specialized error
-            return Err(Error::RequestTooLarge);
-        }
-
-        self.select_page(*mem.upper_page(), modules)?;
+        self.select_page(*mem.page(), modules)?;
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
             .map_err(|_e| Error::ReadFailed)?;
@@ -393,38 +367,11 @@ impl ServerImpl {
 
     fn write(
         &mut self,
-        mem: MemoryRegion,
+        mem: MemoryWrite,
         modules: ModuleId,
         data: &[u8],
     ) -> Result<(), Error> {
-        // Writing beyond a 128-byte page boundary will wrap around; return an
-        // error if that's going to happen.
-        let page_end = (mem.offset() as u32 / 128 + 1) * 128;
-        if mem.offset() as u32 + mem.len() as u32 > page_end {
-            // TODO use a more descriptive error name here?
-            return Err(Error::InvalidMemoryAccess {
-                offset: mem.offset(),
-                len: mem.len(),
-            });
-        }
-        match *mem.upper_page() {
-            // CMIS 5.0, §5.2.2.2: only guarantee an 8-byte write
-            UpperPage::Cmis(..) => {
-                if mem.len() > 8 {
-                    // TODO: more specialized error
-                    return Err(Error::RequestTooLarge);
-                }
-            }
-            // SFF-8636, §5.3.3: max of 4 bytes in one write transaction
-            UpperPage::Sff8636(..) => {
-                if mem.len() > 4 {
-                    // TODO: more specialized error
-                    return Err(Error::RequestTooLarge);
-                }
-            }
-        }
-
-        self.select_page(*mem.upper_page(), modules)
+        self.select_page(*mem.page(), modules)
             .map_err(|_e| Error::WriteFailed)?;
 
         // Copy data into the FPGA write buffer
