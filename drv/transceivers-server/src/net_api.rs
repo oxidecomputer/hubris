@@ -18,7 +18,6 @@ use transceiver_messages::{
     mgmt::{MemoryRegion, UpperPage},
     Error, ModuleId,
 };
-use userlib::hl::sleep_for;
 
 /// Convert from the over-the-network type to our local types
 fn unpack(m: ModuleId) -> Result<(FpgaController, FpgaPortMasks), Error> {
