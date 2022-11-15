@@ -67,7 +67,7 @@ const TIMER_INTERVAL: u64 = 500;
 
 // Errors are being suppressed here due to a miswiring of the I2C bus at the
 // LED controller parts. They will not be accessible without rework to older
-// hardware, and newer (correct) hardware will be replacing the hold stuff
+// hardware, and newer (correct) hardware will be replacing the old stuff
 // very soon.
 //
 // TODO: remove conditional compilation path once sidecar-a is sunset
