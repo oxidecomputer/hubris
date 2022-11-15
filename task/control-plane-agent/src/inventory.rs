@@ -168,6 +168,15 @@ const OUR_DEVICES: &[DeviceDescription<'static>] = &[
         capabilities: DeviceCapabilities::UPDATEABLE,
         presence: DevicePresence::Present, // TODO: ok to assume always present?
     },
+    // If we're building for sidecar, we always claim to have a VSC7448.
+    #[cfg(feature = "sidecar")]
+    DeviceDescription {
+        component: SpComponent::VSC7448,
+        device: SpComponent::VSC7448.const_as_str(),
+        description: "Management network switch",
+        capabilities: DeviceCapabilities::HAS_MEASUREMENT_CHANNELS,
+        presence: DevicePresence::Present, // TODO: ok to assume always present?
+    },
 ];
 
 // We use a generic component ID of `{prefix}{index}` for all of

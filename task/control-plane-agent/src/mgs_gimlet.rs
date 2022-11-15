@@ -13,10 +13,10 @@ use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
-    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse, Header,
-    IgnitionCommand, IgnitionState, Message, MessageKind, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpRequest, SpState, SpUpdatePrepare,
-    UpdateChunk, UpdateId, UpdateStatus,
+    BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
+    MessageKind, MgsError, PowerState, SpComponent, SpError, SpPort, SpRequest,
+    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
 use host_sp_messages::HostStartupOptions;
@@ -618,6 +618,32 @@ impl SpHandler for MgsHandler {
         self.startup_options = options.into();
 
         Ok(())
+    }
+
+    fn num_component_details(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<u32, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
+            component
+        }));
+
+        // TODO: Wire up any component info we can (sensor measurements, etc)
+        match component {
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_details(
+        &mut self,
+        _component: SpComponent,
+        _index: u32,
+    ) -> ComponentDetails {
+        // We never return successfully from `num_component_details()`, so this
+        // function should never be called.
+        panic!()
     }
 
     fn mgs_response_error(

@@ -337,6 +337,32 @@ impl SpHandler for MgsHandler {
         self.common.inventory_device_description(index as usize)
     }
 
+    fn num_component_details(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<u32, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
+            component
+        }));
+
+        // TODO: Wire up any component info we can (sensor measurements, etc)
+        match component {
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_details(
+        &mut self,
+        _component: SpComponent,
+        _index: u32,
+    ) -> ComponentDetails {
+        // We never return successfully from `num_component_details()`, so this
+        // function should never be called.
+        panic!()
+    }
+
     fn get_startup_options(
         &mut self,
         _sender: SocketAddrV6,

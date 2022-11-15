@@ -4,12 +4,14 @@
 
 use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
+use drv_monorail_api::Monorail;
 use drv_sidecar_seq_api::Sequencer;
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
-    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -18,7 +20,16 @@ use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
 
+// We're included under a special `path` cfg from main.rs, which confuses rustc
+// about where our submodules live. Pass explicit paths to correct it.
+#[path = "mgs_sidecar/monorail_port_status.rs"]
+mod monorail_port_status;
+
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
+userlib::task_slot!(MONORAIL, monorail);
+
+// TODO Should this live in monorail-api instead?
+const NUM_VSC7448_PORTS: u32 = 53;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks for now, no other updateable components.
@@ -40,6 +51,7 @@ static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
+    monorail: Monorail,
     sp_update: SpUpdate,
 }
 
@@ -50,6 +62,7 @@ impl MgsHandler {
         Self {
             common: MgsCommon::claim_static_resources(),
             sequencer: Sequencer::from(SIDECAR_SEQ.get_task_id()),
+            monorail: Monorail::from(MONORAIL.get_task_id()),
             sp_update: SpUpdate::new(),
         }
     }
@@ -360,6 +373,39 @@ impl SpHandler for MgsHandler {
 
     fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
         self.common.inventory_device_description(index as usize)
+    }
+
+    fn num_component_details(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<u32, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
+            component
+        }));
+
+        match component {
+            SpComponent::VSC7448 => Ok(NUM_VSC7448_PORTS),
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_details(
+        &mut self,
+        component: SpComponent,
+        index: u32,
+    ) -> ComponentDetails {
+        match component {
+            SpComponent::VSC7448 => ComponentDetails::PortStatus(
+                monorail_port_status::port_status(&self.monorail, index),
+            ),
+            _ => {
+                // We never return successfully from `num_component_details()`,
+                // for any other component
+                panic!()
+            }
+        }
     }
 
     fn get_startup_options(
