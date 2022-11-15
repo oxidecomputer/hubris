@@ -20,6 +20,22 @@ use transceiver_messages::{
 };
 use userlib::hl::sleep_for;
 
+/// Convert from the over-the-network type to our local types
+fn unpack(m: ModuleId) -> Result<(FpgaController, FpgaPortMasks), Error> {
+    let fpga = get_fpga(m)?;
+    let mask = get_mask(m)?;
+    Ok((fpga, mask))
+}
+
+/// Convert from the over-the-network type to our local FPGA type
+fn get_fpga(m: ModuleId) -> Result<FpgaController, Error> {
+    match m.fpga_id {
+        0 => Ok(FpgaController::Left),
+        1 => Ok(FpgaController::Right),
+        i => Err(Error::InvalidFpga(i)),
+    }
+}
+
 /// Convert from the over-the-network type to our local port mask type
 fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
     let fpga_ports: u16 = m.ports.0;
@@ -162,11 +178,7 @@ impl ServerImpl {
                 use drv_sidecar_front_io::Addr;
                 use zerocopy::{BigEndian, U16};
 
-                let fpga = match modules.fpga_id {
-                    0 => FpgaController::Left,
-                    1 => FpgaController::Right,
-                    i => return Err(Error::InvalidFpga(i)),
-                };
+                let fpga = get_fpga(modules)?;
                 let fpga = self.transceivers.fpga(fpga);
 
                 // This is a bit awkward: the FPGA will get _every_ module's
@@ -283,15 +295,16 @@ impl ServerImpl {
         modules: ModuleId,
     ) -> Result<(), Error> {
         let mask = get_mask(modules)?;
+
         match upper_page {
             UpperPage::Cmis(page) => {
                 self.transceivers
                     .set_i2c_write_buffer(&[page.page()])
-                    .map_err(|_e| Error::ReadFailed)?;
+                    .map_err(|_e| Error::WriteFailed)?;
                 self.transceivers
                     .setup_i2c_write(0x7F, 1, mask)
-                    .map_err(|_e| Error::ReadFailed)?;
-                sleep_for(5); // TODO: Poll instead
+                    .map_err(|_e| Error::WriteFailed)?;
+                self.wait_and_check_i2c(modules)?;
 
                 if let Some(bank) = page.bank() {
                     self.transceivers
@@ -300,7 +313,7 @@ impl ServerImpl {
                     self.transceivers
                         .setup_i2c_write(0x7E, 1, mask)
                         .map_err(|_e| Error::ReadFailed)?;
-                    sleep_for(5); // TODO: Poll instead
+                    self.wait_and_check_i2c(modules)?;
                 }
             }
             UpperPage::Sff8636(page) => {
@@ -310,8 +323,25 @@ impl ServerImpl {
                 self.transceivers
                     .setup_i2c_write(0x7F, 1, mask)
                     .map_err(|_e| Error::ReadFailed)?;
-                sleep_for(5); // TODO: Poll instead
+                self.wait_and_check_i2c(modules)?;
             }
+        }
+        Ok(())
+    }
+
+    fn wait_and_check_i2c(&mut self, modules: ModuleId) -> Result<(), Error> {
+        // TODO: use a better error type here
+        let (fpga, mask) = unpack(modules)?;
+        self.transceivers
+            .wait_for_i2c(fpga)
+            .map_err(|_e| Error::WriteFailed)?;
+        if let Some(p) = self
+            .transceivers
+            .get_i2c_error(fpga, mask)
+            .map_err(|_e| Error::WriteFailed)?
+        {
+            // FPGA reported an I2C error
+            return Err(Error::WriteFailed);
         }
         Ok(())
     }
@@ -343,13 +373,9 @@ impl ServerImpl {
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
             .map_err(|_e| Error::ReadFailed)?;
-        sleep_for(5); // TODO: wait for completion
+        self.wait_and_check_i2c(modules)?;
 
-        let controller = match modules.fpga_id {
-            0 => FpgaController::Left,
-            1 => FpgaController::Right,
-            i => return Err(Error::InvalidFpga(i)),
-        };
+        let controller = get_fpga(modules)?;
         for (port, out) in modules
             .ports
             .to_indices()
@@ -407,7 +433,7 @@ impl ServerImpl {
         self.transceivers
             .setup_i2c_write(mem.offset(), mem.len(), get_mask(modules)?)
             .map_err(|_e| Error::WriteFailed)?;
-        sleep_for(5); // TODO: wait for completion
+        self.wait_and_check_i2c(modules)?;
 
         Ok(())
     }
