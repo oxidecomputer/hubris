@@ -295,13 +295,17 @@ impl ServerImpl {
     ) -> Result<(), Error> {
         let mask = get_mask(modules)?;
 
+        // Common to both CMIS and SFF-8636
+        const BANK_SELECT: u8 = 0x7E;
+        const PAGE_SELECT: u8 = 0x7F;
+
         match upper_page {
             UpperPage::Cmis(page) => {
                 self.transceivers
                     .set_i2c_write_buffer(&[page.page()])
                     .map_err(|_e| Error::WriteFailed)?;
                 self.transceivers
-                    .setup_i2c_write(0x7F, 1, mask)
+                    .setup_i2c_write(PAGE_SELECT, 1, mask)
                     .map_err(|_e| Error::WriteFailed)?;
                 self.wait_and_check_i2c(modules)?;
 
@@ -310,7 +314,7 @@ impl ServerImpl {
                         .set_i2c_write_buffer(&[bank])
                         .map_err(|_e| Error::ReadFailed)?;
                     self.transceivers
-                        .setup_i2c_write(0x7E, 1, mask)
+                        .setup_i2c_write(BANK_SELECT, 1, mask)
                         .map_err(|_e| Error::ReadFailed)?;
                     self.wait_and_check_i2c(modules)?;
                 }
@@ -320,7 +324,7 @@ impl ServerImpl {
                     .set_i2c_write_buffer(&[page.page()])
                     .map_err(|_e| Error::ReadFailed)?;
                 self.transceivers
-                    .setup_i2c_write(0x7F, 1, mask)
+                    .setup_i2c_write(PAGE_SELECT, 1, mask)
                     .map_err(|_e| Error::ReadFailed)?;
                 self.wait_and_check_i2c(modules)?;
             }
