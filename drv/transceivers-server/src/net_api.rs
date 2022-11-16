@@ -12,6 +12,7 @@ use drv_sidecar_front_io::transceivers::{
     FpgaController, FpgaPortMasks, PortLocation,
 };
 use hubpack::SerializedSize;
+use ringbuf::*;
 use task_net_api::*;
 use transceiver_messages::{
     message::*,
@@ -19,12 +20,17 @@ use transceiver_messages::{
     Error, ModuleId,
 };
 
-/// Convert from the over-the-network type to our local types
-fn unpack(m: ModuleId) -> Result<(FpgaController, FpgaPortMasks), Error> {
-    let fpga = get_fpga(m)?;
-    let mask = get_mask(m)?;
-    Ok((fpga, mask))
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    SendError(SendError),
 }
+
+ringbuf!(Trace, 16, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Convert from the over-the-network type to our local FPGA type
 fn get_fpga(m: ModuleId) -> Result<FpgaController, Error> {
@@ -50,6 +56,8 @@ fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
         i => Err(Error::InvalidFpga(i)),
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 impl ServerImpl {
     /// Attempt to read and handle data from the `net` socket
@@ -111,13 +119,23 @@ impl ServerImpl {
                     .unwrap() as u32,
                 };
 
-                self.net
-                    .send_packet(
-                        SOCKET,
-                        meta,
-                        &tx_data_buf[..meta.size as usize],
-                    )
-                    .unwrap();
+                if let Err(e) = self.net.send_packet(
+                    SOCKET,
+                    meta,
+                    &tx_data_buf[..meta.size as usize],
+                ) {
+                    // We'll drop packets if the outgoing queue is full; the
+                    // host is responsible for retrying.
+                    //
+                    // Other errors are unexpected and panic.
+                    ringbuf_entry!(Trace::SendError(e));
+                    match e {
+                        SendError::QueueFull => (),
+                        SendError::Other
+                        | SendError::NotYours
+                        | SendError::InvalidVLan => panic!(),
+                    }
+                }
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets
@@ -343,7 +361,8 @@ impl ServerImpl {
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        let (controller, mask) = unpack(modules)?;
+        let controller = get_fpga(modules)?;
+        let mask = get_mask(modules)?;
 
         // Switch pages (if necessary)
         self.select_page(*mem.page(), mask)?;
