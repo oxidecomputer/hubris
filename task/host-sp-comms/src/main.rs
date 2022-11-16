@@ -618,25 +618,20 @@ impl ServerImpl {
                 })
             }
             HostToSp::GetMacAddresses => {
-                let response = match self.net.get_leftover_mac_addresses() {
-                    Ok(block) if block.count.get() > 0 => {
-                        let count =
-                            u16::min(block.count.get(), NUM_HOST_MAC_ADDRESSES);
-                        SpToHost::MacAddresses {
-                            base: block.base_mac,
-                            count,
-                            stride: block.stride,
-                        }
+                let block = self.net.get_leftover_mac_addresses();
+                let response = if block.count.get() > 0 {
+                    let count =
+                        u16::min(block.count.get(), NUM_HOST_MAC_ADDRESSES);
+                    SpToHost::MacAddresses {
+                        base: block.base_mac,
+                        count,
+                        stride: block.stride,
                     }
-                    _ => {
-                        // If getting the MAC addrs fails, or if `net` tells us
-                        // there are no MACs available, all we can do is report
-                        // an empty set to the host.
-                        SpToHost::MacAddresses {
-                            base: [0; 6],
-                            count: 0,
-                            stride: 0,
-                        }
+                } else {
+                    SpToHost::MacAddresses {
+                        base: [0; 6],
+                        count: 0,
+                        stride: 0,
                     }
                 };
                 Some(response)

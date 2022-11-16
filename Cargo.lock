@@ -2213,7 +2213,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
 dependencies = [
  "indexmap",
  "quote",
@@ -2225,7 +2225,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
 dependencies = [
  "userlib",
  "zerocopy",

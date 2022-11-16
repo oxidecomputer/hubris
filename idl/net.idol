@@ -110,17 +110,13 @@ Interface(
         ),
         "get_mac_address": (
             doc: "Reports the MAC address of port 0",
-            reply: Result(
-                ok: "MacAddress",
-                err: ServerDeath,
-            ),
+            reply: Simple("MacAddress"),
+            idempotent: true,
         ),
         "get_leftover_mac_addresses": (
             doc: "Reports any remaining MAC addresses after the net task has claimed its own; e.g., leftover macs from local VPD for use by the host on a gimlet",
-            reply: Result(
-                ok: "MacAddressBlock",
-                err: ServerDeath,
-            ),
+            reply: Simple("MacAddressBlock"),
+            idempotent: true,
         ),
         "management_link_status": (
             doc: "Checks the client side management network status",
