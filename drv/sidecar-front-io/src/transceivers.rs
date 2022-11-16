@@ -522,6 +522,28 @@ impl Transceivers {
         }
     }
 
+    pub fn read_status_address(local_port: u8) -> Addr {
+        match local_port % 16 {
+            0 => Addr::QSFP_PORT0_I2C_STATUS,
+            1 => Addr::QSFP_PORT1_I2C_STATUS,
+            2 => Addr::QSFP_PORT2_I2C_STATUS,
+            3 => Addr::QSFP_PORT3_I2C_STATUS,
+            4 => Addr::QSFP_PORT4_I2C_STATUS,
+            5 => Addr::QSFP_PORT5_I2C_STATUS,
+            6 => Addr::QSFP_PORT6_I2C_STATUS,
+            7 => Addr::QSFP_PORT7_I2C_STATUS,
+            8 => Addr::QSFP_PORT8_I2C_STATUS,
+            9 => Addr::QSFP_PORT9_I2C_STATUS,
+            10 => Addr::QSFP_PORT10_I2C_STATUS,
+            11 => Addr::QSFP_PORT11_I2C_STATUS,
+            12 => Addr::QSFP_PORT12_I2C_STATUS,
+            13 => Addr::QSFP_PORT13_I2C_STATUS,
+            14 => Addr::QSFP_PORT14_I2C_STATUS,
+            15 => Addr::QSFP_PORT15_I2C_STATUS,
+            _ => unreachable!(),
+        }
+    }
+
     /// Releases the LED controller from reset and enables the output
     pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
         for fpga in &self.fpgas {
@@ -568,16 +590,15 @@ impl Transceivers {
                 FpgaController::Right => mask.right,
             };
             let fpga = self.fpga(fpga);
-            let errors: [u8; 8] = fpga.read(Addr::QSFP_I2C_ERROR_0_1)?;
-            for i in 0..16 {
+            for port in 0..16 {
                 // Ignore physical ports that aren't active
-                if mask & (1 << i) == 0 {
+                if mask & (1 << port) == 0 {
                     continue;
                 }
-                let err = errors[i / 2] >> ((i % 2) * 4);
-                let has_err = (err & 0b1000) != 0;
-                if has_err {
-                    return Ok(Some(i as u8));
+                let addr = Self::read_status_address(port);
+                let status: u8 = fpga.read(addr)?;
+                if status & (1 << 3) != 0 {
+                    return Ok(Some(port as u8));
                 }
             }
         }

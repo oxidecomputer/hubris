@@ -9,7 +9,7 @@
 //! to our existing `ServerImpl`.
 use crate::ServerImpl;
 use drv_sidecar_front_io::transceivers::{
-    FpgaController, FpgaPortMasks, PortLocation,
+    FpgaController, FpgaPortMasks, Transceivers,
 };
 use hubpack::SerializedSize;
 use ringbuf::*;
@@ -380,19 +380,43 @@ impl ServerImpl {
         // Switch pages (if necessary)
         self.select_page(*mem.page(), mask)?;
 
+        // Ask the FPGA to start the read
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::ReadFailed)?;
-        self.wait_and_check_i2c(mask)?;
+
+        let fpga = self.transceivers.fpga(controller);
 
         for (port, out) in modules
             .ports
             .to_indices()
             .zip(out.chunks_mut(mem.len() as usize))
         {
-            self.transceivers
-                .get_i2c_read_buffer(PortLocation { controller, port }, out)
+            // The status register is contiguous with the output buffer, so
+            // we'll read them all in a single pass.  This should normally
+            // terminate with a single read, since I2C is faster than Hubris
+            // IPC.
+            let mut buf = [0u8; 129];
+            const BUSY: u8 = 1 << 4;
+            const ERROR: u8 = 1 << 3;
+            loop {
+                fpga.read_bytes(
+                    Transceivers::read_status_address(port),
+                    &mut buf[0..(out.len() + 1)],
+                )
                 .map_err(|_e| Error::ReadFailed)?;
+                let status = buf[0];
+                if status & BUSY == 0 {
+                    // Check error mask
+                    if status & ERROR != 0 {
+                        return Err(Error::ReadFailed);
+                    } else {
+                        out.copy_from_slice(&buf[1..]);
+                        break;
+                    }
+                }
+                userlib::hl::sleep_for(1);
+            }
         }
         Ok(())
     }
