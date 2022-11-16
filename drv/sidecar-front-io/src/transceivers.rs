@@ -33,6 +33,19 @@ pub struct FpgaPortMasks {
     pub right: u16,
 }
 
+impl FpgaPortMasks {
+    /// Returns an iterator over FPGAs that are active in the mask
+    ///
+    /// (possibilities include `Left`, `Right`, both, or none)
+    fn iter_fpgas(&self) -> impl Iterator<Item = FpgaController> {
+        let out = [
+            Some(FpgaController::Left).filter(|_| self.left != 0),
+            Some(FpgaController::Right).filter(|_| self.right != 0),
+        ];
+        out.into_iter().flatten()
+    }
+}
+
 /// Port Map
 ///
 /// Each index in this map represents the location of its transceiver port, so
@@ -525,15 +538,17 @@ impl Transceivers {
     /// Waits for all of the I2C busy bits to go low
     pub fn wait_for_i2c(
         &mut self,
-        fpga: FpgaController,
+        mask: FpgaPortMasks,
     ) -> Result<(), FpgaError> {
-        let fpga = self.fpga(fpga);
-        loop {
-            let busy: [u8; 2] = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
-            if busy.into_iter().all(|i| i == 0) {
-                break;
+        for fpga in mask.iter_fpgas() {
+            let fpga = self.fpga(fpga);
+            loop {
+                let busy: [u8; 2] = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
+                if busy.into_iter().all(|i| i == 0) {
+                    break;
+                }
+                userlib::hl::sleep_for(1);
             }
-            userlib::hl::sleep_for(1);
         }
         Ok(())
     }
@@ -544,25 +559,26 @@ impl Transceivers {
     /// lowest port number if multiple error bits are set).
     pub fn get_i2c_error<M: Into<FpgaPortMasks>>(
         &mut self,
-        fpga: FpgaController,
         mask: M,
     ) -> Result<Option<u8>, FpgaError> {
         let mask: FpgaPortMasks = mask.into();
-        let mask = match fpga {
-            FpgaController::Left => mask.left,
-            FpgaController::Right => mask.right,
-        };
-        let fpga = self.fpga(fpga);
-        let errors: [u8; 8] = fpga.read(Addr::QSFP_I2C_ERROR_0_1)?;
-        for i in 0..16 {
-            // Ignore physical ports that aren't active
-            if mask & (1 << i) == 0 {
-                continue;
-            }
-            let err = errors[i / 2] >> ((i % 2) * 4);
-            let has_err = (err & 0b1000) != 0;
-            if has_err {
-                return Ok(Some(i as u8));
+        for fpga in mask.iter_fpgas() {
+            let mask = match fpga {
+                FpgaController::Left => mask.left,
+                FpgaController::Right => mask.right,
+            };
+            let fpga = self.fpga(fpga);
+            let errors: [u8; 8] = fpga.read(Addr::QSFP_I2C_ERROR_0_1)?;
+            for i in 0..16 {
+                // Ignore physical ports that aren't active
+                if mask & (1 << i) == 0 {
+                    continue;
+                }
+                let err = errors[i / 2] >> ((i % 2) * 4);
+                let has_err = (err & 0b1000) != 0;
+                if has_err {
+                    return Ok(Some(i as u8));
+                }
             }
         }
 

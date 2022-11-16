@@ -291,10 +291,8 @@ impl ServerImpl {
     fn select_page(
         &mut self,
         page: Page,
-        modules: ModuleId,
+        mask: FpgaPortMasks,
     ) -> Result<(), Error> {
-        let mask = get_mask(modules)?;
-
         // Common to both CMIS and SFF-8636
         const BANK_SELECT: u8 = 0x7E;
         const PAGE_SELECT: u8 = 0x7F;
@@ -308,7 +306,7 @@ impl ServerImpl {
             self.transceivers
                 .setup_i2c_write(PAGE_SELECT, 1, mask)
                 .map_err(|_e| Error::WriteFailed)?;
-            self.wait_and_check_i2c(modules)?;
+            self.wait_and_check_i2c(mask)?;
         }
 
         if let Some(bank) = page.bank() {
@@ -318,20 +316,19 @@ impl ServerImpl {
             self.transceivers
                 .setup_i2c_write(BANK_SELECT, 1, mask)
                 .map_err(|_e| Error::ReadFailed)?;
-            self.wait_and_check_i2c(modules)?;
+            self.wait_and_check_i2c(mask)?;
         }
         Ok(())
     }
 
-    fn wait_and_check_i2c(&mut self, modules: ModuleId) -> Result<(), Error> {
+    fn wait_and_check_i2c(&mut self, mask: FpgaPortMasks) -> Result<(), Error> {
         // TODO: use a better error type here
-        let (fpga, mask) = unpack(modules)?;
         self.transceivers
-            .wait_for_i2c(fpga)
+            .wait_for_i2c(mask)
             .map_err(|_e| Error::WriteFailed)?;
         if let Some(p) = self
             .transceivers
-            .get_i2c_error(fpga, mask)
+            .get_i2c_error(mask)
             .map_err(|_e| Error::WriteFailed)?
         {
             // FPGA reported an I2C error
@@ -346,13 +343,16 @@ impl ServerImpl {
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        self.select_page(*mem.page(), modules)?;
-        self.transceivers
-            .setup_i2c_read(mem.offset(), mem.len(), get_mask(modules)?)
-            .map_err(|_e| Error::ReadFailed)?;
-        self.wait_and_check_i2c(modules)?;
+        let (controller, mask) = unpack(modules)?;
 
-        let controller = get_fpga(modules)?;
+        // Switch pages (if necessary)
+        self.select_page(*mem.page(), mask)?;
+
+        self.transceivers
+            .setup_i2c_read(mem.offset(), mem.len(), mask)
+            .map_err(|_e| Error::ReadFailed)?;
+        self.wait_and_check_i2c(mask)?;
+
         for (port, out) in modules
             .ports
             .to_indices()
@@ -371,7 +371,9 @@ impl ServerImpl {
         modules: ModuleId,
         data: &[u8],
     ) -> Result<(), Error> {
-        self.select_page(*mem.page(), modules)
+        let mask = get_mask(modules)?;
+
+        self.select_page(*mem.page(), mask)
             .map_err(|_e| Error::WriteFailed)?;
 
         // Copy data into the FPGA write buffer
@@ -381,9 +383,9 @@ impl ServerImpl {
 
         // Trigger a multicast write to all transceivers in the mask
         self.transceivers
-            .setup_i2c_write(mem.offset(), mem.len(), get_mask(modules)?)
+            .setup_i2c_write(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::WriteFailed)?;
-        self.wait_and_check_i2c(modules)?;
+        self.wait_and_check_i2c(mask)?;
 
         Ok(())
     }
