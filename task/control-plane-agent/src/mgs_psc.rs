@@ -7,9 +7,10 @@ use core::convert::Infallible;
 use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
 use gateway_messages::{
-    BulkIgnitionState, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
