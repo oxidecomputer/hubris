@@ -25,7 +25,12 @@ use transceiver_messages::{
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    DeserializeError(hubpack::Error),
     SendError(SendError),
+    Reset(ModuleId),
+    Status(ModuleId),
+    Read(ModuleId, MemoryRead),
+    Write(ModuleId, MemoryWrite),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -103,20 +108,23 @@ impl ServerImpl {
                         );
                         (msg_len + data_len) as u32
                     }
-                    Err(_e) => hubpack::serialize(
-                        tx_data_buf,
-                        &Message {
-                            header: Header {
-                                version: 1,
-                                message_id: u64::MAX,
+                    Err(e) => {
+                        ringbuf_entry!(Trace::DeserializeError(e));
+                        hubpack::serialize(
+                            tx_data_buf,
+                            &Message {
+                                header: Header {
+                                    version: 1,
+                                    message_id: u64::MAX,
+                                },
+                                modules: ModuleId::default(),
+                                body: MessageBody::SpResponse(
+                                    SpResponse::Error(Error::ProtocolError),
+                                ),
                             },
-                            modules: ModuleId::default(),
-                            body: MessageBody::SpResponse(SpResponse::Error(
-                                Error::ProtocolError,
-                            )),
-                        },
-                    )
-                    .unwrap() as u32,
+                        )
+                        .unwrap() as u32
+                    }
                 };
 
                 if let Err(e) = self.net.send_packet(
@@ -180,7 +188,9 @@ impl ServerImpl {
     ) -> Result<(SpResponse, usize), Error> {
         match h {
             HostRequest::Reset => {
+                ringbuf_entry!(Trace::Reset(modules));
                 let mask = get_mask(modules)?;
+
                 // TODO: use a more correct error code
                 self.transceivers
                     .set_reset(mask)
@@ -195,6 +205,7 @@ impl ServerImpl {
                 use drv_sidecar_front_io::Addr;
                 use zerocopy::{BigEndian, U16};
 
+                ringbuf_entry!(Trace::Status(modules));
                 let fpga = get_fpga(modules)?;
                 let fpga = self.transceivers.fpga(fpga);
 
@@ -243,6 +254,7 @@ impl ServerImpl {
                 Ok((SpResponse::Status, count))
             }
             HostRequest::Read(mem) => {
+                ringbuf_entry!(Trace::Read(modules, mem));
                 let out_size = mem.len() as u32 * modules.ports.0.count_ones();
                 if out_size as usize > transceiver_messages::MAX_MESSAGE_SIZE {
                     return Err(Error::RequestTooLarge);
@@ -251,6 +263,7 @@ impl ServerImpl {
                 Ok((SpResponse::Read(mem), out_size as usize))
             }
             HostRequest::Write(mem) => {
+                ringbuf_entry!(Trace::Write(modules, mem));
                 let data_size = mem.len() as u32 * modules.ports.0.count_ones();
                 // TODO: check equality here and return a different error?
                 if data_size as usize > data.len() {
