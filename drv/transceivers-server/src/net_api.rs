@@ -435,7 +435,7 @@ impl ServerImpl {
                     if status & ERROR != 0 {
                         return Err(Error::ReadFailed);
                     } else {
-                        out.copy_from_slice(&buf[1..]);
+                        out.copy_from_slice(&buf[1..][..out.len()]);
                         break;
                     }
                 }
