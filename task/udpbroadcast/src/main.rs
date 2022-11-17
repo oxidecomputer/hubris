@@ -28,10 +28,8 @@ fn main() -> ! {
     // address (through normal L2/L3 mechanisms), *and* lets `humility rpc`
     // detect valid targets.
     let mut out = [0u8; 14];
-    match net.get_mac_address() {
-        Ok(mac) => out[0..6].copy_from_slice(&mac.0),
-        Err(_) => panic!(),
-    }
+    let mac = net.get_mac_address();
+    out[0..6].copy_from_slice(&mac.0);
     out[6..].copy_from_slice(kipc::read_image_id().as_bytes());
 
     loop {

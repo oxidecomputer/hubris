@@ -198,14 +198,14 @@ start = true
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7"]
 interrupts = {"uart7.irq" = 0b01}
 priority = 7
 max-sizes = {flash = 32768, ram = 16384}
 stacksize = 2048
 start = true
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net"]
 
 [tasks.udpecho]
 name = "task-udpecho"
