@@ -381,14 +381,11 @@ impl ServerImpl {
 
     fn wait_and_check_i2c(&mut self, mask: FpgaPortMasks) -> Result<(), Error> {
         // TODO: use a better error type here
-        self.transceivers
-            .wait_for_i2c(mask)
-            .map_err(|_e| Error::WriteFailed)?;
-        if let Some(p) = self
+        let err_mask = self
             .transceivers
-            .get_i2c_error(mask)
-            .map_err(|_e| Error::WriteFailed)?
-        {
+            .wait_and_check_i2c(mask)
+            .map_err(|_e| Error::WriteFailed)?;
+        if err_mask.left != 0 || err_mask.right != 0 {
             // FPGA reported an I2C error
             return Err(Error::WriteFailed);
         }
@@ -424,7 +421,7 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
-            const BUSY: u8 = 1 << 4;
+            const BUSY: u8 = 1 << 4; // Based on FPGA bitstream
             const ERROR: u8 = 1 << 3;
             loop {
                 fpga.read_bytes(

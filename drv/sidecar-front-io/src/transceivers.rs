@@ -558,52 +558,57 @@ impl Transceivers {
     }
 
     /// Waits for all of the I2C busy bits to go low
-    pub fn wait_for_i2c(
+    ///
+    /// Returns a set of masks indicating which channels (among the ones active
+    /// in the input mask) have recorded FPGA errors.
+    pub fn wait_and_check_i2c(
         &mut self,
         mask: FpgaPortMasks,
-    ) -> Result<(), FpgaError> {
-        for fpga in mask.iter_fpgas() {
-            let fpga = self.fpga(fpga);
-            loop {
-                let busy: [u8; 2] = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
-                if busy.into_iter().all(|i| i == 0) {
-                    break;
+    ) -> Result<FpgaPortMasks, FpgaError> {
+        let mut out = FpgaPortMasks { left: 0, right: 0 };
+
+        #[derive(AsBytes, Default, FromBytes)]
+        #[repr(C)]
+        struct StatusAndErr {
+            busy: u16,
+            err: [u8; 8],
+        }
+        for fpga_index in mask.iter_fpgas() {
+            let fpga = self.fpga(fpga_index);
+            // This loop should break immediately, because I2C is fast
+            let status = loop {
+                // Two bytes of BUSY, followed by 8 bytes of error status
+                let status: StatusAndErr = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
+                if status.busy == 0 {
+                    break status;
                 }
                 userlib::hl::sleep_for(1);
-            }
-        }
-        Ok(())
-    }
+            };
 
-    /// Checks all of the I2C registers for an error
-    ///
-    /// If an error bit is present, return the physical port number (picking the
-    /// lowest port number if multiple error bits are set).
-    pub fn get_i2c_error<M: Into<FpgaPortMasks>>(
-        &mut self,
-        mask: M,
-    ) -> Result<Option<u8>, FpgaError> {
-        let mask: FpgaPortMasks = mask.into();
-        for fpga in mask.iter_fpgas() {
-            let mask = match fpga {
+            // Check errors on a per-port basis
+            let mask = match fpga_index {
                 FpgaController::Left => mask.left,
                 FpgaController::Right => mask.right,
             };
-            let fpga = self.fpga(fpga);
             for port in 0..16 {
-                // Ignore physical ports that aren't active
                 if mask & (1 << port) == 0 {
                     continue;
                 }
-                let addr = Self::read_status_address(port);
-                let status: u8 = fpga.read(addr)?;
-                if status & (1 << 3) != 0 {
-                    return Ok(Some(port as u8));
+                // Each error byte packs together two ports
+                let err = status.err[port / 2] >> ((port % 2) * 4);
+
+                // For now, check for the presence of an error, but don't bother
+                // reporting the details.
+                let has_err = (err & 0b1000) != 0;
+                if has_err {
+                    match fpga_index {
+                        FpgaController::Left => out.left |= 1 << port,
+                        FpgaController::Right => out.right |= 1 << port,
+                    }
                 }
             }
         }
-
-        Ok(None)
+        Ok(out)
     }
 }
 
