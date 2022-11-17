@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-syn = { workspace = true }
+syn = { workspace = true, features = ["derive", "proc-macro"] }
 quote = { workspace = true }
 
 [lib]
