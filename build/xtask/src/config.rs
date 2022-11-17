@@ -102,6 +102,7 @@ pub struct Config {
     pub patches: Option<ConfigPatches>,
     pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
+    pub dice_mfg: Option<Output>,
 }
 
 impl Config {
@@ -189,6 +190,11 @@ impl Config {
             None => None,
         };
 
+        let dice_mfg = match outputs.get("flash") {
+            Some(f) => f.iter().find(|&o| o.name == "dice-mfg").cloned(),
+            None => None,
+        };
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -212,6 +218,7 @@ impl Config {
             app_toml_path: cfg.to_owned(),
             patches: None,
             secure_task: toml.secure_task,
+            dice_mfg,
         })
     }
 
@@ -317,6 +324,13 @@ impl Config {
         if let Some(app_config) = &self.config {
             let app_config = toml::to_string(&app_config).unwrap();
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
+        }
+
+        if let Some(output) = &self.dice_mfg {
+            env.insert(
+                "HUBRIS_DICE_MFG".to_string(),
+                toml::to_string(&output).unwrap(),
+            );
         }
 
         let out_path = Path::new("")
@@ -646,7 +660,7 @@ fn default_name() -> String {
     "default".to_string()
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Output {
     #[serde(default = "default_name")]

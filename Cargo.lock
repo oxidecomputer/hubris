@@ -3581,6 +3581,7 @@ dependencies = [
  "serde",
  "sha3",
  "static_assertions",
+ "toml",
  "unwrap-lite",
  "zerocopy",
 ]
