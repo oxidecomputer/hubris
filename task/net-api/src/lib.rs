@@ -54,7 +54,7 @@ pub enum PhyError {
 #[repr(u32)]
 pub enum KszError {
     /// This functionality is not available on the given board
-    NotAvailable,
+    NotAvailable = 1,
     /// The MAC table index is too large
     BadMacIndex,
     /// The given address is not a valid register
@@ -153,7 +153,7 @@ pub struct ManagementCounters {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum MgmtError {
-    NotAvailable,
+    NotAvailable = 1,
     VscError,
     KszError,
 }
