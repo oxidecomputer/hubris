@@ -114,7 +114,7 @@ However, going too far in any of these directions is also a great way to find a
 deep reservoir of unsolved problems, which is part of why these are popular
 directions in academia.
 
-In the interest of shipping, we are consicously steering around unsolved
+In the interest of shipping, we are consciously steering around unsolved
 problems, even when it means we lose some attractive features. For instance:
 
 - While we expect interrupts to be handled in unprivileged tasks in general, we

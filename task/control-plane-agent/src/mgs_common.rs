@@ -6,7 +6,7 @@ use crate::{inventory::Inventory, Log, MgsMessage};
 use core::convert::Infallible;
 use gateway_messages::sp_impl::DeviceDescription;
 use gateway_messages::{DiscoverResponse, SpError, SpPort, SpState};
-use ringbuf::ringbuf_entry_root;
+use ringbuf::ringbuf_entry_root as ringbuf_entry;
 
 // TODO How are we versioning SP images? This is a placeholder.
 const VERSION: u32 = 1;
@@ -29,12 +29,12 @@ impl MgsCommon {
         &mut self,
         port: SpPort,
     ) -> Result<DiscoverResponse, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Discovery));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse { sp_port: port })
     }
 
     pub(crate) fn sp_state(&mut self) -> Result<SpState, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SpState));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
 
         // TODO Replace with the real serial number once it's available; for now
         // use the stm32 96-bit uid
@@ -56,7 +56,7 @@ impl MgsCommon {
     pub(crate) fn reset_prepare(&mut self) -> Result<(), SpError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ResetPrepare));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ResetPrepare));
         self.reset_requested = true;
         Ok(())
     }

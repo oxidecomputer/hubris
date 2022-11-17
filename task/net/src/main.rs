@@ -40,8 +40,8 @@ pub(crate) mod mgmt;
 mod idl {
     use task_net_api::{
         KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
-        ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
-        RecvError, SendError, SocketName, UdpMetadata,
+        MacAddressBlock, ManagementCounters, ManagementLinkStatus, MgmtError,
+        PhyError, RecvError, SendError, SocketName, UdpMetadata,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
@@ -49,7 +49,8 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
+use task_net_api::MacAddressBlock;
+use zerocopy::{AsBytes, U16};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -72,18 +73,6 @@ task_slot!(I2C, i2c_driver);
 // Configuration things!
 //
 // Much of this needs to move into the board-level configuration.
-
-/// Represents a range of allocated MAC addresses, per RFD 320
-///
-/// The SP will claim the first `N` addresses based on VLAN configuration
-/// (typically either 1 or 2).
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
-#[repr(C)]
-pub struct MacAddressBlock {
-    base_mac: [u8; 6],
-    count: U16<LittleEndian>,
-    stride: u8,
-}
 
 /// Calculates a locally administered, unicast MAC address from the chip ID
 ///

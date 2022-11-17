@@ -3,11 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::bsp::{self, Bsp};
-use idol_runtime::{NotificationHandler, RequestError};
-use monorail_api::{
+use drv_monorail_api::{
     LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
     PortCounters, PortDev, PortStatus, VscError,
 };
+use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
     config::{PortMap, PortMode},

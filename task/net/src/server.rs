@@ -26,6 +26,7 @@ use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Cidr};
 use userlib::{sys_post, sys_refresh_task_id, UnwrapLite};
+use zerocopy::byteorder::U16;
 
 /// Implementation of the Net Idol interface.
 impl<B, E, const N: usize> idl::InOrderNetImpl for GenServerImpl<'_, B, E, N>
@@ -111,6 +112,13 @@ where
     ) -> Result<MacAddress, RequestError<core::convert::Infallible>> {
         let out = self.base_mac_address();
         Ok(MacAddress(out.0))
+    }
+
+    fn get_spare_mac_addresses(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<MacAddressBlock, RequestError<core::convert::Infallible>> {
+        Ok(self.spare_macs)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -258,6 +266,7 @@ where
     bsp: B,
 
     mac: EthernetAddress,
+    spare_macs: MacAddressBlock,
 }
 
 struct VLanState<E>
@@ -382,6 +391,11 @@ where
             vlan_state: vlan_state.into_array().unwrap_lite(),
             bsp,
             mac: EthernetAddress::from_bytes(&mac_address_block.base_mac),
+            spare_macs: MacAddressBlock {
+                base_mac: mac,
+                count: U16::new(mac_address_block.count.get() - N as u16),
+                stride: mac_address_block.stride,
+            },
         }
     }
 

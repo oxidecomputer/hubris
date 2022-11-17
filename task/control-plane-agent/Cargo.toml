@@ -17,6 +17,7 @@ zerocopy = { workspace = true }
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
 drv-stm32xx-uid = { path = "../../drv/stm32xx-uid", features = ["family-stm32h7"] }
@@ -36,7 +37,7 @@ idol = { workspace = true }
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart"]
-sidecar = ["drv-sidecar-seq-api"]
+sidecar = ["drv-sidecar-seq-api", "drv-monorail-api"]
 psc = []
 
 vlan = ["task-net-api/vlan"]

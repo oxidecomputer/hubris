@@ -32,7 +32,7 @@ pub const PORT_MAX: usize = 40;
     IdolError,
 )]
 pub enum IgnitionError {
-    ServerDied,
+    ServerDied = 1,
     FpgaError,
     InvalidPort,
     InvalidValue,

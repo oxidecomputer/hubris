@@ -1262,6 +1262,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-monorail-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "userlib",
+ "vsc7448",
+ "vsc85xx",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
@@ -1914,7 +1929,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#d7791e4d02571b8414b4c2976b0439234aa4d8c7"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#6d13d40d1b6c612fea72be4aa9c900c72cda261c"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -2219,7 +2234,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
 dependencies = [
  "indexmap",
  "quote",
@@ -2231,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#4f326545f20b020869c3deaed28070b853e44a64"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2507,18 +2522,6 @@ checksum = "a92518e98c078586bc6c934028adcca4c92a53d6a958196de835170a01d84e4b"
 dependencies = [
  "adler",
  "autocfg",
-]
-
-[[package]]
-name = "monorail-api"
-version = "0.1.0"
-dependencies = [
- "derive-idol-err",
- "num-traits",
- "serde",
- "userlib",
- "vsc7448",
- "zerocopy",
 ]
 
 [[package]]
@@ -3699,6 +3702,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-monorail-api",
  "drv-sidecar-seq-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
@@ -3791,6 +3795,7 @@ dependencies = [
  "ringbuf",
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
+ "task-net-api",
  "userlib",
  "zerocopy",
 ]
@@ -3857,6 +3862,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-spi-api",
@@ -3864,7 +3870,6 @@ dependencies = [
  "drv-user-leds-api",
  "idol",
  "idol-runtime",
- "monorail-api",
  "num-traits",
  "ringbuf",
  "serde",

@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
@@ -54,7 +54,7 @@ pub enum PhyError {
 #[repr(u32)]
 pub enum KszError {
     /// This functionality is not available on the given board
-    NotAvailable,
+    NotAvailable = 1,
     /// The MAC table index is too large
     BadMacIndex,
     /// The given address is not a valid register
@@ -112,6 +112,18 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
 #[repr(C)]
 pub struct MacAddress(pub [u8; 6]);
 
+/// Represents a range of allocated MAC addresses, per RFD 320
+///
+/// The SP will claim the first `N` addresses based on VLAN configuration
+/// (typically either 1 or 2).
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
+#[repr(C)]
+pub struct MacAddressBlock {
+    pub base_mac: [u8; 6],
+    pub count: U16<LittleEndian>,
+    pub stride: u8,
+}
+
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 #[repr(C)]
 pub struct ManagementLinkStatus {
@@ -153,7 +165,7 @@ pub struct ManagementCounters {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum MgmtError {
-    NotAvailable,
+    NotAvailable = 1,
     VscError,
     KszError,
 }

@@ -4,7 +4,7 @@
 
 use core::convert::TryInto;
 
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -984,7 +984,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     }
 }
 
-#[derive(Copy, Clone, AsBytes)]
+#[derive(Copy, Clone, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct Sd6gObCfg {
     pub ob_ena1v_mode: u8,
@@ -1013,7 +1013,7 @@ impl Sd6gObCfg {
     }
 }
 
-#[derive(Copy, Clone, AsBytes)]
+#[derive(Copy, Clone, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct Sd6gObCfg1 {
     pub ob_ena_cas: u8,
