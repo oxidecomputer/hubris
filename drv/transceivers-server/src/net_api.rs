@@ -26,11 +26,16 @@ use transceiver_messages::{
 enum Trace {
     None,
     DeserializeError(hubpack::Error),
+    DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
     Reset(ModuleId),
     Status(ModuleId),
     Read(ModuleId, MemoryRead),
     Write(ModuleId, MemoryWrite),
+    UnexpectedHostResponse(HostResponse),
+    GotSpRequest,
+    GotSpResponse,
+    WrongVersion(u8),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -80,68 +85,51 @@ impl ServerImpl {
         ) {
             Ok(mut meta) => {
                 // Modify meta.size based on the output packet size
-                meta.size = match hubpack::deserialize(rx_data_buf) {
+                let out_len = match hubpack::deserialize(rx_data_buf) {
                     Ok((msg, data)) => {
-                        let (reply, data_len) = match self.handle_message(
-                            msg,
-                            data,
-                            &mut tx_data_buf[Message::MAX_SIZE..],
-                        ) {
-                            Ok(r) => r,
-                            Err(e) => (SpResponse::Error(e), 0),
-                        };
-                        let out = Message {
-                            header: msg.header,
-                            modules: msg.modules,
-                            body: MessageBody::SpResponse(reply),
-                        };
-                        // Serialize into the front of the tx buffer
-                        let msg_len =
-                            hubpack::serialize(tx_data_buf, &out).unwrap();
-
-                        // At this point, any supplementary data is written to
-                        // tx_buf[Message::MAX_SIZE..].  Let's shift it
-                        // backwards based on the size of the leading `Message`:
-                        tx_data_buf.copy_within(
-                            Message::MAX_SIZE..(Message::MAX_SIZE + data_len),
-                            msg_len,
-                        );
-                        (msg_len + data_len) as u32
+                        self.handle_message(msg, data, tx_data_buf)
                     }
                     Err(e) => {
+                        // At this point, deserialization has failed, so we
+                        // can't handle the packet.  We'll attempt to
+                        // deserialize *just the header* (which should never
+                        // chnage), in the hopes of logging a more detailed
+                        // error message about a version mismatch.
                         ringbuf_entry!(Trace::DeserializeError(e));
-                        hubpack::serialize(
-                            tx_data_buf,
-                            &Message {
-                                header: Header {
-                                    version: 1,
-                                    message_id: u64::MAX,
-                                },
-                                modules: ModuleId::default(),
-                                body: MessageBody::SpResponse(
-                                    SpResponse::Error(Error::ProtocolError),
-                                ),
-                            },
-                        )
-                        .unwrap() as u32
+                        match hubpack::deserialize::<Header>(rx_data_buf) {
+                            Ok((header, _)) => {
+                                ringbuf_entry!(Trace::WrongVersion(
+                                    header.version
+                                ));
+                            }
+                            Err(e) => {
+                                ringbuf_entry!(Trace::DeserializeHeaderError(
+                                    e
+                                ));
+                            }
+                        }
+                        None
                     }
                 };
 
-                if let Err(e) = self.net.send_packet(
-                    SOCKET,
-                    meta,
-                    &tx_data_buf[..meta.size as usize],
-                ) {
-                    // We'll drop packets if the outgoing queue is full; the
-                    // host is responsible for retrying.
-                    //
-                    // Other errors are unexpected and panic.
-                    ringbuf_entry!(Trace::SendError(e));
-                    match e {
-                        SendError::QueueFull => (),
-                        SendError::Other
-                        | SendError::NotYours
-                        | SendError::InvalidVLan => panic!(),
+                if let Some(out_len) = out_len {
+                    meta.size = out_len;
+                    if let Err(e) = self.net.send_packet(
+                        SOCKET,
+                        meta,
+                        &tx_data_buf[..meta.size as usize],
+                    ) {
+                        // We'll drop packets if the outgoing queue is full;
+                        // the host is responsible for retrying.
+                        //
+                        // Other errors are unexpected and panic.
+                        ringbuf_entry!(Trace::SendError(e));
+                        match e {
+                            SendError::QueueFull => (),
+                            SendError::Other
+                            | SendError::NotYours
+                            | SendError::InvalidVLan => panic!(),
+                        }
                     }
                 }
             }
@@ -161,22 +149,61 @@ impl ServerImpl {
         &mut self,
         msg: Message,
         data: &[u8],
-        out: &mut [u8],
-    ) -> Result<(SpResponse, usize), Error> {
+        tx_data_buf: &mut [u8],
+    ) -> Option<u32> {
+        // If the version is mismatched, then we can't trust the deserialization
+        // (even though it nominally succeeded); don't reply.
         if msg.header.version != 1 {
-            return Err(Error::VersionMismatch);
+            ringbuf_entry!(Trace::WrongVersion(msg.header.version));
+            return None;
         }
 
-        match msg.body {
-            MessageBody::SpRequest(..)
-            | MessageBody::HostResponse(..)
-            | MessageBody::SpResponse(..) => {
-                return Err(Error::ProtocolError);
+        let (reply, data_len) = match msg.body {
+            // These messages should never be sent to us, and we reply
+            // with a `ProtocolError` below.
+            MessageBody::SpRequest(..) => {
+                ringbuf_entry!(Trace::GotSpRequest);
+                (SpResponse::Error(Error::ProtocolError), 0)
             }
+            MessageBody::SpResponse(..) => {
+                ringbuf_entry!(Trace::GotSpResponse);
+                (SpResponse::Error(Error::ProtocolError), 0)
+            }
+            // Nothing implemented yet
+            MessageBody::HostResponse(r) => {
+                ringbuf_entry!(Trace::UnexpectedHostResponse(r));
+                return None;
+            }
+            // Happy path: the host is asking something of us!
             MessageBody::HostRequest(h) => {
-                self.handle_host_request(h, msg.modules, data, out)
+                match self.handle_host_request(
+                    h,
+                    msg.modules,
+                    data,
+                    &mut tx_data_buf[Message::MAX_SIZE..],
+                ) {
+                    Ok(r) => r,
+                    Err(e) => (SpResponse::Error(e), 0),
+                }
             }
-        }
+        };
+
+        // Serialize the Message into the front of the tx buffer
+        let out = Message {
+            header: msg.header,
+            modules: msg.modules,
+            body: MessageBody::SpResponse(reply),
+        };
+        let msg_len = hubpack::serialize(tx_data_buf, &out).unwrap();
+
+        // At this point, any supplementary data is written to
+        // `tx_data_buf[Message::MAX_SIZE..]`.  Let's shift it backwards based
+        // on the size of the leading `Message`:
+        tx_data_buf.copy_within(
+            Message::MAX_SIZE..(Message::MAX_SIZE + data_len),
+            msg_len,
+        );
+        Some((msg_len + data_len) as u32)
     }
 
     fn handle_host_request(
