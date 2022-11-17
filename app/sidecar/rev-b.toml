@@ -147,9 +147,9 @@ task-slots = ["sys", "i2c_driver",
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 65536, ram = 8192}
-stacksize = 2048
+stacksize = 2560
 start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
@@ -162,6 +162,7 @@ task-slots = [
     "sequencer",
     "auxflash",
     "validate",
+    "monorail",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 
@@ -328,7 +329,7 @@ task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 8
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

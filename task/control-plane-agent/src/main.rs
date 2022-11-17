@@ -107,6 +107,9 @@ enum MgsMessage {
     },
     GetStartupOptions,
     SetStartupOptions(gateway_messages::StartupOptions),
+    ComponentDetails {
+        component: SpComponent,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);
