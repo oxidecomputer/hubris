@@ -175,7 +175,9 @@ const OUR_DEVICES: &[DeviceDescription<'static>] = &[
         device: SpComponent::VSC7448.const_as_str(),
         description: "Management network switch",
         capabilities: DeviceCapabilities::HAS_MEASUREMENT_CHANNELS,
-        presence: DevicePresence::Present, // TODO: ok to assume always present?
+        // Fine to assume this is always present; if it isn't, we can't respond
+        // to MGS messages anyway!
+        presence: DevicePresence::Present,
     },
 ];
 
