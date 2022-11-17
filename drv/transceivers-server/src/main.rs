@@ -29,9 +29,9 @@ task_slot!(NET, net);
 
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
-const MAX_DATA_PAYLOAD: usize = transceiver_messages::MAX_MESSAGE_SIZE;
 const MAX_UDP_MESSAGE_SIZE: usize =
-    transceiver_messages::message::Message::MAX_SIZE + MAX_DATA_PAYLOAD;
+    transceiver_messages::message::Message::MAX_SIZE
+        + transceiver_messages::MAX_PAYLOAD_SIZE;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 

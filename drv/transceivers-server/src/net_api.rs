@@ -283,7 +283,7 @@ impl ServerImpl {
             HostRequest::Read(mem) => {
                 ringbuf_entry!(Trace::Read(modules, mem));
                 let out_size = mem.len() as u32 * modules.ports.0.count_ones();
-                if out_size as usize > transceiver_messages::MAX_MESSAGE_SIZE {
+                if out_size as usize > transceiver_messages::MAX_PAYLOAD_SIZE {
                     return Err(Error::RequestTooLarge);
                 }
                 self.read(mem, modules, out)?;
