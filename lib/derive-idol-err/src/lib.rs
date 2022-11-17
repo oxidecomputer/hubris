@@ -24,29 +24,62 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let data = match data {
         syn::Data::Enum(data) => data,
         syn::Data::Struct(_) | syn::Data::Union(_) => {
-            panic!("IdolError can only be derived on enums")
+            return compile_error(
+                ident.span(),
+                "IdolError can only be derived on enums",
+            )
+            .into();
         }
     };
 
-    // Assert that each variant is nonzero when cast to a `u32`; zero is
-    // reserved for success!
-    let variant_nonzero_assertions = data.variants.into_iter().map(|variant| {
-        let v = variant.ident;
-
-        // Inline version of
-        // ```
-        // static_assertions::const_assert_ne!(#ident::#v, 0)
-        // ```
-        quote! {
-            const _: [(); 0 - !{
-                const ASSERT: bool = #ident::#v as u32 != 0;
-                ASSERT
-            } as usize] = [];
+    let mut variant_errors = vec![];
+    let mut discriminant = None;
+    for v in &data.variants {
+        if v.fields != syn::Fields::Unit {
+            variant_errors.push(compile_error(
+                v.ident.span(),
+                "idol errors must be C-style enums",
+            ));
         }
-    });
+        if let Some((_, d)) = &v.discriminant {
+            if let syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Int(lit),
+                ..
+            }) = d
+            {
+                let value: i64 = match lit.base10_parse() {
+                    Ok(value) => value,
+                    Err(e) => {
+                        variant_errors.push(e.into_compile_error());
+                        continue;
+                    }
+                };
+                check_discriminant(&mut variant_errors, lit.span(), value);
+                discriminant = Some(value);
+            } else {
+                variant_errors.push(compile_error(
+                    v.ident.span(),
+                    "idol errors must use simple positive integer \
+                     discriminants",
+                ));
+                discriminant = None;
+            }
+        } else {
+            if let Some(d) = &mut discriminant {
+                *d = d.checked_add(1).expect("discriminant overflow");
+                check_discriminant(&mut variant_errors, ident.span(), *d);
+            } else {
+                // No explicit discriminant specified and none recorded from a
+                // previous iteration -- this would implicitly become zero.
+                discriminant = Some(0);
+                // Bit of a hack to reuse the error reporting code:
+                check_discriminant(&mut variant_errors, ident.span(), 0);
+            }
+        }
+    }
 
     let output = quote! {
-        #( #variant_nonzero_assertions )*
+        #( #variant_errors )*
 
         impl From<#ident> for u16 {
             fn from(v: #ident) -> Self {
@@ -66,4 +99,26 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     };
     output.into()
+}
+
+fn check_discriminant(
+    variant_errors: &mut Vec<proc_macro2::TokenStream>,
+    span: proc_macro2::Span,
+    d: i64,
+) {
+    if d == 0 {
+        variant_errors
+            .push(compile_error(span, "error enums must not contain zero"));
+    }
+    if d < 0 || d > 0xFFFF {
+        variant_errors
+            .push(compile_error(span, "error enum values must fit in a u16"));
+    }
+}
+
+fn compile_error(
+    span: proc_macro2::Span,
+    msg: &str,
+) -> proc_macro2::TokenStream {
+    syn::Error::new(span, msg).into_compile_error()
 }
