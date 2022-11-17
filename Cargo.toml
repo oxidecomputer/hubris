@@ -104,7 +104,7 @@ stm32f3 = { version = "0.13.0", default-features = false }
 stm32f4 = { version = "0.13.0", default-features = false }
 stm32h7 = { version = "0.14", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
-syn = { version = "1", default-features = false, features = ["parsing"] }
+syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro"] }
 toml = { version = "0.5.6", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
