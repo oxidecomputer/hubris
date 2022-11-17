@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
-/// Adds three `impl` blocks for the given error type:
+/// Adds three `impl` blocks for the given error `enum` type:
 /// - `From<E> for u16` (Idol encoding)
 /// - `From<E> for u32` (Hiffy encoding)
 /// - `TryFrom<u32> for E` (Idol decoding)
@@ -14,6 +14,9 @@ use syn::{parse_macro_input, DeriveInput};
 /// The given type must also derive `FromPrimitive`, which is used in the
 /// `TryFrom<u32>` implementation.  Sadly, this cannot be automatically added
 /// to the type by this macro.
+///
+/// The `enum` must not include 0, because 0 is decoded as "okay" by IPC
+/// infrastructure.
 #[proc_macro_derive(IdolError)]
 pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, .. } = parse_macro_input!(input);
