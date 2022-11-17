@@ -114,11 +114,11 @@ where
         Ok(MacAddress(out.0))
     }
 
-    fn get_leftover_mac_addresses(
+    fn get_spare_mac_addresses(
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<MacAddressBlock, RequestError<core::convert::Infallible>> {
-        Ok(self.leftover_macs)
+        Ok(self.spare_macs)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -266,7 +266,7 @@ where
     bsp: B,
 
     mac: EthernetAddress,
-    leftover_macs: MacAddressBlock,
+    spare_macs: MacAddressBlock,
 }
 
 struct VLanState<E>
@@ -391,7 +391,7 @@ where
             vlan_state: vlan_state.into_array().unwrap_lite(),
             bsp,
             mac: EthernetAddress::from_bytes(&mac_address_block.base_mac),
-            leftover_macs: MacAddressBlock {
+            spare_macs: MacAddressBlock {
                 base_mac: mac,
                 count: U16::new(mac_address_block.count.get() - N as u16),
                 stride: mac_address_block.stride,

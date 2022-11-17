@@ -113,8 +113,8 @@ Interface(
             reply: Simple("MacAddress"),
             idempotent: true,
         ),
-        "get_leftover_mac_addresses": (
-            doc: "Reports any remaining MAC addresses after the net task has claimed its own; e.g., leftover macs from local VPD for use by the host on a gimlet",
+        "get_spare_mac_addresses": (
+            doc: "Reports any remaining MAC addresses after the net task has claimed its own",
             reply: Simple("MacAddressBlock"),
             idempotent: true,
         ),

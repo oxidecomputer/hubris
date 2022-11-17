@@ -618,7 +618,7 @@ impl ServerImpl {
                 })
             }
             HostToSp::GetMacAddresses => {
-                let block = self.net.get_leftover_mac_addresses();
+                let block = self.net.get_spare_mac_addresses();
                 let response = if block.count.get() > 0 {
                     let count =
                         u16::min(block.count.get(), NUM_HOST_MAC_ADDRESSES);
