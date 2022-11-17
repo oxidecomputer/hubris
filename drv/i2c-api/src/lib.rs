@@ -33,15 +33,13 @@ pub enum Op {
     WriteReadBlock = 2,
 }
 
-/// The response code returned from the I2C controller (or from the kernel in
-/// the case of [`ResponseCode::Dead`]).  These response codes pretty specific,
-/// not because the caller is expected to necessarily handle them differently,
-/// but to give upstack software some modicum of context surrounding the error.
+/// The response code returned from the I2C server.  These response codes pretty
+/// specific, not because the caller is expected to necessarily handle them
+/// differently, but to give upstack software some modicum of context
+/// surrounding the error.
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 #[repr(u32)]
 pub enum ResponseCode {
-    /// Server has died
-    Dead = core::u32::MAX,
     /// Bad response from server
     BadResponse = 1,
     /// Bad argument sent to server
