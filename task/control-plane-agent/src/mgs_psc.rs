@@ -14,7 +14,7 @@ use gateway_messages::{
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
-use ringbuf::ringbuf_entry_root;
+use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
@@ -132,9 +132,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
-            target
-        }));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -143,7 +141,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<BulkIgnitionState, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -154,7 +152,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -175,7 +173,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.aux_flash_size + update.sp_image_size,
             component: SpComponent::SP_ITSELF,
             id: update.id,
@@ -191,7 +189,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
             id: update.id,
@@ -208,9 +206,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<UpdateStatus, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
-            component
-        }));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateStatus { component }));
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
@@ -225,7 +221,7 @@ impl SpHandler for MgsHandler {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
         }));
@@ -245,9 +241,7 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         id: UpdateId,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
-            component
-        }));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateAbort { component }));
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
@@ -260,7 +254,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
 
         // We have no states other than A2.
         Ok(PowerState::A2)
@@ -272,9 +266,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         power_state: PowerState,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
-            power_state
-        )));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetPowerState(power_state)));
 
         // We have no states other than A2; always fail.
         Err(SpError::RequestUnsupportedForSp)
@@ -286,7 +278,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         _component: SpComponent,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -297,7 +289,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) -> Result<u64, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -309,7 +301,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -330,7 +322,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory_num_devices() as u32
     }
 
@@ -344,7 +336,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<u32, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentDetails {
             component
         }));
 
@@ -369,7 +361,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<gateway_messages::StartupOptions, SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetStartupOptions));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -379,9 +371,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         options: gateway_messages::StartupOptions,
     ) -> Result<(), SpError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
-            options
-        )));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetStartupOptions(options)));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -392,7 +382,7 @@ impl SpHandler for MgsHandler {
         message_id: u32,
         err: MgsError,
     ) {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::MgsError {
             message_id,
             err
         }));
@@ -407,7 +397,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::HostPhase2Data {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::HostPhase2Data {
             hash,
             offset,
             data_len: data.len(),
