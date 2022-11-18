@@ -1930,7 +1930,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#6d13d40d1b6c612fea72be4aa9c900c72cda261c"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=include-power-state-in-sp-state#b1c1ed8b18fa338980e3e59874ebc3a582ca7fc7"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",

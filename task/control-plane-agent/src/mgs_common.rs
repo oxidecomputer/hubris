@@ -5,7 +5,9 @@
 use crate::{inventory::Inventory, Log, MgsMessage};
 use core::convert::Infallible;
 use gateway_messages::sp_impl::DeviceDescription;
-use gateway_messages::{DiscoverResponse, SpError, SpPort, SpState};
+use gateway_messages::{
+    DiscoverResponse, PowerState, SpError, SpPort, SpState,
+};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 
 // TODO How are we versioning SP images? This is a placeholder.
@@ -33,7 +35,10 @@ impl MgsCommon {
         Ok(DiscoverResponse { sp_port: port })
     }
 
-    pub(crate) fn sp_state(&mut self) -> Result<SpState, SpError> {
+    pub(crate) fn sp_state(
+        &mut self,
+        power_state: PowerState,
+    ) -> Result<SpState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
 
         // TODO Replace with the real serial number once it's available; for now
@@ -50,6 +55,7 @@ impl MgsCommon {
         Ok(SpState {
             serial_number,
             version: VERSION,
+            power_state,
         })
     }
 

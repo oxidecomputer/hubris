@@ -115,6 +115,11 @@ impl MgsHandler {
         // calling this method.
         Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
+
+    fn power_state_impl(&self) -> Result<PowerState, SpError> {
+        // We have no states other than A2.
+        Ok(PowerState::A2)
+    }
 }
 
 impl SpHandler for MgsHandler {
@@ -164,7 +169,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<SpState, SpError> {
-        self.common.sp_state()
+        let power_state = self.power_state_impl()?;
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(
@@ -255,9 +261,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
-
-        // We have no states other than A2.
-        Ok(PowerState::A2)
+        self.power_state_impl()
     }
 
     fn set_power_state(

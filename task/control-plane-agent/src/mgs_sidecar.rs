@@ -131,6 +131,25 @@ impl MgsHandler {
         // calling this method.
         Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
+
+    fn power_state_impl(&self) -> Result<PowerState, SpError> {
+        use drv_sidecar_seq_api::TofinoSeqState;
+
+        // TODO Is this mapping of the sub-states correct? Do we want to expose
+        // them to the control plane somehow (probably not)?
+        let state = match self
+            .sequencer
+            .tofino_seq_state()
+            .map_err(|e| SpError::PowerStateError(e as u32))?
+        {
+            TofinoSeqState::Initial
+            | TofinoSeqState::InPowerDown
+            | TofinoSeqState::A2 => PowerState::A2,
+            TofinoSeqState::InPowerUp | TofinoSeqState::A0 => PowerState::A0,
+        };
+
+        Ok(state)
+    }
 }
 
 impl SpHandler for MgsHandler {
@@ -180,7 +199,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<SpState, SpError> {
-        self.common.sp_state()
+        let power_state = self.power_state_impl()?;
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(
@@ -270,23 +290,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
-        use drv_sidecar_seq_api::TofinoSeqState;
         ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
-
-        // TODO Is this mapping of the sub-states correct? Do we want to expose
-        // them to the control plane somehow (probably not)?
-        let state = match self
-            .sequencer
-            .tofino_seq_state()
-            .map_err(|e| SpError::PowerStateError(e as u32))?
-        {
-            TofinoSeqState::Initial
-            | TofinoSeqState::InPowerDown
-            | TofinoSeqState::A2 => PowerState::A2,
-            TofinoSeqState::InPowerUp | TofinoSeqState::A0 => PowerState::A0,
-        };
-
-        Ok(state)
+        self.power_state_impl()
     }
 
     fn set_power_state(
