@@ -64,7 +64,16 @@ enum MgsMessage {
     IgnitionState {
         target: u8,
     },
-    BulkIgnitionState,
+    BulkIgnitionState {
+        offset: u32,
+    },
+    IgnitionLinkEvents {
+        target: u8,
+    },
+    BulkIgnitionLinkEvents {
+        offset: u32,
+    },
+    ClearIgnitionLinkEvents,
     IgnitionCommand {
         target: u8,
         command: IgnitionCommand,

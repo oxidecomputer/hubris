@@ -15,10 +15,10 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
-    DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, SpComponent, SpError, SpPort, SpRequest,
-    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
+    Header, IgnitionCommand, IgnitionState, Message, MessageKind, MgsError,
+    PowerState, SpComponent, SpError, SpPort, SpRequest, SpState,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use heapless::Deque;
 use host_sp_messages::HostStartupOptions;
@@ -32,6 +32,10 @@ use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 // about where our submodules live. Pass explicit paths to correct it.
 #[path = "mgs_gimlet/host_phase2.rs"]
 mod host_phase2;
+
+// TODO DELETE ME
+#[path = "mgs_sidecar/ignition.rs"]
+mod fake_ignition;
 
 use host_phase2::HostPhase2Requester;
 
@@ -301,12 +305,22 @@ impl MgsHandler {
 }
 
 impl SpHandler for MgsHandler {
+    //type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
+    //type BulkIgnitionLinkEventsIter = core::iter::Empty<IgnitionState>;
+    type BulkIgnitionStateIter = fake_ignition::BulkIgnitionStateIter;
+    type BulkIgnitionLinkEventsIter = fake_ignition::BulkIgnitionLinkEventsIter;
+
     fn discover(
         &mut self,
         _sender: SocketAddrV6,
         port: SpPort,
     ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(port)
+    }
+
+    fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController.num_ignition_ports()
     }
 
     fn ignition_state(
@@ -316,16 +330,60 @@ impl SpHandler for MgsHandler {
         target: u8,
     ) -> Result<IgnitionState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
-        Err(SpError::RequestUnsupportedForSp)
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController.ignition_state(target)
     }
 
     fn bulk_ignition_state(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<BulkIgnitionState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
-        Err(SpError::RequestUnsupportedForSp)
+        offset: u32,
+    ) -> Result<Self::BulkIgnitionStateIter, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
+            offset
+        }));
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController.bulk_ignition_state(offset)
+    }
+
+    fn ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        target: u8,
+    ) -> Result<ignition::LinkEvents, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
+            target
+        }));
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController.ignition_link_events(target)
+    }
+
+    fn bulk_ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        offset: u32,
+    ) -> Result<Self::BulkIgnitionLinkEventsIter, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
+            offset
+        }));
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController.bulk_ignition_link_events(offset)
+    }
+
+    fn clear_ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        target: Option<u8>,
+        transceiver_select: Option<ignition::TransceiverSelect>,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
+        //Err(SpError::RequestUnsupportedForSp)
+        fake_ignition::IgnitionController
+            .clear_ignition_link_events(target, transceiver_select)
     }
 
     fn ignition_command(
@@ -593,7 +651,7 @@ impl SpHandler for MgsHandler {
     fn device_description(
         &mut self,
         index: BoundsChecked,
-    ) -> DeviceDescription<'_> {
+    ) -> DeviceDescription<'static> {
         self.common.inventory().device_description(index)
     }
 
