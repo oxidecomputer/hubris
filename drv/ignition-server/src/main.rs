@@ -24,6 +24,13 @@ enum Trace {
     PortCount(u8),
     PresenceUpdate(u64),
     PresencePollError(IgnitionError),
+    TargetError(u8, IgnitionError),
+    TargetArrive(u8),
+    TargetDepart(u8),
+    SystemPowerRequest(u8, Request),
+    SystemPowerRequestError(u8, IgnitionError),
+    Foo,
+    Bar,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -78,19 +85,126 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
+    /// Get the state of the given Target or an error if no Target present.
+    fn target(&self, port: u8) -> Result<Target, IgnitionError> {
+        Port::from(
+            self.controller
+                .port_state(port)
+                .map_err(IgnitionError::from)?,
+        )
+        .target
+        .ok_or(IgnitionError::NoTargetPresent)
+    }
+
+    /// Poll the presence summary and track Targets arriving and departing.
     fn poll_presence(&mut self) -> Result<(), IgnitionError> {
         let current_presence_summary = self.controller.presence_summary()?;
 
         if current_presence_summary != self.last_presence_summary {
-            ringbuf_entry!(Trace::PresenceUpdate(current_presence_summary));
-            self.last_presence_summary = current_presence_summary;
+            let arriving_targets =
+                current_presence_summary & !self.last_presence_summary;
+            let departing_targets =
+                !current_presence_summary & self.last_presence_summary;
+
+            let arrived_targets = self
+                .map_ports(arriving_targets, |port| self.target_arrive(port));
+            let departed_targets = self
+                .map_ports(departing_targets, |port| self.target_depart(port));
+
+            // Update the presence summary based on targets which were
+            // succesfully processed. If a target wasn't processed it'll get
+            // retried on the next cycle.
+            self.last_presence_summary = arrived_targets
+                | (self.last_presence_summary & !departed_targets);
+
+            ringbuf_entry!(Trace::PresenceUpdate(self.last_presence_summary));
         }
 
         Ok(())
     }
 
-    fn port_state(&self, port: u8) -> Result<PortState, IgnitionError> {
-        self.controller.state(port).map_err(IgnitionError::from)
+    /// Apply the given function to each port for which a bit in the `ports`
+    /// vector is set. Returns a bit vector with bits set for ports for which
+    /// the operation was succesfull. Under normal circumstances this output
+    /// vector is expected to match the input vector.
+    fn map_ports<F>(&self, ports: u64, mut f: F) -> u64
+    where
+        F: FnMut(u8) -> Result<(), IgnitionError>,
+    {
+        let mut success = 0u64;
+
+        for port in 0..self.port_count.min(PORT_MAX) {
+            let mask = 1 << port;
+
+            if ports & mask != 0 {
+                match f(port) {
+                    Ok(()) => success |= mask,
+                    Err(e) => ringbuf_entry!(Trace::TargetError(port, e)),
+                }
+            }
+        }
+
+        success
+    }
+
+    /// Callback which gets called whenever a Target is first seen.
+    fn target_arrive(&self, port: u8) -> Result<(), IgnitionError> {
+        ringbuf_entry!(Trace::TargetArrive(port));
+
+        // Clear counters.
+        self.controller.counters(port)?;
+
+        // Reset the link events for each transceiver if the register is set to
+        // its default value.
+        for txr in &TransceiverSelect::ALL {
+            let events = LinkEvents::from(
+                self.controller
+                    .link_events(port, *txr)
+                    .map_err(IgnitionError::from)?,
+            );
+
+            if events == LinkEvents::ALL {
+                self.controller
+                    .clear_link_events(port, *txr)
+                    .map_err(IgnitionError::from)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Callback which gets called whenever a Target goes away.
+    fn target_depart(&self, port: u8) -> Result<(), IgnitionError> {
+        ringbuf_entry!(Trace::TargetDepart(port));
+        Ok(())
+    }
+
+    fn target_request(
+        &self,
+        port: u8,
+        request: Request,
+    ) -> Result<(), IgnitionError> {
+        if self.target(port)?.request_in_progress() {
+            return Err(IgnitionError::RequestInProgress);
+        }
+
+        self.controller
+            .set_request(port, request)
+            .map_err(IgnitionError::from)?;
+
+        // Determine if the request was accepted by matching the (updated)
+        // Target power state with the request.
+        match (request, self.target(port)?.power_state) {
+            (Request::SystemPowerOff, SystemPowerState::PoweringOff)
+            | (Request::SystemPowerOff, SystemPowerState::Off)
+            | (Request::SystemPowerOn, SystemPowerState::PoweringOn)
+            | (Request::SystemPowerOn, SystemPowerState::On)
+            | (Request::SystemPowerReset, SystemPowerState::PoweringOff)
+            | (Request::SystemPowerReset, SystemPowerState::PoweringOn) => {
+                Ok(())
+            }
+            _ => Err(IgnitionError::RequestDiscarded),
+        }
     }
 }
 
@@ -112,13 +226,10 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
     ) -> Result<u64, RequestError> {
-        self.controller
-            .presence_summary()
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
+        Ok(self.last_presence_summary)
     }
 
-    fn state(
+    fn port_state(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
@@ -127,7 +238,10 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
-        self.port_state(port).map_err(RequestError::from)
+        self.controller
+            .port_state(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
     }
 
     fn counters(
@@ -149,14 +263,14 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-        link: LinkSelect,
-    ) -> Result<LinkEvents, RequestError> {
+        txr: TransceiverSelect,
+    ) -> Result<u8, RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .link_events(port, link)
+            .link_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
@@ -165,14 +279,14 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<(), RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .clear_link_events(port, link)
+            .clear_link_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
@@ -187,46 +301,54 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
-        let port_state = self.port_state(port).map_err(RequestError::from)?;
-        let target_state = port_state.target().ok_or_else(|| {
-            RequestError::from(IgnitionError::NoTargetPresent)
-        })?;
+        ringbuf_entry!(Trace::SystemPowerRequest(port, request));
 
-        if target_state.system_power_reset_in_progress()
-            || target_state.system_power_off_in_progress()
-            || target_state.system_power_on_in_progress()
-        {
-            return Err(RequestError::from(IgnitionError::RequestInProgress));
+        match self.target_request(port, request) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                ringbuf_entry!(Trace::SystemPowerRequestError(port, e));
+                Err(RequestError::from(e))
+            }
         }
-
-        self.controller
-            .set_request(port, request)
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)
     }
 
-    fn state_dump(
+    fn all_port_state(
         &mut self,
         _: &userlib::RecvMessage,
-    ) -> Result<[u64; PORT_MAX], RequestError> {
-        let mut state = [0u64; PORT_MAX];
-        let mut summary = self
-            .controller
-            .presence_summary()
-            .map_err(IgnitionError::from)
-            .map_err(RequestError::from)?;
+    ) -> Result<[PortState; PORT_MAX as usize], RequestError> {
+        let mut state = [Default::default(); PORT_MAX as usize];
 
-        for i in 0..core::cmp::min(state.len(), self.port_count as usize) {
-            // Check if the present bit is set in the summary.
-            if summary & 0x1 != 0 {
-                state[i] =
-                    self.port_state(i as u8).map_err(RequestError::from)?.0;
-            }
-            // Advance to the next port.
-            summary = summary >> 1;
+        ringbuf_entry!(Trace::Foo);
+
+        for port in 0..PORT_MAX.min(self.port_count) {
+            state[port as usize] = self
+                .controller
+                .port_state(port)
+                .map_err(IgnitionError::from)
+                .map_err(RequestError::from)?;
         }
 
+        ringbuf_entry!(Trace::Bar);
+
         Ok(state)
+    }
+
+    fn all_link_events(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<[[u8; 3]; PORT_MAX as usize], RequestError> {
+        let mut link_events = [[0u8; 3]; PORT_MAX as usize];
+
+        for port in 0..PORT_MAX.min(self.port_count) {
+            for txr in 0..TransceiverSelect::ALL.len() {
+                link_events[port as usize][txr] = self
+                    .controller
+                    .link_events(port, TransceiverSelect::ALL[txr])
+                    .map_err(IgnitionError::from)?;
+            }
+        }
+
+        Ok(link_events)
     }
 }
 

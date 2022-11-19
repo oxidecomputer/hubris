@@ -323,8 +323,8 @@ task-slots = ["i2c_driver"]
 name = "drv-ignition-server"
 features = ["sequencer"]
 priority = 5
-max-sizes = {flash = 16384, ram = 2048}
-stacksize = 1024
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
 start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 

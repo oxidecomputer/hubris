@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Addr, MainboardController};
+use crate::{Addr as MainboardControllerAddr, MainboardController};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use drv_ignition_api::*;
+use drv_ignition_api::{Addr as IgnitionPageAddr, *};
 use zerocopy::{AsBytes, FromBytes};
 
 pub struct IgnitionController {
@@ -22,8 +22,8 @@ impl IgnitionController {
     }
 
     #[inline]
-    fn port_addr(&self, port: u8, offset: IgnitionAddr) -> u16 {
-        u16::from(Addr::IGNITION_CONTROLLERS_COUNT)
+    fn port_addr(&self, port: u8, offset: Addr) -> u16 {
+        u16::from(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)
             + 0x100
             + (0x100 * port as u16)
             + u16::from(offset)
@@ -33,7 +33,7 @@ impl IgnitionController {
     fn read_port_register<T>(
         &self,
         port: u8,
-        offset: IgnitionAddr,
+        offset: IgnitionPageAddr,
     ) -> Result<T, FpgaError>
     where
         T: AsBytes + FromBytes,
@@ -45,7 +45,7 @@ impl IgnitionController {
     fn write_port_register<T>(
         &self,
         port: u8,
-        offset: IgnitionAddr,
+        offset: IgnitionPageAddr,
         value: T,
     ) -> Result<(), FpgaError>
     where
@@ -56,73 +56,87 @@ impl IgnitionController {
     }
 
     /// Return the number of ports exposed by the Controller.
+    #[inline]
     pub fn port_count(&self) -> Result<u8, FpgaError> {
-        self.fpga.read(Addr::IGNITION_CONTROLLERS_COUNT)
+        self.fpga
+            .read(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)
     }
 
     /// Return a bit-vector indicating Target presence on each of the Controller
     /// ports.
+    #[inline]
     pub fn presence_summary(&self) -> Result<u64, FpgaError> {
-        self.fpga.read(Addr::IGNITION_TARGETS_PRESENT0)
+        self.fpga
+            .read(MainboardControllerAddr::IGNITION_TARGETS_PRESENT0)
     }
 
     /// Return the state for the given port.
-    pub fn state(&self, port: u8) -> Result<PortState, FpgaError> {
-        self.read_port_register(port, IgnitionAddr::CONTROLLER_STATUS)
-            .map(PortState)
+    #[inline]
+    pub fn port_state(&self, port: u8) -> Result<PortState, FpgaError> {
+        self.read_port_register::<u64>(
+            port,
+            IgnitionPageAddr::CONTROLLER_STATUS,
+        )
+        .map(PortState::from)
     }
 
     /// Return the high level counters for the given port.
+    #[inline]
     pub fn counters(&self, port: u8) -> Result<Counters, FpgaError> {
-        self.read_port_register(
+        self.read_port_register::<[u8; 4]>(
             port,
-            IgnitionAddr::CONTROLLER_STATUS_RECEIVED_COUNT,
+            IgnitionPageAddr::CONTROLLER_STATUS_RECEIVED_COUNT,
         )
+        .map(Counters::from)
     }
 
     #[inline]
-    fn link_events_addr(link: LinkSelect) -> IgnitionAddr {
-        match link {
-            LinkSelect::Controller => {
-                IgnitionAddr::CONTROLLER_LINK_EVENTS_SUMMARY
+    fn link_events_addr(txr: TransceiverSelect) -> IgnitionPageAddr {
+        match txr {
+            TransceiverSelect::Controller => {
+                IgnitionPageAddr::CONTROLLER_LINK_EVENTS_SUMMARY
             }
-            LinkSelect::TargetLink0 => {
-                IgnitionAddr::TARGET_LINK0_EVENTS_SUMMARY
+            TransceiverSelect::TargetLink0 => {
+                IgnitionPageAddr::TARGET_LINK0_EVENTS_SUMMARY
             }
-            LinkSelect::TargetLink1 => {
-                IgnitionAddr::TARGET_LINK1_EVENTS_SUMMARY
+            TransceiverSelect::TargetLink1 => {
+                IgnitionPageAddr::TARGET_LINK1_EVENTS_SUMMARY
             }
         }
     }
 
     /// Return the event summary vector for the given port and link.
+    #[inline]
     pub fn link_events(
         &self,
         port: u8,
-        link: LinkSelect,
-    ) -> Result<LinkEvents, FpgaError> {
-        self.read_port_register(port, Self::link_events_addr(link))
+        txr: TransceiverSelect,
+    ) -> Result<u8, FpgaError> {
+        self.read_port_register(port, Self::link_events_addr(txr))
     }
 
     /// Clear the events for the given port, link.
+    #[inline]
     pub fn clear_link_events(
         &self,
         port: u8,
-        link: LinkSelect,
+        txr: TransceiverSelect,
     ) -> Result<(), FpgaError> {
         self.write_port_register(
             port,
-            Self::link_events_addr(link),
-            LinkEvents::ALL,
+            Self::link_events_addr(txr),
+            u8::from(LinkEvents::ALL),
         )
     }
 
     /// Read the request register for the given port.
+    #[inline]
     pub fn request(&self, port: u8) -> Result<u8, FpgaError> {
-        self.read_port_register(port, IgnitionAddr::TARGET_REQUEST)
+        self.read_port_register(port, IgnitionPageAddr::TARGET_REQUEST)
     }
 
     /// Set the request register for the given port.
+    #[inline]
     pub fn set_request(
         &self,
         port: u8,
@@ -130,16 +144,8 @@ impl IgnitionController {
     ) -> Result<(), FpgaError> {
         self.write_port_register(
             port,
-            IgnitionAddr::TARGET_REQUEST,
+            IgnitionPageAddr::TARGET_REQUEST,
             u8::from(request),
         )
     }
 }
-
-// The generated page local register map for Ignition clashes with the crate
-// `Addr` type so include it in a submodule.
-mod ignition_addr {
-    include!(concat!(env!("OUT_DIR"), "/ignition_controller.rs"));
-}
-
-use ignition_addr::Addr as IgnitionAddr;

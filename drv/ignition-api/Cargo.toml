@@ -7,18 +7,18 @@ edition = "2021"
 bitfield = { workspace = true }
 cfg-if = { workspace = true }
 derive_more = { workspace = true }
-idol-runtime = { workspace = true, optional = true }
+idol-runtime = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
+serde = { workspace = true }
+static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
-drv-fpga-api = { path = "../fpga-api", optional = true }
-userlib = { path = "../../sys/userlib", optional = true }
-
-[features]
-default = ["idol-client"]
-idol-client = ["drv-fpga-api", "idol-runtime", "userlib"]
+drv-fpga-api = { path = "../fpga-api" }
+userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
+build-util = { path = "../../build/util" }
 idol = { workspace = true }

@@ -999,6 +999,8 @@ name = "drv-ignition-api"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
+ "build-fpga-regmap",
+ "build-util",
  "cfg-if",
  "derive-idol-err",
  "derive_more",
@@ -1007,6 +1009,8 @@ dependencies = [
  "idol-runtime",
  "num-derive",
  "num-traits",
+ "serde",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]
