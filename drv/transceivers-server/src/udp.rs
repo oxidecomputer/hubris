@@ -18,8 +18,9 @@ use task_net_api::*;
 use transceiver_messages::{
     message::*,
     mgmt::{MemoryRead, MemoryWrite, Page},
-    Error, ModuleId,
+    Error, HwError, ModuleId,
 };
+use zerocopy::{BigEndian, U16};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -217,67 +218,12 @@ impl ServerImpl {
         match h {
             HostRequest::Reset => {
                 ringbuf_entry!(Trace::Reset(modules));
-                let mask = get_mask(modules)?;
-
-                // TODO: use a more correct error code
-                self.transceivers
-                    .set_reset(mask)
-                    .map_err(|_e| Error::ReadFailed)?;
-                userlib::hl::sleep_for(1);
-                self.transceivers
-                    .clear_reset(mask)
-                    .map_err(|_e| Error::ReadFailed)?;
+                self.reset_transceivers(modules)?;
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::Status => {
-                use zerocopy::{BigEndian, U16};
-
                 ringbuf_entry!(Trace::Status(modules));
-                let fpga = get_fpga(modules)?;
-                let fpga = self.transceivers.fpga(fpga);
-
-                // This is a bit awkward: the FPGA will get _every_ module's
-                // status (for the given FPGA), then we'll unpack to only the
-                // ones that we care about
-                let enable: U16<BigEndian> = fpga
-                    .read(Addr::QSFP_CTRL_EN_H)
-                    .map_err(|_e| Error::ReadFailed)?;
-                let reset: U16<BigEndian> = fpga
-                    .read(Addr::QSFP_CTRL_RESET_H)
-                    .map_err(|_e| Error::ReadFailed)?;
-                let lpmode: U16<BigEndian> = fpga
-                    .read(Addr::QSFP_CTRL_LPMODE_H)
-                    .map_err(|_e| Error::ReadFailed)?;
-                let present: U16<BigEndian> = fpga
-                    .read(Addr::QSFP_STATUS_PRESENT_H)
-                    .map_err(|_e| Error::ReadFailed)?;
-                let irq: U16<BigEndian> = fpga
-                    .read(Addr::QSFP_STATUS_IRQ_H)
-                    .map_err(|_e| Error::ReadFailed)?;
-
-                // Write one bitfield per active port in the ModuleId
-                let mut count = 0;
-                for mask in modules.ports.to_indices().map(|i| 1 << i) {
-                    let mut status = Status::empty();
-                    if (enable.get() & mask) != 0 {
-                        status |= Status::ENABLED;
-                    }
-                    if (reset.get() & mask) != 0 {
-                        status |= Status::RESET;
-                    }
-                    if (lpmode.get() & mask) != 0 {
-                        status |= Status::LOW_POWER_MODE;
-                    }
-                    if (present.get() & mask) != 0 {
-                        status |= Status::PRESENT;
-                    }
-                    if (irq.get() & mask) != 0 {
-                        status |= Status::INTERRUPT;
-                    }
-                    // Convert from Status -> u8 and write to the output buffer
-                    out[count] = status.bits();
-                    count += 1;
-                }
+                let count = self.get_status(modules, out)?;
                 Ok((SpResponse::Status, count))
             }
             HostRequest::Read(mem) => {
@@ -292,9 +238,8 @@ impl ServerImpl {
             HostRequest::Write(mem) => {
                 ringbuf_entry!(Trace::Write(modules, mem));
                 let data_size = mem.len() as u32 * modules.ports.0.count_ones();
-                // TODO: check equality here and return a different error?
-                if data_size as usize > data.len() {
-                    return Err(Error::RequestTooLarge);
+                if data_size as usize != data.len() {
+                    return Err(Error::WrongDataSize);
                 }
                 self.write(mem, modules, data)?;
                 Ok((SpResponse::Write(mem), 0))
@@ -306,36 +251,48 @@ impl ServerImpl {
                     PowerMode::Off => {
                         // Power disabled, LpMode enabled (the latter doesn't
                         // make a difference, but keeps us in a known state)
-                        self.transceivers
-                            .clear_power_enable(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
-                        self.transceivers
-                            .set_reset(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
-                        self.transceivers
-                            .set_lpmode(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
+                        self.transceivers.clear_power_enable(mask).map_err(
+                            |_e| {
+                                Error::PowerModeFailed(
+                                    HwError::ClearPowerEnableFailed,
+                                )
+                            },
+                        )?;
+                        self.transceivers.set_reset(mask).map_err(|_e| {
+                            Error::PowerModeFailed(HwError::SetResetFailed)
+                        })?;
+                        self.transceivers.set_lpmode(mask).map_err(|_e| {
+                            Error::PowerModeFailed(HwError::SetLpModeFailed)
+                        })?;
                     }
                     PowerMode::Low => {
                         // Power enabled, LpMode enabled
-                        self.transceivers
-                            .set_lpmode(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
-                        self.transceivers
-                            .set_power_enable(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
-                        self.transceivers
-                            .clear_reset(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
+                        self.transceivers.set_lpmode(mask).map_err(|_e| {
+                            Error::PowerModeFailed(HwError::SetLpModeFailed)
+                        })?;
+                        self.transceivers.set_power_enable(mask).map_err(
+                            |_e| {
+                                Error::PowerModeFailed(
+                                    HwError::SetPowerEnableFailed,
+                                )
+                            },
+                        )?;
+                        self.transceivers.clear_reset(mask).map_err(|_e| {
+                            Error::PowerModeFailed(HwError::ClearResetFailed)
+                        })?;
                     }
                     PowerMode::High => {
                         // Power enabled, LpMode disabled
-                        self.transceivers
-                            .clear_lpmode(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
-                        self.transceivers
-                            .set_power_enable(mask)
-                            .map_err(|_e| Error::ReadFailed)?;
+                        self.transceivers.clear_lpmode(mask).map_err(|_e| {
+                            Error::PowerModeFailed(HwError::ClearLpModeFailed)
+                        })?;
+                        self.transceivers.set_power_enable(mask).map_err(
+                            |_e| {
+                                Error::PowerModeFailed(
+                                    HwError::SetPowerEnableFailed,
+                                )
+                            },
+                        )?;
                     }
                 }
                 Ok((SpResponse::Ack, 0))
@@ -346,11 +303,77 @@ impl ServerImpl {
         }
     }
 
+    fn reset_transceivers(&mut self, modules: ModuleId) -> Result<(), Error> {
+        let mask = get_mask(modules)?;
+
+        self.transceivers
+            .set_reset(mask)
+            .map_err(|_e| Error::ResetFailed(HwError::SetResetFailed))?;
+        userlib::hl::sleep_for(1);
+        self.transceivers
+            .clear_reset(mask)
+            .map_err(|_e| Error::ResetFailed(HwError::ClearResetFailed))?;
+        Ok(())
+    }
+
+    fn get_status(
+        &mut self,
+        modules: ModuleId,
+        out: &mut [u8],
+    ) -> Result<usize, Error> {
+        let fpga = get_fpga(modules)?;
+        let fpga = self.transceivers.fpga(fpga);
+
+        // This is a bit awkward: the FPGA will get _every_ module's
+        // status (for the given FPGA), then we'll unpack to only the
+        // ones that we care about
+        let enable: U16<BigEndian> = fpga
+            .read(Addr::QSFP_CTRL_EN_H)
+            .map_err(|_e| Error::StatusFailed(HwError::EnableReadFailed))?;
+        let reset: U16<BigEndian> = fpga
+            .read(Addr::QSFP_CTRL_RESET_H)
+            .map_err(|_e| Error::StatusFailed(HwError::ResetReadFailed))?;
+        let lpmode: U16<BigEndian> = fpga
+            .read(Addr::QSFP_CTRL_LPMODE_H)
+            .map_err(|_e| Error::StatusFailed(HwError::LpReadFailed))?;
+        let present: U16<BigEndian> = fpga
+            .read(Addr::QSFP_STATUS_PRESENT_H)
+            .map_err(|_e| Error::StatusFailed(HwError::PresentReadFailed))?;
+        let irq: U16<BigEndian> = fpga
+            .read(Addr::QSFP_STATUS_IRQ_H)
+            .map_err(|_e| Error::StatusFailed(HwError::IrqReadFailed))?;
+
+        // Write one bitfield per active port in the ModuleId
+        let mut count = 0;
+        for mask in modules.ports.to_indices().map(|i| 1 << i) {
+            let mut status = Status::empty();
+            if (enable.get() & mask) != 0 {
+                status |= Status::ENABLED;
+            }
+            if (reset.get() & mask) != 0 {
+                status |= Status::RESET;
+            }
+            if (lpmode.get() & mask) != 0 {
+                status |= Status::LOW_POWER_MODE;
+            }
+            if (present.get() & mask) != 0 {
+                status |= Status::PRESENT;
+            }
+            if (irq.get() & mask) != 0 {
+                status |= Status::INTERRUPT;
+            }
+            // Convert from Status -> u8 and write to the output buffer
+            out[count] = status.bits();
+            count += 1;
+        }
+        Ok(count)
+    }
+
     fn select_page(
         &mut self,
         page: Page,
         mask: FpgaPortMasks,
-    ) -> Result<(), Error> {
+    ) -> Result<(), HwError> {
         // Common to both CMIS and SFF-8636
         const BANK_SELECT: u8 = 0x7E;
         const PAGE_SELECT: u8 = 0x7F;
@@ -360,34 +383,37 @@ impl ServerImpl {
         if let Some(page) = page.page() {
             self.transceivers
                 .set_i2c_write_buffer(&[page])
-                .map_err(|_e| Error::WriteFailed)?;
+                .map_err(|_e| HwError::PageSelectWriteBufFailed)?;
             self.transceivers
                 .setup_i2c_write(PAGE_SELECT, 1, mask)
-                .map_err(|_e| Error::WriteFailed)?;
+                .map_err(|_e| HwError::PageSelectWriteFailed)?;
             self.wait_and_check_i2c(mask)?;
         }
 
         if let Some(bank) = page.bank() {
             self.transceivers
                 .set_i2c_write_buffer(&[bank])
-                .map_err(|_e| Error::ReadFailed)?;
+                .map_err(|_e| HwError::BankSelectWriteBufFailed)?;
             self.transceivers
                 .setup_i2c_write(BANK_SELECT, 1, mask)
-                .map_err(|_e| Error::ReadFailed)?;
+                .map_err(|_e| HwError::BankSelectWriteFailed)?;
             self.wait_and_check_i2c(mask)?;
         }
         Ok(())
     }
 
-    fn wait_and_check_i2c(&mut self, mask: FpgaPortMasks) -> Result<(), Error> {
+    fn wait_and_check_i2c(
+        &mut self,
+        mask: FpgaPortMasks,
+    ) -> Result<(), HwError> {
         // TODO: use a better error type here
         let err_mask = self
             .transceivers
             .wait_and_check_i2c(mask)
-            .map_err(|_e| Error::WriteFailed)?;
+            .map_err(|_e| HwError::WaitFailed)?;
         if err_mask.left != 0 || err_mask.right != 0 {
             // FPGA reported an I2C error
-            return Err(Error::WriteFailed);
+            return Err(HwError::I2cError);
         }
         Ok(())
     }
@@ -402,12 +428,13 @@ impl ServerImpl {
         let mask = get_mask(modules)?;
 
         // Switch pages (if necessary)
-        self.select_page(*mem.page(), mask)?;
+        self.select_page(*mem.page(), mask)
+            .map_err(Error::ReadFailed)?;
 
         // Ask the FPGA to start the read
         self.transceivers
             .setup_i2c_read(mem.offset(), mem.len(), mask)
-            .map_err(|_e| Error::ReadFailed)?;
+            .map_err(|_e| Error::ReadFailed(HwError::ReadSetupFailed))?;
 
         let fpga = self.transceivers.fpga(controller);
 
@@ -426,14 +453,14 @@ impl ServerImpl {
                     Transceivers::read_status_address(port),
                     &mut buf[0..(out.len() + 1)],
                 )
-                .map_err(|_e| Error::ReadFailed)?;
+                .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
                 let status = buf[0];
 
                 // Use QSFP::PORT0 for constants, since they're all identical
                 if status & Reg::QSFP::PORT0_I2C_STATUS::BUSY == 0 {
                     // Check error mask
                     if status & Reg::QSFP::PORT0_I2C_STATUS::ERROR != 0 {
-                        return Err(Error::ReadFailed);
+                        return Err(Error::ReadFailed(HwError::I2cError));
                     } else {
                         out.copy_from_slice(&buf[1..][..out.len()]);
                         break;
@@ -454,18 +481,18 @@ impl ServerImpl {
         let mask = get_mask(modules)?;
 
         self.select_page(*mem.page(), mask)
-            .map_err(|_e| Error::WriteFailed)?;
+            .map_err(Error::WriteFailed)?;
 
         // Copy data into the FPGA write buffer
         self.transceivers
             .set_i2c_write_buffer(&data[..mem.len() as usize])
-            .map_err(|_e| Error::WriteFailed)?;
+            .map_err(|_e| Error::WriteFailed(HwError::WriteBufFailed))?;
 
         // Trigger a multicast write to all transceivers in the mask
         self.transceivers
             .setup_i2c_write(mem.offset(), mem.len(), mask)
-            .map_err(|_e| Error::WriteFailed)?;
-        self.wait_and_check_i2c(mask)?;
+            .map_err(|_e| Error::WriteFailed(HwError::WriteSetupFailed))?;
+        self.wait_and_check_i2c(mask).map_err(Error::WriteFailed)?;
 
         Ok(())
     }
