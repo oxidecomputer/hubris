@@ -301,7 +301,7 @@ impl ServerImpl {
             }
             HostRequest::SetPowerMode(mode) => {
                 let mask = get_mask(modules)?;
-                // TODO: do we need delays in between any of these operations?
+                // TODO: the FPGA will eventually manage high-level power states
                 match mode {
                     PowerMode::Off => {
                         // Power disabled, LpMode enabled (the latter doesn't
