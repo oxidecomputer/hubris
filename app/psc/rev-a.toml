@@ -139,6 +139,7 @@ task-slots = [
     "update_server",
     "sys",
     "validate",
+    "sensor",
 ]
 features = ["psc", "vlan"]
 

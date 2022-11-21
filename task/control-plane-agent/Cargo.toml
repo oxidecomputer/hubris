@@ -28,6 +28,7 @@ ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
+task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

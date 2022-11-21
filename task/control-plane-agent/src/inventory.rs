@@ -3,17 +3,25 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::fmt::{self, Write};
-use gateway_messages::{
-    sp_impl::DeviceDescription, DeviceCapabilities, DevicePresence, SpComponent,
+use gateway_messages::measurement::{
+    Measurement, MeasurementError, MeasurementKind,
 };
-use task_validate_api::DEVICES as VALIDATE_DEVICES;
+use gateway_messages::{
+    sp_impl::DeviceDescription, ComponentDetails, DeviceCapabilities,
+    DevicePresence, SpComponent, SpError,
+};
+use task_sensor_api::Sensor as SensorTask;
+use task_sensor_api::SensorError;
+use task_validate_api::{Sensor, SensorId, DEVICES as VALIDATE_DEVICES};
 use task_validate_api::{Validate, ValidateError, ValidateOk};
 use userlib::UnwrapLite;
 
 userlib::task_slot!(VALIDATE, validate);
+userlib::task_slot!(SENSOR, sensor);
 
 pub(crate) struct Inventory {
     validate_task: Validate,
+    sensor_task: SensorTask,
 }
 
 impl Inventory {
@@ -22,11 +30,92 @@ impl Inventory {
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
+            sensor_task: SensorTask::from(SENSOR.get_task_id()),
         }
     }
 
     pub(crate) fn num_devices(&self) -> usize {
         OUR_DEVICES.len() + VALIDATE_DEVICES.len()
+    }
+
+    pub(crate) fn num_component_details(
+        &self,
+        component: &SpComponent,
+    ) -> Result<u32, SpError> {
+        let index = self.component_to_index(component)?;
+        if index < OUR_DEVICES.len() {
+            Ok(0)
+        } else {
+            let index = index - OUR_DEVICES.len();
+            Ok(VALIDATE_DEVICES[index].sensors.len() as u32)
+        }
+    }
+
+    pub(crate) fn component_details(
+        &self,
+        component: &SpComponent,
+        component_index: u32,
+    ) -> ComponentDetails {
+        // We should only be called if we returned `Ok(n)` with `n > 0` from
+        // `num_component_details()` with this same component, so we're allowed
+        // to unwrap the same conversion we did there.
+        //
+        // We only return n > 0 for indices that fall into `VALIDATE_DEVICES`,
+        // so we can also perform the subtraction to get into that part of our
+        // inventory space.
+        let val_device_index = self.component_to_index(component).unwrap_lite()
+            - OUR_DEVICES.len();
+
+        let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
+            [component_index as usize];
+
+        let value = self.get_measurement_reading(sensor_description.id);
+
+        ComponentDetails::Measurement(Measurement {
+            name: sensor_description.name.unwrap_or(""),
+            kind: MeasurementKindConvert(sensor_description.kind).into(),
+            value,
+        })
+    }
+
+    fn get_measurement_reading(
+        &self,
+        id: SensorId,
+    ) -> Result<f32, MeasurementError> {
+        Ok(self.sensor_task.get(id).map_err(SensorErrorConvert)?)
+    }
+
+    fn component_to_index(
+        &self,
+        component: &SpComponent,
+    ) -> Result<usize, SpError> {
+        if component
+            .id
+            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
+        {
+            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
+            // it's safe to slice into the string at that index.
+            let id = component
+                .as_str()
+                .ok_or(SpError::RequestUnsupportedForComponent)?;
+            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
+
+            let index = suffix
+                .parse::<usize>()
+                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
+            if index < VALIDATE_DEVICES.len() {
+                Ok(OUR_DEVICES.len() + index)
+            } else {
+                Err(SpError::RequestUnsupportedForComponent)
+            }
+        } else {
+            for (i, d) in OUR_DEVICES.iter().enumerate() {
+                if *component == d.component {
+                    return Ok(i);
+                }
+            }
+            Err(SpError::RequestUnsupportedForComponent)
+        }
     }
 
     pub(crate) fn device_description(
@@ -80,7 +169,7 @@ impl Inventory {
         .unwrap_lite();
 
         let mut capabilities = DeviceCapabilities::empty();
-        if device.sensors.len() > 0 {
+        if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {
@@ -275,5 +364,35 @@ const fn assert_each_device_tlv_fits_in_one_packet() {
             OUR_DEVICES[i].description,
         );
         i += 1;
+    }
+}
+
+struct MeasurementKindConvert(Sensor);
+
+impl From<MeasurementKindConvert> for MeasurementKind {
+    fn from(value: MeasurementKindConvert) -> Self {
+        match value.0 {
+            Sensor::Temperature => Self::Temperature,
+            Sensor::Power => Self::Power,
+            Sensor::Current => Self::Current,
+            Sensor::Voltage => Self::Voltage,
+            Sensor::Speed => Self::Speed,
+        }
+    }
+}
+
+struct SensorErrorConvert(SensorError);
+
+impl From<SensorErrorConvert> for MeasurementError {
+    fn from(value: SensorErrorConvert) -> Self {
+        match value.0 {
+            SensorError::InvalidSensor => Self::InvalidSensor,
+            SensorError::NoReading => Self::NoReading,
+            SensorError::NotPresent => Self::NotPresent,
+            SensorError::DeviceError => Self::DeviceError,
+            SensorError::DeviceUnavailable => Self::DeviceUnavailable,
+            SensorError::DeviceTimeout => Self::DeviceTimeout,
+            SensorError::DeviceOff => Self::DeviceOff,
+        }
     }
 }
