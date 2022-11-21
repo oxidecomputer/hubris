@@ -410,7 +410,6 @@ impl ServerImpl {
         &mut self,
         mask: FpgaPortMasks,
     ) -> Result<(), HwError> {
-        // TODO: use a better error type here
         let err_mask = self
             .transceivers
             .wait_and_check_i2c(mask)
