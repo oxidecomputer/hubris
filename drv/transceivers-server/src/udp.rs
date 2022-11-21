@@ -481,9 +481,9 @@ impl ServerImpl {
                 let status = buf[0];
 
                 // Use QSFP::PORT0 for constants, since they're all identical
-                if status & Reg::QSFP::PORT0_I2C_STATUS::BUSY == 0 {
+                if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
                     // Check error mask
-                    if status & Reg::QSFP::PORT0_I2C_STATUS::ERROR != 0 {
+                    if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
                         return Err(Error::ReadFailed(HwError::I2cError));
                     } else {
                         out.copy_from_slice(&buf[1..][..out.len()]);

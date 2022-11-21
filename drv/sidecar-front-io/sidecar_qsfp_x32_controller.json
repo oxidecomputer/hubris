@@ -1026,432 +1026,504 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_0_1",
+                    "inst_name": "STATUS_PORT0",
                     "addr_offset": 8,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT0_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT1_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_2_3",
+                    "inst_name": "STATUS_PORT1",
                     "addr_offset": 9,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT2_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT2_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT3_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_4_5",
+                    "inst_name": "STATUS_PORT2",
                     "addr_offset": 10,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT4_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT4_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT5_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_6_7",
+                    "inst_name": "STATUS_PORT3",
                     "addr_offset": 11,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT6_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT6_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT7_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_8_9",
+                    "inst_name": "STATUS_PORT4",
                     "addr_offset": 12,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT8_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT9_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_10_11",
+                    "inst_name": "STATUS_PORT5",
                     "addr_offset": 13,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT10_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT10_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT11_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_12_13",
+                    "inst_name": "STATUS_PORT6",
                     "addr_offset": 14,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT12_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT12_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT13_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_ERROR_14_15",
+                    "inst_name": "STATUS_PORT7",
                     "addr_offset": 15,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT14_ERROR_TYPE",
+                            "inst_name": "ERROR",
                             "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT14_ERROR",
-                            "lsb": 3,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15_ERROR_TYPE",
+                            "inst_name": "BUSY",
                             "lsb": 4,
-                            "msb": 6,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT8",
+                    "addr_offset": 16,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15_ERROR",
-                            "lsb": 7,
-                            "msb": 7,
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT9",
+                    "addr_offset": 17,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT10",
+                    "addr_offset": 18,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT11",
+                    "addr_offset": 19,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT12",
+                    "addr_offset": 20,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT13",
+                    "addr_offset": 21,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT14",
+                    "addr_offset": 22,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "STATUS_PORT15",
+                    "addr_offset": 23,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ERROR",
+                            "lsb": 0,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "BUSY",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the bus is busy."
                         }
                     ]
                 },
                 {
                     "type": "reg",
                     "inst_name": "CTRL_EN_H",
-                    "addr_offset": 16,
+                    "addr_offset": 24,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1548,7 +1620,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_EN_L",
-                    "addr_offset": 17,
+                    "addr_offset": 25,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1645,7 +1717,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_RESET_H",
-                    "addr_offset": 18,
+                    "addr_offset": 26,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1742,7 +1814,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_RESET_L",
-                    "addr_offset": 19,
+                    "addr_offset": 27,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1839,7 +1911,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_LPMODE_H",
-                    "addr_offset": 20,
+                    "addr_offset": 28,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1936,7 +2008,7 @@
                 {
                     "type": "reg",
                     "inst_name": "CTRL_LPMODE_L",
-                    "addr_offset": 21,
+                    "addr_offset": 29,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2033,7 +2105,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_H",
-                    "addr_offset": 22,
+                    "addr_offset": 30,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2130,7 +2202,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_L",
-                    "addr_offset": 23,
+                    "addr_offset": 31,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2227,7 +2299,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_TIMEOUT_H",
-                    "addr_offset": 24,
+                    "addr_offset": 32,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2324,7 +2396,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PG_TIMEOUT_L",
-                    "addr_offset": 25,
+                    "addr_offset": 33,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2421,7 +2493,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PRESENT_H",
-                    "addr_offset": 26,
+                    "addr_offset": 34,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2518,7 +2590,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_PRESENT_L",
-                    "addr_offset": 27,
+                    "addr_offset": 35,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2615,7 +2687,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_IRQ_H",
-                    "addr_offset": 28,
+                    "addr_offset": 36,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2712,7 +2784,7 @@
                 {
                     "type": "reg",
                     "inst_name": "STATUS_IRQ_L",
-                    "addr_offset": 29,
+                    "addr_offset": 37,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -2808,32 +2880,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT0_I2C_STATUS",
+                    "inst_name": "PORT0_STATUS",
                     "addr_offset": 127,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -2857,32 +2918,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT1_I2C_STATUS",
+                    "inst_name": "PORT1_STATUS",
                     "addr_offset": 383,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -2906,32 +2956,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT2_I2C_STATUS",
+                    "inst_name": "PORT2_STATUS",
                     "addr_offset": 639,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -2955,32 +2994,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT3_I2C_STATUS",
+                    "inst_name": "PORT3_STATUS",
                     "addr_offset": 895,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3004,32 +3032,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT4_I2C_STATUS",
+                    "inst_name": "PORT4_STATUS",
                     "addr_offset": 1151,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3053,32 +3070,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT5_I2C_STATUS",
+                    "inst_name": "PORT5_STATUS",
                     "addr_offset": 1407,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3102,32 +3108,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT6_I2C_STATUS",
+                    "inst_name": "PORT6_STATUS",
                     "addr_offset": 1663,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3151,32 +3146,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT7_I2C_STATUS",
+                    "inst_name": "PORT7_STATUS",
                     "addr_offset": 1919,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3200,32 +3184,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT8_I2C_STATUS",
+                    "inst_name": "PORT8_STATUS",
                     "addr_offset": 2175,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3249,32 +3222,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT9_I2C_STATUS",
+                    "inst_name": "PORT9_STATUS",
                     "addr_offset": 2431,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3298,32 +3260,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT10_I2C_STATUS",
+                    "inst_name": "PORT10_STATUS",
                     "addr_offset": 2687,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3347,32 +3298,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT11_I2C_STATUS",
+                    "inst_name": "PORT11_STATUS",
                     "addr_offset": 2943,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3396,32 +3336,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT12_I2C_STATUS",
+                    "inst_name": "PORT12_STATUS",
                     "addr_offset": 3199,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3445,32 +3374,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT13_I2C_STATUS",
+                    "inst_name": "PORT13_STATUS",
                     "addr_offset": 3455,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3494,32 +3412,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT14_I2C_STATUS",
+                    "inst_name": "PORT14_STATUS",
                     "addr_offset": 3711,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
@@ -3543,32 +3450,21 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PORT15_I2C_STATUS",
+                    "inst_name": "PORT15_STATUS",
                     "addr_offset": 3967,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "ERROR_TYPE",
-                            "lsb": 0,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Valid if ERROR is set. 3'b000 for AddressNack, 3'b001 for ByteNack."
-                        },
-                        {
-                            "type": "field",
                             "inst_name": "ERROR",
-                            "lsb": 3,
+                            "lsb": 0,
                             "msb": 3,
                             "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "'1' if there was an error on the most recent transaction done by this port."
+                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
                         },
                         {
                             "type": "field",
