@@ -13,10 +13,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let out_dir = build_util::out_dir();
     let mut reg_map = fs::File::create(out_dir.join("ignition_controller.rs"))?;
+
     write!(
         &mut reg_map,
         "{}",
-        fpga_regs(include_str!("ignition_controller.json"))?,
+        fpga_regs(&std::fs::read_to_string("ignition_controller.json")?)?,
     )?;
 
     Ok(())

@@ -39,8 +39,8 @@ Interface(
                 err: CLike("IgnitionError"),
             ),
         ),
-        "link_events": (
-            doc: "Return the link events for the given controller port and transceiver",
+        "transceiver_events": (
+            doc: "Return the transceiver events for the given controller port and transceiver",
             args: {
                 "port": "u8",
                 "txr": (
@@ -53,7 +53,7 @@ Interface(
                 err: CLike("IgnitionError"),
             ),
         ),
-        "clear_link_events": (
+        "clear_transceiver_events": (
             doc: "Clear the link events for the given controller port and transceiver",
             args: {
                 "port": "u8",
@@ -64,6 +64,16 @@ Interface(
             },
             reply: Result(
                 ok: "()",
+                err: CLike("IgnitionError"),
+            ),
+        ),
+         "link_events": (
+            doc: "Return all transceiver events for the given port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "[u8; 3]",
                 err: CLike("IgnitionError"),
             ),
         ),
@@ -81,7 +91,6 @@ Interface(
                 err: CLike("IgnitionError"),
             ),
         ),
-
         "all_port_state": (
             doc: "Return the state for the given controller ports as indicated by the ports bit vector",
             args: {},
@@ -90,14 +99,13 @@ Interface(
                 err: CLike("IgnitionError"),
             ),
         ),
-
         "all_link_events": (
-            doc: "Return the link events for all ports",
+            doc: "Return the transceiver events for all ports",
             args: {},
             reply: Result(
                 ok: "[[u8; 3]; 40]",
                 err: CLike("IgnitionError"),
             ),
-        )
+        ),
     }
 )

@@ -94,25 +94,16 @@ impl Ignition {
         self.controller.presence_summary()
     }
 
-    /// Return the raw state for the given port. The internals of `PortState`
-    /// are purposefully opague since they are closely tied to the RTL
-    /// implementation and as such are not intended for direct consumption. The
-    /// `port(..)` and `target(..)` functions below are probably what you want
-    /// to use.
-    #[inline]
-    pub fn raw_port_state(&self, port: u8) -> Result<PortState, IgnitionError> {
-        self.controller.port_state(port)
-    }
-
     /// Return the state for the given port.
+    #[inline]
     pub fn port(&self, port: u8) -> Result<Port, IgnitionError> {
-        self.raw_port_state(port).map(Port::from)
+        self.controller.port_state(port).map(Port::from)
     }
 
     /// Return the `Target` for a given port if present.
+    #[inline]
     pub fn target(&self, port: u8) -> Result<Option<Target>, IgnitionError> {
-        self.raw_port_state(port)
-            .map(|state| Port::from(state).target)
+        self.port(port).map(|p| p.target)
     }
 
     /// Send the given system power `Request` to the given port. Once a request
@@ -136,49 +127,57 @@ impl Ignition {
         self.controller.counters(port)
     }
 
-    /// Return the `LinkEvents` for the given transceiver and port. See
+    /// Return the `TransceiverEvents` for the given port and transceiver. See
     /// `TransceiverSelect` for more details.
-    pub fn link_events(
+    #[inline]
+    pub fn transceiver_events(
         &self,
         port: u8,
         txr: TransceiverSelect,
-    ) -> Result<LinkEvents, IgnitionError> {
-        self.controller.link_events(port, txr).map(LinkEvents::from)
+    ) -> Result<TransceiverEvents, IgnitionError> {
+        self.controller
+            .transceiver_events(port, txr)
+            .map(TransceiverEvents::from)
     }
 
-    /// Clear the link events for the given transceiver and port. See
+    /// Clear the events for the given transceiver and port. See
     /// `TransceiverSelect` for more details.
-    pub fn clear_link_events(
+    #[inline]
+    pub fn clear_transceiver_events(
         &self,
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<(), IgnitionError> {
-        self.controller.clear_link_events(port, txr)
+        self.controller.clear_transceiver_events(port, txr)
     }
 
-    /// Return the state of all ports in a single operation. Be aware that this
-    /// reply is fairly large and may require enlarging the stack of the caller.
+    /// Return the `LinkEvents` for the given port.
+    pub fn link_events(&self, port: u8) -> Result<LinkEvents, IgnitionError> {
+        self.controller.link_events(port).map(LinkEvents::from)
+    }
+
+    /// Fetch the state of all ports in a single operation and return an
+    /// iterator over the individual ports. Be aware that this reply is fairly
+    /// large and may require enlarging the stack of the caller.
     pub fn all_ports(
         &self,
-    ) -> Result<[Port; PORT_MAX as usize], IgnitionError> {
-        Ok(self.controller.all_port_state()?.map(Port::from))
+    ) -> Result<impl Iterator<Item = Port>, IgnitionError> {
+        let port_count = usize::from(self.port_count()?);
+        let all_port_state = self.controller.all_port_state()?;
+        Ok(all_port_state.into_iter().map(Port::from).take(port_count))
     }
 
-    /// Return the `LinkEvents` for all ports and transceivers in a single
-    /// operation.
+    /// Fetch the `LinkEvents` for all ports in a single operation and provide
+    /// an iterator over the individual ports.
     pub fn all_link_events(
         &self,
-    ) -> Result<[[LinkEvents; 3]; PORT_MAX as usize], IgnitionError> {
-        let data = self.controller.all_link_events()?;
-        let mut link_events = [[Default::default(); 3]; PORT_MAX as usize];
-
-        for port in 0..PORT_MAX as usize {
-            for txr in 0..TransceiverSelect::ALL.len() {
-                link_events[port][txr] = LinkEvents::from(data[port][txr]);
-            }
-        }
-
-        Ok(link_events)
+    ) -> Result<impl Iterator<Item = LinkEvents>, IgnitionError> {
+        let port_count = usize::from(self.port_count()?);
+        let all_link_data = self.controller.all_link_events()?;
+        Ok(all_link_data
+            .into_iter()
+            .map(LinkEvents::from)
+            .take(port_count))
     }
 }
 
@@ -478,11 +477,11 @@ impl From<[u8; 4]> for Counters {
     }
 }
 
-/// `LinkEvents` can be used to track some implementation details of an Ignition
-/// link. These are sticky and indicate at least one of these events occured
-/// since they were cleared.
+/// `TransceiverEvents` can be used to track some implementation details of an
+/// Ignition transceiver. These are sticky and indicate at least one of these
+/// events occured since they were cleared.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize)]
-pub struct LinkEvents {
+pub struct TransceiverEvents {
     /// The transmitter encoded an invalid 8B10B control character. This should
     /// never occur and is either an indication of a design flaw or corruption
     /// (think bit flip in a LUT) of the logic in the FPGAs implementing the
@@ -507,7 +506,7 @@ pub struct LinkEvents {
     pub message_checksum_invalid: bool,
 }
 
-impl LinkEvents {
+impl TransceiverEvents {
     pub const NONE: Self = Self::from_u8(0);
     pub const ALL: Self = Self::from_u8(0x3f);
 
@@ -526,48 +525,51 @@ impl LinkEvents {
     }
 }
 
-impl From<u8> for LinkEvents {
-    fn from(r: u8) -> Self {
-        Self::from_u8(r)
+impl From<u8> for TransceiverEvents {
+    fn from(reg: u8) -> Self {
+        Self::from_u8(reg)
     }
 }
 
-impl From<LinkEvents> for u8 {
-    fn from(e: LinkEvents) -> u8 {
+impl From<TransceiverEvents> for u8 {
+    fn from(events: TransceiverEvents) -> u8 {
         use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
 
-        0u8 | if e.encoding_error { ENCODING_ERROR } else { 0 }
-            | if e.decoding_error { DECODING_ERROR } else { 0 }
-            | if e.ordered_set_invalid {
-                ORDERED_SET_INVALID
-            } else {
-                0
-            }
-            | if e.message_version_invalid {
-                MESSAGE_VERSION_INVALID
-            } else {
-                0
-            }
-            | if e.message_type_invalid {
-                MESSAGE_TYPE_INVALID
-            } else {
-                0
-            }
-            | if e.message_checksum_invalid {
-                MESSAGE_CHECKSUM_INVALID
-            } else {
-                0
-            }
+        0u8 | if events.encoding_error {
+            ENCODING_ERROR
+        } else {
+            0
+        } | if events.decoding_error {
+            DECODING_ERROR
+        } else {
+            0
+        } | if events.ordered_set_invalid {
+            ORDERED_SET_INVALID
+        } else {
+            0
+        } | if events.message_version_invalid {
+            MESSAGE_VERSION_INVALID
+        } else {
+            0
+        } | if events.message_type_invalid {
+            MESSAGE_TYPE_INVALID
+        } else {
+            0
+        } | if events.message_checksum_invalid {
+            MESSAGE_CHECKSUM_INVALID
+        } else {
+            0
+        }
     }
 }
 
-/// Link events are observed by a transceiver, therefor each link between a
-/// Controller and Target has two sets of `LinkEvents`. The Target notifies both
-/// Controllers when events are observed by either of its transceivers. As a
-/// result each Controller has visibility into and keeps track of three sets of
-/// link events; its own tranceiver to the Target and both transceivers of the
-/// Target. When operating on `LinkEvents` this enum is used to select between
-/// the different sets.
+/// Transceiver events are observed by a transceiver, therefor each link between
+/// a Controller and Target has two sets of `TransceiverEvents`. The Target
+/// notifies both Controllers when events are observed by either of its
+/// transceivers. As a result each Controller has visibility into and keeps
+/// track of three sets of these events; its own tranceiver to the Target and
+/// both transceivers of the Target. When operating on `TransceiverEvents` this
+/// enum is used to select between the different sets.
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
 )]
@@ -585,6 +587,25 @@ impl TransceiverSelect {
         [Self::Controller, Self::TargetLink0, Self::TargetLink1];
 }
 
+/// `LinkEvents` is a convenience type to represent the complete set of
+/// transceiver events observed by a Controller port.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct LinkEvents {
+    pub controller: TransceiverEvents,
+    pub target_link0: TransceiverEvents,
+    pub target_link1: TransceiverEvents,
+}
+
+impl From<[u8; 3]> for LinkEvents {
+    fn from(r: [u8; 3]) -> Self {
+        Self {
+            controller: TransceiverEvents::from(r[0]),
+            target_link0: TransceiverEvents::from(r[1]),
+            target_link1: TransceiverEvents::from(r[2]),
+        }
+    }
+}
+
 /// A flattened struct representing the state of a port which can be
 /// reconstructed by Humility from a ssmarshal encoded buffer using DWARF
 /// information.
@@ -594,24 +615,18 @@ pub struct IgnitionPortStateForHumility {
     pub target: Target,
     pub receiver_status: ReceiverStatus,
     pub counters: Counters,
-    pub controller_link_events: LinkEvents,
-    pub target_link0_events: LinkEvents,
-    pub target_link1_events: LinkEvents,
+    pub link_events: LinkEvents,
 }
 
-impl From<PortState> for IgnitionPortStateForHumility {
-    fn from(state: PortState) -> Self {
-        let port = Port::from(state);
-
+impl From<Port> for IgnitionPortStateForHumility {
+    fn from(port: Port) -> Self {
         Self {
             target_present: port.target.is_some(),
             target: port.target.unwrap_or_default(),
             receiver_status: port.receiver_status,
             // The remaining fields require additional data so use defaults.
             counters: Default::default(),
-            controller_link_events: Default::default(),
-            target_link0_events: Default::default(),
-            target_link1_events: Default::default(),
+            link_events: Default::default(),
         }
     }
 }

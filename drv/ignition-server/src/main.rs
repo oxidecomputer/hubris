@@ -29,8 +29,6 @@ enum Trace {
     TargetDepart(u8),
     SystemPowerRequest(u8, Request),
     SystemPowerRequestError(u8, IgnitionError),
-    Foo,
-    Bar,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -125,7 +123,7 @@ impl ServerImpl {
 
     /// Apply the given function to each port for which a bit in the `ports`
     /// vector is set. Returns a bit vector with bits set for ports for which
-    /// the operation was succesfull. Under normal circumstances this output
+    /// the operation was succesful. Under normal circumstances this output
     /// vector is expected to match the input vector.
     fn map_ports<F>(&self, ports: u64, mut f: F) -> u64
     where
@@ -154,18 +152,18 @@ impl ServerImpl {
         // Clear counters.
         self.controller.counters(port)?;
 
-        // Reset the link events for each transceiver if the register is set to
-        // its default value.
+        // Reset the events for each transceiver if the register is set to its
+        // default value.
         for txr in &TransceiverSelect::ALL {
-            let events = LinkEvents::from(
+            let events = TransceiverEvents::from(
                 self.controller
-                    .link_events(port, *txr)
+                    .transceiver_events(port, *txr)
                     .map_err(IgnitionError::from)?,
             );
 
-            if events == LinkEvents::ALL {
+            if events == TransceiverEvents::ALL {
                 self.controller
-                    .clear_link_events(port, *txr)
+                    .clear_transceiver_events(port, *txr)
                     .map_err(IgnitionError::from)?;
             }
         }
@@ -195,14 +193,18 @@ impl ServerImpl {
         // Determine if the request was accepted by matching the (updated)
         // Target power state with the request.
         match (request, self.target(port)?.power_state) {
-            (Request::SystemPowerOff, SystemPowerState::PoweringOff)
-            | (Request::SystemPowerOff, SystemPowerState::Off)
-            | (Request::SystemPowerOn, SystemPowerState::PoweringOn)
-            | (Request::SystemPowerOn, SystemPowerState::On)
-            | (Request::SystemPowerReset, SystemPowerState::PoweringOff)
-            | (Request::SystemPowerReset, SystemPowerState::PoweringOn) => {
-                Ok(())
-            }
+            (
+                Request::SystemPowerOff,
+                SystemPowerState::PoweringOff | SystemPowerState::Off,
+            )
+            | (
+                Request::SystemPowerOn,
+                SystemPowerState::PoweringOn | SystemPowerState::On,
+            )
+            | (
+                Request::SystemPowerReset,
+                SystemPowerState::PoweringOff | SystemPowerState::PoweringOn,
+            ) => Ok(()),
             _ => Err(IgnitionError::RequestDiscarded),
         }
     }
@@ -259,7 +261,7 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
-    fn link_events(
+    fn transceiver_events(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
@@ -270,12 +272,12 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         }
 
         self.controller
-            .link_events(port, txr)
+            .transceiver_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
 
-    fn clear_link_events(
+    fn clear_transceiver_events(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
@@ -286,9 +288,29 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         }
 
         self.controller
-            .clear_link_events(port, txr)
+            .clear_transceiver_events(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
+    }
+
+    fn link_events(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<[u8; 3], RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        let mut events = [0u8; 3];
+        for (i, txr) in TransceiverSelect::ALL.into_iter().enumerate() {
+            events[i] = self
+                .controller
+                .transceiver_events(port, txr)
+                .map_err(IgnitionError::from)?;
+        }
+
+        Ok(events)
     }
 
     fn send_request(
@@ -303,13 +325,10 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
 
         ringbuf_entry!(Trace::SystemPowerRequest(port, request));
 
-        match self.target_request(port, request) {
-            Ok(()) => Ok(()),
-            Err(e) => {
-                ringbuf_entry!(Trace::SystemPowerRequestError(port, e));
-                Err(RequestError::from(e))
-            }
-        }
+        self.target_request(port, request).map_err(|e| {
+            ringbuf_entry!(Trace::SystemPowerRequestError(port, e));
+            RequestError::from(e)
+        })
     }
 
     fn all_port_state(
@@ -318,37 +337,27 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
     ) -> Result<[PortState; PORT_MAX as usize], RequestError> {
         let mut state = [Default::default(); PORT_MAX as usize];
 
-        ringbuf_entry!(Trace::Foo);
-
         for port in 0..PORT_MAX.min(self.port_count) {
             state[port as usize] = self
                 .controller
                 .port_state(port)
-                .map_err(IgnitionError::from)
-                .map_err(RequestError::from)?;
+                .map_err(IgnitionError::from)?;
         }
-
-        ringbuf_entry!(Trace::Bar);
 
         Ok(state)
     }
 
     fn all_link_events(
         &mut self,
-        _: &userlib::RecvMessage,
+        msg: &userlib::RecvMessage,
     ) -> Result<[[u8; 3]; PORT_MAX as usize], RequestError> {
-        let mut link_events = [[0u8; 3]; PORT_MAX as usize];
+        let mut all_link_events = [[0u8; 3]; PORT_MAX as usize];
 
         for port in 0..PORT_MAX.min(self.port_count) {
-            for txr in 0..TransceiverSelect::ALL.len() {
-                link_events[port as usize][txr] = self
-                    .controller
-                    .link_events(port, TransceiverSelect::ALL[txr])
-                    .map_err(IgnitionError::from)?;
-            }
+            all_link_events[port as usize] = self.link_events(msg, port)?;
         }
 
-        Ok(link_events)
+        Ok(all_link_events)
     }
 }
 

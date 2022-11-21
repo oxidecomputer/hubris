@@ -91,7 +91,9 @@ impl IgnitionController {
     }
 
     #[inline]
-    fn link_events_addr(txr: TransceiverSelect) -> IgnitionPageAddr {
+    const fn transceiver_events_addr(
+        txr: TransceiverSelect,
+    ) -> IgnitionPageAddr {
         match txr {
             TransceiverSelect::Controller => {
                 IgnitionPageAddr::CONTROLLER_LINK_EVENTS_SUMMARY
@@ -107,25 +109,25 @@ impl IgnitionController {
 
     /// Return the event summary vector for the given port and link.
     #[inline]
-    pub fn link_events(
+    pub fn transceiver_events(
         &self,
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<u8, FpgaError> {
-        self.read_port_register(port, Self::link_events_addr(txr))
+        self.read_port_register(port, Self::transceiver_events_addr(txr))
     }
 
     /// Clear the events for the given port, link.
     #[inline]
-    pub fn clear_link_events(
+    pub fn clear_transceiver_events(
         &self,
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<(), FpgaError> {
         self.write_port_register(
             port,
-            Self::link_events_addr(txr),
-            u8::from(LinkEvents::ALL),
+            Self::transceiver_events_addr(txr),
+            u8::from(TransceiverEvents::ALL),
         )
     }
 
