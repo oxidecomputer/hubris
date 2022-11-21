@@ -21,14 +21,29 @@ pub enum FpgaController {
 
 // The necessary information to control a given port.
 #[derive(Copy, Clone)]
-struct PortLocation {
-    controller: FpgaController,
-    port: u8,
+pub struct PortLocation {
+    pub controller: FpgaController,
+    pub port: u8,
 }
 
-struct FpgaPortMasks {
-    left: u16,
-    right: u16,
+/// Physical port maps, using bitfields to mark active ports
+#[derive(Copy, Clone)]
+pub struct FpgaPortMasks {
+    pub left: u16,
+    pub right: u16,
+}
+
+impl FpgaPortMasks {
+    /// Returns an iterator over FPGAs that are active in the mask
+    ///
+    /// (possibilities include `Left`, `Right`, both, or none)
+    fn iter_fpgas(&self) -> impl Iterator<Item = FpgaController> {
+        let out = [
+            Some(FpgaController::Left).filter(|_| self.left != 0),
+            Some(FpgaController::Right).filter(|_| self.right != 0),
+        ];
+        out.into_iter().flatten()
+    }
 }
 
 /// Port Map
@@ -203,24 +218,32 @@ const PORT_MAP: [PortLocation; 32] = [
 ];
 
 // Maps logical port `mask` to physical FPGA locations
-fn logical_to_local_map(mask: u32) -> FpgaPortMasks {
-    let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
+impl From<u32> for FpgaPortMasks {
+    fn from(mask: u32) -> FpgaPortMasks {
+        let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
 
-    for (i, port_loc) in PORT_MAP.iter().enumerate() {
-        let port_mask: u32 = 1 << i;
-        if (mask & port_mask) != 0 {
-            match port_loc.controller {
-                FpgaController::Left => {
-                    fpga_port_masks.left |= 1 << port_loc.port
-                }
-                FpgaController::Right => {
-                    fpga_port_masks.right |= 1 << port_loc.port
+        for (i, port_loc) in PORT_MAP.iter().enumerate() {
+            let port_mask: u32 = 1 << i;
+            if (mask & port_mask) != 0 {
+                match port_loc.controller {
+                    FpgaController::Left => {
+                        fpga_port_masks.left |= 1 << port_loc.port
+                    }
+                    FpgaController::Right => {
+                        fpga_port_masks.right |= 1 << port_loc.port
+                    }
                 }
             }
         }
-    }
 
-    fpga_port_masks
+        fpga_port_masks
+    }
+}
+
+impl From<u8> for PortLocation {
+    fn from(port: u8) -> PortLocation {
+        PORT_MAP[port as usize]
+    }
 }
 
 impl Transceivers {
@@ -234,7 +257,7 @@ impl Transceivers {
         }
     }
 
-    fn fpga(&self, c: FpgaController) -> &FpgaUserDesign {
+    pub fn fpga(&self, c: FpgaController) -> &FpgaUserDesign {
         &self.fpgas[c as usize]
     }
 
@@ -280,11 +303,9 @@ impl Transceivers {
     pub fn masked_port_op(
         &self,
         op: WriteOp,
-        mask: u32,
+        fpga_masks: FpgaPortMasks,
         addr: Addr,
     ) -> Result<(), FpgaError> {
-        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
-
         if fpga_masks.left != 0 {
             let wdata: U16<byteorder::BigEndian> = U16::new(fpga_masks.left);
             self.fpga(FpgaController::Left).write(op, addr, wdata)?;
@@ -298,46 +319,108 @@ impl Transceivers {
     }
 
     /// Set power enable bits per the specified `mask`
-    pub fn set_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_EN_H)
+    pub fn set_power_enable<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitSet, mask.into(), Addr::QSFP_CTRL_EN_H)
     }
 
     /// Clear power enable bits per the specified `mask`
-    pub fn clear_power_enable(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_EN_H)
+    pub fn clear_power_enable<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_EN_H,
+        )
     }
 
     /// Set reset bits per the specified `mask`
-    pub fn set_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_RESET_H)
+    pub fn set_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_CTRL_RESET_H,
+        )
     }
 
     /// Clear reset bits per the specified `mask`
-    pub fn clear_reset(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_RESET_H)
+    pub fn clear_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_RESET_H,
+        )
     }
 
     /// Set lpmode bits per the specified `mask`
-    pub fn set_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_CTRL_LPMODE_H)
+    pub fn set_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_CTRL_LPMODE_H,
+        )
     }
 
     /// Clear reset bits per the specified `mask`
-    pub fn clear_lpmode(&self, mask: u32) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_CTRL_LPMODE_H)
+    pub fn clear_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_CTRL_LPMODE_H,
+        )
+    }
+
+    /// Initiate an I2C random read on all ports per the specified `mask`.
+    ///
+    /// The maximum value of `num_bytes` is 128.
+    pub fn setup_i2c_read<M: Into<FpgaPortMasks>>(
+        &self,
+        reg: u8,
+        num_bytes: u8,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.setup_i2c_op(true, reg, num_bytes, mask)
+    }
+
+    /// Initiate an I2C write on all ports per the specified `mask`.
+    ///
+    /// The maximum value of `num_bytes` is 128.
+    pub fn setup_i2c_write<M: Into<FpgaPortMasks>>(
+        &self,
+        reg: u8,
+        num_bytes: u8,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.setup_i2c_op(false, reg, num_bytes, mask)
     }
 
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
     /// read. The maximum value of `num_bytes` is 128.
-    pub fn setup_i2c_op(
+    fn setup_i2c_op<M: Into<FpgaPortMasks>>(
         &self,
         is_read: bool,
         reg: u8,
         num_bytes: u8,
-        mask: u32,
+        mask: M,
     ) -> Result<(), FpgaError> {
-        let fpga_masks: FpgaPortMasks = logical_to_local_map(mask);
+        let fpga_masks: FpgaPortMasks = mask.into();
 
         let i2c_op = if is_read {
             // Defaulting to RandomRead, rather than Read, because RandomRead
@@ -384,12 +467,12 @@ impl Transceivers {
     /// Get `buf.len()` bytes of data from the I2C read buffer for a `port`. The
     /// buffer stores data from the last I2C read transaction done and thus only
     /// the number of bytes read will be valid in the buffer.
-    pub fn get_i2c_read_buffer(
+    pub fn get_i2c_read_buffer<P: Into<PortLocation>>(
         &self,
-        port: u8,
+        port: P,
         buf: &mut [u8],
     ) -> Result<(), FpgaError> {
-        let port_loc = PORT_MAP[port as usize];
+        let port_loc = port.into();
         self.fpga(port_loc.controller)
             .read_bytes(Self::read_buffer_address(port_loc.port), buf)
     }
@@ -439,6 +522,28 @@ impl Transceivers {
         }
     }
 
+    pub fn read_status_address(local_port: u8) -> Addr {
+        match local_port % 16 {
+            0 => Addr::QSFP_PORT0_I2C_STATUS,
+            1 => Addr::QSFP_PORT1_I2C_STATUS,
+            2 => Addr::QSFP_PORT2_I2C_STATUS,
+            3 => Addr::QSFP_PORT3_I2C_STATUS,
+            4 => Addr::QSFP_PORT4_I2C_STATUS,
+            5 => Addr::QSFP_PORT5_I2C_STATUS,
+            6 => Addr::QSFP_PORT6_I2C_STATUS,
+            7 => Addr::QSFP_PORT7_I2C_STATUS,
+            8 => Addr::QSFP_PORT8_I2C_STATUS,
+            9 => Addr::QSFP_PORT9_I2C_STATUS,
+            10 => Addr::QSFP_PORT10_I2C_STATUS,
+            11 => Addr::QSFP_PORT11_I2C_STATUS,
+            12 => Addr::QSFP_PORT12_I2C_STATUS,
+            13 => Addr::QSFP_PORT13_I2C_STATUS,
+            14 => Addr::QSFP_PORT14_I2C_STATUS,
+            15 => Addr::QSFP_PORT15_I2C_STATUS,
+            _ => unreachable!(),
+        }
+    }
+
     /// Releases the LED controller from reset and enables the output
     pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
         for fpga in &self.fpgas {
@@ -450,6 +555,60 @@ impl Transceivers {
         }
 
         Ok(())
+    }
+
+    /// Waits for all of the I2C busy bits to go low
+    ///
+    /// Returns a set of masks indicating which channels (among the ones active
+    /// in the input mask) have recorded FPGA errors.
+    pub fn wait_and_check_i2c(
+        &mut self,
+        mask: FpgaPortMasks,
+    ) -> Result<FpgaPortMasks, FpgaError> {
+        let mut out = FpgaPortMasks { left: 0, right: 0 };
+
+        #[derive(AsBytes, Default, FromBytes)]
+        #[repr(C)]
+        struct StatusAndErr {
+            busy: u16,
+            err: [u8; 8],
+        }
+        for fpga_index in mask.iter_fpgas() {
+            let fpga = self.fpga(fpga_index);
+            // This loop should break immediately, because I2C is fast
+            let status = loop {
+                // Two bytes of BUSY, followed by 8 bytes of error status
+                let status: StatusAndErr = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
+                if status.busy == 0 {
+                    break status;
+                }
+                userlib::hl::sleep_for(1);
+            };
+
+            // Check errors on a per-port basis
+            let mask = match fpga_index {
+                FpgaController::Left => mask.left,
+                FpgaController::Right => mask.right,
+            };
+            for port in 0..16 {
+                if mask & (1 << port) == 0 {
+                    continue;
+                }
+                // Each error byte packs together two ports
+                let err = status.err[port / 2] >> ((port % 2) * 4);
+
+                // For now, check for the presence of an error, but don't bother
+                // reporting the details.
+                let has_err = (err & 0b1000) != 0;
+                if has_err {
+                    match fpga_index {
+                        FpgaController::Left => out.left |= 1 << port,
+                        FpgaController::Right => out.right |= 1 << port,
+                    }
+                }
+            }
+        }
+        Ok(out)
     }
 }
 

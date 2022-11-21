@@ -213,7 +213,6 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> ServerImpl<'a, Device> {
 
 type RequestError = idol_runtime::RequestError<FpgaError>;
 type ReadDataLease = LenLimit<Leased<R, [u8]>, 128>;
-type WriteDataLease = LenLimit<Leased<W, [u8]>, 128>;
 
 impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
     for ServerImpl<'a, Device>
@@ -443,7 +442,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         msg: &RecvMessage,
         device_index: u8,
         addr: u16,
-        data: WriteDataLease,
+        data: Leased<W, [u8]>,
     ) -> Result<(), RequestError> {
         let header = UserDesignRequestHeader {
             cmd: 0x1,
@@ -456,12 +455,21 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         lock.0
             .user_design_write(header.as_bytes())
             .map_err(FpgaError::from)?;
-        lock.0
-            .user_design_read(&mut self.buffer[..data.len()])
-            .map_err(FpgaError::from)?;
 
-        data.write_range(0..data.len(), &self.buffer[..data.len()])
+        let mut index = 0;
+        while index < data.len() {
+            let chunk_size = (data.len() - index).min(self.buffer.len());
+            lock.0
+                .user_design_read(&mut self.buffer[..chunk_size])
+                .map_err(FpgaError::from)?;
+
+            data.write_range(
+                index..(index + chunk_size),
+                &self.buffer[..chunk_size],
+            )
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            index += chunk_size;
+        }
 
         Ok(())
     }
@@ -472,11 +480,8 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         device_index: u8,
         op: WriteOp,
         addr: u16,
-        data: ReadDataLease,
+        data: Leased<R, [u8]>,
     ) -> Result<(), RequestError> {
-        data.read_range(0..data.len(), &mut self.buffer[..data.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-
         let header = UserDesignRequestHeader {
             cmd: u8::from(op),
             addr: U16::new(addr),
@@ -488,9 +493,20 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         lock.0
             .user_design_write(header.as_bytes())
             .map_err(FpgaError::from)?;
-        lock.0
-            .user_design_write(&self.buffer[..data.len()])
-            .map_err(FpgaError::from)?;
+
+        let mut index = 0;
+        while index < data.len() {
+            let chunk_size = (data.len() - index).min(self.buffer.len());
+            data.read_range(
+                index..(index + chunk_size),
+                &mut self.buffer[..chunk_size],
+            )
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            lock.0
+                .user_design_write(&self.buffer[..chunk_size])
+                .map_err(FpgaError::from)?;
+            index += chunk_size;
+        }
 
         Ok(())
     }

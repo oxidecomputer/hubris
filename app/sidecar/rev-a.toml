@@ -136,7 +136,7 @@ name = "task-net"
 stacksize = 6040
 priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac"]
-max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash", "tim16"]
 start = true
@@ -269,13 +269,14 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 
 [tasks.transceivers]
 name = "drv-transceivers-server"
-features = []
-priority = 5
-max-sizes = {flash = 32768, ram = 4096}
+features = ["vlan"]
+priority = 6
+max-sizes = {flash = 65536, ram = 8192}
 stacksize = 2048
 start = true
 task-slots = [
     "sys",
+    "net",
     "i2c_driver",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
@@ -901,6 +902,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "control_plane_agent", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.transceivers]
+kind = "udp"
+owner = {name = "transceivers", notification = 0b01}
+port = 11112 # TODO do we have a documented port for transceiver traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 

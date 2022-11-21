@@ -77,10 +77,22 @@ Interface(
             ),
         ),
 
-        "setup_i2c_op": (
-            doc: "Setup an operation over I2C to all modules whose bit is set in the mask",
+        "setup_i2c_read": (
+            doc: "Setup a read operation over I2C to all modules whose bit is set in the mask",
             args: {
-                "is_read": "bool",
+                "reg": "u8",
+                "num_bytes": "u8",
+                "mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "setup_i2c_write": (
+            doc: "Setup a write operation over I2C to all modules whose bit is set in the mask",
+            args: {
                 "reg": "u8",
                 "num_bytes": "u8",
                 "mask": "u32",
