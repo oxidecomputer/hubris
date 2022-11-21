@@ -271,6 +271,31 @@ impl MgsHandler {
         self.startup_options = startup_options;
         Ok(())
     }
+
+    fn power_state_impl(&self) -> Result<PowerState, SpError> {
+        use drv_gimlet_seq_api::PowerState as DrvPowerState;
+
+        // TODO Do we want to expose the sub-states to the control plane? For
+        // now, squish them down.
+        //
+        // TODO Do we want to expose A1 to the control plane at all? If not,
+        // what would we map it to? Maybe easier to leave it exposed.
+        let state = match self
+            .sequencer
+            .get_state()
+            .map_err(|e| SpError::PowerStateError(e as u32))?
+        {
+            DrvPowerState::A2
+            | DrvPowerState::A2PlusMono
+            | DrvPowerState::A2PlusFans => PowerState::A2,
+            DrvPowerState::A1 => PowerState::A1,
+            DrvPowerState::A0
+            | DrvPowerState::A0PlusHP
+            | DrvPowerState::A0Thermtrip => PowerState::A0,
+        };
+
+        Ok(state)
+    }
 }
 
 impl SpHandler for MgsHandler {
@@ -320,7 +345,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<SpState, SpError> {
-        self.common.sp_state()
+        let power_state = self.power_state_impl()?;
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(
@@ -437,29 +463,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
-        use drv_gimlet_seq_api::PowerState as DrvPowerState;
         ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
-
-        // TODO Do we want to expose the sub-states to the control plane? For
-        // now, squish them down.
-        //
-        // TODO Do we want to expose A1 to the control plane at all? If not,
-        // what would we map it to? Maybe easier to leave it exposed.
-        let state = match self
-            .sequencer
-            .get_state()
-            .map_err(|e| SpError::PowerStateError(e as u32))?
-        {
-            DrvPowerState::A2
-            | DrvPowerState::A2PlusMono
-            | DrvPowerState::A2PlusFans => PowerState::A2,
-            DrvPowerState::A1 => PowerState::A1,
-            DrvPowerState::A0
-            | DrvPowerState::A0PlusHP
-            | DrvPowerState::A0Thermtrip => PowerState::A0,
-        };
-
-        Ok(state)
+        self.power_state_impl()
     }
 
     fn set_power_state(
