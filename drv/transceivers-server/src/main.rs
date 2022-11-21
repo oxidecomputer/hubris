@@ -20,7 +20,7 @@ use idol_runtime::{
 use ringbuf::*;
 use userlib::*;
 
-mod net_api;
+mod udp; // UDP API is implemented in a separate file
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
