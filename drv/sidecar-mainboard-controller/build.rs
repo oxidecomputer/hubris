@@ -35,13 +35,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    let mut ignition_map =
-        fs::File::create(out_dir.join("ignition_controller.rs"))?;
-    write!(
-        &mut ignition_map,
-        "{}",
-        fpga_regs(include_str!("ignition_controller.json"))?,
-    )?;
-
     Ok(())
 }
