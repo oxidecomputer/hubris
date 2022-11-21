@@ -11,6 +11,8 @@ use drv_i2c_api::ResponseCode;
 use userlib::*;
 use zerocopy::AsBytes;
 
+pub use task_sensor_api::SensorId;
+
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ValidateError {
     InvalidDevice = 1,
@@ -45,11 +47,27 @@ pub enum ValidateOk {
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Sensor {
+    Temperature,
+    Power,
+    Current,
+    Voltage,
+    Speed,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct SensorDescription {
+    pub name: Option<&'static str>,
+    pub kind: Sensor,
+    pub id: SensorId,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
-    pub num_measurement_channels: u32,
+    pub sensors: &'static [SensorDescription],
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));

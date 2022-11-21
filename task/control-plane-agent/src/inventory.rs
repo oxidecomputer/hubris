@@ -80,7 +80,7 @@ impl Inventory {
         .unwrap_lite();
 
         let mut capabilities = DeviceCapabilities::empty();
-        if device.num_measurement_channels > 0 {
+        if device.sensors.len() > 0 {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {

@@ -4208,6 +4208,7 @@ dependencies = [
  "drv-i2c-api",
  "idol",
  "num-traits",
+ "task-sensor-api",
  "userlib",
  "zerocopy",
 ]
