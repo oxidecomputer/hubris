@@ -88,32 +88,53 @@ impl ServerImpl {
         ) {
             Ok(mut meta) => {
                 // Modify meta.size based on the output packet size
-                let out_len = match hubpack::deserialize(rx_data_buf) {
-                    Ok((msg, data)) => {
-                        self.handle_message(msg, data, tx_data_buf)
-                    }
-                    Err(e) => {
-                        // At this point, deserialization has failed, so we
-                        // can't handle the packet.  We'll attempt to
-                        // deserialize *just the header* (which should never
-                        // change), in the hopes of logging a more detailed
-                        // error message about a version mismatch.
-                        ringbuf_entry!(Trace::DeserializeError(e));
-                        match hubpack::deserialize::<Header>(rx_data_buf) {
-                            Ok((header, _)) => {
-                                ringbuf_entry!(Trace::WrongVersion(
-                                    header.version
-                                ));
-                            }
-                            Err(e) => {
-                                ringbuf_entry!(Trace::DeserializeHeaderError(
-                                    e
-                                ));
+                let out_len =
+                    match hubpack::deserialize(rx_data_buf) {
+                        Ok((msg, data)) => {
+                            self.handle_message(msg, data, tx_data_buf)
+                        }
+                        Err(e) => {
+                            // At this point, deserialization has failed, so we
+                            // can't handle the packet.  We'll attempt to
+                            // deserialize *just the header* (which should never
+                            // change), in the hopes of logging a more detailed
+                            // error message about a version mismatch.  If the
+                            // header deserializes correctly, we'll also return
+                            // a `ProtocolError` message to the host (since
+                            // we've got a packet number).
+                            ringbuf_entry!(Trace::DeserializeError(e));
+                            match hubpack::deserialize::<Header>(rx_data_buf) {
+                                Ok((header, _)) => {
+                                    if header.version == version::CURRENT {
+                                        Some(hubpack::serialize(
+                                            tx_data_buf,
+                                            &Message {
+                                                header,
+                                                modules: ModuleId::default(),
+                                                body: MessageBody::SpResponse(
+                                                    SpResponse::Error(
+                                                        Error::ProtocolError,
+                                                    ),
+                                                ),
+                                            },
+                                        )
+                                        .unwrap() as u32)
+                                    } else {
+                                        ringbuf_entry!(Trace::WrongVersion(
+                                            header.version
+                                        ));
+                                        None
+                                    }
+                                }
+                                Err(e) => {
+                                    ringbuf_entry!(
+                                        Trace::DeserializeHeaderError(e)
+                                    );
+                                    None
+                                }
                             }
                         }
-                        None
-                    }
-                };
+                    };
 
                 if let Some(out_len) = out_len {
                     meta.size = out_len;
@@ -156,7 +177,7 @@ impl ServerImpl {
     ) -> Option<u32> {
         // If the version is mismatched, then we can't trust the deserialization
         // (even though it nominally succeeded); don't reply.
-        if msg.header.version != 1 {
+        if msg.header.version != version::CURRENT {
             ringbuf_entry!(Trace::WrongVersion(msg.header.version));
             return None;
         }
