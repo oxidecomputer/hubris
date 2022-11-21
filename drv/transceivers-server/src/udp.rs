@@ -199,9 +199,10 @@ impl ServerImpl {
         };
         let msg_len = hubpack::serialize(tx_data_buf, &out).unwrap();
 
-        // At this point, any supplementary data is written to
-        // `tx_data_buf[Message::MAX_SIZE..]`.  Let's shift it backwards based
-        // on the size of the leading `Message`:
+        // At this point, any supplementary data was written to
+        // `tx_data_buf[Message::MAX_SIZE..]`, so it's not necessarily tightly
+        // packed against the end of the `Message`.  Let's shift it backwards
+        // based on the size of the leading `Message`:
         tx_data_buf.copy_within(
             Message::MAX_SIZE..(Message::MAX_SIZE + data_len),
             msg_len,
