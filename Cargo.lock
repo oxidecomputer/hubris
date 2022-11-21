@@ -4515,6 +4515,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/transceiver-control#2c40fc5d4797f5e8307b2d63c75ecb46e3a7c937"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
