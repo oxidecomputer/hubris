@@ -17,7 +17,7 @@ use ringbuf::*;
 use task_net_api::*;
 use transceiver_messages::{
     message::*,
-    mgmt::{MemoryRead, MemoryWrite, Page},
+    mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     Error, HwError, ModuleId,
 };
 use zerocopy::{BigEndian, U16};
@@ -34,6 +34,7 @@ enum Trace {
     Status(ModuleId),
     Read(ModuleId, MemoryRead),
     Write(ModuleId, MemoryWrite),
+    ManagementInterface(ManagementInterface),
     UnexpectedHostResponse(HostResponse),
     GotSpRequest,
     GotSpResponse,
@@ -298,7 +299,9 @@ impl ServerImpl {
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::ManagementInterface(i) => {
-                todo!()
+                // TODO: Implement this
+                ringbuf_entry!(Trace::ManagementInterface(i));
+                Ok((SpResponse::Error(Error::ProtocolError), 0))
             }
         }
     }
