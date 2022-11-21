@@ -94,7 +94,7 @@ impl ServerImpl {
                         // At this point, deserialization has failed, so we
                         // can't handle the packet.  We'll attempt to
                         // deserialize *just the header* (which should never
-                        // chnage), in the hopes of logging a more detailed
+                        // change), in the hopes of logging a more detailed
                         // error message about a version mismatch.
                         ringbuf_entry!(Trace::DeserializeError(e));
                         match hubpack::deserialize::<Header>(rx_data_buf) {
