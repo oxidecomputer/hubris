@@ -206,6 +206,29 @@ impl I2cSensors {
     }
 }
 
+#[derive(Debug, Default)]
+struct I2cSensorsDescription {
+    // In all multimaps below, the value is the sensor ID. The same sensor ID
+    // can show up in multiple (including all!) of these maps.
+    //
+    // All sensors are guaranteed to be present in `bydevice` and `bykind`, but
+    // may not be present in the other maps (devices may or may not have a
+    // name/bus in app.toml).
+
+    // key: (device, kind)
+    bydevice: MultiMap<(String, Sensor), usize>,
+    // key: (device, name, kind)
+    byname: MultiMap<(String, String, Sensor), usize>,
+    // key: (device, bus, kind)
+    bybus: MultiMap<(String, String, Sensor), usize>,
+    // key: (device, bus, name, kind)
+    bybusname: MultiMap<(String, String, String, Sensor), usize>,
+    // key: kind
+    bykind: MultiMap<Sensor, usize>,
+
+    total_sensors: usize,
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
@@ -1054,18 +1077,12 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    pub fn generate_sensors(&mut self) -> Result<()> {
-        let mut bydevice = MultiMap::new();
-        let mut byname = MultiMap::new();
-        let mut bybus = MultiMap::new();
-        let mut bybusname = MultiMap::new();
-        let mut bykind = MultiMap::new();
-
-        let mut sensors = vec![];
+    fn sensors_description(&self) -> I2cSensorsDescription {
+        let mut s = I2cSensorsDescription::default();
 
         let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
-            let id = sensors.len();
-            sensors.push(kind);
+            let id = s.total_sensors;
+            s.total_sensors += 1;
 
             let name: Option<String> =
                 if let Some(power) = d.power_for_kind(kind) {
@@ -1093,10 +1110,10 @@ impl ConfigGenerator {
                 };
 
             if let Some(bus) = &d.bus {
-                bybus.insert((d.device.clone(), bus.clone(), kind), id);
+                s.bybus.insert((d.device.clone(), bus.clone(), kind), id);
 
                 if let Some(ref name) = name {
-                    bybusname.insert(
+                    s.bybusname.insert(
                         (d.device.clone(), bus.clone(), name.clone(), kind),
                         id,
                     );
@@ -1104,11 +1121,11 @@ impl ConfigGenerator {
             }
 
             if let Some(name) = name {
-                byname.insert((d.device.clone(), name, kind), id);
+                s.byname.insert((d.device.clone(), name, kind), id);
             }
 
-            bydevice.insert((d.device.clone(), kind), id);
-            bykind.insert(kind, id);
+            s.bydevice.insert((d.device.clone(), kind), id);
+            s.bykind.insert(kind, id);
         };
 
         for d in &self.devices {
@@ -1135,6 +1152,12 @@ impl ConfigGenerator {
             }
         }
 
+        s
+    }
+
+    pub fn generate_sensors(&mut self) -> Result<()> {
+        let s = self.sensors_description();
+
         write!(
             &mut self.output,
             r##"
@@ -1144,24 +1167,24 @@ impl ConfigGenerator {
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};
 "##,
-            sensors.len()
+            s.total_sensors
         )?;
 
-        for ((device, kind), ids) in bydevice.iter_all() {
+        for ((device, kind), ids) in s.bydevice.iter_all() {
             self.emit_sensor(device, &format!("{}", kind), ids)?;
         }
 
-        for ((device, name, kind), ids) in byname.iter_all() {
+        for ((device, name, kind), ids) in s.byname.iter_all() {
             let label = format!("{}_{}", name.to_uppercase(), kind);
             self.emit_sensor(device, &label, ids)?;
         }
 
-        for ((device, bus, kind), ids) in bybus.iter_all() {
+        for ((device, bus, kind), ids) in s.bybus.iter_all() {
             let label = format!("{}_{}", bus.to_uppercase(), kind);
             self.emit_sensor(device, &label, ids)?;
         }
 
-        for ((device, bus, name, kind), ids) in bybusname.iter_all() {
+        for ((device, bus, name, kind), ids) in s.bybusname.iter_all() {
             let label = format!(
                 "{}_{}_{}",
                 bus.to_uppercase(),
