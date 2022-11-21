@@ -8,8 +8,9 @@
 //! imports from the `transceiver_messages` crate; it simply adds more functions
 //! to our existing `ServerImpl`.
 use crate::ServerImpl;
-use drv_sidecar_front_io::transceivers::{
-    FpgaController, FpgaPortMasks, Transceivers,
+use drv_sidecar_front_io::{
+    transceivers::{FpgaController, FpgaPortMasks, Transceivers},
+    Addr, Reg,
 };
 use hubpack::SerializedSize;
 use ringbuf::*;
@@ -229,7 +230,6 @@ impl ServerImpl {
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::Status => {
-                use drv_sidecar_front_io::Addr;
                 use zerocopy::{BigEndian, U16};
 
                 ringbuf_entry!(Trace::Status(modules));
@@ -421,8 +421,6 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
-            const BUSY: u8 = 1 << 4; // Based on FPGA bitstream
-            const ERROR: u8 = 1 << 3;
             loop {
                 fpga.read_bytes(
                     Transceivers::read_status_address(port),
@@ -430,9 +428,11 @@ impl ServerImpl {
                 )
                 .map_err(|_e| Error::ReadFailed)?;
                 let status = buf[0];
-                if status & BUSY == 0 {
+
+                // Use QSFP::PORT0 for constants, since they're all identical
+                if status & Reg::QSFP::PORT0_I2C_STATUS::BUSY == 0 {
                     // Check error mask
-                    if status & ERROR != 0 {
+                    if status & Reg::QSFP::PORT0_I2C_STATUS::ERROR != 0 {
                         return Err(Error::ReadFailed);
                     } else {
                         out.copy_from_slice(&buf[1..][..out.len()]);
