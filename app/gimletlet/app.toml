@@ -206,6 +206,7 @@ task-slots = [
     "hf",
     "gimlet_seq",
     "validate",
+    "sprot"
 ]
 features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}

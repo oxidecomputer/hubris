@@ -11,6 +11,7 @@ use gateway_messages::{
 pub(crate) mod host_flash;
 
 mod common;
+pub(crate) mod rot;
 pub(crate) mod sp;
 
 // TODO Currently we only have one implementor of this trait
