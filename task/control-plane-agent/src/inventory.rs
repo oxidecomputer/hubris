@@ -56,11 +56,10 @@ impl Inventory {
         component_index: u32,
     ) -> ComponentDetails {
         // We should only be called if we returned `Ok(n)` with `n > 0` from
-        // `num_component_details()` with this same component, so we're allowed
-        // to unwrap the same conversion we did there.
-        //
-        // We only return n > 0 for indices that fall into `VALIDATE_DEVICES`,
-        // so we can also panic if we get back an `OurDevice(_)` index.
+        // `num_component_details()` with this same component, so we should only
+        // be called if (a) `Index::try_from(component)` succeeded and (b) the
+        // returned value was an `Index::ValidateDevice(i)` (with at least i+1
+        // sensors). We panic if we're called incorrectly.
         let val_device_index = match Index::try_from(component) {
             Ok(Index::ValidateDevice(i)) => i,
             Ok(Index::OurDevice(_)) | Err(_) => panic!(),
