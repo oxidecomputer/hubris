@@ -900,6 +900,6 @@ compress = true
 tag = "FPGA"
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller.bit"
+file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b.bit"
 compress = true
 tag = "QSFP"
