@@ -19,6 +19,7 @@ pub struct ServerImpl<'a, R> {
     bsp: Bsp<'a, R>,
     vsc7448: &'a Vsc7448<'a, R>,
     map: &'a PortMap,
+    // TODO: move this into the BSP?
     port_output_enabled: [bool; 53],
     wake_target_time: u64,
 
