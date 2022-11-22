@@ -311,6 +311,34 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         })
     }
 
+    fn disable_port_output(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        if usize::from(port) >= self.map.len() {
+            return Err(MonorailError::InvalidPort.into());
+        }
+        self.vsc7448
+            .disable_port(port, &self.map)
+            .map_err(MonorailError::from)?;
+        Ok(())
+    }
+
+    fn reenable_port_output(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        if usize::from(port) >= self.map.len() {
+            return Err(MonorailError::InvalidPort.into());
+        }
+        self.vsc7448
+            .reenable_port(port, &self.map)
+            .map_err(MonorailError::from)?;
+        Ok(())
+    }
+
     fn reset_port_counters(
         &mut self,
         _msg: &userlib::RecvMessage,
