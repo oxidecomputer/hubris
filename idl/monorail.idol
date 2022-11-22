@@ -14,6 +14,26 @@ Interface(
             ),
             encoding: Ssmarshal,
         ),
+        "disable_port_output": (
+            doc: "Disables the output stage of the given port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "reenable_port_output": (
+            doc: "Re-enables the output stage of the given port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
         "get_port_counters": (
             doc: "Reads the packet counters for a port",
             args: {
