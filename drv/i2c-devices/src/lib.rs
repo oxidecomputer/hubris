@@ -33,6 +33,9 @@
 
 #![no_std]
 
+use drv_i2c_api::{I2cDevice, ResponseCode};
+use pmbus::commands::CommandCode;
+
 macro_rules! pmbus_read {
     ($device:expr, $cmd:ident) => {
         match $cmd::CommandData::from_slice(&match $device
@@ -101,36 +104,23 @@ macro_rules! pmbus_write {
     }};
 }
 
-macro_rules! pmbus_validate {
-    ($device:expr, $dev:ident::$cmd:ident, $expected:ident) => {{
-        let mut id = [0u8; 16];
+struct BadValidation {
+    cmd: u8,
+    code: ResponseCode,
+}
 
-        match $device.read_block::<u8>($dev::CommandCode::$cmd as u8, &mut id) {
-            Ok(size) => {
-                Ok(size == $expected.len()
-                    && id[0..$expected.len()] == $expected)
-            }
-            Err(code) => Err(Error::BadValidation {
-                cmd: CommandCode::$cmd as u8,
-                code,
-            }),
-        }
-    }};
+fn pmbus_validate<const N: usize>(
+    device: &I2cDevice,
+    cmd: CommandCode,
+    expected: &[u8; N],
+) -> Result<bool, BadValidation> {
+    let mut id = [0u8; N];
+    let cmd = cmd as u8;
 
-    ($device:expr, $cmd:ident, $expected:ident) => {{
-        let mut id = [0u8; 16];
-
-        match $device.read_block::<u8>(CommandCode::$cmd as u8, &mut id) {
-            Ok(size) => {
-                Ok(size == $expected.len()
-                    && id[0..$expected.len()] == $expected)
-            }
-            Err(code) => Err(Error::BadValidation {
-                cmd: CommandCode::$cmd as u8,
-                code,
-            }),
-        }
-    }};
+    match device.read_block(cmd, &mut id) {
+        Ok(size) => Ok(size == N && id == *expected),
+        Err(code) => Err(BadValidation { cmd, code }),
+    }
 }
 
 pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {

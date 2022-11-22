@@ -6,7 +6,10 @@
 
 use core::cell::Cell;
 
-use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
+use crate::{
+    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
+    VoltageSensor,
+};
 use drv_i2c_api::*;
 use pmbus::commands::*;
 use userlib::units::*;
@@ -23,6 +26,15 @@ pub enum Error {
     BadData { cmd: u8 },
     BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
+}
+
+impl From<BadValidation> for Error {
+    fn from(value: BadValidation) -> Self {
+        Self::BadValidation {
+            cmd: value.cmd,
+            code: value.code,
+        }
+    }
 }
 
 impl From<pmbus::Error> for Error {
@@ -69,8 +81,9 @@ impl Bmr491 {
 
 impl Validate<Error> for Bmr491 {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = [0x46, 0x6c, 0x65, 0x78];
-        pmbus_validate!(device, MFR_ID, expected)
+        let expected = b"Flex";
+        pmbus_validate(device, CommandCode::MFR_ID, expected)
+            .map_err(Into::into)
     }
 }
 
