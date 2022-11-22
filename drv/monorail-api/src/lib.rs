@@ -122,6 +122,11 @@ pub enum MonorailError {
     UnconfiguredPort,
     /// The given port does not have a PHY associated with it
     NoPhy,
+
+    /// The selected port is already disabled
+    AlreadyDisabled,
+    /// The selected port is already enabled
+    AlreadyEnabled,
 }
 
 impl From<VscError> for MonorailError {

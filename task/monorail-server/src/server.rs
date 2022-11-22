@@ -19,6 +19,7 @@ pub struct ServerImpl<'a, R> {
     bsp: Bsp<'a, R>,
     vsc7448: &'a Vsc7448<'a, R>,
     map: &'a PortMap,
+    port_output_enabled: [bool; 53],
     wake_target_time: u64,
 
     /// For monitoring purposes, we want a sticky bit that indicates whether a
@@ -39,6 +40,13 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         vsc7448: &'a Vsc7448<'a, R>,
         map: &'a PortMap,
     ) -> Self {
+        let mut port_output_enabled = [false; 53];
+        for p in 0..map.len() {
+            if map.port_config(p as u8).is_some() {
+                port_output_enabled[p] = true;
+            }
+        }
+
         // Some of the BSPs include a 'wake' function which allows for periodic
         // logging.  We schedule a wake-up before entering the idol_runtime dispatch
         // loop, to make sure that this gets called periodically.
@@ -47,6 +55,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         Self {
             bsp,
             wake_target_time,
+            port_output_enabled,
             map,
             vsc7448,
             phy_link_down_sticky: [false; PORT_COUNT],
@@ -318,10 +327,13 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<(), RequestError<MonorailError>> {
         if usize::from(port) >= self.map.len() {
             return Err(MonorailError::InvalidPort.into());
+        } else if !self.port_output_enabled[port as usize] {
+            return Err(MonorailError::AlreadyDisabled.into());
         }
         self.vsc7448
             .disable_port(port, &self.map)
             .map_err(MonorailError::from)?;
+        self.port_output_enabled[port as usize] = false;
         Ok(())
     }
 
@@ -332,10 +344,13 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     ) -> Result<(), RequestError<MonorailError>> {
         if usize::from(port) >= self.map.len() {
             return Err(MonorailError::InvalidPort.into());
+        } else if self.port_output_enabled[port as usize] {
+            return Err(MonorailError::AlreadyEnabled.into());
         }
         self.vsc7448
             .reenable_port(port, &self.map)
             .map_err(MonorailError::from)?;
+        self.port_output_enabled[port as usize] = true;
         Ok(())
     }
 
