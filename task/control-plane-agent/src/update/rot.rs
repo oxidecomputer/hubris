@@ -5,7 +5,9 @@
 use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
+use drv_sprot_api::MsgError as SprotError;
 use drv_sprot_api::SpRot;
+use drv_update_api::lpc55::BLOCK_SIZE_BYTES;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 
 use gateway_messages::{
@@ -31,20 +33,62 @@ impl RotUpdate {
 }
 
 enum State {
+    AcceptingData {
+        buffer: BorrowedUpdateBuffer,
+        next_write_offset: u32,
+    },
     Complete,
     Aborted,
+    Failed(SprotError),
 }
 
 impl ComponentUpdater for RotUpdate {
-    //    const BLOCK_SIZE: usize = lpc55_romapi::FLASH_PAGE_SIZE;
-    const BLOCK_SIZE: usize = 512;
+    const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
 
     fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
-        unimplemented!();
+        match self.current.as_ref().map(CurrentUpdate::state) {
+            Some(State::AcceptingData { .. }) => {
+                return Err(SpError::UpdateInProgress(self.status()));
+            }
+            Some(State::Complete)
+            | Some(State::Aborted)
+            | Some(State::Failed(_))
+            | None => {
+                // All of these states are "done", and we're fine to start a new
+                // update.
+            }
+        }
+        // Can we lock the update buffer?
+        let buffer =
+            buffer.borrow(SpComponent::ROT, Self::BLOCK_SIZE).map_err(
+                |component| SpError::OtherComponentUpdateInProgress(component),
+            )?;
+
+        // Which target are we updating?
+        let target = match update.slot {
+            0 => UpdateTarget::ImageA,
+            1 => UpdateTarget::ImageB,
+            _ => return Err(SpError::InvalidSlotForComponent),
+        };
+
+        self.task
+            .prep_image_update(target)
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+
+        self.current = Some(CurrentUpdate::new(
+            update.id,
+            update.total_size,
+            State::AcceptingData {
+                buffer,
+                next_write_offset: 0,
+            },
+        ));
+
+        Ok(())
     }
 
     fn is_preparing(&self) -> bool {
