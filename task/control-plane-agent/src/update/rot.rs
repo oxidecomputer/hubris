@@ -92,7 +92,7 @@ impl ComponentUpdater for RotUpdate {
     }
 
     fn is_preparing(&self) -> bool {
-        unimplemented!()
+        false
     }
 
     fn step_preparation(&mut self) {
@@ -100,7 +100,27 @@ impl ComponentUpdater for RotUpdate {
     }
 
     fn status(&self) -> UpdateStatus {
-        UpdateStatus::None
+        let current = match self.current.as_ref() {
+            Some(current) => current,
+            None => return UpdateStatus::None,
+        };
+
+        match current.state() {
+            State::AcceptingData {
+                buffer,
+                next_write_offset,
+            } => UpdateStatus::InProgress(UpdateInProgressStatus {
+                id: current.id(),
+                bytes_received: next_write_offset + buffer.len() as u32,
+                total_size: current.total_size(),
+            }),
+            State::Complete => UpdateStatus::Complete(current.id()),
+            State::Aborted => UpdateStatus::Aborted(current.id()),
+            State::Failed(err) => UpdateStatus::Failed {
+                id: current.id(),
+                code: *err as u32,
+            },
+        }
     }
 
     fn ingest_chunk(
