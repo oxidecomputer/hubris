@@ -69,20 +69,16 @@ impl Inventory {
         let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
             [component_index as usize];
 
-        let value = self.get_measurement_reading(sensor_description.id);
+        let value = self
+            .sensor_task
+            .get(sensor_description.id)
+            .map_err(|err| SensorErrorConvert(err).into());
 
         ComponentDetails::Measurement(Measurement {
             name: sensor_description.name.unwrap_or(""),
             kind: MeasurementKindConvert(sensor_description.kind).into(),
             value,
         })
-    }
-
-    fn get_measurement_reading(
-        &self,
-        id: SensorId,
-    ) -> Result<f32, MeasurementError> {
-        Ok(self.sensor_task.get(id).map_err(SensorErrorConvert)?)
     }
 
     pub(crate) fn device_description(
