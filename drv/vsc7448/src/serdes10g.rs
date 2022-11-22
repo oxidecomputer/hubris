@@ -714,6 +714,17 @@ impl Config {
 
         Ok(())
     }
+
+    /// Brings the port down by disabling the output buffer
+    pub fn disable_output(
+        index: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<(), VscError> {
+        let dev = XGANA(index);
+        let ob = dev.SD10G65_OB();
+        v.modify(ob.SD10G65_OB_CFG0(), |r| r.set_en_ob(0))?;
+        Ok(())
+    }
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`

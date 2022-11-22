@@ -100,6 +100,11 @@ impl Config {
         serdes6g_read(v, instance)?;
         let ana_cfg = HSIO().SERDES6G_ANA_CFG();
         let dig_cfg = HSIO().SERDES6G_DIG_CFG();
+
+        // Disable IDLE mode
+        v.modify(ana_cfg.SERDES6G_OB_CFG(), |r| {
+            r.set_ob_idle(0);
+        })?;
         v.modify(ana_cfg.SERDES6G_COMMON_CFG(), |r| {
             r.set_sys_rst(0);
         })?;
@@ -155,6 +160,21 @@ impl Config {
         v.modify(ana_cfg.SERDES6G_IB_CFG1(), |r| r.set_ib_tsdet(3))?;
         serdes6g_write(v, instance)?;
 
+        Ok(())
+    }
+
+    /// Brings the port down by setting the output buffer to idle mode (0V
+    /// differential)
+    pub fn disable_output(
+        instance: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<(), VscError> {
+        serdes6g_read(v, instance)?;
+        let ana_cfg = HSIO().SERDES6G_ANA_CFG();
+        v.modify(ana_cfg.SERDES6G_OB_CFG(), |r| {
+            r.set_ob_idle(1);
+        })?;
+        serdes6g_write(v, instance)?;
         Ok(())
     }
 }
