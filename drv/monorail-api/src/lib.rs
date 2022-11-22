@@ -113,6 +113,7 @@ pub enum MonorailError {
     MiimIdleTimeout,
     MiimReadTimeout,
     OutOfRange,
+    NotSgmii,
 
     // ----------- Custom errors that aren't pulled from VscError -------------
     /// The given port is outside the valid port range
@@ -181,6 +182,9 @@ impl From<VscError> for MonorailError {
             VscError::MiimIdleTimeout => Self::MiimIdleTimeout,
             VscError::MiimReadTimeout => Self::MiimReadTimeout,
             VscError::OutOfRange => Self::OutOfRange,
+
+            VscError::NotConfigured => Self::UnconfiguredPort,
+            VscError::NotSgmii => Self::NotSgmii,
         }
     }
 }
