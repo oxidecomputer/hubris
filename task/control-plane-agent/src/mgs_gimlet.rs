@@ -302,7 +302,7 @@ impl MgsHandler {
 
 impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
-    type BulkIgnitionLinkEventsIter = core::iter::Empty<LinkEvents>;
+    type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
 
     fn discover(
         &mut self,
@@ -366,8 +366,8 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-        target: Option<u8>,
-        transceiver_select: Option<ignition::TransceiverSelect>,
+        _target: Option<u8>,
+        _transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
         Err(SpError::RequestUnsupportedForSp)
