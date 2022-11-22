@@ -165,6 +165,7 @@ task-slots = [
     "monorail",
     "sensor",
     "sprot",
+    "ignition",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 

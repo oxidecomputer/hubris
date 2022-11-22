@@ -33,10 +33,6 @@ use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 #[path = "mgs_gimlet/host_phase2.rs"]
 mod host_phase2;
 
-// TODO DELETE ME
-#[path = "mgs_sidecar/ignition.rs"]
-mod fake_ignition;
-
 use host_phase2::HostPhase2Requester;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
@@ -305,10 +301,8 @@ impl MgsHandler {
 }
 
 impl SpHandler for MgsHandler {
-    //type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
-    //type BulkIgnitionLinkEventsIter = core::iter::Empty<IgnitionState>;
-    type BulkIgnitionStateIter = fake_ignition::BulkIgnitionStateIter;
-    type BulkIgnitionLinkEventsIter = fake_ignition::BulkIgnitionLinkEventsIter;
+    type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
+    type BulkIgnitionLinkEventsIter = core::iter::Empty<LinkEvents>;
 
     fn discover(
         &mut self,
@@ -319,8 +313,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController.num_ignition_ports()
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_state(
@@ -330,8 +323,7 @@ impl SpHandler for MgsHandler {
         target: u8,
     ) -> Result<IgnitionState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController.ignition_state(target)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn bulk_ignition_state(
@@ -343,8 +335,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController.bulk_ignition_state(offset)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_link_events(
@@ -356,8 +347,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController.ignition_link_events(target)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn bulk_ignition_link_events(
@@ -369,8 +359,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
             offset
         }));
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController.bulk_ignition_link_events(offset)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn clear_ignition_link_events(
@@ -381,9 +370,7 @@ impl SpHandler for MgsHandler {
         transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
-        //Err(SpError::RequestUnsupportedForSp)
-        fake_ignition::IgnitionController
-            .clear_ignition_link_events(target, transceiver_select)
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_command(
