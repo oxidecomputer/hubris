@@ -42,12 +42,11 @@ impl Inventory {
         &self,
         component: &SpComponent,
     ) -> Result<u32, SpError> {
-        let index = self.component_to_index(component)?;
-        if index < OUR_DEVICES.len() {
-            Ok(0)
-        } else {
-            let index = index - OUR_DEVICES.len();
-            Ok(VALIDATE_DEVICES[index].sensors.len() as u32)
+        match Index::try_from(component)? {
+            Index::OurDevice(_) => Ok(0),
+            Index::ValidateDevice(i) => {
+                Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
+            }
         }
     }
 
@@ -61,10 +60,11 @@ impl Inventory {
         // to unwrap the same conversion we did there.
         //
         // We only return n > 0 for indices that fall into `VALIDATE_DEVICES`,
-        // so we can also perform the subtraction to get into that part of our
-        // inventory space.
-        let val_device_index = self.component_to_index(component).unwrap_lite()
-            - OUR_DEVICES.len();
+        // so we can also panic if we get back an `OurDevice(_)` index.
+        let val_device_index = match Index::try_from(component) {
+            Ok(Index::ValidateDevice(i)) => i,
+            Ok(Index::OurDevice(_)) | Err(_) => panic!(),
+        };
 
         let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
             [component_index as usize];
@@ -85,58 +85,15 @@ impl Inventory {
         Ok(self.sensor_task.get(id).map_err(SensorErrorConvert)?)
     }
 
-    fn component_to_index(
-        &self,
-        component: &SpComponent,
-    ) -> Result<usize, SpError> {
-        if component
-            .id
-            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
-        {
-            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
-            // it's safe to slice into the string at that index.
-            let id = component
-                .as_str()
-                .ok_or(SpError::RequestUnsupportedForComponent)?;
-            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
-
-            let index = suffix
-                .parse::<usize>()
-                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
-            if index < VALIDATE_DEVICES.len() {
-                Ok(OUR_DEVICES.len() + index)
-            } else {
-                Err(SpError::RequestUnsupportedForComponent)
-            }
-        } else {
-            for (i, d) in OUR_DEVICES.iter().enumerate() {
-                if *component == d.component {
-                    return Ok(i);
-                }
-            }
-            Err(SpError::RequestUnsupportedForComponent)
-        }
-    }
-
     pub(crate) fn device_description(
         &self,
         index: usize,
     ) -> DeviceDescription<'static> {
-        // If `index` is in `0..OUR_DEVICES.len()`, return that device directly;
-        // otherwise, subtract `OUR_DEVICES.len()` to shift it into the range
-        // `0..VALIDATE_DEVICES.len()` and ask `validate`.
-        if index < OUR_DEVICES.len() {
-            OUR_DEVICES[index]
-        } else {
-            let index = index - OUR_DEVICES.len();
-            self.device_description_for_validate_device(index)
-        }
-    }
+        let index = match Index::from_overall_index(index) {
+            Index::OurDevice(i) => return OUR_DEVICES[i],
+            Index::ValidateDevice(i) => i,
+        };
 
-    fn device_description_for_validate_device(
-        &self,
-        index: usize,
-    ) -> DeviceDescription<'static> {
         let device = &VALIDATE_DEVICES[index];
 
         let presence = match self.validate_task.validate_i2c(index) {
@@ -178,6 +135,75 @@ impl Inventory {
             description: device.description,
             capabilities,
             presence,
+        }
+    }
+}
+
+// Our parent deals primarily in overall device indices (`0..num_devices()`),
+// but internally we partition that into `[OUR_DEVICES | VALIDATE_DEVICES]`.
+// This enum helps us avoid needing to mix adjustment between partitioned
+// and not partitioned indices in `Inventory` above.
+#[derive(Debug, Clone, Copy)]
+enum Index {
+    // A device described by the `OUR_DEVICES` array (i.e., special components
+    // that we and MGS know about).
+    OurDevice(usize),
+    // A device described by the `VALIDATE_DEVICES` array (i.e., generic
+    // components that are enumerated at compile time into validate-api).
+    ValidateDevice(usize),
+}
+
+impl Index {
+    /// Convert from an overall index (`0..num_devices()`) into our partitioned
+    /// space.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `idx` is past the end of our total component count.
+    fn from_overall_index(idx: usize) -> Self {
+        if idx < OUR_DEVICES.len() {
+            Self::OurDevice(idx)
+        } else {
+            let idx = idx - OUR_DEVICES.len();
+            if idx < VALIDATE_DEVICES.len() {
+                Self::ValidateDevice(idx)
+            } else {
+                panic!()
+            }
+        }
+    }
+}
+
+impl TryFrom<&'_ SpComponent> for Index {
+    type Error = SpError;
+
+    fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
+        if component
+            .id
+            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
+        {
+            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
+            // it's safe to slice into the string at that index.
+            let id = component
+                .as_str()
+                .ok_or(SpError::RequestUnsupportedForComponent)?;
+            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
+
+            let index = suffix
+                .parse::<usize>()
+                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
+            if index < VALIDATE_DEVICES.len() {
+                Ok(Self::ValidateDevice(index))
+            } else {
+                Err(SpError::RequestUnsupportedForComponent)
+            }
+        } else {
+            for (i, d) in OUR_DEVICES.iter().enumerate() {
+                if *component == d.component {
+                    return Ok(Self::OurDevice(i));
+                }
+            }
+            Err(SpError::RequestUnsupportedForComponent)
         }
     }
 }
