@@ -12,7 +12,7 @@ use gateway_messages::{
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
-use task_validate_api::{Sensor, SensorId, DEVICES as VALIDATE_DEVICES};
+use task_validate_api::{Sensor, DEVICES as VALIDATE_DEVICES};
 use task_validate_api::{Validate, ValidateError, ValidateOk};
 use userlib::UnwrapLite;
 
