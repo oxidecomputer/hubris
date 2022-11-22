@@ -4,8 +4,8 @@
 
 use crate::{
     mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
-    update::sp::SpUpdate, update::ComponentUpdater, usize_max,
-    vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
+    update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
+    usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -77,6 +77,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
     sp_update: SpUpdate,
+    rot_update: RotUpdate,
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
@@ -101,6 +102,7 @@ impl MgsHandler {
             host_flash_update: HostFlashUpdate::new(),
             host_phase2: HostPhase2Requester::claim_static_resources(),
             sp_update: SpUpdate::new(),
+            rot_update: RotUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
             startup_options,
@@ -508,6 +510,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
+            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -531,6 +534,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
+            SpComponent::ROT => {
+                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -553,6 +559,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
+            SpComponent::ROT => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -580,6 +587,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
+            SpComponent::ROT => self.rot_update.abort(&id),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }

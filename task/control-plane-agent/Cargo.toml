@@ -26,6 +26,7 @@ drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], opt
 drv-stm32xx-uid = { path = "../../drv/stm32xx-uid", features = ["family-stm32h7"] }
 drv-update-api = { path = "../../drv/update-api" }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
+#lpc55_romapi = { path = "../../lib/lpc55-romapi" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
