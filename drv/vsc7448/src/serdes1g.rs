@@ -139,4 +139,15 @@ impl Config {
 
         Ok(())
     }
+
+    /// Brings down the given SERDES by enabling IDLE mode
+    pub fn down(instance: u8, v: &impl Vsc7448Rw) -> Result<(), VscError> {
+        serdes1g_read(v, instance)?;
+        let ana_cfg = HSIO().SERDES1G_ANA_CFG();
+        v.modify(ana_cfg.SERDES1G_SER_CFG(), |r| {
+            r.set_ser_idle(1);
+        })?;
+        serdes1g_write(v, instance)?;
+        Ok(())
+    }
 }
