@@ -6,7 +6,9 @@ use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_monorail_api::Monorail;
 use drv_sidecar_seq_api::Sequencer;
-use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
+use gateway_messages::sp_impl::{
+    BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
+};
 use gateway_messages::{
     BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
@@ -368,8 +370,13 @@ impl SpHandler for MgsHandler {
         self.common.inventory().num_devices() as u32
     }
 
-    fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
-        self.common.inventory().device_description(index as usize)
+    /// When this method is called by `handle_message`, `index` has been bounds
+    /// checked and is guaranteed to be in the range `0..num_devices()`.
+    fn device_description(
+        &mut self,
+        index: BoundsChecked,
+    ) -> DeviceDescription<'_> {
+        self.common.inventory().device_description(index)
     }
 
     fn num_component_details(
@@ -388,10 +395,13 @@ impl SpHandler for MgsHandler {
         }
     }
 
+    /// When this method is called by `handle_message`, `index` has been bounds
+    /// checked and is guaranteed to be in the range
+    /// `0..num_component_details(_, _, component)`.
     fn component_details(
         &mut self,
         component: SpComponent,
-        index: u32,
+        index: BoundsChecked,
     ) -> ComponentDetails {
         match component {
             SpComponent::VSC7448 => ComponentDetails::PortStatus(

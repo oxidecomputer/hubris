@@ -11,7 +11,9 @@ use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
-use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
+use gateway_messages::sp_impl::{
+    BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
+};
 use gateway_messages::{
     BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
@@ -588,8 +590,11 @@ impl SpHandler for MgsHandler {
         self.common.inventory().num_devices() as u32
     }
 
-    fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
-        self.common.inventory().device_description(index as usize)
+    fn device_description(
+        &mut self,
+        index: BoundsChecked,
+    ) -> DeviceDescription<'_> {
+        self.common.inventory().device_description(index)
     }
 
     fn get_startup_options(
@@ -631,7 +636,7 @@ impl SpHandler for MgsHandler {
     fn component_details(
         &mut self,
         component: SpComponent,
-        index: u32,
+        index: BoundsChecked,
     ) -> ComponentDetails {
         self.common.inventory().component_details(&component, index)
     }

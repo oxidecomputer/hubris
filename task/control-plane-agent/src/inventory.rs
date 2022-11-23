@@ -6,9 +6,9 @@ use core::fmt::{self, Write};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
+use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
 use gateway_messages::{
-    sp_impl::DeviceDescription, ComponentDetails, DeviceCapabilities,
-    DevicePresence, SpComponent, SpError,
+    ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
@@ -53,20 +53,21 @@ impl Inventory {
     pub(crate) fn component_details(
         &self,
         component: &SpComponent,
-        component_index: u32,
+        component_index: BoundsChecked,
     ) -> ComponentDetails {
-        // We should only be called if we returned `Ok(n)` with `n > 0` from
-        // `num_component_details()` with this same component, so we should only
-        // be called if (a) `Index::try_from(component)` succeeded and (b) the
-        // returned value was an `Index::ValidateDevice(i)` (with at least i+1
-        // sensors). We panic if we're called incorrectly.
+        // `component_index` is guaranteed to be in the range
+        // `0..num_component_details(component)`, and we only return a value
+        // greater than 0 from that method for indices in the VALIDATE_DEVICES
+        // range. We'll map the component back to an index back here and panic
+        // for the unreachable branches (an out of range index or an index in
+        // the `OurDevice(_)` subrange).
         let val_device_index = match Index::try_from(component) {
             Ok(Index::ValidateDevice(i)) => i,
             Ok(Index::OurDevice(_)) | Err(_) => panic!(),
         };
 
         let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
-            [component_index as usize];
+            [component_index.0 as usize];
 
         let value = self
             .sensor_task
@@ -82,9 +83,11 @@ impl Inventory {
 
     pub(crate) fn device_description(
         &self,
-        index: usize,
+        index: BoundsChecked,
     ) -> DeviceDescription<'static> {
-        let index = match Index::from_overall_index(index) {
+        // `index` is already bounds checked against our number of devices, so
+        // we can call `from_overall_index` without worrying about a panic.
+        let index = match Index::from_overall_index(index.0 as usize) {
             Index::OurDevice(i) => return OUR_DEVICES[i],
             Index::ValidateDevice(i) => i,
         };
