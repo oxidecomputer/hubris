@@ -200,6 +200,41 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceKey {
+    device: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceNameKey {
+    device: String,
+    name: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceBusKey {
+    device: String,
+    bus: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceBusNameKey {
+    device: String,
+    bus: String,
+    name: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceSensor {
+    pub name: Option<String>,
+    pub kind: Sensor,
+    pub id: usize,
+}
+
 #[derive(Debug)]
 struct I2cSensorsDescription {
     // In all multimaps below, the value is the sensor ID. The same sensor ID
@@ -208,19 +243,14 @@ struct I2cSensorsDescription {
     // All sensors are guaranteed to be present in `by_device`, but
     // may not be present in the other maps (devices may or may not have a
     // name/bus in app.toml).
-
-    // key: (device, kind)
-    by_device: MultiMap<(String, Sensor), usize>,
-    // key: (device, name, kind)
-    by_name: MultiMap<(String, String, Sensor), usize>,
-    // key: (device, bus, kind)
-    by_bus: MultiMap<(String, String, Sensor), usize>,
-    // key: (device, bus, name, kind)
-    by_bus_name: MultiMap<(String, String, String, Sensor), usize>,
+    by_device: MultiMap<DeviceKey, usize>,
+    by_name: MultiMap<DeviceNameKey, usize>,
+    by_bus: MultiMap<DeviceBusKey, usize>,
+    by_bus_name: MultiMap<DeviceBusNameKey, usize>,
 
     // list of all devices and a list of their sensors, with an optional sensor
     // name (if present)
-    device_sensors: Vec<Vec<(Option<String>, Sensor, usize)>>,
+    device_sensors: Vec<Vec<DeviceSensor>>,
 
     total_sensors: usize,
 }
@@ -306,22 +336,47 @@ impl I2cSensorsDescription {
         };
 
         if let Some(bus) = &d.bus {
-            self.by_bus.insert((d.device.clone(), bus.clone(), kind), id);
+            self.by_bus.insert(
+                DeviceBusKey {
+                    device: d.device.clone(),
+                    bus: bus.clone(),
+                    kind,
+                },
+                id,
+            );
 
             if let Some(ref name) = name {
                 self.by_bus_name.insert(
-                    (d.device.clone(), bus.clone(), name.clone(), kind),
+                    DeviceBusNameKey {
+                        device: d.device.clone(),
+                        bus: bus.clone(),
+                        name: name.clone(),
+                        kind,
+                    },
                     id,
                 );
             }
         }
 
         if let Some(name) = name.clone() {
-            self.by_name.insert((d.device.clone(), name, kind), id);
+            self.by_name.insert(
+                DeviceNameKey {
+                    device: d.device.clone(),
+                    name,
+                    kind,
+                },
+                id,
+            );
         }
 
-        self.by_device.insert((d.device.clone(), kind), id);
-        self.device_sensors[dev_index].push((name, kind, id));
+        self.by_device.insert(
+            DeviceKey {
+                device: d.device.clone(),
+                kind,
+            },
+            id,
+        );
+        self.device_sensors[dev_index].push(DeviceSensor { name, kind, id });
     }
 }
 
@@ -1192,28 +1247,28 @@ impl ConfigGenerator {
             s.total_sensors
         )?;
 
-        for ((device, kind), ids) in s.by_device.iter_all() {
-            self.emit_sensor(device, &format!("{}", kind), ids)?;
+        for (k, ids) in s.by_device.iter_all() {
+            self.emit_sensor(&k.device, &format!("{}", k.kind), ids)?;
         }
 
-        for ((device, name, kind), ids) in s.by_name.iter_all() {
-            let label = format!("{}_{}", name.to_uppercase(), kind);
-            self.emit_sensor(device, &label, ids)?;
+        for (k, ids) in s.by_name.iter_all() {
+            let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
-        for ((device, bus, kind), ids) in s.by_bus.iter_all() {
-            let label = format!("{}_{}", bus.to_uppercase(), kind);
-            self.emit_sensor(device, &label, ids)?;
+        for (k, ids) in s.by_bus.iter_all() {
+            let label = format!("{}_{}", k.bus.to_uppercase(), k.kind);
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
-        for ((device, bus, name, kind), ids) in s.by_bus_name.iter_all() {
+        for (k, ids) in s.by_bus_name.iter_all() {
             let label = format!(
                 "{}_{}_{}",
-                bus.to_uppercase(),
-                name.to_uppercase(),
-                kind
+                k.bus.to_uppercase(),
+                k.name.to_uppercase(),
+                k.kind
             );
-            self.emit_sensor(device, &label, ids)?;
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
         writeln!(&mut self.output, "\n    }}")?;
@@ -1306,8 +1361,7 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
-    // (name, kind, id)
-    pub sensors: Vec<(Option<String>, Sensor, usize)>,
+    pub sensors: Vec<DeviceSensor>,
 }
 
 ///
