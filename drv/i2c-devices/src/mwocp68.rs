@@ -4,7 +4,9 @@
 
 //! MWOCP68-3600 Murata power shelf
 
-use crate::{CurrentSensor, Validate, VoltageSensor};
+use crate::{
+    pmbus_validate, BadValidation, CurrentSensor, Validate, VoltageSensor,
+};
 use core::cell::Cell;
 use drv_i2c_api::*;
 use pmbus::commands::mwocp68::*;
@@ -30,6 +32,15 @@ pub enum Error {
     BadData { cmd: u8 },
     BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
+}
+
+impl From<BadValidation> for Error {
+    fn from(value: BadValidation) -> Self {
+        Self::BadValidation {
+            cmd: value.cmd,
+            code: value.code,
+        }
+    }
 }
 
 impl From<Error> for ResponseCode {
@@ -105,8 +116,9 @@ impl Mwocp68 {
 
 impl Validate<Error> for Mwocp68 {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = *b"MWOCP68-3600-D-RM";
-        pmbus_validate!(device, MFR_MODEL, expected)
+        let expected = b"MWOCP68-3600-D-RM";
+        pmbus_validate(device, CommandCode::MFR_MODEL, expected)
+            .map_err(Into::into)
     }
 }
 
