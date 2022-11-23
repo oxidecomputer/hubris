@@ -206,9 +206,18 @@ task-slots = [
     "hf",
     "gimlet_seq",
     "validate",
+    "sensor",
 ]
 features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
 interrupts = {"usart1.irq" = 0b10}
+
+[tasks.sensor]
+name = "task-sensor"
+features = ["itm"]
+priority = 5
+max-sizes = {flash = 8192, ram = 4096 }
+stacksize = 3800        # Sensor data is stored on the stack
+start = true
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

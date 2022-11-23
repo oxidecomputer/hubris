@@ -200,9 +200,183 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
-impl I2cSensors {
-    fn num_sensors(&self) -> usize {
-        self.temperature + self.power + self.current + self.voltage + self.speed
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceKey {
+    device: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceNameKey {
+    device: String,
+    name: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceBusKey {
+    device: String,
+    bus: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct DeviceBusNameKey {
+    device: String,
+    bus: String,
+    name: String,
+    kind: Sensor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceSensor {
+    pub name: Option<String>,
+    pub kind: Sensor,
+    pub id: usize,
+}
+
+#[derive(Debug)]
+struct I2cSensorsDescription {
+    // In all multimaps below, the value is the sensor ID. The same sensor ID
+    // can show up in multiple (including all!) of these maps.
+    //
+    // All sensors are guaranteed to be present in `by_device`, but
+    // may not be present in the other maps (devices may or may not have a
+    // name/bus in app.toml).
+    by_device: MultiMap<DeviceKey, usize>,
+    by_name: MultiMap<DeviceNameKey, usize>,
+    by_bus: MultiMap<DeviceBusKey, usize>,
+    by_bus_name: MultiMap<DeviceBusNameKey, usize>,
+
+    // list of all devices and a list of their sensors, with an optional sensor
+    // name (if present)
+    device_sensors: Vec<Vec<DeviceSensor>>,
+
+    total_sensors: usize,
+}
+
+impl I2cSensorsDescription {
+    fn new(devices: &[I2cDevice]) -> Self {
+        let mut desc = Self {
+            by_device: MultiMap::with_capacity(devices.len()),
+            by_name: MultiMap::new(),
+            by_bus: MultiMap::new(),
+            by_bus_name: MultiMap::new(),
+            device_sensors: vec![Vec::new(); devices.len()],
+            total_sensors: 0,
+        };
+
+        for (d_index, d) in devices.iter().enumerate() {
+            if let Some(s) = &d.sensors {
+                for i in 0..s.temperature {
+                    desc.add_sensor(Sensor::Temperature, d, i, d_index);
+                }
+
+                for i in 0..s.power {
+                    desc.add_sensor(Sensor::Power, d, i, d_index);
+                }
+
+                for i in 0..s.current {
+                    desc.add_sensor(Sensor::Current, d, i, d_index);
+                }
+
+                for i in 0..s.voltage {
+                    desc.add_sensor(Sensor::Voltage, d, i, d_index);
+                }
+
+                for i in 0..s.speed {
+                    desc.add_sensor(Sensor::Speed, d, i, d_index);
+                }
+            }
+        }
+
+        desc
+    }
+
+    // `idx` is the index of the type of sensor within `d` (the idx-th
+    // temperature sensor or the idx-th power sensor, etc.; see the loop in
+    // `new()` above).
+    //
+    // `dev_index` is the index of `d` within the total list of devices.
+    //
+    // This method should only be called by `new()`. It fills out `self`'s
+    // fields as it is being constructed.
+    fn add_sensor(
+        &mut self,
+        kind: Sensor,
+        d: &I2cDevice,
+        idx: usize,
+        dev_index: usize,
+    ) {
+        let id = self.total_sensors;
+        self.total_sensors += 1;
+
+        let name: Option<String> = if let Some(power) = d.power_for_kind(kind) {
+            if let Some(rails) = &power.rails {
+                if idx < rails.len() {
+                    Some(rails[idx].clone())
+                } else {
+                    panic!("sensor count exceeds rails for {:?}", d);
+                }
+            } else {
+                d.name.clone()
+            }
+        } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
+            if idx >= names.len() {
+                panic!(
+                    "name array is too short ({}) for sensor index ({})",
+                    names.len(),
+                    idx
+                );
+            } else {
+                Some(names[idx].clone())
+            }
+        } else {
+            d.name.clone()
+        };
+
+        if let Some(bus) = &d.bus {
+            self.by_bus.insert(
+                DeviceBusKey {
+                    device: d.device.clone(),
+                    bus: bus.clone(),
+                    kind,
+                },
+                id,
+            );
+
+            if let Some(ref name) = name {
+                self.by_bus_name.insert(
+                    DeviceBusNameKey {
+                        device: d.device.clone(),
+                        bus: bus.clone(),
+                        name: name.clone(),
+                        kind,
+                    },
+                    id,
+                );
+            }
+        }
+
+        if let Some(name) = name.clone() {
+            self.by_name.insert(
+                DeviceNameKey {
+                    device: d.device.clone(),
+                    name,
+                    kind,
+                },
+                id,
+            );
+        }
+
+        self.by_device.insert(
+            DeviceKey {
+                device: d.device.clone(),
+                kind,
+            },
+            id,
+        );
+        self.device_sensors[dev_index].push(DeviceSensor { name, kind, id });
     }
 }
 
@@ -226,7 +400,7 @@ pub enum Disposition {
 
 #[derive(Copy, Clone, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
-enum Sensor {
+pub enum Sensor {
     Temperature,
     Power,
     Current,
@@ -738,19 +912,19 @@ impl ConfigGenerator {
         //
         // Throw all devices into a MultiMap based on device.
         //
-        let mut bydevice = MultiMap::new();
-        let mut byname = HashMap::new();
-        let mut bybus = MultiMap::new();
+        let mut by_device = MultiMap::new();
+        let mut by_name = HashMap::new();
+        let mut by_bus = MultiMap::new();
 
         for d in &self.devices {
-            bydevice.insert(&d.device, d);
+            by_device.insert(&d.device, d);
 
             if let Some(bus) = &d.bus {
-                bybus.insert((&d.device, bus), d);
+                by_bus.insert((&d.device, bus), d);
             }
 
             if let Some(name) = &d.name {
-                if byname.insert((&d.device, name), d).is_some() {
+                if by_name.insert((&d.device, name), d).is_some() {
                     panic!("duplicate name {} for device {}", name, d.device)
                 }
             }
@@ -765,7 +939,7 @@ impl ConfigGenerator {
 "##
         )?;
 
-        for (device, devices) in bydevice.iter_all() {
+        for (device, devices) in by_device.iter_all() {
             write!(
                 &mut self.output,
                 r##"
@@ -789,7 +963,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, bus), devices) in bybus.iter_all() {
+        for ((device, bus), devices) in by_bus.iter_all() {
             write!(
                 &mut self.output,
                 r##"
@@ -813,7 +987,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, name), d) in &byname {
+        for ((device, name), d) in &by_name {
             write!(
                 &mut self.output,
                 r##"
@@ -1054,86 +1228,12 @@ impl ConfigGenerator {
         Ok(())
     }
 
+    fn sensors_description(&self) -> I2cSensorsDescription {
+        I2cSensorsDescription::new(&self.devices)
+    }
+
     pub fn generate_sensors(&mut self) -> Result<()> {
-        let mut bydevice = MultiMap::new();
-        let mut byname = MultiMap::new();
-        let mut bybus = MultiMap::new();
-        let mut bybusname = MultiMap::new();
-        let mut bykind = MultiMap::new();
-
-        let mut sensors = vec![];
-
-        let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
-            let id = sensors.len();
-            sensors.push(kind);
-
-            let name: Option<String> =
-                if let Some(power) = d.power_for_kind(kind) {
-                    if let Some(rails) = &power.rails {
-                        if idx < rails.len() {
-                            Some(rails[idx].clone())
-                        } else {
-                            panic!("sensor count exceeds rails for {:?}", d);
-                        }
-                    } else {
-                        d.name.clone()
-                    }
-                } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
-                    if idx >= names.len() {
-                        panic!(
-                        "name array is too short ({}) for sensor index ({})",
-                        names.len(),
-                        idx
-                    );
-                    } else {
-                        Some(names[idx].clone())
-                    }
-                } else {
-                    d.name.clone()
-                };
-
-            if let Some(bus) = &d.bus {
-                bybus.insert((d.device.clone(), bus.clone(), kind), id);
-
-                if let Some(ref name) = name {
-                    bybusname.insert(
-                        (d.device.clone(), bus.clone(), name.clone(), kind),
-                        id,
-                    );
-                }
-            }
-
-            if let Some(name) = name {
-                byname.insert((d.device.clone(), name, kind), id);
-            }
-
-            bydevice.insert((d.device.clone(), kind), id);
-            bykind.insert(kind, id);
-        };
-
-        for d in &self.devices {
-            if let Some(s) = &d.sensors {
-                for i in 0..s.temperature {
-                    add_sensor(Sensor::Temperature, d, i);
-                }
-
-                for i in 0..s.power {
-                    add_sensor(Sensor::Power, d, i);
-                }
-
-                for i in 0..s.current {
-                    add_sensor(Sensor::Current, d, i);
-                }
-
-                for i in 0..s.voltage {
-                    add_sensor(Sensor::Voltage, d, i);
-                }
-
-                for i in 0..s.speed {
-                    add_sensor(Sensor::Speed, d, i);
-                }
-            }
-        }
+        let s = self.sensors_description();
 
         write!(
             &mut self.output,
@@ -1144,31 +1244,31 @@ impl ConfigGenerator {
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};
 "##,
-            sensors.len()
+            s.total_sensors
         )?;
 
-        for ((device, kind), ids) in bydevice.iter_all() {
-            self.emit_sensor(device, &format!("{}", kind), ids)?;
+        for (k, ids) in s.by_device.iter_all() {
+            self.emit_sensor(&k.device, &format!("{}", k.kind), ids)?;
         }
 
-        for ((device, name, kind), ids) in byname.iter_all() {
-            let label = format!("{}_{}", name.to_uppercase(), kind);
-            self.emit_sensor(device, &label, ids)?;
+        for (k, ids) in s.by_name.iter_all() {
+            let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
-        for ((device, bus, kind), ids) in bybus.iter_all() {
-            let label = format!("{}_{}", bus.to_uppercase(), kind);
-            self.emit_sensor(device, &label, ids)?;
+        for (k, ids) in s.by_bus.iter_all() {
+            let label = format!("{}_{}", k.bus.to_uppercase(), k.kind);
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
-        for ((device, bus, name, kind), ids) in bybusname.iter_all() {
+        for (k, ids) in s.by_bus_name.iter_all() {
             let label = format!(
                 "{}_{}_{}",
-                bus.to_uppercase(),
-                name.to_uppercase(),
-                kind
+                k.bus.to_uppercase(),
+                k.name.to_uppercase(),
+                k.kind
             );
-            self.emit_sensor(device, &label, ids)?;
+            self.emit_sensor(&k.device, &label, ids)?;
         }
 
         writeln!(&mut self.output, "\n    }}")?;
@@ -1261,7 +1361,7 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
-    pub num_measurement_channels: usize,
+    pub sensors: Vec<DeviceSensor>,
 }
 
 ///
@@ -1272,15 +1372,17 @@ pub struct I2cDeviceDescription {
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     let g = ConfigGenerator::new(Disposition::Validation);
+    let sensors = g.sensors_description();
+
+    assert_eq!(sensors.device_sensors.len(), g.devices.len());
 
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
-    g.devices.into_iter().map(|device| I2cDeviceDescription {
-        device: device.device,
-        description: device.description,
-        num_measurement_channels: device
-            .sensors
-            .as_ref()
-            .map_or(0, I2cSensors::num_sensors),
-    })
+    g.devices.into_iter().zip(sensors.device_sensors).map(
+        |(device, sensors)| I2cDeviceDescription {
+            device: device.device,
+            description: device.description,
+            sensors,
+        },
+    )
 }

@@ -4,7 +4,6 @@
 
 use crate::{inventory::Inventory, Log, MgsMessage};
 use core::convert::Infallible;
-use gateway_messages::sp_impl::DeviceDescription;
 use gateway_messages::{
     DiscoverResponse, PowerState, SpError, SpPort, SpState,
 };
@@ -81,25 +80,8 @@ impl MgsCommon {
         panic!()
     }
 
-    /// Number of devices returned in the inventory of this SP.
-    pub(crate) fn inventory_num_devices(&self) -> u32 {
-        self.inventory.num_devices() as u32
-    }
-
-    /// Get the description for the given device.
-    ///
-    /// This function should never fail, as the device inventory should be
-    /// static. Acquiring the presence of a device may fail, but that should be
-    /// indicated inline via the returned description's `presence` field.
-    ///
-    /// # Panics
-    ///
-    /// Implementors are allowed to panic if `index` is not in range (i.e., is
-    /// greater than or equal to the value returned by `num_devices()`).
-    pub(crate) fn inventory_device_description(
-        &mut self,
-        index: usize,
-    ) -> DeviceDescription<'_> {
-        self.inventory.device_description(index)
+    #[inline(always)]
+    pub(crate) fn inventory(&self) -> &Inventory {
+        &self.inventory
     }
 }

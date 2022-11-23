@@ -3,17 +3,25 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::fmt::{self, Write};
-use gateway_messages::{
-    sp_impl::DeviceDescription, DeviceCapabilities, DevicePresence, SpComponent,
+use gateway_messages::measurement::{
+    Measurement, MeasurementError, MeasurementKind,
 };
-use task_validate_api::DEVICES as VALIDATE_DEVICES;
+use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
+use gateway_messages::{
+    ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
+};
+use task_sensor_api::Sensor as SensorTask;
+use task_sensor_api::SensorError;
+use task_validate_api::{Sensor, DEVICES as VALIDATE_DEVICES};
 use task_validate_api::{Validate, ValidateError, ValidateOk};
 use userlib::UnwrapLite;
 
 userlib::task_slot!(VALIDATE, validate);
+userlib::task_slot!(SENSOR, sensor);
 
 pub(crate) struct Inventory {
     validate_task: Validate,
+    sensor_task: SensorTask,
 }
 
 impl Inventory {
@@ -22,6 +30,7 @@ impl Inventory {
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
+            sensor_task: SensorTask::from(SENSOR.get_task_id()),
         }
     }
 
@@ -29,25 +38,60 @@ impl Inventory {
         OUR_DEVICES.len() + VALIDATE_DEVICES.len()
     }
 
-    pub(crate) fn device_description(
+    pub(crate) fn num_component_details(
         &self,
-        index: usize,
-    ) -> DeviceDescription<'static> {
-        // If `index` is in `0..OUR_DEVICES.len()`, return that device directly;
-        // otherwise, subtract `OUR_DEVICES.len()` to shift it into the range
-        // `0..VALIDATE_DEVICES.len()` and ask `validate`.
-        if index < OUR_DEVICES.len() {
-            OUR_DEVICES[index]
-        } else {
-            let index = index - OUR_DEVICES.len();
-            self.device_description_for_validate_device(index)
+        component: &SpComponent,
+    ) -> Result<u32, SpError> {
+        match Index::try_from(component)? {
+            Index::OurDevice(_) => Ok(0),
+            Index::ValidateDevice(i) => {
+                Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
+            }
         }
     }
 
-    fn device_description_for_validate_device(
+    pub(crate) fn component_details(
         &self,
-        index: usize,
+        component: &SpComponent,
+        component_index: BoundsChecked,
+    ) -> ComponentDetails {
+        // `component_index` is guaranteed to be in the range
+        // `0..num_component_details(component)`, and we only return a value
+        // greater than 0 from that method for indices in the VALIDATE_DEVICES
+        // range. We'll map the component back to an index back here and panic
+        // for the unreachable branches (an out of range index or an index in
+        // the `OurDevice(_)` subrange).
+        let val_device_index = match Index::try_from(component) {
+            Ok(Index::ValidateDevice(i)) => i,
+            Ok(Index::OurDevice(_)) | Err(_) => panic!(),
+        };
+
+        let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
+            [component_index.0 as usize];
+
+        let value = self
+            .sensor_task
+            .get(sensor_description.id)
+            .map_err(|err| SensorErrorConvert(err).into());
+
+        ComponentDetails::Measurement(Measurement {
+            name: sensor_description.name.unwrap_or(""),
+            kind: MeasurementKindConvert(sensor_description.kind).into(),
+            value,
+        })
+    }
+
+    pub(crate) fn device_description(
+        &self,
+        index: BoundsChecked,
     ) -> DeviceDescription<'static> {
+        // `index` is already bounds checked against our number of devices, so
+        // we can call `from_overall_index` without worrying about a panic.
+        let index = match Index::from_overall_index(index.0 as usize) {
+            Index::OurDevice(i) => return OUR_DEVICES[i],
+            Index::ValidateDevice(i) => i,
+        };
+
         let device = &VALIDATE_DEVICES[index];
 
         let presence = match self.validate_task.validate_i2c(index) {
@@ -80,7 +124,7 @@ impl Inventory {
         .unwrap_lite();
 
         let mut capabilities = DeviceCapabilities::empty();
-        if device.num_measurement_channels > 0 {
+        if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {
@@ -89,6 +133,75 @@ impl Inventory {
             description: device.description,
             capabilities,
             presence,
+        }
+    }
+}
+
+// Our parent deals primarily in overall device indices (`0..num_devices()`),
+// but internally we partition that into `[OUR_DEVICES | VALIDATE_DEVICES]`.
+// This enum helps us avoid needing to mix adjustment between partitioned
+// and not partitioned indices in `Inventory` above.
+#[derive(Debug, Clone, Copy)]
+enum Index {
+    // A device described by the `OUR_DEVICES` array (i.e., special components
+    // that we and MGS know about).
+    OurDevice(usize),
+    // A device described by the `VALIDATE_DEVICES` array (i.e., generic
+    // components that are enumerated at compile time into validate-api).
+    ValidateDevice(usize),
+}
+
+impl Index {
+    /// Convert from an overall index (`0..num_devices()`) into our partitioned
+    /// space.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `idx` is past the end of our total component count.
+    fn from_overall_index(idx: usize) -> Self {
+        if idx < OUR_DEVICES.len() {
+            Self::OurDevice(idx)
+        } else {
+            let idx = idx - OUR_DEVICES.len();
+            if idx < VALIDATE_DEVICES.len() {
+                Self::ValidateDevice(idx)
+            } else {
+                panic!()
+            }
+        }
+    }
+}
+
+impl TryFrom<&'_ SpComponent> for Index {
+    type Error = SpError;
+
+    fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
+        if component
+            .id
+            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
+        {
+            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
+            // it's safe to slice into the string at that index.
+            let id = component
+                .as_str()
+                .ok_or(SpError::RequestUnsupportedForComponent)?;
+            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
+
+            let index = suffix
+                .parse::<usize>()
+                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
+            if index < VALIDATE_DEVICES.len() {
+                Ok(Self::ValidateDevice(index))
+            } else {
+                Err(SpError::RequestUnsupportedForComponent)
+            }
+        } else {
+            for (i, d) in OUR_DEVICES.iter().enumerate() {
+                if *component == d.component {
+                    return Ok(Self::OurDevice(i));
+                }
+            }
+            Err(SpError::RequestUnsupportedForComponent)
         }
     }
 }
@@ -275,5 +388,35 @@ const fn assert_each_device_tlv_fits_in_one_packet() {
             OUR_DEVICES[i].description,
         );
         i += 1;
+    }
+}
+
+struct MeasurementKindConvert(Sensor);
+
+impl From<MeasurementKindConvert> for MeasurementKind {
+    fn from(value: MeasurementKindConvert) -> Self {
+        match value.0 {
+            Sensor::Temperature => Self::Temperature,
+            Sensor::Power => Self::Power,
+            Sensor::Current => Self::Current,
+            Sensor::Voltage => Self::Voltage,
+            Sensor::Speed => Self::Speed,
+        }
+    }
+}
+
+struct SensorErrorConvert(SensorError);
+
+impl From<SensorErrorConvert> for MeasurementError {
+    fn from(value: SensorErrorConvert) -> Self {
+        match value.0 {
+            SensorError::InvalidSensor => Self::InvalidSensor,
+            SensorError::NoReading => Self::NoReading,
+            SensorError::NotPresent => Self::NotPresent,
+            SensorError::DeviceError => Self::DeviceError,
+            SensorError::DeviceUnavailable => Self::DeviceUnavailable,
+            SensorError::DeviceTimeout => Self::DeviceTimeout,
+            SensorError::DeviceOff => Self::DeviceOff,
+        }
     }
 }

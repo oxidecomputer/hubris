@@ -163,6 +163,7 @@ task-slots = [
     "auxflash",
     "validate",
     "monorail",
+    "sensor",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 

@@ -5,7 +5,9 @@
 use core::convert::Infallible;
 
 use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
-use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
+use gateway_messages::sp_impl::{
+    BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
+};
 use gateway_messages::{
     BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
@@ -327,11 +329,14 @@ impl SpHandler for MgsHandler {
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
-        self.common.inventory_num_devices() as u32
+        self.common.inventory().num_devices() as u32
     }
 
-    fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
-        self.common.inventory_device_description(index as usize)
+    fn device_description(
+        &mut self,
+        index: BoundsChecked,
+    ) -> DeviceDescription<'_> {
+        self.common.inventory().device_description(index)
     }
 
     fn num_component_details(
@@ -344,20 +349,15 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        // TODO: Wire up any component info we can (sensor measurements, etc)
-        match component {
-            _ => Err(SpError::RequestUnsupportedForComponent),
-        }
+        self.common.inventory().num_component_details(&component)
     }
 
     fn component_details(
         &mut self,
-        _component: SpComponent,
-        _index: u32,
+        component: SpComponent,
+        index: BoundsChecked,
     ) -> ComponentDetails {
-        // We never return successfully from `num_component_details()`, so this
-        // function should never be called.
-        panic!()
+        self.common.inventory().component_details(&component, index)
     }
 
     fn get_startup_options(

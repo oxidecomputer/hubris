@@ -1939,7 +1939,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#559e27ab7837129e61c47afb1d7ba37c4231c792"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#38d936ed830b23fac6f6ab23f68d6aaceceb1afd"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -3731,6 +3731,7 @@ dependencies = [
  "task-control-plane-agent-api",
  "task-jefe-api",
  "task-net-api",
+ "task-sensor-api",
  "task-validate-api",
  "update-buffer",
  "userlib",
@@ -4208,6 +4209,7 @@ dependencies = [
  "drv-i2c-api",
  "idol",
  "num-traits",
+ "task-sensor-api",
  "userlib",
  "zerocopy",
 ]

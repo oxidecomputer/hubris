@@ -33,11 +33,15 @@ fn write_pub_device_descriptions() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        writeln!(
-            file,
-            "        num_measurement_channels: {:?},",
-            dev.num_measurement_channels
-        )?;
+        writeln!(file, "        sensors: &[")?;
+        for s in dev.sensors {
+            writeln!(file, "            SensorDescription {{")?;
+            writeln!(file, "                name: {:?},", s.name)?;
+            writeln!(file, "                kind: Sensor::{:?},", s.kind)?;
+            writeln!(file, "                id: SensorId({}),", s.id)?;
+            writeln!(file, "            }},")?;
+        }
+        writeln!(file, "        ],")?;
         writeln!(file, "    }},")?;
     }
 

@@ -6,7 +6,9 @@ use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_monorail_api::Monorail;
 use drv_sidecar_seq_api::Sequencer;
-use gateway_messages::sp_impl::{DeviceDescription, SocketAddrV6, SpHandler};
+use gateway_messages::sp_impl::{
+    BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
+};
 use gateway_messages::{
     BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
@@ -365,11 +367,16 @@ impl SpHandler for MgsHandler {
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
-        self.common.inventory_num_devices() as u32
+        self.common.inventory().num_devices() as u32
     }
 
-    fn device_description(&mut self, index: u32) -> DeviceDescription<'_> {
-        self.common.inventory_device_description(index as usize)
+    /// When this method is called by `handle_message`, `index` has been bounds
+    /// checked and is guaranteed to be in the range `0..num_devices()`.
+    fn device_description(
+        &mut self,
+        index: BoundsChecked,
+    ) -> DeviceDescription<'_> {
+        self.common.inventory().device_description(index)
     }
 
     fn num_component_details(
@@ -384,24 +391,23 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::VSC7448 => Ok(NUM_VSC7448_PORTS),
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            _ => self.common.inventory().num_component_details(&component),
         }
     }
 
+    /// When this method is called by `handle_message`, `index` has been bounds
+    /// checked and is guaranteed to be in the range
+    /// `0..num_component_details(_, _, component)`.
     fn component_details(
         &mut self,
         component: SpComponent,
-        index: u32,
+        index: BoundsChecked,
     ) -> ComponentDetails {
         match component {
             SpComponent::VSC7448 => ComponentDetails::PortStatus(
                 monorail_port_status::port_status(&self.monorail, index),
             ),
-            _ => {
-                // We never return successfully from `num_component_details()`,
-                // for any other component
-                panic!()
-            }
+            _ => self.common.inventory().component_details(&component, index),
         }
     }
 
