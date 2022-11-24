@@ -28,15 +28,21 @@ enum Trace {
     HandlerReturnSize(usize),
     Overrun(usize),
     Pio(bool),
+    PioOuterLoop,
+    PioInnerLoop,
     RotIrqAssert,
     RotIrqDeassert,
     Transmit(usize, usize),
     Underrun(usize),
+    SpuriousSpiInterrupt,
 }
 ringbuf!(Trace, 32, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
+
+// Notification mask for Flexcomm8 hs_spi IRQ; must match config in app.toml
+const SPI_IRQ: u32 = 1;
 
 // See drv/sprot-api/README.md
 // Messages are received from the Service Processor (SP) over a SPI interface.
@@ -154,6 +160,7 @@ fn main() -> ! {
         overrun: false,
         underrun: false,
     };
+
     let mut status = Status {
         supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
@@ -273,10 +280,12 @@ impl IO {
         // Track the state of chip select (CSn)
         let mut inframe = false;
         'outer: loop {
+            ringbuf_entry!(Trace::PioOuterLoop);
             // restart here on the one expected spurious interrupt.
-            sys_irq_control(1, true);
-            sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap_lite();
+            sys_irq_control(SPI_IRQ, true);
+            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
+                ringbuf_entry!(Trace::PioInnerLoop);
                 // Get frame start/end interrupt from intstat (SSA/SSD).
                 let intstat = self.spi.intstat();
                 let fifostat = self.spi.fifostat();
@@ -295,6 +304,7 @@ impl IO {
                     // These are only happening just after queuing a
                     // response.
                     // TODO: It would be nice to eliminate the spurious interrupt.
+                    ringbuf_entry!(Trace::SpuriousSpiInterrupt);
                     continue 'outer;
                 }
 

@@ -126,6 +126,12 @@ impl From<u8> for MsgError {
     }
 }
 
+impl From<hubpack::Error> for MsgError {
+    fn from(_: hubpack::Error) -> Self {
+        MsgError::Serialization
+    }
+}
+
 #[derive(
     Copy, Clone, FromBytes, AsBytes, Serialize, Deserialize, SerializedSize,
 )]
@@ -341,82 +347,7 @@ struct MsgHeader {
     len: u16,
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
-#[repr(C)]
-pub enum UpdateRspKind {
-    Ok = 1,
-    Value = 2,
-    Error = 3,
-    Unknown = 0xff,
-}
-
-impl From<u8> for UpdateRspKind {
-    fn from(kind: u8) -> Self {
-        match kind {
-            kind if kind == (UpdateRspKind::Ok as u8) => UpdateRspKind::Ok,
-            kind if kind == (UpdateRspKind::Value as u8) => {
-                UpdateRspKind::Value
-            }
-            kind if kind == (UpdateRspKind::Error as u8) => {
-                UpdateRspKind::Error
-            }
-            _ => UpdateRspKind::Unknown,
-        }
-    }
-}
-
-impl From<UpdateRspKind> for u8 {
-    fn from(kind: UpdateRspKind) -> Self {
-        match kind {
-            UpdateRspKind::Ok => UpdateRspKind::Ok as u8,
-            UpdateRspKind::Value => UpdateRspKind::Value as u8,
-            UpdateRspKind::Error => UpdateRspKind::Error as u8,
-            _ => UpdateRspKind::Unknown as u8,
-        }
-    }
-}
-
-#[derive(
-    Copy, Clone, Serialize, Deserialize, SerializedSize, Eq, PartialEq,
-)]
-#[repr(C, packed)]
-pub struct UpdateRspHeader {
-    pub kind: UpdateRspKind,
-    pub value: u32, // unused, value, or error code depending on kind.
-}
-
-// Hubpack doesn't serialize Option or Result but that's
-// what we want.
-// Map the various Update api results to a signle struct
-// that hubpack can handle.
-// match Result<(), UpdateError> {
-//  Ok(()) => { new(None, None) },
-//  Err(err) => { new(None, err.into()) },
-// match Result<u32, UpdateError> {
-//  Ok(block_size) => { new(Some(block_size), None) },
-//  Err(err) => { new(None, err.into()) },
-impl UpdateRspHeader {
-    pub fn new(arg: Option<u32>, err: Option<u32>) -> Self {
-        match err {
-            None => match arg {
-                None => Self {
-                    kind: UpdateRspKind::Ok,
-                    value: 0,
-                },
-                Some(value) => Self {
-                    kind: UpdateRspKind::Value,
-                    value,
-                },
-            },
-            Some(error) => Self {
-                kind: UpdateRspKind::Error,
-                value: error,
-            },
-        }
-    }
-}
+pub type UpdateRspHeader = Result<Option<u32>, u32>;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
 pub const HEADER_SIZE: usize = <MsgHeader as SerializedSize>::MAX_SIZE;

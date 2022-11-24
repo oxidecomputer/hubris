@@ -47,6 +47,9 @@ enum Trace {
     UnexpectedRotIrq,
     UpdResponse(UpdateRspHeader),
     WrongMsgType(MsgType),
+    UpdatePrep,
+    UpdateWriteOneBlock,
+    UpdateFinish,
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -66,7 +69,7 @@ const TIMEOUT_WRITE_ONE_BLOCK: u32 = 2_000;
 const PART1_DELAY: u64 = 0;
 const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
 
-const MAX_UPD_ATTEMPTS: u16 = 3;
+const MAX_UPDATE_ATTEMPTS: u16 = 3;
 cfg_if::cfg_if! {
     if #[cfg(feature = "sink_test")] {
         const MAX_SINKREQ_ATTEMPTS: u16 = 2; // TODO parameterize
@@ -540,21 +543,10 @@ impl ServerImpl {
                     idol_runtime::RequestError::Runtime(UpdateError::SpRotError)
                 })?;
             ringbuf_entry!(Trace::UpdResponse(rsp));
-            match rsp.kind {
-                UpdateRspKind::Ok => Ok(None),
-                UpdateRspKind::Error => {
-                    let u_err = if let Ok(u_err) =
-                        drv_update_api::UpdateError::try_from(rsp.value as u8)
-                    {
-                        u_err
-                    } else {
-                        drv_update_api::UpdateError::Unknown
-                    };
-                    Err(RequestError::Runtime(u_err))
-                }
-                UpdateRspKind::Value => Ok(Some(rsp.value)),
-                _ => Err(RequestError::Runtime(UpdateError::SpRotError)),
-            }
+            rsp.map_err(|e| {
+                let err = e.try_into().unwrap_or(UpdateError::Unknown);
+                RequestError::Runtime(err)
+            })
         } else {
             match msgtype {
                 MsgType::ErrorRsp if (payload_len > 0) => {
@@ -814,6 +806,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         image_type: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::UpdatePrep);
         let payload = payload_buf_mut(None, &mut self.tx_buf[..]);
         let payload_len = hubpack::serialize(&mut payload[0..], &image_type)
             .map_err(|_| {
@@ -842,6 +835,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
             1024,
         >,
     ) -> Result<(), idol_runtime::RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::UpdateWriteOneBlock);
         let payload = payload_buf_mut(None, &mut self.tx_buf[..]);
         let n = hubpack::serialize(&mut payload[0..], &block_num).map_err(
             |_| idol_runtime::RequestError::Runtime(UpdateError::SpRotError),
@@ -857,7 +851,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
             payload_len,
             MsgType::UpdWriteOneBlockRsp,
             TIMEOUT_WRITE_ONE_BLOCK,
-            MAX_UPD_ATTEMPTS,
+            MAX_UPDATE_ATTEMPTS,
         ) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
