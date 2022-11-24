@@ -447,8 +447,28 @@
         },
         {
             "type": "reg",
-            "inst_name": "TOFINO_POWER_ENABLE",
+            "inst_name": "TOFINO_SEQ_ERROR_STEP",
             "addr_offset": 260,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "STEP",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Sequencing step when error occured"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_ENABLE",
+            "addr_offset": 261,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -523,7 +543,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_POWER_GOOD",
-            "addr_offset": 261,
+            "addr_offset": 262,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -598,7 +618,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_POWER_FAULT",
-            "addr_offset": 262,
+            "addr_offset": 263,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -673,7 +693,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_POWER_VRHOT",
-            "addr_offset": 263,
+            "addr_offset": 264,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -748,7 +768,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_POWER_VID",
-            "addr_offset": 264,
+            "addr_offset": 265,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -790,7 +810,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_RESET",
-            "addr_offset": 265,
+            "addr_offset": 266,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -821,7 +841,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_MISC",
-            "addr_offset": 266,
+            "addr_offset": 267,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -852,7 +872,7 @@
         {
             "type": "reg",
             "inst_name": "PCIE_HOTPLUG_CTRL",
-            "addr_offset": 267,
+            "addr_offset": 268,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -916,7 +936,7 @@
         {
             "type": "reg",
             "inst_name": "PCIE_HOTPLUG_STATUS",
-            "addr_offset": 268,
+            "addr_offset": 269,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1036,186 +1056,6 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Field indicating the type of I2C error occured"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_CONTROLLERS_COUNT",
-            "addr_offset": 768,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "COUNT",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": null,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "The number of present/active Ignition Controllers"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT0",
-            "addr_offset": 769,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY0",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 0 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT1",
-            "addr_offset": 770,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY1",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 1 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT2",
-            "addr_offset": 771,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY2",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 2 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT3",
-            "addr_offset": 772,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY3",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 3 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT4",
-            "addr_offset": 773,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY4",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 4 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT5",
-            "addr_offset": 774,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY5",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 5 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT6",
-            "addr_offset": 775,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY6",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 6 of Ignition Target Present summary"
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "IGNITION_TARGETS_PRESENT7",
-            "addr_offset": 776,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PRESENT_SUMMARY7",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Byte 7 of Ignition Target Present summary"
                 }
             ]
         }

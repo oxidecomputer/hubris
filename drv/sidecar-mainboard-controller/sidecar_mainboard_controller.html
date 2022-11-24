@@ -963,17 +963,50 @@
         <td class="FieldDesc" colspan="14">Sequencing Error</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">TOFINO_POWER_ENABLE</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">TOFINO_SEQ_ERROR_STEP</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x104
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Tofino Power Enable</td>
+        <td class="Description" colspan="16">&nbsp;Tofino Sequencing Error Step</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">STEP</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STEP</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Sequencing step when error occured</td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">TOFINO_POWER_ENABLE</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x105
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Tofino Power Enable</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -985,7 +1018,7 @@
                 <td class="validspandef" colspan="2*">VDD_CORE_EN</td>
                 <td class="validspandef" colspan="2*">VDD_1P8_EN</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -993,7 +1026,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P8_EN</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1001,7 +1034,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.8V Enable</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P5_EN</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1009,7 +1042,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.5V Enable</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_VDDT_EN</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1017,7 +1050,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.9V VDDT Enable</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_PCIE_EN</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1025,7 +1058,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.75V PCIe Enable</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_CORE_EN</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1033,7 +1066,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD Core Enable</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_1P8_EN</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1042,17 +1075,17 @@
         <td class="FieldDesc" colspan="14">VDD 1.8V Enable</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">TOFINO_POWER_GOOD</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">TOFINO_POWER_GOOD</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x105
+                0x106
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino Power Good</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1064,7 +1097,7 @@
                 <td class="validspandef" colspan="2*">VDD_CORE_PG</td>
                 <td class="validspandef" colspan="2*">VDD_1P8_PG</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1072,7 +1105,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P8_PG</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1080,7 +1113,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.8V Power Good</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P5_PG</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1088,7 +1121,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.5V Power Good</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_VDDT_PG</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1096,7 +1129,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.9V VDDT Power Good</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_PCIE_PG</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1104,7 +1137,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.75V PCIe Power Good</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_CORE_PG</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1112,7 +1145,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD Core Power Good</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_1P8_PG</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1121,17 +1154,17 @@
         <td class="FieldDesc" colspan="14">VDD 1.8V Power Good</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">TOFINO_POWER_FAULT</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="24">TOFINO_POWER_FAULT</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x106
+                0x107
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino Power Fault</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1143,7 +1176,7 @@
                 <td class="validspandef" colspan="2*">VDD_CORE_FAULT</td>
                 <td class="validspandef" colspan="2*">VDD_1P8_FAULT</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1151,7 +1184,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED2</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1159,7 +1192,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Reserved</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P5_FAULT</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1167,7 +1200,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.5V Fault</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_VDDT_FAULT</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1175,7 +1208,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.9V VDDT Fault</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED1</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1183,7 +1216,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Reserved</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_CORE_FAULT</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1191,7 +1224,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD Core Fault</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_1P8_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1200,17 +1233,17 @@
         <td class="FieldDesc" colspan="14">VDD 1.8V Fault</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="24">TOFINO_POWER_VRHOT</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="25">TOFINO_POWER_VRHOT</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x107
+                0x108
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino Power VR Hot</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1222,7 +1255,7 @@
                 <td class="validspandef" colspan="2*">VDD_CORE_VRHOT</td>
                 <td class="validspandef" colspan="2*">VDD_1P8_VRHOT</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1230,7 +1263,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P8_VRHOT</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1238,7 +1271,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.8V VRHOT</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDDA_1P5_VRHOT</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1246,7 +1279,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDDA 1.5V VRHOT</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_VDDT_VRHOT</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1254,7 +1287,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD 0.9V VDDT VRHOT</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED1</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1262,7 +1295,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Reserved</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_CORE_VRHOT</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1270,7 +1303,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VDD Core VRHOT</td>
     </tr>
-    <tr class="cat24" style="display: none">
+    <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VDD_1P8_VRHOT</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1279,17 +1312,17 @@
         <td class="FieldDesc" colspan="14">VDD 1.8V VRHOT</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="25">TOFINO_POWER_VID</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="26">TOFINO_POWER_VID</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x108
+                0x109
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino VID Value</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat25" style="display: none">
+    <tr class="cat26" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1297,7 +1330,7 @@
                 <td class="validspandef" colspan="6*">RESERVED</td>
                 <td class="validspandef" colspan="8*">VID</td>
     </tr>
-    <tr class="cat25" style="display: none">
+    <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1305,7 +1338,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat25" style="display: none">
+    <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VID_VALID</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -1313,7 +1346,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">VID Valid</td>
     </tr>
-    <tr class="cat25" style="display: none">
+    <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED</td>
         <td class="FieldDesc" colspan="1*">6:4</td>
@@ -1321,7 +1354,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Reserved</td>
     </tr>
-    <tr class="cat25" style="display: none">
+    <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VID</td>
         <td class="FieldDesc" colspan="1*">3:0</td>
@@ -1330,17 +1363,17 @@
         <td class="FieldDesc" colspan="14">VID Value</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="26">TOFINO_RESET</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">TOFINO_RESET</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x109
+                0x10a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino Reset</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat26" style="display: none">
+    <tr class="cat27" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1348,7 +1381,7 @@
                 <td class="validspandef" colspan="2*">PCIE</td>
                 <td class="validspandef" colspan="2*">PWRON</td>
     </tr>
-    <tr class="cat26" style="display: none">
+    <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1356,7 +1389,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat26" style="display: none">
+    <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PCIE</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1364,7 +1397,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">PCIe link is in reset</td>
     </tr>
-    <tr class="cat26" style="display: none">
+    <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PWRON</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1373,17 +1406,17 @@
         <td class="FieldDesc" colspan="14">Tofino package is in reset</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">TOFINO_MISC</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">TOFINO_MISC</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x10a
+                0x10b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Tofino Misc</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat27" style="display: none">
+    <tr class="cat28" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1391,7 +1424,7 @@
                 <td class="validspandef" colspan="2*">CLOCKS_EN</td>
                 <td class="validspandef" colspan="2*">THERMAL_ALERT</td>
     </tr>
-    <tr class="cat27" style="display: none">
+    <tr class="cat28" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1399,7 +1432,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat27" style="display: none">
+    <tr class="cat28" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLOCKS_EN</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1407,7 +1440,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Clocks Enable</td>
     </tr>
-    <tr class="cat27" style="display: none">
+    <tr class="cat28" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">THERMAL_ALERT</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1416,17 +1449,17 @@
         <td class="FieldDesc" colspan="14">Thermal Alert</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">PCIE_HOTPLUG_CTRL</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">PCIE_HOTPLUG_CTRL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x10b
+                0x10c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PCIe Hotplug Control</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1437,7 +1470,7 @@
                 <td class="validspandef" colspan="2*">POWER_FAULT</td>
                 <td class="validspandef" colspan="2*">PRESENT</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1445,7 +1478,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">OVERRIDE_HOST_RESET</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1453,7 +1486,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Override host PCIe Reset</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESET</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1461,7 +1494,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">PCIe Reset</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ALERT</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1469,7 +1502,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Alert</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">POWER_FAULT</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1477,7 +1510,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Power Fault</td>
     </tr>
-    <tr class="cat28" style="display: none">
+    <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PRESENT</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1486,24 +1519,24 @@
         <td class="FieldDesc" colspan="14">Present</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">PCIE_HOTPLUG_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">PCIE_HOTPLUG_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x10c
+                0x10d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PCIe Hotplug Status</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat29" style="display: none">
+    <tr class="cat30" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">HOST_RESET</td>
     </tr>
-    <tr class="cat29" style="display: none">
+    <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1511,7 +1544,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat29" style="display: none">
+    <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">HOST_RESET</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1520,7 +1553,7 @@
         <td class="FieldDesc" colspan="14">Host PCIe Reset</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">TOFINO_DEBUG_PORT_BUFFER</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">TOFINO_DEBUG_PORT_BUFFER</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x200
@@ -1530,13 +1563,13 @@
         <td class="Description" colspan="16">&nbsp;Tofino Debug Port Data</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat30" style="display: none">
+    <tr class="cat31" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat30" style="display: none">
+    <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1544,7 +1577,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat30" style="display: none">
+    <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
@@ -1553,7 +1586,7 @@
         <td class="FieldDesc" colspan="14">Send/receive buffer read/write port</td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">TOFINO_DEBUG_PORT_STATE</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">TOFINO_DEBUG_PORT_STATE</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x201
@@ -1563,7 +1596,7 @@
         <td class="Description" colspan="16">&nbsp;Tofino Debug Port Status</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1576,7 +1609,7 @@
                 <td class="validspandef" colspan="2*">SEND_BUFFER_FULL</td>
                 <td class="validspandef" colspan="2*">SEND_BUFFER_EMPTY</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1584,7 +1617,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR_DETAILS</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -1592,7 +1625,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Field indicating the type of I2C error occured</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR_VALID</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1600,7 +1633,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Flag indicating an I2C error occured</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">REQUEST_IN_PROGRESS</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1608,7 +1641,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Flag indicating the port is busy processing requests</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVE_BUFFER_FULL</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1616,7 +1649,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Receive buffer full</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVE_BUFFER_EMPTY</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1624,7 +1657,7 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Receive buffer empty</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SEND_BUFFER_FULL</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1632,310 +1665,13 @@
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Send buffer full</td>
     </tr>
-    <tr class="cat31" style="display: none">
+    <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SEND_BUFFER_EMPTY</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Send buffer empty</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">IGNITION_CONTROLLERS_COUNT</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x300
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Controllers Count</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat32" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">COUNT</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat32" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">COUNT</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">None</td>
-        <td class="FieldDesc" colspan="14">The number of present/active Ignition Controllers</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">IGNITION_TARGETS_PRESENT0</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x301
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 0</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat33" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY0</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat33" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY0</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 0 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">IGNITION_TARGETS_PRESENT1</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x302
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 1</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat34" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY1</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat34" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY1</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 1 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">IGNITION_TARGETS_PRESENT2</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x303
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 2</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat35" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY2</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat35" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY2</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 2 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">IGNITION_TARGETS_PRESENT3</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x304
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 3</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat36" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY3</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat36" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY3</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 3 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">IGNITION_TARGETS_PRESENT4</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x305
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 4</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat37" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY4</td>
-    </tr>
-    <tr class="cat37" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat37" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY4</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 4 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">IGNITION_TARGETS_PRESENT5</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x306
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 5</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat38" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY5</td>
-    </tr>
-    <tr class="cat38" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat38" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY5</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 5 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">IGNITION_TARGETS_PRESENT6</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x307
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 6</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat39" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY6</td>
-    </tr>
-    <tr class="cat39" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat39" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY6</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 6 of Ignition Target Present summary</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">IGNITION_TARGETS_PRESENT7</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x308
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ignition Targets Present 7</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat40" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">PRESENT_SUMMARY7</td>
-    </tr>
-    <tr class="cat40" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat40" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PRESENT_SUMMARY7</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Byte 7 of Ignition Target Present summary</td>
     </tr>
     </table>
     </body>

@@ -8,7 +8,7 @@ use drv_fpga_api::*;
 
 include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
 
-pub mod ignition;
+//pub mod ignition;
 pub mod tofino2;
 
 pub struct MainboardController {
