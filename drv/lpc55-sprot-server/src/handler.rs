@@ -39,6 +39,7 @@ pub fn new() -> Handler {
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    HeaderSizeMismatch(MsgType, u16, usize),
     Prev(usize, PrevMsg),
     ErrHeader(usize, PrevMsg, u8, u8, u8, u8),
     Overrun(usize),
@@ -59,11 +60,11 @@ impl Handler {
         &mut self,
         tx_prev: bool,
         iostat: IoStatus,
-        rx_buf: &[u8],
-        tx_buf: &mut [u8],
+        rx_buf: &RxMsg,
+        rx_bytes: usize,
+        tx_buf: &mut TxMsg,
         status: &mut Status, // for responses and updating
-    ) -> Option<usize> {
-        let tx_payload = payload_buf_mut(None, tx_buf);
+    ) -> Option<VerifiedTxMsg> {
         self.count = self.count.wrapping_add(1);
 
         // Before looking at the received message, check for explicit flush or
@@ -84,18 +85,22 @@ impl Handler {
                 // That includes the protocol identifier.
                 // If it is not an ignored protocol, then send an error.
                 if overrun {
-                    if !rx_buf.is_empty() {
-                        if Protocol::from(rx_buf[0]) != Protocol::Ignore {
+                    if rx_bytes != 0 {
+                        if Protocol::from(rx_buf.as_slice()[0])
+                            != Protocol::Ignore
+                        {
+                            let rx_buf = rx_buf.as_slice();
                             status.rx_overrun =
                                 status.rx_overrun.wrapping_add(1);
-                            tx_payload[0] = MsgError::FlowError as u8;
                             ringbuf_entry!(Trace::Prev(self.count, self.prev));
                             self.prev = PrevMsg::Overrun;
                             ringbuf_entry!(Trace::ErrHeader(
                                 self.count, self.prev, rx_buf[0], rx_buf[1],
                                 rx_buf[2], rx_buf[3]
                             ));
-                            return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+                            return Some(
+                                tx_buf.error_rsp(SprotError::FlowError),
+                            );
                         }
                     } else {
                         ringbuf_entry!(Trace::Prev(self.count, self.prev));
@@ -116,215 +121,194 @@ impl Handler {
         }
 
         // Check for the minimum receive length being satisfied.
-        if rx_buf.len() < MIN_MSG_SIZE {
-            tx_payload[0] = MsgError::BadMessageLength as u8;
-            return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+        if rx_bytes < MIN_MSG_SIZE {
+            return Some(tx_buf.error_rsp(SprotError::BadMessageLength));
         }
 
         // Parse the header which also checks the CRC.
-        let (msgtype, rx_payload) = match parse(rx_buf) {
-            Ok((msgtype, payload)) => {
-                self.prev = PrevMsg::Good(msgtype);
-                (msgtype, payload)
+        let rxmsg = match rx_buf.parse_header(rx_bytes) {
+            Ok(header) => {
+                // We want to ensure the number of bytes received matches the header's
+                // expected payload size.
+                let expected_payload = rx_bytes - MIN_MSG_SIZE;
+                if header.payload_len as usize != rx_bytes - MIN_MSG_SIZE {
+                    ringbuf_entry!(Trace::HeaderSizeMismatch(
+                        header.msgtype,
+                        header.payload_len,
+                        expected_payload
+                    ));
+                    return Some(
+                        tx_buf.error_rsp(SprotError::BadMessageLength),
+                    );
+                }
+
+                self.prev = PrevMsg::Good(header.msgtype);
+                VerifiedRxMsg(header)
             }
             Err(msgerr) => {
-                if msgerr == MsgError::NoMessage {
+                if msgerr == SprotError::NoMessage {
                     self.prev = PrevMsg::None;
                     return None;
                 }
+                let rx_buf = rx_buf.as_slice();
                 ringbuf_entry!(Trace::ErrHeader(
                     self.count, self.prev, rx_buf[0], rx_buf[1], rx_buf[2],
                     rx_buf[3]
                 ));
-                tx_payload[0] = msgerr as u8;
-                return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+                return Some(tx_buf.error_rsp(msgerr));
             }
         };
 
         // At this point, the header and payload are known to be
         // consistent with the CRC and the length is known to be good.
+        status.rx_received = status.rx_received.wrapping_add(1);
 
-        // A message arrived intact. Look inside.
-        let r: Result<(MsgType, usize), MsgError> = {
-            // A message arrived intact
-            status.rx_received = status.rx_received.wrapping_add(1);
-            // The CRC validate header and range checked length can be trusted now.
-            match msgtype {
-                MsgType::EchoReq => {
-                    if rx_payload.is_empty() {
-                        Ok((MsgType::EchoRsp, 0))
-                    } else if let Some(dst) =
-                        tx_payload.get_mut(0..rx_payload.len())
-                    {
-                        dst.copy_from_slice(rx_payload);
-                        Ok((MsgType::EchoRsp, dst.len()))
-                    } else {
-                        Err(MsgError::BadMessageLength)
-                    }
-                }
-                MsgType::StatusReq => hubpack::serialize(tx_payload, &status)
-                    .map_or(Err(MsgError::Serialization), |size| {
-                        Ok((MsgType::StatusRsp, size))
-                    }),
-                MsgType::SprocketsReq => {
-                    match self.sprocket.handle(rx_payload, tx_payload) {
-                        Ok(size) => Ok((MsgType::SprocketsRsp, size)),
-                        Err(_) => Ok((
-                            MsgType::SprocketsRsp,
-                            crate::handler::sprockets::bad_encoding_rsp(
-                                tx_payload,
-                            ),
-                        )),
-                    }
-                }
-
-                MsgType::UpdBlockSizeReq => {
-                    let rsp = match self.update.block_size() {
-                        Ok(block_size) => {
-                            UpdateRspHeader::new(Some(block_size as u32), None)
-                        }
-                        Err(err) => {
-                            UpdateRspHeader::new(None, Some(err.into()))
-                        }
-                    };
-                    hubpack::serialize(tx_payload, &rsp)
-                        .map_or(Err(MsgError::Serialization), |size| {
-                            Ok((MsgType::UpdBlockSizeRsp, size))
-                        })
-                }
-                MsgType::UpdPrepImageUpdateReq => {
-                    match hubpack::deserialize::<UpdateTarget>(rx_payload) {
-                        Ok((image_type, _n)) => {
-                            match self.update.prep_image_update(image_type) {
-                                Ok(()) => {
-                                    let rsp = UpdateRspHeader::new(None, None);
-                                    if let Ok(size) =
-                                        hubpack::serialize(tx_payload, &rsp)
-                                    {
-                                        Ok((
-                                            MsgType::UpdPrepImageUpdateRsp,
-                                            size,
-                                        ))
-                                    } else {
-                                        Err(MsgError::Serialization)
-                                    }
-                                }
-                                Err(err) => {
-                                    let rsp = UpdateRspHeader::new(
-                                        None,
-                                        Some(err.into()),
-                                    );
-                                    if let Ok(size) =
-                                        hubpack::serialize(tx_payload, &rsp)
-                                    {
-                                        Ok((
-                                            MsgType::UpdPrepImageUpdateRsp,
-                                            size,
-                                        ))
-                                    } else {
-                                        Err(MsgError::Serialization)
-                                    }
-                                }
-                            }
-                        }
-                        Err(_err) => Err(MsgError::Serialization),
-                    }
-                }
-                MsgType::UpdWriteOneBlockReq => {
-                    match hubpack::deserialize::<u32>(rx_payload) {
-                        Ok((block_num, block)) => {
-                            match self
-                                .update
-                                .write_one_block(block_num as usize, block)
-                            {
-                                Ok(()) => {
-                                    let rsp = UpdateRspHeader::new(None, None);
-                                    hubpack::serialize(tx_payload, &rsp).map_or(
-                                        Err(MsgError::Serialization),
-                                        |size| {
-                                            Ok((
-                                                MsgType::UpdWriteOneBlockRsp,
-                                                size,
-                                            ))
-                                        },
-                                    )
-                                }
-                                Err(_err) => Err(MsgError::Serialization),
-                            }
-                        }
-                        Err(_err) => Err(MsgError::Serialization),
-                    }
-                }
-
-                MsgType::UpdAbortUpdateReq => {
-                    match self.update.abort_update() {
-                        Ok(()) => {
-                            let rsp = UpdateRspHeader::new(None, None);
-                            hubpack::serialize(tx_payload, &rsp)
-                                .map_or(Err(MsgError::Serialization), |size| {
-                                    Ok((MsgType::UpdAbortUpdateRsp, size))
-                                })
-                        }
-                        Err(_err) => Err(MsgError::Serialization),
-                    }
-                }
-                MsgType::UpdFinishImageUpdateReq => {
-                    match self.update.finish_image_update() {
-                        Ok(()) => {
-                            let rsp = UpdateRspHeader::new(None, None);
-                            hubpack::serialize(tx_payload, &rsp).map_or(
-                                Err(MsgError::Serialization),
-                                |size| {
-                                    Ok((MsgType::UpdFinishImageUpdateRsp, size))
-                                },
-                            )
-                        }
-                        Err(_err) => Err(MsgError::Serialization),
-                    }
-                }
-                MsgType::UpdCurrentVersionReq => {
-                    let rsp = self.update.current_version();
-                    hubpack::serialize(tx_payload, &rsp)
-                        .map_or(Err(MsgError::Serialization), |size| {
-                            Ok((MsgType::UpdCurrentVersionRsp, size))
-                        })
-                }
-                MsgType::SinkReq => {
-                    // The first two bytes of a SinkReq payload are the U16
-                    // mod 2^16 sequence number.
-                    tx_payload[0..2].copy_from_slice(&rx_payload[0..2]);
-                    Ok((MsgType::SinkRsp, 2))
-                }
-                // All of the unexpected messages
-                MsgType::Invalid
-                | MsgType::EchoRsp
-                | MsgType::ErrorRsp
-                | MsgType::SinkRsp
-                | MsgType::SprocketsRsp
-                | MsgType::StatusRsp
-                | MsgType::UpdBlockSizeRsp
-                | MsgType::UpdPrepImageUpdateRsp
-                | MsgType::UpdWriteOneBlockRsp
-                | MsgType::UpdAbortUpdateRsp
-                | MsgType::UpdFinishImageUpdateRsp
-                | MsgType::UpdCurrentVersionRsp
-                | MsgType::Unknown => {
-                    status.rx_invalid = status.rx_invalid.wrapping_add(1);
-                    Err(MsgError::BadMessageType)
-                }
-            }
-        };
         // The above cases either enqueued a message and returned size
         // or generated 1-byte error code.
-        match r {
+        match self.run(rx_buf, rxmsg, tx_buf, status) {
             Ok((msgtype, payload_size)) => {
-                compose(msgtype, payload_size, tx_buf).ok()
+                tx_buf.from_existing(msgtype, payload_size).ok()
             }
-            Err(err) if err == MsgError::NoMessage => None,
-            Err(err) => {
-                tx_payload[0] = err as u8;
-                compose(MsgType::ErrorRsp, 1, tx_buf).ok()
+            Err(err) if err == SprotError::NoMessage => None,
+            Err(err) => Some(tx_buf.error_rsp(err)),
+        }
+    }
+
+    // Run the command for the given MsgType, serialize the reply into `tx_output` and return the response MsgType
+    // and payload size or return an error.
+    fn run(
+        &mut self,
+        rxbuf: &RxMsg,
+        rxmsg: VerifiedRxMsg,
+        tx_buf: &mut TxMsg,
+        status: &mut Status,
+    ) -> Result<(MsgType, usize), SprotError> {
+        let rx_payload = rxbuf.payload(&rxmsg);
+        let tx_payload = tx_buf.payload_mut();
+        // The CRC validate header and range checked length can be trusted now.
+        let size = match rxmsg.0.msgtype {
+            MsgType::EchoReq => {
+                // We know payload_len is within bounds since the received
+                // header was parsed successfully and the send and receive
+                // buffers are the same size.
+                let dst = &mut tx_payload[..rxmsg.0.payload_len as usize];
+                dst.copy_from_slice(rx_payload);
+                dst.len()
             }
+            MsgType::StatusReq => hubpack::serialize(tx_payload, &status)?,
+            MsgType::SprocketsReq => {
+                self.sprocket.handle(rx_payload, tx_payload).unwrap_or_else(
+                    |_| crate::handler::sprockets::bad_encoding_rsp(tx_payload),
+                )
+            }
+            MsgType::UpdBlockSizeReq => {
+                let rsp: UpdateRspHeader = self
+                    .update
+                    .block_size()
+                    .map(|size| Some(size.try_into().unwrap_lite()))
+                    .map_err(|err| err.into());
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+            MsgType::UpdPrepImageUpdateReq => {
+                let (image_type, _n) =
+                    hubpack::deserialize::<UpdateTarget>(rx_payload)?;
+                let rsp: UpdateRspHeader = self
+                    .update
+                    .prep_image_update(image_type)
+                    .map(|_| None)
+                    .map_err(|e| e.into());
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+            MsgType::UpdWriteOneBlockReq => {
+                let (block_num, block) =
+                    hubpack::deserialize::<u32>(rx_payload)?;
+                let rsp: UpdateRspHeader = self
+                    .update
+                    .write_one_block(block_num as usize, block)
+                    .map(|_| None)
+                    .map_err(|e| e.into());
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+
+            MsgType::UpdAbortUpdateReq => {
+                let rsp: UpdateRspHeader = self
+                    .update
+                    .abort_update()
+                    .map(|_| None)
+                    .map_err(|e| e.into());
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+            MsgType::UpdFinishImageUpdateReq => {
+                let rsp: UpdateRspHeader = self
+                    .update
+                    .finish_image_update()
+                    .map(|_| None)
+                    .map_err(|e| e.into());
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+            MsgType::UpdCurrentVersionReq => {
+                let version = self.update.current_version();
+                let rsp: Result<ImageVersion, u32> = Ok(version);
+                hubpack::serialize(tx_payload, &rsp)?
+            }
+            MsgType::SinkReq => {
+                // The first two bytes of a SinkReq payload are the U16
+                // mod 2^16 sequence number.
+                tx_payload[0..2].copy_from_slice(&rx_payload[0..2]);
+                2
+            }
+            // All of the unexpected messages
+            MsgType::Invalid
+            | MsgType::EchoRsp
+            | MsgType::ErrorRsp
+            | MsgType::SinkRsp
+            | MsgType::SprocketsRsp
+            | MsgType::StatusRsp
+            | MsgType::UpdBlockSizeRsp
+            | MsgType::UpdPrepImageUpdateRsp
+            | MsgType::UpdWriteOneBlockRsp
+            | MsgType::UpdAbortUpdateRsp
+            | MsgType::UpdFinishImageUpdateRsp
+            | MsgType::UpdCurrentVersionRsp
+            | MsgType::Unknown => {
+                status.rx_invalid = status.rx_invalid.wrapping_add(1);
+                return Err(SprotError::BadMessageType);
+            }
+        };
+
+        Ok((req_msgtype_to_rsp_msgtype(rxmsg.0.msgtype), size))
+    }
+}
+
+// Translate a request msg type to a response msg type
+fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
+    match msgtype {
+        MsgType::EchoReq => MsgType::EchoRsp,
+        MsgType::StatusReq => MsgType::StatusRsp,
+        MsgType::SprocketsReq => MsgType::SprocketsRsp,
+        MsgType::UpdBlockSizeReq => MsgType::UpdBlockSizeRsp,
+        MsgType::UpdPrepImageUpdateReq => MsgType::UpdPrepImageUpdateRsp,
+        MsgType::UpdWriteOneBlockReq => MsgType::UpdWriteOneBlockRsp,
+        MsgType::UpdAbortUpdateReq => MsgType::UpdAbortUpdateRsp,
+        MsgType::UpdFinishImageUpdateReq => MsgType::UpdFinishImageUpdateRsp,
+        MsgType::UpdCurrentVersionReq => MsgType::UpdCurrentVersionRsp,
+        MsgType::SinkReq => MsgType::SinkRsp,
+
+        // All of the unexpected messages
+        MsgType::Invalid
+        | MsgType::EchoRsp
+        | MsgType::ErrorRsp
+        | MsgType::SinkRsp
+        | MsgType::SprocketsRsp
+        | MsgType::StatusRsp
+        | MsgType::UpdBlockSizeRsp
+        | MsgType::UpdPrepImageUpdateRsp
+        | MsgType::UpdWriteOneBlockRsp
+        | MsgType::UpdAbortUpdateRsp
+        | MsgType::UpdFinishImageUpdateRsp
+        | MsgType::UpdCurrentVersionRsp
+        | MsgType::Unknown => {
+            panic!("MsgType is not a request: {}", msgtype as u8)
         }
     }
 }

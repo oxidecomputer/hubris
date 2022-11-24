@@ -88,7 +88,7 @@ impl MgsCommon {
 }
 
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let status = sprot.status().map_err(MsgErrorConvert)?;
+    let status = sprot.status().map_err(SprotErrorConvert)?;
     Ok(RotState {
         version: ImageVersion {
             version: status.version,
@@ -102,10 +102,10 @@ fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
     })
 }
 
-pub(crate) struct MsgErrorConvert(pub drv_sprot_api::MsgError);
+pub(crate) struct SprotErrorConvert(pub drv_sprot_api::SprotError);
 
-impl From<MsgErrorConvert> for RotError {
-    fn from(err: MsgErrorConvert) -> Self {
+impl From<SprotErrorConvert> for RotError {
+    fn from(err: SprotErrorConvert) -> Self {
         RotError::MessageError { code: err.0 as u32 }
     }
 }

@@ -28,15 +28,21 @@ enum Trace {
     HandlerReturnSize(usize),
     Overrun(usize),
     Pio(bool),
+    PioOuterLoop,
+    PioInnerLoop,
     RotIrqAssert,
     RotIrqDeassert,
     Transmit(usize, usize),
     Underrun(usize),
+    SpuriousSpiInterrupt,
 }
 ringbuf!(Trace, 32, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
+
+// Notification mask for Flexcomm8 hs_spi IRQ; must match config in app.toml
+const SPI_IRQ: u32 = 1;
 
 // See drv/sprot-api/README.md
 // Messages are received from the Service Processor (SP) over a SPI interface.
@@ -76,9 +82,9 @@ struct IO {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
     // Transmit Buffer
-    tx_buf: [u8; BUF_SIZE],
+    tx_buf: TxMsg,
     // Receive Buffer
-    rx_buf: [u8; BUF_SIZE],
+    rx_buf: RxMsg,
     // Number of bytes copied into the receive buffer
     rxcount: usize,
     // Number of bytes copied from the transmit buffer into the FIFO
@@ -145,8 +151,8 @@ fn main() -> ! {
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let mut io = IO {
-        tx_buf: [0u8; BUF_SIZE],
-        rx_buf: [0u8; BUF_SIZE],
+        tx_buf: TxMsg::new(),
+        rx_buf: RxMsg::new(),
         gpio,
         spi,
         rxcount: 0,
@@ -154,6 +160,7 @@ fn main() -> ! {
         overrun: false,
         underrun: false,
     };
+
     let mut status = Status {
         supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
@@ -181,11 +188,13 @@ fn main() -> ! {
 
     // Process a null message as if it had been just received.
     // Expect that the Tx buffer is cleared.
+    let bytes_read = 0;
     server.handler.handle(
         transmit,
         crate::IoStatus::Flush,
-        &server.io.rx_buf[0..0],
-        &mut server.io.tx_buf[..],
+        &server.io.rx_buf,
+        bytes_read,
+        &mut server.io.tx_buf,
         server.status,
     );
 
@@ -205,12 +214,13 @@ fn main() -> ! {
         transmit = match server.handler.handle(
             transmit, // true if previous loop transmitted.
             iostat,
-            &server.io.rx_buf[0..server.io.rxcount],
-            &mut server.io.tx_buf[..],
+            &server.io.rx_buf,
+            server.io.rxcount,
+            &mut server.io.tx_buf,
             server.status,
         ) {
-            Some(_txlen) => {
-                ringbuf_entry!(Trace::HandlerReturnSize(_txlen));
+            Some(txlen) => {
+                ringbuf_entry!(Trace::HandlerReturnSize(txlen.0));
                 true
             }
             None => {
@@ -226,7 +236,7 @@ impl IO {
     /// Returns false on spurious interrupt.
     fn pio(&mut self, transmit: bool) {
         ringbuf_entry!(Trace::Pio(transmit));
-        let tx_end = self.tx_buf.len(); // Available bytes and trailing zeros
+        let tx_end = self.tx_buf.as_slice().len(); // Available bytes and trailing zeros
         let rx_end = self.rx_buf.len(); // All of the available bytes
         self.txcount = 0;
         self.rxcount = 0;
@@ -235,7 +245,7 @@ impl IO {
 
         if !transmit {
             // Ensure that unused Tx buffer is zero-filled.
-            self.tx_buf.fill(0);
+            self.tx_buf.as_mut().fill(0);
         }
 
         // Prime FIFOWR in order to be ready for start of frame.
@@ -249,7 +259,7 @@ impl IO {
             if self.txcount >= tx_end || !self.spi.can_tx() {
                 break;
             }
-            let b = self.tx_buf[self.txcount];
+            let b = self.tx_buf.as_slice()[self.txcount];
             self.spi.send_u8(b);
             self.txcount += 1;
         }
@@ -272,10 +282,12 @@ impl IO {
         // Track the state of chip select (CSn)
         let mut inframe = false;
         'outer: loop {
+            ringbuf_entry!(Trace::PioOuterLoop);
             // restart here on the one expected spurious interrupt.
-            sys_irq_control(1, true);
-            sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap_lite();
+            sys_irq_control(SPI_IRQ, true);
+            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
+                ringbuf_entry!(Trace::PioInnerLoop);
                 // Get frame start/end interrupt from intstat (SSA/SSD).
                 let intstat = self.spi.intstat();
                 let fifostat = self.spi.fifostat();
@@ -294,6 +306,7 @@ impl IO {
                     // These are only happening just after queuing a
                     // response.
                     // TODO: It would be nice to eliminate the spurious interrupt.
+                    ringbuf_entry!(Trace::SpuriousSpiInterrupt);
                     continue 'outer;
                 }
 
@@ -337,7 +350,7 @@ impl IO {
                     if self.spi.can_tx() {
                         let (b, incr) = if self.txcount < tx_end {
                             io = true;
-                            (self.tx_buf[self.txcount], 1)
+                            (self.tx_buf.as_slice()[self.txcount], 1)
                         } else {
                             (0, 0)
                         };
@@ -348,7 +361,7 @@ impl IO {
                         let b = self.spi.read_u8();
                         let incr = if self.rxcount < rx_end {
                             io = true;
-                            self.rx_buf[self.rxcount] = b;
+                            self.rx_buf.as_mut()[self.rxcount] = b;
                             1
                         } else {
                             0

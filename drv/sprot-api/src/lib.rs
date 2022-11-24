@@ -3,6 +3,15 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Client API for SP to RoT messages over SPI.
+//!
+//! An SP/RoT SPI message is:
+//!   1. A hubpack encoded `MsgHeader` containing the protocol, payload length,
+//!      and message type.
+//!   2. Payload according to MessageType, typically hubpack encoded
+//!      structure(s) and/or bulk data.
+//!   3. A CRC16 parameters that covers all of the bytes from the protocol ID to
+//!      the end of the payload.
+//!
 
 #![no_std]
 extern crate memoffset;
@@ -11,30 +20,20 @@ use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use hubpack::SerializedSize;
-use if_chain::if_chain; // Chained if let statements are almost here.
+use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
 // use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
-/*
- * An SP/RoT SPI  message is:
- *   1. A u8 protocol ID (0x01) or a 0x00 indicating that no message is present.
- *   2. A hubpack encoded tuple (u16, MessageType) giving the payload length
- *      and message type.
- *   3. Payload according to MessageType, typically hubpack encoded
- *      structure(s) and/or bulk data.
- *   4. A CRC16 parameters that covers all of the bytes from the protocol ID to
- *      the end of the payload.
- */
-
+/// The canonical SpRot protocol error returned by this API
+//
 // TODO: Audit that each MsgError is used and has some reasonable action.
 // While a diverse set of error codes may be useful for debugging it
 // clutters code that just has to deal with the error.
 // then consider adding a function that translates an error code
 // into the desired action, e.g. InvalidCrc and FlowError should both
 // result in a retry on the SP side and an ErrorRsp on the RoT side.
-
 #[derive(
     Copy,
     Clone,
@@ -48,13 +47,13 @@ use zerocopy::{AsBytes, FromBytes};
     SerializedSize,
 )]
 #[repr(C)]
-pub enum MsgError {
+pub enum SprotError {
     /// There is no message
     NoMessage = 1,
     /// Transfer size is outside of maximum and minimum lenghts for message type.
     BadTransferSize = 2,
-    /// Server restarted
-    // ServerRestarted = 3,
+    /// A task crashed during an operation, commonly a lease read or write
+    TaskRestart = 3,
     /// CRC check failed.
     InvalidCrc = 4,
     /// FIFO overflow/underflow
@@ -83,49 +82,138 @@ pub enum MsgError {
     NonRotError = 18,
     /// A message with version = 0 was received unexpectedly.
     EmptyMessage = 19,
-    /// Update operation failed
-    UpdateError = 20,
 
     /// Insufficient bytes received
-    Incomplete = 21,
+    Incomplete = 20,
     /// Hubpack error
-    Serialization = 22,
+    Serialization = 21,
     /// Sequence number mismatch in Sink test
-    Sequence = 23,
+    Sequence = 22,
+
+    //
+    // Update Related Errors
+    //
+    UpdateBadLength = 23,
+    UpdateInProgress = 24,
+    UpdateOutOfBounds = 25,
+    UpdateTimeout = 26,
+    UpdateEccDoubleErr = 27,
+    UpdateEccSingleErr = 28,
+    UpdateSecureErr = 29,
+    UpdateReadProtErr = 30,
+    UpdateWriteEraseErr = 31,
+    UpdateInconsistencyErr = 32,
+    UpdateStrobeErr = 33,
+    UpdateProgSeqErr = 34,
+    UpdateWriteProtErr = 35,
+    UpdateBadImageType = 36,
+    UpdateAlreadyFinished = 37,
+    UpdateNotStarted = 38,
+    UpdateRunningImage = 39,
+    UpdateFlashError = 40,
+    UpdateSpRotError = 41,
+    UpdateUnknown = 42,
+
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
 }
 
-impl From<u8> for MsgError {
-    fn from(byte: u8) -> MsgError {
-        match byte {
-            1 => MsgError::NoMessage,
-            2 => MsgError::BadTransferSize,
-            4 => MsgError::InvalidCrc,
-            5 => MsgError::FlowError,
-            6 => MsgError::UnsupportedProtocol,
-            7 => MsgError::BadMessageType,
-            8 => MsgError::BadMessageLength,
-            9 => MsgError::SpiServerError,
-            10 => MsgError::Oversize,
-            11 => MsgError::TxNotIdle,
-            12 => MsgError::CannotAssertCSn,
-            13 => MsgError::RotNotReady,
-            14 => MsgError::RspTimeout,
-            15 => MsgError::BadResponse,
-            16 => MsgError::RotBusy,
-            17 => MsgError::NotImplemented,
-            18 => MsgError::NonRotError,
-            19 => MsgError::EmptyMessage,
-            20 => MsgError::UpdateError,
-            21 => MsgError::Incomplete,
-            22 => MsgError::Serialization,
-            23 => MsgError::Sequence,
-            _ => MsgError::Unknown,
+impl From<UpdateError> for SprotError {
+    fn from(value: UpdateError) -> Self {
+        match value {
+            UpdateError::BadLength => SprotError::UpdateBadLength,
+            UpdateError::UpdateInProgress => SprotError::UpdateInProgress,
+            UpdateError::OutOfBounds => SprotError::UpdateOutOfBounds,
+            UpdateError::Timeout => SprotError::UpdateTimeout,
+            UpdateError::EccDoubleErr => SprotError::UpdateEccDoubleErr,
+            UpdateError::EccSingleErr => SprotError::UpdateEccSingleErr,
+            UpdateError::SecureErr => SprotError::UpdateSecureErr,
+            UpdateError::ReadProtErr => SprotError::UpdateReadProtErr,
+            UpdateError::WriteEraseErr => SprotError::UpdateWriteEraseErr,
+            UpdateError::InconsistencyErr => SprotError::UpdateInconsistencyErr,
+            UpdateError::StrobeErr => SprotError::UpdateStrobeErr,
+            UpdateError::ProgSeqErr => SprotError::UpdateProgSeqErr,
+            UpdateError::WriteProtErr => SprotError::UpdateWriteProtErr,
+            UpdateError::BadImageType => SprotError::UpdateBadImageType,
+            UpdateError::UpdateAlreadyFinished => {
+                SprotError::UpdateAlreadyFinished
+            }
+            UpdateError::UpdateNotStarted => SprotError::UpdateNotStarted,
+            UpdateError::RunningImage => SprotError::UpdateRunningImage,
+            UpdateError::FlashError => SprotError::UpdateFlashError,
+            UpdateError::SpRotError => SprotError::UpdateSpRotError,
+            UpdateError::Unknown => SprotError::UpdateUnknown,
         }
     }
 }
 
+impl From<u8> for SprotError {
+    fn from(byte: u8) -> SprotError {
+        match byte {
+            1 => SprotError::NoMessage,
+            2 => SprotError::BadTransferSize,
+            4 => SprotError::InvalidCrc,
+            5 => SprotError::FlowError,
+            6 => SprotError::UnsupportedProtocol,
+            7 => SprotError::BadMessageType,
+            8 => SprotError::BadMessageLength,
+            9 => SprotError::SpiServerError,
+            10 => SprotError::Oversize,
+            11 => SprotError::TxNotIdle,
+            12 => SprotError::CannotAssertCSn,
+            13 => SprotError::RotNotReady,
+            14 => SprotError::RspTimeout,
+            15 => SprotError::BadResponse,
+            16 => SprotError::RotBusy,
+            17 => SprotError::NotImplemented,
+            18 => SprotError::NonRotError,
+            19 => SprotError::EmptyMessage,
+            20 => SprotError::Incomplete,
+            21 => SprotError::Serialization,
+            22 => SprotError::Sequence,
+            23 => SprotError::UpdateBadLength,
+            24 => SprotError::UpdateInProgress,
+            25 => SprotError::UpdateOutOfBounds,
+            26 => SprotError::UpdateTimeout,
+            27 => SprotError::UpdateEccDoubleErr,
+            28 => SprotError::UpdateEccSingleErr,
+            29 => SprotError::UpdateSecureErr,
+            30 => SprotError::UpdateReadProtErr,
+            31 => SprotError::UpdateWriteEraseErr,
+            32 => SprotError::UpdateInconsistencyErr,
+            33 => SprotError::UpdateStrobeErr,
+            34 => SprotError::UpdateProgSeqErr,
+            35 => SprotError::UpdateWriteProtErr,
+            36 => SprotError::UpdateBadImageType,
+            37 => SprotError::UpdateAlreadyFinished,
+            38 => SprotError::UpdateNotStarted,
+            39 => SprotError::UpdateRunningImage,
+            40 => SprotError::UpdateFlashError,
+            41 => SprotError::UpdateSpRotError,
+            42 => SprotError::UpdateUnknown,
+            _ => SprotError::Unknown,
+        }
+    }
+}
+
+impl From<hubpack::Error> for SprotError {
+    fn from(_: hubpack::Error) -> Self {
+        SprotError::Serialization
+    }
+}
+
+// Return true if the error is recoverable, otherwise return false
+pub fn is_recoverable_error(err: SprotError) -> bool {
+    match err {
+        SprotError::InvalidCrc
+        | SprotError::EmptyMessage
+        | SprotError::RotNotReady
+        | SprotError::RotBusy => true,
+        _ => false,
+    }
+}
+
+/// The successful result of pulsing the active low chip-select line
 #[derive(
     Copy, Clone, FromBytes, AsBytes, Serialize, Deserialize, SerializedSize,
 )]
@@ -135,6 +223,7 @@ pub struct PulseStatus {
     pub rot_irq_end: u8,
 }
 
+/// The result of a bulk sink transfer test
 #[derive(
     Copy, Clone, FromBytes, AsBytes, Serialize, Deserialize, SerializedSize,
 )]
@@ -333,90 +422,228 @@ impl From<u8> for MsgType {
     }
 }
 
+/// A builder/serializer for messages that wraps the transmit buffer
+///
+/// Each public method returns the serialized buffer that can be sent on the
+/// wire.
+pub struct TxMsg {
+    buf: [u8; BUF_SIZE],
+}
+
+impl TxMsg {
+    pub fn new() -> TxMsg {
+        TxMsg { buf: [0; BUF_SIZE] }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..]
+    }
+
+    pub fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[HEADER_SIZE..BUF_SIZE - CRC_SIZE]
+    }
+
+    /// Serialize an ErrorRsp with a one byte payload, which is a serialized
+    /// `SprotError`
+    pub fn error_rsp(&mut self, err: SprotError) -> VerifiedTxMsg {
+        let payload_size = 1;
+        self.buf[HEADER_SIZE] = err as u8;
+        self.from_existing(MsgType::ErrorRsp, payload_size)
+            .unwrap_lite()
+    }
+
+    /// Serialize a request with no payload
+    pub fn no_payload(&mut self, msgtype: MsgType) -> VerifiedTxMsg {
+        let payload_size = 0;
+        self.write_header(msgtype, payload_size);
+        self.write_crc(payload_size)
+    }
+
+    /// Serialize a request from a MsgType and Lease
+    pub fn from_lease(
+        &mut self,
+        msgtype: MsgType,
+        source: Leased<R, [u8]>,
+    ) -> Result<VerifiedTxMsg, SprotError> {
+        if source.len() > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::Oversize);
+        }
+
+        let dest = &mut self.buf[HEADER_SIZE..][..source.len()];
+        source
+            .read_range(0..source.len(), dest)
+            .map_err(|_| SprotError::TaskRestart)?;
+
+        self.write_header(msgtype, source.len());
+        Ok(self.write_crc(source.len()))
+    }
+
+    /// Serialize a request from a buffer with an already written payload
+    pub fn from_existing(
+        &mut self,
+        msgtype: MsgType,
+        payload_size: usize,
+    ) -> Result<VerifiedTxMsg, SprotError> {
+        if payload_size > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::Oversize);
+        }
+        self.write_header(msgtype, payload_size);
+        Ok(self.write_crc(payload_size))
+    }
+
+    fn write_header(&mut self, msgtype: MsgType, payload_size: usize) {
+        let _ = MsgHeader::new_v1(msgtype, payload_size)
+            .unwrap_lite()
+            .serialize(&mut self.buf[..])
+            .unwrap_lite();
+    }
+
+    fn write_crc(&mut self, payload_size: usize) -> VerifiedTxMsg {
+        let crc_begin = HEADER_SIZE + payload_size;
+        let msg_bytes = &self.buf[0..crc_begin];
+        let crc = CRC16.checksum(msg_bytes);
+        let end = crc_begin + CRC_SIZE;
+        let crc_buf = &mut self.buf[crc_begin..end];
+        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
+        VerifiedTxMsg(end)
+    }
+}
+
+/// A type indicating that a complete message has been successfully serialized and therefore
+/// fits in the allocated buffer.
+#[derive(Clone, Copy)]
+pub struct VerifiedTxMsg(pub usize);
+
+/// A parser/deserializer for messages received over SPI
+pub struct RxMsg {
+    buf: [u8; BUF_SIZE],
+}
+
+impl RxMsg {
+    pub fn new() -> RxMsg {
+        RxMsg { buf: [0; BUF_SIZE] }
+    }
+
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..]
+    }
+
+    pub fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+
+    pub fn payload(&self, rxmsg: &VerifiedRxMsg) -> &[u8] {
+        &self.buf[HEADER_SIZE..][..rxmsg.0.payload_len as usize]
+    }
+
+    pub fn parse_header(
+        &self,
+        valid_bytes: usize,
+    ) -> Result<MsgHeader, SprotError> {
+        // We want to be able to return `RotBusy` before `Incomplete`.
+        self.parse_protocol()?;
+        if valid_bytes < HEADER_SIZE {
+            return Err(SprotError::Incomplete);
+        }
+        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
+        if header.payload_len as usize > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::BadMessageLength);
+        }
+        Ok(header)
+    }
+
+    pub fn validate_crc(&self, header: &MsgHeader) -> Result<(), SprotError> {
+        // The only way to get a `MsgHeader` is to call parse_header, which
+        // already validated the payload size.
+        let crc_start = HEADER_SIZE + (header.payload_len as usize);
+        let crc_buf = &self.buf[crc_start..][..CRC_SIZE];
+        let (expected, _) = hubpack::deserialize::<u16>(crc_buf)?;
+        let actual = CRC16.checksum(&self.buf[..crc_start]);
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(SprotError::InvalidCrc)
+        }
+    }
+
+    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
+    pub fn deserialize_hubpack_payload<M>(
+        &self,
+        rxmsg: &VerifiedRxMsg,
+    ) -> Result<M, SprotError>
+    where
+        M: for<'de> Deserialize<'de>,
+    {
+        let (msg, _) = hubpack::deserialize::<M>(self.payload(rxmsg))?;
+        Ok(msg)
+    }
+
+    /// Parse the first byte of the protocol, returning an appropriate error
+    /// if necessary.
+    fn parse_protocol(&self) -> Result<(), SprotError> {
+        match Protocol::from(self.buf[0]) {
+            Protocol::Ignore => Err(SprotError::NoMessage),
+            Protocol::Busy => Err(SprotError::RotBusy),
+            Protocol::V1 => Ok(()),
+            _ => Err(SprotError::UnsupportedProtocol),
+        }
+    }
+}
+
+/// A type indicating that the message header has been parsed and the CRC has
+/// been successfully verified
+pub struct VerifiedRxMsg(pub MsgHeader);
+
+// The SpRot Header prepended to each message traversing the SPI bus
+// between the RoT and SP.
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-#[repr(C, packed)]
-struct MsgHeader {
-    protocol: Protocol,
-    msgtype: MsgType,
-    len: u16,
+pub struct MsgHeader {
+    pub protocol: Protocol,
+    pub msgtype: MsgType,
+    // Length of the payload (does not include Header or CRC)
+    pub payload_len: u16,
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
-#[repr(C)]
-pub enum UpdateRspKind {
-    Ok = 1,
-    Value = 2,
-    Error = 3,
-    Unknown = 0xff,
-}
-
-impl From<u8> for UpdateRspKind {
-    fn from(kind: u8) -> Self {
-        match kind {
-            kind if kind == (UpdateRspKind::Ok as u8) => UpdateRspKind::Ok,
-            kind if kind == (UpdateRspKind::Value as u8) => {
-                UpdateRspKind::Value
-            }
-            kind if kind == (UpdateRspKind::Error as u8) => {
-                UpdateRspKind::Error
-            }
-            _ => UpdateRspKind::Unknown,
+impl MsgHeader {
+    /// Create a new `MsgHeader` with protocol version `V1`.
+    ///
+    /// Return an error if the message payload does not fit within a u16 or
+    /// it is greater than `PAYLOAD_SIZE_MAX`.
+    pub fn new_v1(
+        msgtype: MsgType,
+        payload_size: usize,
+    ) -> Result<MsgHeader, SprotError> {
+        if payload_size > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::BadMessageLength);
         }
+        let len = u16::try_from(payload_size)
+            .map_err(|_| SprotError::BadMessageLength)?;
+        Ok(MsgHeader {
+            protocol: Protocol::V1,
+            msgtype,
+            payload_len: len,
+        })
+    }
+
+    /// Serialize a `MsgHeader` into `buf`, returning the number of bytes written
+    /// or an error if serialization fails.
+    pub fn serialize(&self, buf: &mut [u8]) -> Result<usize, SprotError> {
+        let size = hubpack::serialize(&mut buf[..HEADER_SIZE], self)?;
+        Ok(size)
     }
 }
 
-impl From<UpdateRspKind> for u8 {
-    fn from(kind: UpdateRspKind) -> Self {
-        match kind {
-            UpdateRspKind::Ok => UpdateRspKind::Ok as u8,
-            UpdateRspKind::Value => UpdateRspKind::Value as u8,
-            UpdateRspKind::Error => UpdateRspKind::Error as u8,
-            _ => UpdateRspKind::Unknown as u8,
-        }
-    }
-}
-
-#[derive(
-    Copy, Clone, Serialize, Deserialize, SerializedSize, Eq, PartialEq,
-)]
-#[repr(C, packed)]
-pub struct UpdateRspHeader {
-    pub kind: UpdateRspKind,
-    pub value: u32, // unused, value, or error code depending on kind.
-}
-
-// Hubpack doesn't serialize Option or Result but that's
-// what we want.
-// Map the various Update api results to a signle struct
-// that hubpack can handle.
-// match Result<(), UpdateError> {
-//  Ok(()) => { new(None, None) },
-//  Err(err) => { new(None, err.into()) },
-// match Result<u32, UpdateError> {
-//  Ok(block_size) => { new(Some(block_size), None) },
-//  Err(err) => { new(None, err.into()) },
-impl UpdateRspHeader {
-    pub fn new(arg: Option<u32>, err: Option<u32>) -> Self {
-        match err {
-            None => match arg {
-                None => Self {
-                    kind: UpdateRspKind::Ok,
-                    value: 0,
-                },
-                Some(value) => Self {
-                    kind: UpdateRspKind::Value,
-                    value,
-                },
-            },
-            Some(error) => Self {
-                kind: UpdateRspKind::Error,
-                value: error,
-            },
-        }
-    }
-}
+/// Headers for update responses, that are embedded as part of the payload of
+/// an update response.
+pub type UpdateRspHeader = Result<Option<u32>, u32>;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
 pub const HEADER_SIZE: usize = <MsgHeader as SerializedSize>::MAX_SIZE;
@@ -428,137 +655,5 @@ pub const BUF_SIZE: usize = HEADER_SIZE + PAYLOAD_SIZE_MAX + CRC_SIZE;
 pub const MIN_MSG_SIZE: usize = HEADER_SIZE + CRC_SIZE;
 // XXX ROT FIFO size should be discovered.
 pub const ROT_FIFO_SIZE: usize = 8;
-
-// RX parse
-//   given a buffer
-//   - check protocol
-//   - get length
-//   - check length against buffer limits including CRC
-//   - calculate CRC
-//   - check CRC against stored CRC
-//   - Result<(MsgType, &[u8]), MsgError>
-pub fn parse(buffer: &[u8]) -> Result<(MsgType, &[u8]), MsgError> {
-    if buffer.is_empty() {
-        return Err(MsgError::NoMessage);
-    }
-    match Protocol::from(buffer[0]) {
-        Protocol::Ignore => return Err(MsgError::NoMessage),
-        Protocol::Busy => return Err(MsgError::RotBusy),
-        Protocol::V1 => {}
-        Protocol::Unsupported => return Err(MsgError::UnsupportedProtocol),
-    }
-    if buffer.len() < HEADER_SIZE + CRC_SIZE {
-        return Err(MsgError::BadMessageLength);
-    }
-    if let Ok((header, payload_start)) =
-        hubpack::deserialize::<MsgHeader>(buffer)
-    {
-        let len = header.len as usize;
-        if_chain! {
-            if let Some(crc_buf) = payload_start.get(len..len + CRC_SIZE);
-            if let Ok((crc, _)) = hubpack::deserialize::<u16>(crc_buf);
-            if let Some(msg_bytes) = buffer.get(0..HEADER_SIZE+len);
-            if crc == CRC16.checksum(msg_bytes);
-            then {
-                Ok((header.msgtype, &payload_start[..len]))
-            } else {
-                Err(MsgError::InvalidCrc)
-            }
-        }
-    } else {
-        // Content didn't matter for hubpack::deserialize.
-        // So, there weren't enough bytes to decode a header.
-        Err(MsgError::BadMessageLength)
-    }
-}
-
-/// Parse the header from an incomplete received message
-pub fn rx_payload_remaining_mut(
-    valid_bytes: usize,
-    buffer: &mut [u8],
-) -> Result<&mut [u8], MsgError> {
-    if valid_bytes.min(buffer.len()) < HEADER_SIZE {
-        return Err(MsgError::Incomplete);
-    }
-    match Protocol::from(buffer[0]) {
-        Protocol::Ignore => return Err(MsgError::NoMessage),
-        Protocol::Busy => return Err(MsgError::RotBusy),
-        Protocol::V1 => (),
-        _ => return Err(MsgError::UnsupportedProtocol),
-    }
-    if let Ok((header, _payload_start)) =
-        hubpack::deserialize::<MsgHeader>(buffer)
-    {
-        let end = MIN_MSG_SIZE + (header.len as usize);
-        if end > buffer.len() {
-            Err(MsgError::BadMessageLength)
-        } else if valid_bytes < end {
-            Ok(&mut buffer[valid_bytes..end])
-        } else {
-            Ok(&mut buffer[end..end])
-        }
-    } else {
-        Err(MsgError::Serialization)
-    }
-}
-
-/// Read access to the first portion or all of the transmit buffer.
-pub fn payload_buf(size: Option<usize>, buffer: &[u8]) -> &[u8] {
-    let start = HEADER_SIZE;
-    let end = match size {
-        Some(size) => HEADER_SIZE + size,
-        None => buffer.len() - CRC_SIZE,
-    };
-    match buffer.get(start..end) {
-        Some(buf) => buf,
-        None => panic!(), // Don't come to me with your miniscule buffers.
-    }
-}
-
-/// Read/write access to the first portion or all of the transmit buffer.
-pub fn payload_buf_mut(size: Option<usize>, buffer: &mut [u8]) -> &mut [u8] {
-    let start = HEADER_SIZE;
-    let end = match size {
-        Some(size) => HEADER_SIZE + size,
-        None => buffer.len() - CRC_SIZE,
-    };
-    match buffer.get_mut(start..end) {
-        Some(buf) => buf,
-        None => panic!(), // Don't come to me with your miniscule buffers.
-    }
-}
-
-/// Finish the message header, compute message CRC and return the
-/// number of bytes to transmit from the underlying buffer.
-/// The payload has to have been placed in the bytes designated by payload_range()
-/// and the payload parameter must be the actual bytes that were used for the payload.
-pub fn compose(
-    msgtype: MsgType,
-    payload_size: usize,
-    buffer: &mut [u8],
-) -> Result<usize, MsgError> {
-    let header = MsgHeader {
-        protocol: Protocol::V1,
-        msgtype,
-        len: u16::try_from(payload_size)
-            .map_err(|_| MsgError::BadMessageLength)?,
-    };
-    let _size = hubpack::serialize(&mut buffer[..HEADER_SIZE], &header)
-        .map_err(|_e| MsgError::Serialization)?;
-    if let Some(msg_bytes) = buffer.get(0..HEADER_SIZE + payload_size) {
-        let crc = CRC16.checksum(msg_bytes);
-        let crc_begin = HEADER_SIZE + payload_size;
-        let end = crc_begin + CRC_SIZE;
-        if let Some(crc_buf) = buffer.get_mut(crc_begin..end) {
-            if let Ok(_n) = hubpack::serialize(crc_buf, &crc) {
-                return Ok(end);
-            } else {
-                return Err(MsgError::Serialization);
-            }
-        }
-    }
-    // Bounds are the only error here.
-    Err(MsgError::BadMessageLength)
-}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
