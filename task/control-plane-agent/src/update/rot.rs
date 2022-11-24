@@ -5,8 +5,7 @@
 use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
-use drv_sprot_api::MsgError as SprotError;
-use drv_sprot_api::SpRot;
+use drv_sprot_api::{SpRot, SprotError};
 use drv_update_api::lpc55::BLOCK_SIZE_BYTES;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 

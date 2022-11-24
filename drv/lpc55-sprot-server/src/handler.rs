@@ -88,7 +88,7 @@ impl Handler {
                         if Protocol::from(rx_buf[0]) != Protocol::Ignore {
                             status.rx_overrun =
                                 status.rx_overrun.wrapping_add(1);
-                            tx_payload[0] = MsgError::FlowError as u8;
+                            tx_payload[0] = SprotError::FlowError as u8;
                             ringbuf_entry!(Trace::Prev(self.count, self.prev));
                             self.prev = PrevMsg::Overrun;
                             ringbuf_entry!(Trace::ErrHeader(
@@ -117,7 +117,7 @@ impl Handler {
 
         // Check for the minimum receive length being satisfied.
         if rx_buf.len() < MIN_MSG_SIZE {
-            tx_payload[0] = MsgError::BadMessageLength as u8;
+            tx_payload[0] = SprotError::BadMessageLength as u8;
             return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
         }
 
@@ -128,7 +128,7 @@ impl Handler {
                 (msgtype, payload)
             }
             Err(msgerr) => {
-                if msgerr == MsgError::NoMessage {
+                if msgerr == SprotError::NoMessage {
                     self.prev = PrevMsg::None;
                     return None;
                 }
@@ -151,7 +151,7 @@ impl Handler {
             Ok((msgtype, payload_size)) => {
                 compose(msgtype, payload_size, tx_buf).ok()
             }
-            Err(err) if err == MsgError::NoMessage => None,
+            Err(err) if err == SprotError::NoMessage => None,
             Err(err) => {
                 tx_payload[0] = err as u8;
                 compose(MsgType::ErrorRsp, 1, tx_buf).ok()
@@ -167,7 +167,7 @@ impl Handler {
         rx_payload: &[u8],
         tx_payload: &mut [u8],
         status: &mut Status,
-    ) -> Result<(MsgType, usize), MsgError> {
+    ) -> Result<(MsgType, usize), SprotError> {
         // The CRC validate header and range checked length can be trusted now.
         let size = match msgtype {
             MsgType::EchoReq => {
@@ -179,7 +179,7 @@ impl Handler {
                     dst.copy_from_slice(rx_payload);
                     dst.len()
                 } else {
-                    return Err(MsgError::BadMessageLength);
+                    return Err(SprotError::BadMessageLength);
                 }
             }
             MsgType::StatusReq => hubpack::serialize(tx_payload, &status)?,
@@ -259,7 +259,7 @@ impl Handler {
             | MsgType::UpdCurrentVersionRsp
             | MsgType::Unknown => {
                 status.rx_invalid = status.rx_invalid.wrapping_add(1);
-                return Err(MsgError::BadMessageType);
+                return Err(SprotError::BadMessageType);
             }
         };
 
