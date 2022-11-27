@@ -95,7 +95,9 @@ impl Handler {
                                 self.count, self.prev, rx_buf[0], rx_buf[1],
                                 rx_buf[2], rx_buf[3]
                             ));
-                            return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+                            return MutMsgBuffer::new(tx_buf)
+                                .serialize_v1(MsgType::ErrorRsp, 1)
+                                .ok();
                         }
                     } else {
                         ringbuf_entry!(Trace::Prev(self.count, self.prev));
@@ -118,7 +120,9 @@ impl Handler {
         // Check for the minimum receive length being satisfied.
         if rx_buf.len() < MIN_MSG_SIZE {
             tx_payload[0] = SprotError::BadMessageLength as u8;
-            return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+            return MutMsgBuffer::new(tx_buf)
+                .serialize_v1(MsgType::ErrorRsp, 1)
+                .ok();
         }
 
         // Parse the header which also checks the CRC.
@@ -137,7 +141,9 @@ impl Handler {
                     rx_buf[3]
                 ));
                 tx_payload[0] = msgerr as u8;
-                return compose(MsgType::ErrorRsp, 1, tx_buf).ok();
+                return MutMsgBuffer::new(tx_buf)
+                    .serialize_v1(MsgType::ErrorRsp, 1)
+                    .ok();
             }
         };
 
@@ -148,13 +154,15 @@ impl Handler {
         // The above cases either enqueued a message and returned size
         // or generated 1-byte error code.
         match self.run(msgtype, rx_payload, tx_payload, status) {
-            Ok((msgtype, payload_size)) => {
-                compose(msgtype, payload_size, tx_buf).ok()
-            }
+            Ok((msgtype, payload_size)) => MutMsgBuffer::new(tx_buf)
+                .serialize_v1(msgtype, payload_size)
+                .ok(),
             Err(err) if err == SprotError::NoMessage => None,
             Err(err) => {
                 tx_payload[0] = err as u8;
-                compose(MsgType::ErrorRsp, 1, tx_buf).ok()
+                MutMsgBuffer::new(tx_buf)
+                    .serialize_v1(MsgType::ErrorRsp, 1)
+                    .ok()
             }
         }
     }

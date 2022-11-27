@@ -133,7 +133,9 @@ macro_rules! expect_msg {
     ($expected:expr, $actual:expr) => {
         if $expected != $actual {
             ringbuf_entry!(Trace::WrongMsgType($actual));
-            return Err(SprotError::BadMessageType);
+            Err(SprotError::BadMessageType)
+        } else {
+            Ok(())
         }
     };
 }
@@ -460,7 +462,7 @@ impl ServerImpl {
             .serialize_v1(MsgType::StatusReq, 0)?;
 
         let (msgtype, payload_size) = self.do_send_recv(size, TIMEOUT_QUICK)?;
-        expect_msg!(MsgType::StatusRsp, msgtype);
+        expect_msg!(MsgType::StatusRsp, msgtype)?;
         MsgBuffer::new(&self.rx_buf[..])
             .deserialize_payload::<Status>(payload_size)
     }
@@ -527,8 +529,8 @@ impl ServerImpl {
         let (msgtype, payload_len) =
             self.do_send_recv_retries(size, timeout, attempts)?;
         if msgtype == rsp {
-            let buf = payload_buf(Some(payload_len), &self.rx_buf[..]);
-            let (rsp, _) = hubpack::deserialize::<UpdateRspHeader>(buf)?;
+            let rsp = MsgBuffer::new(&self.rx_buf[..])
+                .deserialize_payload::<UpdateRspHeader>(payload_len)?;
             ringbuf_entry!(Trace::UpdResponse(rsp));
             rsp.map_err(|e: u32| {
                 UpdateError::try_from(e)
@@ -536,10 +538,9 @@ impl ServerImpl {
                     .into()
             })
         } else {
-            expect_msg!(MsgType::ErrorRsp, msgtype);
+            expect_msg!(MsgType::ErrorRsp, msgtype)?;
             if payload_len > 0 {
-                let err =
-                    SprotError::from(payload_buf(None, &self.rx_buf[..])[0]);
+                let err = SprotError::from(*&self.rx_buf[0]);
                 ringbuf_entry!(Trace::Error(err));
                 Err(err)
             } else {
@@ -849,16 +850,11 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         let (msgtype, payload_len) = self
             .do_send_recv_retries(size, TIMEOUT_QUICK, 2)
             .map_err(|e| idol_runtime::RequestError::Runtime(e))?;
-        if msgtype == MsgType::UpdCurrentVersionRsp {
-            let buf = payload_buf(Some(payload_len), &self.rx_buf[..]);
-            let (rsp, _) = hubpack::deserialize::<ImageVersion>(buf)
-                .map_err(|e| idol_runtime::RequestError::Runtime(e.into()))?;
-            Ok(rsp)
-        } else {
-            Err(idol_runtime::RequestError::Runtime(
-                SprotError::UpdateSpRotError,
-            ))
-        }
+
+        expect_msg!(MsgType::UpdCurrentVersionRsp, msgtype)?;
+        let rsp = MsgBuffer::new(&self.rx_buf[..])
+            .deserialize_payload::<ImageVersion>(payload_len)?;
+        Ok(rsp)
     }
 
     fn abort_update(

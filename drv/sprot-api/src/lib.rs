@@ -4,13 +4,12 @@
 
 //! Client API for SP to RoT messages over SPI.
 //!
-//! An SP/RoT SPI  message is:
-//!   1. A u8 protocol ID (0x01) or a 0x00 indicating that no message is present.
-//!   2. A hubpack encoded `MsgHeader` giving the protocol version, payload length
+//! An SP/RoT SPI message is:
+//!   1. A hubpack encoded `MsgHeader` containing the protocol, payload length,
 //!      and message type.
-//!   3. Payload according to MessageType, typically hubpack encoded
+//!   2. Payload according to MessageType, typically hubpack encoded
 //!      structure(s) and/or bulk data.
-//!   4. A CRC16 parameters that covers all of the bytes from the protocol ID to
+//!   3. A CRC16 parameters that covers all of the bytes from the protocol ID to
 //!      the end of the payload.
 //!
 
@@ -505,6 +504,12 @@ impl<'a> MsgBuffer<'a> {
     }
 
     /// Deserialize a message, `M`, from the wrapped buffer
+    //
+    // TODO(AJS): There should be a general desserialize method
+    // that also checks the header and does all the stuff included in `parse`.
+    // That will simplify a lot.
+    // Or we could provide a deserialize_header method that does all that.
+    //
     pub fn deserialize_payload<M>(
         &self,
         payload_size: usize,
