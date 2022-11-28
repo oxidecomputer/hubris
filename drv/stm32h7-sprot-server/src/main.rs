@@ -458,8 +458,7 @@ impl ServerImpl {
 
     /// Retrieve low-level RoT status
     fn do_status(&mut self) -> Result<Status, SprotError> {
-        let size = MutMsgBuffer::new(&mut self.tx_buf[..])
-            .serialize_v1(MsgType::StatusReq, 0)?;
+        let size = Msg::no_payload(&mut self.tx_buf[..], MsgType::StatusReq);
 
         let (msgtype, payload_size) = self.do_send_recv(size, TIMEOUT_QUICK)?;
         expect_msg!(MsgType::StatusRsp, msgtype)?;
@@ -513,8 +512,6 @@ impl ServerImpl {
         true
     }
 
-    /// TODO(AJS): - actually ensure we can get the correct UpdateError back
-    /// from the lpc55-sprot-server
     fn upd(
         &mut self,
         req: MsgType,
@@ -523,8 +520,7 @@ impl ServerImpl {
         timeout: u32,
         attempts: u16,
     ) -> Result<Option<u32>, SprotError> {
-        let size = MutMsgBuffer::new(&mut self.tx_buf[..])
-            .serialize_v1(req, payload_len)?;
+        let size = Msg::from_existing(&mut self.tx_buf[..], req, payload_len)?;
         ringbuf_entry!(Trace::TxSize(size));
         let (msgtype, payload_len) =
             self.do_send_recv_retries(size, timeout, attempts)?;
@@ -571,28 +567,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         source: Leased<R, [u8]>,
         sink: Leased<W, [u8]>,
     ) -> Result<Received, RequestError<SprotError>> {
-        // get available payload buffer
-        if let Some(buf) =
-            payload_buf_mut(None, &mut self.tx_buf[..]).get_mut(..source.len())
-        {
-            // self.tx.init(msgtype);
-            // Read the message into our local buffer offset by the header size
-            match source.read_range(0..source.len(), buf) {
-                Ok(()) => {}
-                Err(()) => {
-                    return Err(idol_runtime::RequestError::Fail(
-                        ClientError::WentAway,
-                    ));
-                }
-            }
-        } else {
-            return Err(idol_runtime::RequestError::Runtime(
-                SprotError::Oversize,
-            ));
-        }
-
-        let size = MutMsgBuffer::new(&mut self.tx_buf[..])
-            .serialize_v1(msgtype, source.len())?;
+        let size = Msg::from_lease(&mut self.tx_buf[..], msgtype, source)?;
 
         // Send message, then receive response using the same local buffer.
         match self.do_send_recv_retries(size, TIMEOUT_MAX, attempts) {
@@ -675,7 +650,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                         LittleEndian::write_u16(seq_buf, sent);
                     }
 
-                    match MutMsgBuffer::new(&mut self.tx_buf[..]).serialize_v1(MsgType::SinkReq, size) {
+                    match Msg::from_existing(&mut self.tx_buf[..], MsgType::SinkReq, size) {
                         Err(_err) => break Err(SprotError::Serialization),
                         Ok(size) => {
                             match self.do_send_recv_retries(size, TIMEOUT_QUICK, MAX_SINKREQ_ATTEMPTS) {
@@ -845,8 +820,10 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<ImageVersion, idol_runtime::RequestError<SprotError>> {
-        let size = MutMsgBuffer::new(&mut self.tx_buf[..])
-            .serialize_v1(MsgType::UpdCurrentVersionReq, 0)?;
+        let size = Msg::no_payload(
+            &mut self.tx_buf[..],
+            MsgType::UpdCurrentVersionReq,
+        );
         let (msgtype, payload_len) = self
             .do_send_recv_retries(size, TIMEOUT_QUICK, 2)
             .map_err(|e| idol_runtime::RequestError::Runtime(e))?;

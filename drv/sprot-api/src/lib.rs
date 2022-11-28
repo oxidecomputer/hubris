@@ -20,6 +20,7 @@ use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use hubpack::SerializedSize;
+use idol_runtime::{Leased, R};
 use if_chain::if_chain; // Chained if let statements are almost here.
 use serde::{Deserialize, Serialize};
 // use derive_idol_err::IdolError;
@@ -52,8 +53,8 @@ pub enum SprotError {
     NoMessage = 1,
     /// Transfer size is outside of maximum and minimum lenghts for message type.
     BadTransferSize = 2,
-    /// Server restarted
-    // ServerRestarted = 3,
+    /// A task crashed during an operation, commonly a lease read or write
+    TaskRestart = 3,
     /// CRC check failed.
     InvalidCrc = 4,
     /// FIFO overflow/underflow
@@ -411,6 +412,75 @@ impl From<u8> for MsgType {
     }
 }
 
+/// A builder/serializer for Messages
+///
+/// Each public method returns the serialized buffer that can be sent on the
+/// wire.
+pub struct Msg {}
+
+impl Msg {
+    /// Serialize a request with no payload
+    pub fn no_payload(out: &mut [u8], msgtype: MsgType) -> usize {
+        assert!(out.len() == BUF_SIZE);
+
+        let payload_size = 0;
+        Self::write_header(out, msgtype, payload_size);
+        Self::write_crc(out, payload_size)
+    }
+
+    /// Serialize a request from a MsgType and Lease
+    pub fn from_lease(
+        out: &mut [u8],
+        msgtype: MsgType,
+        source: Leased<R, [u8]>,
+    ) -> Result<usize, SprotError> {
+        assert!(out.len() == BUF_SIZE);
+        if source.len() > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::Oversize);
+        }
+
+        let dest = &mut out[HEADER_SIZE..][..source.len()];
+        source
+            .read_range(0..source.len(), dest)
+            .map_err(|_| SprotError::TaskRestart)?;
+
+        Self::write_header(out, msgtype, source.len());
+        Ok(Self::write_crc(out, source.len()))
+    }
+
+    /// Serialize a request from a buffer with an already written payload
+    pub fn from_existing(
+        out: &mut [u8],
+        msgtype: MsgType,
+        payload_size: usize,
+    ) -> Result<usize, SprotError> {
+        assert!(out.len() == BUF_SIZE);
+        if payload_size > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::Oversize);
+        }
+        Self::write_header(out, msgtype, payload_size);
+        Ok(Self::write_crc(out, payload_size))
+    }
+
+    fn write_header(out: &mut [u8], msgtype: MsgType, payload_size: usize) {
+        let _ = MsgHeader::new_v1(msgtype, payload_size)
+            .unwrap_lite()
+            .serialize(out)
+            .unwrap_lite();
+    }
+
+    fn write_crc(buf: &mut [u8], payload_size: usize) -> usize {
+        assert!(buf.len() >= HEADER_SIZE + payload_size + CRC_SIZE);
+        let crc_begin = HEADER_SIZE + payload_size;
+        let msg_bytes = &buf[0..crc_begin];
+        let crc = CRC16.checksum(msg_bytes);
+        let end = crc_begin + CRC_SIZE;
+        let crc_buf = &mut buf[crc_begin..end];
+        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
+        end
+    }
+}
+
 // The SpRot Header prepended to each message traversing the SPI bus
 // between the RoT and SP.
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
@@ -446,44 +516,6 @@ impl MsgHeader {
     pub fn serialize(&self, buf: &mut [u8]) -> Result<usize, SprotError> {
         let size = hubpack::serialize(&mut buf[..HEADER_SIZE], self)?;
         Ok(size)
-    }
-}
-
-/// A wrapper around a mutable buffer large enough to store (in order):
-///   * A serialized `MsgHeader`
-///   * A serialized message payload
-///   * A 16 bit CRC
-///
-/// This is used for serializing data
-pub struct MutMsgBuffer<'a> {
-    buf: &'a mut [u8],
-}
-
-impl<'a> MutMsgBuffer<'a> {
-    pub fn new(buf: &'a mut [u8]) -> MutMsgBuffer<'a> {
-        assert!(buf.len() >= BUF_SIZE);
-        MutMsgBuffer { buf }
-    }
-
-    /// Serialize a V1 message. As long as `payload_size <= PAYLOAD_SIZE_MAX`, then
-    /// serialization is guaranteed to succeed.
-    pub fn serialize_v1(
-        &mut self,
-        msgtype: MsgType,
-        payload_size: usize,
-    ) -> Result<usize, SprotError> {
-        let _ =
-            MsgHeader::new_v1(msgtype, payload_size)?.serialize(self.buf)?;
-
-        // At this point we know that the buffer is sized correctly and we can
-        // unwrap. Otherwise the header would not have serialized successfully.
-        let msg_bytes = self.buf.get(0..HEADER_SIZE + payload_size).unwrap();
-        let crc = CRC16.checksum(msg_bytes);
-        let crc_begin = HEADER_SIZE + payload_size;
-        let end = crc_begin + CRC_SIZE;
-        let crc_buf = self.buf.get_mut(crc_begin..end).unwrap();
-        hubpack::serialize(crc_buf, &crc)?;
-        Ok(end)
     }
 }
 
