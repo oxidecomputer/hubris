@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 use lpc55_areas::{
@@ -17,7 +17,7 @@ use lpc55_areas::{
     ROTKeyStatus, SecureBootCfg,
 };
 
-/// An `InheritedConfig` allows a minimal form of inheritance between TOML
+/// An `PatchedConfig` allows a minimal form of inheritance between TOML
 /// files.  Specifically, it allows you to **add features** to specific tasks;
 /// nothing else.
 ///
@@ -29,9 +29,16 @@ use lpc55_areas::{
 /// ```
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct InheritedConfig {
-    name: String,
+pub struct PatchedConfig {
     inherit: String,
+    patches: ConfigPatches,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigPatches {
+    name: String,
+    #[serde(default)]
     features: IndexMap<String, Vec<String>>,
 }
 
@@ -90,6 +97,7 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
+    pub patches: Option<ConfigPatches>,
     pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
 }
@@ -107,29 +115,29 @@ impl Config {
             .with_context(|| format!("could not read {}", cfg.display()))?;
 
         // Accumulate the contents into the buildhash here, so that we hash both
-        // the inheritance file and the target if this is an `InheritedConfig`
+        // the inheritance file and the target if this is an `PatchedConfig`
         hasher.write(&cfg_contents);
 
         // Minimal TOML file inheritance, to enable features on a per-task basis
-        if let Ok(inherited) =
-            toml::from_slice::<InheritedConfig>(&cfg_contents)
+        if let Ok(inherited) = toml::from_slice::<PatchedConfig>(&cfg_contents)
         {
-            let file = cfg.parent().unwrap().join(inherited.inherit);
+            let file = cfg.parent().unwrap().join(&inherited.inherit);
             let mut original = Config::from_file_with_hasher(&file, hasher)
                 .context(format!("Could not load template from {file:?}"))?;
-            original.name = inherited.name;
-            for (task, features) in inherited.features {
+            original.name = inherited.patches.name.to_owned();
+            for (task, features) in &inherited.patches.features {
                 let t = original
                     .tasks
-                    .get_mut(&task)
+                    .get_mut(task)
                     .ok_or_else(|| anyhow!("No such task {task}"))?;
                 for f in features {
-                    if t.features.contains(&f) {
+                    if t.features.contains(f) {
                         bail!("Task {task} already contains feature {f}");
                     }
-                    t.features.push(f);
+                    t.features.push(f.to_owned());
                 }
             }
+            original.patches = Some(inherited.patches);
             return Ok(original);
         }
 
@@ -200,6 +208,7 @@ impl Config {
             auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
+            patches: None,
             secure_task: toml.secure_task,
         })
     }
