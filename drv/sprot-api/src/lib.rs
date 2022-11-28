@@ -687,17 +687,4 @@ pub fn payload_buf(size: Option<usize>, buffer: &[u8]) -> &[u8] {
     }
 }
 
-/// Read/write access to the first portion or all of the transmit buffer.
-pub fn payload_buf_mut(size: Option<usize>, buffer: &mut [u8]) -> &mut [u8] {
-    let start = HEADER_SIZE;
-    let end = match size {
-        Some(size) => HEADER_SIZE + size,
-        None => buffer.len() - CRC_SIZE,
-    };
-    match buffer.get_mut(start..end) {
-        Some(buf) => buf,
-        None => panic!(), // Don't come to me with your miniscule buffers.
-    }
-}
-
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
