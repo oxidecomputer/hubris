@@ -198,6 +198,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     .read(stats.TX_MC_CNT())
                     .map_err(MonorailError::from)?;
 
+                // TODO: if this port uses a PHY, then should we be checking
+                // the PHY's status instead of ours?
                 let dev = match cfg.dev.0 {
                     PortDev::Dev1g => DevGeneric::new_1g(cfg.dev.1),
                     PortDev::Dev2g5 => DevGeneric::new_2g5(cfg.dev.1),
