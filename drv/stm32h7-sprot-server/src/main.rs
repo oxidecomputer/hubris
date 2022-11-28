@@ -144,7 +144,7 @@ pub struct ServerImpl {
     sys: sys_api::Sys,
     spi: drv_spi_api::SpiDevice,
     // Use separate buffers so that retries can be generic.
-    pub tx_buf: [u8; BUF_SIZE],
+    pub tx_buf: TxMsg,
     pub rx_buf: [u8; BUF_SIZE],
 }
 
@@ -161,7 +161,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         sys,
         spi,
-        tx_buf: [0u8; BUF_SIZE],
+        tx_buf: TxMsg::new(),
         rx_buf: [0u8; BUF_SIZE],
     };
 
@@ -177,6 +177,12 @@ impl ServerImpl {
         size: usize,
         timeout: u32,
     ) -> Result<(MsgType, usize), SprotError> {
+        // TODO(AJS): We know from how messages are serialized that size is
+        // always within bounds We could use a newtype around size here, or
+        // wrapper type around tx_buf itself. Either way, that would eliminate
+        // the assert.
+        assert!(size <= BUF_SIZE);
+
         ringbuf_entry!(Trace::SendRecv(size));
         // Polling and timeout configuration
         // TODO: Use EXTI interrupt and just a timeout, no polling.
@@ -214,12 +220,7 @@ impl ServerImpl {
                 }
             }
         }
-        let buf = match self.tx_buf.get(0..size) {
-            Some(buf) => buf,
-            None => {
-                return Err(SprotError::BadMessageLength);
-            }
-        };
+        let buf = &self.tx_buf.as_slice()[..size];
 
         // In order to improve reliability, start by sending only the
         // first ROT_FIFO_SIZE bytes and then delaying a short time.
@@ -393,32 +394,22 @@ impl ServerImpl {
             match self.do_send_recv(size, timeout) {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
-                Err(err) if err == SprotError::InvalidCrc => {
-                    errcode = err;
-                    continue;
-                }
-                Err(err)
-                    if matches!(
-                        err,
-                        SprotError::EmptyMessage
-                            | SprotError::RotNotReady
-                            | SprotError::RotBusy
-                    ) =>
-                {
-                    errcode = err;
-                    continue;
-                }
-                // The remaining errors are not recoverable.
                 Err(err) => {
                     ringbuf_entry!(Trace::SprotError(err));
-                    errcode = err;
-                    break;
+                    if is_recoverable_error(err) {
+                        errcode = err;
+                        continue;
+                    } else {
+                        return Err(err);
+                    }
                 }
+
                 // Intact messages from the RoT may indicate an error on
                 // its side.
                 Ok((msgtype, payload_len)) => {
                     match msgtype {
-                        MsgType::ErrorRsp if payload_len > 0 => {
+                        MsgType::ErrorRsp => {
+                            assert_eq!(payload_len, 1);
                             let payload = payload_buf(
                                 Some(payload_len),
                                 &self.rx_buf[..],
@@ -438,14 +429,9 @@ impl ServerImpl {
                                 // See issue XXX.
                                 continue;
                             }
-                            // Other codes from RoT are not recoverable
-                            // with a retry.
-                            break;
-                        }
-                        MsgType::ErrorRsp => {
-                            // No optional error code present.
-                            errcode = SprotError::Unknown;
-                            break;
+                            // Other errors from RoT are not recoverable with
+                            // a retry.
+                            return Err(errcode);
                         }
                         // All of the non-error message types are ok here.
                         _ => return Ok((msgtype, payload_len)),
@@ -458,7 +444,7 @@ impl ServerImpl {
 
     /// Retrieve low-level RoT status
     fn do_status(&mut self) -> Result<Status, SprotError> {
-        let size = Msg::no_payload(&mut self.tx_buf[..], MsgType::StatusReq);
+        let size = self.tx_buf.no_payload(MsgType::StatusReq);
 
         let (msgtype, payload_size) = self.do_send_recv(size, TIMEOUT_QUICK)?;
         expect_msg!(MsgType::StatusRsp, msgtype)?;
@@ -520,10 +506,11 @@ impl ServerImpl {
         timeout: u32,
         attempts: u16,
     ) -> Result<Option<u32>, SprotError> {
-        let size = Msg::from_existing(&mut self.tx_buf[..], req, payload_len)?;
+        let size = self.tx_buf.from_existing(req, payload_len)?;
         ringbuf_entry!(Trace::TxSize(size));
         let (msgtype, payload_len) =
             self.do_send_recv_retries(size, timeout, attempts)?;
+
         if msgtype == rsp {
             let rsp = MsgBuffer::new(&self.rx_buf[..])
                 .deserialize_payload::<UpdateRspHeader>(payload_len)?;
@@ -567,7 +554,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         source: Leased<R, [u8]>,
         sink: Leased<W, [u8]>,
     ) -> Result<Received, RequestError<SprotError>> {
-        let size = Msg::from_lease(&mut self.tx_buf[..], msgtype, source)?;
+        let size = self.tx_buf.from_lease(msgtype, source)?;
 
         // Send message, then receive response using the same local buffer.
         match self.do_send_recv_retries(size, TIMEOUT_MAX, attempts) {
@@ -608,7 +595,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
             // The RoT will read all of the bytes of a MsgType::SinkReq and
             // include the received sequence number in its SinkRsp message.
             //
-            // The RoT reports a errors in an ErrorRsp message.
+            // The RoT reports errors in an ErrorRsp message.
             //
             // For the sake of working with a logic analyzer,
             // a known pattern is put into the SinkReq messages so that
@@ -628,7 +615,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                     // The payload is big enough to contain the sequence number
                     // and additional bytes.
                     let mut n: u8 = HEADER_SIZE as u8;
-                    let buf = payload_buf_mut(Some(size), &mut self.tx_buf[..]);
+                    let buf = &mut self.tx_buf.payload_mut()[..size];
                     buf.fill_with(|| {
                         let seq = n;
                         n = n.wrapping_add(1);
@@ -646,11 +633,11 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                     // The first two payload bytes are a message
                     // sequence number if there is space for it.
                     if core::mem::size_of::<u16>() <= size {
-                        let seq_buf = payload_buf_mut(Some(core::mem::size_of::<u16>()), &mut self.tx_buf[..]);
+                        let seq_buf = &mut self.tx_buf.payload_mut()[..core::mem::size_of::<u16>()];
                         LittleEndian::write_u16(seq_buf, sent);
                     }
 
-                    match Msg::from_existing(&mut self.tx_buf[..], MsgType::SinkReq, size) {
+                    match self.tx_buf.from_existing(MsgType::SinkReq, size) {
                         Err(_err) => break Err(SprotError::Serialization),
                         Ok(size) => {
                             match self.do_send_recv_retries(size, TIMEOUT_QUICK, MAX_SINKREQ_ATTEMPTS) {
@@ -756,7 +743,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         image_type: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         ringbuf_entry!(Trace::UpdatePrep);
-        let payload = payload_buf_mut(None, &mut self.tx_buf[..]);
+        let payload = self.tx_buf.payload_mut();
         let payload_len = hubpack::serialize(&mut payload[0..], &image_type)
             .map_err(|e| Into::<SprotError>::into(e))?;
         let _ = self.upd(
@@ -781,8 +768,9 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         >,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         ringbuf_entry!(Trace::UpdateWriteOneBlock);
-        let payload = payload_buf_mut(None, &mut self.tx_buf[..]);
-        let n = hubpack::serialize(&mut payload[0..], &block_num)
+
+        let payload = self.tx_buf.payload_mut();
+        let n = hubpack::serialize(payload, &block_num)
             .map_err(|e| idol_runtime::RequestError::Runtime(e.into()))?;
         block
             .read_range(0..block.len(), &mut payload[n..n + block.len()])
@@ -820,10 +808,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<ImageVersion, idol_runtime::RequestError<SprotError>> {
-        let size = Msg::no_payload(
-            &mut self.tx_buf[..],
-            MsgType::UpdCurrentVersionReq,
-        );
+        let size = self.tx_buf.no_payload(MsgType::UpdCurrentVersionReq);
         let (msgtype, payload_len) = self
             .do_send_recv_retries(size, TIMEOUT_QUICK, 2)
             .map_err(|e| idol_runtime::RequestError::Runtime(e))?;

@@ -203,6 +203,17 @@ impl From<hubpack::Error> for SprotError {
     }
 }
 
+// Return true if the error is recoverable, otherwise return false
+pub fn is_recoverable_error(err: SprotError) -> bool {
+    match err {
+        SprotError::InvalidCrc
+        | SprotError::EmptyMessage
+        | SprotError::RotNotReady
+        | SprotError::RotBusy => true,
+        _ => false,
+    }
+}
+
 /// The successful result of pulsing the active low chip-select line
 #[derive(
     Copy, Clone, FromBytes, AsBytes, Serialize, Deserialize, SerializedSize,
@@ -412,70 +423,92 @@ impl From<u8> for MsgType {
     }
 }
 
-/// A builder/serializer for Messages
+/// A builder/serializer for Messages that wraps the transmit buffer
 ///
 /// Each public method returns the serialized buffer that can be sent on the
 /// wire.
-pub struct Msg {}
+pub struct TxMsg {
+    buf: [u8; BUF_SIZE],
+}
 
-impl Msg {
+impl TxMsg {
+    pub fn new() -> TxMsg {
+        TxMsg { buf: [0; BUF_SIZE] }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..]
+    }
+
+    pub fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[HEADER_SIZE..BUF_SIZE - CRC_SIZE]
+    }
+
+    /// Serialize an ErrorRsp with a one byte payload, which is a serialized
+    /// `SprotError`
+    pub fn error_rsp(&mut self, err: SprotError) -> usize {
+        let payload_size = 1;
+        self.buf[HEADER_SIZE] = err as u8;
+        self.from_existing(MsgType::ErrorRsp, payload_size)
+            .unwrap_lite()
+    }
+
     /// Serialize a request with no payload
-    pub fn no_payload(out: &mut [u8], msgtype: MsgType) -> usize {
-        assert!(out.len() == BUF_SIZE);
-
+    pub fn no_payload(&mut self, msgtype: MsgType) -> usize {
         let payload_size = 0;
-        Self::write_header(out, msgtype, payload_size);
-        Self::write_crc(out, payload_size)
+        self.write_header(msgtype, payload_size);
+        self.write_crc(payload_size)
     }
 
     /// Serialize a request from a MsgType and Lease
     pub fn from_lease(
-        out: &mut [u8],
+        &mut self,
         msgtype: MsgType,
         source: Leased<R, [u8]>,
     ) -> Result<usize, SprotError> {
-        assert!(out.len() == BUF_SIZE);
         if source.len() > PAYLOAD_SIZE_MAX {
             return Err(SprotError::Oversize);
         }
 
-        let dest = &mut out[HEADER_SIZE..][..source.len()];
+        let dest = &mut self.buf[HEADER_SIZE..][..source.len()];
         source
             .read_range(0..source.len(), dest)
             .map_err(|_| SprotError::TaskRestart)?;
 
-        Self::write_header(out, msgtype, source.len());
-        Ok(Self::write_crc(out, source.len()))
+        self.write_header(msgtype, source.len());
+        Ok(self.write_crc(source.len()))
     }
 
     /// Serialize a request from a buffer with an already written payload
     pub fn from_existing(
-        out: &mut [u8],
+        &mut self,
         msgtype: MsgType,
         payload_size: usize,
     ) -> Result<usize, SprotError> {
-        assert!(out.len() == BUF_SIZE);
         if payload_size > PAYLOAD_SIZE_MAX {
             return Err(SprotError::Oversize);
         }
-        Self::write_header(out, msgtype, payload_size);
-        Ok(Self::write_crc(out, payload_size))
+        self.write_header(msgtype, payload_size);
+        Ok(self.write_crc(payload_size))
     }
 
-    fn write_header(out: &mut [u8], msgtype: MsgType, payload_size: usize) {
+    fn write_header(&mut self, msgtype: MsgType, payload_size: usize) {
         let _ = MsgHeader::new_v1(msgtype, payload_size)
             .unwrap_lite()
-            .serialize(out)
+            .serialize(&mut self.buf[..])
             .unwrap_lite();
     }
 
-    fn write_crc(buf: &mut [u8], payload_size: usize) -> usize {
-        assert!(buf.len() >= HEADER_SIZE + payload_size + CRC_SIZE);
+    fn write_crc(&mut self, payload_size: usize) -> usize {
         let crc_begin = HEADER_SIZE + payload_size;
-        let msg_bytes = &buf[0..crc_begin];
+        let msg_bytes = &self.buf[0..crc_begin];
         let crc = CRC16.checksum(msg_bytes);
         let end = crc_begin + CRC_SIZE;
-        let crc_buf = &mut buf[crc_begin..end];
+        let crc_buf = &mut self.buf[crc_begin..end];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
         end
     }

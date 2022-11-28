@@ -60,10 +60,10 @@ impl Handler {
         tx_prev: bool,
         iostat: IoStatus,
         rx_buf: &[u8],
-        tx_buf: &mut [u8],
+        tx_buf: &mut TxMsg,
         status: &mut Status, // for responses and updating
     ) -> Option<usize> {
-        let tx_payload = payload_buf_mut(None, tx_buf);
+        let tx_payload = tx_buf.payload_mut();
         self.count = self.count.wrapping_add(1);
 
         // Before looking at the received message, check for explicit flush or
@@ -88,19 +88,15 @@ impl Handler {
                         if Protocol::from(rx_buf[0]) != Protocol::Ignore {
                             status.rx_overrun =
                                 status.rx_overrun.wrapping_add(1);
-                            tx_payload[0] = SprotError::FlowError as u8;
                             ringbuf_entry!(Trace::Prev(self.count, self.prev));
                             self.prev = PrevMsg::Overrun;
                             ringbuf_entry!(Trace::ErrHeader(
                                 self.count, self.prev, rx_buf[0], rx_buf[1],
                                 rx_buf[2], rx_buf[3]
                             ));
-                            return Msg::from_existing(
-                                tx_buf,
-                                MsgType::ErrorRsp,
-                                1,
-                            )
-                            .ok();
+                            return Some(
+                                tx_buf.error_rsp(SprotError::FlowError),
+                            );
                         }
                     } else {
                         ringbuf_entry!(Trace::Prev(self.count, self.prev));
@@ -122,8 +118,7 @@ impl Handler {
 
         // Check for the minimum receive length being satisfied.
         if rx_buf.len() < MIN_MSG_SIZE {
-            tx_payload[0] = SprotError::BadMessageLength as u8;
-            return Msg::from_existing(tx_buf, MsgType::ErrorRsp, 1).ok();
+            return Some(tx_buf.error_rsp(SprotError::BadMessageLength));
         }
 
         // Parse the header which also checks the CRC.
@@ -141,8 +136,7 @@ impl Handler {
                     self.count, self.prev, rx_buf[0], rx_buf[1], rx_buf[2],
                     rx_buf[3]
                 ));
-                tx_payload[0] = msgerr as u8;
-                return Msg::from_existing(tx_buf, MsgType::ErrorRsp, 1).ok();
+                return Some(tx_buf.error_rsp(msgerr));
             }
         };
 
@@ -154,13 +148,10 @@ impl Handler {
         // or generated 1-byte error code.
         match self.run(msgtype, rx_payload, tx_payload, status) {
             Ok((msgtype, payload_size)) => {
-                Msg::from_existing(tx_buf, msgtype, payload_size).ok()
+                tx_buf.from_existing(msgtype, payload_size).ok()
             }
             Err(err) if err == SprotError::NoMessage => None,
-            Err(err) => {
-                tx_payload[0] = err as u8;
-                Msg::from_existing(tx_buf, MsgType::ErrorRsp, 1).ok()
-            }
+            Err(err) => Some(tx_buf.error_rsp(err)),
         }
     }
 

@@ -82,7 +82,7 @@ struct IO {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
     // Transmit Buffer
-    tx_buf: [u8; BUF_SIZE],
+    tx_buf: TxMsg,
     // Receive Buffer
     rx_buf: [u8; BUF_SIZE],
     // Number of bytes copied into the receive buffer
@@ -151,7 +151,7 @@ fn main() -> ! {
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let mut io = IO {
-        tx_buf: [0u8; BUF_SIZE],
+        tx_buf: TxMsg::new(),
         rx_buf: [0u8; BUF_SIZE],
         gpio,
         spi,
@@ -193,7 +193,7 @@ fn main() -> ! {
         transmit,
         crate::IoStatus::Flush,
         &server.io.rx_buf[0..0],
-        &mut server.io.tx_buf[..],
+        &mut server.io.tx_buf,
         server.status,
     );
 
@@ -214,7 +214,7 @@ fn main() -> ! {
             transmit, // true if previous loop transmitted.
             iostat,
             &server.io.rx_buf[0..server.io.rxcount],
-            &mut server.io.tx_buf[..],
+            &mut server.io.tx_buf,
             server.status,
         ) {
             Some(_txlen) => {
@@ -234,7 +234,7 @@ impl IO {
     /// Returns false on spurious interrupt.
     fn pio(&mut self, transmit: bool) {
         ringbuf_entry!(Trace::Pio(transmit));
-        let tx_end = self.tx_buf.len(); // Available bytes and trailing zeros
+        let tx_end = self.tx_buf.as_slice().len(); // Available bytes and trailing zeros
         let rx_end = self.rx_buf.len(); // All of the available bytes
         self.txcount = 0;
         self.rxcount = 0;
@@ -243,7 +243,7 @@ impl IO {
 
         if !transmit {
             // Ensure that unused Tx buffer is zero-filled.
-            self.tx_buf.fill(0);
+            self.tx_buf.as_mut().fill(0);
         }
 
         // Prime FIFOWR in order to be ready for start of frame.
@@ -257,7 +257,7 @@ impl IO {
             if self.txcount >= tx_end || !self.spi.can_tx() {
                 break;
             }
-            let b = self.tx_buf[self.txcount];
+            let b = self.tx_buf.as_slice()[self.txcount];
             self.spi.send_u8(b);
             self.txcount += 1;
         }
@@ -348,7 +348,7 @@ impl IO {
                     if self.spi.can_tx() {
                         let (b, incr) = if self.txcount < tx_end {
                             io = true;
-                            (self.tx_buf[self.txcount], 1)
+                            (self.tx_buf.as_slice()[self.txcount], 1)
                         } else {
                             (0, 0)
                         };
