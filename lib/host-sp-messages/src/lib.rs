@@ -193,11 +193,13 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct HostStartupOptions: u64 {
         const PHASE2_RECOVERY_MODE = 1 << 0;
-        const DEBUG_KBM = 1 << 1;
-        const DEBUG_BOOTRD = 1 << 2;
-        const DEBUG_PROM = 1 << 3;
-        const DEBUG_KMDB = 1 << 4;
-        const DEBUG_KMDB_BOOT = 1 << 5;
+        const STARTUP_KBM = 1 << 1;
+        const STARTUP_BOOTRD = 1 << 2;
+        const STARTUP_PROM = 1 << 3;
+        const STARTUP_KMDB = 1 << 4;
+        const STARTUP_KMDB_BOOT = 1 << 5;
+        const STARTUP_BOOT_RAMDISK = 1 << 6;
+        const STARTUP_BOOT_NET = 1 << 7;
     }
 }
 
@@ -210,24 +212,32 @@ const_assert_eq!(
     gateway_messages::StartupOptions::PHASE2_RECOVERY_MODE.bits()
 );
 const_assert_eq!(
-    HostStartupOptions::DEBUG_KBM.bits(),
-    gateway_messages::StartupOptions::DEBUG_KBM.bits()
+    HostStartupOptions::STARTUP_KBM.bits(),
+    gateway_messages::StartupOptions::STARTUP_KBM.bits()
 );
 const_assert_eq!(
-    HostStartupOptions::DEBUG_BOOTRD.bits(),
-    gateway_messages::StartupOptions::DEBUG_BOOTRD.bits()
+    HostStartupOptions::STARTUP_BOOTRD.bits(),
+    gateway_messages::StartupOptions::STARTUP_BOOTRD.bits()
 );
 const_assert_eq!(
-    HostStartupOptions::DEBUG_PROM.bits(),
-    gateway_messages::StartupOptions::DEBUG_PROM.bits()
+    HostStartupOptions::STARTUP_PROM.bits(),
+    gateway_messages::StartupOptions::STARTUP_PROM.bits()
 );
 const_assert_eq!(
-    HostStartupOptions::DEBUG_KMDB.bits(),
-    gateway_messages::StartupOptions::DEBUG_KMDB.bits()
+    HostStartupOptions::STARTUP_KMDB.bits(),
+    gateway_messages::StartupOptions::STARTUP_KMDB.bits()
 );
 const_assert_eq!(
-    HostStartupOptions::DEBUG_KMDB_BOOT.bits(),
-    gateway_messages::StartupOptions::DEBUG_KMDB_BOOT.bits()
+    HostStartupOptions::STARTUP_KMDB_BOOT.bits(),
+    gateway_messages::StartupOptions::STARTUP_KMDB_BOOT.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::STARTUP_BOOT_RAMDISK.bits(),
+    gateway_messages::StartupOptions::STARTUP_BOOT_RAMDISK.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::STARTUP_BOOT_NET.bits(),
+    gateway_messages::StartupOptions::STARTUP_BOOT_NET.bits()
 );
 const_assert_eq!(
     HostStartupOptions::all().bits(),

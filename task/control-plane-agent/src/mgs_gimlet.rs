@@ -94,7 +94,7 @@ impl MgsHandler {
 
         // XXX For now, we want to default to these options.
         let startup_options =
-            HostStartupOptions::DEBUG_KMDB | HostStartupOptions::DEBUG_PROM;
+            HostStartupOptions::STARTUP_KMDB | HostStartupOptions::STARTUP_PROM;
 
         Self {
             common: MgsCommon::claim_static_resources(),
