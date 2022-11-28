@@ -21,10 +21,11 @@ use lpc55_areas::{
 /// files.  Specifically, it allows you to **add features** to specific tasks;
 /// nothing else.
 ///
+/// Here's an example:
 /// ```toml
 /// name = "sidecar-a-lab"
 /// inherit = "rev-a.toml"
-/// patches.sequencer = ["stay-in-a2"]
+/// features.sequencer = ["stay-in-a2"]
 /// ```
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
