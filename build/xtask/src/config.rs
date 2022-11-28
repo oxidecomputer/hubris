@@ -17,9 +17,9 @@ use lpc55_areas::{
     ROTKeyStatus, SecureBootCfg,
 };
 
-/// An `PatchedConfig` allows a minimal form of inheritance between TOML
-/// files.  Specifically, it allows you to **add features** to specific tasks;
-/// nothing else.
+/// A `PatchedConfig` allows a minimal form of inheritance between TOML files
+/// Specifically, it allows you to **add features** to specific tasks; nothing
+/// else.
 ///
 /// Here's an example:
 /// ```toml
