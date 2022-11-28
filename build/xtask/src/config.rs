@@ -24,6 +24,8 @@ use lpc55_areas::{
 /// Here's an example:
 /// ```toml
 /// name = "sidecar-a-lab"
+///
+/// [patches]
 /// inherit = "rev-a.toml"
 /// features.sequencer = ["stay-in-a2"]
 /// ```
