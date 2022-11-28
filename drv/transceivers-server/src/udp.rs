@@ -89,7 +89,9 @@ impl ServerImpl {
             Ok(mut meta) => {
                 // Modify meta.size based on the output packet size
                 let out_len =
-                    match hubpack::deserialize(rx_data_buf) {
+                    match hubpack::deserialize(
+                        &rx_data_buf[0..meta.size as usize],
+                    ) {
                         Ok((msg, data)) => {
                             self.handle_message(msg, data, tx_data_buf)
                         }
