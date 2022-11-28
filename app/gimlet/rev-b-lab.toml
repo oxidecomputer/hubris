@@ -1,0 +1,5 @@
+inherit = "rev-b.toml"
+
+[patches]
+name = "gimlet-b-lab"
+features.gimlet_seq = ["stay-in-a2"]
