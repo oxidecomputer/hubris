@@ -170,7 +170,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             None => return Err(MonorailError::UnconfiguredPort.into()),
             Some(cfg) => cfg,
         };
-        let (tx, rx) = match cfg.dev.0 {
+        let (tx, rx, link_down_sticky) = match cfg.dev.0 {
             PortDev::Dev1g | PortDev::Dev2g5 => {
                 let stats = ASM().DEV_STATISTICS(port);
                 let rx_uc = self
@@ -197,6 +197,21 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     .vsc7448
                     .read(stats.TX_MC_CNT())
                     .map_err(MonorailError::from)?;
+
+                // TODO: if this port uses a PHY, then should we be checking
+                // the PHY's status instead of ours?
+                let dev = match cfg.dev.0 {
+                    PortDev::Dev1g => DevGeneric::new_1g(cfg.dev.1),
+                    PortDev::Dev2g5 => DevGeneric::new_2g5(cfg.dev.1),
+                    _ => unreachable!(),
+                }
+                .map_err(MonorailError::from)?;
+
+                let link_down = self
+                    .vsc7448
+                    .read(dev.regs().PCS1G_CFG_STATUS().PCS1G_STICKY())
+                    .map_err(MonorailError::from)?;
+
                 let tx = PacketCount {
                     unicast: tx_uc.into(),
                     multicast: tx_mc.into(),
@@ -207,7 +222,9 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     multicast: rx_mc.into(),
                     broadcast: rx_bc.into(),
                 };
-                (tx, rx)
+                let link_down_sticky = link_down.link_down_sticky() != 0
+                    || link_down.out_of_sync_sticky() != 0;
+                (tx, rx, link_down_sticky)
             }
             PortDev::Dev10g => {
                 let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
@@ -245,10 +262,23 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     multicast: rx_mc.into(),
                     broadcast: rx_bc.into(),
                 };
-                (tx, rx)
+
+                let intr = self
+                    .vsc7448
+                    .read(
+                        PCS10G_BR(cfg.dev.1).PCS_10GBR_STATUS().PCS_INTR_STAT(),
+                    )
+                    .map_err(MonorailError::from)?;
+                let link_down_sticky = intr.lock_changed_sticky() != 0;
+
+                (tx, rx, link_down_sticky)
             }
         };
-        Ok(PortCounters { tx, rx })
+        Ok(PortCounters {
+            tx,
+            rx,
+            link_down_sticky,
+        })
     }
 
     fn reset_port_counters(
@@ -284,6 +314,24 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 self.vsc7448
                     .write(stats.TX_MC_CNT(), 0.into())
                     .map_err(MonorailError::from)?;
+
+                let dev = match cfg.dev.0 {
+                    PortDev::Dev1g => DevGeneric::new_1g(cfg.dev.1),
+                    PortDev::Dev2g5 => DevGeneric::new_2g5(cfg.dev.1),
+                    _ => unreachable!(),
+                }
+                .map_err(MonorailError::from)?;
+
+                // Clear the two bits that we use to detect link drops
+                self.vsc7448
+                    .write_with(
+                        dev.regs().PCS1G_CFG_STATUS().PCS1G_STICKY(),
+                        |r| {
+                            r.set_link_down_sticky(1);
+                            r.set_out_of_sync_sticky(1);
+                        },
+                    )
+                    .map_err(MonorailError::from)?;
             }
             PortDev::Dev10g => {
                 let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
@@ -304,6 +352,13 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     .map_err(MonorailError::from)?;
                 self.vsc7448
                     .write(stats.TX_MC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+
+                self.vsc7448
+                    .write_with(
+                        PCS10G_BR(cfg.dev.1).PCS_10GBR_STATUS().PCS_INTR_STAT(),
+                        |r| r.set_lock_changed_sticky(1),
+                    )
                     .map_err(MonorailError::from)?;
             }
         }
