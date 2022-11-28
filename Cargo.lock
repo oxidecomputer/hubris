@@ -1192,6 +1192,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lpc55-pac",
+ "lpc55-reset-reason",
  "num-traits",
  "task-jefe-api",
  "userlib",
@@ -2410,6 +2411,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55-reset-reason"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "num-derive",
+ "num-traits",
+ "zerocopy",
+]
+
+[[package]]
+name = "lpc55-rtc-counters"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "num-derive",
+ "num-traits",
+ "zerocopy",
+]
+
+[[package]]
 name = "lpc55-update-server"
 version = "0.1.0"
 dependencies = [
@@ -3573,6 +3594,8 @@ dependencies = [
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lib-lpc55-usart",
  "lpc55-pac",
+ "lpc55-reset-reason",
+ "lpc55-rtc-counters",
  "lpc55_romapi",
  "nb 1.0.0",
  "p256",

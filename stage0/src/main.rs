@@ -10,10 +10,12 @@
 
 use core::arch;
 
-extern crate lpc55_pac;
+use lpc55_pac as device;
 extern crate panic_halt;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
+use lpc55_reset_reason::*;
+use lpc55_rtc_counters::*;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "dice-mfg")] {
@@ -145,6 +147,28 @@ unsafe fn branch_to_image(image: Image) -> ! {
     );
 }
 
+fn adjust_counters() {
+    let rtc = unsafe { &*device::RTC::ptr() };
+    let syscon = unsafe { &*device::SYSCON::ptr() };
+
+    syscon.ahbclkctrl0.modify(|_, w| w.rtc().enable());
+    syscon.presetctrl0.modify(|_, w| w.rtc_rst().released());
+
+    let mut counters = RtcCounter::from(rtc);
+
+    counters.increment_boot_count();
+
+    let hubris_state = counters.get_hubris_state();
+    let reset_reason = lpc55_reset_reason::get_reset_reason();
+
+    match reset_reason {
+        Lpc55ResetReason::Pin | Lpc55ResetReason::System => {
+            counters.increment_reboot();
+        }
+        _ => (),
+    }
+}
+
 #[entry]
 fn main() -> ! {
     // This is the SYSCON_DIEID register on LPC55 which contains the ROM
@@ -154,6 +178,8 @@ fn main() -> ! {
     if val & 1 != ROM_VER {
         panic!()
     }
+
+    adjust_counters();
 
     let (imagea, imageb) =
         (image_header::get_image_a(), image_header::get_image_b());

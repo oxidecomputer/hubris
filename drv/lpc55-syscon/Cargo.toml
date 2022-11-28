@@ -13,6 +13,7 @@ zerocopy = { workspace = true }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+lpc55-reset-reason = { path = "../../lib/lpc55-reset-reason"}
 
 [build-dependencies]
 idol = { workspace = true }
