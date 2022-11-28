@@ -17,6 +17,23 @@ use lpc55_areas::{
     ROTKeyStatus, SecureBootCfg,
 };
 
+/// An `InheritedConfig` allows a minimal form of inheritance between TOML
+/// files.  Specifically, it allows you to **add features** to specific tasks;
+/// nothing else.
+///
+/// ```toml
+/// name = "sidecar-a-lab"
+/// inherit = "rev-a.toml"
+/// patches.sequencer = ["stay-in-a2"]
+/// ```
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InheritedConfig {
+    name: String,
+    inherit: String,
+    features: IndexMap<String, Vec<String>>,
+}
+
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
 /// to load a second file containing peripheral register addresses.
@@ -80,6 +97,30 @@ impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
         let cfg_contents = std::fs::read(&cfg)
             .with_context(|| format!("could not read {}", cfg.display()))?;
+
+        // Minimal TOML file inheritance, to enable features on a per-task basis
+        if let Ok(inherited) =
+            toml::from_slice::<InheritedConfig>(&cfg_contents)
+        {
+            let file = cfg.parent().unwrap().join(inherited.inherit);
+            let mut original = Config::from_file(&file)
+                .context(format!("Could not load template from {file:?}"))?;
+            original.name = inherited.name;
+            for (task, features) in inherited.features {
+                let t = original
+                    .tasks
+                    .get_mut(&task)
+                    .ok_or_else(|| anyhow!("No such task {task}"))?;
+                for f in features {
+                    if t.features.contains(&f) {
+                        bail!("Task {task} already contains feature {f}");
+                    }
+                    t.features.push(f);
+                }
+            }
+            return Ok(original);
+        }
+
         let toml: RawConfig = toml::from_slice(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");

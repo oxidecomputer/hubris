@@ -597,6 +597,11 @@ fn main() -> ! {
         .write_reg(drv_i2c_devices::tmp451::Register::RemoteTempThermBLimit, 90)
         .unwrap();
 
+    // Power on, unless suppressed by the `stay-in-a2` feature
+    if !cfg!(feature = "stay-in-a2") {
+        server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
+    }
+
     //
     // This will put our timer in the past, and should immediately kick us.
     //
