@@ -283,13 +283,11 @@ impl Handler {
                     }
                 }
                 MsgType::UpdCurrentVersionReq => {
-                    match self.update.current_version() {
-                        Ok(rsp) => hubpack::serialize(tx_payload, &rsp)
-                            .map_or(Err(MsgError::Serialization), |size| {
-                                Ok((MsgType::UpdCurrentVersionRsp, size))
-                            }),
-                        Err(_err) => Err(MsgError::Serialization),
-                    }
+                    let rsp = self.update.current_version();
+                    hubpack::serialize(tx_payload, &rsp)
+                        .map_or(Err(MsgError::Serialization), |size| {
+                            Ok((MsgType::UpdCurrentVersionRsp, size))
+                        })
                 }
                 MsgType::SinkReq => {
                     // The first two bytes of a SinkReq payload are the U16

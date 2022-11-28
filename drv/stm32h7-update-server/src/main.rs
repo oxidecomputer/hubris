@@ -9,6 +9,7 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
 use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -382,7 +383,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn current_version(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<ImageVersion, RequestError<UpdateError>> {
+    ) -> Result<ImageVersion, RequestError<Infallible>> {
         Ok(ImageVersion {
             epoch: HUBRIS_BUILD_EPOCH,
             version: HUBRIS_BUILD_VERSION,
