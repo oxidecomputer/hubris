@@ -96,15 +96,26 @@ pub struct Config {
 
 impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
+        Self::from_file_with_hasher(cfg, DefaultHasher::new())
+    }
+
+    fn from_file_with_hasher(
+        cfg: &Path,
+        mut hasher: DefaultHasher,
+    ) -> Result<Self> {
         let cfg_contents = std::fs::read(&cfg)
             .with_context(|| format!("could not read {}", cfg.display()))?;
+
+        // Accumulate the contents into the buildhash here, so that we hash both
+        // the inheritance file and the target if this is an `InheritedConfig`
+        hasher.write(&cfg_contents);
 
         // Minimal TOML file inheritance, to enable features on a per-task basis
         if let Ok(inherited) =
             toml::from_slice::<InheritedConfig>(&cfg_contents)
         {
             let file = cfg.parent().unwrap().join(inherited.inherit);
-            let mut original = Config::from_file(&file)
+            let mut original = Config::from_file_with_hasher(&file, hasher)
                 .context(format!("Could not load template from {file:?}"))?;
             original.name = inherited.name;
             for (task, features) in inherited.features {
@@ -126,9 +137,6 @@ impl Config {
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
-
-        let mut hasher = DefaultHasher::new();
-        hasher.write(&cfg_contents);
 
         // The app.toml must include a `chip` key, which defines the peripheral
         // register map in a separate file.  We load it then accumulate that
