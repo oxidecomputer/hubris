@@ -1939,7 +1939,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#b67167bcb1ebf35eae37ca2d291549b669bf7287"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=add-image-versions#b77329fdbfd0a894e74a292693a1330466ef8322"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -3714,6 +3714,7 @@ dependencies = [
  "drv-gimlet-seq-api",
  "drv-monorail-api",
  "drv-sidecar-seq-api",
+ "drv-sprot-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
  "drv-update-api",

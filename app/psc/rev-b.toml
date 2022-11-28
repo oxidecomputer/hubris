@@ -138,6 +138,7 @@ task-slots = [
     "sys",
     "validate",
     "sensor",
+    "sprot",
 ]
 features = ["psc", "vlan"]
 

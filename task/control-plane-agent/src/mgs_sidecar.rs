@@ -202,7 +202,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
     ) -> Result<SpState, SpError> {
         let power_state = self.power_state_impl()?;
-        self.common.sp_state(power_state)
+        self.common.sp_state(&self.sp_update, power_state)
     }
 
     fn sp_update_prepare(

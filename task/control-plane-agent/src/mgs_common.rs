@@ -2,15 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{inventory::Inventory, Log, MgsMessage};
+use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
+use drv_sprot_api::SpRot;
 use gateway_messages::{
-    DiscoverResponse, PowerState, SpError, SpPort, SpState,
+    DiscoverResponse, ImageVersion, PowerState, RotError, RotState, SpError,
+    SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-
-// TODO How are we versioning SP images? This is a placeholder.
-const VERSION: u32 = 1;
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
@@ -36,6 +35,7 @@ impl MgsCommon {
 
     pub(crate) fn sp_state(
         &mut self,
+        update: &SpUpdate,
         power_state: PowerState,
     ) -> Result<SpState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
@@ -53,8 +53,9 @@ impl MgsCommon {
 
         Ok(SpState {
             serial_number,
-            version: VERSION,
+            version: update.current_version(),
             power_state,
+            rot: rot_state(update.sprot_task()),
         })
     }
 
@@ -83,5 +84,28 @@ impl MgsCommon {
     #[inline(always)]
     pub(crate) fn inventory(&self) -> &Inventory {
         &self.inventory
+    }
+}
+
+fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
+    let status = sprot.status().map_err(MsgErrorConvert)?;
+    Ok(RotState {
+        version: ImageVersion {
+            version: status.version,
+            epoch: status.epoch,
+        },
+        messages_received: status.rx_received,
+        invalid_messages_received: status.rx_invalid,
+        incomplete_transmissions: status.tx_incomplete,
+        rx_fifo_overrun: status.rx_overrun,
+        tx_fifo_underrun: status.tx_underrun,
+    })
+}
+
+pub(crate) struct MsgErrorConvert(pub drv_sprot_api::MsgError);
+
+impl From<MsgErrorConvert> for RotError {
+    fn from(err: MsgErrorConvert) -> Self {
+        RotError::MessageError { code: err.0 as u32 }
     }
 }
