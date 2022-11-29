@@ -420,7 +420,7 @@ impl ServerImpl {
                                 // TODO: There are rare cases where
                                 // the RoT dose not receive
                                 // a 0x01 as the first byte in a message.
-                                // See issue XXX.
+                                // See issue #929.
                                 continue;
                             }
                             // Other errors from RoT are not recoverable with

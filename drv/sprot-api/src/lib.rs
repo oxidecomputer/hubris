@@ -9,7 +9,7 @@
 //!      and message type.
 //!   2. Payload according to MessageType, typically hubpack encoded
 //!      structure(s) and/or bulk data.
-//!   3. A CRC16 parameters that covers all of the bytes from the protocol ID to
+//!   3. A CRC16 value that covers all of the bytes from the protocol ID to
 //!      the end of the payload.
 //!
 
@@ -149,50 +149,7 @@ impl From<UpdateError> for SprotError {
 
 impl From<u8> for SprotError {
     fn from(byte: u8) -> SprotError {
-        match byte {
-            1 => SprotError::NoMessage,
-            2 => SprotError::BadTransferSize,
-            4 => SprotError::InvalidCrc,
-            5 => SprotError::FlowError,
-            6 => SprotError::UnsupportedProtocol,
-            7 => SprotError::BadMessageType,
-            8 => SprotError::BadMessageLength,
-            9 => SprotError::SpiServerError,
-            10 => SprotError::Oversize,
-            11 => SprotError::TxNotIdle,
-            12 => SprotError::CannotAssertCSn,
-            13 => SprotError::RotNotReady,
-            14 => SprotError::RspTimeout,
-            15 => SprotError::BadResponse,
-            16 => SprotError::RotBusy,
-            17 => SprotError::NotImplemented,
-            18 => SprotError::NonRotError,
-            19 => SprotError::EmptyMessage,
-            20 => SprotError::Incomplete,
-            21 => SprotError::Serialization,
-            22 => SprotError::Sequence,
-            23 => SprotError::UpdateBadLength,
-            24 => SprotError::UpdateInProgress,
-            25 => SprotError::UpdateOutOfBounds,
-            26 => SprotError::UpdateTimeout,
-            27 => SprotError::UpdateEccDoubleErr,
-            28 => SprotError::UpdateEccSingleErr,
-            29 => SprotError::UpdateSecureErr,
-            30 => SprotError::UpdateReadProtErr,
-            31 => SprotError::UpdateWriteEraseErr,
-            32 => SprotError::UpdateInconsistencyErr,
-            33 => SprotError::UpdateStrobeErr,
-            34 => SprotError::UpdateProgSeqErr,
-            35 => SprotError::UpdateWriteProtErr,
-            36 => SprotError::UpdateBadImageType,
-            37 => SprotError::UpdateAlreadyFinished,
-            38 => SprotError::UpdateNotStarted,
-            39 => SprotError::UpdateRunningImage,
-            40 => SprotError::UpdateFlashError,
-            41 => SprotError::UpdateSpRotError,
-            42 => SprotError::UpdateUnknown,
-            _ => SprotError::Unknown,
-        }
+        Self::from_u8(byte).unwrap_or(SprotError::Unknown)
     }
 }
 
@@ -482,7 +439,8 @@ impl TxMsg {
         Ok(self.write_crc(source.len()))
     }
 
-    /// Serialize a request from a buffer with an already written payload
+    /// Serialize a request into `self.buf` with an already written payload
+    /// inside `self.buf`.
     pub fn from_existing(
         &mut self,
         msgtype: MsgType,
@@ -562,7 +520,7 @@ impl RxMsg {
 
     pub fn validate_crc(&self, header: &MsgHeader) -> Result<(), SprotError> {
         // The only way to get a `MsgHeader` is to call parse_header, which
-        // already validated the payload size.
+        // already ensured that the payload size fits in the buffer.
         let crc_start = HEADER_SIZE + (header.payload_len as usize);
         let crc_buf = &self.buf[crc_start..][..CRC_SIZE];
         let (expected, _) = hubpack::deserialize::<u16>(crc_buf)?;

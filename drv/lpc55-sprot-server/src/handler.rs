@@ -131,7 +131,7 @@ impl Handler {
                 // We want to ensure the number of bytes received matches the header's
                 // expected payload size.
                 let expected_payload = rx_bytes - MIN_MSG_SIZE;
-                if header.payload_len as usize != rx_bytes - MIN_MSG_SIZE {
+                if header.payload_len as usize != expected_payload {
                     ringbuf_entry!(Trace::HeaderSizeMismatch(
                         header.msgtype,
                         header.payload_len,
@@ -163,8 +163,6 @@ impl Handler {
         // consistent with the CRC and the length is known to be good.
         status.rx_received = status.rx_received.wrapping_add(1);
 
-        // The above cases either enqueued a message and returned size
-        // or generated 1-byte error code.
         match self.run(rx_buf, rxmsg, tx_buf, status) {
             Ok((msgtype, payload_size)) => {
                 tx_buf.from_existing(msgtype, payload_size).ok()
