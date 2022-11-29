@@ -84,7 +84,7 @@ struct IO {
     // Transmit Buffer
     tx_buf: TxMsg,
     // Receive Buffer
-    rx_buf: [u8; BUF_SIZE],
+    rx_buf: RxMsg,
     // Number of bytes copied into the receive buffer
     rxcount: usize,
     // Number of bytes copied from the transmit buffer into the FIFO
@@ -152,7 +152,7 @@ fn main() -> ! {
 
     let mut io = IO {
         tx_buf: TxMsg::new(),
-        rx_buf: [0u8; BUF_SIZE],
+        rx_buf: RxMsg::new(),
         gpio,
         spi,
         rxcount: 0,
@@ -189,10 +189,12 @@ fn main() -> ! {
 
     // Process a null message as if it had been just received.
     // Expect that the Tx buffer is cleared.
+    let bytes_read = 0;
     server.handler.handle(
         transmit,
         crate::IoStatus::Flush,
-        &server.io.rx_buf[0..0],
+        &server.io.rx_buf,
+        bytes_read,
         &mut server.io.tx_buf,
         server.status,
     );
@@ -213,12 +215,13 @@ fn main() -> ! {
         transmit = match server.handler.handle(
             transmit, // true if previous loop transmitted.
             iostat,
-            &server.io.rx_buf[0..server.io.rxcount],
+            &server.io.rx_buf,
+            server.io.rxcount,
             &mut server.io.tx_buf,
             server.status,
         ) {
-            Some(_txlen) => {
-                ringbuf_entry!(Trace::HandlerReturnSize(_txlen));
+            Some(txlen) => {
+                ringbuf_entry!(Trace::HandlerReturnSize(txlen.0));
                 true
             }
             None => {
@@ -359,7 +362,7 @@ impl IO {
                         let b = self.spi.read_u8();
                         let incr = if self.rxcount < rx_end {
                             io = true;
-                            self.rx_buf[self.rxcount] = b;
+                            self.rx_buf.as_mut()[self.rxcount] = b;
                             1
                         } else {
                             0

@@ -39,6 +39,7 @@ pub fn new() -> Handler {
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    HeaderSizeMismatch(MsgType, u16, usize),
     Prev(usize, PrevMsg),
     ErrHeader(usize, PrevMsg, u8, u8, u8, u8),
     Overrun(usize),
@@ -59,11 +60,11 @@ impl Handler {
         &mut self,
         tx_prev: bool,
         iostat: IoStatus,
-        rx_buf: &[u8],
+        rx_buf: &RxMsg,
+        rx_bytes: usize,
         tx_buf: &mut TxMsg,
         status: &mut Status, // for responses and updating
-    ) -> Option<usize> {
-        let tx_payload = tx_buf.payload_mut();
+    ) -> Option<VerifiedTxMsg> {
         self.count = self.count.wrapping_add(1);
 
         // Before looking at the received message, check for explicit flush or
@@ -84,8 +85,11 @@ impl Handler {
                 // That includes the protocol identifier.
                 // If it is not an ignored protocol, then send an error.
                 if overrun {
-                    if !rx_buf.is_empty() {
-                        if Protocol::from(rx_buf[0]) != Protocol::Ignore {
+                    if rx_bytes != 0 {
+                        if Protocol::from(rx_buf.as_slice()[0])
+                            != Protocol::Ignore
+                        {
+                            let rx_buf = rx_buf.as_slice();
                             status.rx_overrun =
                                 status.rx_overrun.wrapping_add(1);
                             ringbuf_entry!(Trace::Prev(self.count, self.prev));
@@ -117,21 +121,36 @@ impl Handler {
         }
 
         // Check for the minimum receive length being satisfied.
-        if rx_buf.len() < MIN_MSG_SIZE {
+        if rx_bytes < MIN_MSG_SIZE {
             return Some(tx_buf.error_rsp(SprotError::BadMessageLength));
         }
 
         // Parse the header which also checks the CRC.
-        let (msgtype, rx_payload) = match parse(rx_buf) {
-            Ok((msgtype, payload)) => {
-                self.prev = PrevMsg::Good(msgtype);
-                (msgtype, payload)
+        let rxmsg = match rx_buf.parse_header(rx_bytes) {
+            Ok(header) => {
+                // We want to ensure the number of bytes received matches the header's
+                // expected payload size.
+                let expected_payload = rx_bytes - MIN_MSG_SIZE;
+                if header.payload_len as usize != rx_bytes - MIN_MSG_SIZE {
+                    ringbuf_entry!(Trace::HeaderSizeMismatch(
+                        header.msgtype,
+                        header.payload_len,
+                        expected_payload
+                    ));
+                    return Some(
+                        tx_buf.error_rsp(SprotError::BadMessageLength),
+                    );
+                }
+
+                self.prev = PrevMsg::Good(header.msgtype);
+                VerifiedRxMsg(header)
             }
             Err(msgerr) => {
                 if msgerr == SprotError::NoMessage {
                     self.prev = PrevMsg::None;
                     return None;
                 }
+                let rx_buf = rx_buf.as_slice();
                 ringbuf_entry!(Trace::ErrHeader(
                     self.count, self.prev, rx_buf[0], rx_buf[1], rx_buf[2],
                     rx_buf[3]
@@ -146,7 +165,7 @@ impl Handler {
 
         // The above cases either enqueued a message and returned size
         // or generated 1-byte error code.
-        match self.run(msgtype, rx_payload, tx_payload, status) {
+        match self.run(rx_buf, rxmsg, tx_buf, status) {
             Ok((msgtype, payload_size)) => {
                 tx_buf.from_existing(msgtype, payload_size).ok()
             }
@@ -159,24 +178,22 @@ impl Handler {
     // and payload size or return an error.
     fn run(
         &mut self,
-        msgtype: MsgType,
-        rx_payload: &[u8],
-        tx_payload: &mut [u8],
+        rxbuf: &RxMsg,
+        rxmsg: VerifiedRxMsg,
+        tx_buf: &mut TxMsg,
         status: &mut Status,
     ) -> Result<(MsgType, usize), SprotError> {
+        let rx_payload = rxbuf.payload(&rxmsg);
+        let tx_payload = tx_buf.payload_mut();
         // The CRC validate header and range checked length can be trusted now.
-        let size = match msgtype {
+        let size = match rxmsg.0.msgtype {
             MsgType::EchoReq => {
-                if rx_payload.is_empty() {
-                    0
-                } else if let Some(dst) =
-                    tx_payload.get_mut(0..rx_payload.len())
-                {
-                    dst.copy_from_slice(rx_payload);
-                    dst.len()
-                } else {
-                    return Err(SprotError::BadMessageLength);
-                }
+                // We know payload_len is within bounds since the received
+                // header was parsed successfully and the send and receive
+                // buffers are the same size.
+                let dst = &mut tx_payload[..rxmsg.0.payload_len as usize];
+                dst.copy_from_slice(rx_payload);
+                dst.len()
             }
             MsgType::StatusReq => hubpack::serialize(tx_payload, &status)?,
             MsgType::SprocketsReq => {
@@ -259,7 +276,7 @@ impl Handler {
             }
         };
 
-        Ok((req_msgtype_to_rsp_msgtype(msgtype), size))
+        Ok((req_msgtype_to_rsp_msgtype(rxmsg.0.msgtype), size))
     }
 }
 

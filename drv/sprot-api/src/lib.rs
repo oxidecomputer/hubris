@@ -21,7 +21,6 @@ use derive_idol_err::IdolError;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
-use if_chain::if_chain; // Chained if let statements are almost here.
 use serde::{Deserialize, Serialize};
 // use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
@@ -423,7 +422,7 @@ impl From<u8> for MsgType {
     }
 }
 
-/// A builder/serializer for Messages that wraps the transmit buffer
+/// A builder/serializer for messages that wraps the transmit buffer
 ///
 /// Each public method returns the serialized buffer that can be sent on the
 /// wire.
@@ -450,7 +449,7 @@ impl TxMsg {
 
     /// Serialize an ErrorRsp with a one byte payload, which is a serialized
     /// `SprotError`
-    pub fn error_rsp(&mut self, err: SprotError) -> usize {
+    pub fn error_rsp(&mut self, err: SprotError) -> VerifiedTxMsg {
         let payload_size = 1;
         self.buf[HEADER_SIZE] = err as u8;
         self.from_existing(MsgType::ErrorRsp, payload_size)
@@ -458,7 +457,7 @@ impl TxMsg {
     }
 
     /// Serialize a request with no payload
-    pub fn no_payload(&mut self, msgtype: MsgType) -> usize {
+    pub fn no_payload(&mut self, msgtype: MsgType) -> VerifiedTxMsg {
         let payload_size = 0;
         self.write_header(msgtype, payload_size);
         self.write_crc(payload_size)
@@ -469,7 +468,7 @@ impl TxMsg {
         &mut self,
         msgtype: MsgType,
         source: Leased<R, [u8]>,
-    ) -> Result<usize, SprotError> {
+    ) -> Result<VerifiedTxMsg, SprotError> {
         if source.len() > PAYLOAD_SIZE_MAX {
             return Err(SprotError::Oversize);
         }
@@ -488,7 +487,7 @@ impl TxMsg {
         &mut self,
         msgtype: MsgType,
         payload_size: usize,
-    ) -> Result<usize, SprotError> {
+    ) -> Result<VerifiedTxMsg, SprotError> {
         if payload_size > PAYLOAD_SIZE_MAX {
             return Err(SprotError::Oversize);
         }
@@ -503,24 +502,114 @@ impl TxMsg {
             .unwrap_lite();
     }
 
-    fn write_crc(&mut self, payload_size: usize) -> usize {
+    fn write_crc(&mut self, payload_size: usize) -> VerifiedTxMsg {
         let crc_begin = HEADER_SIZE + payload_size;
         let msg_bytes = &self.buf[0..crc_begin];
         let crc = CRC16.checksum(msg_bytes);
         let end = crc_begin + CRC_SIZE;
         let crc_buf = &mut self.buf[crc_begin..end];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        end
+        VerifiedTxMsg(end)
     }
 }
+
+/// A type indicating that a complete message has been successfully serialized and therefore
+/// fits in the allocated buffer.
+#[derive(Clone, Copy)]
+pub struct VerifiedTxMsg(pub usize);
+
+/// A parser/deserializer for messages received over SPI
+pub struct RxMsg {
+    buf: [u8; BUF_SIZE],
+}
+
+impl RxMsg {
+    pub fn new() -> RxMsg {
+        RxMsg { buf: [0; BUF_SIZE] }
+    }
+
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[..]
+    }
+
+    pub fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+
+    pub fn payload(&self, rxmsg: &VerifiedRxMsg) -> &[u8] {
+        &self.buf[HEADER_SIZE..][..rxmsg.0.payload_len as usize]
+    }
+
+    pub fn parse_header(
+        &self,
+        valid_bytes: usize,
+    ) -> Result<MsgHeader, SprotError> {
+        // We want to be able to return `RotBusy` before `Incomplete`.
+        self.parse_protocol()?;
+        if valid_bytes < HEADER_SIZE {
+            return Err(SprotError::Incomplete);
+        }
+        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
+        if header.payload_len as usize > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::BadMessageLength);
+        }
+        Ok(header)
+    }
+
+    pub fn validate_crc(&self, header: &MsgHeader) -> Result<(), SprotError> {
+        // The only way to get a `MsgHeader` is to call parse_header, which
+        // already validated the payload size.
+        let crc_start = HEADER_SIZE + (header.payload_len as usize);
+        let crc_buf = &self.buf[crc_start..][..CRC_SIZE];
+        let (expected, _) = hubpack::deserialize::<u16>(crc_buf)?;
+        let actual = CRC16.checksum(&self.buf[..crc_start]);
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(SprotError::InvalidCrc)
+        }
+    }
+
+    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
+    pub fn deserialize_hubpack_payload<M>(
+        &self,
+        rxmsg: &VerifiedRxMsg,
+    ) -> Result<M, SprotError>
+    where
+        M: for<'de> Deserialize<'de>,
+    {
+        let (msg, _) = hubpack::deserialize::<M>(self.payload(rxmsg))?;
+        Ok(msg)
+    }
+
+    /// Parse the first byte of the protocol, returning an appropriate error
+    /// if necessary.
+    fn parse_protocol(&self) -> Result<(), SprotError> {
+        match Protocol::from(self.buf[0]) {
+            Protocol::Ignore => Err(SprotError::NoMessage),
+            Protocol::Busy => Err(SprotError::RotBusy),
+            Protocol::V1 => Ok(()),
+            _ => Err(SprotError::UnsupportedProtocol),
+        }
+    }
+}
+
+/// A type indicating that the message header has been parsed and the CRC has
+/// been successfully verified
+pub struct VerifiedRxMsg(pub MsgHeader);
 
 // The SpRot Header prepended to each message traversing the SPI bus
 // between the RoT and SP.
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-struct MsgHeader {
-    protocol: Protocol,
-    msgtype: MsgType,
-    len: u16,
+pub struct MsgHeader {
+    pub protocol: Protocol,
+    pub msgtype: MsgType,
+    // Length of the payload (does not include Header or CRC)
+    pub payload_len: u16,
 }
 
 impl MsgHeader {
@@ -540,7 +629,7 @@ impl MsgHeader {
         Ok(MsgHeader {
             protocol: Protocol::V1,
             msgtype,
-            len,
+            payload_len: len,
         })
     }
 
@@ -552,42 +641,8 @@ impl MsgHeader {
     }
 }
 
-/// A wrapper around an immutable buffer large enough to store (in order):
-///   * A serialized `MsgHeader`
-///   * A serialized message payload
-///   * A 16 bit CRC
-///
-/// This is used for deserializing data
-pub struct MsgBuffer<'a> {
-    buf: &'a [u8],
-}
-
-impl<'a> MsgBuffer<'a> {
-    pub fn new(buf: &'a [u8]) -> MsgBuffer<'a> {
-        assert!(buf.len() >= BUF_SIZE);
-        MsgBuffer { buf }
-    }
-
-    /// Deserialize a message, `M`, from the wrapped buffer
-    //
-    // TODO(AJS): There should be a general desserialize method
-    // that also checks the header and does all the stuff included in `parse`.
-    // That will simplify a lot.
-    // Or we could provide a deserialize_header method that does all that.
-    //
-    pub fn deserialize_payload<M>(
-        &self,
-        payload_size: usize,
-    ) -> Result<M, SprotError>
-    where
-        M: for<'de> Deserialize<'de>,
-    {
-        let end = HEADER_SIZE + payload_size;
-        let (msg, _) = hubpack::deserialize::<M>(&self.buf[HEADER_SIZE..end])?;
-        Ok(msg)
-    }
-}
-
+/// Headers for update responses, that are embedded as part of the payload of
+/// an update response.
 pub type UpdateRspHeader = Result<Option<u32>, u32>;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
@@ -600,91 +655,5 @@ pub const BUF_SIZE: usize = HEADER_SIZE + PAYLOAD_SIZE_MAX + CRC_SIZE;
 pub const MIN_MSG_SIZE: usize = HEADER_SIZE + CRC_SIZE;
 // XXX ROT FIFO size should be discovered.
 pub const ROT_FIFO_SIZE: usize = 8;
-
-// RX parse
-//   given a buffer
-//   - check protocol
-//   - get length
-//   - check length against buffer limits including CRC
-//   - calculate CRC
-//   - check CRC against stored CRC
-//   - Result<(MsgType, &[u8]), MsgError>
-pub fn parse(buffer: &[u8]) -> Result<(MsgType, &[u8]), SprotError> {
-    if buffer.is_empty() {
-        return Err(SprotError::NoMessage);
-    }
-    match Protocol::from(buffer[0]) {
-        Protocol::Ignore => return Err(SprotError::NoMessage),
-        Protocol::Busy => return Err(SprotError::RotBusy),
-        Protocol::V1 => {}
-        Protocol::Unsupported => return Err(SprotError::UnsupportedProtocol),
-    }
-    if buffer.len() < HEADER_SIZE + CRC_SIZE {
-        return Err(SprotError::BadMessageLength);
-    }
-    if let Ok((header, payload_start)) =
-        hubpack::deserialize::<MsgHeader>(buffer)
-    {
-        let len = header.len as usize;
-        if_chain! {
-            if let Some(crc_buf) = payload_start.get(len..len + CRC_SIZE);
-            if let Ok((crc, _)) = hubpack::deserialize::<u16>(crc_buf);
-            if let Some(msg_bytes) = buffer.get(0..HEADER_SIZE+len);
-            if crc == CRC16.checksum(msg_bytes);
-            then {
-                Ok((header.msgtype, &payload_start[..len]))
-            } else {
-                Err(SprotError::InvalidCrc)
-            }
-        }
-    } else {
-        // Content didn't matter for hubpack::deserialize.
-        // So, there weren't enough bytes to decode a header.
-        Err(SprotError::BadMessageLength)
-    }
-}
-
-/// Parse the header from an incomplete received message
-pub fn rx_payload_remaining_mut(
-    valid_bytes: usize,
-    buffer: &mut [u8],
-) -> Result<&mut [u8], SprotError> {
-    if valid_bytes.min(buffer.len()) < HEADER_SIZE {
-        return Err(SprotError::Incomplete);
-    }
-    match Protocol::from(buffer[0]) {
-        Protocol::Ignore => return Err(SprotError::NoMessage),
-        Protocol::Busy => return Err(SprotError::RotBusy),
-        Protocol::V1 => (),
-        _ => return Err(SprotError::UnsupportedProtocol),
-    }
-    if let Ok((header, _payload_start)) =
-        hubpack::deserialize::<MsgHeader>(buffer)
-    {
-        let end = MIN_MSG_SIZE + (header.len as usize);
-        if end > buffer.len() {
-            Err(SprotError::BadMessageLength)
-        } else if valid_bytes < end {
-            Ok(&mut buffer[valid_bytes..end])
-        } else {
-            Ok(&mut buffer[end..end])
-        }
-    } else {
-        Err(SprotError::Serialization)
-    }
-}
-
-/// Read access to the first portion or all of the transmit buffer.
-pub fn payload_buf(size: Option<usize>, buffer: &[u8]) -> &[u8] {
-    let start = HEADER_SIZE;
-    let end = match size {
-        Some(size) => HEADER_SIZE + size,
-        None => buffer.len() - CRC_SIZE,
-    };
-    match buffer.get(start..end) {
-        Some(buf) => buf,
-        None => panic!(), // Don't come to me with your miniscule buffers.
-    }
-}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
