@@ -182,7 +182,8 @@ Tofino Sequencing Step
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:0] | r | STEP | Sequencing Step
+|[7:4] |  | - | Reserved
+|[3:0] | r | STEP | Sequencing Step
 |===
 
 Tofino Sequencing Error
@@ -191,7 +192,8 @@ Tofino Sequencing Error
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:0] | r | ERROR | Sequencing Error
+|[7:3] |  | - | Reserved
+|[2:0] | r | ERROR | Sequencing Error
 |===
 
 Tofino Sequencing Error Step
@@ -200,72 +202,91 @@ Tofino Sequencing Error Step
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:0] | r | STEP | Sequencing step when error occured
+|[7:4] |  | - | Reserved
+|[3:0] | r | STEP | Sequencing step when error occured
 |===
 
-Tofino Power Enable
+VDD18 State
 [caption="Address: "]
-.0x0105 - TOFINO_POWER_ENABLE Register
+.0x0105 - TOFINO_POWER_VDD18_STATE Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:6] |  | - | Reserved
-|[5] | r | VDDA_1P8_EN | VDDA 1.8V Enable
-|[4] | r | VDDA_1P5_EN | VDDA 1.5V Enable
-|[3] | r | VDD_VDDT_EN | VDD 0.9V VDDT Enable
-|[2] | r | VDD_PCIE_EN | VDD 0.75V PCIe Enable
-|[1] | r | VDD_CORE_EN | VDD Core Enable
-|[0] | r | VDD_1P8_EN | VDD 1.8V Enable
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
 |===
 
-Tofino Power Good
+VDDCORE State
 [caption="Address: "]
-.0x0106 - TOFINO_POWER_GOOD Register
+.0x0106 - TOFINO_POWER_VDDCORE_STATE Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:6] |  | - | Reserved
-|[5] | r | VDDA_1P8_PG | VDDA 1.8V Power Good
-|[4] | r | VDDA_1P5_PG | VDDA 1.5V Power Good
-|[3] | r | VDD_VDDT_PG | VDD 0.9V VDDT Power Good
-|[2] | r | VDD_PCIE_PG | VDD 0.75V PCIe Power Good
-|[1] | r | VDD_CORE_PG | VDD Core Power Good
-|[0] | r | VDD_1P8_PG | VDD 1.8V Power Good
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
 |===
 
-Tofino Power Fault
+VDDPCIE State
 [caption="Address: "]
-.0x0107 - TOFINO_POWER_FAULT Register
+.0x0107 - TOFINO_POWER_VDDPCIE_STATE Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:6] |  | - | Reserved
-|[5] | r | RESERVED2 | Reserved
-|[4] | r | VDDA_1P5_FAULT | VDDA 1.5V Fault
-|[3] | r | VDD_VDDT_FAULT | VDD 0.9V VDDT Fault
-|[2] | r | RESERVED1 | Reserved
-|[1] | r | VDD_CORE_FAULT | VDD Core Fault
-|[0] | r | VDD_1P8_FAULT | VDD 1.8V Fault
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
 |===
 
-Tofino Power VR Hot
+VDDT State
 [caption="Address: "]
-.0x0108 - TOFINO_POWER_VRHOT Register
+.0x0108 - TOFINO_POWER_VDDT_STATE Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:6] |  | - | Reserved
-|[5] | r | VDDA_1P8_VRHOT | VDDA 1.8V VRHOT
-|[4] | r | VDDA_1P5_VRHOT | VDDA 1.5V VRHOT
-|[3] | r | VDD_VDDT_VRHOT | VDD 0.9V VDDT VRHOT
-|[2] | r | RESERVED1 | Reserved
-|[1] | r | VDD_CORE_VRHOT | VDD Core VRHOT
-|[0] | r | VDD_1P8_VRHOT | VDD 1.8V VRHOT
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDA15 State
+[caption="Address: "]
+.0x0109 - TOFINO_POWER_VDDA15_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
+VDDA18 State
+[caption="Address: "]
+.0x010a - TOFINO_POWER_VDDA18_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
 |===
 
 Tofino VID Value
 [caption="Address: "]
-.0x0109 - TOFINO_POWER_VID Register
+.0x010b - TOFINO_POWER_VID Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -276,7 +297,7 @@ Tofino VID Value
 
 Tofino Reset
 [caption="Address: "]
-.0x010a - TOFINO_RESET Register
+.0x010c - TOFINO_RESET Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -287,7 +308,7 @@ Tofino Reset
 
 Tofino Misc
 [caption="Address: "]
-.0x010b - TOFINO_MISC Register
+.0x010d - TOFINO_MISC Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -298,7 +319,7 @@ Tofino Misc
 
 PCIe Hotplug Control
 [caption="Address: "]
-.0x010c - PCIE_HOTPLUG_CTRL Register
+.0x010e - PCIE_HOTPLUG_CTRL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -312,7 +333,7 @@ PCIe Hotplug Control
 
 PCIe Hotplug Status
 [caption="Address: "]
-.0x010d - PCIE_HOTPLUG_STATUS Register
+.0x010f - PCIE_HOTPLUG_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function

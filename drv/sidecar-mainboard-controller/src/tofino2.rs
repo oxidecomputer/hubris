@@ -20,15 +20,101 @@ pub enum TofinoSeqState {
 
 #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
+pub enum TofinoSeqStep {
+    AwaitPowerUp = 1,
+    AwaitVdd18PowerGood = 2,
+    AwaitVddCorePowerGood = 3,
+    AwaitVddPCIePowerGood = 4,
+    AwaitVddtPowerGood = 5,
+    AwaitVdda15PowerGood = 6,
+    AwaitVdda18PowerGood = 7,
+    AwaitPoR = 8,
+    AwaitVidValid = 9,
+    AwaitVidAck = 10,
+    AwaitPowerUpComplete = 11,
+    AwaitPowerDown = 12,
+    AwaitPowerDownComplete = 13,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
 pub enum TofinoSeqError {
     None = 0,
     PowerGoodTimeout = 1,
     PowerFault = 2,
     PowerVrHot = 3,
-    PowerInvalidState = 4,
-    UserAbort = 5,
+    PowerAbort = 4,
+    SoftwareAbort = 5,
     VidAckTimeout = 6,
     ThermalAlert = 7,
+}
+
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
+#[repr(u8)]
+pub enum PowerRailState {
+    #[default]
+    Disabled = 0,
+    RampingUp = 1,
+    Timeout = 2,
+    Aborted = 3,
+    Enabled = 4,
+}
+
+impl TryFrom<u8> for PowerRailState {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(PowerRailState::Disabled),
+            1 => Ok(PowerRailState::RampingUp),
+            2 => Ok(PowerRailState::Timeout),
+            3 => Ok(PowerRailState::Aborted),
+            4 => Ok(PowerRailState::Enabled),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct PowerRailPinState {
+    pub enable: bool,
+    pub good: bool,
+    pub fault: bool,
+    pub vrhot: bool,
+}
+
+impl From<u8> for PowerRailPinState {
+    fn from(v: u8) -> Self {
+        use Reg::TOFINO_POWER_VDD18_STATE::*;
+
+        Self {
+            enable: v & ENABLE != 0,
+            good: v & GOOD != 0,
+            fault: v & FAULT != 0,
+            vrhot: v & VRHOT != 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct PowerRailStatus {
+    pub state: PowerRailState,
+    pub pin_state: PowerRailPinState,
+}
+
+impl TryFrom<u8> for PowerRailStatus {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        Ok(Self {
+            state: PowerRailState::try_from(v >> 4)?,
+            pin_state: PowerRailPinState::from(v),
+        })
+    }
 }
 
 /// VID to voltage mapping. The VID values are specified in TF2-DS2, with the
@@ -54,8 +140,9 @@ pub struct Sequencer {
 pub struct Status {
     state: TofinoSeqState,
     error: TofinoSeqError,
+    error_step: TofinoSeqStep,
     vid: Option<Tofino2Vid>,
-    power: u32,
+    //power: [PowerRailStatus; 6],
     pcie_status: u8,
 }
 
@@ -124,8 +211,31 @@ impl Sequencer {
         TofinoSeqError::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 
-    pub fn power_status(&self) -> Result<u32, FpgaError> {
-        self.fpga.read(Addr::TOFINO_POWER_ENABLE)
+    pub fn error_step(&self) -> Result<TofinoSeqStep, FpgaError> {
+        let v = self.read_masked(
+            Addr::TOFINO_SEQ_ERROR_STEP,
+            Reg::TOFINO_SEQ_ERROR_STEP::STEP,
+        )?;
+        TofinoSeqStep::from_u8(v).ok_or(FpgaError::InvalidValue)
+    }
+
+    pub fn power_rails(&self) -> Result<[u8; 6], FpgaError> {
+        /*
+        let mut power_rails: [PowerRailStatus; 6] = [Default::default(); 6];
+        for (i, v) in self
+            .fpga
+            .read::<[u8; 6]>(Addr::TOFINO_POWER_VDD18_STATE)?
+            .iter()
+            .enumerate()
+        {
+            power_rails[i] = PowerRailStatus::try_from(*v)
+                .map_err(|_| FpgaError::InvalidValue)?;
+        }
+
+        Ok(power_rails)
+        */
+
+        self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
     }
 
     /// The VID is only valid once Tofino is powered up and a delay after PoR
@@ -226,8 +336,9 @@ impl Sequencer {
         Ok(Status {
             state: self.state()?,
             error: self.error()?,
+            error_step: self.error_step()?,
             vid: self.vid()?,
-            power: self.power_status()?,
+            //power: self.power_rails()?,
             pcie_status: self.pcie_hotplug_status()?,
         })
     }

@@ -416,7 +416,7 @@
                     "type": "field",
                     "inst_name": "STEP",
                     "lsb": 0,
-                    "msb": 7,
+                    "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
@@ -436,7 +436,7 @@
                     "type": "field",
                     "inst_name": "ERROR",
                     "lsb": 0,
-                    "msb": 7,
+                    "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
@@ -456,7 +456,7 @@
                     "type": "field",
                     "inst_name": "STEP",
                     "lsb": 0,
-                    "msb": 7,
+                    "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
@@ -467,308 +467,392 @@
         },
         {
             "type": "reg",
-            "inst_name": "TOFINO_POWER_ENABLE",
+            "inst_name": "TOFINO_POWER_VDD18_STATE",
             "addr_offset": 261,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "VDD_1P8_EN",
+                    "inst_name": "ENABLE",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 1.8V Enable"
+                    "desc": "Flag indicating the power rail is enabled"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_CORE_EN",
+                    "inst_name": "GOOD",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD Core Enable"
+                    "desc": "Flag indicating the power rail is operating nominally"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_PCIE_EN",
+                    "inst_name": "FAULT",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.75V PCIe Enable"
+                    "desc": "Flag indicating the power rail experienced a fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_VDDT_EN",
+                    "inst_name": "VRHOT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.9V VDDT Enable"
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDDA_1P5_EN",
+                    "inst_name": "STATE",
                     "lsb": 4,
-                    "msb": 4,
+                    "msb": 7,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDDA 1.5V Enable"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "VDDA_1P8_EN",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "VDDA 1.8V Enable"
+                    "desc": "State of the power rail according to the sequencer"
                 }
             ]
         },
         {
             "type": "reg",
-            "inst_name": "TOFINO_POWER_GOOD",
+            "inst_name": "TOFINO_POWER_VDDCORE_STATE",
             "addr_offset": 262,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "VDD_1P8_PG",
+                    "inst_name": "ENABLE",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 1.8V Power Good"
+                    "desc": "Flag indicating the power rail is enabled"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_CORE_PG",
+                    "inst_name": "GOOD",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD Core Power Good"
+                    "desc": "Flag indicating the power rail is operating nominally"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_PCIE_PG",
+                    "inst_name": "FAULT",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.75V PCIe Power Good"
+                    "desc": "Flag indicating the power rail experienced a fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_VDDT_PG",
+                    "inst_name": "VRHOT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.9V VDDT Power Good"
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDDA_1P5_PG",
+                    "inst_name": "STATE",
                     "lsb": 4,
-                    "msb": 4,
+                    "msb": 7,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDDA 1.5V Power Good"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "VDDA_1P8_PG",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "VDDA 1.8V Power Good"
+                    "desc": "State of the power rail according to the sequencer"
                 }
             ]
         },
         {
             "type": "reg",
-            "inst_name": "TOFINO_POWER_FAULT",
+            "inst_name": "TOFINO_POWER_VDDPCIE_STATE",
             "addr_offset": 263,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "VDD_1P8_FAULT",
+                    "inst_name": "ENABLE",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 1.8V Fault"
+                    "desc": "Flag indicating the power rail is enabled"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_CORE_FAULT",
+                    "inst_name": "GOOD",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD Core Fault"
+                    "desc": "Flag indicating the power rail is operating nominally"
                 },
                 {
                     "type": "field",
-                    "inst_name": "RESERVED1",
+                    "inst_name": "FAULT",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Reserved"
+                    "desc": "Flag indicating the power rail experienced a fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_VDDT_FAULT",
+                    "inst_name": "VRHOT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.9V VDDT Fault"
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDDA_1P5_FAULT",
+                    "inst_name": "STATE",
                     "lsb": 4,
-                    "msb": 4,
+                    "msb": 7,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDDA 1.5V Fault"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "RESERVED2",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Reserved"
+                    "desc": "State of the power rail according to the sequencer"
                 }
             ]
         },
         {
             "type": "reg",
-            "inst_name": "TOFINO_POWER_VRHOT",
+            "inst_name": "TOFINO_POWER_VDDT_STATE",
             "addr_offset": 264,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "VDD_1P8_VRHOT",
+                    "inst_name": "ENABLE",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 1.8V VRHOT"
+                    "desc": "Flag indicating the power rail is enabled"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_CORE_VRHOT",
+                    "inst_name": "GOOD",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD Core VRHOT"
+                    "desc": "Flag indicating the power rail is operating nominally"
                 },
                 {
                     "type": "field",
-                    "inst_name": "RESERVED1",
+                    "inst_name": "FAULT",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Reserved"
+                    "desc": "Flag indicating the power rail experienced a fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDD_VDDT_VRHOT",
+                    "inst_name": "VRHOT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDD 0.9V VDDT VRHOT"
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDDA_1P5_VRHOT",
+                    "inst_name": "STATE",
                     "lsb": 4,
-                    "msb": 4,
+                    "msb": 7,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDDA 1.5V VRHOT"
+                    "desc": "State of the power rail according to the sequencer"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_VDDA15_STATE",
+            "addr_offset": 265,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail is enabled"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VDDA_1P8_VRHOT",
-                    "lsb": 5,
-                    "msb": 5,
+                    "inst_name": "GOOD",
+                    "lsb": 1,
+                    "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "VDDA 1.8V VRHOT"
+                    "desc": "Flag indicating the power rail is operating nominally"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FAULT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail experienced a fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VRHOT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "STATE",
+                    "lsb": 4,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the power rail according to the sequencer"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_VDDA18_STATE",
+            "addr_offset": 266,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail is enabled"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GOOD",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail is operating nominally"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FAULT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail experienced a fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VRHOT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "STATE",
+                    "lsb": 4,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the power rail according to the sequencer"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "TOFINO_POWER_VID",
-            "addr_offset": 265,
+            "addr_offset": 267,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -810,7 +894,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_RESET",
-            "addr_offset": 266,
+            "addr_offset": 268,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -841,7 +925,7 @@
         {
             "type": "reg",
             "inst_name": "TOFINO_MISC",
-            "addr_offset": 267,
+            "addr_offset": 269,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -872,7 +956,7 @@
         {
             "type": "reg",
             "inst_name": "PCIE_HOTPLUG_CTRL",
-            "addr_offset": 268,
+            "addr_offset": 270,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -936,7 +1020,7 @@
         {
             "type": "reg",
             "inst_name": "PCIE_HOTPLUG_STATUS",
-            "addr_offset": 269,
+            "addr_offset": 271,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
