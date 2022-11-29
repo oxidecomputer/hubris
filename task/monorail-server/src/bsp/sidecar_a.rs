@@ -458,7 +458,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         }
 
         // Workaround for the link-stuck issue discussed in
-        // https://docs.google.com/document/d/1vGCrqZ_kFZHeY2Ok8YUY7gn44YjJcBsTRCg5DhbZcxY
+        // https://github.com/oxidecomputer/bf_sde/issues/5
         if self.vsc7448.check_10gbase_kr_aneg(0)? {
             ringbuf_entry!(Trace::Restarted10GAneg);
         }
