@@ -74,7 +74,7 @@ const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
 cfg_if::cfg_if! {
     if #[cfg(feature = "sink_test")] {
-        const MAX_SINKREQ_ATTEMPTS: u16 = 2; // TODO parameterize
+        const MAX_SINKREQ_ATTEMPTS: u16 = 3; // TODO parameterize
     }
 }
 
