@@ -45,6 +45,7 @@ enum Trace {
     TxPart1(usize),
     TxPart2(usize),
     TxSize(usize),
+    ErrRspPayloadSize(u16),
     UnexpectedRotIrq,
     UpdResponse(UpdateRspHeader),
     WrongMsgType(MsgType),
@@ -400,7 +401,13 @@ impl ServerImpl {
                 Ok(rxmsg @ VerifiedRxMsg(header)) => {
                     match header.msgtype {
                         MsgType::ErrorRsp => {
-                            assert_eq!(header.payload_len, 1);
+                            if header.payload_len != 1 {
+                                ringbuf_entry!(Trace::ErrRspPayloadSize(
+                                    header.payload_len
+                                ));
+                                // Treat this as a recoverable error
+                                continue;
+                            }
                             let payload = &self.rx_buf.payload(&rxmsg);
                             errcode = SprotError::from(payload[0]);
                             ringbuf_entry!(Trace::SprotError(errcode));
@@ -508,6 +515,9 @@ impl ServerImpl {
             })
         } else {
             expect_msg!(MsgType::ErrorRsp, header.msgtype)?;
+            if header.payload_len != 1 {
+                return Err(SprotError::BadMessageLength);
+            }
             let payload = self.rx_buf.payload(&rxmsg);
             let err = SprotError::from(payload[0]);
             ringbuf_entry!(Trace::Error(err));
@@ -642,6 +652,9 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                                         },
                                         MsgType::ErrorRsp => {
                                             let payload = self.rx_buf.payload(&rxmsg);
+                                            if payload.len() != 1 {
+                                                break Err(SprotError::BadMessageLength);
+                                            }
                                             break Err(SprotError::from(payload[0]));
                                         },
                                         _ => {
