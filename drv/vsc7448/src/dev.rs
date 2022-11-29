@@ -341,4 +341,35 @@ impl Dev10g {
         })?;
         Ok(())
     }
+
+    /// Checks the 10GBASE-KR autonegotiation state machine
+    ///
+    /// If it is stuck in `WAIT_RATE_DONE`, restarts autonegotiation and returns
+    /// `Ok(true)`, otherwise returns `Ok(false)`.
+    pub fn check_10gbase_kr_aneg(
+        &self,
+        v: &impl Vsc7448Rw,
+    ) -> Result<bool, VscError> {
+        let sm_state = v.read(XGKR1(self.index()).AN_SM().AN_SM())?;
+        // The autonegotiation state machine will occasionally get stuck in
+        // WAIT_RATE_DONE.  If that's the case, then we kick it here.
+        const WAIT_RATE_DONE: u32 = 13;
+        if sm_state.an_sm() == WAIT_RATE_DONE {
+            let dev7 = XGKR1(self.index()); // ANEG
+
+            // Clear autonegotiation state machine history, which is oddly
+            // load-bearing (??)
+            v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_an_sm_hist_clr(1))?;
+            v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_an_sm_hist_clr(0))?;
+
+            // Re-trigger autonegotiation
+            v.modify(dev7.KR_7X0000().KR_7X0000(), |r| {
+                r.set_an_enable(1);
+                r.set_an_restart(1);
+            })?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }

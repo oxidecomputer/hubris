@@ -762,6 +762,14 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 
         Ok(())
     }
+
+    /// Checks the 10GBASE-KR autonegotiation state machine for the given dev.
+    ///
+    /// If it is stuck in `WAIT_RATE_DONE`, restarts autonegotiation and returns
+    /// `Ok(true)`, otherwise returns `Ok(false)`.
+    pub fn check_10gbase_kr_aneg(&self, dev: u8) -> Result<bool, VscError> {
+        Dev10g::new(dev)?.check_10gbase_kr_aneg(self)
+    }
 }
 
 enum Bandwidth {
