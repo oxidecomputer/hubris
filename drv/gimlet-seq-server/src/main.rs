@@ -18,7 +18,7 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use seq_spi::{Addr, Reg};
+use seq_spi::{Addr, Reg, A0StateMachine};
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
@@ -57,6 +57,9 @@ enum Trace {
     ClockConfigWrite,
     ClockConfigSuccess,
     Status(u8, u8, u8),
+    PGStatus(u8, u8, u8),
+    SMStatus(u8, u8),
+    PowerControl(u8),
     None,
 }
 
@@ -327,7 +330,11 @@ fn main() -> ! {
     jefe.set_state(PowerState::A2 as u32);
 
     ringbuf_entry!(Trace::ClockConfigSuccess);
-    ringbuf_entry!(Trace::A2);
+    ringbuf_entry!(Trace::A2(
+        seq.read_byte(Addr::GROUPB_PG).unwrap(),
+        seq.read_byte(Addr::GROUPC_PG).unwrap(),
+        seq.read_byte(Addr::NIC_STATUS).unwrap(),
+    ));
 
     // Turn on the chassis LED once we reach A2
     sys.gpio_set(CHASSIS_LED).unwrap();
@@ -464,6 +471,21 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::PGStatus(
+            self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
+            self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
+            self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
+        ));
+
+        ringbuf_entry!(Trace::SMStatus(
+            self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
+            self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
+        ));
+
+        ringbuf_entry!(Trace::PowerControl(
+            self.seq.read_byte(Addr::PWR_CTRL).unwrap(),
+        ));
+
         ringbuf_entry!(Trace::SetState(self.state, state));
 
         match (self.state, state) {
@@ -484,10 +506,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 loop {
                     let mut power = [0u8, 0u8];
 
+                    //
+                    // We are going to read both the A1SMSTATUS and the
+                    // A0SMSTATUS just so we can record the A1 state machine
+                    // status -- but we only actually care about the A0 state
+                    // machine.
+                    //
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
-                    if power[1] == 0x7 {
+                    if power[1] == A0StateMachine::GROUPC_PG.into() {
                         break;
                     }
 
@@ -509,7 +537,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                     self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A0Power(power[0]));
 
-                    if power[0] == 0xc {
+                    if power[0] == A0StateMachine::DONE.into() {
                         break;
                     }
 
@@ -550,6 +578,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
                 self.update_state_internal(PowerState::A2);
                 ringbuf_entry!(Trace::A2);
+
                 Ok(())
             }
 
