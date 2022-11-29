@@ -302,7 +302,7 @@ impl ServerImpl {
         }
 
         // Fill in rx_buf with a complete message and validate its crc
-        let res = self.do_spi_read();
+        let res = self.do_read_response();
 
         // We must release the SPI bus before we return
         ringbuf_entry!(Trace::CSnDeassert);
@@ -327,7 +327,7 @@ impl ServerImpl {
     //
     // We know statically that self.rx_buf is large enough to hold
     // part1_len bytes.
-    fn do_spi_read(&mut self) -> Result<VerifiedRxMsg, SprotError> {
+    fn do_read_response(&mut self) -> Result<VerifiedRxMsg, SprotError> {
         let part1_len = MIN_MSG_SIZE.min(ROT_FIFO_SIZE);
         ringbuf_entry!(Trace::RxPart1(part1_len));
 
