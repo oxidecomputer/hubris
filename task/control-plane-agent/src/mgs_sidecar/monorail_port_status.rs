@@ -155,6 +155,8 @@ impl From<PortCountersConvert> for PortCounters {
         Self {
             tx: PacketCountConvert(s.tx).into(),
             rx: PacketCountConvert(s.rx).into(),
+            link_down_sticky: s.link_down_sticky,
+            phy_link_down_sticky: s.phy_link_down_sticky,
         }
     }
 }

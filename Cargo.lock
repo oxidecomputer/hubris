@@ -1940,7 +1940,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#9efd6c4e96aea0c0e15c1dd942163d4cf1ae19ba"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=vsc7448-counters-update#7004c7f800146d5670731415469ae4d29aadbea6"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
