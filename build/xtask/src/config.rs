@@ -9,13 +9,40 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 use lpc55_areas::{
     BootSpeed, CFPAPage, CMPAPage, DebugSettings, DefaultIsp, RKTHRevoke,
     ROTKeyStatus, SecureBootCfg,
 };
+
+/// A `PatchedConfig` allows a minimal form of inheritance between TOML files
+/// Specifically, it allows you to **add features** to specific tasks; nothing
+/// else.
+///
+/// Here's an example:
+/// ```toml
+/// name = "sidecar-a-lab"
+///
+/// [patches]
+/// inherit = "rev-a.toml"
+/// features.sequencer = ["stay-in-a2"]
+/// ```
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PatchedConfig {
+    inherit: String,
+    patches: ConfigPatches,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigPatches {
+    name: String,
+    #[serde(default)]
+    features: IndexMap<String, Vec<String>>,
+}
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -72,21 +99,54 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
+    pub patches: Option<ConfigPatches>,
     pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
 }
 
 impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
+        Self::from_file_with_hasher(cfg, DefaultHasher::new())
+    }
+
+    fn from_file_with_hasher(
+        cfg: &Path,
+        mut hasher: DefaultHasher,
+    ) -> Result<Self> {
         let cfg_contents = std::fs::read(&cfg)
             .with_context(|| format!("could not read {}", cfg.display()))?;
+
+        // Accumulate the contents into the buildhash here, so that we hash both
+        // the inheritance file and the target if this is an `PatchedConfig`
+        hasher.write(&cfg_contents);
+
+        // Minimal TOML file inheritance, to enable features on a per-task basis
+        if let Ok(inherited) = toml::from_slice::<PatchedConfig>(&cfg_contents)
+        {
+            let file = cfg.parent().unwrap().join(&inherited.inherit);
+            let mut original = Config::from_file_with_hasher(&file, hasher)
+                .context(format!("Could not load template from {file:?}"))?;
+            original.name = inherited.patches.name.to_owned();
+            for (task, features) in &inherited.patches.features {
+                let t = original
+                    .tasks
+                    .get_mut(task)
+                    .ok_or_else(|| anyhow!("No such task {task}"))?;
+                for f in features {
+                    if t.features.contains(f) {
+                        bail!("Task {task} already contains feature {f}");
+                    }
+                    t.features.push(f.to_owned());
+                }
+            }
+            original.patches = Some(inherited.patches);
+            return Ok(original);
+        }
+
         let toml: RawConfig = toml::from_slice(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
-
-        let mut hasher = DefaultHasher::new();
-        hasher.write(&cfg_contents);
 
         // The app.toml must include a `chip` key, which defines the peripheral
         // register map in a separate file.  We load it then accumulate that
@@ -150,6 +210,7 @@ impl Config {
             auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
+            patches: None,
             secure_task: toml.secure_task,
         })
     }

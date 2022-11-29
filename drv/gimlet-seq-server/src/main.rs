@@ -341,6 +341,11 @@ fn main() -> ! {
         deadline: 0,
     };
 
+    // Power on, unless suppressed by the `stay-in-a2` feature
+    if !cfg!(feature = "stay-in-a2") {
+        server.set_state_internal(PowerState::A0).unwrap();
+    }
+
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
@@ -435,35 +440,10 @@ impl ServerImpl {
         self.jefe.set_state(state as u32);
     }
 
-    //
-    // Return the current timer interval, in milliseconds.  If we are in A0,
-    // we are polling for NIC_PWREN_L; if we are in A0PlusHP, we are polling
-    // for a thermtrip or for someone disabling NIC_PWREN_L.  If we are in
-    // any other state, we don't need to poll.
-    //
-    fn poll_interval(&self) -> Option<u64> {
-        match self.state {
-            PowerState::A0 => Some(10),
-            PowerState::A0PlusHP => Some(100),
-            _ => None,
-        }
-    }
-}
-
-impl idl::InOrderSequencerImpl for ServerImpl {
-    fn get_state(
+    fn set_state_internal(
         &mut self,
-        _: &RecvMessage,
-    ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
-        Ok(self.state)
-    }
-
-    fn set_state(
-        &mut self,
-        _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::SetState(self.state, state));
 
         match (self.state, state) {
@@ -472,7 +452,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 // First, set our mux state to be the HostCPU
                 //
                 if self.hf.set_mux(hf_api::HfMuxState::HostCPU).is_err() {
-                    return Err(SeqError::MuxToHostCPUFailed.into());
+                    return Err(SeqError::MuxToHostCPUFailed);
                 }
 
                 //
@@ -545,7 +525,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 vcore_soc_off();
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
-                    return Err(SeqError::MuxToSPFailed.into());
+                    return Err(SeqError::MuxToSPFailed);
                 }
 
                 self.update_state_internal(PowerState::A2);
@@ -553,8 +533,40 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 Ok(())
             }
 
-            _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
+            _ => Err(SeqError::IllegalTransition),
         }
+    }
+
+    //
+    // Return the current timer interval, in milliseconds.  If we are in A0,
+    // we are polling for NIC_PWREN_L; if we are in A0PlusHP, we are polling
+    // for a thermtrip or for someone disabling NIC_PWREN_L.  If we are in
+    // any other state, we don't need to poll.
+    //
+    fn poll_interval(&self) -> Option<u64> {
+        match self.state {
+            PowerState::A0 => Some(10),
+            PowerState::A0PlusHP => Some(100),
+            _ => None,
+        }
+    }
+}
+
+impl idl::InOrderSequencerImpl for ServerImpl {
+    fn get_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerState, RequestError<SeqError>> {
+        ringbuf_entry!(Trace::GetState);
+        Ok(self.state)
+    }
+
+    fn set_state(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_state_internal(state).map_err(RequestError::from)
     }
 
     fn fans_on(

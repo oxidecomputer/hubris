@@ -18,7 +18,7 @@ use path_slash::PathBufExt;
 use zerocopy::AsBytes;
 
 use crate::{
-    config::{BuildConfig, Config},
+    config::{BuildConfig, Config, ConfigPatches},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -37,7 +37,13 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// mutable build information should be accumulated elsewhere.
 pub struct PackageConfig {
     /// Path to the `app.toml` file being built
+    ///
+    /// If this app is built using inheritance, `app_toml_file` refers to the
+    /// **root** TOML file (and patches are in `self.patches`)
     app_toml_file: PathBuf,
+
+    /// Patches from TOML inheritance mechanism
+    patches: Option<ConfigPatches>,
 
     /// Directory containing the `app.toml` file being built
     app_src_dir: PathBuf,
@@ -112,7 +118,8 @@ impl PackageConfig {
         }
 
         Ok(Self {
-            app_toml_file: app_toml_file.to_path_buf(),
+            app_toml_file: toml.app_toml_path.to_path_buf(),
+            patches: toml.patches.clone(),
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
             verbose,
@@ -603,6 +610,15 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
     archive.copy(&cfg.app_toml_file, "app.toml")?;
+    if let Some(patches) = cfg.patches.as_ref() {
+        archive
+            .text(
+                "patches.toml",
+                toml::to_string(patches)
+                    .context("Could not serialize patches")?,
+            )
+            .context("Could not write patches.toml")?;
+    }
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
