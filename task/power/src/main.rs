@@ -23,7 +23,8 @@ use userlib::*;
 
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::{
-    CurrentInSensor, CurrentSensor, TempSensor, VoltageInSensor, VoltageSensor,
+    CurrentSensor, InputCurrentSensor, InputVoltageSensor, TempSensor,
+    VoltageSensor,
 };
 
 use sensor_api::{NoData, SensorId};
@@ -60,9 +61,9 @@ struct PowerControllerConfig {
     device: DeviceType,
     builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
     voltage: SensorId,
-    voltage_in: Option<SensorId>,
+    input_voltage: Option<SensorId>,
     current: SensorId,
-    current_in: Option<SensorId>,
+    input_current: Option<SensorId>,
     temperature: Option<SensorId>,
 }
 
@@ -173,9 +174,9 @@ macro_rules! rail_controller {
                 device: DeviceType::$which,
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
-                voltage_in: None,
+                input_voltage: None,
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
-                current_in: None,
+                input_current: None,
                 temperature: Some(
                     sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
@@ -193,9 +194,9 @@ macro_rules! rail_controller_notemp {
                 device: DeviceType::$which,
                 builder:i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
-                voltage_in: None,
+                input_voltage: None,
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
-                current_in: None,
+                input_current: None,
                 temperature: None,
             }
         }
@@ -211,9 +212,9 @@ macro_rules! adm1272_controller {
                 device: DeviceType::$which($rsense),
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
-                voltage_in: None,
+                input_voltage: None,
                 current: sensors::[<ADM1272_ $rail:upper _CURRENT_SENSOR>],
-                current_in: None,
+                input_current: None,
                 temperature: Some(
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
@@ -231,9 +232,9 @@ macro_rules! max5970_controller {
                 device: DeviceType::$which($rsense),
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
-                voltage_in: None,
+                input_voltage: None,
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
-                current_in: None,
+                input_current: None,
                 temperature: None,
             }
         }
@@ -249,12 +250,12 @@ macro_rules! mwocp68_controller {
                 device: DeviceType::$which,
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
-                voltage_in: Some(
-                    sensors::[<MWOCP68_ $rail:upper _VOLTAGE_IN_SENSOR>]
+                input_voltage: Some(
+                    sensors::[<MWOCP68_ $rail:upper _INPUT_VOLTAGE_SENSOR>]
                 ),
                 current: sensors::[<MWOCP68_ $rail:upper _CURRENT_SENSOR>],
-                current_in: Some(
-                    sensors::[<MWOCP68_ $rail:upper _CURRENT_IN_SENSOR>]
+                input_current: Some(
+                    sensors::[<MWOCP68_ $rail:upper _INPUT_CURRENT_SENSOR>]
                 ),
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
@@ -470,7 +471,7 @@ fn main() -> ! {
                 }
             }
 
-            if let Some(id) = c.voltage_in {
+            if let Some(id) = c.input_voltage {
                 match dev.read_vin() {
                     Ok(reading) => {
                         sensor.post(id, reading.0).unwrap();
@@ -481,7 +482,7 @@ fn main() -> ! {
                 }
             }
 
-            if let Some(id) = c.current_in {
+            if let Some(id) = c.input_current {
                 match dev.read_iin() {
                     Ok(reading) => {
                         sensor.post(id, reading.0).unwrap();

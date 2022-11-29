@@ -195,10 +195,10 @@ struct I2cSensors {
     voltage: usize,
 
     #[serde(default)]
-    current_in: usize,
+    input_current: usize,
 
     #[serde(default)]
-    voltage_in: usize,
+    input_voltage: usize,
 
     #[serde(default)]
     speed: usize,
@@ -290,12 +290,12 @@ impl I2cSensorsDescription {
                     desc.add_sensor(Sensor::Voltage, d, i, d_index);
                 }
 
-                for i in 0..s.current_in {
-                    desc.add_sensor(Sensor::CurrentIn, d, i, d_index);
+                for i in 0..s.input_current {
+                    desc.add_sensor(Sensor::InputCurrent, d, i, d_index);
                 }
 
-                for i in 0..s.voltage_in {
-                    desc.add_sensor(Sensor::VoltageIn, d, i, d_index);
+                for i in 0..s.input_voltage {
+                    desc.add_sensor(Sensor::InputVoltage, d, i, d_index);
                 }
 
                 for i in 0..s.speed {
@@ -419,8 +419,8 @@ pub enum Sensor {
     Power,
     Current,
     Voltage,
-    CurrentIn,
-    VoltageIn,
+    InputCurrent,
+    InputVoltage,
     Speed,
 }
 
@@ -434,8 +434,8 @@ impl std::fmt::Display for Sensor {
                 Sensor::Power => "POWER",
                 Sensor::Current => "CURRENT",
                 Sensor::Voltage => "VOLTAGE",
-                Sensor::CurrentIn => "CURRENT_IN",
-                Sensor::VoltageIn => "VOLTAGE_IN",
+                Sensor::InputCurrent => "INPUT_CURRENT",
+                Sensor::InputVoltage => "INPUT_VOLTAGE",
                 Sensor::Speed => "SPEED",
             }
         )
