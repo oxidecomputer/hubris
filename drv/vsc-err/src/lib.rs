@@ -104,6 +104,12 @@ pub enum VscError {
 
     /// This operation is only valid on an SGMII port
     NotSgmii,
+
+    /// The given port is already enabled
+    AlreadyEnabled,
+
+    /// The given port is already disabled
+    AlreadyDisabled,
 }
 
 impl From<SpiError> for VscError {
