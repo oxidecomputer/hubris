@@ -64,17 +64,15 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 ));
                 discriminant = None;
             }
+        } else if let Some(d) = &mut discriminant {
+            *d = d.checked_add(1).expect("discriminant overflow");
+            check_discriminant(&mut variant_errors, ident.span(), *d);
         } else {
-            if let Some(d) = &mut discriminant {
-                *d = d.checked_add(1).expect("discriminant overflow");
-                check_discriminant(&mut variant_errors, ident.span(), *d);
-            } else {
-                // No explicit discriminant specified and none recorded from a
-                // previous iteration -- this would implicitly become zero.
-                discriminant = Some(0);
-                // Bit of a hack to reuse the error reporting code:
-                check_discriminant(&mut variant_errors, ident.span(), 0);
-            }
+            // No explicit discriminant specified and none recorded from a
+            // previous iteration -- this would implicitly become zero.
+            discriminant = Some(0);
+            // Bit of a hack to reuse the error reporting code:
+            check_discriminant(&mut variant_errors, ident.span(), 0);
         }
     }
 
@@ -110,7 +108,7 @@ fn check_discriminant(
         variant_errors
             .push(compile_error(span, "error enums must not contain zero"));
     }
-    if d < 0 || d > 0xFFFF {
+    if !(0..=0xFFFF).contains(&d) {
         variant_errors
             .push(compile_error(span, "error enum values must fit in a u16"));
     }

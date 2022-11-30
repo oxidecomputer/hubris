@@ -234,7 +234,7 @@ impl IO {
     fn pio(&mut self, transmit: bool) {
         ringbuf_entry!(Trace::Pio(transmit));
         let tx_end = self.tx_buf.as_slice().len(); // Available bytes and trailing zeros
-        let rx_end = self.rx_buf.len(); // All of the available bytes
+        let rx_end = self.rx_buf.as_slice().len(); // All of the available bytes
         self.txcount = 0;
         self.rxcount = 0;
         self.overrun = false;

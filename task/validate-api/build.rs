@@ -20,7 +20,7 @@ fn write_pub_device_descriptions() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path =
         std::path::Path::new(&out_dir).join("device_descriptions.rs");
-    let file = std::fs::File::create(&dest_path)?;
+    let file = std::fs::File::create(dest_path)?;
     let mut file = std::io::BufWriter::new(file);
 
     writeln!(

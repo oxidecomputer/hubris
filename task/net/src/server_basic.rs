@@ -21,7 +21,7 @@ use task_net_api::UdpMetadata;
 /// Grabs references to the server storage arrays.  Can only be called once!
 fn claim_server_storage_statics() -> &'static mut [Storage; 1] {
     mutable_statics! {
-        static mut STORAGE: [Storage; 1] = [|| Default::default(); _];
+        static mut STORAGE: [Storage; 1] = [Default::default; _];
     }
 }
 
@@ -29,11 +29,11 @@ fn claim_server_storage_statics() -> &'static mut [Storage; 1] {
 
 pub type ServerImpl<'a, B> = GenServerImpl<'a, B, Smol<'a>, 1>;
 
-pub fn new<'a, B>(
-    eth: &'a eth::Ethernet,
+pub fn new<B>(
+    eth: &eth::Ethernet,
     mac: MacAddressBlock,
     bsp: B,
-) -> ServerImpl<'a, B>
+) -> ServerImpl<'_, B>
 where
     B: bsp_support::Bsp,
 {

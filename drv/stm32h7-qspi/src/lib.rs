@@ -142,6 +142,7 @@ impl Qspi {
         // Note: if we aren't using an address, this write will kick things off.
         // Otherwise it's the AR write below.
         #[rustfmt::skip]
+        #[allow(clippy::bool_to_int_with_if)]
         self.reg.ccr.write(|w| unsafe {
             w
                 // Indirect write
@@ -234,6 +235,7 @@ impl Qspi {
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
         #[rustfmt::skip]
+        #[allow(clippy::bool_to_int_with_if)]
         self.reg.ccr.write(|w| unsafe {
             w
                 // Indirect read

@@ -161,13 +161,13 @@ impl From<hubpack::Error> for SprotError {
 
 // Return true if the error is recoverable, otherwise return false
 pub fn is_recoverable_error(err: SprotError) -> bool {
-    match err {
+    matches!(
+        err,
         SprotError::InvalidCrc
-        | SprotError::EmptyMessage
-        | SprotError::RotNotReady
-        | SprotError::RotBusy => true,
-        _ => false,
-    }
+            | SprotError::EmptyMessage
+            | SprotError::RotNotReady
+            | SprotError::RotBusy
+    )
 }
 
 /// The successful result of pulsing the active low chip-select line
@@ -387,6 +387,18 @@ pub struct TxMsg {
     buf: [u8; BUF_SIZE],
 }
 
+impl AsMut<[u8]> for TxMsg {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+}
+
+impl Default for TxMsg {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TxMsg {
     pub fn new() -> TxMsg {
         TxMsg { buf: [0; BUF_SIZE] }
@@ -394,10 +406,6 @@ impl TxMsg {
 
     pub fn as_slice(&self) -> &[u8] {
         &self.buf[..]
-    }
-
-    pub fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[..]
     }
 
     pub fn payload_mut(&mut self) -> &mut [u8] {
@@ -481,21 +489,25 @@ pub struct RxMsg {
     buf: [u8; BUF_SIZE],
 }
 
+impl AsMut<[u8]> for RxMsg {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[..]
+    }
+}
+
+impl Default for RxMsg {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RxMsg {
     pub fn new() -> RxMsg {
         RxMsg { buf: [0; BUF_SIZE] }
     }
 
-    pub fn len(&self) -> usize {
-        self.buf.len()
-    }
-
     pub fn as_slice(&self) -> &[u8] {
         &self.buf[..]
-    }
-
-    pub fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[..]
     }
 
     pub fn payload(&self, rxmsg: &VerifiedRxMsg) -> &[u8] {

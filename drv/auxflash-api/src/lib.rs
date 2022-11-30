@@ -117,7 +117,7 @@ where
                     chunk
                         .read_exact(i, &mut scratch[0..(amount as usize)])
                         .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                    i += amount as u64;
+                    i += amount;
                     sha.update(&scratch[0..(amount as usize)]);
                 }
                 let sha_out = sha.finalize();

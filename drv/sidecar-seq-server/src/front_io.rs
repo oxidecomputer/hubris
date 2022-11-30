@@ -87,7 +87,7 @@ impl FrontIOBoard {
                     ringbuf_entry!(Trace::FpgaBitstreamError(
                         u32::try_from(e).unwrap()
                     ));
-                    return Err(FpgaError::from(e));
+                    return Err(e);
                 }
 
                 (ident, ident_valid) = controller.ident_valid()?;

@@ -731,7 +731,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         ringbuf_entry!(Trace::UpdatePrep);
         let payload = self.tx_buf.payload_mut();
         let payload_len = hubpack::serialize(&mut payload[0..], &image_type)
-            .map_err(|e| Into::<SprotError>::into(e))?;
+            .map_err(Into::<SprotError>::into)?;
         let _ = self.upd(
             MsgType::UpdPrepImageUpdateReq,
             payload_len,
@@ -797,7 +797,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         let txmsg = self.tx_buf.no_payload(MsgType::UpdCurrentVersionReq);
         let rxmsg = self
             .do_send_recv_retries(txmsg, TIMEOUT_QUICK, 2)
-            .map_err(|e| idol_runtime::RequestError::Runtime(e))?;
+            .map_err(idol_runtime::RequestError::Runtime)?;
 
         expect_msg(MsgType::UpdCurrentVersionRsp, rxmsg.0.msgtype)?;
         let rsp = self

@@ -5,6 +5,7 @@
 use crate::{Phy, PhyRw, VscError};
 use vsc7448_pac::phy;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum LED {
     LED0 = 0,
