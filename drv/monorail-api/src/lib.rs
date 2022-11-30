@@ -38,6 +38,16 @@ pub struct PacketCount {
 pub struct PortCounters {
     pub rx: PacketCount,
     pub tx: PacketCount,
+
+    /// `true` if the link has gone down since the last call to
+    /// `port_reset_counters`
+    ///
+    /// Due to hardware differences between 1G and 10G ports, this has slightly
+    /// different semantics depending on port speed:
+    /// - On the 1G ports, this is `LINK_DOWN_STICKY` | `OUT_OF_SYNC_STICKY`
+    /// - For the 10G port, this is `LOCK_CHANGED_STICKY`, i.e. it will _also_
+    ///   be true if the link went from down -> up
+    pub link_down_sticky: bool,
 }
 
 /// Error-code-only version of [VscError], for use in RPC calls
