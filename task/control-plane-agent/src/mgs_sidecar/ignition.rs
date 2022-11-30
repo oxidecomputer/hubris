@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::cell::Cell;
 use drv_ignition_api::{
     AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError,
 };
@@ -21,29 +22,29 @@ pub(super) struct IgnitionController {
     // it since it never changes (it's the total number of ports, which is baked
     // into the FPGA image, not the number of present targets, which varies at
     // runtime).
-    num_ports: Option<u32>,
+    num_ports: Cell<Option<u32>>,
 }
 
 impl IgnitionController {
     pub(super) fn new() -> Self {
         Self {
             task: Ignition::new(IGNITION.get_task_id()),
-            num_ports: None,
+            num_ports: Cell::new(None),
         }
     }
 
-    pub(super) fn num_ports(&mut self) -> Result<u32, SpError> {
-        if let Some(n) = self.num_ports {
+    pub(super) fn num_ports(&self) -> Result<u32, SpError> {
+        if let Some(n) = self.num_ports.get() {
             return Ok(n);
         }
 
         let n = u32::from(self.task.port_count().map_err(map_ignition_error)?);
-        self.num_ports = Some(n);
+        self.num_ports.set(Some(n));
         Ok(n)
     }
 
     pub(super) fn target_state(
-        &mut self,
+        &self,
         target: u8,
     ) -> Result<IgnitionState, SpError> {
         let port = self.task.port(target).map_err(map_ignition_error)?;
@@ -51,7 +52,7 @@ impl IgnitionController {
     }
 
     pub(super) fn bulk_state(
-        &mut self,
+        &self,
         offset: u32,
     ) -> Result<BulkIgnitionStateIter, SpError> {
         let iter = self.task.all_ports().map_err(map_ignition_error)?;
@@ -61,7 +62,7 @@ impl IgnitionController {
     }
 
     pub(super) fn target_link_events(
-        &mut self,
+        &self,
         target: u8,
     ) -> Result<LinkEvents, SpError> {
         let events =
@@ -70,7 +71,7 @@ impl IgnitionController {
     }
 
     pub(super) fn bulk_link_events(
-        &mut self,
+        &self,
         offset: u32,
     ) -> Result<BulkIgnitionLinkEventsIter, SpError> {
         let iter = self.task.all_link_events().map_err(map_ignition_error)?;
@@ -80,7 +81,7 @@ impl IgnitionController {
     }
 
     pub(super) fn clear_link_events(
-        &mut self,
+        &self,
         target: Option<u8>,
         transceiver_select: Option<TransceiverSelect>,
     ) -> Result<(), SpError> {
@@ -131,7 +132,7 @@ impl IgnitionController {
     }
 
     pub(super) fn command(
-        &mut self,
+        &self,
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), SpError> {
