@@ -233,31 +233,27 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 let link_down_sticky = link_down.link_down_sticky() != 0
                     || link_down.out_of_sync_sticky() != 0;
 
-                // If our local sticky bit is set, then return true for
-                // `phy_link_down_sticky`; otherwise, check the PHY itself
-                // (which will clear the bit on the PHY, since it's
-                // self-resetting)
-                let phy_link_down_sticky =
-                    if self.phy_link_down_sticky[port as usize] {
-                        true
-                    } else {
-                        let v = match self.bsp.phy_fn(port, |phy| {
-                            phy.read(phy::STANDARD::INTERRUPT_STATUS())
-                        }) {
-                            // If there is no PHY present, then the PHY link
-                            // down indication is always false.
-                            None => false,
-                            // Otherwise, bit 13 is "Link state change mask"
-                            Some(r) => r
-                                .map(|r| r.0 & (1 << 13) != 0)
-                                .map_err(MonorailError::from)?,
-                        };
-                        if v {
-                            self.phy_link_down_sticky[port as usize] = true;
-                        }
-                        v
-                    };
-                (tx, rx, link_down_sticky, phy_link_down_sticky)
+                // Take the union of the "link changed" bit on the PHY and our
+                // local sticky value (since the PHY bit is self-resetting)
+                let v = match self.bsp.phy_fn(port, |phy| {
+                    phy.read(phy::STANDARD::INTERRUPT_STATUS())
+                }) {
+                    // If there is no PHY present, then the PHY link down
+                    // indication is always false.
+                    None => false,
+                    // Otherwise, bit 13 is "Link state change mask"
+                    Some(r) => r
+                        .map(|r| r.0 & (1 << 13) != 0)
+                        .map_err(MonorailError::from)?,
+                };
+                self.phy_link_down_sticky[port as usize] |= v;
+
+                (
+                    tx,
+                    rx,
+                    link_down_sticky,
+                    self.phy_link_down_sticky[port as usize],
+                )
             }
             PortDev::Dev10g => {
                 let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
