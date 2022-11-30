@@ -24,7 +24,7 @@ include!(env!("GIMLET_FPGA_REGS"));
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
 #[allow(dead_code)]
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 pub enum A0StateMachine {
     IDLE = 0x00,
     PBTN = 0x01,
@@ -51,7 +51,7 @@ impl From<A0StateMachine> for u8 {
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
 #[allow(dead_code)]
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 pub enum A1StateMachine {
     IDLE = 0x00,
     ENABLE = 0x01,
