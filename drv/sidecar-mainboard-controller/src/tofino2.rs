@@ -8,23 +8,26 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoSeqState {
-    Initial = 0,
+    #[default]
+    Init = 0,
     A2 = 1,
     A0 = 2,
     InPowerUp = 3,
     InPowerDown = 4,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoSeqStep {
+    #[default]
+    Init = 0,
     AwaitPowerUp = 1,
     AwaitVdd18PowerGood = 2,
     AwaitVddCorePowerGood = 3,
-    AwaitVddPCIePowerGood = 4,
+    AwaitVddPciePowerGood = 4,
     AwaitVddtPowerGood = 5,
     AwaitVdda15PowerGood = 6,
     AwaitVdda18PowerGood = 7,
@@ -36,9 +39,12 @@ pub enum TofinoSeqStep {
     AwaitPowerDownComplete = 13,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
 #[repr(u8)]
 pub enum TofinoSeqError {
+    #[default]
     None = 0,
     PowerGoodTimeout = 1,
     PowerFault = 2,
@@ -49,6 +55,24 @@ pub enum TofinoSeqError {
     ThermalAlert = 7,
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct TofinoSeqErrorEvent {
+    state: TofinoSeqState,
+    step: TofinoSeqStep,
+    error: TofinoSeqError,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PowerRails {
+    Vdd18,
+    VddCore,
+    VddPcie,
+    Vddt,
+    Vdda15,
+    Vdda18,
+}
+
 #[derive(
     Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
 )]
@@ -57,7 +81,7 @@ pub enum PowerRailState {
     #[default]
     Disabled = 0,
     RampingUp = 1,
-    Timeout = 2,
+    GoodTimeout = 2,
     Aborted = 3,
     Enabled = 4,
 }
@@ -69,7 +93,7 @@ impl TryFrom<u8> for PowerRailState {
         match v {
             0 => Ok(PowerRailState::Disabled),
             1 => Ok(PowerRailState::RampingUp),
-            2 => Ok(PowerRailState::Timeout),
+            2 => Ok(PowerRailState::GoodTimeout),
             3 => Ok(PowerRailState::Aborted),
             4 => Ok(PowerRailState::Enabled),
             _ => Err(()),
@@ -99,21 +123,62 @@ impl From<u8> for PowerRailPinState {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
-pub struct PowerRailStatus {
+pub struct PowerRail {
+    pub id: PowerRails,
     pub state: PowerRailState,
     pub pin_state: PowerRailPinState,
 }
 
-impl TryFrom<u8> for PowerRailStatus {
+impl TryFrom<(PowerRails, u8)> for PowerRail {
     type Error = ();
 
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        Ok(Self {
+    fn try_from(data: (PowerRails, u8)) -> Result<Self, Self::Error> {
+        let (id, v) = data;
+        Ok(PowerRail {
+            id,
             state: PowerRailState::try_from(v >> 4)?,
             pin_state: PowerRailPinState::from(v),
         })
+    }
+}
+
+impl PowerRail {
+    /// Convert power rail state register data to an array of `PowerRail`
+    /// structs.
+    pub fn from_data(data: [u8; 6]) -> Result<[PowerRail; 6], ()> {
+        #[inline]
+        const fn offset(addr: Addr) -> usize {
+            (addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)
+        }
+
+        Ok([
+            PowerRail::try_from((
+                PowerRails::Vdd18,
+                data[offset(Addr::TOFINO_POWER_VDD18_STATE)],
+            ))?,
+            PowerRail::try_from((
+                PowerRails::VddCore,
+                data[offset(Addr::TOFINO_POWER_VDDCORE_STATE)],
+            ))?,
+            PowerRail::try_from((
+                PowerRails::VddPcie,
+                data[offset(Addr::TOFINO_POWER_VDDPCIE_STATE)],
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vddt,
+                data[offset(Addr::TOFINO_POWER_VDDT_STATE)],
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vdda15,
+                data[offset(Addr::TOFINO_POWER_VDDA15_STATE)],
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vdda18,
+                data[offset(Addr::TOFINO_POWER_VDDA18_STATE)],
+            ))?,
+        ])
     }
 }
 

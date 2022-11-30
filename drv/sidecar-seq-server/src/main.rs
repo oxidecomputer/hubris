@@ -12,10 +12,7 @@ use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_sidecar_mainboard_controller::tofino2::{
-    DebugPortState, DirectBarSegment, Tofino2Vid, TofinoPcieReset,
-    TofinoSeqError, TofinoSeqState, TofinoSeqStep,
-};
+use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
 use idol_runtime::{
@@ -57,7 +54,9 @@ enum Trace {
     TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
     TofinoSequencerTick(TofinoSequencerPolicy, TofinoSeqState, TofinoSeqError),
     TofinoSequencerError(SeqError),
-    TofinoSequencerFault(TofinoSeqError),
+    TofinoSequencerFault(TofinoSeqStep, TofinoSeqError),
+    TofinoPowerRailGoodTimeout(PowerRails),
+    TofinoPowerRailAbort(PowerRails, PowerRailPinState),
     TofinoVidAck,
     TofinoEepromIdCode(u32),
     InitiateTofinoPowerUp,
@@ -564,7 +563,7 @@ fn main() -> ! {
         .tofino
         .sequencer
         .state()
-        .unwrap_or(TofinoSeqState::Initial)
+        .unwrap_or(TofinoSeqState::Init)
     {
         ringbuf_entry!(Trace::SkipLoadingClockConfiguration);
         server.clock_generator.config_loaded = true;

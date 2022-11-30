@@ -11,6 +11,7 @@ pub(crate) struct Tofino {
     pub sequencer: Sequencer,
     pub debug_port: DebugPort,
     pub vddcore: Raa229618,
+    pub sequencing_error_logged: bool,
 }
 
 impl Tofino {
@@ -22,6 +23,7 @@ impl Tofino {
             sequencer: Sequencer::new(MAINBOARD.get_task_id()),
             debug_port: DebugPort::new(MAINBOARD.get_task_id()),
             vddcore,
+            sequencing_error_logged: false,
         }
     }
 
@@ -62,6 +64,7 @@ impl Tofino {
         ringbuf_entry!(Trace::InitiateTofinoPowerUp);
 
         // Initiate the power up sequence.
+        self.sequencing_error_logged = false;
         self.sequencer.set_enable(true)?;
 
         // Wait for the VID to become valid, retrying if needed.
@@ -114,30 +117,69 @@ impl Tofino {
             .map_err(|_| SeqError::SequencerError)
     }
 
+    fn report_power_rail_aborted(&mut self, rail: &PowerRail) {
+        ringbuf_entry!(Trace::TofinoPowerRailAbort(rail.id, rail.pin_state));
+
+        if rail.pin_state.fault {
+            // TODO (arjen): pull PMBus for additional data in
+            // the case of faults.
+        }
+    }
+
     pub fn handle_tick(&mut self) -> Result<(), SeqError> {
         let state = self.sequencer.state()?;
         let error = self.sequencer.error()?;
 
-        ringbuf_entry!(Trace::TofinoSequencerTick(self.policy, state, error));
+        if error != TofinoSeqError::None && !self.sequencing_error_logged {
+            let error_step = self.sequencer.error_step()?;
+            let power_rails =
+                PowerRail::from_data(self.sequencer.power_rails()?)
+                    .map_err(|_| SeqError::FpgaError)?;
+
+            self.sequencing_error_logged = true;
+            ringbuf_entry!(Trace::TofinoSequencerFault(error_step, error));
+
+            for rail in &power_rails {
+                match rail.state {
+                    PowerRailState::GoodTimeout => {
+                        ringbuf_entry!(Trace::TofinoPowerRailGoodTimeout(
+                            rail.id
+                        ));
+                    }
+                    PowerRailState::Aborted => {
+                        self.report_power_rail_aborted(rail);
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            ringbuf_entry!(Trace::TofinoSequencerTick(
+                self.policy,
+                state,
+                error
+            ));
+        }
 
         match (self.policy, state, error) {
-            // Power down if the Tofino should be disabled.
-            (TofinoSequencerPolicy::Disabled, TofinoSeqState::InPowerUp, _) => {
-                self.power_down()
-            }
-            (TofinoSequencerPolicy::Disabled, TofinoSeqState::A0, _) => {
-                self.power_down()
-            }
+            // Power down if Tofino should be disabled.
+            (
+                TofinoSequencerPolicy::Disabled,
+                TofinoSeqState::InPowerUp | TofinoSeqState::A0,
+                _,
+            ) => self.power_down(),
             // Power up
             (
                 TofinoSequencerPolicy::LatchOffOnFault,
                 TofinoSeqState::A2,
                 TofinoSeqError::None,
             ) => self.power_up(),
+
             // RestartOnFault not yet implemented because we do not yet know how
             // this should behave. And we probably still want to see/debug if a
             // fault occurs and restart manually.
-            _ => Ok(()), // Do nothing by default.
+
+            // Do not change the state.
+            _ => Ok(()),
         }
     }
 }
