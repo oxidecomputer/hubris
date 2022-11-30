@@ -453,7 +453,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::VSC7448 => Ok(drv_monorail_api::PORT_COUNT as u32),
+            SpComponent::MONORAIL => Ok(drv_monorail_api::PORT_COUNT as u32),
             _ => self.common.inventory().num_component_details(&component),
         }
     }
@@ -467,7 +467,7 @@ impl SpHandler for MgsHandler {
         index: BoundsChecked,
     ) -> ComponentDetails {
         match component {
-            SpComponent::VSC7448 => ComponentDetails::PortStatus(
+            SpComponent::MONORAIL => ComponentDetails::PortStatus(
                 monorail_port_status::port_status(&self.monorail, index),
             ),
             _ => self.common.inventory().component_details(&component, index),
@@ -491,7 +491,7 @@ impl SpHandler for MgsHandler {
         );
 
         match component {
-            SpComponent::VSC7448 => {
+            SpComponent::MONORAIL => {
                 // Reset counters on every port.
                 for port in 0..drv_monorail_api::PORT_COUNT as u8 {
                     match self.monorail.reset_port_counters(port) {

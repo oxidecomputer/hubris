@@ -4,7 +4,7 @@
 
 use drv_monorail_api::{Monorail, MonorailError};
 use gateway_messages::sp_impl::BoundsChecked;
-use gateway_messages::vsc7448_port_status::{
+use gateway_messages::monorail_port_status::{
     LinkStatus, PacketCount, PhyStatus, PhyType, PortConfig, PortCounters,
     PortDev, PortMode, PortSerdes, PortStatus, PortStatusError,
     PortStatusErrorCode, Speed,
