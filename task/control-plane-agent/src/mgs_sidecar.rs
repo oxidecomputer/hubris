@@ -227,7 +227,8 @@ impl SpHandler for MgsHandler {
         transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
-        self.ignition.clear_link_events(target, transceiver_select)?;
+        self.ignition
+            .clear_link_events(target, transceiver_select)?;
         Ok(())
     }
 
