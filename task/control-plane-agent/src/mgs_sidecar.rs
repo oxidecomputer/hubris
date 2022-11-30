@@ -30,9 +30,6 @@ mod monorail_port_status;
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
 
-// TODO Should this live in monorail-api instead?
-const NUM_VSC7448_PORTS: u32 = 53;
-
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks for now, no other updateable components.
 const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
@@ -390,7 +387,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::VSC7448 => Ok(NUM_VSC7448_PORTS),
+            SpComponent::VSC7448 => Ok(drv_monorail_api::PORT_COUNT as u32),
             _ => self.common.inventory().num_component_details(&component),
         }
     }

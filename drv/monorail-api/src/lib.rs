@@ -18,6 +18,9 @@ pub use vsc7448::{
     VscError,
 };
 
+/// Maximum number of ports
+pub const PORT_COUNT: usize = vsc7448::PORT_COUNT;
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub struct PortStatus {
