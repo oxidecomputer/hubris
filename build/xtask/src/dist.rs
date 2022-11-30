@@ -682,6 +682,19 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     archive
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
+    if cfg.img_file("CMPA.bin", image_name).exists() {
+        archive.copy(
+            cfg.img_file("CMPA.bin", image_name),
+            img_dir.join("CMPA.bin"),
+        )?;
+    }
+    if cfg.img_file("CFPA.bin", image_name).exists() {
+        archive.copy(
+            cfg.img_file("CFPA.bin", image_name),
+            img_dir.join("CFPA.bin"),
+        )?;
+    }
+
     archive.finish()?;
     Ok(())
 }

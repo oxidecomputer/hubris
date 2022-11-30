@@ -262,8 +262,7 @@ impl ServerImpl {
             }
             HostRequest::Write(mem) => {
                 ringbuf_entry!(Trace::Write(modules, mem));
-                let data_size = mem.len() as u32 * modules.ports.0.count_ones();
-                if data_size as usize != data.len() {
+                if mem.len() as usize != data.len() {
                     return Err(Error::WrongDataSize);
                 }
                 self.write(mem, modules, data)?;
