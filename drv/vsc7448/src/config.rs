@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! High-level configuration abstraction for the VSC7448
+use crate::PORT_COUNT;
 use serde::{Deserialize, Serialize};
 
 /// Port speed
@@ -54,10 +55,10 @@ pub struct PortConfig {
 /// The VSC7448 has 52 physical ports.  The port mode uniquely determines the
 /// port device type (1G, 2G5, etc) and device number.
 #[derive(Copy, Clone, Debug)]
-pub struct PortMap([Option<PortMode>; 53]);
+pub struct PortMap([Option<PortMode>; PORT_COUNT]);
 
 impl PortMap {
-    pub const fn new(p: [Option<PortMode>; 53]) -> Self {
+    pub const fn new(p: [Option<PortMode>; PORT_COUNT]) -> Self {
         Self(p)
     }
 

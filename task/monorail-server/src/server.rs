@@ -11,7 +11,7 @@ use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
     config::{PortMap, PortMode},
-    DevGeneric, Vsc7448, Vsc7448Rw,
+    DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT,
 };
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
@@ -20,6 +20,13 @@ pub struct ServerImpl<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
     map: &'a PortMap,
     wake_target_time: u64,
+
+    /// For monitoring purposes, we want a sticky bit that indicates whether a
+    /// link has gone down from the perspective of an attached PHY.
+    ///
+    /// However, the PHY registers typically use self-clearing bits.  We cache
+    /// the bit here, so that it can be explicitly cleared.
+    phy_link_down_sticky: [bool; PORT_COUNT],
 }
 
 /// Notification mask for optional periodic logging
@@ -42,6 +49,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             wake_target_time,
             map,
             vsc7448,
+            phy_link_down_sticky: [false; PORT_COUNT],
         }
     }
 
@@ -170,7 +178,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             None => return Err(MonorailError::UnconfiguredPort.into()),
             Some(cfg) => cfg,
         };
-        let (tx, rx, link_down_sticky) = match cfg.dev.0 {
+        let (tx, rx, link_down_sticky, phy_link_down_sticky) = match cfg.dev.0 {
             PortDev::Dev1g | PortDev::Dev2g5 => {
                 let stats = ASM().DEV_STATISTICS(port);
                 let rx_uc = self
@@ -224,7 +232,32 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 };
                 let link_down_sticky = link_down.link_down_sticky() != 0
                     || link_down.out_of_sync_sticky() != 0;
-                (tx, rx, link_down_sticky)
+
+                // If our local sticky bit is set, then return true for
+                // `phy_link_down_sticky`; otherwise, check the PHY itself
+                // (which will clear the bit on the PHY, since it's
+                // self-resetting)
+                let phy_link_down_sticky =
+                    if self.phy_link_down_sticky[port as usize] {
+                        true
+                    } else {
+                        let v = match self.bsp.phy_fn(port, |phy| {
+                            phy.read(phy::STANDARD::INTERRUPT_STATUS())
+                        }) {
+                            // If there is no PHY present, then the PHY link
+                            // down indication is always false.
+                            None => false,
+                            // Otherwise, bit 13 is "Link state change mask"
+                            Some(r) => r
+                                .map(|r| r.0 & (1 << 13) != 0)
+                                .map_err(MonorailError::from)?,
+                        };
+                        if v {
+                            self.phy_link_down_sticky[port as usize] = true;
+                        }
+                        v
+                    };
+                (tx, rx, link_down_sticky, phy_link_down_sticky)
             }
             PortDev::Dev10g => {
                 let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
@@ -271,13 +304,14 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     .map_err(MonorailError::from)?;
                 let link_down_sticky = intr.lock_changed_sticky() != 0;
 
-                (tx, rx, link_down_sticky)
+                (tx, rx, link_down_sticky, false)
             }
         };
         Ok(PortCounters {
             tx,
             rx,
             link_down_sticky,
+            phy_link_down_sticky,
         })
     }
 
@@ -321,6 +355,18 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     _ => unreachable!(),
                 }
                 .map_err(MonorailError::from)?;
+
+                // Clear our local sticky bit, then read the PHY register (to
+                // clear the self-clearing bit).  We don't care about the actual
+                // register value here; just the side effect of reading it.
+                self.phy_link_down_sticky[port as usize] = false;
+                if let Some(Err(e)) = self.bsp.phy_fn(port, |phy| {
+                    phy.read(phy::STANDARD::INTERRUPT_STATUS())
+                }) {
+                    return Err(e)
+                        .map_err(MonorailError::from)
+                        .map_err(RequestError::from);
+                }
 
                 // Clear the two bits that we use to detect link drops
                 self.vsc7448
