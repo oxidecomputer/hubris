@@ -528,7 +528,7 @@ impl<'a> ThermalControl<'a> {
                         self.sensor_api.post(*sensor_id, reading.0.into())
                     }
                     Err(e) => {
-                        ringbuf_entry!(Trace::FanReadFailed(index, e));
+                        ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
                         self.sensor_api.nodata(*sensor_id, e.into())
                     }
                 };
@@ -538,11 +538,11 @@ impl<'a> ThermalControl<'a> {
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
-        for (i, s) in self.bsp.misc_sensors.iter().enumerate() {
+        for s in self.bsp.misc_sensors.iter() {
             let post_result = match s.read_temp(self.i2c_task) {
                 Ok(v) => self.sensor_api.post(s.sensor_id, v.0),
                 Err(e) => {
-                    ringbuf_entry!(Trace::MiscReadFailed(i, e));
+                    ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
                     self.sensor_api.nodata(s.sensor_id, e.into())
                 }
             };
@@ -583,7 +583,9 @@ impl<'a> ThermalControl<'a> {
                             // if the sensor failure is persistent, then thermal
                             // loop will eventually handle it (once the modelled
                             // worst-case temperature is sufficiently high)
-                            ringbuf_entry!(Trace::SensorReadFailed(i, e));
+                            ringbuf_entry!(
+                                Trace::SensorReadFailed(s.sensor.sensor_id, e)
+                            );
                         }
                         self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                     }
