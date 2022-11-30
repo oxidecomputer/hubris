@@ -32,4 +32,4 @@ vlan = ["task-net-api?/vlan"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }

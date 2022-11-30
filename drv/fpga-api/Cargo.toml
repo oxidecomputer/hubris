@@ -19,4 +19,4 @@ drv-spi-api = { path = "../../drv/spi-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+idol = { workspace = true }
