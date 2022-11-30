@@ -6,7 +6,7 @@ use core::cell::Cell;
 use drv_ignition_api::{AllLinkEventsIter, AllPortsIter, Ignition};
 use gateway_messages::ignition::{
     IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
-    SystemType, Target, TransceiverEvents, TransceiverSelect,
+    SystemType, TargetState, TransceiverEvents, TransceiverSelect,
 };
 use gateway_messages::{IgnitionCommand, SpError};
 use heapless::Vec;
@@ -207,7 +207,7 @@ impl From<PortConvert> for IgnitionState {
     fn from(port: PortConvert) -> Self {
         let PortConvert(port) = port;
         Self {
-            receiver_status: ReceiverStatusConvert(port.receiver_status).into(),
+            receiver: ReceiverStatusConvert(port.receiver_status).into(),
             target: port.target.map(|t| TargetConvert(t).into()),
         }
     }
@@ -227,7 +227,7 @@ impl From<ReceiverStatusConvert> for ReceiverStatus {
 
 struct TargetConvert(drv_ignition_api::Target);
 
-impl From<TargetConvert> for Target {
+impl From<TargetConvert> for TargetState {
     fn from(t: TargetConvert) -> Self {
         let TargetConvert(t) = t;
         Self {
