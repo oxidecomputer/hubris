@@ -30,7 +30,7 @@ where
 
         let mut vs = values
             .iter()
-            .map(|v| v.0.phash(m) as usize % slots)
+            .map(|v| v.0.phash(m) % slots)
             .collect::<Vec<usize>>();
         vs.sort_unstable();
         vs.dedup();
@@ -53,7 +53,7 @@ where
                 if Self::check(&values, slots, m) {
                     let mut out = (0..slots).map(|_| None).collect::<Vec<_>>();
                     for v in values.into_iter() {
-                        let index = v.0.phash(m) as usize % slots;
+                        let index = v.0.phash(m) % slots;
                         assert!(out[index].is_none());
                         out[index] = Some(v);
                     }
@@ -79,8 +79,8 @@ where
     K: PerfectHash + Hash + Eq,
 {
     fn id(key: &K, m: u32, g: &[u32]) -> (usize, usize) {
-        let i = key.phash(m) as usize % g.len();
-        let j = key.phash(g[i]) as usize;
+        let i = key.phash(m) % g.len();
+        let j = key.phash(g[i]);
         (i, j)
     }
 

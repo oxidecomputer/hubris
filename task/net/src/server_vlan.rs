@@ -23,7 +23,7 @@ use crate::{
 /// Grabs references to the server storage arrays.  Can only be called once!
 fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
     mutable_statics! {
-        static mut STORAGE: [Storage; VLAN_COUNT] = [|| Default::default(); _];
+        static mut STORAGE: [Storage; VLAN_COUNT] = [Default::default; _];
     }
 }
 
@@ -119,11 +119,11 @@ impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
 
 pub type ServerImpl<'a, B> = GenServerImpl<'a, B, VLanEthernet<'a>, VLAN_COUNT>;
 
-pub fn new<'a, B>(
-    eth: &'a eth::Ethernet,
+pub fn new<B>(
+    eth: &eth::Ethernet,
     mac: MacAddressBlock,
     bsp: B,
-) -> ServerImpl<'a, B>
+) -> ServerImpl<'_, B>
 where
     B: bsp_support::Bsp,
 {

@@ -879,7 +879,7 @@ pub unsafe extern "C" fn SVCall() {
 
                     bx lr                   @ branch into user mode
                     ",
-                    exc_return = const EXC_RETURN_CONST as u32,
+                    exc_return = const EXC_RETURN_CONST,
                     options(noreturn),
                 )
             } else {

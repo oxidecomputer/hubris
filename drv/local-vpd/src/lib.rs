@@ -87,7 +87,7 @@ pub fn read_config<V: AsBytes + FromBytes>(
                 .map_err(|_| LocalVpdError::InvalidChecksum)?;
             let mut inner = chunk.read_as_chunks();
             while let Ok(Some(chunk)) = inner.next() {
-                if &chunk.header().tag == &tag {
+                if chunk.header().tag == tag {
                     chunk
                         .check_body_checksum(&mut scratch)
                         .map_err(|_| LocalVpdError::InvalidChecksum)?;
@@ -103,10 +103,10 @@ pub fn read_config<V: AsBytes + FromBytes>(
                     return Ok(out);
                 }
             }
-            return Err(LocalVpdError::NoSuchChunk.into());
+            return Err(LocalVpdError::NoSuchChunk);
         }
     }
-    Err(LocalVpdError::NoRootChunk.into())
+    Err(LocalVpdError::NoRootChunk)
 }
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

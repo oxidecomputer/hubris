@@ -47,7 +47,7 @@ impl Vsc7448Spi {
         // - 3 bytes of address
         // - Some number of padding bytes
         // - 4 bytes of data
-        const SIZE: usize = 7 + SPI_NUM_PAD_BYTES as usize;
+        const SIZE: usize = 7 + SPI_NUM_PAD_BYTES;
         let mut out = [0; SIZE];
         self.0.exchange(data, &mut out[..])?;
         let value =

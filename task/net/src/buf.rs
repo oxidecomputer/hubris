@@ -16,10 +16,10 @@ pub fn claim_tx_statics() -> (
     mutable_statics! {
         #[link_section = ".eth_bulk"]
         static mut TX_DESC: [eth::ring::TxDesc; TX_RING_SZ] =
-            [|| eth::ring::TxDesc::new(); _];
+            [eth::ring::TxDesc::new; _];
         #[link_section = ".eth_bulk"]
         static mut TX_BUF: [eth::ring::Buffer; TX_RING_SZ] =
-            [|| eth::ring::Buffer::new(); _];
+            [eth::ring::Buffer::new; _];
     }
 }
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
@@ -31,9 +31,9 @@ pub fn claim_rx_statics() -> (
     mutable_statics! {
         #[link_section = ".eth_bulk"]
         static mut RX_DESC: [eth::ring::RxDesc; RX_RING_SZ] =
-            [|| eth::ring::RxDesc::new(); _];
+            [eth::ring::RxDesc::new; _];
         #[link_section = ".eth_bulk"]
         static mut RX_BUF: [eth::ring::Buffer; RX_RING_SZ] =
-            [|| eth::ring::Buffer::new(); _];
+            [eth::ring::Buffer::new; _];
     }
 }

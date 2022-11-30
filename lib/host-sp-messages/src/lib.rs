@@ -281,7 +281,7 @@ impl From<HostStartupOptions> for gateway_messages::StartupOptions {
 ///
 /// Panics if `fill_data` returns a size greater than the length of the slice it
 /// was given.
-pub fn serialize<'a, F>(
+pub fn serialize<F>(
     out: &mut [u8; MAX_MESSAGE_SIZE],
     header: &Header,
     command: &impl Serialize,
