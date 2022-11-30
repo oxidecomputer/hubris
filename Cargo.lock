@@ -3933,6 +3933,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-ignition-api",
  "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",

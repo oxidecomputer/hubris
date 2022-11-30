@@ -199,10 +199,10 @@ features = ["vlan"]
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "sidecar", "vlan"]
+features = ["mgmt", "sidecar", "vlan", "ignition"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io",
+task-slots = ["ecp5_front_io", "ignition",
               { spi_driver = "spi2_driver" },
               { seq = "sequencer" }]
 
