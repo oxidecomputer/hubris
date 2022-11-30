@@ -53,6 +53,8 @@ pub enum Sensor {
     Power,
     Current,
     Voltage,
+    InputCurrent,
+    InputVoltage,
     Speed,
 }
 

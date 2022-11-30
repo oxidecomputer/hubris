@@ -5,7 +5,8 @@
 //! MWOCP68-3600 Murata power shelf
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, Validate, VoltageSensor,
+    pmbus_validate, BadValidation, CurrentSensor, InputCurrentSensor,
+    InputVoltageSensor, Validate, VoltageSensor,
 };
 use core::cell::Cell;
 use drv_i2c_api::*;
@@ -135,5 +136,21 @@ impl CurrentSensor<Error> for Mwocp68 {
         self.set_rail()?;
         let iout = pmbus_read!(self.device, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
+    }
+}
+
+impl InputVoltageSensor<Error> for Mwocp68 {
+    fn read_vin(&self) -> Result<Volts, Error> {
+        self.set_rail()?;
+        let vin = pmbus_read!(self.device, READ_VIN)?;
+        Ok(Volts(vin.get()?.0))
+    }
+}
+
+impl InputCurrentSensor<Error> for Mwocp68 {
+    fn read_iin(&self) -> Result<Amperes, Error> {
+        self.set_rail()?;
+        let iin = pmbus_read!(self.device, READ_IIN)?;
+        Ok(Amperes(iin.get()?.0))
     }
 }

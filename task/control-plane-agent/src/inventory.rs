@@ -400,6 +400,8 @@ impl From<MeasurementKindConvert> for MeasurementKind {
             Sensor::Power => Self::Power,
             Sensor::Current => Self::Current,
             Sensor::Voltage => Self::Voltage,
+            Sensor::InputCurrent => Self::InputCurrent,
+            Sensor::InputVoltage => Self::InputVoltage,
             Sensor::Speed => Self::Speed,
         }
     }

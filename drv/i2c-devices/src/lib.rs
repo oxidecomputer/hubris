@@ -139,6 +139,16 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_vout(&self) -> Result<userlib::units::Volts, T>;
 }
 
+pub trait InputCurrentSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>>
+{
+    fn read_iin(&self) -> Result<userlib::units::Amperes, T>;
+}
+
+pub trait InputVoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>>
+{
+    fn read_vin(&self) -> Result<userlib::units::Volts, T>;
+}
+
 pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     //
     // We have a default implementation that returns false to allow for
