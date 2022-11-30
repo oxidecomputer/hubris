@@ -12,6 +12,10 @@
     path = "bsp/vsc7448_dev.rs"
 )]
 mod bsp;
+
+#[cfg(feature = "ignition")]
+mod ignition;
+
 mod server;
 
 use crate::{bsp::Bsp, server::ServerImpl};
