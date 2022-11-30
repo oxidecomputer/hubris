@@ -686,6 +686,18 @@ impl SpHandler for MgsHandler {
         self.common.inventory().component_details(&component, index)
     }
 
+    fn component_clear_status(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentClearStatus {
+            component
+        }));
+        Err(SpError::RequestUnsupportedForComponent)
+    }
+
     fn mgs_response_error(
         &mut self,
         _sender: SocketAddrV6,
