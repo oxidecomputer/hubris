@@ -583,9 +583,10 @@ impl<'a> ThermalControl<'a> {
                             // if the sensor failure is persistent, then thermal
                             // loop will eventually handle it (once the modelled
                             // worst-case temperature is sufficiently high)
-                            ringbuf_entry!(
-                                Trace::SensorReadFailed(s.sensor.sensor_id, e)
-                            );
+                            ringbuf_entry!(Trace::SensorReadFailed(
+                                s.sensor.sensor_id,
+                                e
+                            ));
                         }
                         self.sensor_api.nodata(s.sensor.sensor_id, e.into())
                     }

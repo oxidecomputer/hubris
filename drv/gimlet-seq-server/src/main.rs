@@ -18,7 +18,7 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use seq_spi::{Addr, Reg, A0StateMachine};
+use seq_spi::{A0StateMachine, Addr, Reg};
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
