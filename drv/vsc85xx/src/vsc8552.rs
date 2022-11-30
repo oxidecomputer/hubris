@@ -63,7 +63,12 @@ impl<'a, 'b, P: PhyRw> Vsc8552Phy<'a, 'b, P> {
                 *r = phy::standard::LED_BEHAVIOR::from(
                     x | disable_led1_combine | split_rx_tx_activity,
                 );
-            })
+            })?;
+
+            // Enable the link state change mask, to detect PHY link flapping
+            v.modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
+
+            Ok(())
         })?;
 
         // Now, we reset the PHY to put those settings into effect.  For some

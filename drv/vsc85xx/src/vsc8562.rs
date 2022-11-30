@@ -71,6 +71,11 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.fix_bz21484()?;
 
         // In the SDK, there's more configuration for 100BT, which we don't use
+        // We're now done with the SDK stuff!
+
+        // Enable the link state change mask, to detect PHY link flapping
+        self.phy
+            .modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
 
         Ok(())
     }
@@ -206,8 +211,13 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
 
         // ...and we're done with phy_reset_private!
 
+        // Enable the link state change mask, to detect PHY link flapping
+        self.phy
+            .modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
+
         // Note that the Sidecar BSP performs additional SERDES tuning
         // in `vsc7448_postconfig`, based on empirical testing.
+
         Ok(())
     }
 
