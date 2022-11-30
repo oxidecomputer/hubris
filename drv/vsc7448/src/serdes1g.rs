@@ -140,16 +140,31 @@ impl Config {
         Ok(())
     }
 
+    /// Check whether the SERDES output is enabled
+    pub fn output_enabled(
+        instance: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<bool, VscError> {
+        serdes1g_read(v, instance)?;
+        let value = v.read(HSIO().SERDES1G_ANA_CFG().SERDES1G_SER_CFG())?;
+        Ok(value.ser_idle() == 0)
+    }
+
     /// Brings down the given SERDES by enabling IDLE mode
     pub fn disable_output(
         instance: u8,
         v: &impl Vsc7448Rw,
     ) -> Result<(), VscError> {
         serdes1g_read(v, instance)?;
-        let ana_cfg = HSIO().SERDES1G_ANA_CFG();
-        v.modify(ana_cfg.SERDES1G_SER_CFG(), |r| {
-            r.set_ser_idle(1);
-        })?;
+        let ana_cfg = HSIO().SERDES1G_ANA_CFG().SERDES1G_SER_CFG();
+
+        let mut value = v.read(ana_cfg)?;
+        if value.ser_idle() == 1 {
+            return Err(VscError::AlreadyDisabled);
+        }
+        value.set_ser_idle(1);
+        v.write(ana_cfg, value)?;
+
         serdes1g_write(v, instance)?;
         Ok(())
     }

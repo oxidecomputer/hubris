@@ -178,14 +178,23 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         match cfg.mode {
             PortMode::Sgmii(..) => match cfg.serdes {
                 (PortSerdes::Serdes1g, i) => {
+                    if serdes1g::Config::output_enabled(i, self.rw)? {
+                        return Err(VscError::AlreadyEnabled);
+                    }
                     serdes1g::Config::new(serdes1g::Mode::Sgmii)
                         .apply(i, self.rw)
                 }
                 (PortSerdes::Serdes6g, i) => {
+                    if serdes6g::Config::output_enabled(i, self.rw)? {
+                        return Err(VscError::AlreadyEnabled);
+                    }
                     serdes6g::Config::new(serdes6g::Mode::Sgmii)
                         .apply(i, self.rw)
                 }
                 (PortSerdes::Serdes10g, i) => {
+                    if serdes10g::Config::output_enabled(i, self.rw)? {
+                        return Err(VscError::AlreadyEnabled);
+                    }
                     serdes10g::Config::new(serdes10g::Mode::Sgmii)?
                         .apply(i, self.rw)
                 }

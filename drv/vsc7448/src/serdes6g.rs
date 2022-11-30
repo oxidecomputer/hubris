@@ -163,6 +163,16 @@ impl Config {
         Ok(())
     }
 
+    /// Check whether the SERDES output is enabled
+    pub fn output_enabled(
+        instance: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<bool, VscError> {
+        serdes6g_read(v, instance)?;
+        let value = v.read(HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG())?;
+        Ok(value.ob_idle() == 0)
+    }
+
     /// Brings the port down by setting the output buffer to idle mode (0V
     /// differential)
     pub fn disable_output(
@@ -170,10 +180,15 @@ impl Config {
         v: &impl Vsc7448Rw,
     ) -> Result<(), VscError> {
         serdes6g_read(v, instance)?;
-        let ana_cfg = HSIO().SERDES6G_ANA_CFG();
-        v.modify(ana_cfg.SERDES6G_OB_CFG(), |r| {
-            r.set_ob_idle(1);
-        })?;
+        let ob_cfg = HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG();
+
+        let mut value = v.read(ob_cfg)?;
+        if value.ob_idle() == 1 {
+            return Err(VscError::AlreadyDisabled);
+        }
+        value.set_ob_idle(1);
+        v.write(ob_cfg, value)?;
+
         serdes6g_write(v, instance)?;
         Ok(())
     }

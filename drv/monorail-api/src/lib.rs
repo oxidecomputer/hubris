@@ -114,6 +114,8 @@ pub enum MonorailError {
     MiimReadTimeout,
     OutOfRange,
     NotSgmii,
+    AlreadyDisabled,
+    AlreadyEnabled,
 
     // ----------- Custom errors that aren't pulled from VscError -------------
     /// The given port is outside the valid port range
@@ -122,11 +124,6 @@ pub enum MonorailError {
     UnconfiguredPort,
     /// The given port does not have a PHY associated with it
     NoPhy,
-
-    /// The selected port is already disabled
-    AlreadyDisabled,
-    /// The selected port is already enabled
-    AlreadyEnabled,
 }
 
 impl From<VscError> for MonorailError {
@@ -187,6 +184,8 @@ impl From<VscError> for MonorailError {
             VscError::MiimIdleTimeout => Self::MiimIdleTimeout,
             VscError::MiimReadTimeout => Self::MiimReadTimeout,
             VscError::OutOfRange => Self::OutOfRange,
+            VscError::AlreadyEnabled => Self::AlreadyEnabled,
+            VscError::AlreadyDisabled => Self::AlreadyDisabled,
 
             VscError::NotConfigured => Self::UnconfiguredPort,
             VscError::NotSgmii => Self::NotSgmii,
