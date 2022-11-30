@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::ignition::IgnitionWatcher;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use ringbuf::*;
@@ -53,6 +54,9 @@ pub struct Bsp<'a, R> {
     /// autonegotiate to a different speed, in which case we have to reconfigure
     /// the port on the VSC7448 to match.
     front_io_speed: [Speed; 2],
+
+    /// Helper to keep track of Ignition presence, disabling / enable ports
+    ignition: IgnitionWatcher,
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -165,6 +169,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
+            ignition: IgnitionWatcher::new(),
         };
         out.init()?;
         Ok(out)
@@ -413,6 +418,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         if self.vsc7448.check_10gbase_kr_aneg(0)? {
             ringbuf_entry!(Trace::Restarted10GAneg);
         }
+
+        // Update port status based on Ignition presence / absense
+        self.ignition.wake(self.vsc7448, &PORT_MAP);
 
         Ok(())
     }

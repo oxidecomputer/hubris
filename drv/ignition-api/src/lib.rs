@@ -73,6 +73,12 @@ pub struct Ignition {
     controller: idl::Ignition,
 }
 
+impl From<userlib::TaskId> for Ignition {
+    fn from(x: userlib::TaskId) -> Self {
+        Self::new(x)
+    }
+}
+
 impl Ignition {
     pub fn new(task_id: userlib::TaskId) -> Self {
         Self {
