@@ -130,15 +130,13 @@ cfg_if::cfg_if! {
 }
 
 /// Return an error if the expected MsgType doesn't match the actual MsgType
-macro_rules! expect_msg {
-    ($expected:expr, $actual:expr) => {
-        if $expected != $actual {
-            ringbuf_entry!(Trace::WrongMsgType($actual));
-            Err(SprotError::BadMessageType)
-        } else {
-            Ok(())
-        }
-    };
+fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
+    if expected != actual {
+        ringbuf_entry!(Trace::WrongMsgType(actual));
+        Err(SprotError::BadMessageType)
+    } else {
+        Ok(())
+    }
 }
 
 pub struct ServerImpl {
@@ -398,12 +396,12 @@ impl ServerImpl {
 
                 // Intact messages from the RoT may indicate an error on
                 // its side.
-                Ok(rxmsg @ VerifiedRxMsg(header)) => {
-                    match header.msgtype {
+                Ok(rxmsg) => {
+                    match rxmsg.0.msgtype {
                         MsgType::ErrorRsp => {
-                            if header.payload_len != 1 {
+                            if rxmsg.0.payload_len != 1 {
                                 ringbuf_entry!(Trace::ErrRspPayloadSize(
-                                    header.payload_len
+                                    rxmsg.0.payload_len
                                 ));
                                 // Treat this as a recoverable error
                                 continue;
@@ -440,7 +438,7 @@ impl ServerImpl {
     fn do_status(&mut self) -> Result<Status, SprotError> {
         let txmsg = self.tx_buf.no_payload(MsgType::StatusReq);
         let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
-        expect_msg!(MsgType::StatusRsp, rxmsg.0.msgtype)?;
+        expect_msg(MsgType::StatusRsp, rxmsg.0.msgtype)?;
         self.rx_buf.deserialize_hubpack_payload::<Status>(&rxmsg)
     }
 
@@ -500,10 +498,9 @@ impl ServerImpl {
     ) -> Result<Option<u32>, SprotError> {
         let txmsg = self.tx_buf.from_existing(req, payload_len)?;
         ringbuf_entry!(Trace::TxSize(txmsg.0));
-        let rxmsg @ VerifiedRxMsg(header) =
-            self.do_send_recv_retries(txmsg, timeout, attempts)?;
+        let rxmsg = self.do_send_recv_retries(txmsg, timeout, attempts)?;
 
-        if header.msgtype == rsp {
+        if rxmsg.0.msgtype == rsp {
             let rsp = self
                 .rx_buf
                 .deserialize_hubpack_payload::<UpdateRspHeader>(&rxmsg)?;
@@ -514,8 +511,8 @@ impl ServerImpl {
                     .into()
             })
         } else {
-            expect_msg!(MsgType::ErrorRsp, header.msgtype)?;
-            if header.payload_len != 1 {
+            expect_msg(MsgType::ErrorRsp, rxmsg.0.msgtype)?;
+            if rxmsg.0.payload_len != 1 {
                 return Err(SprotError::BadMessageLength);
             }
             let payload = self.rx_buf.payload(&rxmsg);
@@ -638,11 +635,11 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                                     ringbuf_entry!(Trace::SinkFail(err, sent));
                                     break Err(err)
                                 },
-                                Ok(rxmsg @ VerifiedRxMsg(header)) => {
-                                    match header.msgtype {
+                                Ok(rxmsg ) => {
+                                    match rxmsg.0.msgtype {
                                         MsgType::SinkRsp => {
                                             // TODO: Check sequence number in response.
-                                            if header.payload_len as usize >= core::mem::size_of::<u16>() {
+                                            if rxmsg.0.payload_len as usize >= core::mem::size_of::<u16>() {
                                                 let seq_buf = &self.rx_buf.payload(&rxmsg)[..core::mem::size_of::<u16>()];
                                                 let r_seqno = LittleEndian::read_u16(seq_buf);
                                                 if sent != r_seqno {
@@ -798,11 +795,11 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
     ) -> Result<ImageVersion, idol_runtime::RequestError<SprotError>> {
         let txmsg = self.tx_buf.no_payload(MsgType::UpdCurrentVersionReq);
-        let rxmsg @ VerifiedRxMsg(header) = self
+        let rxmsg = self
             .do_send_recv_retries(txmsg, TIMEOUT_QUICK, 2)
             .map_err(|e| idol_runtime::RequestError::Runtime(e))?;
 
-        expect_msg!(MsgType::UpdCurrentVersionRsp, header.msgtype)?;
+        expect_msg(MsgType::UpdCurrentVersionRsp, rxmsg.0.msgtype)?;
         let rsp = self
             .rx_buf
             .deserialize_hubpack_payload::<ImageVersion>(&rxmsg)?;

@@ -89,7 +89,7 @@ Interface(
             },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),    // SprotError and SprotError
+                err: CLike("SprotError"),
             ),
         ),
         "write_one_block": (
@@ -102,7 +102,7 @@ Interface(
             },
             reply: Result (
                 ok: "()",
-                err: CLike("SprotError"),    // SprotError and SprotError
+                err: CLike("SprotError"),
             ),
         ),
         "abort_update": (
@@ -110,7 +110,7 @@ Interface(
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),    // SprotError and SprotError
+                err: CLike("SprotError"),
             ),
         ),
         "finish_image_update": (
@@ -118,7 +118,7 @@ Interface(
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),    // SprotError and SprotError
+                err: CLike("SprotError"),
             ),
         ),
         "current_version": (
