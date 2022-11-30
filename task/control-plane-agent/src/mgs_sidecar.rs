@@ -4,6 +4,7 @@
 
 use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
+use drv_ignition_api::IgnitionError;
 use drv_monorail_api::Monorail;
 use drv_sidecar_seq_api::Sequencer;
 use gateway_messages::sp_impl::{
@@ -170,7 +171,9 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        Ok(self.ignition.num_ports()?)
+        self.ignition
+            .num_ports()
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn ignition_state(
@@ -180,7 +183,9 @@ impl SpHandler for MgsHandler {
         target: u8,
     ) -> Result<IgnitionState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
-        Ok(self.ignition.target_state(target)?)
+        self.ignition
+            .target_state(target)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn bulk_ignition_state(
@@ -192,7 +197,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        Ok(self.ignition.bulk_state(offset)?)
+        self.ignition
+            .bulk_state(offset)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn ignition_link_events(
@@ -204,7 +211,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        Ok(self.ignition.target_link_events(target)?)
+        self.ignition
+            .target_link_events(target)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn bulk_ignition_link_events(
@@ -216,7 +225,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
             offset
         }));
-        Ok(self.ignition.bulk_link_events(offset)?)
+        self.ignition
+            .bulk_link_events(offset)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn clear_ignition_link_events(
@@ -228,8 +239,8 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
         self.ignition
-            .clear_link_events(target, transceiver_select)?;
-        Ok(())
+            .clear_link_events(target, transceiver_select)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn ignition_command(
@@ -243,8 +254,9 @@ impl SpHandler for MgsHandler {
             target,
             command
         }));
-        self.ignition.command(target, command)?;
-        Ok(())
+        self.ignition
+            .command(target, command)
+            .map_err(sp_error_from_ignition_error)
     }
 
     fn sp_state(
@@ -509,4 +521,20 @@ impl SpHandler for MgsHandler {
             data_len: data.len(),
         }));
     }
+}
+
+// Helper function for `.map_err()`; we can't use `?` because we can't implement
+// `From<_>` between these types due to orphan rules.
+fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
+    use gateway_messages::ignition::IgnitionError as E;
+    let err = match err {
+        IgnitionError::FpgaError => E::FpgaError,
+        IgnitionError::InvalidPort => E::InvalidPort,
+        IgnitionError::InvalidValue => E::InvalidValue,
+        IgnitionError::NoTargetPresent => E::NoTargetPresent,
+        IgnitionError::RequestInProgress => E::RequestInProgress,
+        IgnitionError::RequestDiscarded => E::RequestDiscarded,
+        _ => E::Other(err as u32),
+    };
+    SpError::Ignition(err)
 }

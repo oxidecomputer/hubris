@@ -3,42 +3,18 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::cell::Cell;
-use drv_ignition_api::{AllLinkEventsIter, AllPortsIter, Ignition};
+use drv_ignition_api::{
+    AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError,
+};
 use gateway_messages::ignition::{
     IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
     SystemType, TargetState, TransceiverEvents, TransceiverSelect,
 };
-use gateway_messages::{IgnitionCommand, SpError};
+use gateway_messages::IgnitionCommand;
 use heapless::Vec;
 use userlib::UnwrapLite;
 
 userlib::task_slot!(IGNITION, ignition);
-
-// Wrapper newtype to allow us to work around orphan rules for `From<_>` impls.
-pub(super) struct IgnitionError(drv_ignition_api::IgnitionError);
-
-impl From<drv_ignition_api::IgnitionError> for IgnitionError {
-    fn from(err: drv_ignition_api::IgnitionError) -> Self {
-        Self(err)
-    }
-}
-
-impl From<IgnitionError> for SpError {
-    fn from(err: IgnitionError) -> Self {
-        use drv_ignition_api::IgnitionError as E0;
-        use gateway_messages::ignition::IgnitionError as E1;
-        let err = match err.0 {
-            E0::FpgaError => E1::FpgaError,
-            E0::InvalidPort => E1::InvalidPort,
-            E0::InvalidValue => E1::InvalidValue,
-            E0::NoTargetPresent => E1::NoTargetPresent,
-            E0::RequestInProgress => E1::RequestInProgress,
-            E0::RequestDiscarded => E1::RequestDiscarded,
-            _ => E1::Other(err.0 as u32),
-        };
-        Self::Ignition(err)
-    }
-}
 
 pub(super) struct IgnitionController {
     task: Ignition,
