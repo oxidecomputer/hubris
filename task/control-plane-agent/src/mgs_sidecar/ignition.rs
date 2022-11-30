@@ -3,9 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::cell::Cell;
-use drv_ignition_api::{
-    AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError,
-};
+use drv_ignition_api::{AllLinkEventsIter, AllPortsIter, Ignition};
 use gateway_messages::ignition::{
     IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
     SystemType, Target, TransceiverEvents, TransceiverSelect,
@@ -15,6 +13,32 @@ use heapless::Vec;
 use userlib::UnwrapLite;
 
 userlib::task_slot!(IGNITION, ignition);
+
+// Wrapper newtype to allow us to work around orphan rules for `From<_>` impls.
+pub(super) struct IgnitionError(drv_ignition_api::IgnitionError);
+
+impl From<drv_ignition_api::IgnitionError> for IgnitionError {
+    fn from(err: drv_ignition_api::IgnitionError) -> Self {
+        Self(err)
+    }
+}
+
+impl From<IgnitionError> for SpError {
+    fn from(err: IgnitionError) -> Self {
+        use drv_ignition_api::IgnitionError as E0;
+        use gateway_messages::ignition::IgnitionError as E1;
+        let err = match err.0 {
+            E0::FpgaError => E1::FpgaError,
+            E0::InvalidPort => E1::InvalidPort,
+            E0::InvalidValue => E1::InvalidValue,
+            E0::NoTargetPresent => E1::NoTargetPresent,
+            E0::RequestInProgress => E1::RequestInProgress,
+            E0::RequestDiscarded => E1::RequestDiscarded,
+            _ => E1::Other(err.0 as u32),
+        };
+        Self::Ignition(err)
+    }
+}
 
 pub(super) struct IgnitionController {
     task: Ignition,
@@ -33,12 +57,12 @@ impl IgnitionController {
         }
     }
 
-    pub(super) fn num_ports(&self) -> Result<u32, SpError> {
+    pub(super) fn num_ports(&self) -> Result<u32, IgnitionError> {
         if let Some(n) = self.num_ports.get() {
             return Ok(n);
         }
 
-        let n = u32::from(self.task.port_count().map_err(map_ignition_error)?);
+        let n = u32::from(self.task.port_count()?);
         self.num_ports.set(Some(n));
         Ok(n)
     }
@@ -46,16 +70,16 @@ impl IgnitionController {
     pub(super) fn target_state(
         &self,
         target: u8,
-    ) -> Result<IgnitionState, SpError> {
-        let port = self.task.port(target).map_err(map_ignition_error)?;
+    ) -> Result<IgnitionState, IgnitionError> {
+        let port = self.task.port(target)?;
         Ok(PortConvert(port).into())
     }
 
     pub(super) fn bulk_state(
         &self,
         offset: u32,
-    ) -> Result<BulkIgnitionStateIter, SpError> {
-        let iter = self.task.all_ports().map_err(map_ignition_error)?;
+    ) -> Result<BulkIgnitionStateIter, IgnitionError> {
+        let iter = self.task.all_ports()?;
         Ok(BulkIgnitionStateIter {
             iter: iter.skip(offset as usize),
         })
@@ -64,17 +88,16 @@ impl IgnitionController {
     pub(super) fn target_link_events(
         &self,
         target: u8,
-    ) -> Result<LinkEvents, SpError> {
-        let events =
-            self.task.link_events(target).map_err(map_ignition_error)?;
+    ) -> Result<LinkEvents, IgnitionError> {
+        let events = self.task.link_events(target)?;
         Ok(LinkEventsConvert(events).into())
     }
 
     pub(super) fn bulk_link_events(
         &self,
         offset: u32,
-    ) -> Result<BulkIgnitionLinkEventsIter, SpError> {
-        let iter = self.task.all_link_events().map_err(map_ignition_error)?;
+    ) -> Result<BulkIgnitionLinkEventsIter, IgnitionError> {
+        let iter = self.task.all_link_events()?;
         Ok(BulkIgnitionLinkEventsIter {
             iter: iter.skip(offset as usize),
         })
@@ -84,7 +107,7 @@ impl IgnitionController {
         &self,
         target: Option<u8>,
         transceiver_select: Option<TransceiverSelect>,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), IgnitionError> {
         use drv_ignition_api::TransceiverSelect as IgnitionTxrSelect;
 
         // Convert `target` to a range (either of length 1, if we got a target,
@@ -122,9 +145,7 @@ impl IgnitionController {
         // each target/transceiver they care about?
         for target in targets {
             for &txr in &txrs {
-                self.task
-                    .clear_transceiver_events(target, txr)
-                    .map_err(map_ignition_error)?;
+                self.task.clear_transceiver_events(target, txr)?;
             }
         }
 
@@ -135,10 +156,10 @@ impl IgnitionController {
         &self,
         target: u8,
         command: IgnitionCommand,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), IgnitionError> {
         self.task
-            .send_request(target, CommandConvert(command).into())
-            .map_err(map_ignition_error)
+            .send_request(target, CommandConvert(command).into())?;
+        Ok(())
     }
 }
 
@@ -166,20 +187,6 @@ impl Iterator for BulkIgnitionLinkEventsIter {
             .next()
             .map(|events| LinkEventsConvert(events).into())
     }
-}
-
-fn map_ignition_error(err: IgnitionError) -> SpError {
-    use gateway_messages::ignition::IgnitionError as E;
-    let err = match err {
-        IgnitionError::FpgaError => E::FpgaError,
-        IgnitionError::InvalidPort => E::InvalidPort,
-        IgnitionError::InvalidValue => E::InvalidValue,
-        IgnitionError::NoTargetPresent => E::NoTargetPresent,
-        IgnitionError::RequestInProgress => E::RequestInProgress,
-        IgnitionError::RequestDiscarded => E::RequestDiscarded,
-        _ => E::Other(err as u32),
-    };
-    SpError::Ignition(err)
 }
 
 struct CommandConvert(IgnitionCommand);

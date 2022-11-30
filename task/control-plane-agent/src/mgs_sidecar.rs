@@ -170,7 +170,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        self.ignition.num_ports()
+        Ok(self.ignition.num_ports()?)
     }
 
     fn ignition_state(
@@ -180,7 +180,7 @@ impl SpHandler for MgsHandler {
         target: u8,
     ) -> Result<IgnitionState, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
-        self.ignition.target_state(target)
+        Ok(self.ignition.target_state(target)?)
     }
 
     fn bulk_ignition_state(
@@ -192,7 +192,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        self.ignition.bulk_state(offset)
+        Ok(self.ignition.bulk_state(offset)?)
     }
 
     fn ignition_link_events(
@@ -204,7 +204,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        self.ignition.target_link_events(target)
+        Ok(self.ignition.target_link_events(target)?)
     }
 
     fn bulk_ignition_link_events(
@@ -216,7 +216,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
             offset
         }));
-        self.ignition.bulk_link_events(offset)
+        Ok(self.ignition.bulk_link_events(offset)?)
     }
 
     fn clear_ignition_link_events(
@@ -227,7 +227,8 @@ impl SpHandler for MgsHandler {
         transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
-        self.ignition.clear_link_events(target, transceiver_select)
+        self.ignition.clear_link_events(target, transceiver_select)?;
+        Ok(())
     }
 
     fn ignition_command(
@@ -241,7 +242,8 @@ impl SpHandler for MgsHandler {
             target,
             command
         }));
-        self.ignition.command(target, command)
+        self.ignition.command(target, command)?;
+        Ok(())
     }
 
     fn sp_state(
