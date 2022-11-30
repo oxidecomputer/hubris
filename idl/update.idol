@@ -56,10 +56,8 @@ Interface(
 		"current_version": (
 			doc: "Get the current image version",
 			args : { },
-			reply : Result(
-				ok: "ImageVersion",
-				err: CLike("UpdateError"),
-			),
+			reply : Simple("ImageVersion"),
+			idempotent: true,
 		),
 	}
 

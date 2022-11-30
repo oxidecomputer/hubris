@@ -173,10 +173,9 @@ fn main() -> ! {
         handler: &mut handler::new(),
     };
 
-    if let Ok(image_version) = server.handler.update.current_version() {
-        server.status.epoch = image_version.epoch;
-        server.status.version = image_version.version;
-    };
+    let image_version = server.handler.update.current_version();
+    server.status.epoch = image_version.epoch;
+    server.status.version = image_version.version;
 
     let mut transmit = false;
 
