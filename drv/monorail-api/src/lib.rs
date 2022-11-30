@@ -18,6 +18,9 @@ pub use vsc7448::{
     VscError,
 };
 
+/// Maximum number of ports
+pub const PORT_COUNT: usize = vsc7448::PORT_COUNT;
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub struct PortStatus {
@@ -48,6 +51,13 @@ pub struct PortCounters {
     /// - For the 10G port, this is `LOCK_CHANGED_STICKY`, i.e. it will _also_
     ///   be true if the link went from down -> up
     pub link_down_sticky: bool,
+
+    /// `true` if this port has a PHY attached and the PHY's link down bit is
+    /// set.  This is typically bit 13 in the interrupt status (0x1A) register.
+    ///
+    /// Note that the link down bit must be enabled in the interrupt mask
+    /// register!
+    pub phy_link_down_sticky: bool,
 }
 
 /// Error-code-only version of [VscError], for use in RPC calls

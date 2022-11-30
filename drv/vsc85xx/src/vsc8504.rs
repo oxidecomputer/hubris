@@ -238,6 +238,12 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // There are no significant startup scripts for TESLA
         // (vtss_phy_100BaseT_long_linkup_workaround doesn't seem relevant,
         // called at line 8499)
+
+        // We're now done with configuration from the SDK!
+
+        // Enable the link state change mask, to detect PHY link flapping
+        self.phy
+            .modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
         Ok(())
     }
 }

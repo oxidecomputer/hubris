@@ -69,6 +69,10 @@ impl<'a, P: PhyRw> Vsc8522Phy<'a, P> {
         // Configure the PHY in QSGMII + 12 port mode
         self.phy.cmd(0x80A0)?;
 
+        // Enable the link state change mask, to detect PHY link flapping
+        self.phy
+            .modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
+
         Ok(())
     }
 }

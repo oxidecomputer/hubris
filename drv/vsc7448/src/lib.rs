@@ -25,6 +25,9 @@ pub use vsc_err::VscError;
 
 use crate::dev::Dev10g;
 
+/// Maximum port count
+pub const PORT_COUNT: usize = 53;
+
 /// This trait abstracts over various ways of talking to a VSC7448.
 pub trait Vsc7448Rw {
     /// Writes to a VSC7448 register.  Depending on the underlying transit
