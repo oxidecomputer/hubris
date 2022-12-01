@@ -151,59 +151,47 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
-    pub fn disable_port(&self, p: u8, map: &PortMap) -> Result<(), VscError> {
-        let cfg = map.port_config(p).ok_or(VscError::NotConfigured)?;
-        match cfg.mode {
-            PortMode::Sgmii(..) => match cfg.serdes {
-                (PortSerdes::Serdes1g, i) => {
-                    serdes1g::Config::disable_output(i, self.rw)
-                }
-                (PortSerdes::Serdes6g, i) => {
-                    serdes6g::Config::disable_output(i, self.rw)
-                }
-                (PortSerdes::Serdes10g, i) => {
-                    serdes10g::Config::disable_output(i, self.rw)
-                }
-            },
-            PortMode::Qsgmii(..) => {
-                // TODO: disable at the PHY
-                Ok(())
+    pub fn disable_port(
+        &self,
+        serdes: (PortSerdes, u8),
+    ) -> Result<(), VscError> {
+        match serdes {
+            (PortSerdes::Serdes1g, i) => {
+                serdes1g::Config::disable_output(i, self.rw)
             }
-            _ => Err(VscError::NotSgmii),
+            (PortSerdes::Serdes6g, i) => {
+                serdes6g::Config::disable_output(i, self.rw)
+            }
+            (PortSerdes::Serdes10g, i) => {
+                serdes10g::Config::disable_output(i, self.rw)
+            }
         }
     }
 
-    pub fn reenable_port(&self, p: u8, map: &PortMap) -> Result<(), VscError> {
-        let cfg = map.port_config(p).ok_or(VscError::NotConfigured)?;
-        match cfg.mode {
-            PortMode::Sgmii(..) => match cfg.serdes {
-                (PortSerdes::Serdes1g, i) => {
-                    if serdes1g::Config::output_enabled(i, self.rw)? {
-                        return Err(VscError::AlreadyEnabled);
-                    }
-                    serdes1g::Config::new(serdes1g::Mode::Sgmii)
-                        .apply(i, self.rw)
+    pub fn reenable_port(
+        &self,
+        serdes: (PortSerdes, u8),
+    ) -> Result<(), VscError> {
+        match serdes {
+            (PortSerdes::Serdes1g, i) => {
+                if serdes1g::Config::output_enabled(i, self.rw)? {
+                    return Err(VscError::AlreadyEnabled);
                 }
-                (PortSerdes::Serdes6g, i) => {
-                    if serdes6g::Config::output_enabled(i, self.rw)? {
-                        return Err(VscError::AlreadyEnabled);
-                    }
-                    serdes6g::Config::new(serdes6g::Mode::Sgmii)
-                        .apply(i, self.rw)
-                }
-                (PortSerdes::Serdes10g, i) => {
-                    if serdes10g::Config::output_enabled(i, self.rw)? {
-                        return Err(VscError::AlreadyEnabled);
-                    }
-                    serdes10g::Config::new(serdes10g::Mode::Sgmii)?
-                        .apply(i, self.rw)
-                }
-            },
-            PortMode::Qsgmii(..) => {
-                // TODO: enable at the PHY
-                Ok(())
+                serdes1g::Config::new(serdes1g::Mode::Sgmii).apply(i, self.rw)
             }
-            _ => Err(VscError::NotSgmii),
+            (PortSerdes::Serdes6g, i) => {
+                if serdes6g::Config::output_enabled(i, self.rw)? {
+                    return Err(VscError::AlreadyEnabled);
+                }
+                serdes6g::Config::new(serdes6g::Mode::Sgmii).apply(i, self.rw)
+            }
+            (PortSerdes::Serdes10g, i) => {
+                if serdes10g::Config::output_enabled(i, self.rw)? {
+                    return Err(VscError::AlreadyEnabled);
+                }
+                serdes10g::Config::new(serdes10g::Mode::Sgmii)?
+                    .apply(i, self.rw)
+            }
         }
     }
 

@@ -419,7 +419,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         }
 
         // Update port status based on Ignition presence / absense
-        self.ignition.wake(self.vsc7448, &PORT_MAP);
+        self.ignition.wake(self.vsc7448);
 
         Ok(())
     }

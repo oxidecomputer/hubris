@@ -3,16 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_ignition_api::{Ignition, IgnitionError};
+use drv_monorail_api::MonorailError;
 use ringbuf::*;
 use userlib::*;
-use vsc7448::{config::PortMap, Vsc7448, Vsc7448Rw, VscError};
+use vsc7448::{Vsc7448, Vsc7448Rw};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
     DisableVsc7448Port(u8),
     EnableVsc7448Port(u8),
-    VscError(VscError),
+    MonorailError(MonorailError),
     IgnitionError(IgnitionError),
     Presence(u64),
 }
@@ -53,7 +54,7 @@ impl IgnitionWatcher {
         }
     }
 
-    pub fn wake<R: Vsc7448Rw>(&mut self, vsc7448: &Vsc7448<R>, map: &PortMap) {
+    pub fn wake<R: Vsc7448Rw>(&mut self, vsc7448: &Vsc7448<R>) {
         let presence = match self.ignition.presence_summary() {
             Ok(p) => p,
             Err(e) => {
@@ -69,13 +70,13 @@ impl IgnitionWatcher {
             let was_present = self.enabled[i];
             if now_present && !was_present {
                 ringbuf_entry!(Trace::EnableVsc7448Port(port));
-                if let Err(e) = vsc7448.reenable_port(port, map) {
-                    ringbuf_entry!(Trace::VscError(e));
+                if let Err(e) = crate::server::reenable_port(port, vsc7448) {
+                    ringbuf_entry!(Trace::MonorailError(e));
                 }
             } else if was_present && !now_present {
                 ringbuf_entry!(Trace::DisableVsc7448Port(port));
-                if let Err(e) = vsc7448.disable_port(port, map) {
-                    ringbuf_entry!(Trace::VscError(e));
+                if let Err(e) = crate::server::disable_port(port, vsc7448) {
+                    ringbuf_entry!(Trace::MonorailError(e));
                 }
             }
             self.enabled[i] = now_present;
