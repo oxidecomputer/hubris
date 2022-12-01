@@ -281,11 +281,11 @@ const OUR_DEVICES: &[DeviceDescription<'static>] = &[
         capabilities: DeviceCapabilities::UPDATEABLE,
         presence: DevicePresence::Present, // TODO: ok to assume always present?
     },
-    // If we're building for sidecar, we always claim to have a VSC7448.
+    // If we're building for sidecar, we always claim to have a monorail.
     #[cfg(feature = "sidecar")]
     DeviceDescription {
-        component: SpComponent::VSC7448,
-        device: SpComponent::VSC7448.const_as_str(),
+        component: SpComponent::MONORAIL,
+        device: SpComponent::MONORAIL.const_as_str(),
         description: "Management network switch",
         capabilities: DeviceCapabilities::HAS_MEASUREMENT_CHANNELS,
         // Fine to assume this is always present; if it isn't, we can't respond

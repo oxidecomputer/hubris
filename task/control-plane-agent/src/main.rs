@@ -119,6 +119,9 @@ enum MgsMessage {
     ComponentDetails {
         component: SpComponent,
     },
+    ComponentClearStatus {
+        component: SpComponent,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);

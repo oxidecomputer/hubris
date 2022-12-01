@@ -5,7 +5,7 @@
 use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_ignition_api::IgnitionError;
-use drv_monorail_api::Monorail;
+use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
@@ -453,7 +453,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match component {
-            SpComponent::VSC7448 => Ok(drv_monorail_api::PORT_COUNT as u32),
+            SpComponent::MONORAIL => Ok(drv_monorail_api::PORT_COUNT as u32),
             _ => self.common.inventory().num_component_details(&component),
         }
     }
@@ -467,10 +467,47 @@ impl SpHandler for MgsHandler {
         index: BoundsChecked,
     ) -> ComponentDetails {
         match component {
-            SpComponent::VSC7448 => ComponentDetails::PortStatus(
+            SpComponent::MONORAIL => ComponentDetails::PortStatus(
                 monorail_port_status::port_status(&self.monorail, index),
             ),
             _ => self.common.inventory().component_details(&component, index),
+        }
+    }
+
+    fn component_clear_status(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentClearStatus {
+            component
+        }));
+
+        // Below we assume we can cast the port count to a u8; const assert that
+        // that cast is valid.
+        static_assertions::const_assert!(
+            drv_monorail_api::PORT_COUNT <= u8::MAX as usize
+        );
+
+        match component {
+            SpComponent::MONORAIL => {
+                // Reset counters on every port.
+                for port in 0..drv_monorail_api::PORT_COUNT as u8 {
+                    match self.monorail.reset_port_counters(port) {
+                        // If `port` is unconfigured, it has no counters to
+                        // reset; this isn't a meaningful failure.
+                        Ok(()) | Err(MonorailError::UnconfiguredPort) => (),
+                        Err(other) => {
+                            return Err(SpError::ComponentOperationFailed(
+                                other as u32,
+                            ));
+                        }
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 

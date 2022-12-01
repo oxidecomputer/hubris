@@ -3,12 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_monorail_api::{Monorail, MonorailError};
-use gateway_messages::sp_impl::BoundsChecked;
-use gateway_messages::vsc7448_port_status::{
+use gateway_messages::monorail_port_status::{
     LinkStatus, PacketCount, PhyStatus, PhyType, PortConfig, PortCounters,
     PortDev, PortMode, PortSerdes, PortStatus, PortStatusError,
     PortStatusErrorCode, Speed,
 };
+use gateway_messages::sp_impl::BoundsChecked;
 
 pub(super) fn port_status(
     monorail: &Monorail,
@@ -155,6 +155,8 @@ impl From<PortCountersConvert> for PortCounters {
         Self {
             tx: PacketCountConvert(s.tx).into(),
             rx: PacketCountConvert(s.rx).into(),
+            link_down_sticky: s.link_down_sticky,
+            phy_link_down_sticky: s.phy_link_down_sticky,
         }
     }
 }
