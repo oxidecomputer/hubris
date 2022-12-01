@@ -151,7 +151,7 @@ impl ComponentUpdater for HostFlashUpdate {
             };
 
             let addr = sectors_to_erase.start * SECTOR_SIZE_BYTES as u32;
-            match self.task.sector_erase(addr as u32) {
+            match self.task.sector_erase(addr) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
                     if sectors_to_erase.start == sectors_to_erase.end {

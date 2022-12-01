@@ -17,7 +17,7 @@ Interface(
             },
             reply: Result(
                 ok: "Received",
-                err: CLike("MsgError"),
+                err: CLike("SprotError"),
             ),
         ),
         "send_recv_retries": (
@@ -37,14 +37,14 @@ Interface(
             },
             reply: Result(
                 ok: "Received",
-                err: CLike("MsgError"),
+                err: CLike("SprotError"),
             ),
         ),
     "status": (
         doc: "Return untrusted status from RoT",
         reply: Result(
             ok: "Status",
-            err: CLike("MsgError"),
+            err: CLike("SprotError"),
         ),
         encoding: Ssmarshal,
     ),
@@ -55,7 +55,7 @@ Interface(
             },
             reply: Result(
                 ok: "PulseStatus",
-                err: CLike("MsgError"),
+                err: CLike("SprotError"),
             ),
         ),
         "rot_sink": (
@@ -66,7 +66,7 @@ Interface(
             },
             reply: Result(
                 ok: "SinkStatus",
-                err: CLike("MsgError"),
+                err: CLike("SprotError"),
             ),
         ),
 
@@ -76,7 +76,7 @@ Interface(
             args: { },
             reply: Result(
                 ok: "usize",
-                err: CLike("UpdateError"),
+                err: CLike("SprotError"),
             ),
         ),
         "prep_image_update": (
@@ -89,7 +89,7 @@ Interface(
             },
             reply : Result(
                 ok: "()",
-                err: CLike("UpdateError"),    // MsgError and UpdateError
+                err: CLike("SprotError"),
             ),
         ),
         "write_one_block": (
@@ -102,7 +102,7 @@ Interface(
             },
             reply: Result (
                 ok: "()",
-                err: CLike("UpdateError"),    // MsgError and UpdateError
+                err: CLike("SprotError"),
             ),
         ),
         "abort_update": (
@@ -110,7 +110,7 @@ Interface(
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("UpdateError"),    // MsgError and UpdateError
+                err: CLike("SprotError"),
             ),
         ),
         "finish_image_update": (
@@ -118,7 +118,7 @@ Interface(
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("UpdateError"),    // MsgError and UpdateError
+                err: CLike("SprotError"),
             ),
         ),
         "current_version": (
@@ -126,7 +126,7 @@ Interface(
           args : { },
           reply : Result(
             ok: "ImageVersion",
-            err: CLike("UpdateError"),
+            err: CLike("SprotError"),
           ),
         ),
     }

@@ -246,7 +246,7 @@ fn i2c_read(
             }
 
             let res = if let Some(reg) = register {
-                device.read_reg_into::<u8>(reg as u8, &mut rval[0..n])
+                device.read_reg_into::<u8>(reg, &mut rval[0..n])
             } else {
                 device.read_into(&mut rval[0..n])
             };
@@ -263,7 +263,7 @@ fn i2c_read(
                     return Err(Failure::Fault(Fault::ReturnValueOverflow));
                 }
 
-                match device.read_block::<u8>(reg as u8, &mut rval[0..0xff]) {
+                match device.read_block::<u8>(reg, &mut rval[0..0xff]) {
                     Ok(rlen) => Ok(rlen),
                     Err(err) => Err(Failure::FunctionError(err.into())),
                 }

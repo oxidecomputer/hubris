@@ -317,8 +317,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .tofino
             .debug_port
             .spi_eeprom_status()
-            .map_err(SeqError::from)?
-            .into())
+            .map_err(SeqError::from)?)
     }
 
     fn read_spi_eeprom_bytes(

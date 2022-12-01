@@ -37,7 +37,7 @@ fn generate_auxflash_config(
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("auxflash_config.rs");
 
-    let mut out = std::fs::File::create(&dest_path)?;
+    let mut out = std::fs::File::create(dest_path)?;
 
     // Check that the config is reasonable:
     // a. We have at least 6 slots (see RFD 311)

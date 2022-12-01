@@ -172,7 +172,7 @@ fn read_spd_data(
         // ...and two more reads for each (present) device.
         //
         for i in 0..spd::MAX_DEVICES {
-            let ndx = (nbank as u8 * spd::MAX_DEVICES) as usize + i as usize;
+            let ndx = (nbank * spd::MAX_DEVICES) as usize + i as usize;
             let offs = (ndx * spd::MAX_SIZE) + 256;
 
             if !present[ndx] {

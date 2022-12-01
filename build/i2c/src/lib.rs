@@ -1324,7 +1324,7 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("i2c_config.rs");
-    let mut file = File::create(&dest_path)?;
+    let mut file = File::create(dest_path)?;
 
     let mut g = ConfigGenerator::new(disposition);
 

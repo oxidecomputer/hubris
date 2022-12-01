@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("jefe_config.rs");
     let mut out =
-        std::fs::File::create(&dest_path).context("creating jefe_config.rs")?;
+        std::fs::File::create(dest_path).context("creating jefe_config.rs")?;
 
     let count = cfg.on_state_change.len();
 

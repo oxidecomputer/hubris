@@ -339,17 +339,11 @@ impl OneSidedPidState {
         } else {
             (-out_pd, output_limit - out_pd)
         };
-        self.integral = self.integral.max(integral_min).min(integral_max);
+        self.integral = self.integral.clamp(integral_min, integral_max);
 
         // Clamp output values to valid range.
         let out = out_pd + self.integral;
-        if out > output_limit {
-            output_limit
-        } else if out < 0.0 {
-            0.0
-        } else {
-            out
-        }
+        out.clamp(0.0, output_limit)
     }
 }
 

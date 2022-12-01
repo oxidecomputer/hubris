@@ -440,12 +440,12 @@ impl ServerImpl {
             // this loop iteration. If we have, skip trying to read a request
             // here and move on to either looping back to start sending the
             // response or setting up timers for future interrupts.
-            if !processed_out_of_sync_message {
-                if self.uart_rx_until_maybe_packet() {
-                    // We received a packet; handle it.
-                    if let Err(reason) = self.process_message(false) {
-                        self.tx_buf.encode_decode_failure_reason(reason);
-                    }
+            if !processed_out_of_sync_message
+                && self.uart_rx_until_maybe_packet()
+            {
+                // We received a packet; handle it.
+                if let Err(reason) = self.process_message(false) {
+                    self.tx_buf.encode_decode_failure_reason(reason);
                 }
             }
 
@@ -517,17 +517,12 @@ impl ServerImpl {
                     // sized for what we can send the host in one packet. It is
                     // almost certainly larger than what control-plane-agent can
                     // fetch in a single UDP packet.
-                    match cp_agent.get_host_phase2_data(
-                        phase2.hash,
-                        phase2.offset,
-                        dst,
-                    ) {
-                        Ok(n) => n,
-                        // If we can't get data, all we can do is send the
-                        // host a response with no data; it can decide to
-                        // retry later.
-                        Err(_) => 0,
-                    }
+                    //
+                    // If we can't get data, all we can do is send the host a
+                    // response with no data; it can decide to retry later.
+                    cp_agent
+                        .get_host_phase2_data(phase2.hash, phase2.offset, dst)
+                        .unwrap_or(0)
                 },
             );
 
@@ -554,7 +549,7 @@ impl ServerImpl {
         &mut self,
         reset_tx_buf: bool,
     ) -> Result<(), DecodeFailureReason> {
-        let (header, request) = match parse_received_message(&mut self.rx_buf) {
+        let (header, request) = match parse_received_message(self.rx_buf) {
             Ok((header, request, _data)) => (header, request),
             Err(err) => {
                 self.rx_buf.clear();
@@ -758,7 +753,7 @@ impl NotificationHandler for ServerImpl {
                     tx_timer_disposition = handle_tx_periodic_zero_byte_timer(
                         &self.uart,
                         &self.tx_buf,
-                        &self.rx_buf,
+                        self.rx_buf,
                     );
                 }
             }

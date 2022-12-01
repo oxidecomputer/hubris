@@ -4,7 +4,6 @@
 
 #![no_std]
 
-use core::convert::TryFrom;
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{/*de::DeserializeOwned,*/ Deserialize, Serialize};
@@ -79,35 +78,6 @@ pub enum UpdateError {
     // Specific to RoT (LPC55)
     SpRotError = 19,
     Unknown = 0xff,
-}
-
-impl TryFrom<u8> for UpdateError {
-    type Error = ();
-
-    fn try_from(byte: u8) -> Result<Self, Self::Error> {
-        match byte {
-            1 => Ok(UpdateError::BadLength),
-            2 => Ok(UpdateError::UpdateInProgress),
-            3 => Ok(UpdateError::OutOfBounds),
-            4 => Ok(UpdateError::Timeout),
-            5 => Ok(UpdateError::EccDoubleErr),
-            6 => Ok(UpdateError::EccSingleErr),
-            7 => Ok(UpdateError::SecureErr),
-            8 => Ok(UpdateError::ReadProtErr),
-            9 => Ok(UpdateError::WriteEraseErr),
-            10 => Ok(UpdateError::InconsistencyErr),
-            11 => Ok(UpdateError::StrobeErr),
-            12 => Ok(UpdateError::ProgSeqErr),
-            13 => Ok(UpdateError::WriteProtErr),
-            14 => Ok(UpdateError::BadImageType),
-            15 => Ok(UpdateError::UpdateAlreadyFinished),
-            16 => Ok(UpdateError::UpdateNotStarted),
-            17 => Ok(UpdateError::RunningImage),
-            18 => Ok(UpdateError::FlashError),
-            19 => Ok(UpdateError::SpRotError),
-            _ => Err(()),
-        }
-    }
 }
 
 impl hubpack::SerializedSize for UpdateError {

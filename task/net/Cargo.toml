@@ -8,6 +8,7 @@ edition = "2021"
 cortex-m = { workspace = true }
 enum-map = { workspace = true }
 heapless = { workspace = true }
+idol-runtime = { workspace = true }
 itertools = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
@@ -26,7 +27,6 @@ drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
 drv-stm32xx-uid = { path = "../../drv/stm32xx-uid", features = ["family-stm32h7"] }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
-idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
 ksz8463 = {path = "../../drv/ksz8463", optional = true }
 multitimer = { path = "../../lib/multitimer" }
 mutable-statics = { path = "../../lib/mutable-statics" }

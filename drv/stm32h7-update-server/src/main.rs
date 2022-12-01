@@ -334,7 +334,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         let mut flash_page: [u8; BLOCK_SIZE_BYTES] = [0; BLOCK_SIZE_BYTES];
 
         block
-            .read_range(0..len as usize, &mut flash_page)
+            .read_range(0..len, &mut flash_page)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         // If there is a write less than the block size zero out the trailing
@@ -343,7 +343,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             flash_page[len..].fill(0);
         }
 
-        ringbuf_entry!(Trace::WriteBlock(block_num as usize));
+        ringbuf_entry!(Trace::WriteBlock(block_num));
         for (i, c) in flash_page.chunks(FLASH_WORD_BYTES).enumerate() {
             const FLASH_WORDS_PER_BLOCK: usize =
                 BLOCK_SIZE_BYTES / FLASH_WORD_BYTES;

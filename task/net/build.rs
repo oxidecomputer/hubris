@@ -27,7 +27,7 @@ fn generate_net_config(
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("net_config.rs");
 
-    let mut out = std::fs::File::create(&dest_path)?;
+    let mut out = std::fs::File::create(dest_path)?;
 
     let socket_count = config.sockets.len();
     writeln!(
