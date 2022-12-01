@@ -9,10 +9,9 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    BulkIgnitionState, ComponentDetails, ComponentUpdatePrepare,
-    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus,
+    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
+    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
+    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -125,12 +124,19 @@ impl MgsHandler {
 }
 
 impl SpHandler for MgsHandler {
+    type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
+    type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
+
     fn discover(
         &mut self,
         _sender: SocketAddrV6,
         port: SpPort,
     ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(port)
+    }
+
+    fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
+        Err(SpError::RequestUnsupportedForSp)
     }
 
     fn ignition_state(
@@ -147,8 +153,46 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<BulkIgnitionState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
+        offset: u32,
+    ) -> Result<Self::BulkIgnitionStateIter, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
+            offset
+        }));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        target: u8,
+    ) -> Result<ignition::LinkEvents, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
+            target
+        }));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn bulk_ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        offset: u32,
+    ) -> Result<Self::BulkIgnitionLinkEventsIter, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
+            offset
+        }));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn clear_ignition_link_events(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        _target: Option<u8>,
+        _transceiver_select: Option<ignition::TransceiverSelect>,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -335,7 +379,7 @@ impl SpHandler for MgsHandler {
     fn device_description(
         &mut self,
         index: BoundsChecked,
-    ) -> DeviceDescription<'_> {
+    ) -> DeviceDescription<'static> {
         self.common.inventory().device_description(index)
     }
 

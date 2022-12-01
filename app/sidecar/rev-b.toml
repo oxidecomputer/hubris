@@ -148,8 +148,8 @@ task-slots = ["sys", "i2c_driver",
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 65536, ram = 8192}
-stacksize = 2560
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
 start = true
 uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
@@ -165,6 +165,7 @@ task-slots = [
     "monorail",
     "sensor",
     "sprot",
+    "ignition",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 

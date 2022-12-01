@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use core::{array, iter};
 use derive_idol_err::IdolError;
 use derive_more::From;
 use drv_fpga_api::FpgaError;
@@ -159,25 +160,48 @@ impl Ignition {
     /// Fetch the state of all ports in a single operation and return an
     /// iterator over the individual ports. Be aware that this reply is fairly
     /// large and may require enlarging the stack of the caller.
-    pub fn all_ports(
-        &self,
-    ) -> Result<impl Iterator<Item = Port>, IgnitionError> {
+    pub fn all_ports(&self) -> Result<AllPortsIter, IgnitionError> {
         let port_count = usize::from(self.port_count()?);
         let all_port_state = self.controller.all_port_state()?;
-        Ok(all_port_state.into_iter().map(Port::from).take(port_count))
+        Ok(AllPortsIter {
+            iter: all_port_state.into_iter().take(port_count),
+        })
     }
 
     /// Fetch the `LinkEvents` for all ports in a single operation and provide
     /// an iterator over the individual ports.
-    pub fn all_link_events(
-        &self,
-    ) -> Result<impl Iterator<Item = LinkEvents>, IgnitionError> {
+    pub fn all_link_events(&self) -> Result<AllLinkEventsIter, IgnitionError> {
         let port_count = usize::from(self.port_count()?);
         let all_link_data = self.controller.all_link_events()?;
-        Ok(all_link_data
-            .into_iter()
-            .map(LinkEvents::from)
-            .take(port_count))
+        Ok(AllLinkEventsIter {
+            iter: all_link_data.into_iter().take(port_count),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct AllPortsIter {
+    iter: iter::Take<array::IntoIter<PortState, { PORT_MAX as usize }>>,
+}
+
+impl Iterator for AllPortsIter {
+    type Item = Port;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(Port::from)
+    }
+}
+
+#[derive(Debug)]
+pub struct AllLinkEventsIter {
+    iter: iter::Take<array::IntoIter<[u8; 3], { PORT_MAX as usize }>>,
+}
+
+impl Iterator for AllLinkEventsIter {
+    type Item = LinkEvents;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(LinkEvents::from)
     }
 }
 
