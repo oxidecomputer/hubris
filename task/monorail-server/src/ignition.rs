@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Bsp;
 use drv_ignition_api::{Ignition, IgnitionError};
 use drv_monorail_api::MonorailError;
 use ringbuf::*;
@@ -54,7 +55,11 @@ impl IgnitionWatcher {
         }
     }
 
-    pub fn wake<R: Vsc7448Rw>(&mut self, vsc7448: &Vsc7448<R>) {
+    pub fn wake<R: Vsc7448Rw>(
+        &mut self,
+        vsc7448: &Vsc7448<R>,
+        bsp: &mut Bsp<R>,
+    ) {
         let presence = match self.ignition.presence_summary() {
             Ok(p) => p,
             Err(e) => {
@@ -70,12 +75,14 @@ impl IgnitionWatcher {
             let was_present = self.enabled[i];
             if now_present && !was_present {
                 ringbuf_entry!(Trace::EnableVsc7448Port(port));
-                if let Err(e) = crate::server::reenable_port(port, vsc7448) {
+                if let Err(e) = crate::server::reenable_port(port, vsc7448, bsp)
+                {
                     ringbuf_entry!(Trace::MonorailError(e));
                 }
             } else if was_present && !now_present {
                 ringbuf_entry!(Trace::DisableVsc7448Port(port));
-                if let Err(e) = crate::server::disable_port(port, vsc7448) {
+                if let Err(e) = crate::server::disable_port(port, vsc7448, bsp)
+                {
                     ringbuf_entry!(Trace::MonorailError(e));
                 }
             }
