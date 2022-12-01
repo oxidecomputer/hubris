@@ -2,6 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#[cfg(feature = "ignition")]
+use crate::ignition::IgnitionWatcher;
+
 use crate::bsp::{self, Bsp};
 use drv_monorail_api::{
     LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
@@ -23,6 +26,9 @@ pub struct ServerImpl<'a, R> {
     /// However, the PHY registers typically use self-clearing bits.  We cache
     /// the bit here, so that it can be explicitly cleared.
     phy_link_down_sticky: [bool; PORT_COUNT],
+
+    #[cfg(feature = "ignition")]
+    ignition: IgnitionWatcher,
 }
 
 /// Notification mask for optional periodic logging
@@ -41,6 +47,9 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             wake_target_time,
             vsc7448,
             phy_link_down_sticky: [false; PORT_COUNT],
+
+            #[cfg(feature = "ignition")]
+            ignition: IgnitionWatcher::new(),
         }
     }
 
@@ -48,6 +57,9 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         let now = sys_get_timer().now;
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
+                #[cfg(feature = "ignition")]
+                self.ignition.wake(self.vsc7448, &mut self.bsp);
+
                 let out = self.bsp.wake();
                 self.wake_target_time = now + wake_interval;
                 sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
@@ -284,7 +296,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<(), RequestError<MonorailError>> {
-        disable_port(port, self.vsc7448).map_err(RequestError::from)
+        disable_port(port, self.vsc7448, &mut self.bsp)
+            .map_err(RequestError::from)
     }
 
     fn reenable_port_output(
@@ -292,7 +305,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<(), RequestError<MonorailError>> {
-        reenable_port(port, self.vsc7448).map_err(RequestError::from)
+        reenable_port(port, self.vsc7448, &mut self.bsp)
+            .map_err(RequestError::from)
     }
 
     fn reset_port_counters(
@@ -778,26 +792,50 @@ pub fn check_port(port: u8) -> Result<PortConfig, MonorailError> {
 pub fn reenable_port<R: Vsc7448Rw>(
     port: u8,
     v: &Vsc7448<R>,
+    bsp: &mut Bsp<R>,
 ) -> Result<(), MonorailError> {
     let cfg = check_port(port)?;
     match cfg.mode {
-        PortMode::Sgmii(..) => (),
+        PortMode::Sgmii(..) => v.reenable_port(cfg.serdes)?,
+        PortMode::Qsgmii(..) => {
+            bsp.phy_fn(port, |phy| -> Result<(), VscError> {
+                let mut v = phy.read(phy::STANDARD::MODE_CONTROL())?;
+                if v.power_down() == 0 {
+                    return Err(VscError::AlreadyEnabled);
+                }
+                v.set_power_down(0);
+                phy.write(phy::STANDARD::MODE_CONTROL(), v)?;
+                Ok(())
+            })
+            .ok_or(MonorailError::NotSgmii)??;
+        }
         _ => return Err(MonorailError::NotSgmii),
     }
-    v.reenable_port(cfg.serdes)?;
     Ok(())
 }
 
 pub fn disable_port<R: Vsc7448Rw>(
     port: u8,
     v: &Vsc7448<R>,
+    bsp: &mut Bsp<R>,
 ) -> Result<(), MonorailError> {
     let cfg = check_port(port)?;
     match cfg.mode {
-        PortMode::Sgmii(..) => (),
+        PortMode::Sgmii(..) => v.disable_port(cfg.serdes)?,
+        PortMode::Qsgmii(..) => {
+            bsp.phy_fn(port, |phy| -> Result<(), VscError> {
+                let mut v = phy.read(phy::STANDARD::MODE_CONTROL())?;
+                if v.power_down() == 1 {
+                    return Err(VscError::AlreadyDisabled);
+                }
+                v.set_power_down(1);
+                phy.write(phy::STANDARD::MODE_CONTROL(), v)?;
+                Ok(())
+            })
+            .ok_or(MonorailError::NotSgmii)??;
+        }
         _ => return Err(MonorailError::NotSgmii),
     }
-    v.disable_port(cfg.serdes)?;
     Ok(())
 }
 
