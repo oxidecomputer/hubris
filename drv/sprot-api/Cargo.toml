@@ -16,6 +16,7 @@ zerocopy = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-update-api = { path = "../../drv/update-api" }
+drv-spi-api = { path = "../../drv/spi-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib" }

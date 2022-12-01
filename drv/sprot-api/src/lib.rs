@@ -18,6 +18,7 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
+use drv_spi_api::SpiError;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
@@ -116,6 +117,12 @@ pub enum SprotError {
 
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
+}
+
+impl From<SpiError> for SprotError {
+    fn from(_value: SpiError) -> Self {
+        SprotError::SpiServerError
+    }
 }
 
 impl From<UpdateError> for SprotError {
