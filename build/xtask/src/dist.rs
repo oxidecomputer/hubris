@@ -1126,8 +1126,13 @@ fn update_image_header(
                 };
 
                 // TODO need a better place to put this...
+                // Alias for the NS peripherals
                 header.sau_entries[last].rbar = 0x4000_0000;
                 header.sau_entries[last].rlar = 0x4fff_ffe0 | 1;
+
+                // Alias for the BootRom
+                header.sau_entries[last + 1].rbar = 0x0300_0000;
+                header.sau_entries[last + 1].rlar = 0x03ff_ffe0 | 1;
 
                 header
                     .write_to_prefix(
