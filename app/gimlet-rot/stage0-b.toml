@@ -2,6 +2,7 @@ name = "gimlet-rot-b"
 target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-b"
 chip = "../../chips/lpc55"
+memory = "256k.toml"
 stacksize = 1024
 image-names = ["stage0"]
 external-images = ["a", "b"]
