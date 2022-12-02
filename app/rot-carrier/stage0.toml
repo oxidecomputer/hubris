@@ -2,6 +2,7 @@ name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
 board = "rot-carrier-1"
 chip = "../../chips/lpc55"
+memory = "256k.toml"
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
