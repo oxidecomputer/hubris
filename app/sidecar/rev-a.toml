@@ -198,7 +198,7 @@ features = ["vlan"]
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "sidecar", "vlan", "ignition"]
+features = ["mgmt", "sidecar", "vlan"]
 stacksize = 4096
 start = true
 task-slots = ["sys", "net", "ecp5_front_io", "ignition",
