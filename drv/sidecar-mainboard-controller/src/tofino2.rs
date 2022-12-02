@@ -156,14 +156,7 @@ impl TryFrom<u8> for PowerRailState {
     type Error = FpgaError;
 
     fn try_from(v: u8) -> Result<Self, Self::Error> {
-        match v {
-            0 => Ok(PowerRailState::Disabled),
-            1 => Ok(PowerRailState::RampingUp),
-            2 => Ok(PowerRailState::GoodTimeout),
-            3 => Ok(PowerRailState::Aborted),
-            4 => Ok(PowerRailState::Enabled),
-            _ => Err(FpgaError::InvalidValue),
-        }
+        Self::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 }
 
@@ -205,7 +198,7 @@ impl TryFrom<(PowerRails, u8)> for PowerRail {
         Ok(PowerRail {
             id,
             state: PowerRailState::try_from(v >> 4)?,
-            pin_state: PowerRailPinState::from(v),
+            pin_state: PowerRailPinState::from(v & 0xf),
         })
     }
 }
@@ -215,35 +208,35 @@ impl PowerRail {
     /// structs.
     pub fn from_raw(data: [u8; 6]) -> Result<[PowerRail; 6], FpgaError> {
         #[inline]
-        const fn offset(addr: Addr) -> usize {
-            (addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)
+        let value = |addr: Addr| {
+            data[(addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)]
         }
 
         Ok([
             PowerRail::try_from((
                 PowerRails::Vdd18,
-                data[offset(Addr::TOFINO_POWER_VDD18_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDD18_STATE)),
+            )?,
             PowerRail::try_from((
                 PowerRails::VddCore,
-                data[offset(Addr::TOFINO_POWER_VDDCORE_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDDCORE_STATE)),
+            )?,
             PowerRail::try_from((
                 PowerRails::VddPcie,
-                data[offset(Addr::TOFINO_POWER_VDDPCIE_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDDPCIE_STATE)),
+            )?,
             PowerRail::try_from((
                 PowerRails::Vddt,
-                data[offset(Addr::TOFINO_POWER_VDDT_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDDT_STATE)),
+            )?,
             PowerRail::try_from((
                 PowerRails::Vdda15,
-                data[offset(Addr::TOFINO_POWER_VDDA15_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDDA15_STATE)),
+            )?,
             PowerRail::try_from((
                 PowerRails::Vdda18,
-                data[offset(Addr::TOFINO_POWER_VDDA18_STATE)],
-            ))?,
+                value(Addr::TOFINO_POWER_VDDA18_STATE)),
+            )?,
         ])
     }
 }

@@ -2409,26 +2409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lpc55-reset-reason"
-version = "0.1.0"
-dependencies = [
- "lpc55-pac",
- "num-derive",
- "num-traits",
- "zerocopy",
-]
-
-[[package]]
-name = "lpc55-rtc-counters"
-version = "0.1.0"
-dependencies = [
- "lpc55-pac",
- "num-derive",
- "num-traits",
- "zerocopy",
-]
-
-[[package]]
 name = "lpc55-update-server"
 version = "0.1.0"
 dependencies = [
