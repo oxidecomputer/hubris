@@ -117,7 +117,10 @@ impl Tofino {
             .map_err(|_| SeqError::SequencerError)
     }
 
-    pub fn report_abort(&mut self, abort: &TofinoSeqAbort) -> Result<(), SeqError> {
+    pub fn report_abort(
+        &mut self,
+        abort: &TofinoSeqAbort,
+    ) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::TofinoSequencerAbort(
             abort.state,
             abort.step,

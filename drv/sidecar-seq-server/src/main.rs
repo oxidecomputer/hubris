@@ -606,19 +606,19 @@ fn main() -> ! {
         .write_reg(drv_i2c_devices::tmp451::Register::RemoteTempThermBLimit, 90)
         .unwrap();
 
+    // Before starting Tofino, we may need to clear sequencer abort state. This
+    // will discard fault state when the SP resets, but this is acceptable for
+    // now and an incentive to do more automated reporting.
+    match &server.tofino.sequencer.status().unwrap().abort {
+        Some(abort) => {
+            server.tofino.report_abort(abort).unwrap();
+            server.tofino.sequencer.clear_error().unwrap();
+        }
+        None => {}
+    }
+
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
-        // Before starting Tofino, we may need to clear sequencer abort state.
-        // This will discard fault state when the SP resets, but this is
-        // acceptable for now.
-        match &server.tofino.sequencer.status().unwrap().abort {
-            Some(abort) => {
-                server.tofino.report_abort(abort).unwrap();
-                server.tofino.sequencer.clear_error().unwrap();
-            }
-            None => {}
-        }
-
         server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
     }
 

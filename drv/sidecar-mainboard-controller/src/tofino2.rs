@@ -210,33 +210,33 @@ impl PowerRail {
         #[inline]
         let value = |addr: Addr| {
             data[(addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)]
-        }
+        };
 
         Ok([
             PowerRail::try_from((
                 PowerRails::Vdd18,
-                value(Addr::TOFINO_POWER_VDD18_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDD18_STATE),
+            ))?,
             PowerRail::try_from((
                 PowerRails::VddCore,
-                value(Addr::TOFINO_POWER_VDDCORE_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDDCORE_STATE),
+            ))?,
             PowerRail::try_from((
                 PowerRails::VddPcie,
-                value(Addr::TOFINO_POWER_VDDPCIE_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDDPCIE_STATE),
+            ))?,
             PowerRail::try_from((
                 PowerRails::Vddt,
-                value(Addr::TOFINO_POWER_VDDT_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDDT_STATE),
+            ))?,
             PowerRail::try_from((
                 PowerRails::Vdda15,
-                value(Addr::TOFINO_POWER_VDDA15_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDDA15_STATE),
+            ))?,
             PowerRail::try_from((
                 PowerRails::Vdda18,
-                value(Addr::TOFINO_POWER_VDDA18_STATE)),
-            )?,
+                value(Addr::TOFINO_POWER_VDDA18_STATE),
+            ))?,
         ])
     }
 }
