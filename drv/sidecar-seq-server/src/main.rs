@@ -12,10 +12,7 @@ use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_sidecar_mainboard_controller::tofino2::{
-    DebugPortState, DirectBarSegment, Tofino2Vid, TofinoPcieReset,
-    TofinoSeqError, TofinoSeqState,
-};
+use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
 use idol_runtime::{
@@ -54,10 +51,12 @@ enum Trace {
     SkipLoadingClockConfiguration,
     ClockConfigurationError(usize, ResponseCode),
     ClockConfigurationComplete,
+    TofinoSequencerError(SeqError),
     TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
     TofinoSequencerTick(TofinoSequencerPolicy, TofinoSeqState, TofinoSeqError),
-    TofinoSequencerError(SeqError),
-    TofinoSequencerFault(TofinoSeqError),
+    TofinoSequencerAbort(TofinoSeqState, TofinoSeqStep, TofinoSeqError),
+    TofinoPowerRailGoodTimeout(PowerRails),
+    TofinoPowerRailAbort(PowerRails, PowerRailPinState),
     TofinoVidAck,
     TofinoEepromIdCode(u32),
     InitiateTofinoPowerUp,
@@ -129,6 +128,17 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(self.tofino.sequencer.error().map_err(SeqError::from)?)
     }
 
+    fn tofino_seq_error_step(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<TofinoSeqStep, RequestError<SeqError>> {
+        self.tofino
+            .sequencer
+            .error_step()
+            .map_err(SeqError::from)
+            .map_err(RequestError::from)
+    }
+
     fn clear_tofino_seq_error(
         &mut self,
         _: &RecvMessage,
@@ -143,15 +153,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .map_err(SeqError::from)?)
     }
 
-    fn tofino_power_status(
+    fn tofino_power_rails(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<u32, RequestError<SeqError>> {
-        Ok(self
-            .tofino
+    ) -> Result<[u8; 6], RequestError<SeqError>> {
+        self.tofino
             .sequencer
-            .power_status()
-            .map_err(SeqError::from)?)
+            .raw_power_rails()
+            .map_err(SeqError::from)
+            .map_err(RequestError::from)
     }
 
     fn tofino_pcie_hotplug_ctrl(
@@ -552,7 +562,7 @@ fn main() -> ! {
         .tofino
         .sequencer
         .state()
-        .unwrap_or(TofinoSeqState::Initial)
+        .unwrap_or(TofinoSeqState::Init)
     {
         ringbuf_entry!(Trace::SkipLoadingClockConfiguration);
         server.clock_generator.config_loaded = true;
@@ -615,7 +625,7 @@ fn main() -> ! {
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, SeqError, TofinoPcieReset,
-        TofinoSeqError, TofinoSeqState, TofinoSequencerPolicy,
+        TofinoSeqError, TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
