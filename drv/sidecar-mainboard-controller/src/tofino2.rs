@@ -207,7 +207,6 @@ impl PowerRail {
     /// Convert power rail state register data to an array of `PowerRail`
     /// structs.
     pub fn from_raw(data: [u8; 6]) -> Result<[PowerRail; 6], FpgaError> {
-        #[inline]
         let value = |addr: Addr| {
             data[(addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)]
         };
