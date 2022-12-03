@@ -1731,6 +1731,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
+ "ssmarshal",
  "transceiver-messages",
  "userlib",
  "zerocopy",
@@ -1754,6 +1755,8 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "serde",
+ "ssmarshal",
  "stm32h7",
  "task-net-api",
  "transceiver-messages",
@@ -4541,7 +4544,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control#2c40fc5d4797f5e8307b2d63c75ecb46e3a7c937"
+source = "git+https://github.com/oxidecomputer/transceiver-control#1e26d9462683748c98a2ac42603618fb8caec429"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

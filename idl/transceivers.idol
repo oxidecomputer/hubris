@@ -11,8 +11,32 @@ Interface(
             ),
         ),
 
-        "set_power_enable": (
-            doc: "Enable power for modules whose bit is set in mask.",
+        "all_power_states": (
+            doc: "Get the power state of all ports.",
+            reply: Result(
+                ok: "PowerStatesAll",
+                err: CLike("TransceiversError"),
+            ),
+            encoding: Ssmarshal
+        ),
+
+        "set_power_state": (
+            doc: "Set each port in the mask to the specified state",
+            args: {
+                "mask": "u32",
+                "state": (
+                    type: "PowerState",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "port_reset": (
+            doc: "Reset each port in the mask and leave them in low-power mode",
             args: {
                 "mask": "u32",
             },
@@ -22,52 +46,8 @@ Interface(
             ),
         ),
 
-        "clear_power_enable": (
-            doc: "Disable power for modules whose bit is set in mask.",
-            args: {
-                "mask": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "set_reset": (
-            doc: "Enable reset for modules whose bit is set in mask.",
-            args: {
-                "mask": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "clear_reset": (
-            doc: "Disable reset for modules whose bit is set in mask.",
-            args: {
-                "mask": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "set_lpmode": (
-            doc: "Enable lpmode for modules whose bit is set in mask.",
-            args: {
-                "mask": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "clear_lpmode": (
-            doc: "Disable lpmode for modules whose bit is set in mask.",
+        "port_clear_fault": (
+            doc: "Clear the fault for each port in the mask and leave them off",
             args: {
                 "mask": "u32",
             },
