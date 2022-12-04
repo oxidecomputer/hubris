@@ -156,3 +156,15 @@ pub unsafe extern "C" fn __write_block(
 
     HypoStatus::Success
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn __active_slot() -> UpdateTarget {
+    let current = this_image!();
+    if image_a_base!() == current {
+        UpdateTarget::ImageA
+    } else if image_b_base!() == current {
+        UpdateTarget::ImageB
+    } else {
+        UpdateTarget::Bootloader
+    }
+}

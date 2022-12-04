@@ -4,11 +4,11 @@
 #![no_std]
 #![no_main]
 
-use core::convert::Into;
+use core::convert::{Infallible, Into};
 use drv_spi_api::{CsState, Spi};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use ringbuf::*;
 use userlib::*;
@@ -806,6 +806,22 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         Ok(rsp)
     }
 
+    fn update_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<UpdateStatus, idol_runtime::RequestError<SprotError>> {
+        let txmsg = self.tx_buf.no_payload(MsgType::UpdStatusReq);
+        let rxmsg = self
+            .do_send_recv_retries(txmsg, TIMEOUT_QUICK, 2)
+            .map_err(idol_runtime::RequestError::Runtime)?;
+
+        expect_msg(MsgType::UpdStatusRsp, rxmsg.0.msgtype)?;
+        let rsp = self
+            .rx_buf
+            .deserialize_hubpack_payload::<UpdateStatus>(&rxmsg)?;
+        Ok(rsp)
+    }
+
     fn abort_update(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -824,7 +840,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
 mod idl {
     use super::{
         ImageVersion, MsgType, PulseStatus, Received, SinkStatus, SprotError,
-        Status, UpdateTarget,
+        Status, UpdateStatus, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

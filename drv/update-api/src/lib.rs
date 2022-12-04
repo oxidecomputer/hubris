@@ -10,7 +10,6 @@ use serde::{/*de::DeserializeOwned,*/ Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
-#[repr(u8)]
 #[derive(
     FromPrimitive,
     AsBytes,
@@ -22,6 +21,7 @@ use zerocopy::{AsBytes, FromBytes};
     Deserialize,
     SerializedSize,
 )]
+#[repr(u8)]
 pub enum UpdateTarget {
     // Represents targets where we only ever write to a single
     // alternate flash location. This is typically used in
@@ -39,6 +39,7 @@ pub enum UpdateTarget {
 #[derive(
     Copy,
     Clone,
+    Debug,
     FromBytes,
     AsBytes,
     PartialEq,
@@ -51,6 +52,22 @@ pub enum UpdateTarget {
 pub struct ImageVersion {
     pub epoch: u32,
     pub version: u32,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    FromBytes,
+    AsBytes,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(C)]
+pub struct UpdateStatus {
+    pub active_slot: u8,
 }
 
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]

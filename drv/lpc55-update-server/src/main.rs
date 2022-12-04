@@ -10,9 +10,10 @@
 #![no_main]
 
 use core::convert::Infallible;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use ringbuf::*;
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -33,6 +34,14 @@ struct ServerImpl {
     state: UpdateState,
     image: Option<UpdateTarget>,
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    ActiveImage(UpdateTarget),
+}
+
+ringbuf!(Trace, 4, Trace::None);
 
 const BLOCK_SIZE_BYTES: usize = FLASH_PAGE_SIZE;
 
@@ -169,6 +178,21 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             version: HUBRIS_BUILD_VERSION,
         })
     }
+
+    fn status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<UpdateStatus, RequestError<Infallible>> {
+        let active_slot = unsafe {
+            // The active_slot API takes raw pointers due to trustzone ABI
+            // requirements which makes this function unsafe.
+            tz_table!().active_slot()
+        };
+        ringbuf_entry!(Trace::ActiveImage(active_slot));
+        Ok(UpdateStatus {
+            active_slot: active_slot as u8,
+        })
+    }
 }
 
 #[export_name = "main"]
@@ -186,7 +210,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateTarget};
+    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -59,6 +59,12 @@ Interface(
 			reply : Simple("ImageVersion"),
 			idempotent: true,
 		),
+		"status": (
+			doc: "Get info about installed images",
+			args: { },
+			reply : Simple("UpdateStatus"),
+			idempotent: true,
+		)
 	}
 
 )

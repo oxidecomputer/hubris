@@ -18,7 +18,7 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
@@ -344,6 +344,8 @@ pub enum MsgType {
     UpdFinishImageUpdateRsp = 19,
     UpdCurrentVersionReq = 20,
     UpdCurrentVersionRsp = 21,
+    UpdStatusReq = 22,
+    UpdStatusRsp = 23,
 
     /// Reserved value.
     Unknown = 0xff,
@@ -374,6 +376,8 @@ impl From<u8> for MsgType {
             19 => MsgType::UpdFinishImageUpdateRsp,
             20 => MsgType::UpdCurrentVersionReq,
             21 => MsgType::UpdCurrentVersionRsp,
+            22 => MsgType::UpdStatusReq,
+            23 => MsgType::UpdStatusRsp,
             _ => MsgType::Unknown,
         }
     }
