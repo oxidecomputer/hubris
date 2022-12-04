@@ -5,8 +5,7 @@
 use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
-use drv_sprot_api::MsgError as SprotError;
-use drv_sprot_api::SpRot;
+use drv_sprot_api::{SpRot, SprotError};
 use drv_update_api::lpc55::BLOCK_SIZE_BYTES;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 
@@ -96,7 +95,9 @@ impl ComponentUpdater for RotUpdate {
     }
 
     fn step_preparation(&mut self) {
-        unimplemented!();
+        // There's no stepping for an RoT update
+        // Unreachable because `is_preparing` always returns `false`.
+        unreachable!();
     }
 
     fn status(&self) -> UpdateStatus {
@@ -127,9 +128,72 @@ impl ComponentUpdater for RotUpdate {
         &mut self,
         id: &UpdateId,
         offset: u32,
-        data: &[u8],
+        mut data: &[u8],
     ) -> Result<(), SpError> {
-        unimplemented!()
+        // Ensure we are expecting data.
+        let current =
+            self.current.as_mut().ok_or(SpError::UpdateNotPrepared)?;
+
+        let current_id = current.id();
+        let total_size = current.total_size();
+
+        let (buffer, next_write_offset) = match current.state_mut() {
+            State::AcceptingData {
+                buffer,
+                next_write_offset,
+            } => (buffer, next_write_offset),
+            State::Complete | State::Aborted => {
+                return Err(SpError::UpdateNotPrepared)
+            }
+            State::Failed(err) => {
+                return Err(SpError::UpdateFailed(*err as u32))
+            }
+        };
+
+        // Reject chunks that don't match our current update ID.
+        if *id != current_id {
+            return Err(SpError::InvalidUpdateId {
+                sp_update_id: current_id,
+            });
+        }
+
+        // Reject chunks that don't match the offset we expect or that would go
+        // past the total size we're expecting.
+        let expected_offset = *next_write_offset + buffer.len() as u32;
+        if offset != expected_offset
+            || expected_offset + data.len() as u32 > total_size
+        {
+            return Err(SpError::InvalidUpdateChunk);
+        }
+
+        while !data.is_empty() {
+            data = buffer.extend_from_slice(data);
+
+            // Flush this block if it's full or it's the last one.
+            if buffer.len() == buffer.capacity()
+                || *next_write_offset + buffer.len() as u32 == total_size
+            {
+                let block_num = *next_write_offset / buffer.len() as u32;
+                if let Err(err) = self.task.write_one_block(block_num, buffer) {
+                    *current.state_mut() = State::Failed(err);
+                    return Err(SpError::UpdateFailed(err as u32));
+                }
+
+                *next_write_offset += buffer.len() as u32;
+                buffer.clear();
+            }
+        }
+
+        // Finish the update if we just wrote the last block.
+        if *next_write_offset == total_size {
+            if let Err(err) = self.task.finish_image_update() {
+                *current.state_mut() = State::Failed(err);
+                return Err(SpError::UpdateFailed(err as u32));
+            }
+            *current.state_mut() = State::Complete;
+        }
+
+        Ok(())
     }
 
     fn abort(&mut self, id: &UpdateId) -> Result<(), SpError> {
