@@ -1255,6 +1255,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mock-gimlet-hf-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-gimlet-hf-api",
+ "drv-hash-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-mock-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
