@@ -29,6 +29,42 @@ impl HostFlashUpdate {
             current: None,
         }
     }
+
+    pub(crate) fn active_slot(&self) -> Result<u16, SpError> {
+        match self
+            .task
+            .get_dev()
+            .map_err(|err| SpError::ComponentOperationFailed(err as u32))?
+        {
+            HfDevSelect::Flash0 => Ok(0),
+            HfDevSelect::Flash1 => Ok(1),
+        }
+    }
+
+    pub(crate) fn set_active_slot(&self, slot: u16) -> Result<(), SpError> {
+        let slot = match slot {
+            0 => HfDevSelect::Flash0,
+            1 => HfDevSelect::Flash1,
+            _ => return Err(SpError::InvalidSlotForComponent),
+        };
+
+        // Do we have control of the host flash?
+        match self
+            .task
+            .get_mux()
+            .map_err(|err| SpError::UpdateFailed(err as u32))?
+        {
+            HfMuxState::SP => (),
+            HfMuxState::HostCPU => return Err(SpError::UpdateSlotBusy),
+        }
+
+        // Swap to the chosen slot.
+        self.task
+            .set_dev(slot)
+            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+
+        Ok(())
+    }
 }
 
 // Ensure our `UpdateBuffer` type is sized large enough for us.
@@ -66,27 +102,8 @@ impl ComponentUpdater for HostFlashUpdate {
                 SpError::OtherComponentUpdateInProgress(component)
             })?;
 
-        // Which slot are we updating?
-        let slot = match update.slot {
-            0 => HfDevSelect::Flash0,
-            1 => HfDevSelect::Flash1,
-            _ => return Err(SpError::InvalidSlotForComponent),
-        };
-
-        // Do we have control of the host flash?
-        match self
-            .task
-            .get_mux()
-            .map_err(|err| SpError::UpdateFailed(err as u32))?
-        {
-            HfMuxState::SP => (),
-            HfMuxState::HostCPU => return Err(SpError::UpdateSlotBusy),
-        }
-
-        // Swap to the chosen slot.
-        self.task
-            .set_dev(slot)
-            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+        // Update the currently-active slot so we can write to it.
+        self.set_active_slot(update.slot)?;
 
         // What is the total capacity of the device?
         let capacity = self
