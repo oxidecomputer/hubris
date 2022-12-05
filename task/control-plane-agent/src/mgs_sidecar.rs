@@ -147,7 +147,7 @@ impl MgsHandler {
             .tofino_seq_state()
             .map_err(|e| SpError::PowerStateError(e as u32))?
         {
-            TofinoSeqState::Initial
+            TofinoSeqState::Init
             | TofinoSeqState::InPowerDown
             | TofinoSeqState::A2 => PowerState::A2,
             TofinoSeqState::InPowerUp | TofinoSeqState::A0 => PowerState::A0,

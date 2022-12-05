@@ -47,6 +47,16 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "tofino_seq_error_step": (
+            doc: "Return the step when a Tofino sequencer error occured, if any",
+            reply: Result(
+                ok: (
+                    type: "TofinoSeqStep",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("SeqError"),
+            ),
+        ),
         "clear_tofino_seq_error": (
             doc: "Clear the Tofino sequencer error state",
             args: {},
@@ -55,10 +65,10 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
-        "tofino_power_status": (
-            doc: "Return the Tofino sequencer power registers",
+        "tofino_power_rails": (
+            doc: "Return the Tofino sequencer power rail registers",
             reply: Result(
-                ok: "u32",
+                ok: "[u8; 6]",
                 err: CLike("SeqError"),
             ),
         ),
