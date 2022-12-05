@@ -21,7 +21,7 @@ start = true
 
 [signing]
 enable-secure-boot = true
-enable-dice = false
+enable-dice = true
 dice-inc-nxp-cfg = false
 dice-cust-cfg = false
 dice-inc-sec-epoch = false

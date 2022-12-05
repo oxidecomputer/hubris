@@ -19,6 +19,14 @@ size = 0x10000
 read = true
 execute = true
 
+[[flash]]
+name = "dice-mfg"
+address = 0x70000
+size = 0x800
+read = true
+write = false
+execute = false
+
 [[ram]]
 name = "a"
 address = 0x20004000
