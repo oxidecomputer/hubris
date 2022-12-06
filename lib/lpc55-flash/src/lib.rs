@@ -164,7 +164,9 @@ pub unsafe extern "C" fn __active_slot() -> UpdateTarget {
         UpdateTarget::ImageA
     } else if image_b_base!() == current {
         UpdateTarget::ImageB
-    } else {
+    } else if image_stage0_base!() == current {
         UpdateTarget::Bootloader
+    } else {
+        unreachable!()
     }
 }
