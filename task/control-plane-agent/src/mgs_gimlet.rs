@@ -24,7 +24,7 @@ use heapless::Deque;
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_control_plane_agent_api::ControlPlaneAgentError;
+use task_control_plane_agent_api::{ControlPlaneAgentError, UartClient};
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
@@ -149,13 +149,35 @@ impl MgsHandler {
         // data we want to send.
     }
 
+    pub(crate) fn uart_client(&self) -> UartClient {
+        self.usart.client
+    }
+
+    pub(crate) fn set_uart_client(
+        &mut self,
+        client: UartClient,
+    ) -> Result<(), ControlPlaneAgentError> {
+        // Refuse to switch to humility if MGS is currently attached.
+        if client == UartClient::Humility
+            && self.attached_serial_console_mgs.is_some()
+        {
+            return Err(ControlPlaneAgentError::MgsAttachedToUart);
+        }
+
+        self.usart.set_client(client);
+        Ok(())
+    }
+
     pub(crate) fn drive_usart(&mut self) {
         self.usart.run_until_blocked();
     }
 
     pub(crate) fn wants_to_send_packet_to_mgs(&mut self) -> bool {
-        // Do we have an attached serial console session MGS?
-        if self.attached_serial_console_mgs.is_none() {
+        // If we should be forwarding uart data to MGS but we don't have one
+        // attached, discard any buffered data.
+        if self.usart.client == UartClient::Mgs
+            && self.attached_serial_console_mgs.is_none()
+        {
             self.usart.clear_rx_data();
         }
 
@@ -233,6 +255,65 @@ impl MgsHandler {
             size: n as u32,
             vid: vlan_id_from_sp_port(sp_port),
         })
+    }
+
+    pub(crate) fn uart_read(
+        &mut self,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, ControlPlaneAgentError> {
+        // This function is only called by humility; switch control to it.
+        self.set_uart_client(UartClient::Humility)?;
+
+        let mut i = 0;
+        while i < data.len() {
+            let Some(b) = self.usart.from_rx.pop_front() else {
+                break;
+            };
+
+            if data.write_at(i, b).is_err() {
+                break;
+            }
+
+            i += 1;
+        }
+
+        if !self.usart.from_rx.is_full() {
+            // If `from_rx` was full and our client was set to Humility the last
+            // time we handled a uart interrupt, we disabled the rx interrupt.
+            // Re-enable it now that humility has pulled some data from us and
+            // made space for more.
+            self.usart.usart.enable_rx_interrupt();
+        }
+
+        Ok(i)
+    }
+
+    pub(crate) fn uart_write(
+        &mut self,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<usize, ControlPlaneAgentError> {
+        const CHUNK_SIZE: usize = 32;
+
+        // This function is only called by humility; switch control to it.
+        self.set_uart_client(UartClient::Humility)?;
+
+        let mut chunk = [0; CHUNK_SIZE];
+        let mut i = 0;
+
+        while self.usart.tx_buffer_remaining_capacity() > 0 && i < data.len() {
+            // Min of all three: remaining buffer, remaining data, sizeof(chunk)
+            let n = usize::min(
+                self.usart.tx_buffer_remaining_capacity(),
+                usize::min(CHUNK_SIZE, data.len() - i),
+            );
+            if data.read_range(i..i + n, &mut chunk[..n]).is_err() {
+                return Ok(i);
+            }
+            self.usart.tx_buffer_append(&chunk[..n]);
+            i += n;
+        }
+
+        Ok(i)
     }
 
     pub(crate) fn fetch_host_phase2_data(
@@ -558,6 +639,13 @@ impl SpHandler for MgsHandler {
         self.attached_serial_console_mgs = Some((sender, port));
         self.serial_console_write_offset = 0;
         self.usart.from_rx_offset = 0;
+
+        // Forcibly setting the client to MGS here will disconnect any active
+        // humility connections the next time they poll us or send us data to
+        // write, which seems fine: If MGS is available, we probably don't have
+        // a dongle attached to even use humility.
+        self.usart.set_client(UartClient::Mgs);
+
         Ok(())
     }
 
@@ -774,6 +862,7 @@ struct UsartHandler {
     from_rx: &'static mut Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
     from_rx_flush_deadline: Option<u64>,
     from_rx_offset: u64,
+    client: UartClient,
 }
 
 impl UsartHandler {
@@ -791,6 +880,7 @@ impl UsartHandler {
             from_rx,
             from_rx_flush_deadline: None,
             from_rx_offset: 0,
+            client: UartClient::Mgs,
         }
     }
 
@@ -808,7 +898,25 @@ impl UsartHandler {
         }
     }
 
+    fn set_client(&mut self, client: UartClient) {
+        self.client = client;
+
+        if client == UartClient::Humility {
+            // We never flush to humility; it polls us.
+            self.from_rx_flush_deadline = None;
+        } else {
+            // Humility might've disabled the rx interrupt if our rx buffer
+            // filled; re-enable it.
+            self.usart.enable_rx_interrupt();
+        }
+    }
+
     fn should_flush_to_mgs(&self) -> bool {
+        // If we're configured to speak to humility, we never flush to MGS.
+        if self.client == UartClient::Humility {
+            return false;
+        }
+
         // Bail out early if our buffer is empty or full.
         let len = self.from_rx.len();
         if len == 0 {
@@ -841,6 +949,11 @@ impl UsartHandler {
     /// `self.from_rx.is_empty()`; callers are responsible for checking or
     /// ensuring both.
     fn set_from_rx_flush_deadline(&mut self) {
+        // If we're configured to speak to humility, we never flush to MGS.
+        if self.client == UartClient::Humility {
+            return;
+        }
+
         assert!(self.from_rx_flush_deadline.is_none());
         assert!(!self.from_rx.is_empty());
         let deadline =
@@ -859,13 +972,13 @@ impl UsartHandler {
             }
         }
 
-        // Clean up / ringbuf debug log after transmitting.
+        // Drain the data we successfully transmitted.
         if n_transmitted > 0 {
-            ringbuf_entry!(Log::UsartTx {
-                num_bytes: n_transmitted
-            });
             self.to_tx.drain_front(n_transmitted);
         }
+
+        // Either disable the tx fifo interrupt (if we have no data left to
+        // send) or ringbuf-log that we filled the fifo.
         if self.to_tx.is_empty() {
             self.usart.disable_tx_fifo_empty_interrupt();
         } else {
@@ -885,22 +998,49 @@ impl UsartHandler {
             // self.from_rx.len()`, which is where we actually are now).
         }
 
-        // Recv as much as we can from the USART FIFO, even if we have to
-        // discard old data to do so.
         let mut n_received = 0;
         let mut discarded_data = 0;
-        while let Some(b) = self.usart.try_rx_pop() {
-            n_received += 1;
-            match self.from_rx.push_back(b) {
-                Ok(()) => (),
-                Err(b) => {
-                    // If `push_back` failed, we know there is at least one
-                    // item, allowing us to unwrap `pop_front`. At that point we
-                    // know there's space for at least one, allowing us to
-                    // unwrap a subsequent `push_back`.
-                    self.from_rx.pop_front().unwrap_lite();
-                    self.from_rx.push_back(b).unwrap_lite();
-                    discarded_data += 1;
+
+        // If our client is Humility, we only want to read from the usart if we
+        // have room in our buffer (i.e., we want to make use of flow control
+        // because Humility is a _very slow_ reader).
+        //
+        // If our client is MGS (the default), we always recv as much as we can
+        // from the USART FIFO, even if that means discarding old data. If an
+        // MGS instance is actually attached, we should be flushing packets out
+        // to it fast enough that we don't see this in practice.
+        if self.client == UartClient::Humility {
+            while !self.from_rx.is_full() {
+                let Some(b) = self.usart.try_rx_pop() else {
+                    break;
+                };
+                self.from_rx.push_back(b).unwrap_lite();
+                n_received += 1;
+            }
+
+            if self.from_rx.is_full() {
+                // If our buffer is full, we need to disable the RX interrupt
+                // until Humility makes space (or detaches). We'll re-enable the
+                // rx interrupt in either:
+                //
+                // 1. `uart_read()` when Humility polls us for data
+                // 2. `set_client()` if our client is set back to Mgs
+                self.usart.disable_rx_interrupt();
+            }
+        } else {
+            while let Some(b) = self.usart.try_rx_pop() {
+                n_received += 1;
+                match self.from_rx.push_back(b) {
+                    Ok(()) => (),
+                    Err(b) => {
+                        // If `push_back` failed, we know there is at least one
+                        // item, allowing us to unwrap `pop_front`. At that
+                        // point we know there's space for at least one,
+                        // allowing us to unwrap a subsequent `push_back`.
+                        self.from_rx.pop_front().unwrap_lite();
+                        self.from_rx.push_back(b).unwrap_lite();
+                        discarded_data += 1;
+                    }
                 }
             }
         }
@@ -915,9 +1055,6 @@ impl UsartHandler {
         }
 
         if n_received > 0 {
-            ringbuf_entry!(Log::UsartRx {
-                num_bytes: n_received
-            });
             if self.from_rx_flush_deadline.is_none() {
                 self.set_from_rx_flush_deadline();
             }
@@ -954,6 +1091,29 @@ fn configure_usart() -> Usart {
                             Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
                             Alternate::AF7
                         )]
+                    } else {
+                        compile_error!("hardware_flow_control feature must be enabled");
+                    }
+                }
+            };
+
+            // From thin air, pluck a pointer to the USART register block.
+            //
+            // Safety: this is needlessly unsafe in the API. The USART is
+            // essentially a static, and we access it through a & reference so
+            // aliasing is not a concern. Were it literally a static, we could
+            // just reference it.
+            let usart = unsafe { &*device::USART1::ptr() };
+            let peripheral = Peripheral::Usart1;
+            let pins = PINS;
+        } else if #[cfg(feature = "usart1-gimletlet")] {
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        &[
+                            (Port::A.pin(11).and_pin(12), Alternate::AF7),
+                            (Port::B.pin(6).and_pin(7), Alternate::AF7),
+                        ]
                     } else {
                         compile_error!("hardware_flow_control feature must be enabled");
                     }

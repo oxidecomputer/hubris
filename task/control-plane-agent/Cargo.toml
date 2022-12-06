@@ -47,6 +47,7 @@ psc = []
 vlan = ["task-net-api/vlan"]
 
 usart1 = []
+usart1-gimletlet = []
 baud_rate_3M = []
 hardware_flow_control = []
 auxflash = ["drv-auxflash-api"]
