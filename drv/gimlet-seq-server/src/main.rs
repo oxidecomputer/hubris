@@ -549,8 +549,23 @@ impl ServerImpl {
                 //
                 uart_sp_to_sp3_disable();
 
+                //
+                // Start FPGA down-sequence. Clearing the enables immediately
+                // de-asserts PWR_GOOD to the SP3 processor which the EDS
+                // says is required before taking the rails out.
+                // We also need to be headed down before the rails get taken out
+                // so as not to trip a MAPO fault.
+                //
                 let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
                 self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+
+                //
+                // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables, we wait
+                // for a tick here to make sure the SPI command to the FPGA
+                // propagated and the FPGA has had time to act. AMD's EDS doesn't
+                // give a minimum time so we'll give them 1 ms.
+                //
+                hl::sleep_for(1);
                 vcore_soc_off();
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
