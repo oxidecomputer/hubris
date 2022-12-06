@@ -3753,6 +3753,7 @@ dependencies = [
  "num-traits",
  "serde",
  "ssmarshal",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]

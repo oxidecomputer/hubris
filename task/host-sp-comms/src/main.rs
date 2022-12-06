@@ -600,7 +600,7 @@ impl ServerImpl {
             }
             HostToSp::GetIdentity => {
                 let identity = self.cp_agent.identity();
-                Some(SpToHost::Identity(identity))
+                Some(SpToHost::Identity(identity.into()))
             }
             HostToSp::GetMacAddresses => {
                 let block = self.net.get_spare_mac_addresses();

@@ -7,7 +7,6 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use core::{mem, str};
 use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -131,38 +130,9 @@ pub enum SpToHost {
     Phase2Data,
 }
 
-/// Helper type describing the barcode byte string we expect to be present in
-/// the VPD (which we can parse into an `Identity`).
-///
-/// This struct includes the delimiters (expected to be colons) so it can derive
-/// `AsBytes` and `FromBytes` to be used as a deserialization type by
-/// `local-vpd`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, AsBytes, FromBytes)]
-#[repr(C, packed)]
-pub struct BarcodeVpd {
-    pub version: [u8; 4],
-    pub delim0: u8,
-    pub part_number: [u8; 10],
-    pub delim1: u8,
-    pub revision: [u8; 3],
-    pub delim2: u8,
-    pub serial: [u8; 11],
-}
-const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
-
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Deserialize,
-    Serialize,
-    SerializedSize,
-    FromBytes,
-    AsBytes,
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-#[repr(C, packed)]
 pub struct Identity {
     #[serde(with = "BigArray")]
     pub model: [u8; Identity::MODEL_LEN],
@@ -182,45 +152,8 @@ impl Default for Identity {
 }
 
 impl Identity {
-    const MODEL_LEN: usize = 51;
-    const SERIAL_LEN: usize = 51;
-}
-
-impl TryFrom<BarcodeVpd> for Identity {
-    type Error = ();
-
-    fn try_from(vpd: BarcodeVpd) -> Result<Self, Self::Error> {
-        // Check expected values of fields, since `vpd` was presumably created
-        // via zerocopy (i.e., memcopying a byte array).
-        if vpd.delim0 != b':' || vpd.delim1 != b':' || vpd.delim2 != b':' {
-            return Err(());
-        }
-
-        // Allow `0` or `O` for the version
-        if vpd.version != *b"0XV1" && vpd.version != *b"OXV1" {
-            return Err(());
-        }
-
-        let mut identity = Self::default();
-
-        // Parse revision into a u32;
-        identity.revision = str::from_utf8(&vpd.revision)
-            .map_err(|_| ())?
-            .parse()
-            .map_err(|_| ())?;
-
-        // Insert a hyphen 3 characters into the part number (which we know is
-        // longer than 3 characters from the checks above).
-        identity.model[..3].copy_from_slice(&vpd.part_number[..3]);
-        identity.model[3] = b'-';
-        identity.model[4..][..vpd.part_number.len() - 3]
-            .copy_from_slice(&vpd.part_number[3..]);
-
-        // Copy the serial as-is.
-        identity.serial[..vpd.serial.len()].copy_from_slice(&vpd.serial);
-
-        Ok(identity)
-    }
+    pub const MODEL_LEN: usize = 51;
+    pub const SERIAL_LEN: usize = 51;
 }
 
 // See RFD 316 for values.
@@ -678,34 +611,5 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
-    }
-
-    #[test]
-    fn parse_identity_from_vpd() {
-        fn make_id(model: &[u8], revision: u32, serial: &[u8]) -> Identity {
-            let mut id = Identity {
-                model: [0; Identity::MODEL_LEN],
-                revision,
-                serial: [0; Identity::SERIAL_LEN],
-            };
-            id.model[..model.len()].copy_from_slice(model);
-            id.serial[..serial.len()].copy_from_slice(serial);
-            id
-        }
-
-        for (s, expected) in [
-            (
-                b"0XV1:9130000019:006:BRM42220023" as &[u8],
-                make_id(b"913-0000019", 6, b"BRM42220023"),
-            ),
-            (
-                b"OXV1:9130000019:002:OXE99990006",
-                make_id(b"913-0000019", 2, b"OXE99990006"),
-            ),
-        ] {
-            let vpd = BarcodeVpd::read_from(s).unwrap();
-            let identity = Identity::try_from(vpd).unwrap();
-            assert_eq!(identity, expected, "failure parsing vpd {s:?}");
-        }
     }
 }
