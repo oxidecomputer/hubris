@@ -563,7 +563,7 @@ impl ServerImpl {
                 // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables, we wait
                 // for a tick here to make sure the SPI command to the FPGA
                 // propagated and the FPGA has had time to act. AMD's EDS doesn't
-                // give a minimum time so we'll givem them 1 ms.
+                // give a minimum time so we'll give them 1 ms.
                 //
                 hl::sleep_for(1);
                 vcore_soc_off();
