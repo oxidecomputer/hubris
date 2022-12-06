@@ -6,7 +6,6 @@
 
 use crate::control::{
     Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
-    ThermalProperties,
 };
 use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
@@ -14,6 +13,7 @@ use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
+use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

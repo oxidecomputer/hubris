@@ -7,9 +7,11 @@
 //!
 
 use core::convert::TryFrom;
+use zerocopy::{AsBytes, FromBytes};
 
 /// Degrees Celsius
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, FromBytes, AsBytes)]
+#[repr(C)]
 pub struct Celsius(pub f32);
 
 /// Rotations per minute

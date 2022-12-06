@@ -5,10 +5,7 @@
 //! BSP for the Gimlet rev B hardware
 
 use crate::{
-    control::{
-        Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
-        ThermalProperties,
-    },
+    control::{Device, FanControl, InputChannel, PidConfig, TemperatureSensor},
     i2c_config::{devices, sensors},
 };
 use core::convert::TryInto;
@@ -16,6 +13,7 @@ pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
+use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId};
 
 task_slot!(SEQ, gimlet_seq);
