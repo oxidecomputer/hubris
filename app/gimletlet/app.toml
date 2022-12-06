@@ -149,7 +149,6 @@ task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "
 # If you do not have a gimletlet qspi-let adapter but want to test the hf API
 # (e.g., from control-plane-agent / MGS), switch to `drv-mock-gimlet-hf-server`.
 name = "drv-gimlet-hf-server"
-#name = "drv-mock-gimlet-hf-server"
 
 features = ["h753", "hash"]
 priority = 6
