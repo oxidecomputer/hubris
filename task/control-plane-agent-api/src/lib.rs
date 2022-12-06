@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-pub use host_sp_messages::HostStartupOptions;
+pub use host_sp_messages::{HostStartupOptions, Identity};
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]

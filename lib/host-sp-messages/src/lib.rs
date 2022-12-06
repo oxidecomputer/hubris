@@ -135,8 +135,9 @@ pub enum SpToHost {
 /// the VPD (which we can parse into an `Identity`).
 ///
 /// This struct includes the delimiters (expected to be colons) so it can derive
-/// `FromBytes` and be used as a deserialization type by `local-vpd`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromBytes)]
+/// `AsBytes` and `FromBytes` to be used as a deserialization type by
+/// `local-vpd`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, AsBytes, FromBytes)]
 #[repr(C, packed)]
 pub struct BarcodeVpd {
     pub version: [u8; 4],
@@ -150,8 +151,18 @@ pub struct BarcodeVpd {
 const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromBytes,
+    AsBytes,
 )]
+#[repr(C, packed)]
 pub struct Identity {
     #[serde(with = "BigArray")]
     pub model: [u8; Identity::MODEL_LEN],

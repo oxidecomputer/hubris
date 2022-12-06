@@ -9,7 +9,7 @@ use gateway_messages::{
     sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
     UpdateId,
 };
-use host_sp_messages::HostStartupOptions;
+use host_sp_messages::{HostStartupOptions, Identity};
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -38,6 +38,9 @@ use self::mgs_handler::MgsHandler;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+
+#[cfg(feature = "vpd-identity")]
+task_slot!(I2C, i2c_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -162,6 +165,14 @@ impl ServerImpl {
     fn timer_deadline(&self) -> Option<u64> {
         self.mgs_handler.timer_deadline()
     }
+
+    #[cfg(feature = "vpd-identity")]
+    fn identity_from_vpd(&self) -> Option<Identity> {
+        let i2c_task = I2C.get_task_id();
+        let barcode: host_sp_messages::BarcodeVpd =
+            drv_local_vpd::read_config(i2c_task, *b"BARC").ok()?;
+        barcode.try_into().ok()
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -231,6 +242,19 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
 
         self.mgs_handler.set_startup_options(startup_options)
+    }
+
+    fn identity(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Identity, RequestError<core::convert::Infallible>> {
+        #[cfg(feature = "vpd-identity")]
+        let id = self.identity_from_vpd().unwrap_or_default();
+
+        #[cfg(not(feature = "vpd-identity"))]
+        let id = Identity::default();
+
+        Ok(id)
     }
 }
 
@@ -373,7 +397,7 @@ const fn usize_max(a: usize, b: usize) -> usize {
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions,
+        ControlPlaneAgentError, HostStartupOptions, Identity,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
