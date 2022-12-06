@@ -80,91 +80,92 @@ impl ServerImpl {
         rx_data_buf: &mut [u8],
         tx_data_buf: &mut [u8],
     ) {
-        const SOCKET: SocketName = SocketName::transceivers;
-
         match self.net.recv_packet(
-            SOCKET,
+            SocketName::transceivers,
             LargePayloadBehavior::Discard,
             rx_data_buf,
         ) {
-            Ok(mut meta) => {
-                // Modify meta.size based on the output packet size
-                let out_len =
-                    match hubpack::deserialize(
-                        &rx_data_buf[0..meta.size as usize],
-                    ) {
-                        Ok((msg, data)) => {
-                            self.handle_message(msg, data, tx_data_buf)
-                        }
-                        Err(e) => {
-                            // At this point, deserialization has failed, so we
-                            // can't handle the packet.  We'll attempt to
-                            // deserialize *just the header* (which should never
-                            // change), in the hopes of logging a more detailed
-                            // error message about a version mismatch.  If the
-                            // header deserializes correctly, we'll also return
-                            // a `ProtocolError` message to the host (since
-                            // we've got a packet number).
-                            ringbuf_entry!(Trace::DeserializeError(e));
-                            match hubpack::deserialize::<Header>(rx_data_buf) {
-                                Ok((header, _)) => {
-                                    if header.version == version::CURRENT {
-                                        Some(hubpack::serialize(
-                                            tx_data_buf,
-                                            &Message {
-                                                header,
-                                                modules: ModuleId::default(),
-                                                body: MessageBody::SpResponse(
-                                                    SpResponse::Error(
-                                                        Error::ProtocolError,
-                                                    ),
-                                                ),
-                                            },
-                                        )
-                                        .unwrap() as u32)
-                                    } else {
-                                        ringbuf_entry!(Trace::WrongVersion(
-                                            header.version
-                                        ));
-                                        None
-                                    }
-                                }
-                                Err(e) => {
-                                    ringbuf_entry!(
-                                        Trace::DeserializeHeaderError(e)
-                                    );
-                                    None
-                                }
-                            }
-                        }
-                    };
-
-                if let Some(out_len) = out_len {
-                    meta.size = out_len;
-                    if let Err(e) = self.net.send_packet(
-                        SOCKET,
-                        meta,
-                        &tx_data_buf[..meta.size as usize],
-                    ) {
-                        // We'll drop packets if the outgoing queue is full;
-                        // the host is responsible for retrying.
-                        //
-                        // Other errors are unexpected and panic.
-                        ringbuf_entry!(Trace::SendError(e));
-                        match e {
-                            SendError::QueueFull => (),
-                            SendError::Other
-                            | SendError::NotYours
-                            | SendError::InvalidVLan => panic!(),
-                        }
-                    }
-                }
-            }
+            Ok(meta) => self.handle_packet(meta, rx_data_buf, tx_data_buf),
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets
                 // in dispatch_n, back in the main loop.
             }
             Err(RecvError::NotYours | RecvError::Other) => panic!(),
+        }
+    }
+
+    fn handle_packet(
+        &mut self,
+        mut meta: UdpMetadata,
+        rx_data_buf: &[u8],
+        tx_data_buf: &mut [u8],
+    ) {
+        // Modify meta.size based on the output packet size
+        let out_len =
+            match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
+                Ok((msg, data)) => self.handle_message(msg, data, tx_data_buf),
+                Err(e) => {
+                    ringbuf_entry!(Trace::DeserializeError(e));
+                    self.handle_deserialization_error(rx_data_buf, tx_data_buf)
+                }
+            };
+
+        if let Some(out_len) = out_len {
+            meta.size = out_len;
+            if let Err(e) = self.net.send_packet(
+                SocketName::transceivers,
+                meta,
+                &tx_data_buf[..meta.size as usize],
+            ) {
+                // We'll drop packets if the outgoing queue is full;
+                // the host is responsible for retrying.
+                //
+                // Other errors are unexpected and panic.
+                ringbuf_entry!(Trace::SendError(e));
+                match e {
+                    SendError::QueueFull => (),
+                    SendError::Other
+                    | SendError::NotYours
+                    | SendError::InvalidVLan => panic!(),
+                }
+            }
+        }
+    }
+
+    /// At this point, deserialization has failed, so we can't handle the
+    /// packet.  We'll attempt to deserialize *just the header* (which should
+    /// never change), in the hopes of logging a more detailed error message
+    /// about a version mismatch.  If the header deserializes correctly, we'll
+    /// also return a `ProtocolError` message to the host (since we've got a
+    /// packet number).
+    fn handle_deserialization_error(
+        &mut self,
+        rx_data_buf: &[u8],
+        tx_data_buf: &mut [u8],
+    ) -> Option<u32> {
+        match hubpack::deserialize::<Header>(rx_data_buf) {
+            Ok((header, _)) => {
+                if header.version == version::CURRENT {
+                    let n = hubpack::serialize(
+                        tx_data_buf,
+                        &Message {
+                            header,
+                            modules: ModuleId::default(),
+                            body: MessageBody::SpResponse(SpResponse::Error(
+                                Error::ProtocolError,
+                            )),
+                        },
+                    );
+                    Some(n.unwrap() as u32)
+                } else {
+                    ringbuf_entry!(Trace::WrongVersion(header.version));
+                    None
+                }
+            }
+            Err(e) => {
+                ringbuf_entry!(Trace::DeserializeHeaderError(e));
+                None
+            }
         }
     }
 
