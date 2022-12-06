@@ -18,6 +18,7 @@ drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
+drv-local-vpd = { path = "../../drv/local-vpd", optional = true }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
@@ -49,3 +50,4 @@ usart1 = []
 baud_rate_3M = []
 hardware_flow_control = []
 auxflash = ["drv-auxflash-api"]
+vpd-identity = ["drv-local-vpd"]

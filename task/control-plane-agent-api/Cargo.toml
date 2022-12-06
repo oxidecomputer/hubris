@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = { version = "0.2.12", default-features = false }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-ssmarshal = {version = "1", default-features = false}
-zerocopy = "0.6.1"
+num-traits.workspace = true
+serde.workspace = true
+ssmarshal.workspace = true
+static_assertions.workspace = true
+zerocopy.workspace = true
 
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 host-sp-messages = {path = "../../lib/host-sp-messages"}
