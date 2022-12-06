@@ -15,8 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError,
-    Identity, SpToHost, Status, MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
+    MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -599,18 +599,8 @@ impl ServerImpl {
                 Some(SpToHost::BootStorageUnit(bsu))
             }
             HostToSp::GetIdentity => {
-                // TODO how do we get our real identity?
-                let fake_model = b"913-0000019";
-                let fake_serial = b"OXE99990000";
-                let mut model = [0; 51];
-                let mut serial = [0; 51];
-                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
-                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-                Some(SpToHost::Identity(Identity {
-                    model,
-                    revision: 2,
-                    serial,
-                }))
+                let identity = self.cp_agent.identity();
+                Some(SpToHost::Identity(identity))
             }
             HostToSp::GetMacAddresses => {
                 let block = self.net.get_spare_mac_addresses();
