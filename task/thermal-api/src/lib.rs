@@ -20,6 +20,9 @@ pub enum ThermalError {
     AlreadyInAutoMode = 6,
     InvalidWatchdogTime = 7,
     InvalidParameter = 8,
+
+    #[idol(server_death)]
+    ServerDeath,
 }
 
 #[derive(

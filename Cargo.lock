@@ -690,6 +690,7 @@ dependencies = [
 name = "derive-idol-err"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "proc-macro2",
  "quote",
  "syn",
