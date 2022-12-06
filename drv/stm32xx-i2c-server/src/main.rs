@@ -315,6 +315,26 @@ fn main() -> ! {
                     }
                 }
             }
+            Op::SelectedMuxSegment => {
+                let (payload, caller) = msg
+                    .fixed::<[u8; 4], [u8; 4]>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (address, controller, port, _) =
+                    Marshal::unmarshal(payload)?;
+
+                let controller = lookup_controller(&controllers, controller)?;
+                validate_port(&pins, controller.controller, port)?;
+
+                caller.reply(Marshal::marshal(&(
+                    address,
+                    controller.controller,
+                    port,
+                    muxmap.get((controller.controller, port)),
+                )));
+
+                Ok(())
+            }
         });
     }
 }
