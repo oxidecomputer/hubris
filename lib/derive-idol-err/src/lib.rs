@@ -81,66 +81,69 @@ pub fn derive(input: TokenStream) -> TokenStream {
             check_discriminant(&mut variant_errors, ident.span(), 0);
         }
 
-        for s in &v.attrs {
-            // We only look at attributes of the form #[idol...], and only
-            // *accept* one: #[idol(server_death)].
-            if s.path.segments[0].ident == "idol" {
-                if s.tokens.is_empty() {
-                    variant_errors.push(compile_error(
-                        s.span(),
-                        "expected parentheses, e.g. #[idol(..)]",
-                    ));
-                }
-                for t in s.tokens.clone() {
-                    let g = match &t {
-                        proc_macro2::TokenTree::Group(g) => g,
-                        _ => {
-                            variant_errors.push(compile_error(
-                                t.span(),
-                                &format!(
-                                    "Unexpected token {t:?}; \
-                                     expected #[idol(...)]"
-                                ),
-                            ));
-                            continue;
-                        }
-                    };
-                    if g.delimiter() != proc_macro2::Delimiter::Parenthesis {
+        // Look at attributes that are of the form #[idol...]
+        //
+        // Right now, the only one we accept is #[idol(server_death)], but that
+        // could change in the future.
+        for s in v
+            .attrs
+            .iter()
+            .filter(|s| s.path.segments[0].ident == "idol")
+        {
+            if s.tokens.is_empty() {
+                variant_errors.push(compile_error(
+                    s.span(),
+                    "expected parentheses, e.g. #[idol(..)]",
+                ));
+            }
+            for t in s.tokens.clone() {
+                let g = match &t {
+                    proc_macro2::TokenTree::Group(g) => g,
+                    _ => {
                         variant_errors.push(compile_error(
                             t.span(),
-                            "Expected parenthesis, e.g. #[idol(...)]",
+                            &format!(
+                                "unexpected token {t:?}; expected #[idol(...)]"
+                            ),
                         ));
                         continue;
                     }
-                    let s: syn::Ident = match syn::parse2(g.stream()) {
-                        Ok(s) => s,
-                        _ => {
-                            variant_errors.push(compile_error(
-                                g.span(),
-                                &format!(
-                                "Could not parse {g} as a single identifier"
+                };
+                if g.delimiter() != proc_macro2::Delimiter::Parenthesis {
+                    variant_errors.push(compile_error(
+                        t.span(),
+                        "expected parenthesis, e.g. #[idol(...)]",
+                    ));
+                    continue;
+                }
+                let s: syn::Ident = match syn::parse2(g.stream()) {
+                    Ok(s) => s,
+                    _ => {
+                        variant_errors.push(compile_error(
+                            g.span(),
+                            &format!(
+                                "could not parse {g} as a single identifier"
                             ),
-                            ));
-                            continue;
-                        }
-                    };
-                    match s.to_string().as_str() {
-                        "server_death" => {
-                            if dead_code.is_some() {
-                                variant_errors.push(compile_error(
-                                    s.span(),
-                                    "Multiple variants annotated with \
-                                    #[idol(server_death)]",
-                                ));
-                            }
-                            dead_code = Some(v.ident.clone());
-                        }
-                        i => {
+                        ));
+                        continue;
+                    }
+                };
+                match s.to_string().as_str() {
+                    "server_death" => {
+                        if dead_code.is_some() {
                             variant_errors.push(compile_error(
                                 s.span(),
-                                &format!("Unknown attribute {i}"),
+                                "multiple variants annotated with \
+                                 #[idol(server_death)]",
                             ));
                         }
+                        dead_code = Some(v.ident.clone());
+                    }
+                    i => {
+                        variant_errors.push(compile_error(
+                            s.span(),
+                            &format!("unknown attribute {i}"),
+                        ));
                     }
                 }
             }
