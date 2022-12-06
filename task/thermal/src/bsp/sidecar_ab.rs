@@ -22,13 +22,26 @@ use i2c_config::sensors;
 
 task_slot!(SEQUENCER, sequencer);
 
+////////////////////////////////////////////////////////////////////////////////
+// Constants!
+
+// Air temperature sensors, which aren't used in the control loop
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
+
+// Temperature inputs (I2C devices), which are used in the control loop.
 pub const NUM_TEMPERATURE_INPUTS: usize =
     sensors::NUM_TMP451_TEMPERATURE_SENSORS;
+
+// External temperature inputs, which are provided to the task over IPC
+// In practice, these are our transceivers.
+pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 32;
+
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // The Sidecar controller hasn't been tuned yet, so boot into manual mode
 pub const USE_CONTROLLER: bool = false;
+
+////////////////////////////////////////////////////////////////////////////////
 
 bitflags::bitflags! {
     pub struct PowerBitmask: u32 {

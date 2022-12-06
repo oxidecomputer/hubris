@@ -31,6 +31,9 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
     + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
+// Every temperature sensor on Gimlet is owned by this task
+pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
+
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 

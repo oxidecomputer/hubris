@@ -207,6 +207,7 @@ pub(crate) struct InputChannel {
 }
 
 /// Properties for a particular part in the system
+#[derive(Clone, Copy)]
 pub(crate) struct ThermalProperties {
     /// Target temperature for this part
     pub target_temperature: Celsius,
@@ -240,6 +241,11 @@ impl InputChannel {
             removable,
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct DynamicInputChannel {
+    temps: ThermalProperties,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -278,6 +284,11 @@ pub(crate) struct ThermalControl<'a> {
 
     /// PID parameters, pulled from the BSP by default but user-modifiable
     pid_config: PidConfig,
+
+    /// Dynamic inputs are fixed in number but configured at runtime **outside
+    /// of the BSP**.
+    dynamic_inputs:
+        [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
 }
 
 /// Represents a temperature reading at the time at which it was taken
@@ -357,15 +368,21 @@ impl Default for OneSidedPidState {
 }
 
 /// This corresponds to states shown in RFD 276
+///
+/// All of our temperature arrays contain, in order
+/// - I2C temperature inputs (read by this task)
+/// - Dynamic temperature inputs (read by another task and passed in)
 enum ThermalControlState {
     /// Wait for each sensor to report in at least once
     Boot {
-        values: [Option<TemperatureReading>; bsp::NUM_TEMPERATURE_INPUTS],
+        values: [Option<TemperatureReading>;
+            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
     },
 
     /// Normal happy control loop
     Running {
-        values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
+        values: [TemperatureReading;
+            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
         pid: OneSidedPidState,
     },
 
@@ -374,7 +391,8 @@ enum ThermalControlState {
     /// the time at which we entered this state; at a certain point, we will
     /// timeout and drop into `Uncontrolled` if components do not recover.
     Overheated {
-        values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
+        values: [TemperatureReading;
+            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
         start_time: u64,
     },
 
@@ -432,7 +450,9 @@ impl<'a> ThermalControl<'a> {
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot {
-                values: [None; bsp::NUM_TEMPERATURE_INPUTS],
+                values: [None;
+                    bsp::NUM_TEMPERATURE_INPUTS
+                        + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
             },
             pid_config: bsp.pid_config,
 
@@ -440,6 +460,8 @@ impl<'a> ThermalControl<'a> {
             overheat_timeout_ms: 60_000,
 
             power_mode: PowerBitmask::empty(), // no sensors active
+
+            dynamic_inputs: [None; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
         }
     }
 
@@ -503,7 +525,9 @@ impl<'a> ThermalControl<'a> {
     /// Resets the control state
     fn reset_state(&mut self) {
         self.state = ThermalControlState::Boot {
-            values: [None; bsp::NUM_TEMPERATURE_INPUTS],
+            values: [None;
+                bsp::NUM_TEMPERATURE_INPUTS
+                    + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
         };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
@@ -600,6 +624,23 @@ impl<'a> ThermalControl<'a> {
         }
     }
 
+    fn zip_temperatures<'b, T>(
+        values: &'b [T],
+        inputs: (&'b [InputChannel], &'b [Option<DynamicInputChannel>]),
+    ) -> impl Iterator<Item = (&'b T, ThermalProperties)> {
+        assert_eq!(values.len(), inputs.0.len() + inputs.1.len());
+        values
+            .iter()
+            .zip(
+                inputs
+                    .0
+                    .iter()
+                    .map(|i| Some(i.temps))
+                    .chain(inputs.1.iter().map(|i| i.map(|i| i.temps))),
+            )
+            .filter_map(|(v, temps)| temps.map(|t| (v, t)))
+    }
+
     /// An extremely simple thermal control loop.
     ///
     /// Returns an error if the control loop failed to read critical sensors;
@@ -608,12 +649,16 @@ impl<'a> ThermalControl<'a> {
     pub fn run_control(&mut self, now_ms: u64) -> Result<(), ThermalError> {
         self.read_sensors(now_ms);
 
+        // A bit awkward, but we have to borrow these explicitly to work around
+        // the lifetime checker, which won't let us call a &self function when
+        // self.state is mutably borrowed.
+        let inputs = (self.bsp.inputs, self.dynamic_inputs.as_slice());
         let control_result = match &mut self.state {
             ThermalControlState::Boot { values } => {
                 let mut all_some = true;
                 let mut any_power_down = false;
                 let mut worst_margin = f32::MAX;
-                for (v, i) in values.iter().zip(self.bsp.inputs.iter()) {
+                for (v, temps) in Self::zip_temperatures(values, inputs) {
                     match v {
                         Some(TemperatureReading::Valid { value, time_ms }) => {
                             // Model the current temperature based on the last
@@ -627,12 +672,11 @@ impl<'a> ThermalControl<'a> {
                             // so this subtraction is safe.
                             let temperature = value.0
                                 + (now_ms - time_ms) as f32 / 1000.0
-                                    * i.temps.temperature_slew_deg_per_sec;
+                                    * temps.temperature_slew_deg_per_sec;
                             any_power_down |=
-                                temperature >= i.temps.power_down_temperature.0;
-                            worst_margin = worst_margin.min(
-                                i.temps.target_temperature.0 - temperature,
-                            );
+                                temperature >= temps.power_down_temperature.0;
+                            worst_margin = worst_margin
+                                .min(temps.target_temperature.0 - temperature);
                         }
                         Some(TemperatureReading::Inactive) => {
                             // Inactive sensors are ignored, but do not gate us
@@ -641,6 +685,7 @@ impl<'a> ThermalControl<'a> {
                         None => all_some = false,
                     }
                 }
+
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
@@ -670,22 +715,27 @@ impl<'a> ThermalControl<'a> {
                 let mut any_power_down = false;
                 let mut any_critical = false;
                 let mut worst_margin = f32::MAX;
+
                 // Remember, positive margin means that all parts are happily
                 // below their max temperature; negative means someone is
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
-                for (v, i) in values.iter().zip(self.bsp.inputs.iter()) {
+                //
+                // temperatures in `values` correspond to the BSP inputs,
+                // followed by local dynamic temperatures (which may or may not
+                // be present).
+                for (v, temps) in Self::zip_temperatures(values, inputs) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
                             + (now_ms - time_ms) as f32 / 1000.0
-                                * i.temps.temperature_slew_deg_per_sec;
+                                * temps.temperature_slew_deg_per_sec;
                         any_power_down |=
-                            temperature >= i.temps.power_down_temperature.0;
+                            temperature >= temps.power_down_temperature.0;
                         any_critical |=
-                            temperature >= i.temps.critical_temperature.0;
+                            temperature >= temps.critical_temperature.0;
 
                         worst_margin = worst_margin
-                            .min(i.temps.target_temperature.0 - temperature);
+                            .min(temps.target_temperature.0 - temperature);
                     }
                 }
 
