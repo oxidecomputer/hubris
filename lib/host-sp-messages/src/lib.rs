@@ -108,13 +108,7 @@ pub enum SpToHost {
     Ack,
     DecodeFailure(DecodeFailureReason),
     BootStorageUnit(Bsu),
-    Identity {
-        #[serde(with = "BigArray")]
-        model: [u8; 51], // TODO model format?
-        revision: u32,
-        #[serde(with = "BigArray")]
-        serial: [u8; 51], // TODO serial format?
-    },
+    Identity(Identity),
     MacAddresses {
         base: [u8; 6],
         count: u16,
@@ -134,6 +128,32 @@ pub enum SpToHost {
     RotResponse,
     // Followed by a binary data blob (the data)
     Phase2Data,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct Identity {
+    #[serde(with = "BigArray")]
+    pub model: [u8; Identity::MODEL_LEN],
+    pub revision: u32,
+    #[serde(with = "BigArray")]
+    pub serial: [u8; Identity::SERIAL_LEN],
+}
+
+impl Default for Identity {
+    fn default() -> Self {
+        Self {
+            model: [0; Self::MODEL_LEN],
+            revision: 0,
+            serial: [0; Self::SERIAL_LEN],
+        }
+    }
+}
+
+impl Identity {
+    pub const MODEL_LEN: usize = 51;
+    pub const SERIAL_LEN: usize = 51;
 }
 
 // See RFD 316 for values.
@@ -398,14 +418,7 @@ mod tests {
             (0x01, SpToHost::Ack),
             (0x02, SpToHost::DecodeFailure(DecodeFailureReason::Cobs)),
             (0x03, SpToHost::BootStorageUnit(Bsu::A)),
-            (
-                0x04,
-                SpToHost::Identity {
-                    model: [0; 51],
-                    revision: 0,
-                    serial: [0; 51],
-                },
-            ),
+            (0x04, SpToHost::Identity(Identity::default())),
             (
                 0x05,
                 SpToHost::MacAddresses {
@@ -543,8 +556,8 @@ mod tests {
         // Message including `Status`, which is defined by `bitflags!`.
         let message = SpToHost::Status {
             status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
-            startup: HostStartupOptions::DEBUG_KMDB
-                | HostStartupOptions::DEBUG_KMDB_BOOT,
+            startup: HostStartupOptions::STARTUP_KMDB
+                | HostStartupOptions::STARTUP_KMDB_BOOT,
         };
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
@@ -566,15 +579,11 @@ mod tests {
         // Message including `Identity`, which uses serde_big_array.
         let fake_model = b"913-0000019";
         let fake_serial = b"OXE99990000";
-        let mut model = [0; 51];
-        let mut serial = [0; 51];
-        model[..fake_model.len()].copy_from_slice(&fake_model[..]);
-        serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-        let message = SpToHost::Identity {
-            model,
-            revision: 2,
-            serial,
-        };
+        let mut identity = Identity::default();
+        identity.model[..fake_model.len()].copy_from_slice(&fake_model[..]);
+        identity.revision = 2;
+        identity.serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
+        let message = SpToHost::Identity(identity);
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[

@@ -58,5 +58,10 @@ Interface(
                 err: CLike("ControlPlaneAgentError"),
             ),
         ),
+        "identity": (
+            doc: "Get the identity of the current sled.",
+            reply: Simple("Identity"),
+            idempotent: true,
+        ),
     },
 )
