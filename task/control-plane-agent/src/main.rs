@@ -5,7 +5,6 @@
 #![no_std]
 #![no_main]
 
-use core::{mem, str};
 use gateway_messages::{
     sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
     UpdateId,
@@ -14,14 +13,12 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use static_assertions::const_assert_eq;
 use task_control_plane_agent_api::{ControlPlaneAgentError, Identity};
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
 use userlib::{sys_set_timer, task_slot};
-use zerocopy::{AsBytes, FromBytes};
 
 mod inventory;
 mod mgs_common;
@@ -171,6 +168,9 @@ impl ServerImpl {
 
     #[cfg(feature = "vpd-identity")]
     fn identity_from_vpd(&self) -> Option<Identity> {
+        use core::{mem, str};
+        use zerocopy::{AsBytes, FromBytes};
+
         #[derive(Debug, Clone, Copy, PartialEq, Eq, AsBytes, FromBytes)]
         #[repr(C, packed)]
         pub struct BarcodeVpd {
@@ -184,7 +184,7 @@ impl ServerImpl {
             pub delim2: u8,
             pub serial: [u8; Identity::SERIAL_LEN],
         }
-        const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
+        static_assertions::const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
 
         let i2c_task = I2C.get_task_id();
         let barcode: BarcodeVpd =
