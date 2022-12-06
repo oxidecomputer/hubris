@@ -8,5 +8,7 @@ syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = {workspace = true}
 
+abi = { path = "../../sys/abi" }
+
 [lib]
 proc-macro = true
