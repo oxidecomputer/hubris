@@ -6,8 +6,7 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_gimlet_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    HfDevSelect, HfError, HostFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
     ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
@@ -48,20 +47,12 @@ impl HostFlashUpdate {
             _ => return Err(SpError::InvalidSlotForComponent),
         };
 
-        // Do we have control of the host flash?
-        match self
-            .task
-            .get_mux()
-            .map_err(|err| SpError::UpdateFailed(err as u32))?
-        {
-            HfMuxState::SP => (),
-            HfMuxState::HostCPU => return Err(SpError::UpdateSlotBusy),
-        }
-
-        // Swap to the chosen slot.
-        self.task
-            .set_dev(slot)
-            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+        // Attempt to swap to the chosen slot, returning a "slot busy" error if
+        // we don't have control over the host flash.
+        self.task.set_dev(slot).map_err(|err| match err {
+            HfError::NotMuxedToSP => SpError::UpdateSlotBusy,
+            _ => SpError::UpdateFailed(err as u32),
+        })?;
 
         Ok(())
     }
