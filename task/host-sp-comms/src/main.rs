@@ -15,8 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
-    MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, Identity,
+    SpToHost, Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -606,11 +606,11 @@ impl ServerImpl {
                 let mut serial = [0; 51];
                 model[..fake_model.len()].copy_from_slice(&fake_model[..]);
                 serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-                Some(SpToHost::Identity {
+                Some(SpToHost::Identity(Identity {
                     model,
                     revision: 2,
                     serial,
-                })
+                }))
             }
             HostToSp::GetMacAddresses => {
                 let block = self.net.get_spare_mac_addresses();

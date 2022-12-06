@@ -108,13 +108,7 @@ pub enum SpToHost {
     Ack,
     DecodeFailure(DecodeFailureReason),
     BootStorageUnit(Bsu),
-    Identity {
-        #[serde(with = "BigArray")]
-        model: [u8; 51], // TODO model format?
-        revision: u32,
-        #[serde(with = "BigArray")]
-        serial: [u8; 51], // TODO serial format?
-    },
+    Identity(Identity),
     MacAddresses {
         base: [u8; 6],
         count: u16,
@@ -134,6 +128,17 @@ pub enum SpToHost {
     RotResponse,
     // Followed by a binary data blob (the data)
     Phase2Data,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct Identity {
+    #[serde(with = "BigArray")]
+    pub model: [u8; 51],
+    pub revision: u32,
+    #[serde(with = "BigArray")]
+    pub serial: [u8; 51],
 }
 
 // See RFD 316 for values.
@@ -400,11 +405,11 @@ mod tests {
             (0x03, SpToHost::BootStorageUnit(Bsu::A)),
             (
                 0x04,
-                SpToHost::Identity {
+                SpToHost::Identity(Identity {
                     model: [0; 51],
                     revision: 0,
                     serial: [0; 51],
-                },
+                }),
             ),
             (
                 0x05,
@@ -543,8 +548,8 @@ mod tests {
         // Message including `Status`, which is defined by `bitflags!`.
         let message = SpToHost::Status {
             status: Status::SP_TASK_RESTARTED | Status::ALERTS_AVAILABLE,
-            startup: HostStartupOptions::DEBUG_KMDB
-                | HostStartupOptions::DEBUG_KMDB_BOOT,
+            startup: HostStartupOptions::STARTUP_KMDB
+                | HostStartupOptions::STARTUP_KMDB_BOOT,
         };
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
@@ -570,11 +575,11 @@ mod tests {
         let mut serial = [0; 51];
         model[..fake_model.len()].copy_from_slice(&fake_model[..]);
         serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-        let message = SpToHost::Identity {
+        let message = SpToHost::Identity(Identity {
             model,
             revision: 2,
             serial,
-        };
+        });
         let n = serialize(&mut buf, &header, &message, |_| 0).unwrap();
         #[rustfmt::skip]
         let expected_without_cksum: &[u8] = &[
