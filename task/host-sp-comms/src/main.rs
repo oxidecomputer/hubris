@@ -599,18 +599,8 @@ impl ServerImpl {
                 Some(SpToHost::BootStorageUnit(bsu))
             }
             HostToSp::GetIdentity => {
-                // TODO how do we get our real identity?
-                let fake_model = b"913-0000019";
-                let fake_serial = b"OXE99990000";
-                let mut model = [0; 51];
-                let mut serial = [0; 51];
-                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
-                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-                Some(SpToHost::Identity {
-                    model,
-                    revision: 2,
-                    serial,
-                })
+                let identity = self.cp_agent.identity();
+                Some(SpToHost::Identity(identity.into()))
             }
             HostToSp::GetMacAddresses => {
                 let block = self.net.get_spare_mac_addresses();

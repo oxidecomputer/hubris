@@ -254,8 +254,16 @@ task-slots = [
     "validate",
     "sensor",
     "sprot",
+    "i2c_driver",
 ]
-features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
+features = [
+    "gimlet",
+    "usart1",
+    "vlan",
+    "baud_rate_3M",
+    "hardware_flow_control",
+    "vpd-identity",
+]
 interrupts = {"usart1.irq" = 0b10}
 
 [tasks.sprot]
