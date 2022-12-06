@@ -80,7 +80,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
             // Bit of a hack to reuse the error reporting code:
             check_discriminant(&mut variant_errors, ident.span(), 0);
         }
+
         for s in &v.attrs {
+            // We only look at attributes of the form #[idol...], and only
+            // *accept* one: #[idol(server_death)].
             if s.path.segments[0].ident == "idol" {
                 if s.tokens.is_empty() {
                     variant_errors.push(compile_error(
