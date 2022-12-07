@@ -20,6 +20,7 @@ use host_sp_messages::{
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
+use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
@@ -46,6 +47,9 @@ const A2_REBOOT_DELAY: u64 = 5_000;
 // applies if our current tx_buf/rx_buf are empty (i.e., we don't have a real
 // response to send, and we haven't yet started to receive a request).
 const UART_ZERO_DELAY: u64 = 200;
+
+// How long of a host panic / boot fail message are we willing to keep?
+const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
 
 // How many MAC addresses should we report to the host? Per RFD 320, a gimlet
 // currently needs 5 total:
@@ -165,6 +169,9 @@ struct ServerImpl {
     net: Net,
     cp_agent: ControlPlaneAgent,
     reboot_state: Option<RebootState>,
+
+    last_host_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+    last_host_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
 }
 
 impl ServerImpl {
@@ -180,6 +187,13 @@ impl ServerImpl {
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
 
+        let (last_host_boot_fail, last_host_panic) = mutable_statics! {
+            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+        };
+
         Self {
             uart,
             sys,
@@ -194,6 +208,8 @@ impl ServerImpl {
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
             reboot_state: None,
+            last_host_boot_fail,
+            last_host_panic,
         }
     }
 
@@ -558,8 +574,9 @@ impl ServerImpl {
         &mut self,
         reset_tx_buf: bool,
     ) -> Result<(), DecodeFailureReason> {
-        let (header, request) = match parse_received_message(self.rx_buf) {
-            Ok((header, request, _data)) => (header, request),
+        let (header, request, data) = match parse_received_message(self.rx_buf)
+        {
+            Ok((header, request, data)) => (header, request, data),
             Err(err) => {
                 self.rx_buf.clear();
                 return Err(err);
@@ -636,11 +653,28 @@ impl ServerImpl {
                 Some(response)
             }
             HostToSp::HostBootFailure { .. } => {
-                // TODO what do we do in reaction to this? reboot?
+                // TODO what do we do in reaction to this? reboot? forward to
+                // MGS?
+                //
+                // For now, copy it into a static var we can pull out via
+                // `humility readvar LAST_HOST_BOOT_FAIL`.
+                let n = usize::min(data.len(), self.last_host_boot_fail.len());
+                self.last_host_boot_fail[..n].copy_from_slice(&data[..n]);
+                for b in &mut self.last_host_boot_fail[n..] {
+                    *b = 0;
+                }
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic { .. } => {
-                // TODO log event and/or forward to MGS
+                // TODO forward to MGS
+                //
+                // For now, copy it into a static var we can pull out via
+                // `humility readvar LAST_HOST_PANIC`.
+                let n = usize::min(data.len(), self.last_host_panic.len());
+                self.last_host_panic[..n].copy_from_slice(&data[..n]);
+                for b in &mut self.last_host_panic[n..] {
+                    *b = 0;
+                }
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
