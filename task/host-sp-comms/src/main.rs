@@ -69,6 +69,7 @@ const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 enum Trace {
     None,
     UartRxOverrun,
+    ParseError(DecodeFailureReason),
     SetState {
         now: u64,
         state: PowerState,
@@ -578,6 +579,7 @@ impl ServerImpl {
         {
             Ok((header, request, data)) => (header, request, data),
             Err(err) => {
+                ringbuf_entry!(Trace::ParseError(err));
                 self.rx_buf.clear();
                 return Err(err);
             }
