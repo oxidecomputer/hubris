@@ -64,25 +64,36 @@ const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
     None,
-    Notification { bits: u32 },
-    UartTx(u8),
-    UartTxFull,
-    UartRx(u8),
     UartRxOverrun,
-    AckSpStart,
-    SetState { now: u64, state: PowerState },
-    JefeNotification { now: u64, state: PowerState },
+    SetState {
+        now: u64,
+        state: PowerState,
+    },
+    JefeNotification {
+        now: u64,
+        state: PowerState,
+    },
     OutOfSyncRequest,
     OutOfSyncRxNoise,
+    Request {
+        now: u64,
+        sequence: u64,
+        message: HostToSp,
+    },
+    Response {
+        now: u64,
+        sequence: u64,
+        message: SpToHost,
+    },
 }
+
+ringbuf!(Trace, 16, Trace::None);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TimerDisposition {
     LeaveRunning,
     Cancel,
 }
-
-ringbuf!(Trace, 64, Trace::None);
 
 /// Notification bit for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1 << 0;
@@ -396,7 +407,7 @@ impl ServerImpl {
             // either the fifo fills (in which case we return before trying to
             // receive more) or we finish flushing.
             while let Some(b) = self.tx_buf.next_byte_to_send() {
-                if try_tx_push(&self.uart, b) {
+                if self.uart.try_tx_push(b) {
                     self.tx_buf.advance_one_byte();
                 } else if self.uart_rx_until_maybe_packet() {
                     // We still have data to send, but the host has sent us a
@@ -476,8 +487,6 @@ impl ServerImpl {
 
     fn uart_rx_until_maybe_packet(&mut self) -> bool {
         while let Some(byte) = self.uart.try_rx_pop() {
-            ringbuf_entry!(Trace::UartRx(byte));
-
             if byte == 0x00 {
                 // COBS terminator; did we get any data?
                 if self.rx_buf.is_empty() {
@@ -556,6 +565,11 @@ impl ServerImpl {
                 return Err(err);
             }
         };
+        ringbuf_entry!(Trace::Request {
+            now: sys_get_timer().now,
+            sequence: header.sequence,
+            message: request,
+        });
 
         // Reset tx_buf if our caller wanted us to in response to a valid
         // packet.
@@ -634,7 +648,6 @@ impl ServerImpl {
                 startup: self.cp_agent.get_startup_options().unwrap_lite(),
             }),
             HostToSp::AckSpStart => {
-                ringbuf_entry!(Trace::AckSpStart);
                 action =
                     Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
                 Some(SpToHost::Ack)
@@ -707,8 +720,6 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        ringbuf_entry!(Trace::Notification { bits });
-
         if bits & USART_IRQ != 0 {
             self.handle_usart_notification();
             sys_irq_control(USART_IRQ, true);
@@ -829,7 +840,7 @@ fn handle_tx_periodic_zero_byte_timer(
         // 0x00 terminator. If we can, reset the deadline to send
         // another one after `UART_ZERO_DELAY`; if we can't, disable
         // our timer and wait for a uart interrupt instead.
-        if try_tx_push(uart, 0) {
+        if uart.try_tx_push(0) {
             TimerDisposition::LeaveRunning
         } else {
             // If we have no real packet data but we've filled the
@@ -883,18 +894,6 @@ enum Action {
     RebootHost,
     PowerOffHost,
     ClearStatusBits(Status),
-}
-
-// wrapper around `usart.try_tx_push()` that registers the result in our
-// ringbuf
-fn try_tx_push(uart: &Usart, val: u8) -> bool {
-    let ret = uart.try_tx_push(val);
-    if ret {
-        ringbuf_entry!(Trace::UartTx(val));
-    } else {
-        ringbuf_entry!(Trace::UartTxFull);
-    }
-    ret
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
