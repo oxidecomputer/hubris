@@ -20,6 +20,7 @@ use idol_runtime::{
 };
 use ringbuf::*;
 use userlib::*;
+use zerocopy::FromBytes;
 
 mod udp; // UDP API is implemented in a separate file
 
@@ -51,6 +52,7 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
+    ThermalError(usize, task_thermal_api::ThermalError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -80,6 +82,13 @@ struct ThermalModel {
 
 const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
+
+/// Controls how often we poll the transceivers.
+///
+/// Polling the transceivers serves a few functions:
+/// - Transceiver presence is used to control LEDs on the front IO board
+/// - For transceivers that are present and include a thermal model, we measure
+///   their temperature and send it to the `thermal` task.
 const TIMER_INTERVAL: u64 = 500;
 
 // Errors are being suppressed here due to a miswiring of the I2C bus at the
@@ -290,20 +299,61 @@ impl NotificationHandler for ServerImpl {
             }
 
             // Query module presence and update LEDs accordingly
-            let presence = match self.transceivers.get_modules_status() {
-                Ok(status) => status.present,
-                Err(_) => 0,
+            let status = match self.transceivers.get_modules_status() {
+                Ok(status) => status,
+                Err(_) => ModulesStatus::new_zeroed(),
             };
 
-            if presence != self.modules_present {
-                self.led_update(presence);
+            if status.present != self.modules_present {
+                self.led_update(status.present);
 
-                self.modules_present = presence;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
+                self.modules_present = status.present;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(status.present));
+            }
+
+            let now = sys_get_timer().now;
+            for (i, m) in self.thermal_models.iter_mut().enumerate() {
+                let mask = 1 << i;
+                if let Some(model) = m {
+                    // Transceiver was removed, reset, or is in low-power mode;
+                    // forget its thermal model
+                    if status.present & mask == 0
+                        || status.reset & mask != 0
+                        || status.lpmode_txdis & mask != 0
+                    {
+                        *m = None;
+                        if let Err(e) = self.thermal_api.remove_dynamic_input(i)
+                        {
+                            ringbuf_entry!(Trace::ThermalError(i, e));
+                        }
+                        continue;
+                    }
+                    use transceiver_messages::mgmt::ManagementInterface;
+                    let temperature = match model.interface {
+                        ManagementInterface::Cmis => {
+                            todo!("measure temperature")
+                        }
+                        ManagementInterface::Sff8636 => {
+                            todo!("measure temperature")
+                        }
+                        ManagementInterface::Unknown(..) => {
+                            // TODO: what should we do here?
+                            continue;
+                        }
+                    };
+                    if let Err(e) = self.thermal_api.update_dynamic_input(
+                        i,
+                        now,
+                        model.model,
+                        temperature,
+                    ) {
+                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    }
+                }
             }
 
             let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK)
+            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
         }
     }
 }
