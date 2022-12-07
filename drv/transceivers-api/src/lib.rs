@@ -17,6 +17,7 @@ pub enum TransceiversError {
     FpgaError = 1,
     InvalidPortNumber = 2,
     InvalidNumberOfBytes = 3,
+    InvalidPowerState = 4,
 }
 
 impl From<FpgaError> for TransceiversError {
@@ -58,15 +59,16 @@ pub enum PowerState {
     Fault = 4,
 }
 
-impl From<u8> for PowerState {
-    fn from(v: u8) -> PowerState {
+impl TryFrom<u8> for PowerState {
+    type Error = ();
+    fn try_from(v: u8) -> Result<PowerState, Self::Error> {
         match v {
-            0 => PowerState::A4,
-            1 => PowerState::A3,
-            2 => PowerState::A2,
-            3 => PowerState::A0,
-            4 => PowerState::Fault,
-            _ => unreachable!(),
+            0 => Ok(PowerState::A4),
+            1 => Ok(PowerState::A3),
+            2 => Ok(PowerState::A2),
+            3 => Ok(PowerState::A0),
+            4 => Ok(PowerState::Fault),
+            _ => Err(()),
         }
     }
 }

@@ -143,10 +143,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         mask: u32,
         state: PowerState,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .set_power_state(state, mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn port_reset(
@@ -154,10 +154,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .port_reset(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn port_clear_fault(
@@ -165,10 +165,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        Ok(self
-            .transceivers
+        self.transceivers
             .port_clear_fault(mask)
-            .map_err(TransceiversError::from)?)
+            .map_err(TransceiversError::from)?;
+        Ok(())
     }
 
     fn setup_i2c_read(

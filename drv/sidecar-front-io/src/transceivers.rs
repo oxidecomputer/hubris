@@ -349,7 +349,9 @@ impl Transceivers {
             let power_status_field = (local_data[port_loc.port as usize]
                 & Reg::QSFP::CONTROL_PORT0::POWER_STATE)
                 >> 5;
-            data[port] = power_status_field.into();
+            data[port] = power_status_field
+                .try_into()
+                .map_err(|_| FpgaError::InvalidValue)?;
         }
 
         Ok(PowerStatesAll::new(data))
