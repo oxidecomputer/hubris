@@ -653,8 +653,7 @@ impl ServerImpl {
                 Some(response)
             }
             HostToSp::HostBootFailure { .. } => {
-                // TODO what do we do in reaction to this? reboot? forward to
-                // MGS?
+                // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
                 // `humility readvar LAST_HOST_BOOT_FAIL`.
