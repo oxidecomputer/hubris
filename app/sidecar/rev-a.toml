@@ -279,8 +279,9 @@ stacksize = 2048
 start = true
 task-slots = [
     "sys",
-    "net",
     "i2c_driver",
+    "net",
+    "thermal",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
 

@@ -27,6 +27,7 @@ task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
+task_slot!(THERMAL, thermal);
 
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
@@ -60,6 +61,21 @@ struct ServerImpl {
     modules_present: u32,
     led_error: FullErrorSummary,
     leds_initialized: bool,
+
+    /// Handle to write temperatures to the thermal API
+    thermal_api: task_thermal_api::Thermal,
+
+    /// Thermal models are populated by the host
+    thermal_models: [Option<ThermalModel>; 32],
+}
+
+#[derive(Copy, Clone)]
+struct ThermalModel {
+    /// What kind of transceiver is this?
+    interface: transceiver_messages::mgmt::ManagementInterface,
+
+    /// What are its thermal properties, e.g. critical temperature?
+    model: task_thermal_api::ThermalProperties,
 }
 
 const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
@@ -326,6 +342,8 @@ fn main() -> ! {
         );
 
         let net = task_net_api::Net::from(NET.get_task_id());
+        let thermal_api =
+            task_thermal_api::Thermal::from(THERMAL.get_task_id());
         let (tx_data_buf, rx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             transceivers,
@@ -334,6 +352,8 @@ fn main() -> ! {
             modules_present: 0,
             led_error: Default::default(),
             leds_initialized: false,
+            thermal_api,
+            thermal_models: [None; 32],
         };
 
         ringbuf_entry!(Trace::LEDInit);
