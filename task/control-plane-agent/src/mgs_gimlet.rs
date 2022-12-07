@@ -686,6 +686,43 @@ impl SpHandler for MgsHandler {
         self.common.inventory().component_details(&component, index)
     }
 
+    fn component_get_active_slot(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetActiveSlot {
+            component
+        }));
+
+        match component {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.active_slot()
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_set_active_slot(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: u16,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
+            component,
+            slot,
+        }));
+        match component {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.set_active_slot(slot)
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
     fn component_clear_status(
         &mut self,
         _sender: SocketAddrV6,

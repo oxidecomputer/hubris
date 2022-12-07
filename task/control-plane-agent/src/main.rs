@@ -125,6 +125,13 @@ enum MgsMessage {
     ComponentClearStatus {
         component: SpComponent,
     },
+    ComponentGetActiveSlot {
+        component: SpComponent,
+    },
+    ComponentSetActiveSlot {
+        component: SpComponent,
+        slot: u16,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);
