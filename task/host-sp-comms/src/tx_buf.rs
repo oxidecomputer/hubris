@@ -2,11 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{MAX_MESSAGE_SIZE, MAX_PACKET_SIZE};
+use crate::{Trace, MAX_MESSAGE_SIZE, MAX_PACKET_SIZE};
 use core::ops::Range;
 use host_sp_messages::{DecodeFailureReason, Header, SpToHost};
 use mutable_statics::mutable_statics;
-use userlib::UnwrapLite;
+use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use userlib::{sys_get_timer, UnwrapLite};
 
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
@@ -187,6 +188,12 @@ impl TxBuf {
             version: host_sp_messages::version::V1,
             sequence: sequence | SEQ_REPLY,
         };
+
+        ringbuf_entry!(Trace::Response {
+            now: sys_get_timer().now,
+            sequence: header.sequence,
+            message: *response
+        });
 
         // Serializing can only fail if we pass unexpected types as `response`,
         // but we're using `SpToHost`, so it cannot fail.
