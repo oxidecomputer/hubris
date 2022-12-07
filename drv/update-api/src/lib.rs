@@ -58,7 +58,7 @@ pub struct ImageVersion {
     Copy, Clone, PartialEq, Eq, Serialize, Deserialize, SerializedSize,
 )]
 pub struct UpdateStatus {
-    pub active_slot: u8,
+    pub active_slot: UpdateTarget,
 }
 
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]

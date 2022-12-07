@@ -400,7 +400,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // TODO: Return which actual bank is in use - Maybe don't use
         // UpdateTarget for this either, if we can't tell what bank it is.
         Ok(UpdateStatus {
-            active_slot: UpdateTarget::DevNull as u8,
+            active_slot: UpdateTarget::DevNull,
         })
     }
 }

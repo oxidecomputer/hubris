@@ -189,9 +189,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             tz_table!().active_slot()
         };
         ringbuf_entry!(Trace::ActiveImage(active_slot));
-        Ok(UpdateStatus {
-            active_slot: active_slot as u8,
-        })
+        Ok(UpdateStatus { active_slot })
     }
 }
 
