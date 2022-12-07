@@ -136,6 +136,7 @@ Interface(
               ok: "UpdateStatus",
               err: CLike("SprotError"),
             ),
+            encoding: Hubpack
 		)
     }
 )

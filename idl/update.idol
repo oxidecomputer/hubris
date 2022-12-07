@@ -64,6 +64,7 @@ Interface(
 			args: { },
 			reply : Simple("UpdateStatus"),
 			idempotent: true,
+			encoding: Hubpack
 		)
 	}
 

@@ -55,17 +55,8 @@ pub struct ImageVersion {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    FromBytes,
-    AsBytes,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    SerializedSize,
+    Copy, Clone, PartialEq, Eq, Serialize, Deserialize, SerializedSize,
 )]
-#[repr(C)]
 pub struct UpdateStatus {
     pub active_slot: u8,
 }
