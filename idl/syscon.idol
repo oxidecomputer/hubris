@@ -3,42 +3,66 @@ Interface(
     ops: {
 	"enable_clock": (
 		args : {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+			"peripheral": "Peripheral",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("SysconError")
 		),
+                encoding: Ssmarshal,
 	),
 	"disable_clock": (
 		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+			"peripheral": "Peripheral",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("SysconError"),
 
 		),
+                encoding: Ssmarshal,
 	),
 	"enter_reset": (
 		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+			"peripheral": "Peripheral",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("SysconError")
 
 		),
+                encoding: Ssmarshal,
 	),
 	"leave_reset": (
 		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+			"peripheral": "Peripheral",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("SysconError"),
 
-		)
+		),
+                encoding: Ssmarshal,
 	),
+        "set_hubris_state": (
+		args: {
+			"state": "HubrisState",
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("SysconError"),
+
+		),
+                encoding: Ssmarshal,
+	),
+        "get_hubris_state": (
+		reply: Result(
+			ok: "HubrisState",
+			err: CLike("SysconError"),
+
+		),
+                encoding: Ssmarshal,
+	),
+
    }
 )

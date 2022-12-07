@@ -6,7 +6,7 @@
 
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::AsBytes;
+use serde::{Deserialize, Serialize};
 
 // Only the expresso boards have the full 64 pins, the
 // LPC55S2x variant only has 36
@@ -15,7 +15,7 @@ use zerocopy::AsBytes;
 // goes 0 - 64
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "lpcxpresso55s69"))] {
-        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, Deserialize, Serialize)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -86,7 +86,7 @@ cfg_if::cfg_if! {
         }
 
     } else {
-        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, Deserialize, Serialize)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -187,14 +187,14 @@ pub enum AltFn {
     Alt9 = 9,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Deserialize, Serialize)]
 #[repr(u32)]
 pub enum Direction {
     Input = 0,
     Output = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Deserialize, Serialize)]
 #[repr(u8)]
 pub enum Value {
     Zero = 0,

@@ -1058,8 +1058,9 @@ dependencies = [
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
@@ -1071,6 +1072,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]
@@ -1193,10 +1196,12 @@ dependencies = [
  "idol-runtime",
  "lpc55-pac",
  "lpc55-reset-reason",
+ "lpc55-rtc-counters",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "task-jefe-api",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
@@ -1206,9 +1211,11 @@ dependencies = [
  "build-util",
  "derive-idol-err",
  "idol",
+ "lpc55-rtc-counters",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
@@ -2427,6 +2434,8 @@ dependencies = [
  "lpc55-pac",
  "num-derive",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "zerocopy",
 ]
 

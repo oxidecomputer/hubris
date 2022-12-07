@@ -6,9 +6,12 @@ edition = "2021"
 [dependencies]
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 userlib = { path = "../../sys/userlib" }
+lpc55-rtc-counters = { path = "../../lib/lpc55-rtc-counters" }
 
 num-traits = { workspace = true }
-zerocopy = { workspace = true }
+#zerocopy = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

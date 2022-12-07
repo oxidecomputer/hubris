@@ -3,51 +3,56 @@ Interface(
     ops: {
 	"iocon_configure_raw": (
 		args : {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"pin": "Pin",
 			"conf": "u32",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("GpioError")
 		),
+                encoding: Ssmarshal,
 	),
 	"set_dir": (
 		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-			"dir": ( type: "Direction", recv: FromPrimitive("u32")),
+			"pin": "Pin",
+			"dir": "Direction",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("GpioError"),
 		),
+                encoding: Ssmarshal,
 	),
 	"set_val": (
 		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-			"val": ( type : "Value", recv: FromPrimitive("u8")),
+			"pin": "Pin",
+			"val": "Value",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("GpioError"),
 		),
+                encoding: Ssmarshal,
 	),
 	"read_val": (
 		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"pin": "Pin",
 		},
 		reply: Result(
 			ok: (type : "Value", recv: FromPrimitive("u8")),
 			err: CLike("GpioError")
-		)
+		),
+                encoding: Ssmarshal,
 	),
 	"toggle": (
 		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"pin": "Pin",
 		},
 		reply: Result(
 			ok: "()",
 			err: CLike("GpioError"),
-		)
+		),
+                encoding: Ssmarshal,
 	),
 
    }

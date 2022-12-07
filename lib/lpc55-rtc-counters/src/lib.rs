@@ -7,6 +7,7 @@
 use lpc55_pac as device;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
 
 pub struct RtcCounter {
     reg: &'static device::rtc::RegisterBlock,
@@ -33,8 +34,8 @@ enum Counter {
     SecureFaultCount = 3,
 }
 
+#[derive(Debug, FromPrimitive, Serialize, Deserialize, Copy, Clone)]
 #[repr(u32)]
-#[derive(Debug, FromPrimitive)]
 pub enum HubrisState {
     // We have no information about the last Hubris boot. This corresponds to
     // the value of the register after a power on reset. May be returned if

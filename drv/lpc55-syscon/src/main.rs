@@ -115,6 +115,7 @@ use idol_runtime::RequestError;
 use lpc55_pac as device;
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
+use lpc55_rtc_counters::*;
 
 task_slot!(JEFE, jefe);
 
@@ -132,6 +133,7 @@ macro_rules! clear_bit {
 
 struct ServerImpl<'a> {
     syscon: &'a device::syscon::RegisterBlock,
+    counters: RtcCounter,
 }
 
 impl idl::InOrderSysconImpl for ServerImpl<'_> {
@@ -195,11 +197,32 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
 
         Ok(())
     }
+
+    fn set_hubris_state(
+        &mut self,
+        _: &RecvMessage,
+        state: HubrisState,
+    ) -> Result<(), RequestError<SysconError>> {
+        self.counters.set_hubris_state(state);
+        Ok(())
+    }
+
+    fn get_hubris_state(
+        &mut self,
+        _: &RecvMessage) -> Result<HubrisState, RequestError<SysconError>> {
+        Ok(self.counters.get_hubris_state())
+    }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
     let syscon = unsafe { &*device::SYSCON::ptr() };
+    let rtc = unsafe { &*device::RTC::ptr() };
+
+    syscon.ahbclkctrl0.modify(|_, w| w.rtc().enable());
+    syscon.presetctrl0.modify(|_, w| w.rtc_rst().released());
+
+    let counters = RtcCounter::from(rtc);
 
     // Turn on the 1Mhz clock for use with SWD SPI
     syscon
@@ -221,7 +244,7 @@ fn main() -> ! {
 
     set_reset_reason();
 
-    let mut server = ServerImpl { syscon };
+    let mut server = ServerImpl { syscon, counters };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
@@ -247,6 +270,7 @@ fn set_reset_reason() {
 mod idl {
     use super::SysconError;
     use drv_lpc55_syscon_api::Peripheral;
+    use lpc55_rtc_counters::HubrisState;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

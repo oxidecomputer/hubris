@@ -8,12 +8,14 @@ cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
 num-traits = { workspace = true }
-zerocopy = { workspace = true }
+serde = { workspace = true }
+ssmarshal = { workspace = true }
 
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 lpc55-reset-reason = { path = "../../lib/lpc55-reset-reason"}
+lpc55-rtc-counters = { path = "../../lib/lpc55-rtc-counters"}
 
 [build-dependencies]
 idol = { workspace = true }
