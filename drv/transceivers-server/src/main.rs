@@ -248,8 +248,8 @@ impl ServerImpl {
                         self.thermal_models[i] = Some(ThermalModel {
                             interface,
                             model: task_thermal_api::ThermalProperties {
-                                target_temperature: Celsius(70.0),
-                                critical_temperature: Celsius(75.0),
+                                target_temperature: Celsius(65.0),
+                                critical_temperature: Celsius(70.0),
                                 power_down_temperature: Celsius(80.0),
                                 temperature_slew_deg_per_sec: 0.5,
                             },
