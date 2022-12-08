@@ -12,6 +12,7 @@ use drv_sidecar_front_io::{
     transceivers::{FpgaController, FpgaPortMasks, Transceivers},
     Addr, Reg,
 };
+use drv_transceivers_api::PowerState;
 use hubpack::SerializedSize;
 use ringbuf::*;
 use task_net_api::*;
@@ -270,53 +271,33 @@ impl ServerImpl {
             }
             HostRequest::SetPowerMode(mode) => {
                 let mask = get_mask(modules)?;
-                // TODO: the FPGA will eventually manage high-level power states
                 match mode {
                     PowerMode::Off => {
-                        // Power disabled, LpMode enabled (the latter doesn't
-                        // make a difference, but keeps us in a known state)
-                        self.transceivers.clear_power_enable(mask).map_err(
-                            |_e| {
+                        self.transceivers
+                            .set_power_state(PowerState::A3, mask)
+                            .map_err(|_e| {
                                 Error::PowerModeFailed(
-                                    HwError::ClearPowerEnableFailed,
+                                    HwError::ControlPortWriteFailed,
                                 )
-                            },
-                        )?;
-                        self.transceivers.set_reset(mask).map_err(|_e| {
-                            Error::PowerModeFailed(HwError::SetResetFailed)
-                        })?;
-                        self.transceivers.set_lpmode(mask).map_err(|_e| {
-                            Error::PowerModeFailed(HwError::SetLpModeFailed)
-                        })?;
+                            })?;
                     }
                     PowerMode::Low => {
-                        // Power enabled, LpMode enabled
-                        self.transceivers.set_lpmode(mask).map_err(|_e| {
-                            Error::PowerModeFailed(HwError::SetLpModeFailed)
-                        })?;
-                        self.transceivers.set_power_enable(mask).map_err(
-                            |_e| {
+                        self.transceivers
+                            .set_power_state(PowerState::A2, mask)
+                            .map_err(|_e| {
                                 Error::PowerModeFailed(
-                                    HwError::SetPowerEnableFailed,
+                                    HwError::ControlPortWriteFailed,
                                 )
-                            },
-                        )?;
-                        self.transceivers.clear_reset(mask).map_err(|_e| {
-                            Error::PowerModeFailed(HwError::ClearResetFailed)
-                        })?;
+                            })?;
                     }
                     PowerMode::High => {
-                        // Power enabled, LpMode disabled
-                        self.transceivers.clear_lpmode(mask).map_err(|_e| {
-                            Error::PowerModeFailed(HwError::ClearLpModeFailed)
-                        })?;
-                        self.transceivers.set_power_enable(mask).map_err(
-                            |_e| {
+                        self.transceivers
+                            .set_power_state(PowerState::A0, mask)
+                            .map_err(|_e| {
                                 Error::PowerModeFailed(
-                                    HwError::SetPowerEnableFailed,
+                                    HwError::ControlPortWriteFailed,
                                 )
-                            },
-                        )?;
+                            })?;
                     }
                 }
                 Ok((SpResponse::Ack, 0))
@@ -332,13 +313,9 @@ impl ServerImpl {
     fn reset_transceivers(&mut self, modules: ModuleId) -> Result<(), Error> {
         let mask = get_mask(modules)?;
 
-        self.transceivers
-            .set_reset(mask)
-            .map_err(|_e| Error::ResetFailed(HwError::SetResetFailed))?;
-        userlib::hl::sleep_for(1);
-        self.transceivers
-            .clear_reset(mask)
-            .map_err(|_e| Error::ResetFailed(HwError::ClearResetFailed))?;
+        self.transceivers.port_reset(mask).map_err(|_e| {
+            Error::PowerModeFailed(HwError::ControlPortWriteFailed)
+        })?;
         Ok(())
     }
 
@@ -368,6 +345,16 @@ impl ServerImpl {
         let irq: U16<BigEndian> = fpga
             .read(Addr::QSFP_STATUS_IRQ_H)
             .map_err(|_e| Error::StatusFailed(HwError::IrqReadFailed))?;
+        let pg: U16<BigEndian> = fpga
+            .read(Addr::QSFP_STATUS_PG_H)
+            .map_err(|_e| Error::StatusFailed(HwError::PgReadFailed))?;
+        let pg_to: U16<BigEndian> =
+            fpga.read(Addr::QSFP_STATUS_PG_TIMEOUT_H).map_err(|_e| {
+                Error::StatusFailed(HwError::PgTimeoutReadFailed)
+            })?;
+        let pg_lost: U16<BigEndian> = fpga
+            .read(Addr::QSFP_STATUS_PG_LOST_H)
+            .map_err(|_e| Error::StatusFailed(HwError::PgLostReadFailed))?;
 
         // Write one bitfield per active port in the ModuleId
         let mut count = 0;
@@ -387,6 +374,15 @@ impl ServerImpl {
             }
             if (irq.get() & mask) != 0 {
                 status |= Status::INTERRUPT;
+            }
+            if (pg.get() & mask) != 0 {
+                status |= Status::POWER_GOOD;
+            }
+            if (pg_to.get() & mask) != 0 {
+                status |= Status::FAULT_POWER_TIMEOUT;
+            }
+            if (pg_lost.get() & mask) != 0 {
+                status |= Status::FAULT_POWER_LOST;
             }
             // Convert from Status -> u8 and write to the output buffer
             out[count] = status.bits();
