@@ -143,14 +143,15 @@ impl ServerImpl {
 }
 
 impl ServerImpl {
-    /// Returns the temperature from a CMSIS transceiver.
+    /// Returns the temperature from a CMIS transceiver.
     ///
     /// `port` is a logical port index, i.e. 0-31.
-    fn read_cmsis_temperature(
+    fn read_cmis_temperature(
         &self,
         port: LogicalPort,
     ) -> Result<Celsius, FpgaError> {
-        todo!()
+        const CMIS_TEMPERATURE_MSB: u8 = 14; // CMIS, Table 8-9
+        self.read_temperature_from_i16(port, CMIS_TEMPERATURE_MSB)
     }
 
     /// Returns the temperature from a SFF-8636 transceiver.
@@ -160,10 +161,18 @@ impl ServerImpl {
         &self,
         port: LogicalPort,
     ) -> Result<Celsius, FpgaError> {
-        // Trigger a read from the given port's temperature register
-        const TEMPERATURE_MSB: u8 = 22; // SFF-8636, Table 6-7
-        self.transceivers
-            .setup_i2c_read(TEMPERATURE_MSB, 2, port.as_mask())?;
+        const SFF8636_TEMPERATURE_MSB: u8 = 22; // SFF-8636, Table 6-7
+        self.read_temperature_from_i16(port, SFF8636_TEMPERATURE_MSB)
+    }
+
+    /// Trigger a read from the given port's given register, which is assumed to
+    /// be an `i16` containing 1/256 °C.
+    fn read_temperature_from_i16(
+        &self,
+        port: LogicalPort,
+        reg: u8,
+    ) -> Result<Celsius, FpgaError> {
+        self.transceivers.setup_i2c_read(reg, 2, port.as_mask())?;
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
@@ -187,8 +196,6 @@ impl ServerImpl {
                 }
             }
         }
-
-        todo!("measure temperature")
     }
 
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
@@ -215,7 +222,7 @@ impl ServerImpl {
             }
             use transceiver_messages::mgmt::ManagementInterface;
             let temperature = match m.interface {
-                ManagementInterface::Cmis => self.read_cmsis_temperature(port),
+                ManagementInterface::Cmis => self.read_cmis_temperature(port),
                 ManagementInterface::Sff8636 => {
                     self.read_sff8636_temperature(port)
                 }
