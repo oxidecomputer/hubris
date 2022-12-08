@@ -143,6 +143,16 @@ impl ServerImpl {
 }
 
 impl ServerImpl {
+    /// Returns the temperature from a CMSIS transceiver.
+    ///
+    /// `port` is a logical port index, i.e. 0-31.
+    fn read_cmsis_temperature(
+        &self,
+        port: LogicalPort,
+    ) -> Result<Celsius, FpgaError> {
+        todo!()
+    }
+
     /// Returns the temperature from a SFF-8636 transceiver.
     ///
     /// `port` is a logical port index, i.e. 0-31.
@@ -205,9 +215,7 @@ impl ServerImpl {
             }
             use transceiver_messages::mgmt::ManagementInterface;
             let temperature = match m.interface {
-                ManagementInterface::Cmis => {
-                    todo!("measure temperature")
-                }
+                ManagementInterface::Cmis => self.read_cmsis_temperature(port),
                 ManagementInterface::Sff8636 => {
                     self.read_sff8636_temperature(port)
                 }
