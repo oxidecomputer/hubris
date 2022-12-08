@@ -5,8 +5,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::{sys_send, FromPrimitive};
 use serde::{Deserialize, Serialize};
+use userlib::{sys_send, FromPrimitive};
 
 // Only the expresso boards have the full 64 pins, the
 // LPC55S2x variant only has 36

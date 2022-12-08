@@ -12,7 +12,7 @@ mod handler;
 
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
-use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use drv_lpc55_syscon_api::{HubrisState, Peripheral, Syscon};
 use drv_sprot_api::*;
 use lpc55_pac as device;
 
@@ -194,6 +194,8 @@ fn main() -> ! {
         &mut server.io.tx_buf,
         server.status,
     );
+
+    let _ = syscon.set_hubris_state(HubrisState::Ready);
 
     loop {
         server.io.pio(transmit);

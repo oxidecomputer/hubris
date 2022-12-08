@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 drv-update-api = {  path = "../update-api/"  }
+drv-lpc55-syscon-api = {  path = "../lpc55-syscon-api/"  }
 hypocalls = { path = "../../lib/hypocalls" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}

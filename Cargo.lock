@@ -2445,6 +2445,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-lpc55-syscon-api",
  "drv-update-api",
  "hypocalls",
  "idol",

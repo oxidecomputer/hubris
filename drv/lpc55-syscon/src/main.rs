@@ -113,9 +113,9 @@
 use drv_lpc55_syscon_api::*;
 use idol_runtime::RequestError;
 use lpc55_pac as device;
+use lpc55_rtc_counters::*;
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
-use lpc55_rtc_counters::*;
 
 task_slot!(JEFE, jefe);
 
@@ -209,7 +209,8 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
 
     fn get_hubris_state(
         &mut self,
-        _: &RecvMessage) -> Result<HubrisState, RequestError<SysconError>> {
+        _: &RecvMessage,
+    ) -> Result<HubrisState, RequestError<SysconError>> {
         Ok(self.counters.get_hubris_state())
     }
 }

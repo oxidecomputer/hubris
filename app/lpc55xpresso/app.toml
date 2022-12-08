@@ -49,6 +49,7 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses-secure-entry = true
+task-slots = ["syscon_driver"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
