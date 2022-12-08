@@ -244,7 +244,16 @@ impl ServerImpl {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
                         ringbuf_entry!(Trace::GotInterface(i, interface));
-                        self.thermal_models[i] = todo!();
+                        // TODO: this is made up
+                        self.thermal_models[i] = Some(ThermalModel {
+                            interface,
+                            model: task_thermal_api::ThermalProperties {
+                                target_temperature: Celsius(70.0),
+                                critical_temperature: Celsius(75.0),
+                                power_down_temperature: Celsius(80.0),
+                                temperature_slew_deg_per_sec: 0.5,
+                            },
+                        });
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
