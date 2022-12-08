@@ -38,7 +38,7 @@ Interface(
         "port_reset": (
             doc: "Reset each port in the mask and leave them in low-power mode",
             args: {
-                "mask": "u32",
+                "logical_port_mask": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -49,7 +49,7 @@ Interface(
         "port_clear_fault": (
             doc: "Clear the fault for each port in the mask and leave them off",
             args: {
-                "mask": "u32",
+                "logical_port_mask": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -62,7 +62,7 @@ Interface(
             args: {
                 "reg": "u8",
                 "num_bytes": "u8",
-                "mask": "u32",
+                "logical_port_mask": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -75,7 +75,7 @@ Interface(
             args: {
                 "reg": "u8",
                 "num_bytes": "u8",
-                "mask": "u32",
+                "logical_port_mask": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -86,7 +86,7 @@ Interface(
         "get_i2c_read_buffer": (
             doc: "Get up to 128 bytes from the I2C read buffer for a given port number (0 to 31)",
             args: {
-                "port": "u8",
+                "logical_port": "u8",
             },
             leases: {
                 "dest": (type: "[u8]", write: true),

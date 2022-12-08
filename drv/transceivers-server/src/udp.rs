@@ -9,7 +9,10 @@
 //! to our existing `ServerImpl`.
 use crate::ServerImpl;
 use drv_sidecar_front_io::{
-    transceivers::{FpgaController, FpgaPortMasks, Transceivers},
+    transceivers::{
+        FpgaController, FpgaPortMasks, PhysicalPort, PhysicalPortMask,
+        PortLocation,
+    },
     Addr, Reg,
 };
 use drv_transceivers_api::PowerState;
@@ -60,12 +63,12 @@ fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
     let fpga_ports: u16 = m.ports.0;
     match m.fpga_id {
         0 => Ok(FpgaPortMasks {
-            left: fpga_ports,
-            right: 0,
+            left: PhysicalPortMask(fpga_ports),
+            right: PhysicalPortMask::default(),
         }),
         1 => Ok(FpgaPortMasks {
-            left: 0,
-            right: fpga_ports,
+            left: PhysicalPortMask::default(),
+            right: PhysicalPortMask(fpga_ports),
         }),
         i => Err(Error::InvalidFpga(i)),
     }
@@ -433,7 +436,7 @@ impl ServerImpl {
             .transceivers
             .wait_and_check_i2c(mask)
             .map_err(|_e| HwError::WaitFailed)?;
-        if err_mask.left != 0 || err_mask.right != 0 {
+        if !err_mask.left.is_empty() || !err_mask.right.is_empty() {
             // FPGA reported an I2C error
             return Err(HwError::I2cError);
         }
@@ -446,7 +449,6 @@ impl ServerImpl {
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        let controller = get_fpga(modules)?;
         let mask = get_mask(modules)?;
 
         // Switch pages (if necessary)
@@ -458,8 +460,6 @@ impl ServerImpl {
             .setup_i2c_read(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::ReadFailed(HwError::ReadSetupFailed))?;
 
-        let fpga = self.transceivers.fpga(controller);
-
         for (port, out) in modules
             .ports
             .to_indices()
@@ -470,12 +470,17 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
+            let port = PortLocation {
+                controller: get_fpga(modules)?,
+                port: PhysicalPort(port),
+            };
             loop {
-                fpga.read_bytes(
-                    Transceivers::read_status_address(port),
-                    &mut buf[0..(out.len() + 1)],
-                )
-                .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
+                self.transceivers
+                    .get_i2c_status_and_read_buffer(
+                        port,
+                        &mut buf[0..(out.len() + 1)],
+                    )
+                    .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
                 let status = buf[0];
 
                 // Use QSFP::PORT0 for constants, since they're all identical
