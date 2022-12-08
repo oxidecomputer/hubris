@@ -140,7 +140,9 @@ impl ServerImpl {
             }
         }
     }
+}
 
+impl ServerImpl {
     /// Returns the temperature from a SFF-8636 transceiver.
     ///
     /// `port` is a logical port index, i.e. 0-31.
