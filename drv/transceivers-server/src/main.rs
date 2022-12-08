@@ -23,6 +23,7 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
+use transceiver_messages::mgmt::ManagementInterface;
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -56,6 +57,8 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
+    GotInterface(usize, ManagementInterface),
+    UnpluggedModule(usize),
     TemperatureReadError(usize, FpgaError),
     ThermalError(usize, task_thermal_api::ThermalError),
 }
@@ -79,7 +82,7 @@ struct ServerImpl {
 #[derive(Copy, Clone)]
 struct ThermalModel {
     /// What kind of transceiver is this?
-    interface: transceiver_messages::mgmt::ManagementInterface,
+    interface: ManagementInterface,
 
     /// What are its thermal properties, e.g. critical temperature?
     model: task_thermal_api::ThermalProperties,
@@ -198,11 +201,67 @@ impl ServerImpl {
         }
     }
 
+    fn get_transceiver_interface(
+        &mut self,
+        port: LogicalPort,
+    ) -> Result<ManagementInterface, FpgaError> {
+        self.transceivers.setup_i2c_read(0, 1, port.as_mask())?;
+        let mut out = [0u8; 2]; // [status, SFF8024Identifier]
+
+        // Wait for the I2C transaction to complete
+        loop {
+            self.transceivers
+                .get_i2c_status_and_read_buffer(port, &mut out)?;
+            if out[0] & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                break;
+            }
+        }
+
+        if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
+            match out[1] {
+                0x1E => Ok(ManagementInterface::Cmis),
+                0x0D => Ok(ManagementInterface::Sff8636),
+                i => Ok(ManagementInterface::Unknown(i)),
+            }
+        } else {
+            // TODO: how should we handle this?
+            Err(FpgaError::ImplError(0))
+        }
+    }
+
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
         let now = sys_get_timer().now;
 
-        // Store sensors that have been removed here
-        let mut gone = [false; 32];
+        for i in 0..self.thermal_models.len() {
+            let port = LogicalPort(i as u8);
+            let mask = 1 << i;
+            let powered =
+                (status.present & mask) != 0 && (status.power_good & mask) != 0;
+
+            // A wild transceiver just appeared!  Read it to decide whether it's
+            // using SFF-8636 or CMIS.
+            if powered && self.thermal_models[i].is_none() {
+                match self.get_transceiver_interface(port) {
+                    Ok(interface) => {
+                        ringbuf_entry!(Trace::GotInterface(i, interface));
+                        self.thermal_models[i] = todo!();
+                    }
+                    Err(e) => {
+                        // Not much we can do here if reading failed
+                        ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                    }
+                }
+            } else if !powered && self.thermal_models[i].is_some() {
+                // This transceiver went away; remove it from the thermal loop
+                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
+                    ringbuf_entry!(Trace::ThermalError(i, e));
+                }
+
+                ringbuf_entry!(Trace::UnpluggedModule(i));
+                self.thermal_models[i] = None;
+            }
+        }
+
         for (i, m) in self.thermal_models.iter().enumerate() {
             let port = LogicalPort(i as u8);
             let m = match m {
@@ -210,17 +269,6 @@ impl ServerImpl {
                 None => continue,
             };
 
-            // Transceiver was removed, reset, or is in low-power mode; forget
-            // its thermal model
-            let mask = 1 << i;
-            if status.present & mask == 0
-                || status.reset & mask != 0
-                || status.lpmode_txdis & mask != 0
-            {
-                gone[i] = true;
-                continue;
-            }
-            use transceiver_messages::mgmt::ManagementInterface;
             let temperature = match m.interface {
                 ManagementInterface::Cmis => self.read_cmis_temperature(port),
                 ManagementInterface::Sff8636 => {
@@ -232,10 +280,8 @@ impl ServerImpl {
                 }
             };
             match temperature {
-                Err(e) => {
-                    ringbuf_entry!(Trace::TemperatureReadError(i, e));
-                }
                 Ok(t) => {
+                    // We got a temperature! Send it over to the thermal task
                     if let Err(e) = self
                         .thermal_api
                         .update_dynamic_input(i, now, m.model, t)
@@ -243,16 +289,14 @@ impl ServerImpl {
                         ringbuf_entry!(Trace::ThermalError(i, e));
                     }
                 }
-            }
-        }
-
-        // Second pass to remove sensors that have been removed, since we
-        // can't mutate `self.thermal_models` in the loop above.
-        for (i, gone) in gone.into_iter().enumerate() {
-            if gone {
-                self.thermal_models[i] = None;
-                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
-                    ringbuf_entry!(Trace::ThermalError(i, e));
+                Err(e) => {
+                    // We failed to read a temperature :(
+                    //
+                    // This could be because someone unplugged the transceiver
+                    // at exactly the right time, in which case, the error will
+                    // be transient (and we'll remove the transceiver on the
+                    // next pass through this function).
+                    ringbuf_entry!(Trace::TemperatureReadError(i, e));
                 }
             }
         }

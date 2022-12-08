@@ -278,35 +278,16 @@ impl ServerImpl {
             }
             HostRequest::SetPowerMode(mode) => {
                 let mask = get_mask(modules)?;
-                match mode {
-                    PowerMode::Off => {
-                        self.transceivers
-                            .set_power_state(PowerState::A3, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                    PowerMode::Low => {
-                        self.transceivers
-                            .set_power_state(PowerState::A2, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                    PowerMode::High => {
-                        self.transceivers
-                            .set_power_state(PowerState::A0, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                }
+                let state = match mode {
+                    PowerMode::Off => PowerState::A3,
+                    PowerMode::Low => PowerState::A2,
+                    PowerMode::High => PowerState::A0,
+                };
+                self.transceivers.set_power_state(state, mask).map_err(
+                    |_e| {
+                        Error::PowerModeFailed(HwError::ControlPortWriteFailed)
+                    },
+                )?;
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::ManagementInterface(i) => {
