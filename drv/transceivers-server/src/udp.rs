@@ -7,6 +7,9 @@
 //! This is in a separate module to avoid polluting `main.rs` with a bunch of
 //! imports from the `transceiver_messages` crate; it simply adds more functions
 //! to our existing `ServerImpl`.
+//!
+//! All of the API types in `transceiver_messages` operate on **physical**
+//! ports, i.e. an FPGA paired by a physical port index (or mask).
 use crate::ServerImpl;
 use drv_sidecar_front_io::{
     transceivers::{
