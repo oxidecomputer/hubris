@@ -113,6 +113,7 @@
 use drv_lpc55_syscon_api::*;
 use idol_runtime::RequestError;
 use lpc55_pac as device;
+use lpc55_rtc_counters::*;
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
 
@@ -132,6 +133,7 @@ macro_rules! clear_bit {
 
 struct ServerImpl<'a> {
     syscon: &'a device::syscon::RegisterBlock,
+    counters: RtcCounter,
 }
 
 impl idl::InOrderSysconImpl for ServerImpl<'_> {
@@ -195,11 +197,33 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
 
         Ok(())
     }
+
+    fn set_hubris_state(
+        &mut self,
+        _: &RecvMessage,
+        state: HubrisState,
+    ) -> Result<(), RequestError<SysconError>> {
+        self.counters.set_hubris_state(state);
+        Ok(())
+    }
+
+    fn get_hubris_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HubrisState, RequestError<SysconError>> {
+        Ok(self.counters.get_hubris_state())
+    }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
     let syscon = unsafe { &*device::SYSCON::ptr() };
+    let rtc = unsafe { &*device::RTC::ptr() };
+
+    syscon.ahbclkctrl0.modify(|_, w| w.rtc().enable());
+    syscon.presetctrl0.modify(|_, w| w.rtc_rst().released());
+
+    let counters = RtcCounter::from(rtc);
 
     // Turn on the 1Mhz clock for use with SWD SPI
     syscon
@@ -221,7 +245,7 @@ fn main() -> ! {
 
     set_reset_reason();
 
-    let mut server = ServerImpl { syscon };
+    let mut server = ServerImpl { syscon, counters };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
@@ -230,29 +254,15 @@ fn main() -> ! {
 }
 
 fn set_reset_reason() {
-    let pmc = unsafe { &*device::PMC::ptr() };
+    use lpc55_reset_reason::Lpc55ResetReason;
 
-    // The Reset Reason is stored in the AOREG1 register in the power
-    // management block. This crypticly named register is set based
-    // on another undocumented register in the power management space.
-    // Official documentation for these bits is is available in 13.4.13
-    // of v2.4 of UM11126
-
-    const POR: u32 = 1 << 4;
-    const PADRESET: u32 = 1 << 5;
-    const BODRESET: u32 = 1 << 6;
-    const SYSTEMRESET: u32 = 1 << 7;
-    const WDTRESET: u32 = 1 << 8;
-
-    let aoreg1 = pmc.aoreg1.read().bits();
-
-    let reason = match aoreg1 {
-        POR => ResetReason::PowerOn,
-        PADRESET => ResetReason::Pin,
-        BODRESET => ResetReason::Brownout,
-        SYSTEMRESET => ResetReason::SystemCall,
-        WDTRESET => ResetReason::SystemWatchdog,
-        _ => ResetReason::Other(aoreg1),
+    let reason = match lpc55_reset_reason::get_reset_reason() {
+        Lpc55ResetReason::PowerOn => ResetReason::PowerOn,
+        Lpc55ResetReason::Pin => ResetReason::Pin,
+        Lpc55ResetReason::BrownOut => ResetReason::Brownout,
+        Lpc55ResetReason::System => ResetReason::SystemCall,
+        Lpc55ResetReason::Watchdog => ResetReason::SystemWatchdog,
+        Lpc55ResetReason::Other(a) => ResetReason::Other(a),
     };
 
     Jefe::from(JEFE.get_task_id()).set_reset_reason(reason);
@@ -261,6 +271,7 @@ fn set_reset_reason() {
 mod idl {
     use super::SysconError;
     use drv_lpc55_syscon_api::Peripheral;
+    use lpc55_rtc_counters::HubrisState;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

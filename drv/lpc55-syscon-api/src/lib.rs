@@ -11,8 +11,9 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+pub use lpc55_rtc_counters::HubrisState;
+use serde::{Deserialize, Serialize};
 use userlib::*;
-use zerocopy::AsBytes;
 
 #[derive(Debug, FromPrimitive, IdolError)]
 #[repr(u32)]
@@ -31,7 +32,9 @@ pub enum SysconError {
 /// - `PRESETCTRL0[31:0]` are indices 31-0.
 /// - `PRESETCTRL1[31:0]` are indices 63-32.
 /// - `PRESETCTRL2[31:0]` are indices 64-96.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Debug, FromPrimitive, Deserialize, Serialize,
+)]
 #[repr(u32)]
 pub enum Peripheral {
     Rom = 1,

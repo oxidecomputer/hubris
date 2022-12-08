@@ -1,0 +1,12 @@
+[package]
+name = "lpc55-rtc-counters"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lpc55-pac = { workspace = true }
+num-traits = { workspace = true }
+num-derive = { workspace = true }
+zerocopy = { workspace = true }
+serde = { workspace = true}
+ssmarshal = { workspace = true }

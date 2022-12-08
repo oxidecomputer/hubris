@@ -10,6 +10,7 @@
 #![no_main]
 
 use core::convert::Infallible;
+use drv_lpc55_syscon_api::{HubrisState, Syscon};
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -32,11 +33,14 @@ enum UpdateState {
 struct ServerImpl {
     state: UpdateState,
     image: Option<UpdateTarget>,
+    syscon: Syscon,
 }
 
 const BLOCK_SIZE_BYTES: usize = FLASH_PAGE_SIZE;
 
 const MAX_LEASE: usize = 1024;
+
+task_slot!(SYSCON, syscon_driver);
 
 impl idl::InOrderUpdateImpl for ServerImpl {
     fn prep_image_update(
@@ -55,6 +59,16 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             }
             UpdateState::NoUpdate => (),
         }
+
+        match image_type {
+            UpdateTarget::ImageA => {
+                self.syscon.set_hubris_state(HubrisState::UpdateStartA)
+            }
+            UpdateTarget::ImageB => {
+                self.syscon.set_hubris_state(HubrisState::UpdateStartB)
+            }
+            _ => Ok(()),
+        };
 
         self.image = Some(image_type);
         self.state = UpdateState::InProgress;
@@ -150,6 +164,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
 
         self.state = UpdateState::Finished;
         self.image = None;
+        self.syscon.set_hubris_state(HubrisState::UpdatePending);
         Ok(())
     }
 
@@ -173,9 +188,12 @@ impl idl::InOrderUpdateImpl for ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
+    let syscon = Syscon::from(SYSCON.get_task_id());
+
     let mut server = ServerImpl {
         state: UpdateState::NoUpdate,
         image: None,
+        syscon,
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
 
