@@ -30,6 +30,9 @@ path = "sys/userlib"
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
 
+[patch.crates-io]
+smoltcp = { git = "https://github.com/oxidecomputer/smoltcp", branch = "v0.8.0" }
+
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 atty = { version = "0.2", default-features = false }
