@@ -1087,6 +1087,12 @@ fn configure_usart() -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
+    #[cfg(all(feature = "usart1", feature = "usart1-gimletlet"))]
+    compile_error!(concat!(
+        "at most one usart feature (`usart1`, `usart1-gimletlet`)",
+        " should be enabled",
+    ));
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
             const PINS: &[(PinSet, Alternate)] = &[(
