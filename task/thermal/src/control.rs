@@ -616,19 +616,29 @@ impl<'a> ThermalControl<'a> {
         }
     }
 
+    /// Returns an iterator over tuples of `(value, thermal model)`
+    ///
+    /// The `values` array must contain `static_inputs.len()` +
+    /// `dynamic_inputs.len()` values, in that order; this function will panic
+    /// otherwise.
+    ///
+    /// In cases where dynamic inputs are not present (i.e. they are `None` in
+    /// the array), the iterator will skip that entire tuple.
     fn zip_temperatures<'b, T>(
         values: &'b [T],
-        inputs: (&'b [InputChannel], &'b [Option<DynamicInputChannel>]),
+        (static_inputs, dynamic_inputs): (
+            &'b [InputChannel],
+            &'b [Option<DynamicInputChannel>],
+        ),
     ) -> impl Iterator<Item = (&'b T, ThermalProperties)> {
         assert_eq!(values.len(), inputs.0.len() + inputs.1.len());
         values
             .iter()
             .zip(
-                inputs
-                    .0
+                static_inputs
                     .iter()
                     .map(|i| Some(i.model))
-                    .chain(inputs.1.iter().map(|i| i.map(|i| i.model))),
+                    .chain(dynamic_inputs.iter().map(|i| i.map(|i| i.model))),
             )
             .filter_map(|(v, model)| model.map(|t| (v, t)))
     }
@@ -692,8 +702,13 @@ impl<'a> ThermalControl<'a> {
                         self.target_margin.0 - worst_margin,
                         100.0,
                     );
+                    // It's possible to enter `Running` with `None` values for
+                    // **inactive dynamic** sensors, since inactive dynamic
+                    // sensors are skipped in `zip_temperatures`; we convert
+                    // them to `Inactive` here.
                     self.state = ThermalControlState::Running {
-                        values: values.map(|i| i.unwrap()),
+                        values: values
+                            .map(|i| i.unwrap_or(TemperatureReading::Inactive)),
                         pid,
                     };
                     ringbuf_entry!(Trace::AutoState(self.get_state()));

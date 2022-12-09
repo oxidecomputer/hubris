@@ -11,7 +11,7 @@ use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
-use drv_sidecar_seq_api::{Sequencer, TofinoSequencerPolicy};
+use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId};
@@ -39,7 +39,7 @@ pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 32;
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // The Sidecar controller hasn't been tuned yet, so boot into manual mode
-pub const USE_CONTROLLER: bool = false;
+pub const USE_CONTROLLER: bool = true;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -120,13 +120,13 @@ impl Bsp {
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
-        match self.seq.tofino_seq_policy() {
+        match self.seq.tofino_seq_state() {
             Ok(r) => match r {
-                TofinoSequencerPolicy::LatchOffOnFault => PowerBitmask::A0,
-                TofinoSequencerPolicy::Disabled => PowerBitmask::A2,
-
-                // RestartOnFault is not yet implemented
-                TofinoSequencerPolicy::RestartOnFault => PowerBitmask::A0_OR_A2,
+                TofinoSeqState::A0 => PowerBitmask::A0,
+                TofinoSeqState::Init
+                | TofinoSeqState::A2
+                | TofinoSeqState::InPowerUp
+                | TofinoSeqState::InPowerDown => PowerBitmask::A2,
             },
             Err(_) => PowerBitmask::A0_OR_A2,
         }
@@ -160,14 +160,12 @@ impl Bsp {
             fctrl_east,
             fctrl_west,
 
-            // TODO: this is all made up
+            // TODO: this is all made up, copied from tuned Gimlet values
             pid_config: PidConfig {
-                // If we're > 10 degrees from the target temperature, fans
-                // should be on at full power.
-                zero: 0.0,
-                gain_p: 10.0,
-                gain_i: 0.0,
-                gain_d: 0.0,
+                zero: 35.0,
+                gain_p: 1.75,
+                gain_i: 0.0135,
+                gain_d: 0.4,
             },
 
             inputs: &INPUTS,
