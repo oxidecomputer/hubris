@@ -64,6 +64,19 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+////////////////////////////////////////////////////////////////////////////////
+// Separate ringbuf for temperature logging, until we have a Grand Unified
+// Sensors task that can accept non-I2C sensors.
+#[allow(dead_code)]
+#[derive(Copy, Clone, PartialEq)]
+enum Temperature {
+    None,
+    Temperature(usize, Celsius),
+}
+ringbuf!(TEMPERATURES, Temperature, 32, Temperature::None);
+
+////////////////////////////////////////////////////////////////////////////////
+
 struct ServerImpl {
     transceivers: Transceivers,
     leds: Leds,
@@ -225,6 +238,7 @@ impl ServerImpl {
             }
         } else {
             // TODO: how should we handle this?
+            // Right now, we'll retry on the next pass through the loop.
             Err(FpgaError::ImplError(0))
         }
     }
@@ -290,6 +304,10 @@ impl ServerImpl {
             };
             match temperature {
                 Ok(t) => {
+                    ringbuf_entry!(
+                        TEMPERATURES,
+                        Temperature::Temperature(i, t)
+                    );
                     // We got a temperature! Send it over to the thermal task
                     if let Err(e) = self
                         .thermal_api

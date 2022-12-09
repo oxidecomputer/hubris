@@ -631,7 +631,7 @@ impl<'a> ThermalControl<'a> {
             &'b [Option<DynamicInputChannel>],
         ),
     ) -> impl Iterator<Item = (&'b T, ThermalProperties)> {
-        assert_eq!(values.len(), inputs.0.len() + inputs.1.len());
+        assert_eq!(values.len(), static_inputs.len() + dynamic_inputs.len());
         values
             .iter()
             .zip(
