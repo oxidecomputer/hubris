@@ -163,7 +163,7 @@ impl<'s> CircQ<'s> {
     /// ```
     ///
     /// (Note that if you find yourself doing _exactly that,_ the
-    /// [`Self::dequeue`] function has you covered.)
+    /// [`Self::enqueue`] function has you covered.)
     ///
     /// You are expected to initialize the contents of the two slices. If you
     /// fail to do that, the queue will contain `n` bytes of some arbitrary data
@@ -179,7 +179,7 @@ impl<'s> CircQ<'s> {
         let backlen = self.backing.len();
 
         let result = region_mut(self.backing, n, self.head, self.tail);
-        self.head = (self.head + n) % backlen;
+        self.head = circular_add(self.head, n, backlen);
         self.available += n;
 
         Ok(result)
@@ -228,7 +228,7 @@ impl<'s> CircQ<'s> {
 
         let result = region_mut(self.backing, n, self.tail, self.head);
 
-        self.tail = (self.tail + n) % backlen;
+        self.tail = circular_add(self.tail, n, backlen);
         self.available -= n;
 
         Ok(result)
@@ -246,7 +246,7 @@ fn region_mut(backing: &mut [u8], n: usize, from: usize, to: usize) -> (&mut [u8
     if from < to {
         // Our entire region can be contiguous.
         debug_assert!(to - from >= n);
-        (&mut backing[from..from + n], &mut [][..])
+        (&mut backing[from..from + n], &mut [])
     } else {
         // We may need to contiguous regions.
         // Compute the size of contiguous region available starting at
@@ -262,6 +262,14 @@ fn region_mut(backing: &mut [u8], n: usize, from: usize, to: usize) -> (&mut [u8
         let second = &mut second_plus[..second_len];
         (first, second)
     }
+}
+
+/// Common code for doing circular arithmetic without assuming hardware divide.
+fn circular_add(a: usize, b: usize, limit: usize) -> usize {
+    let n = a + b;
+    // This slightly weird formulation avoids generating an overflow panic that
+    // the compiler would have to optimize away.
+    n.checked_sub(limit).unwrap_or(n)
 }
 
 #[cfg(test)]
