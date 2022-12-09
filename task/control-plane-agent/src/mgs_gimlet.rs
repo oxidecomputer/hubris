@@ -899,13 +899,16 @@ impl UsartHandler {
     fn set_client(&mut self, client: UartClient) {
         self.client = client;
 
-        if client == UartClient::Humility {
-            // We never flush to humility; it polls us.
-            self.from_rx_flush_deadline = None;
-        } else {
-            // Humility might've disabled the rx interrupt if our rx buffer
-            // filled; re-enable it.
-            self.usart.enable_rx_interrupt();
+        match client {
+            UartClient::Humility => {
+                // We never flush to humility; it polls us.
+                self.from_rx_flush_deadline = None;
+            }
+            UartClient::Mgs => {
+                // Humility might've disabled the rx interrupt if our rx buffer
+                // filled; re-enable it.
+                self.usart.enable_rx_interrupt();
+            }
         }
     }
 
@@ -1001,43 +1004,50 @@ impl UsartHandler {
 
         // If our client is Humility, we only want to read from the usart if we
         // have room in our buffer (i.e., we want to make use of flow control
-        // because Humility is a _very slow_ reader).
+        // because Humility is a _very slow_ reader). By refusing to read from
+        // the RX FIFO in such a case, we'll get flow control (because we enable
+        // hardware flow control, which is automatic based on the FIFO
+        // fullness).
         //
         // If our client is MGS (the default), we always recv as much as we can
         // from the USART FIFO, even if that means discarding old data. If an
         // MGS instance is actually attached, we should be flushing packets out
         // to it fast enough that we don't see this in practice.
-        if self.client == UartClient::Humility {
-            while !self.from_rx.is_full() {
-                let Some(b) = self.usart.try_rx_pop() else {
+        match self.client {
+            UartClient::Humility => {
+                while !self.from_rx.is_full() {
+                    let Some(b) = self.usart.try_rx_pop() else {
                     break;
                 };
-                self.from_rx.push_back(b).unwrap_lite();
-                n_received += 1;
-            }
+                    self.from_rx.push_back(b).unwrap_lite();
+                    n_received += 1;
+                }
 
-            if self.from_rx.is_full() {
-                // If our buffer is full, we need to disable the RX interrupt
-                // until Humility makes space (or detaches). We'll re-enable the
-                // rx interrupt in either:
-                //
-                // 1. `uart_read()` when Humility polls us for data
-                // 2. `set_client()` if our client is set back to Mgs
-                self.usart.disable_rx_interrupt();
+                if self.from_rx.is_full() {
+                    // If our buffer is full, we need to disable the RX
+                    // interrupt until Humility makes space (or detaches). We'll
+                    // re-enable the rx interrupt in either:
+                    //
+                    // 1. `uart_read()` when Humility polls us for data
+                    // 2. `set_client()` if our client is set back to Mgs
+                    self.usart.disable_rx_interrupt();
+                }
             }
-        } else {
-            while let Some(b) = self.usart.try_rx_pop() {
-                n_received += 1;
-                match self.from_rx.push_back(b) {
-                    Ok(()) => (),
-                    Err(b) => {
-                        // If `push_back` failed, we know there is at least one
-                        // item, allowing us to unwrap `pop_front`. At that
-                        // point we know there's space for at least one,
-                        // allowing us to unwrap a subsequent `push_back`.
-                        self.from_rx.pop_front().unwrap_lite();
-                        self.from_rx.push_back(b).unwrap_lite();
-                        discarded_data += 1;
+            UartClient::Mgs => {
+                while let Some(b) = self.usart.try_rx_pop() {
+                    n_received += 1;
+                    match self.from_rx.push_back(b) {
+                        Ok(()) => (),
+                        Err(b) => {
+                            // If `push_back` failed, we know there is at least
+                            // one item, allowing us to unwrap `pop_front`. At
+                            // that point we know there's space for at least
+                            // one, allowing us to unwrap a subsequent
+                            // `push_back`.
+                            self.from_rx.pop_front().unwrap_lite();
+                            self.from_rx.push_back(b).unwrap_lite();
+                            discarded_data += 1;
+                        }
                     }
                 }
             }
