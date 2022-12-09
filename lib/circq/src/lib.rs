@@ -265,6 +265,17 @@ fn region_mut(backing: &mut [u8], n: usize, from: usize, to: usize) -> (&mut [u8
 }
 
 /// Common code for doing circular arithmetic without assuming hardware divide.
+///
+/// This implementation is only correct if:
+///
+/// - `a < limit`
+/// - `b < limit`
+/// - `a + b < 2 * limit`
+///
+/// Otherwise the result may be larger than `limit`.
+///
+/// This property is ensured by all callsites in this module, but keep this in
+/// mind before you copy-paste this code somewhere else.
 fn circular_add(a: usize, b: usize, limit: usize) -> usize {
     let n = a + b;
     // This slightly weird formulation avoids generating an overflow panic that
