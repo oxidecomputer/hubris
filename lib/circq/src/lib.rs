@@ -99,10 +99,75 @@ impl<'s> CircQ<'s> {
     /// Enqueue a new block of `n` bytes but _do not write it yet._
     ///
     /// If space is available, returns two mutable slice references, whose
-    /// lengths will _sum_ to `n`; the second one may be empty. You are expected
-    /// to initialize the contents of these slices. If you fail to do that, the
-    /// queue will contain `n` bytes of some arbitrary data (likely earlier
-    /// messages).
+    /// lengths will _sum_ to `n`; the second one may be empty. The data you are
+    /// enqueueing should be written to the first slice, and then the second, in
+    /// that order. Here are two examples.
+    ///
+    /// First: if the current head position of the queue is `n` bytes or more
+    /// away from the end of backing memory, then your request can be handled
+    /// using contiguous RAM, yay:
+    ///
+    /// ```text
+    ///
+    ///    0                       S
+    ///    +-----------------------+
+    ///    |       memory          |
+    ///    +-----------------------+
+    ///           ^-----------^
+    ///           head        head+n
+    /// ```
+    ///
+    /// In this case, the first slice returned will be `n` bytes long, and the
+    /// second will be empty.
+    ///
+    /// Second: if this is _not_ true, your request wraps around the backing
+    /// memory, and the data you're enqueuing will go into two discontiguous
+    /// areas:
+    ///
+    /// ```text
+    ///
+    ///    0                       S
+    ///    +-----------------------+
+    ///    |       memory          |
+    ///    +-----------------------+
+    ///    --^                ^-----
+    ///      (head+n) % S     head  
+    ///    \_/                \____/
+    ///     second            first
+    /// ```
+    ///
+    /// In this case, the _first_ slice returned will start at the head pointer
+    /// and continue to the end of backing memory, and the _second_ will start
+    /// at the base of backing memory.
+    ///
+    /// This API is designed so that you, the client, don't have to think about
+    /// these two cases. Instead, write your data to the two slices in turn.
+    /// Generic code for doing this (assuming your data is in memory, so we can
+    /// use slice copies) looks like this:
+    ///
+    /// ```rust
+    /// # use circq::*;
+    /// # fn main() -> Result<(), QueueFull> {
+    /// # let mut backing = [0; 20];
+    /// # let mut q = CircQ::new(&mut backing);
+    ///
+    /// let my_data = b"hello, world";
+    ///
+    /// let (first, second) = q.enqueue_space(my_data.len())?;
+    /// let (data1, data2) = my_data.split_at(first.len());
+    /// first.copy_from_slice(data1);
+    /// second.copy_from_slice(data2);
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// (Note that if you find yourself doing _exactly that,_ the
+    /// [`Self::dequeue`] function has you covered.)
+    ///
+    /// You are expected to initialize the contents of the two slices. If you
+    /// fail to do that, the queue will contain `n` bytes of some arbitrary data
+    /// (likely earlier messages).
     ///
     /// Once `enqueue_space` has returned, the queue head pointer has been
     /// bumped to contain `n` more bytes; there is no way to "undo" this.
@@ -138,13 +203,22 @@ impl<'s> CircQ<'s> {
         Ok(())
     }
 
-    /// Takes `n` bytes from the queue and returns a reference to them.
+    /// Takes `n` bytes from the queue and returns a reference to them as a pair
+    /// of slices, to support cases where the `n` bytes are not contiguous in
+    /// memory. The lengths of the two returned slices sum to `n`.
     ///
-    /// Specifically, if `n` bytes are available, `dequeue_space` will return a
-    /// _pair_ of slice references, whose lengths sum to `n`. The second slice
-    /// may be empty. Copy or interpret the data referenced by the slices and
-    /// then drop them -- you must drop them before doing anything else to the
-    /// queue.
+    /// If your data is going into RAM and you're just going to copy it out of
+    /// the queue, see [`Self::dequeue`], which does just that.
+    ///
+    /// The behavior of this function is _almost identical_ to
+    /// [`Self::enqueue_space`], except that data is taken starting at the tail
+    /// pointer instead of the head pointer, and you're expected to read rather
+    /// than write the data (though you may write it if you wish, it's no longer
+    /// being used). See [`Self::enqueue_space`] for nice diagrams.
+    ///
+    /// Copy or interpret the data referenced by the slices and then drop them
+    /// -- the compiler will ensure that you drop them before doing anything
+    /// else to the queue.
     pub fn dequeue_space(&mut self, n: usize) -> Result<(&mut [u8], &mut [u8]), QueueNotFullEnough> {
         if n > self.available() {
             return Err(QueueNotFullEnough);
