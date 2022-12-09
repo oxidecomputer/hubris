@@ -274,8 +274,8 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-transceivers-server"
 features = ["vlan"]
 priority = 6
-max-sizes = {flash = 65536, ram = 8192}
-stacksize = 2048
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
 start = true
 task-slots = [
     "i2c_driver",
@@ -301,8 +301,8 @@ task-slots = [
 name = "task-thermal"
 features = ["itm", "sidecar"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 4504
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 8096
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]
 
