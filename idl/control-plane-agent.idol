@@ -63,5 +63,41 @@ Interface(
             reply: Simple("Identity"),
             idempotent: true,
         ),
+        "get_uart_client": (
+            doc: "Get which UART client (MGS or Humility) is allowed to be active.",
+            encoding: Ssmarshal,
+            reply: Simple("UartClient"),
+            idempotent: true,
+        ),
+        "set_humility_uart_client": (
+            doc: "Attach or detach Humility as the host serial console client.",
+            args: {
+                "attach": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ControlPlaneAgentError"),
+            ),
+        ),
+        "uart_read": (
+            doc: "Read buffered bytes from the host console uart.",
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("ControlPlaneAgentError"),
+            ),
+        ),
+        "uart_write": (
+            doc: "Enqueue bytes to send to the host console uart.",
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("ControlPlaneAgentError"),
+            ),
+        ),
     },
 )
