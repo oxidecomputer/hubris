@@ -1087,23 +1087,12 @@ fn configure_usart() -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
-    #[cfg(feature = "hardware_flow_control")]
-    let hardware_flow_control = true;
-
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
-            const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
-                        &[(
-                            Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
-                            Alternate::AF7
-                        )]
-                    } else {
-                        compile_error!("hardware_flow_control feature must be enabled");
-                    }
-                }
-            };
+            const PINS: &[(PinSet, Alternate)] = &[(
+                Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
+                Alternate::AF7
+            )];
 
             // From thin air, pluck a pointer to the USART register block.
             //
@@ -1115,18 +1104,10 @@ fn configure_usart() -> Usart {
             let peripheral = Peripheral::Usart1;
             let pins = PINS;
         } else if #[cfg(feature = "usart1-gimletlet")] {
-            const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
-                        &[
-                            (Port::A.pin(11).and_pin(12), Alternate::AF7),
-                            (Port::B.pin(6).and_pin(7), Alternate::AF7),
-                        ]
-                    } else {
-                        compile_error!("hardware_flow_control feature must be enabled");
-                    }
-                }
-            };
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::A.pin(11).and_pin(12), Alternate::AF7),
+                (Port::B.pin(6).and_pin(7), Alternate::AF7),
+            ];
 
             // From thin air, pluck a pointer to the USART register block.
             //
@@ -1149,7 +1130,7 @@ fn configure_usart() -> Usart {
         pins,
         CLOCK_HZ,
         BAUD_RATE,
-        hardware_flow_control,
+        true, // hardware_flow_control
     )
 }
 

@@ -261,7 +261,6 @@ features = [
     "usart1",
     "vlan",
     "baud_rate_3M",
-    "hardware_flow_control",
     "vpd-identity",
 ]
 interrupts = {"usart1.irq" = 0b10}
