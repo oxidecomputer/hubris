@@ -13,7 +13,9 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::{ControlPlaneAgentError, Identity};
+use task_control_plane_agent_api::{
+    ControlPlaneAgentError, Identity, UartClient,
+};
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
@@ -46,13 +48,10 @@ task_slot!(I2C, i2c_driver);
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
-    Wake(u32),
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),
-    UsartTx { num_bytes: usize },
     UsartTxFull { remaining: usize },
-    UsartRx { num_bytes: usize },
     UsartRxOverrun,
     UsartRxBufferDataDropped { num_bytes: u64 },
     SerialConsoleSend { buffered: usize },
@@ -240,8 +239,6 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        ringbuf_entry!(Log::Wake(bits));
-
         if (bits & USART_IRQ) != 0 {
             self.mgs_handler.drive_usart();
         }
@@ -314,6 +311,89 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         let id = Identity::default();
 
         Ok(id)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        Ok(self.mgs_handler.uart_client())
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn set_humility_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        attach: bool,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        let client = if attach {
+            UartClient::Humility
+        } else {
+            UartClient::Mgs
+        };
+        Ok(self.mgs_handler.set_uart_client(client)?)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn uart_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.uart_read(data)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn uart_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.uart_write(data)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        // This operation is idempotent and infallible, but we don't actually
+        // have a uart. Just always report "MGS" (the default for gimlets).
+        Ok(UartClient::Mgs)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn set_humility_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _attach: bool,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn uart_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn uart_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
     }
 }
 
@@ -456,7 +536,7 @@ const fn usize_max(a: usize, b: usize) -> usize {
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions, Identity,
+        ControlPlaneAgentError, HostStartupOptions, Identity, UartClient,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

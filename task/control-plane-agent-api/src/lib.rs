@@ -8,6 +8,7 @@
 
 use derive_idol_err::IdolError;
 pub use host_sp_messages::HostStartupOptions;
+use serde::{Deserialize, Serialize};
 use static_assertions::const_assert;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
@@ -16,6 +17,14 @@ use zerocopy::{AsBytes, FromBytes};
 pub enum ControlPlaneAgentError {
     DataUnavailable = 1,
     InvalidStartupOptions,
+    OperationUnsupported,
+    MgsAttachedToUart,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UartClient {
+    Mgs,
+    Humility,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, FromBytes, AsBytes)]

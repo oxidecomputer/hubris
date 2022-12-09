@@ -237,7 +237,7 @@ features = ["vlan"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
-max-sizes = {flash = 65536, ram = 16384}
+max-sizes = {flash = 131072, ram = 16384}
 stacksize = 4096
 start = true
 uses = [
@@ -261,7 +261,6 @@ features = [
     "usart1",
     "vlan",
     "baud_rate_3M",
-    "hardware_flow_control",
     "vpd-identity",
 ]
 interrupts = {"usart1.irq" = 0b10}
