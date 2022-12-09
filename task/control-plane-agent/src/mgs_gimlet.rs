@@ -260,7 +260,7 @@ impl MgsHandler {
     pub(crate) fn uart_read(
         &mut self,
         data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, ControlPlaneAgentError> {
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
         // This function is only called by humility; switch control to it.
         self.set_uart_client(UartClient::Humility)?;
 
@@ -270,9 +270,8 @@ impl MgsHandler {
                 break;
             };
 
-            if data.write_at(i, b).is_err() {
-                break;
-            }
+            data.write_at(i, b)
+                .map_err(|()| RequestError::went_away())?;
 
             i += 1;
         }
@@ -291,7 +290,7 @@ impl MgsHandler {
     pub(crate) fn uart_write(
         &mut self,
         data: Leased<idol_runtime::R, [u8]>,
-    ) -> Result<usize, ControlPlaneAgentError> {
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
         const CHUNK_SIZE: usize = 32;
 
         // This function is only called by humility; switch control to it.
@@ -306,9 +305,8 @@ impl MgsHandler {
                 self.usart.tx_buffer_remaining_capacity(),
                 usize::min(CHUNK_SIZE, data.len() - i),
             );
-            if data.read_range(i..i + n, &mut chunk[..n]).is_err() {
-                return Ok(i);
-            }
+            data.read_range(i..i + n, &mut chunk[..n])
+                .map_err(|()| RequestError::went_away())?;
             self.usart.tx_buffer_append(&chunk[..n]);
             i += n;
         }

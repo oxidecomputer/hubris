@@ -341,7 +341,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
-        Ok(self.mgs_handler.uart_read(data)?)
+        self.mgs_handler.uart_read(data)
     }
 
     #[cfg(feature = "gimlet")]
@@ -350,7 +350,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
-        Ok(self.mgs_handler.uart_write(data)?)
+        self.mgs_handler.uart_write(data)
     }
 
     #[cfg(not(feature = "gimlet"))]
