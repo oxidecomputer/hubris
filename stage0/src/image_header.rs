@@ -5,6 +5,14 @@
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
+use core::ops::Range;
+use dice_crate::{Handoff, HandoffData};
+use hubpack::SerializedSize;
+use lpc55_pac::Peripherals;
+use serde::{Deserialize, Serialize};
+use sha3::{Digest, Sha3_256};
+use unwrap_lite::UnwrapLite;
+
 extern "C" {
     static IMAGEA: abi::ImageVectors;
     static IMAGEB: abi::ImageVectors;
@@ -71,12 +79,12 @@ impl Image {
         self.0 as *const ImageVectors as u32
     }
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    //  #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     fn get_img_size(&self) -> Option<usize> {
         usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
     }
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    //    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     pub fn as_bytes(&self) -> &[u8] {
         use unwrap_lite::UnwrapLite;
 
@@ -157,6 +165,17 @@ impl Image {
         header.version
     }
 
+    // TODO(AJS): Replace get_version with this?
+    pub fn get_image_version(&self) -> ImageVersion {
+        // SAFETY: We checked this previously
+        let header = unsafe { &*self.get_header() };
+
+        ImageVersion {
+            epoch: header.epoch,
+            version: header.version,
+        }
+    }
+
     #[cfg(feature = "tz_support")]
     pub fn get_sau_entry<'a>(&self, i: usize) -> Option<&'a abi::SAUEntry> {
         // SAFETY: We checked this previously
@@ -164,4 +183,95 @@ impl Image {
 
         header.sau_entries.get(i)
     }
+}
+
+pub fn select_image_to_boot() -> (Image, RotSlot) {
+    let (imagea, imageb) = (get_image_a(), get_image_b());
+
+    // Image selection is very simple at the moment
+    // Future work: check persistent state and epochs
+    match (imagea, imageb) {
+        (None, None) => panic!(),
+        (Some(a), None) => (a, RotSlot::A),
+        (None, Some(b)) => (b, RotSlot::B),
+        (Some(a), Some(b)) => {
+            if a.get_version() > b.get_version() {
+                (a, RotSlot::A)
+            } else {
+                (b, RotSlot::B)
+            }
+        }
+    }
+}
+
+/// Handoff Image metadata to USB SRAM
+///
+/// TODO(AJS): Currently this uses the whole range used by DICE. We should
+/// unify the Handoff information with DICE and just put the Image information
+/// after the DICE stuff.
+pub fn dump_image_details_to_ram() {
+    // TODO(AJS): This is copied verbatim from `fn run` in stage0/src/dice.
+    // This also should be unified with the DICE stuff
+    let peripherals = Peripherals::take().unwrap_lite();
+    let handoff = Handoff::turn_on(&peripherals.SYSCON);
+
+    let a = get_image_a().map(image_details);
+    let b = get_image_b().map(image_details);
+    let (_, active) = select_image_to_boot();
+
+    let details = RotFlashDetails {
+        magic: RotFlashDetails::EXPECTED_MAGIC,
+        active,
+        a,
+        b,
+    };
+
+    handoff.store(&details);
+}
+
+fn image_details(img: Image) -> RotImageDetails {
+    // Compute the digest
+    let digest = Sha3_256::digest(img.as_bytes()).try_into().unwrap_lite();
+    RotImageDetails {
+        digest,
+        version: img.get_image_version(),
+    }
+}
+
+unsafe impl HandoffData for RotFlashDetails {
+    const EXPECTED_MAGIC: [u8; 16] = *b"ohhellofromflash";
+    const MEM_RANGE: Range<usize> = 0x4010_0000..0x4010_4000;
+
+    fn get_magic(&self) -> [u8; 16] {
+        self.magic
+    }
+}
+
+/// TODO(AJS): This data needs to be made available to the update server,
+/// sprot, etc... so the type should live elsewhere.
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct RotFlashDetails {
+    magic: [u8; 16],
+    active: RotSlot,
+    a: Option<RotImageDetails>,
+    b: Option<RotImageDetails>,
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct RotImageDetails {
+    digest: [u8; 32],
+    version: ImageVersion,
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct ImageVersion {
+    epoch: u32,
+    version: u32,
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub enum RotSlot {
+    Stage0 = 0,
+    A = 1,
+    B = 2,
 }

@@ -155,23 +155,8 @@ fn main() -> ! {
         panic!()
     }
 
-    let (imagea, imageb) =
-        (image_header::get_image_a(), image_header::get_image_b());
-
-    // Image selection is very simple at the moment
-    // Future work: check persistent state and epochs
-    let image = match (imagea, imageb) {
-        (None, None) => panic!(),
-        (Some(a), None) => a,
-        (None, Some(b)) => b,
-        (Some(a), Some(b)) => {
-            if a.get_version() > b.get_version() {
-                a
-            } else {
-                b
-            }
-        }
-    };
+    let (image, _) = image_header::select_image_to_boot();
+    image_header::dump_image_details_to_ram();
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     dice::run(&image);
