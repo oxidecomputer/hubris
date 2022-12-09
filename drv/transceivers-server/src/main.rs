@@ -220,7 +220,7 @@ impl ServerImpl {
         if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
             match out[1] {
                 0x1E => Ok(ManagementInterface::Cmis),
-                0x0D => Ok(ManagementInterface::Sff8636),
+                0x0D | 0x11 => Ok(ManagementInterface::Sff8636),
                 i => Ok(ManagementInterface::Unknown(i)),
             }
         } else {
