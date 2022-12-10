@@ -724,6 +724,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "sha3",
+ "stage0-handoff",
  "static_assertions",
  "unwrap-lite",
  "zerocopy",
@@ -3597,10 +3598,21 @@ dependencies = [
  "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
  "serde",
  "sha3",
+ "stage0-handoff",
  "static_assertions",
  "toml",
  "unwrap-lite",
  "zerocopy",
+]
+
+[[package]]
+name = "stage0-handoff"
+version = "0.1.0"
+dependencies = [
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lpc55-pac",
+ "serde",
+ "static_assertions",
 ]
 
 [[package]]

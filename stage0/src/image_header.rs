@@ -6,11 +6,11 @@ use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
 use core::ops::Range;
-use dice_crate::{Handoff, HandoffData};
 use hubpack::SerializedSize;
 use lpc55_pac::Peripherals;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
+use stage0_handoff::{Handoff, HandoffData};
 use unwrap_lite::UnwrapLite;
 
 extern "C" {
@@ -86,8 +86,6 @@ impl Image {
 
     //    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     pub fn as_bytes(&self) -> &[u8] {
-        use unwrap_lite::UnwrapLite;
-
         let img_ptr = self.get_img_start() as *const u8;
         let img_size = self.get_img_size().unwrap_lite();
         unsafe { core::slice::from_raw_parts(img_ptr, img_size) }
@@ -219,12 +217,7 @@ pub fn dump_image_details_to_ram() {
     let b = get_image_b().map(image_details);
     let (_, active) = select_image_to_boot();
 
-    let details = RotFlashDetails {
-        magic: RotFlashDetails::EXPECTED_MAGIC,
-        active,
-        a,
-        b,
-    };
+    let details = RotFlashDetails { active, a, b };
 
     handoff.store(&details);
 }
@@ -239,19 +232,15 @@ fn image_details(img: Image) -> RotImageDetails {
 }
 
 unsafe impl HandoffData for RotFlashDetails {
-    const EXPECTED_MAGIC: [u8; 16] = *b"ohhellofromflash";
+    const VERSION: u32 = 0;
+    const MAGIC: [u8; 12] = *b"havesomedata";
     const MEM_RANGE: Range<usize> = 0x4010_0000..0x4010_4000;
-
-    fn get_magic(&self) -> [u8; 16] {
-        self.magic
-    }
 }
 
 /// TODO(AJS): This data needs to be made available to the update server,
 /// sprot, etc... so the type should live elsewhere.
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct RotFlashDetails {
-    magic: [u8; 16],
     active: RotSlot,
     a: Option<RotImageDetails>,
     b: Option<RotImageDetails>,

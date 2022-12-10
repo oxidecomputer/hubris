@@ -6,13 +6,13 @@ use crate::image_header::Image;
 use core::convert::TryInto;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
-    DeviceIdOkm, Handoff, RngData, RngSeed, SeedBuf, SerialNumber,
-    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
-    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
+    SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 use sha3::{Digest, Sha3_256};
+use stage0_handoff::Handoff;
 use unwrap_lite::UnwrapLite;
 
 #[cfg(feature = "dice-self")]

@@ -3,9 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dice::SerialNumbers;
-use dice_crate::{CertData, DeviceIdSelfMfg, DiceMfg, Handoff};
+use dice_crate::{CertData, DeviceIdSelfMfg, DiceMfg};
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
+use stage0_handoff::Handoff;
 
 pub fn gen_mfg_artifacts(
     deviceid_keypair: &Keypair,
