@@ -161,8 +161,6 @@ fn main() -> ! {
     let mut status = Status {
         supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-        epoch: 0,
-        version: 0,
         buffer_size: BUF_SIZE as u32,
         rx_received: 0,
         rx_overrun: 0,
@@ -176,10 +174,6 @@ fn main() -> ! {
         status: &mut status,
         handler: &mut handler::new(),
     };
-
-    let image_version = server.handler.update.current_version();
-    server.status.epoch = image_version.epoch;
-    server.status.version = image_version.version;
 
     let mut transmit = false;
 

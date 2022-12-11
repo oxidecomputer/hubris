@@ -83,7 +83,9 @@ impl<'a> Handoff<'a> {
 }
 
 /// The error returned when `HandoffData::load` fails.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub enum HandoffDataLoadError {
     Deserialize,
     BadMagic,

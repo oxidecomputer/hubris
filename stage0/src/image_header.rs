@@ -5,7 +5,6 @@
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
-use lpc55_pac::Peripherals;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{
     Handoff, ImageVersion, RotImageDetails, RotSlot, RotUpdateDetails,
@@ -202,15 +201,7 @@ pub fn select_image_to_boot() -> (Image, RotSlot) {
 }
 
 /// Handoff Image metadata to USB SRAM
-pub fn dump_image_details_to_ram() {
-    // Turn on the memory used by the handoff subsystem to dump
-    // `RotUpdateDetails` and DICE information required by hubris.
-    //
-    // This allows hubris tasks to always get valid memory, even if it is all
-    // 0's.
-    let peripherals = Peripherals::take().unwrap_lite();
-    let handoff = Handoff::turn_on(&peripherals.SYSCON);
-
+pub fn dump_image_details_to_ram(handoff: &Handoff) {
     let a = get_image_a().map(image_details);
     let b = get_image_b().map(image_details);
     let (_, active) = select_image_to_boot();

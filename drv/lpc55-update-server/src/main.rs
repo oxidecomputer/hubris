@@ -10,9 +10,10 @@
 #![no_main]
 
 use core::convert::Infallible;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use stage0_handoff::{HandoffData, RotUpdateDetails};
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -160,14 +161,15 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         Ok(BLOCK_SIZE_BYTES)
     }
 
-    fn current_version(
+    fn status(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<ImageVersion, RequestError<Infallible>> {
-        Ok(ImageVersion {
-            epoch: HUBRIS_BUILD_EPOCH,
-            version: HUBRIS_BUILD_VERSION,
-        })
+    ) -> Result<UpdateStatus, RequestError<Infallible>> {
+        let status = match RotUpdateDetails::load() {
+            Ok(details) => UpdateStatus::Rot(details),
+            Err(e) => UpdateStatus::LoadError(e),
+        };
+        Ok(status)
     }
 }
 
@@ -184,9 +186,8 @@ fn main() -> ! {
     }
 }
 
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateTarget};
+    use super::{UpdateError, UpdateStatus, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

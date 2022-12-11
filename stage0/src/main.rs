@@ -12,8 +12,11 @@ use core::arch;
 
 extern crate lpc55_pac;
 extern crate panic_halt;
-use cortex_m::peripheral::Peripherals;
+use cortex_m::peripheral::Peripherals as CorePeripherals;
 use cortex_m_rt::entry;
+use lpc55_pac::Peripherals;
+use stage0_handoff::Handoff;
+use unwrap_lite::UnwrapLite;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "dice-mfg")] {
@@ -77,7 +80,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 
     core::ptr::write_volatile(sau_ctrl, 1);
 
-    let mut peripherals = Peripherals::steal();
+    let mut peripherals = CorePeripherals::steal();
 
     // let co processor be non-secure
     core::ptr::write_volatile(0xE000ED8C as *mut u32, 0xc00);
@@ -120,7 +123,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 
 #[cfg(not(feature = "tz_support"))]
 unsafe fn branch_to_image(image: Image) -> ! {
-    let mut peripherals = Peripherals::steal();
+    let mut peripherals = CorePeripherals::steal();
 
     peripherals
         .SCB
@@ -155,11 +158,19 @@ fn main() -> ! {
         panic!()
     }
 
+    // Turn on the memory used by the handoff subsystem to dump
+    // `RotUpdateDetails` and DICE information required by hubris.
+    //
+    // This allows hubris tasks to always get valid memory, even if it is all
+    // 0's.
+    let peripherals = Peripherals::take().unwrap_lite();
+    let handoff = Handoff::turn_on(&peripherals.SYSCON);
+
     let (image, _) = image_header::select_image_to_boot();
-    image_header::dump_image_details_to_ram();
+    image_header::dump_image_details_to_ram(&handoff);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&image);
+    dice::run(&image, &handoff);
 
     unsafe {
         branch_to_image(image);

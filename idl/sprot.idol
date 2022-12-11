@@ -121,13 +121,14 @@ Interface(
                 err: CLike("SprotError"),
             ),
         ),
-        "current_version": (
-          doc: "Get the current image version",
-          args : { },
-          reply : Result(
-            ok: "ImageVersion",
-            err: CLike("SprotError"),
-          ),
-        ),
+        "update_status": (
+            doc: "Get info about installed images",
+            args: { },
+            reply : Result(
+              ok: "UpdateStatus",
+              err: CLike("SprotError"),
+            ),
+            encoding: Hubpack
+		)
     }
 )

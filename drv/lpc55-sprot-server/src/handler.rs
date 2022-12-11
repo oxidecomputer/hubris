@@ -244,10 +244,9 @@ impl Handler {
                     .map_err(|e| e.into());
                 hubpack::serialize(tx_payload, &rsp)?
             }
-            MsgType::UpdCurrentVersionReq => {
-                let version = self.update.current_version();
-                let rsp: Result<ImageVersion, u32> = Ok(version);
-                hubpack::serialize(tx_payload, &rsp)?
+            MsgType::UpdStatusReq => {
+                let status = self.update.status();
+                hubpack::serialize(tx_payload, &status)?
             }
             MsgType::SinkReq => {
                 // The first two bytes of a SinkReq payload are the U16
@@ -267,7 +266,7 @@ impl Handler {
             | MsgType::UpdWriteOneBlockRsp
             | MsgType::UpdAbortUpdateRsp
             | MsgType::UpdFinishImageUpdateRsp
-            | MsgType::UpdCurrentVersionRsp
+            | MsgType::UpdStatusRsp
             | MsgType::Unknown => {
                 status.rx_invalid = status.rx_invalid.wrapping_add(1);
                 return Err(SprotError::BadMessageType);
@@ -289,7 +288,7 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         MsgType::UpdWriteOneBlockReq => MsgType::UpdWriteOneBlockRsp,
         MsgType::UpdAbortUpdateReq => MsgType::UpdAbortUpdateRsp,
         MsgType::UpdFinishImageUpdateReq => MsgType::UpdFinishImageUpdateRsp,
-        MsgType::UpdCurrentVersionReq => MsgType::UpdCurrentVersionRsp,
+        MsgType::UpdStatusReq => MsgType::UpdStatusRsp,
         MsgType::SinkReq => MsgType::SinkRsp,
 
         // All of the unexpected messages
@@ -304,7 +303,7 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         | MsgType::UpdWriteOneBlockRsp
         | MsgType::UpdAbortUpdateRsp
         | MsgType::UpdFinishImageUpdateRsp
-        | MsgType::UpdCurrentVersionRsp
+        | MsgType::UpdStatusRsp
         | MsgType::Unknown => {
             panic!("MsgType is not a request: {}", msgtype as u8)
         }

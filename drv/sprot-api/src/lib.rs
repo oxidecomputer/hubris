@@ -18,7 +18,7 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
@@ -211,12 +211,6 @@ pub struct Status {
     /// its boot ROM contents and there are known issues with old boot ROMs.
     pub bootrom_crc32: u32,
 
-    /// Firmware epoch (defines update window)
-    pub epoch: u32,
-
-    /// The currently running firmware version.
-    pub version: u32,
-
     /// Maxiumum message size that the RoT can handle.
     pub buffer_size: u32,
 
@@ -342,8 +336,8 @@ pub enum MsgType {
     UpdAbortUpdateRsp = 17,
     UpdFinishImageUpdateReq = 18,
     UpdFinishImageUpdateRsp = 19,
-    UpdCurrentVersionReq = 20,
-    UpdCurrentVersionRsp = 21,
+    UpdStatusReq = 20,
+    UpdStatusRsp = 21,
 
     /// Reserved value.
     Unknown = 0xff,
@@ -372,8 +366,8 @@ impl From<u8> for MsgType {
             17 => MsgType::UpdAbortUpdateRsp,
             18 => MsgType::UpdFinishImageUpdateReq,
             19 => MsgType::UpdFinishImageUpdateRsp,
-            20 => MsgType::UpdCurrentVersionReq,
-            21 => MsgType::UpdCurrentVersionRsp,
+            20 => MsgType::UpdStatusReq,
+            21 => MsgType::UpdStatusRsp,
             _ => MsgType::Unknown,
         }
     }

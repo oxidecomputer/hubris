@@ -18,7 +18,9 @@ unsafe impl HandoffData for RotUpdateDetails {
 /// This data is injected into RAM at `UPDATE_RANGE` by stage0.
 ///
 /// It gets read from RAM by the `lpc55-update-server`
-#[derive(Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub struct RotUpdateDetails {
     pub active: RotSlot,
     pub a: Option<RotImageDetails>,
@@ -27,19 +29,25 @@ pub struct RotUpdateDetails {
 
 fits_in_ram!(RotUpdateDetails);
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub struct RotImageDetails {
     pub digest: [u8; 32],
     pub version: ImageVersion,
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub struct ImageVersion {
     pub epoch: u32,
     pub version: u32,
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub enum RotSlot {
     Stage0 = 0,
     A = 1,

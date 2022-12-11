@@ -9,11 +9,9 @@ use dice_crate::{
     DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
     SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
-use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::Handoff;
-use unwrap_lite::UnwrapLite;
 
 #[cfg(feature = "dice-self")]
 use crate::dice_mfg_self::gen_mfg_artifacts;
@@ -112,10 +110,9 @@ fn gen_fwid(image: &Image) -> [u8; 32] {
     fwid.finalize().try_into().expect("fwid")
 }
 
-pub fn run(image: &Image) {
+pub fn run(image: &Image, handoff: &Handoff) {
     // The memory we use to handoff DICE artifacts is already enabled
-    // by the update code which uses the same mechanism in `stage0/src/
-    // image_header::dump_image_details_to_ram()`.
+    // in `main()`;
 
     let cdi = match Cdi::from_reg() {
         Some(cdi) => cdi,
@@ -124,8 +121,7 @@ pub fn run(image: &Image) {
 
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
 
-    let mut serial_numbers =
-        gen_mfg_artifacts(&deviceid_keypair, &peripherals, &handoff);
+    let mut serial_numbers = gen_mfg_artifacts(&deviceid_keypair, handoff);
 
     let fwid = gen_fwid(image);
 
@@ -138,7 +134,7 @@ pub fn run(image: &Image) {
         &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
-        &handoff,
+        handoff,
     );
 
     gen_spmeasure_artifacts(
@@ -147,8 +143,8 @@ pub fn run(image: &Image) {
         &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
-        &handoff,
+        handoff,
     );
 
-    gen_rng_artifacts(&cdi_l1, &handoff);
+    gen_rng_artifacts(&cdi_l1, handoff);
 }
