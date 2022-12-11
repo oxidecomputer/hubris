@@ -2,14 +2,16 @@ name = "gimlet-rot-b"
 target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-b"
 chip = "../../chips/lpc55"
+memory = "256k.toml"
 stacksize = 1024
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
 [kernel]
 name = "stage0"
-requires = {flash = 0x4000, ram = 4096}
-features = []
+requires = {flash = 0x9000, ram = 16000}
+features = ["dice-mfg"]
+stacksize = 13000
 
 [tasks.idle]
 name = "task-idle"
@@ -20,7 +22,7 @@ start = true
 
 [signing]
 enable-secure-boot = true
-enable-dice = false
+enable-dice = true
 dice-inc-nxp-cfg = false
 dice-cust-cfg = false
 dice-inc-sec-epoch = false

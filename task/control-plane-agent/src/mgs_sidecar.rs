@@ -147,7 +147,7 @@ impl MgsHandler {
             .tofino_seq_state()
             .map_err(|e| SpError::PowerStateError(e as u32))?
         {
-            TofinoSeqState::Initial
+            TofinoSeqState::Init
             | TofinoSeqState::InPowerDown
             | TofinoSeqState::A2 => PowerState::A2,
             TofinoSeqState::InPowerUp | TofinoSeqState::A0 => PowerState::A0,
@@ -471,6 +471,40 @@ impl SpHandler for MgsHandler {
                 monorail_port_status::port_status(&self.monorail, index),
             ),
             _ => self.common.inventory().component_details(&component, index),
+        }
+    }
+
+    fn component_get_active_slot(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetActiveSlot {
+            component
+        }));
+
+        // For now, we don't have any components with active slots.
+        match component {
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_set_active_slot(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: u16,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
+            component,
+            slot,
+        }));
+
+        // For now, we don't have any components with active slots.
+        match component {
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 

@@ -11,7 +11,8 @@ use drv_sidecar_front_io::{
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
-    ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
+    ModulesStatus, PowerState, PowerStatesAll, TransceiversError, NUM_PORTS,
+    PAGE_SIZE_BYTES,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{
@@ -125,68 +126,47 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             .map_err(TransceiversError::from)?)
     }
 
-    fn set_power_enable(
+    fn all_power_states(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<PowerStatesAll, idol_runtime::RequestError<TransceiversError>>
+    {
+        Ok(self
+            .transceivers
+            .all_power_states()
+            .map_err(TransceiversError::from)?)
+    }
+
+    fn set_power_state(
         &mut self,
         _msg: &userlib::RecvMessage,
         mask: u32,
+        state: PowerState,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .set_power_enable(mask)
+            .set_power_state(state, mask)
             .map_err(TransceiversError::from)?;
         Ok(())
     }
 
-    fn clear_power_enable(
+    fn port_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .clear_power_enable(mask)
+            .port_reset(mask)
             .map_err(TransceiversError::from)?;
         Ok(())
     }
 
-    fn set_reset(
+    fn port_clear_fault(
         &mut self,
         _msg: &userlib::RecvMessage,
         mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .set_reset(mask)
-            .map_err(TransceiversError::from)?;
-        Ok(())
-    }
-
-    fn clear_reset(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .clear_reset(mask)
-            .map_err(TransceiversError::from)?;
-        Ok(())
-    }
-
-    fn set_lpmode(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .set_lpmode(mask)
-            .map_err(TransceiversError::from)?;
-        Ok(())
-    }
-
-    fn clear_lpmode(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .clear_lpmode(mask)
+            .port_clear_fault(mask)
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -392,7 +372,7 @@ pub fn claim_statics() -> (
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ModulesStatus, TransceiversError};
+    use super::{ModulesStatus, PowerState, PowerStatesAll, TransceiversError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

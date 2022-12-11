@@ -20,6 +20,7 @@ use host_sp_messages::{
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
+use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
@@ -47,6 +48,9 @@ const A2_REBOOT_DELAY: u64 = 5_000;
 // response to send, and we haven't yet started to receive a request).
 const UART_ZERO_DELAY: u64 = 200;
 
+// How long of a host panic / boot fail message are we willing to keep?
+const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
+
 // How many MAC addresses should we report to the host? Per RFD 320, a gimlet
 // currently needs 5 total:
 //
@@ -64,25 +68,37 @@ const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
     None,
-    Notification { bits: u32 },
-    UartTx(u8),
-    UartTxFull,
-    UartRx(u8),
     UartRxOverrun,
-    AckSpStart,
-    SetState { now: u64, state: PowerState },
-    JefeNotification { now: u64, state: PowerState },
+    ParseError(DecodeFailureReason),
+    SetState {
+        now: u64,
+        state: PowerState,
+    },
+    JefeNotification {
+        now: u64,
+        state: PowerState,
+    },
     OutOfSyncRequest,
     OutOfSyncRxNoise,
+    Request {
+        now: u64,
+        sequence: u64,
+        message: HostToSp,
+    },
+    Response {
+        now: u64,
+        sequence: u64,
+        message: SpToHost,
+    },
 }
+
+ringbuf!(Trace, 16, Trace::None);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TimerDisposition {
     LeaveRunning,
     Cancel,
 }
-
-ringbuf!(Trace, 64, Trace::None);
 
 /// Notification bit for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1 << 0;
@@ -154,6 +170,9 @@ struct ServerImpl {
     net: Net,
     cp_agent: ControlPlaneAgent,
     reboot_state: Option<RebootState>,
+
+    last_host_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+    last_host_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
 }
 
 impl ServerImpl {
@@ -169,6 +188,13 @@ impl ServerImpl {
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
 
+        let (last_host_boot_fail, last_host_panic) = mutable_statics! {
+            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+        };
+
         Self {
             uart,
             sys,
@@ -183,6 +209,8 @@ impl ServerImpl {
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
             reboot_state: None,
+            last_host_boot_fail,
+            last_host_panic,
         }
     }
 
@@ -396,7 +424,7 @@ impl ServerImpl {
             // either the fifo fills (in which case we return before trying to
             // receive more) or we finish flushing.
             while let Some(b) = self.tx_buf.next_byte_to_send() {
-                if try_tx_push(&self.uart, b) {
+                if self.uart.try_tx_push(b) {
                     self.tx_buf.advance_one_byte();
                 } else if self.uart_rx_until_maybe_packet() {
                     // We still have data to send, but the host has sent us a
@@ -476,8 +504,6 @@ impl ServerImpl {
 
     fn uart_rx_until_maybe_packet(&mut self) -> bool {
         while let Some(byte) = self.uart.try_rx_pop() {
-            ringbuf_entry!(Trace::UartRx(byte));
-
             if byte == 0x00 {
                 // COBS terminator; did we get any data?
                 if self.rx_buf.is_empty() {
@@ -549,13 +575,20 @@ impl ServerImpl {
         &mut self,
         reset_tx_buf: bool,
     ) -> Result<(), DecodeFailureReason> {
-        let (header, request) = match parse_received_message(self.rx_buf) {
-            Ok((header, request, _data)) => (header, request),
+        let (header, request, data) = match parse_received_message(self.rx_buf)
+        {
+            Ok((header, request, data)) => (header, request, data),
             Err(err) => {
+                ringbuf_entry!(Trace::ParseError(err));
                 self.rx_buf.clear();
                 return Err(err);
             }
         };
+        ringbuf_entry!(Trace::Request {
+            now: sys_get_timer().now,
+            sequence: header.sequence,
+            message: request,
+        });
 
         // Reset tx_buf if our caller wanted us to in response to a valid
         // packet.
@@ -599,18 +632,8 @@ impl ServerImpl {
                 Some(SpToHost::BootStorageUnit(bsu))
             }
             HostToSp::GetIdentity => {
-                // TODO how do we get our real identity?
-                let fake_model = b"913-0000019";
-                let fake_serial = b"OXE99990000";
-                let mut model = [0; 51];
-                let mut serial = [0; 51];
-                model[..fake_model.len()].copy_from_slice(&fake_model[..]);
-                serial[..fake_serial.len()].copy_from_slice(&fake_serial[..]);
-                Some(SpToHost::Identity {
-                    model,
-                    revision: 2,
-                    serial,
-                })
+                let identity = self.cp_agent.identity();
+                Some(SpToHost::Identity(identity.into()))
             }
             HostToSp::GetMacAddresses => {
                 let block = self.net.get_spare_mac_addresses();
@@ -632,11 +655,27 @@ impl ServerImpl {
                 Some(response)
             }
             HostToSp::HostBootFailure { .. } => {
-                // TODO what do we do in reaction to this? reboot?
+                // TODO forward to MGS
+                //
+                // For now, copy it into a static var we can pull out via
+                // `humility readvar LAST_HOST_BOOT_FAIL`.
+                let n = usize::min(data.len(), self.last_host_boot_fail.len());
+                self.last_host_boot_fail[..n].copy_from_slice(&data[..n]);
+                for b in &mut self.last_host_boot_fail[n..] {
+                    *b = 0;
+                }
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic { .. } => {
-                // TODO log event and/or forward to MGS
+                // TODO forward to MGS
+                //
+                // For now, copy it into a static var we can pull out via
+                // `humility readvar LAST_HOST_PANIC`.
+                let n = usize::min(data.len(), self.last_host_panic.len());
+                self.last_host_panic[..n].copy_from_slice(&data[..n]);
+                for b in &mut self.last_host_panic[n..] {
+                    *b = 0;
+                }
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
@@ -644,7 +683,6 @@ impl ServerImpl {
                 startup: self.cp_agent.get_startup_options().unwrap_lite(),
             }),
             HostToSp::AckSpStart => {
-                ringbuf_entry!(Trace::AckSpStart);
                 action =
                     Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
                 Some(SpToHost::Ack)
@@ -717,8 +755,6 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        ringbuf_entry!(Trace::Notification { bits });
-
         if bits & USART_IRQ != 0 {
             self.handle_usart_notification();
             sys_irq_control(USART_IRQ, true);
@@ -839,7 +875,7 @@ fn handle_tx_periodic_zero_byte_timer(
         // 0x00 terminator. If we can, reset the deadline to send
         // another one after `UART_ZERO_DELAY`; if we can't, disable
         // our timer and wait for a uart interrupt instead.
-        if try_tx_push(uart, 0) {
+        if uart.try_tx_push(0) {
             TimerDisposition::LeaveRunning
         } else {
             // If we have no real packet data but we've filled the
@@ -893,18 +929,6 @@ enum Action {
     RebootHost,
     PowerOffHost,
     ClearStatusBits(Status),
-}
-
-// wrapper around `usart.try_tx_push()` that registers the result in our
-// ringbuf
-fn try_tx_push(uart: &Usart, val: u8) -> bool {
-    let ret = uart.try_tx_push(val);
-    if ret {
-        ringbuf_entry!(Trace::UartTx(val));
-    } else {
-        ringbuf_entry!(Trace::UartTxFull);
-    }
-    ret
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]

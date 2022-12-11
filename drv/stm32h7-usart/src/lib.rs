@@ -133,6 +133,14 @@ impl Usart {
         }
     }
 
+    pub fn enable_rx_interrupt(&self) {
+        self.usart.cr1.modify(|_, w| w.rxneie().enabled());
+    }
+
+    pub fn disable_rx_interrupt(&self) {
+        self.usart.cr1.modify(|_, w| w.rxneie().disabled());
+    }
+
     // TODO? The name of these methods may be bad if we allow callers to specify
     // the tx fifo threshold (and can set it to something other than "empty")
     pub fn enable_tx_fifo_empty_interrupt(&self) {

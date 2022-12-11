@@ -4,7 +4,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 /// Adds three `impl` blocks for the given error `enum` type:
 /// - `From<E> for u16` (Idol encoding)
@@ -17,7 +17,12 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// The `enum` must not include 0, because 0 is decoded as "okay" by IPC
 /// infrastructure.
-#[proc_macro_derive(IdolError)]
+///
+/// If one of the variants is annoted with `#[idol(server_death)]`, that variant
+/// will be returned when performing an RPC call against a task that has died /
+/// was restarted.  If no such annotation is present, such an RPC call will
+/// crash the caller (when `unwrap` is called on the return code).
+#[proc_macro_derive(IdolError, attributes(idol))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
@@ -34,6 +39,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let mut variant_errors = vec![];
     let mut discriminant = None;
+    let mut dead_code = None;
     for v in &data.variants {
         if v.fields != syn::Fields::Unit {
             variant_errors.push(compile_error(
@@ -74,7 +80,84 @@ pub fn derive(input: TokenStream) -> TokenStream {
             // Bit of a hack to reuse the error reporting code:
             check_discriminant(&mut variant_errors, ident.span(), 0);
         }
+
+        // Look at attributes that are of the form #[idol...]
+        //
+        // Right now, the only one we accept is #[idol(server_death)], but that
+        // could change in the future.
+        for s in v
+            .attrs
+            .iter()
+            .filter(|s| s.path.segments[0].ident == "idol")
+        {
+            if s.tokens.is_empty() {
+                variant_errors.push(compile_error(
+                    s.span(),
+                    "expected parentheses, e.g. #[idol(..)]",
+                ));
+            }
+            for t in s.tokens.clone() {
+                let g = match &t {
+                    proc_macro2::TokenTree::Group(g) => g,
+                    _ => {
+                        variant_errors.push(compile_error(
+                            t.span(),
+                            &format!(
+                                "unexpected token {t:?}; expected #[idol(...)]"
+                            ),
+                        ));
+                        continue;
+                    }
+                };
+                if g.delimiter() != proc_macro2::Delimiter::Parenthesis {
+                    variant_errors.push(compile_error(
+                        t.span(),
+                        "expected parenthesis, e.g. #[idol(...)]",
+                    ));
+                    continue;
+                }
+                let s: syn::Ident = match syn::parse2(g.stream()) {
+                    Ok(s) => s,
+                    _ => {
+                        variant_errors.push(compile_error(
+                            g.span(),
+                            &format!(
+                                "could not parse {g} as a single identifier"
+                            ),
+                        ));
+                        continue;
+                    }
+                };
+                match s.to_string().as_str() {
+                    "server_death" => {
+                        if dead_code.is_some() {
+                            variant_errors.push(compile_error(
+                                s.span(),
+                                "multiple variants annotated with \
+                                 #[idol(server_death)]",
+                            ));
+                        }
+                        dead_code = Some(v.ident.clone());
+                    }
+                    i => {
+                        variant_errors.push(compile_error(
+                            s.span(),
+                            &format!("unknown attribute {i}"),
+                        ));
+                    }
+                }
+            }
+        }
     }
+
+    let first_dead_code = abi::FIRST_DEAD_CODE;
+    let dead_code_handler = dead_code.map(|dead| {
+        quote! {
+            if v >= #first_dead_code {
+                return Ok(Self::#dead);
+            }
+        }
+    });
 
     let output = quote! {
         #( #variant_errors )*
@@ -92,6 +175,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
         impl core::convert::TryFrom<u32> for #ident {
             type Error = ();
             fn try_from(v: u32) -> Result<Self, Self::Error> {
+                #dead_code_handler
+
                 Self::from_u32(v).ok_or(())
             }
         }

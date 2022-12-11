@@ -16,7 +16,10 @@ pub struct Leds {
 /// datasheet, the calculus is I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47
 ///  & R48 on QSFP Front IO) is a 1K, so a bit of math results in a desired
 /// IREF value of d222 (hDE).
-const DEFAULT_LED_CURRENT: u8 = 222;
+///
+/// This value is being temporarily set to d44 (9.9mA) until a solution for
+/// https://github.com/oxidecomputer/hubris/issues/982 is agreed upon.
+const DEFAULT_LED_CURRENT: u8 = 44;
 
 /// Default LED PWM
 ///

@@ -9,8 +9,8 @@
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
 pub use drv_sidecar_mainboard_controller::tofino2::{
-    DebugPortState, DirectBarSegment, SpiEepromInstruction, TofinoPcieReset,
-    TofinoSeqError, TofinoSeqState,
+    DebugPortState, DirectBarSegment, PowerRail, SpiEepromInstruction,
+    TofinoPcieReset, TofinoSeqError, TofinoSeqState, TofinoSeqStep,
 };
 use userlib::*;
 use zerocopy::AsBytes;

@@ -30,6 +30,9 @@ path = "sys/userlib"
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
 
+[patch.crates-io]
+smoltcp = { git = "https://github.com/oxidecomputer/smoltcp", branch = "v0.8.0" }
+
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 atty = { version = "0.2", default-features = false }
@@ -128,5 +131,5 @@ sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", defaul
 stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
-transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control", default-features = false }
+transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }

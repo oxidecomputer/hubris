@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dice::SerialNumbers;
-use core::ops::{Deref, Range};
+use core::ops::Deref;
 use dice_crate::{
     CertData, CertSerialNumber, DeviceIdSerialMfg, DiceMfg, Handoff,
     SerialNumber, SizedBlob,
@@ -14,11 +14,6 @@ use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
-
-// Take first 2k from RoT persistent area defined in RFD 108
-// https://rfd.shared.oxide.computer/rfd/0108#_flash_layout
-// TODO: get from memory map / memory.toml at build time
-const DICE_FLASH: Range<usize> = 0x9_0000..0x9_0800;
 
 macro_rules! flash_page_align {
     ($size:expr) => {
@@ -214,3 +209,5 @@ fn flexcomm0_setup(
     // set flexcomm0 / uart clock to 12Mhz
     syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
 }
+
+include!(concat!(env!("OUT_DIR"), "/dice-mfg.rs"));

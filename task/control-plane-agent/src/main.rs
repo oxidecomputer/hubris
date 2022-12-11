@@ -13,7 +13,9 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::ControlPlaneAgentError;
+use task_control_plane_agent_api::{
+    ControlPlaneAgentError, Identity, UartClient,
+};
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
@@ -39,17 +41,17 @@ task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
 
+#[cfg(feature = "vpd-identity")]
+task_slot!(I2C, i2c_driver);
+
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
-    Wake(u32),
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),
-    UsartTx { num_bytes: usize },
     UsartTxFull { remaining: usize },
-    UsartRx { num_bytes: usize },
     UsartRxOverrun,
     UsartRxBufferDataDropped { num_bytes: u64 },
     SerialConsoleSend { buffered: usize },
@@ -122,6 +124,13 @@ enum MgsMessage {
     ComponentClearStatus {
         component: SpComponent,
     },
+    ComponentGetActiveSlot {
+        component: SpComponent,
+    },
+    ComponentSetActiveSlot {
+        component: SpComponent,
+        slot: u16,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -162,6 +171,66 @@ impl ServerImpl {
     fn timer_deadline(&self) -> Option<u64> {
         self.mgs_handler.timer_deadline()
     }
+
+    #[cfg(feature = "vpd-identity")]
+    fn identity_from_vpd(&self) -> Option<Identity> {
+        use core::{mem, str};
+        use zerocopy::{AsBytes, FromBytes};
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, AsBytes, FromBytes)]
+        #[repr(C, packed)]
+        pub struct BarcodeVpd {
+            pub version: [u8; 4],
+            pub delim0: u8,
+            // VPD omits the hyphen 3 bytes into the part number, which we add
+            // back into `Identity` below, hence the "minus 1".
+            pub part_number: [u8; Identity::PART_NUMBER_LEN - 1],
+            pub delim1: u8,
+            pub revision: [u8; 3],
+            pub delim2: u8,
+            pub serial: [u8; Identity::SERIAL_LEN],
+        }
+        static_assertions::const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
+
+        let i2c_task = I2C.get_task_id();
+        let barcode: BarcodeVpd =
+            drv_local_vpd::read_config(i2c_task, *b"BARC").ok()?;
+
+        // Check expected values of fields, since `barcode` was created
+        // via zerocopy (i.e., memcopying a byte array).
+        if barcode.delim0 != b':'
+            || barcode.delim1 != b':'
+            || barcode.delim2 != b':'
+        {
+            return None;
+        }
+
+        // Allow `0` or `O` for the first byte of the version (which isn't
+        // part of the identity we return, but tells us the format of the
+        // barcode string itself).
+        if barcode.version != *b"0XV1" && barcode.version != *b"OXV1" {
+            return None;
+        }
+
+        let mut identity = Identity::default();
+
+        // Parse revision into a u32
+        identity.revision =
+            str::from_utf8(&barcode.revision).ok()?.parse().ok()?;
+
+        // Insert a hyphen 3 characters into the part number (which we know we
+        // have room for based on the size of the `part_number` fields)
+        identity.part_number[..3].copy_from_slice(&barcode.part_number[..3]);
+        identity.part_number[3] = b'-';
+        identity.part_number[4..][..barcode.part_number.len() - 3]
+            .copy_from_slice(&barcode.part_number[3..]);
+
+        // Copy the serial as-is.
+        identity.serial[..barcode.serial.len()]
+            .copy_from_slice(&barcode.serial);
+
+        Some(identity)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -170,8 +239,6 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        ringbuf_entry!(Log::Wake(bits));
-
         if (bits & USART_IRQ) != 0 {
             self.mgs_handler.drive_usart();
         }
@@ -231,6 +298,102 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
 
         self.mgs_handler.set_startup_options(startup_options)
+    }
+
+    fn identity(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Identity, RequestError<core::convert::Infallible>> {
+        #[cfg(feature = "vpd-identity")]
+        let id = self.identity_from_vpd().unwrap_or_default();
+
+        #[cfg(not(feature = "vpd-identity"))]
+        let id = Identity::default();
+
+        Ok(id)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        Ok(self.mgs_handler.uart_client())
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn set_humility_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        attach: bool,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        let client = if attach {
+            UartClient::Humility
+        } else {
+            UartClient::Mgs
+        };
+        Ok(self.mgs_handler.set_uart_client(client)?)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn uart_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.uart_read(data)
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn uart_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        self.mgs_handler.uart_write(data)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        // This operation is idempotent and infallible, but we don't actually
+        // have a uart. Just always report "MGS" (the default for gimlets).
+        Ok(UartClient::Mgs)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn set_humility_uart_client(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _attach: bool,
+    ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn uart_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn uart_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        Err(RequestError::from(
+            ControlPlaneAgentError::OperationUnsupported,
+        ))
     }
 }
 
@@ -373,7 +536,7 @@ const fn usize_max(a: usize, b: usize) -> usize {
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions,
+        ControlPlaneAgentError, HostStartupOptions, Identity, UartClient,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

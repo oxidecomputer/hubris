@@ -690,6 +690,7 @@ dependencies = [
 name = "derive-idol-err"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "proc-macro2",
  "quote",
  "syn",
@@ -1254,6 +1255,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mock-gimlet-hf-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-gimlet-hf-api",
+ "drv-hash-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-mock-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1716,6 +1731,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
+ "ssmarshal",
  "transceiver-messages",
  "userlib",
  "zerocopy",
@@ -1739,6 +1755,8 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "serde",
+ "ssmarshal",
  "stm32h7",
  "task-net-api",
  "transceiver-messages",
@@ -1940,7 +1958,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#ce829adddaff79867ebdd88f3b4550e3658e17f6"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#3e06733ead9547d5ce76b9fa2d794e672f398715"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -3457,8 +3475,7 @@ dependencies = [
 [[package]]
 name = "smoltcp"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2308a1657c8db1f5b4993bab4e620bdbe5623bd81f254cf60326767bb243237"
+source = "git+https://github.com/oxidecomputer/smoltcp?branch=v0.8.0#d9cfed9bb5e263b1c8d2730c8009eea50c8f25d5"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -3581,6 +3598,7 @@ dependencies = [
  "serde",
  "sha3",
  "static_assertions",
+ "toml",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -3714,6 +3732,7 @@ dependencies = [
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
+ "drv-local-vpd",
  "drv-monorail-api",
  "drv-sidecar-seq-api",
  "drv-sprot-api",
@@ -3751,6 +3770,7 @@ dependencies = [
  "num-traits",
  "serde",
  "ssmarshal",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]
@@ -4524,7 +4544,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control#2c40fc5d4797f5e8307b2d63c75ecb46e3a7c937"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

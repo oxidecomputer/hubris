@@ -8,27 +8,236 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
 #[repr(u8)]
 pub enum TofinoSeqState {
-    Initial = 0,
+    #[default]
+    Init = 0,
     A2 = 1,
     A0 = 2,
     InPowerUp = 3,
     InPowerDown = 4,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
+#[repr(u8)]
+pub enum TofinoSeqStep {
+    #[default]
+    Init = 0,
+    AwaitPowerUp = 1,
+    AwaitVdd18PowerGood = 2,
+    AwaitVddCorePowerGood = 3,
+    AwaitVddPciePowerGood = 4,
+    AwaitVddtPowerGood = 5,
+    AwaitVdda15PowerGood = 6,
+    AwaitVdda18PowerGood = 7,
+    AwaitPoR = 8,
+    AwaitVidValid = 9,
+    AwaitVidAck = 10,
+    AwaitPowerUpComplete = 11,
+    AwaitPowerDown = 12,
+    AwaitPowerDownComplete = 13,
+}
+
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
 #[repr(u8)]
 pub enum TofinoSeqError {
+    #[default]
     None = 0,
     PowerGoodTimeout = 1,
     PowerFault = 2,
     PowerVrHot = 3,
-    PowerInvalidState = 4,
-    UserAbort = 5,
+    PowerAbort = 4,
+    SoftwareAbort = 5,
     VidAckTimeout = 6,
     ThermalAlert = 7,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct TofinoSeqStatus {
+    pub state: TofinoSeqState,
+    pub step: TofinoSeqStep,
+    pub abort: Option<TofinoSeqAbort>,
+}
+
+/// Decode the Tofino status from raw register data.
+impl TryFrom<[u8; 6]> for TofinoSeqStatus {
+    type Error = FpgaError;
+
+    fn try_from(data: [u8; 6]) -> Result<TofinoSeqStatus, Self::Error> {
+        let value = |addr: Addr, mask: u8| {
+            data[(addr as usize) - (Addr::TOFINO_SEQ_CTRL as usize)] & mask
+        };
+
+        let state = TofinoSeqState::from_u8(value(
+            Addr::TOFINO_SEQ_STATE,
+            Reg::TOFINO_SEQ_STATE::STATE,
+        ))
+        .ok_or(FpgaError::InvalidValue)?;
+
+        let step = TofinoSeqStep::from_u8(value(
+            Addr::TOFINO_SEQ_STEP,
+            Reg::TOFINO_SEQ_STEP::STEP,
+        ))
+        .ok_or(FpgaError::InvalidValue)?;
+
+        let error = TofinoSeqError::from_u8(value(
+            Addr::TOFINO_SEQ_ERROR,
+            Reg::TOFINO_SEQ_ERROR::ERROR,
+        ))
+        .ok_or(FpgaError::InvalidValue)?;
+
+        let error_state = TofinoSeqState::from_u8(value(
+            Addr::TOFINO_SEQ_ERROR_STATE,
+            Reg::TOFINO_SEQ_ERROR_STATE::STATE,
+        ))
+        .ok_or(FpgaError::InvalidValue)?;
+
+        let error_step = TofinoSeqStep::from_u8(value(
+            Addr::TOFINO_SEQ_ERROR_STEP,
+            Reg::TOFINO_SEQ_ERROR_STEP::STEP,
+        ))
+        .ok_or(FpgaError::InvalidValue)?;
+
+        Ok(TofinoSeqStatus {
+            state,
+            step,
+            abort: match error {
+                TofinoSeqError::None => None,
+                _ => Some(TofinoSeqAbort {
+                    state: error_state,
+                    step: error_step,
+                    error,
+                }),
+            },
+        })
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct TofinoSeqAbort {
+    pub state: TofinoSeqState,
+    pub step: TofinoSeqStep,
+    pub error: TofinoSeqError,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PowerRails {
+    Vdd18,
+    VddCore,
+    VddPcie,
+    Vddt,
+    Vdda15,
+    Vdda18,
+}
+
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+)]
+#[repr(u8)]
+pub enum PowerRailState {
+    #[default]
+    Disabled = 0,
+    RampingUp = 1,
+    GoodTimeout = 2,
+    Aborted = 3,
+    Enabled = 4,
+}
+
+impl TryFrom<u8> for PowerRailState {
+    type Error = FpgaError;
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        Self::from_u8(v).ok_or(FpgaError::InvalidValue)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct PowerRailPinState {
+    pub enable: bool,
+    pub good: bool,
+    pub fault: bool,
+    pub vrhot: bool,
+}
+
+impl From<u8> for PowerRailPinState {
+    fn from(v: u8) -> Self {
+        use Reg::TOFINO_POWER_VDD18_STATE::*;
+
+        Self {
+            enable: v & ENABLE != 0,
+            good: v & GOOD != 0,
+            fault: v & FAULT != 0,
+            vrhot: v & VRHOT != 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub struct PowerRail {
+    pub id: PowerRails,
+    pub state: PowerRailState,
+    pub pin_state: PowerRailPinState,
+}
+
+impl TryFrom<(PowerRails, u8)> for PowerRail {
+    type Error = FpgaError;
+
+    fn try_from(data: (PowerRails, u8)) -> Result<Self, Self::Error> {
+        let (id, v) = data;
+        Ok(PowerRail {
+            id,
+            state: PowerRailState::try_from(v >> 4)?,
+            pin_state: PowerRailPinState::from(v & 0xf),
+        })
+    }
+}
+
+impl PowerRail {
+    /// Convert power rail state register data to an array of `PowerRail`
+    /// structs.
+    pub fn from_raw(data: [u8; 6]) -> Result<[PowerRail; 6], FpgaError> {
+        let value = |addr: Addr| {
+            data[(addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)]
+        };
+
+        Ok([
+            PowerRail::try_from((
+                PowerRails::Vdd18,
+                value(Addr::TOFINO_POWER_VDD18_STATE),
+            ))?,
+            PowerRail::try_from((
+                PowerRails::VddCore,
+                value(Addr::TOFINO_POWER_VDDCORE_STATE),
+            ))?,
+            PowerRail::try_from((
+                PowerRails::VddPcie,
+                value(Addr::TOFINO_POWER_VDDPCIE_STATE),
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vddt,
+                value(Addr::TOFINO_POWER_VDDT_STATE),
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vdda15,
+                value(Addr::TOFINO_POWER_VDDA15_STATE),
+            ))?,
+            PowerRail::try_from((
+                PowerRails::Vdda18,
+                value(Addr::TOFINO_POWER_VDDA18_STATE),
+            ))?,
+        ])
+    }
 }
 
 /// VID to voltage mapping. The VID values are specified in TF2-DS2, with the
@@ -53,10 +262,8 @@ pub struct Sequencer {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Status {
     state: TofinoSeqState,
-    error: TofinoSeqError,
-    vid: Option<Tofino2Vid>,
-    power: u32,
-    pcie_status: u8,
+    step: TofinoSeqStep,
+    abort: Option<TofinoSeqAbort>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
@@ -124,8 +331,28 @@ impl Sequencer {
         TofinoSeqError::from_u8(v).ok_or(FpgaError::InvalidValue)
     }
 
-    pub fn power_status(&self) -> Result<u32, FpgaError> {
-        self.fpga.read(Addr::TOFINO_POWER_ENABLE)
+    pub fn error_step(&self) -> Result<TofinoSeqStep, FpgaError> {
+        let v = self.read_masked(
+            Addr::TOFINO_SEQ_ERROR_STEP,
+            Reg::TOFINO_SEQ_ERROR_STEP::STEP,
+        )?;
+        TofinoSeqStep::from_u8(v).ok_or(FpgaError::InvalidValue)
+    }
+
+    #[inline]
+    pub fn raw_status(&self) -> Result<[u8; 6], FpgaError> {
+        self.fpga.read(Addr::TOFINO_SEQ_CTRL)
+    }
+
+    #[inline]
+    pub fn status(&self) -> Result<TofinoSeqStatus, FpgaError> {
+        let data = self.raw_status()?;
+        TofinoSeqStatus::try_from(data)
+    }
+
+    #[inline]
+    pub fn raw_power_rails(&self) -> Result<[u8; 6], FpgaError> {
+        self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
     }
 
     /// The VID is only valid once Tofino is powered up and a delay after PoR
@@ -220,16 +447,6 @@ impl Sequencer {
 
     pub fn pcie_hotplug_status(&self) -> Result<u8, FpgaError> {
         self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)
-    }
-
-    pub fn status(&self) -> Result<Status, FpgaError> {
-        Ok(Status {
-            state: self.state()?,
-            error: self.error()?,
-            vid: self.vid()?,
-            power: self.power_status()?,
-            pcie_status: self.pcie_hotplug_status()?,
-        })
     }
 }
 
