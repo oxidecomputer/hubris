@@ -113,12 +113,9 @@ fn gen_fwid(image: &Image) -> [u8; 32] {
 }
 
 pub fn run(image: &Image) {
-    // Turn on the memory we're using to handoff DICE artifacts and create
-    // type to interact with said memory. We turn this on unconditionally
-    // if DICE is enabled so that hubris tasks will always get valid memory
-    // even if it's all 0's.
-    let peripherals = Peripherals::take().unwrap_lite();
-    let handoff = Handoff::turn_on(&peripherals.SYSCON);
+    // The memory we use to handoff DICE artifacts is already enabled
+    // by the update code which uses the same mechanism in `stage0/src/
+    // image_header::dump_image_details_to_ram()`.
 
     let cdi = match Cdi::from_reg() {
         Some(cdi) => cdi,

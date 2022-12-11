@@ -203,8 +203,11 @@ pub fn select_image_to_boot() -> (Image, RotSlot) {
 
 /// Handoff Image metadata to USB SRAM
 pub fn dump_image_details_to_ram() {
-    // TODO(AJS): This is copied verbatim from `fn run` in stage0/src/dice.
-    // This also should be unified with the DICE stuff
+    // Turn on the memory used by the handoff subsystem to dump
+    // `RotUpdateDetails` and DICE information required by hubris.
+    //
+    // This allows hubris tasks to always get valid memory, even if it is all
+    // 0's.
     let peripherals = Peripherals::take().unwrap_lite();
     let handoff = Handoff::turn_on(&peripherals.SYSCON);
 
@@ -218,7 +221,6 @@ pub fn dump_image_details_to_ram() {
 }
 
 fn image_details(img: Image) -> RotImageDetails {
-    // Compute the digest
     let digest = Sha3_256::digest(img.as_bytes()).try_into().unwrap_lite();
     RotImageDetails {
         digest,
