@@ -11,7 +11,7 @@ use dice_mfg_msgs::SizedBlob;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use stage0_handoff::DICE_RANGE as MEM_RANGE;
-use stage0_handoff::{fits_in_ram, HandoffData, HandoffDataHeader};
+use stage0_handoff::{fits_in_ram, HandoffData};
 use static_assertions as sa;
 
 // This memory is the USB peripheral SRAM that's 0x4000 bytes long. Changes

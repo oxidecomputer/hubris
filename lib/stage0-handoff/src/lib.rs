@@ -12,6 +12,12 @@ use lpc55_pac::syscon::RegisterBlock;
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert;
 
+mod rot_update_details;
+
+pub use rot_update_details::{
+    ImageVersion, RotImageDetails, RotSlot, RotUpdateDetails,
+};
+
 // This memory is the USB peripheral SRAM that's 0x4000 bytes long. Changes
 // to this address must be coordinated with the [dice_*] tables in
 // chips/lpc55/chip.toml

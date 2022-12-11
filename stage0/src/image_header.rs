@@ -5,12 +5,11 @@
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
-use core::ops::Range;
-use hubpack::SerializedSize;
 use lpc55_pac::Peripherals;
-use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::{Handoff, HandoffData};
+use stage0_handoff::{
+    Handoff, ImageVersion, RotImageDetails, RotSlot, RotUpdateDetails,
+};
 use unwrap_lite::UnwrapLite;
 
 extern "C" {
@@ -203,10 +202,6 @@ pub fn select_image_to_boot() -> (Image, RotSlot) {
 }
 
 /// Handoff Image metadata to USB SRAM
-///
-/// TODO(AJS): Currently this uses the whole range used by DICE. We should
-/// unify the Handoff information with DICE and just put the Image information
-/// after the DICE stuff.
 pub fn dump_image_details_to_ram() {
     // TODO(AJS): This is copied verbatim from `fn run` in stage0/src/dice.
     // This also should be unified with the DICE stuff
@@ -217,7 +212,7 @@ pub fn dump_image_details_to_ram() {
     let b = get_image_b().map(image_details);
     let (_, active) = select_image_to_boot();
 
-    let details = RotFlashDetails { active, a, b };
+    let details = RotUpdateDetails { active, a, b };
 
     handoff.store(&details);
 }
@@ -229,38 +224,4 @@ fn image_details(img: Image) -> RotImageDetails {
         digest,
         version: img.get_image_version(),
     }
-}
-
-unsafe impl HandoffData for RotFlashDetails {
-    const VERSION: u32 = 0;
-    const MAGIC: [u8; 12] = *b"havesomedata";
-    const MEM_RANGE: Range<usize> = 0x4010_0000..0x4010_4000;
-}
-
-/// TODO(AJS): This data needs to be made available to the update server,
-/// sprot, etc... so the type should live elsewhere.
-#[derive(Deserialize, Serialize, SerializedSize)]
-pub struct RotFlashDetails {
-    active: RotSlot,
-    a: Option<RotImageDetails>,
-    b: Option<RotImageDetails>,
-}
-
-#[derive(Deserialize, Serialize, SerializedSize)]
-pub struct RotImageDetails {
-    digest: [u8; 32],
-    version: ImageVersion,
-}
-
-#[derive(Deserialize, Serialize, SerializedSize)]
-pub struct ImageVersion {
-    epoch: u32,
-    version: u32,
-}
-
-#[derive(Deserialize, Serialize, SerializedSize)]
-pub enum RotSlot {
-    Stage0 = 0,
-    A = 1,
-    B = 2,
 }
