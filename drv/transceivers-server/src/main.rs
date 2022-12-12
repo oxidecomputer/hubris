@@ -93,7 +93,7 @@ struct ThermalModel {
 const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
 
-/// Controls how often we poll the transceivers.
+/// Controls how often we poll the transceivers (in milliseconds).
 ///
 /// Polling the transceivers serves a few functions:
 /// - Transceiver presence is used to control LEDs on the front IO board
@@ -194,9 +194,11 @@ impl ServerImpl {
                 if out.status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
                     return Err(FpgaError::ImplError(0));
                 } else {
-                    // "Externally measured free side device temperatures are
+                    // "Internally measured free side device temperatures are
                     // represented as a 16-bit signed twos complement value in
                     // increments of 1/256 degrees Celsius"
+                    //
+                    // - SFF-8636 rev 2.10a, Section 6.2.4
                     return Ok(Celsius(out.temperature.get() as f32 / 256.0));
                 }
             }
