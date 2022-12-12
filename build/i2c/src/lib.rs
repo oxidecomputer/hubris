@@ -952,7 +952,9 @@ impl ConfigGenerator {
             &mut self.output,
             r##"
     pub mod devices {{
+        #[allow(unused_imports)]
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
+        #[allow(unused_imports)]
         use userlib::TaskId;
 "##
         )?;
@@ -1257,7 +1259,8 @@ impl ConfigGenerator {
             &mut self.output,
             r##"
     pub mod sensors {{
-        use task_sensor_api::SensorId;
+        #[allow(unused_imports)]
+        use crate::SensorId;
 
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};

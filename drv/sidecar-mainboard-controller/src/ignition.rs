@@ -25,7 +25,7 @@ impl IgnitionController {
     fn port_addr(&self, port: u8, offset: Addr) -> u16 {
         u16::from(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)
             + 0x100
-            + (0x100 * port as u16)
+            + (0x100 * u16::from(port))
             + u16::from(offset)
     }
 

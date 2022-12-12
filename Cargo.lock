@@ -1744,6 +1744,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cfg-if",
+ "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-front-io",
@@ -1759,6 +1760,7 @@ dependencies = [
  "ssmarshal",
  "stm32h7",
  "task-net-api",
+ "task-thermal-api",
  "transceiver-messages",
  "userlib",
  "zerocopy",
@@ -4032,7 +4034,6 @@ name = "task-sensor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "build-i2c",
  "build-util",
  "cfg-if",
  "cortex-m",
@@ -4051,10 +4052,14 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
  "derive-idol-err",
  "drv-i2c-api",
  "idol",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy",
 ]
@@ -4133,6 +4138,7 @@ dependencies = [
  "drv-onewire",
  "drv-onewire-devices",
  "drv-sidecar-seq-api",
+ "drv-transceivers-api",
  "idol",
  "idol-runtime",
  "num-traits",

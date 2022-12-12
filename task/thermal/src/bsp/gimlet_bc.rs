@@ -5,10 +5,7 @@
 //! BSP for the Gimlet rev B hardware
 
 use crate::{
-    control::{
-        Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
-        ThermalProperties,
-    },
+    control::{Device, FanControl, InputChannel, PidConfig, TemperatureSensor},
     i2c_config::{devices, sensors},
 };
 use core::convert::TryInto;
@@ -16,6 +13,7 @@ pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
+use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId};
 
 task_slot!(SEQ, gimlet_seq);
@@ -31,6 +29,9 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
     + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
+// Every temperature sensor on Gimlet is owned by this task
+pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
+
 // We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
@@ -40,6 +41,7 @@ pub const USE_CONTROLLER: bool = true;
 pub(crate) struct Bsp {
     /// Controlled sensors
     pub inputs: &'static [InputChannel],
+    pub dynamic_inputs: &'static [SensorId],
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
@@ -169,6 +171,7 @@ impl Bsp {
             },
 
             inputs: &INPUTS,
+            dynamic_inputs: &[],
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,

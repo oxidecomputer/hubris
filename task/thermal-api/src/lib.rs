@@ -8,7 +8,8 @@
 
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{units::Celsius, *};
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ThermalError {
@@ -20,6 +21,7 @@ pub enum ThermalError {
     AlreadyInAutoMode = 6,
     InvalidWatchdogTime = 7,
     InvalidParameter = 8,
+    InvalidIndex = 9,
 
     #[idol(server_death)]
     ServerDeath,
@@ -52,6 +54,28 @@ pub enum ThermalAutoState {
     Running,
     Overheated,
     Uncontrollable,
+}
+
+/// Properties for a particular part in the system
+#[derive(Clone, Copy, AsBytes, FromBytes)]
+#[repr(C)]
+pub struct ThermalProperties {
+    /// Target temperature for this part
+    pub target_temperature: Celsius,
+
+    /// At the critical temperature, we should turn the fans up to 100% power in
+    /// an attempt to cool the part.
+    pub critical_temperature: Celsius,
+
+    /// Temperature at which we drop into the A2 power state.  This should be
+    /// below the part's nonrecoverable temperature.
+    pub power_down_temperature: Celsius,
+
+    /// Maximum slew rate of temperature, measured in °C per second
+    ///
+    /// The slew rate is used to model worst-case temperature if we haven't
+    /// heard from a chip in a while (e.g. due to dropped samples)
+    pub temperature_slew_deg_per_sec: f32,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

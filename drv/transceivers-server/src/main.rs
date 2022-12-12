@@ -5,9 +5,13 @@
 #![no_std]
 #![no_main]
 
+use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary, leds::Leds, transceivers::Transceivers,
+    leds::FullErrorSummary,
+    leds::Leds,
+    transceivers::{LogicalPort, LogicalPortMask, Transceivers},
+    Reg,
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
@@ -19,7 +23,9 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
-use userlib::*;
+use transceiver_messages::mgmt::ManagementInterface;
+use userlib::{units::Celsius, *};
+use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
 
@@ -27,6 +33,7 @@ task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
+task_slot!(THERMAL, thermal);
 
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
@@ -50,8 +57,14 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
+    GotInterface(usize, ManagementInterface),
+    UnpluggedModule(usize),
+    TemperatureReadError(usize, FpgaError),
+    ThermalError(usize, task_thermal_api::ThermalError),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
 
 struct ServerImpl {
     transceivers: Transceivers,
@@ -60,10 +73,32 @@ struct ServerImpl {
     modules_present: u32,
     led_error: FullErrorSummary,
     leds_initialized: bool,
+
+    /// Handle to write temperatures to the thermal API
+    thermal_api: task_thermal_api::Thermal,
+
+    /// Thermal models are populated by the host
+    thermal_models: [Option<ThermalModel>; 32],
+}
+
+#[derive(Copy, Clone)]
+struct ThermalModel {
+    /// What kind of transceiver is this?
+    interface: ManagementInterface,
+
+    /// What are its thermal properties, e.g. critical temperature?
+    model: task_thermal_api::ThermalProperties,
 }
 
 const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
 const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
+
+/// Controls how often we poll the transceivers (in milliseconds).
+///
+/// Polling the transceivers serves a few functions:
+/// - Transceiver presence is used to control LEDs on the front IO board
+/// - For transceivers that are present and include a thermal model, we measure
+///   their temperature and send it to the `thermal` task.
 const TIMER_INTERVAL: u64 = 500;
 
 // Errors are being suppressed here due to a miswiring of the I2C bus at the
@@ -112,6 +147,178 @@ impl ServerImpl {
     }
 }
 
+impl ServerImpl {
+    /// Returns the temperature from a CMIS transceiver.
+    ///
+    /// `port` is a logical port index, i.e. 0-31.
+    fn read_cmis_temperature(
+        &self,
+        port: LogicalPort,
+    ) -> Result<Celsius, FpgaError> {
+        const CMIS_TEMPERATURE_MSB: u8 = 14; // CMIS, Table 8-9
+        self.read_temperature_from_i16(port, CMIS_TEMPERATURE_MSB)
+    }
+
+    /// Returns the temperature from a SFF-8636 transceiver.
+    ///
+    /// `port` is a logical port index, i.e. 0-31.
+    fn read_sff8636_temperature(
+        &self,
+        port: LogicalPort,
+    ) -> Result<Celsius, FpgaError> {
+        const SFF8636_TEMPERATURE_MSB: u8 = 22; // SFF-8636, Table 6-7
+        self.read_temperature_from_i16(port, SFF8636_TEMPERATURE_MSB)
+    }
+
+    /// Trigger a read from the given port's given register, which is assumed to
+    /// be an `i16` containing 1/256 °C.
+    fn read_temperature_from_i16(
+        &self,
+        port: LogicalPort,
+        reg: u8,
+    ) -> Result<Celsius, FpgaError> {
+        self.transceivers.setup_i2c_read(reg, 2, port.as_mask())?;
+
+        #[derive(Copy, Clone, FromBytes, AsBytes)]
+        #[repr(C)]
+        struct StatusAndTemperature {
+            status: u8,
+            temperature: zerocopy::I16<zerocopy::BigEndian>,
+        }
+
+        loop {
+            let mut out = StatusAndTemperature::new_zeroed();
+            self.transceivers
+                .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+            if out.status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                if out.status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
+                    return Err(FpgaError::ImplError(0));
+                } else {
+                    // "Internally measured free side device temperatures are
+                    // represented as a 16-bit signed twos complement value in
+                    // increments of 1/256 degrees Celsius"
+                    //
+                    // - SFF-8636 rev 2.10a, Section 6.2.4
+                    return Ok(Celsius(out.temperature.get() as f32 / 256.0));
+                }
+            }
+            userlib::hl::sleep_for(1);
+        }
+    }
+
+    fn get_transceiver_interface(
+        &mut self,
+        port: LogicalPort,
+    ) -> Result<ManagementInterface, FpgaError> {
+        self.transceivers.setup_i2c_read(0, 1, port.as_mask())?;
+        let mut out = [0u8; 2]; // [status, SFF8024Identifier]
+
+        // Wait for the I2C transaction to complete
+        loop {
+            self.transceivers
+                .get_i2c_status_and_read_buffer(port, &mut out)?;
+            if out[0] & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                break;
+            }
+            userlib::hl::sleep_for(1);
+        }
+
+        if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
+            match out[1] {
+                0x1E => Ok(ManagementInterface::Cmis),
+                0x0D | 0x11 => Ok(ManagementInterface::Sff8636),
+                i => Ok(ManagementInterface::Unknown(i)),
+            }
+        } else {
+            // TODO: how should we handle this?
+            // Right now, we'll retry on the next pass through the loop.
+            Err(FpgaError::ImplError(0))
+        }
+    }
+
+    fn update_thermal_loop(&mut self, status: ModulesStatus) {
+        let now = sys_get_timer().now;
+
+        for i in 0..self.thermal_models.len() {
+            let port = LogicalPort(i as u8);
+            let mask = 1 << i;
+            let powered =
+                (status.present & mask) != 0 && (status.power_good & mask) != 0;
+
+            // A wild transceiver just appeared!  Read it to decide whether it's
+            // using SFF-8636 or CMIS.
+            if powered && self.thermal_models[i].is_none() {
+                match self.get_transceiver_interface(port) {
+                    Ok(interface) => {
+                        ringbuf_entry!(Trace::GotInterface(i, interface));
+                        // TODO: this is made up
+                        self.thermal_models[i] = Some(ThermalModel {
+                            interface,
+                            model: task_thermal_api::ThermalProperties {
+                                target_temperature: Celsius(65.0),
+                                critical_temperature: Celsius(70.0),
+                                power_down_temperature: Celsius(80.0),
+                                temperature_slew_deg_per_sec: 0.5,
+                            },
+                        });
+                    }
+                    Err(e) => {
+                        // Not much we can do here if reading failed
+                        ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                    }
+                }
+            } else if !powered && self.thermal_models[i].is_some() {
+                // This transceiver went away; remove it from the thermal loop
+                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
+                    ringbuf_entry!(Trace::ThermalError(i, e));
+                }
+
+                ringbuf_entry!(Trace::UnpluggedModule(i));
+                self.thermal_models[i] = None;
+            }
+        }
+
+        for (i, m) in self.thermal_models.iter().enumerate() {
+            let port = LogicalPort(i as u8);
+            let m = match m {
+                Some(m) => m,
+                None => continue,
+            };
+
+            let temperature = match m.interface {
+                ManagementInterface::Cmis => self.read_cmis_temperature(port),
+                ManagementInterface::Sff8636 => {
+                    self.read_sff8636_temperature(port)
+                }
+                ManagementInterface::Unknown(..) => {
+                    // TODO: what should we do here?
+                    continue;
+                }
+            };
+            match temperature {
+                Ok(t) => {
+                    // We got a temperature! Send it over to the thermal task
+                    if let Err(e) = self
+                        .thermal_api
+                        .update_dynamic_input(i, now, m.model, t)
+                    {
+                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    }
+                }
+                Err(e) => {
+                    // We failed to read a temperature :(
+                    //
+                    // This could be because someone unplugged the transceiver
+                    // at exactly the right time, in which case, the error will
+                    // be transient (and we'll remove the transceiver on the
+                    // next pass through this function).
+                    ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                }
+            }
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
@@ -140,11 +347,11 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     fn set_power_state(
         &mut self,
         _msg: &userlib::RecvMessage,
-        mask: u32,
+        logical_port_mask: u32,
         state: PowerState,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .set_power_state(state, mask)
+            .set_power_state(state, LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -152,10 +359,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     fn port_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
-        mask: u32,
+        logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .port_reset(mask)
+            .port_reset(LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -163,10 +370,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     fn port_clear_fault(
         &mut self,
         _msg: &userlib::RecvMessage,
-        mask: u32,
+        logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .port_clear_fault(mask)
+            .port_clear_fault(LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -176,14 +383,14 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         reg: u8,
         num_bytes: u8,
-        mask: u32,
+        logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
 
         self.transceivers
-            .setup_i2c_read(reg, num_bytes, mask)
+            .setup_i2c_read(reg, num_bytes, LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -193,14 +400,14 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         reg: u8,
         num_bytes: u8,
-        mask: u32,
+        logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
 
         self.transceivers
-            .setup_i2c_write(reg, num_bytes, mask)
+            .setup_i2c_write(reg, num_bytes, LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -208,12 +415,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     fn get_i2c_read_buffer(
         &mut self,
         _msg: &userlib::RecvMessage,
-        port: u8,
+        logical_port: u8,
         dest: Leased<W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        if port >= NUM_PORTS {
+        if logical_port >= NUM_PORTS {
             return Err(TransceiversError::InvalidPortNumber.into());
         }
+        let port = LogicalPort(logical_port);
 
         if dest.len() > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
@@ -274,20 +482,22 @@ impl NotificationHandler for ServerImpl {
             }
 
             // Query module presence and update LEDs accordingly
-            let presence = match self.transceivers.get_modules_status() {
-                Ok(status) => status.present,
-                Err(_) => 0,
+            let status = match self.transceivers.get_modules_status() {
+                Ok(status) => status,
+                Err(_) => ModulesStatus::new_zeroed(),
             };
 
-            if presence != self.modules_present {
-                self.led_update(presence);
+            if status.present != self.modules_present {
+                self.led_update(status.present);
 
-                self.modules_present = presence;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(presence));
+                self.modules_present = status.present;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(status.present));
             }
 
+            self.update_thermal_loop(status);
+
             let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK)
+            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
         }
     }
 }
@@ -326,6 +536,8 @@ fn main() -> ! {
         );
 
         let net = task_net_api::Net::from(NET.get_task_id());
+        let thermal_api =
+            task_thermal_api::Thermal::from(THERMAL.get_task_id());
         let (tx_data_buf, rx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             transceivers,
@@ -334,6 +546,8 @@ fn main() -> ! {
             modules_present: 0,
             led_error: Default::default(),
             leds_initialized: false,
+            thermal_api,
+            thermal_models: [None; 32],
         };
 
         ringbuf_entry!(Trace::LEDInit);

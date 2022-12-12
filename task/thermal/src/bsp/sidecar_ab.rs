@@ -6,29 +6,44 @@
 
 use crate::control::{
     Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
-    ThermalProperties,
 };
 use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
-use drv_sidecar_seq_api::{Sequencer, TofinoSequencerPolicy};
+use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
+use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
+use task_sensor_api::config::other_sensors;
 
 task_slot!(SEQUENCER, sequencer);
 
+////////////////////////////////////////////////////////////////////////////////
+// Constants!
+
+// Air temperature sensors, which aren't used in the control loop
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
+
+// Temperature inputs (I2C devices), which are used in the control loop.
 pub const NUM_TEMPERATURE_INPUTS: usize =
     sensors::NUM_TMP451_TEMPERATURE_SENSORS;
+
+// External temperature inputs, which are provided to the task over IPC
+// In practice, these are our transceivers.
+pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize =
+    drv_transceivers_api::NUM_PORTS as usize;
+
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // The Sidecar controller hasn't been tuned yet, so boot into manual mode
 pub const USE_CONTROLLER: bool = false;
+
+////////////////////////////////////////////////////////////////////////////////
 
 bitflags::bitflags! {
     pub struct PowerBitmask: u32 {
@@ -43,6 +58,7 @@ bitflags::bitflags! {
 #[allow(dead_code)]
 pub(crate) struct Bsp {
     pub inputs: &'static [InputChannel],
+    pub dynamic_inputs: &'static [SensorId],
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
@@ -107,13 +123,13 @@ impl Bsp {
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
-        match self.seq.tofino_seq_policy() {
+        match self.seq.tofino_seq_state() {
             Ok(r) => match r {
-                TofinoSequencerPolicy::LatchOffOnFault => PowerBitmask::A0,
-                TofinoSequencerPolicy::Disabled => PowerBitmask::A2,
-
-                // RestartOnFault is not yet implemented
-                TofinoSequencerPolicy::RestartOnFault => PowerBitmask::A0_OR_A2,
+                TofinoSeqState::A0 => PowerBitmask::A0,
+                TofinoSeqState::Init
+                | TofinoSeqState::A2
+                | TofinoSeqState::InPowerUp
+                | TofinoSeqState::InPowerDown => PowerBitmask::A2,
             },
             Err(_) => PowerBitmask::A0_OR_A2,
         }
@@ -147,17 +163,16 @@ impl Bsp {
             fctrl_east,
             fctrl_west,
 
-            // TODO: this is all made up
+            // TODO: this is all made up, copied from tuned Gimlet values
             pid_config: PidConfig {
-                // If we're > 10 degrees from the target temperature, fans
-                // should be on at full power.
-                zero: 0.0,
-                gain_p: 10.0,
-                gain_i: 0.0,
-                gain_d: 0.0,
+                zero: 35.0,
+                gain_p: 1.75,
+                gain_i: 0.0135,
+                gain_d: 0.4,
             },
 
             inputs: &INPUTS,
+            dynamic_inputs: &DYNAMIC_INPUTS,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
@@ -205,6 +220,41 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         PowerBitmask::A0_OR_A2,
         false,
     ),
+];
+
+const DYNAMIC_INPUTS: [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS] = [
+    other_sensors::QSFP_XCVR0_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR1_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR2_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR3_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR4_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR5_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR6_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR7_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR8_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR9_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR10_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR11_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR12_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR13_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR14_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR15_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR16_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR17_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR18_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR19_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR20_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR21_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR22_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR23_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR24_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR25_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR26_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR27_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR28_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR29_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR30_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR31_TEMPERATURE_SENSOR,
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [

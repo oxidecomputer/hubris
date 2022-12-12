@@ -274,13 +274,14 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-transceivers-server"
 features = ["vlan"]
 priority = 6
-max-sizes = {flash = 65536, ram = 8192}
-stacksize = 2048
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
 start = true
 task-slots = [
+    "i2c_driver",
     "net",
     "sys",
-    "i2c_driver",
+    "thermal",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
 
@@ -300,8 +301,8 @@ task-slots = [
 name = "task-thermal"
 features = ["itm", "sidecar"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 4504
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 8096
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]
 
@@ -776,6 +777,198 @@ name = "front_leds_right"
 description = "Front IO LED driver (right)"
 removable = true
 refdes = "U6"
+
+[[config.sensor.devices]]
+name = "xcvr0"
+device = "qsfp"
+description = "QSFP transceiver 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr1"
+device = "qsfp"
+description = "QSFP transceiver 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr2"
+device = "qsfp"
+description = "QSFP transceiver 2"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr3"
+device = "qsfp"
+description = "QSFP transceiver 3"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr4"
+device = "qsfp"
+description = "QSFP transceiver 4"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr5"
+device = "qsfp"
+description = "QSFP transceiver 5"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr6"
+device = "qsfp"
+description = "QSFP transceiver 6"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr7"
+device = "qsfp"
+description = "QSFP transceiver 7"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr8"
+device = "qsfp"
+description = "QSFP transceiver 8"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr9"
+device = "qsfp"
+description = "QSFP transceiver 9"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr10"
+device = "qsfp"
+description = "QSFP transceiver 10"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr11"
+device = "qsfp"
+description = "QSFP transceiver 11"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr12"
+device = "qsfp"
+description = "QSFP transceiver 12"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr13"
+device = "qsfp"
+description = "QSFP transceiver 13"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr14"
+device = "qsfp"
+description = "QSFP transceiver 14"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr15"
+device = "qsfp"
+description = "QSFP transceiver 15"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr16"
+device = "qsfp"
+description = "QSFP transceiver 16"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr17"
+device = "qsfp"
+description = "QSFP transceiver 17"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr18"
+device = "qsfp"
+description = "QSFP transceiver 18"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr19"
+device = "qsfp"
+description = "QSFP transceiver 19"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr20"
+device = "qsfp"
+description = "QSFP transceiver 20"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr21"
+device = "qsfp"
+description = "QSFP transceiver 21"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr22"
+device = "qsfp"
+description = "QSFP transceiver 22"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr23"
+device = "qsfp"
+description = "QSFP transceiver 23"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr24"
+device = "qsfp"
+description = "QSFP transceiver 24"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr25"
+device = "qsfp"
+description = "QSFP transceiver 25"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr26"
+device = "qsfp"
+description = "QSFP transceiver 26"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr27"
+device = "qsfp"
+description = "QSFP transceiver 27"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr28"
+device = "qsfp"
+description = "QSFP transceiver 28"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr29"
+device = "qsfp"
+description = "QSFP transceiver 29"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr30"
+device = "qsfp"
+description = "QSFP transceiver 30"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "xcvr31"
+device = "qsfp"
+description = "QSFP transceiver 31"
+sensors.temperature = 1
 
 [config.spi.spi1]
 controller = 1
