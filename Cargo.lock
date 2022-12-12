@@ -4138,6 +4138,7 @@ dependencies = [
  "drv-onewire",
  "drv-onewire-devices",
  "drv-sidecar-seq-api",
+ "drv-transceivers-api",
  "idol",
  "idol-runtime",
  "num-traits",
