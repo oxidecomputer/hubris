@@ -366,6 +366,9 @@ impl Default for OneSidedPidState {
 /// - Dynamic temperature inputs (read by another task and passed in)
 enum ThermalControlState {
     /// Wait for each sensor to report in at least once
+    ///
+    /// (dynamic sensors must report in *if* they are present, i.e. not `None`
+    /// in the `dynamic_inputs` array)
     Boot {
         values: [Option<TemperatureReading>;
             bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
@@ -727,10 +730,6 @@ impl<'a> ThermalControl<'a> {
                 // below their max temperature; negative means someone is
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
-                //
-                // temperatures in `values` correspond to the BSP inputs,
-                // followed by local dynamic temperatures (which may or may not
-                // be present).
                 for (v, model) in Self::zip_temperatures(values, inputs) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
