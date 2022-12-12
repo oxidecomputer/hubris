@@ -41,7 +41,7 @@ pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize =
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // The Sidecar controller hasn't been tuned yet, so boot into manual mode
-pub const USE_CONTROLLER: bool = true;
+pub const USE_CONTROLLER: bool = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 

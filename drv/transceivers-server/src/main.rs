@@ -65,17 +65,6 @@ enum Trace {
 ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Separate ringbuf for temperature logging, until we have a Grand Unified
-// Sensors task that can accept non-I2C sensors.
-#[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
-enum Temperature {
-    None,
-    Temperature(usize, Celsius),
-}
-ringbuf!(TEMPERATURES, Temperature, 32, Temperature::None);
-
-////////////////////////////////////////////////////////////////////////////////
 
 struct ServerImpl {
     transceivers: Transceivers,
@@ -306,10 +295,6 @@ impl ServerImpl {
             };
             match temperature {
                 Ok(t) => {
-                    ringbuf_entry!(
-                        TEMPERATURES,
-                        Temperature::Temperature(i, t)
-                    );
                     // We got a temperature! Send it over to the thermal task
                     if let Err(e) = self
                         .thermal_api
