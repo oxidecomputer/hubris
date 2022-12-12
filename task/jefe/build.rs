@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 
 fn main() -> Result<()> {
@@ -28,18 +28,28 @@ fn main() -> Result<()> {
     let mut out =
         std::fs::File::create(dest_path).context("creating jefe_config.rs")?;
 
-    let count = cfg.on_state_change.len();
-
     let task = "hubris_num_tasks::Task";
-    writeln!(
-        out,
-        "pub(crate) const MAILING_LIST: [({}, u32); {}] = [",
-        task, count
-    )?;
-    for (name, rec) in cfg.on_state_change {
-        writeln!(out, "    ({}::{}, 1 << {}),", task, name, rec.bit_number)?;
+    {
+        let count = cfg.on_state_change.len();
+
+        writeln!(
+            out,
+            "pub(crate) const MAILING_LIST: [({task}, u32); {count}] = [",
+        )?;
+        for (name, rec) in cfg.on_state_change {
+            writeln!(out, "    ({task}::{name}, 1 << {}),", rec.bit_number)?;
+        }
+        writeln!(out, "];")?;
     }
-    writeln!(out, "];")?;
+
+    {
+        let count = cfg.tasks_to_hold.len();
+        writeln!(out, "pub(crate) const HELD_TASKS: [{task}; {count}] = [",)?;
+        for name in cfg.tasks_to_hold {
+            writeln!(out, "    {task}::{name},")?;
+        }
+        writeln!(out, "];")?;
+    }
 
     Ok(())
 }
@@ -55,6 +65,10 @@ struct Config {
     /// Map of operation names to tasks allowed to call them.
     #[serde(default)]
     allowed_callers: BTreeMap<String, Vec<String>>,
+    /// Set of names of tasks that should _not_ be automagically restarted on
+    /// failure, unless overridden at runtime through Humility.
+    #[serde(default)]
+    tasks_to_hold: BTreeSet<String>,
 }
 
 /// Description of something a task wants done on state change.

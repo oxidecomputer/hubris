@@ -28,6 +28,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+tasks-to-hold = ["thermal"]
+
 [tasks.jefe.config.on-state-change]
 net = {bit-number = 3}
 host_sp_comms = {bit-number = 1}
