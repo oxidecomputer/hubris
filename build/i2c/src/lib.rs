@@ -1257,7 +1257,7 @@ impl ConfigGenerator {
             &mut self.output,
             r##"
     pub mod sensors {{
-        use task_sensor_api::SensorId;
+        use crate::SensorId;
 
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};

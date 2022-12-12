@@ -41,6 +41,7 @@ pub const USE_CONTROLLER: bool = true;
 pub(crate) struct Bsp {
     /// Controlled sensors
     pub inputs: &'static [InputChannel],
+    pub dynamic_inputs: &'static [SensorId],
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
@@ -170,6 +171,7 @@ impl Bsp {
             },
 
             inputs: &INPUTS,
+            dynamic_inputs: &[],
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,

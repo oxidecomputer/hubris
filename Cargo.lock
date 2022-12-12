@@ -4034,7 +4034,6 @@ name = "task-sensor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "build-i2c",
  "build-util",
  "cfg-if",
  "cortex-m",
@@ -4053,10 +4052,14 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
  "derive-idol-err",
  "drv-i2c-api",
  "idol",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy",
 ]

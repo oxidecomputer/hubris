@@ -928,6 +928,13 @@ impl<'a> ThermalControl<'a> {
             temperature,
         );
         self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
+
+        // Post this reading to the sensors task as well
+        let sensor_id = self.bsp.dynamic_inputs[index];
+        if let Err(e) = self.sensor_api.post(sensor_id, temperature.0) {
+            ringbuf_entry!(Trace::PostFailed(sensor_id, e));
+        }
+
         Ok(())
     }
 
@@ -939,6 +946,15 @@ impl<'a> ThermalControl<'a> {
             Err(ThermalError::InvalidIndex)
         } else {
             self.dynamic_inputs[index] = None;
+
+            // Post this reading to the sensors task as well
+            let sensor_id = self.bsp.dynamic_inputs[index];
+            if let Err(e) = self
+                .sensor_api
+                .nodata(sensor_id, task_sensor_api::NoData::DeviceNotPresent)
+            {
+                ringbuf_entry!(Trace::PostFailed(sensor_id, e));
+            }
             Ok(())
         }
     }

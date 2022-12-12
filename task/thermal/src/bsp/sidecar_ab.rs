@@ -19,6 +19,7 @@ use userlib::{task_slot, units::Celsius, TaskId};
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
+use task_sensor_api::config::other_sensors;
 
 task_slot!(SEQUENCER, sequencer);
 
@@ -56,6 +57,7 @@ bitflags::bitflags! {
 #[allow(dead_code)]
 pub(crate) struct Bsp {
     pub inputs: &'static [InputChannel],
+    pub dynamic_inputs: &'static [SensorId],
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
@@ -169,6 +171,7 @@ impl Bsp {
             },
 
             inputs: &INPUTS,
+            dynamic_inputs: &DYNAMIC_INPUTS,
 
             // We monitor and log all of the air temperatures
             misc_sensors: &MISC_SENSORS,
@@ -216,6 +219,41 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         PowerBitmask::A0_OR_A2,
         false,
     ),
+];
+
+const DYNAMIC_INPUTS: [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS] = [
+    other_sensors::QSFP_XCVR0_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR1_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR2_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR3_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR4_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR5_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR6_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR7_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR8_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR9_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR10_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR11_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR12_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR13_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR14_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR15_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR16_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR17_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR18_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR19_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR20_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR21_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR22_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR23_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR24_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR25_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR26_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR27_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR28_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR29_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR30_TEMPERATURE_SENSOR,
+    other_sensors::QSFP_XCVR31_TEMPERATURE_SENSOR,
 ];
 
 const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
