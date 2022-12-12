@@ -319,7 +319,7 @@ impl Transceivers {
                     if mask.is_set(PhysicalPort(port)) {
                         fpga.write(
                             WriteOp::Write,
-                            Addr::QSFP_CONTROL_PORT0 as u16 + port as u16,
+                            Addr::QSFP_CONTROL_PORT0 as u16 + u16::from(port),
                             value,
                         )?;
                     }
