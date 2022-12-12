@@ -19,6 +19,7 @@ use sensors::NUM_SENSORS;
 
 struct ServerImpl {
     data: [Reading; NUM_SENSORS],
+    nerrors: [u32; NUM_SENSORS],
     deadline: u64,
 }
 
@@ -73,7 +74,34 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
         if index < NUM_SENSORS {
             self.data[index] = Reading::NoData(nodata);
+
+            //
+            // We pack per-`NoData` counters into a u32.
+            //
+            let (nbits, shift) = nodata.counter_encoding::<u32>();
+            let mask = (1 << nbits) - 1;
+            let bitmask = mask << shift;
+            let incr = 1 << shift;
+
+            if self.nerrors[index] & bitmask != bitmask {
+                self.nerrors[index] += incr;
+            }
+
             Ok(())
+        } else {
+            Err(SensorError::InvalidSensor.into())
+        }
+    }
+
+    fn get_nerrors(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<u32, RequestError<SensorError>> {
+        let index = id.0;
+
+        if index < NUM_SENSORS {
+            Ok(self.nerrors[index])
         } else {
             Err(SensorError::InvalidSensor.into())
         }
@@ -102,6 +130,7 @@ fn main() -> ! {
 
     let mut server = ServerImpl {
         data: [Reading::Absent; NUM_SENSORS],
+        nerrors: [0; NUM_SENSORS],
         deadline,
     };
 

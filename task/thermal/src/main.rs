@@ -72,6 +72,7 @@ struct ServerImpl<'a> {
     mode: ThermalMode,
     control: ThermalControl<'a>,
     deadline: u64,
+    runtime: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
@@ -233,6 +234,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         }
         Ok(self.control.get_margin())
     }
+
+    fn get_runtime(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u64, RequestError<ThermalError>> {
+        Ok(self.runtime)
+    }
 }
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
@@ -265,6 +273,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             }
             self.deadline = now + TIMER_INTERVAL;
         }
+        self.runtime = sys_get_timer().now - now;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
     }
 }
@@ -289,6 +298,7 @@ fn main() -> ! {
         mode: ThermalMode::Off,
         control,
         deadline,
+        runtime: 0,
     };
     if bsp::USE_CONTROLLER {
         server.set_mode_auto().unwrap();

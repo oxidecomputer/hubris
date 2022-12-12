@@ -86,6 +86,13 @@ Interface(
                 ok: "()",
                 err: CLike("ThermalError"),
             ),
-        )
+        ),
+        "get_runtime": (
+            doc: "Get the most recent runtime of the thermal loop, in milliseconds",
+            reply: Result(
+                ok: "u64",
+                err: CLike("ThermalError"),
+            ),
+        ),
     },
 )

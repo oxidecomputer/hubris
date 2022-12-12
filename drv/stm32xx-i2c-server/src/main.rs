@@ -121,16 +121,18 @@ fn configure_mux(
                     },
                 )?;
             }
-
-            // Beyond this point, we want any failure to set our new
-            // mux+segment to leave our mux+segment unset rather than having
-            // it point to the old mux+segment.
-            map.remove((controller.controller, port));
         }
 
-        // If we're here, our mux is valid, but the current segment is
-        // not the specfied segment; we will now call upon our
-        // driver to enable this segment.
+        //
+        // If we're here, our mux is valid, but the current segment is not the
+        // specfied segment; we will now call upon our driver to enable this
+        // segment.  Note that if we have an existing mux/segment, and we fail
+        // to enable the new mux/segment, the map will not be updated.  This
+        // is deliberate:  if we cannot enable a new mux/segment, it may very
+        // well be because an errant device on the old segment is locking the
+        // bus; if only for forensic purposes, we want to know what this mux +
+        // segment was.
+        //
         mux.driver
             .enable_segment(mux, controller, Some(segment), ctrl)?;
         map.insert((controller.controller, port), (id, segment));
