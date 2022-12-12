@@ -106,7 +106,6 @@ impl ServerImpl {
         rx_data_buf: &[u8],
         tx_data_buf: &mut [u8],
     ) {
-        // Modify meta.size based on the output packet size
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
                 Ok((msg, data)) => self.handle_message(msg, data, tx_data_buf),
@@ -117,6 +116,7 @@ impl ServerImpl {
             };
 
         if let Some(out_len) = out_len {
+            // Modify meta.size based on the output packet size
             meta.size = out_len;
             if let Err(e) = self.net.send_packet(
                 SocketName::transceivers,
