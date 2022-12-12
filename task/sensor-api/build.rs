@@ -12,7 +12,7 @@ use std::{fmt::Write as FmtWrite, io::Write as IoWrite};
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct GlobalConfig {
-    sensor: SensorConfig,
+    sensor: Option<SensorConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,64 +37,70 @@ fn main() -> Result<()> {
     build_i2c::codegen(build_i2c::Disposition::Sensors)?;
 
     let config: GlobalConfig = build_util::config()?;
-    let sensor_count: usize =
-        config.sensor.devices.iter().map(|d| d.sensors.len()).sum();
 
-    let mut by_device: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    let mut names = BTreeSet::new();
-    for (i, d) in config.sensor.devices.iter().enumerate() {
-        by_device.entry(d.device.clone()).or_default().push(i);
-        if !names.insert(d.name.clone()) {
-            bail!("Duplicate sensor name: {}", d.name);
+    let (count, text) = if let Some(config_sensor) = &config.sensor {
+        let sensor_count: usize =
+            config_sensor.devices.iter().map(|d| d.sensors.len()).sum();
+
+        let mut by_device: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        let mut names = BTreeSet::new();
+        for (i, d) in config_sensor.devices.iter().enumerate() {
+            by_device.entry(d.device.clone()).or_default().push(i);
+            if !names.insert(d.name.clone()) {
+                bail!("Duplicate sensor name: {}", d.name);
+            }
         }
-    }
 
-    let mut sensors_individual = String::new();
-    let mut sensor_id = 0;
-    for d in &config.sensor.devices {
-        for (sensor_type, &sensor_count) in d.sensors.iter() {
-            let sensor = format!(
-                "{}_{}_{}",
-                d.device.to_ascii_uppercase(),
-                d.name.to_ascii_uppercase(),
-                sensor_type.to_ascii_uppercase()
-            );
-            writeln!(
-                &mut sensors_individual,
-                "        #[allow(dead_code)]
-        pub const NUM_{sensor}_SENSORS: usize = {sensor_count};"
-            )
-            .unwrap();
-            if sensor_count == 1 {
+        let mut sensors_text = String::new();
+        let mut sensor_id = 0;
+        for d in &config_sensor.devices {
+            for (sensor_type, &sensor_count) in d.sensors.iter() {
+                let sensor = format!(
+                    "{}_{}_{}",
+                    d.device.to_ascii_uppercase(),
+                    d.name.to_ascii_uppercase(),
+                    sensor_type.to_ascii_uppercase()
+                );
                 writeln!(
-                    &mut sensors_individual,
+                    &mut sensors_text,
                     "        #[allow(dead_code)]
+        pub const NUM_{sensor}_SENSORS: usize = {sensor_count};"
+                )
+                .unwrap();
+                if sensor_count == 1 {
+                    writeln!(
+                        &mut sensors_text,
+                        "        #[allow(dead_code)]
         pub const {sensor}_SENSOR: SensorId = \
             // {}
             SensorId(NUM_I2C_SENSORS + {sensor_id});",
-                    d.description
-                )
-                .unwrap();
-                sensor_id += 1;
-            } else {
-                writeln!(
-                    &mut sensors_individual,
-                    "        #[allow(dead_code)]
-        pub const {sensor}_SENSORS: [SensorId; {sensor_count}] = ["
-                )
-                .unwrap();
-                for _ in 0..sensor_count {
-                    writeln!(
-                        &mut sensors_individual,
-                        "            SensorId(NUM_I2C_SENSORS + {sensor_id}),"
+                        d.description
                     )
                     .unwrap();
                     sensor_id += 1;
+                } else {
+                    writeln!(
+                        &mut sensors_text,
+                        "        #[allow(dead_code)]
+        pub const {sensor}_SENSORS: [SensorId; {sensor_count}] = ["
+                    )
+                    .unwrap();
+                    for _ in 0..sensor_count {
+                        writeln!(
+                        &mut sensors_text,
+                        "            SensorId(NUM_I2C_SENSORS + {sensor_id}),"
+                    )
+                        .unwrap();
+                        sensor_id += 1;
+                    }
+                    writeln!(&mut sensors_text, "        ];").unwrap();
                 }
-                writeln!(&mut sensors_individual, "        ];").unwrap();
             }
         }
-    }
+        (sensor_count, sensors_text)
+    } else {
+        (0, String::new())
+    };
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("sensor_config.rs");
@@ -110,8 +116,8 @@ fn main() -> Result<()> {
         use super::NUM_I2C_SENSORS; // Used for offsetting
 
         #[allow(dead_code)]
-        pub const NUM_SENSORS: usize = {sensor_count};
-{sensors_individual}
+        pub const NUM_SENSORS: usize = {count};
+{text}
     }}
 
     pub use i2c_config::sensors as i2c_sensors;
