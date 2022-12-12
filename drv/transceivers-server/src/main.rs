@@ -211,6 +211,7 @@ impl ServerImpl {
                     return Ok(Celsius(out.temperature.get() as f32 / 256.0));
                 }
             }
+            userlib::hl::sleep_for(1);
         }
     }
 
@@ -228,6 +229,7 @@ impl ServerImpl {
             if out[0] & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
                 break;
             }
+            userlib::hl::sleep_for(1);
         }
 
         if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
