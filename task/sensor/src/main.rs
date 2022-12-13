@@ -11,11 +11,7 @@ use idol_runtime::{NotificationHandler, RequestError};
 use task_sensor_api::{NoData, Reading, SensorError, SensorId};
 use userlib::*;
 
-// This is only included to determine the number of sensors
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-
-use i2c_config::sensors;
-use sensors::NUM_SENSORS;
+use task_sensor_api::config::NUM_SENSORS;
 
 struct ServerImpl {
     data: [Reading; NUM_SENSORS],

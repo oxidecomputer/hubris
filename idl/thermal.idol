@@ -87,6 +87,29 @@ Interface(
                 err: CLike("ThermalError"),
             ),
         ),
+        "update_dynamic_input": (
+            doc: "Provides a reading and thermal model for a dynamic sensor",
+            args: {
+                "index": "usize",
+                "time": "u64",
+                "model": "ThermalProperties",
+                "temperature": "Celsius",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "remove_dynamic_input": (
+            doc: "Removes the given dynamic input, so it is no longer used in the control loop",
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
         "get_runtime": (
             doc: "Get the most recent runtime of the thermal loop, in milliseconds",
             reply: Result(

@@ -24,15 +24,14 @@ anyhow = { workspace = true }
 cfg-if = { workspace = true }
 idol = { workspace = true }
 
-build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
 
 [features]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
-h743 = ["build-i2c/h743"]
-h753 = ["build-i2c/h753"]
-h7b3 = ["build-i2c/h7b3"]
+h743 = ["task-sensor-api/h743"]
+h753 = ["task-sensor-api/h753"]
+h7b3 = ["task-sensor-api/h7b3"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

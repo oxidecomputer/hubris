@@ -31,8 +31,10 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
-use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
-use userlib::units::PWMDuty;
+use task_thermal_api::{
+    ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+};
+use userlib::units::{Celsius, PWMDuty};
 use userlib::*;
 
 // We define our own Fan type, as we may have more fans than any single
@@ -235,6 +237,35 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         Ok(self.control.get_margin())
     }
 
+    fn update_dynamic_input(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+        time: u64,
+        model: ThermalProperties,
+        temperature: Celsius,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control
+            .update_dynamic_input(index, time, model, temperature)
+            .map_err(RequestError::from)
+    }
+
+    fn remove_dynamic_input(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control
+            .remove_dynamic_input(index)
+            .map_err(RequestError::from)
+    }
+
     fn get_runtime(
         &mut self,
         _: &RecvMessage,
@@ -315,7 +346,9 @@ fn main() -> ! {
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ThermalAutoState, ThermalError, ThermalMode};
+    use super::{
+        Celsius, ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+    };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 

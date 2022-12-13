@@ -113,3 +113,4 @@ impl From<NoData> for SensorError {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+include!(concat!(env!("OUT_DIR"), "/sensor_config.rs"));

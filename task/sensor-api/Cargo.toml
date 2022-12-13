@@ -18,4 +18,14 @@ test = false
 bench = false
 
 [build-dependencies]
+anyhow = { workspace = true }
 idol = { workspace = true }
+serde = { workspace = true }
+
+build-i2c = { path = "../../build/i2c" }
+build-util = { path = "../../build/util" }
+
+[features]
+h743 = ["build-i2c/h743"]
+h753 = ["build-i2c/h753"]
+h7b3 = ["build-i2c/h7b3"]

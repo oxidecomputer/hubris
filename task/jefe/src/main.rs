@@ -122,6 +122,11 @@ fn main() -> ! {
 
     let mut disposition: [Disposition; hubris_num_tasks::NUM_TASKS] =
         [Disposition::Restart; hubris_num_tasks::NUM_TASKS];
+
+    for held_task in generated::HELD_TASKS {
+        disposition[held_task as usize] = Disposition::Hold;
+    }
+
     let mut logged: [bool; hubris_num_tasks::NUM_TASKS] =
         [false; hubris_num_tasks::NUM_TASKS];
     let deadline = sys_get_timer().now + TIMER_INTERVAL;

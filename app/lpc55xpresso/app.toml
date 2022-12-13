@@ -111,29 +111,6 @@ start = true
 stacksize = 2200
 task-slots = ["syscon_driver"]
 
-[tasks.spi0_driver]
-name = "drv-lpc55-spi-server"
-priority = 4
-max-sizes = {flash = 16384, ram = 2048}
-features = ["spi0"]
-uses = ["flexcomm8"]
-start = true
-interrupts = {"flexcomm8.hs_spi" = 1}
-stacksize = 1000
-task-slots = ["gpio_driver", "syscon_driver"]
-
-[tasks.spi0_driver.config]
-pins = [
-# HS_SPI_MOSI = P0_26 = FUN9
-{ pin = { port = 0, pin = 26}, alt = 9},
-# HS_SPI_MISO = P1_3 = FUN6
-{ pin = { port = 1, pin = 3}, alt = 6},
-# HS_SPI_SCK = P1_2 = FUN6
-{ pin = { port = 1, pin = 2}, alt = 6},
-# HS_SSEL1 = P1_1 = FUN5
-{ pin = { port = 1, pin = 1}, alt = 5},
-]
-
 [tasks.ping]
 name = "task-ping"
 features = ["uart"]
@@ -150,4 +127,29 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 stacksize = 1000
 task-slots = ["user_leds"]
+
+[tasks.sprot]
+name = "drv-lpc55-sprot-server"
+priority = 4
+max-sizes = {flash = 32768, ram = 32768}
+uses = ["flexcomm8", "bootrom"]
+features = ["spi0"]
+start = true
+interrupts = {"flexcomm8.hs_spi" = 1}
+stacksize = 16384
+task-slots = ["gpio_driver", "syscon_driver", "update_server"]
+
+[tasks.sprot.config]
+pins = [
+# HS_SPI_MOSI = P0_26 = FUN9
+{ pin = { port = 0, pin = 26}, alt = 9},
+# HS_SPI_MISO = P1_3 = FUN6
+{ pin = { port = 1, pin = 3}, alt = 6},
+# HS_SPI_SCK = P1_2 = FUN6
+{ pin = { port = 1, pin = 2}, alt = 6},
+# HS_SSEL1 = P1_1 = FUN5
+{ pin = { port = 1, pin = 1}, alt = 5},
+# ROT_IRQ = P0_18 = FUN0
+{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
+]
 
