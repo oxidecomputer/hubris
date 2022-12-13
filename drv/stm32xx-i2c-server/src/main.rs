@@ -125,7 +125,7 @@ fn configure_mux(
 
         //
         // If we're here, our mux is valid, but the current segment is not the
-        // specfied segment; we will now call upon our driver to enable this
+        // specified segment; we will now call upon our driver to enable this
         // segment.  Note that if we have an existing mux/segment, and we fail
         // to enable the new mux/segment, the map will not be updated.  This
         // is deliberate:  if we cannot enable a new mux/segment, it may very

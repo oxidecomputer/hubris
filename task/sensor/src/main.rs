@@ -79,6 +79,10 @@ impl idl::InOrderSensorImpl for ServerImpl {
             let bitmask = mask << shift;
             let incr = 1 << shift;
 
+            //
+            // Perform a saturating increment by checking our current value
+            // against our bitmask: if we have unset bits, we can safely add.
+            //
             if self.nerrors[index] & bitmask != bitmask {
                 self.nerrors[index] += incr;
             }
