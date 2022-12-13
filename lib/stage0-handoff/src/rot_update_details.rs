@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 unsafe impl HandoffData for RotUpdateDetails {
     const VERSION: u32 = 0;
-    const MAGIC: [u8; 12] = *b"havesomedata";
+    const MAGIC: [u8; 12] = *b"whatwhatwhat";
     const MEM_RANGE: Range<usize> = UPDATE_RANGE;
 }
 

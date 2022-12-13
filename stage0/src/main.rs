@@ -13,6 +13,7 @@ use core::arch;
 extern crate lpc55_pac;
 extern crate panic_halt;
 use cortex_m::peripheral::Peripherals as CorePeripherals;
+use cortex_m::peripheral::MPU;
 use cortex_m_rt::entry;
 use lpc55_pac::Peripherals;
 use stage0_handoff::Handoff;
@@ -153,15 +154,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 // we can allow unaligned access.
 //
 // NB: Portions opied from `sys/kern/src/arch/arm_m.rs:apply_memory_proteciton`
-fn apply_memory_protection() {
-    // We are manufacturing authority to interact with the MPU here, because we
-    // can't thread a cortex-specific peripheral through an
-    // architecture-independent API. This approach might bear revisiting later.
-    let mpu = unsafe {
-        // At least by not taking a &mut we're confident we're not violating
-        // aliasing....
-        &*cortex_m::peripheral::MPU::PTR
-    };
+fn apply_memory_protection(mpu: MPU) {
     unsafe {
         const DISABLE: u32 = 0b000;
         const PRIVDEFENA: u32 = 0b100;
@@ -224,7 +217,7 @@ fn main() -> ! {
         panic!()
     }
 
-    apply_memory_protection();
+    let mpu = CorePeripherals::take().unwrap_lite().MPU;
 
     // Turn on the memory used by the handoff subsystem to dump
     // `RotUpdateDetails` and DICE information required by hubris.
@@ -233,6 +226,8 @@ fn main() -> ! {
     // 0's.
     let peripherals = Peripherals::take().unwrap_lite();
     let handoff = Handoff::turn_on(&peripherals.SYSCON);
+
+    apply_memory_protection(mpu);
 
     let (image, _) = image_header::select_image_to_boot();
     image_header::dump_image_details_to_ram(&handoff);
