@@ -249,7 +249,7 @@ name = "task-sensor"
 features = ["itm"]
 priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
-stacksize = 1920        # Sensor data is stored on the stack
+stacksize = 1024
 start = true
 
 [tasks.ecp5_mainboard]

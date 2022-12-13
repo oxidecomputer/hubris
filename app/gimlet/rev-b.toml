@@ -196,7 +196,7 @@ name = "task-sensor"
 features = ["itm"]
 priority = 4
 max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 3800        # Sensor data is stored on the stack
+stacksize = 1024
 start = true
 
 [tasks.host_sp_comms]
