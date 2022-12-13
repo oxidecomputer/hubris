@@ -148,6 +148,72 @@ unsafe fn branch_to_image(image: Image) -> ! {
     );
 }
 
+// Setup the MPU so that we can treat the USB RAM as normal RAM, and not as a
+// peripheral. Specifically we want to clear the `DEVICE` attributes, so that
+// we can allow unaligned access.
+//
+// NB: Portions opied from `sys/kern/src/arch/arm_m.rs:apply_memory_proteciton`
+fn apply_memory_protection() {
+    // We are manufacturing authority to interact with the MPU here, because we
+    // can't thread a cortex-specific peripheral through an
+    // architecture-independent API. This approach might bear revisiting later.
+    let mpu = unsafe {
+        // At least by not taking a &mut we're confident we're not violating
+        // aliasing....
+        &*cortex_m::peripheral::MPU::PTR
+    };
+    unsafe {
+        const DISABLE: u32 = 0b000;
+        const PRIVDEFENA: u32 = 0b100;
+        // From the ARMv8m MPU manual
+        //
+        // Any outstanding memory transactions must be forced to complete by
+        // executing a DMB instruction and the MPU disabled before it can be
+        // configured
+        cortex_m::asm::dmb();
+        mpu.ctrl.write(DISABLE | PRIVDEFENA);
+    }
+
+    const USB_RAM_BASE: u32 = 0x4010_0000;
+    const USB_RAM_SIZE: u32 = 0x4000;
+    const USB_RAM_REGION_NUMBER: u32 = 0;
+
+    // Subtract 32 because the `LIMIT` field in the `rlar` register range is inclusive
+    // and then enable the region (bit 0).
+    let rlar = (USB_RAM_BASE + USB_RAM_SIZE - 32) | (1 << 0);
+
+    let ap = 0b01; // read-write by any privilege level
+    let sh = 0b00; // non-shareable - we only use one core with no DMA here
+    let xn = 1; // Don't execute out of this region
+    let rbar = USB_RAM_BASE | (sh as u32) << 3 | ap << 1 | xn;
+
+    // region 0: write-back transient, not shared, with read/write supported
+    let mair0 = 0b0111_0100;
+
+    unsafe {
+        mpu.rnr.write(USB_RAM_REGION_NUMBER);
+        // We only have one region (0), so no need for a RMW cycle
+        mpu.mair[0].write(mair0);
+        mpu.rbar.write(rbar);
+        mpu.rlar.write(rlar);
+    }
+
+    unsafe {
+        const ENABLE: u32 = 0b001;
+        const PRIVDEFENA: u32 = 0b100;
+        mpu.ctrl.write(ENABLE | PRIVDEFENA);
+        // From the ARMv8m MPU manual
+        //
+        // The final step is to enable the MPU by writing to MPU_CTRL. Code
+        // should then execute a memory barrier to ensure that the register
+        // updates are seen by any subsequent memory accesses. An Instruction
+        // Synchronization Barrier (ISB) ensures the updated configuration
+        // [is] used by any subsequent instructions.
+        cortex_m::asm::dmb();
+        cortex_m::asm::isb();
+    }
+}
+
 #[entry]
 fn main() -> ! {
     // This is the SYSCON_DIEID register on LPC55 which contains the ROM
@@ -157,6 +223,8 @@ fn main() -> ! {
     if val & 1 != ROM_VER {
         panic!()
     }
+
+    apply_memory_protection();
 
     // Turn on the memory used by the handoff subsystem to dump
     // `RotUpdateDetails` and DICE information required by hubris.

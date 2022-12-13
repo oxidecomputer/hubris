@@ -37,7 +37,7 @@ const_assert!(UPDATE_RANGE.end <= MEM_RANGE.end);
 pub struct Handoff<'a>(&'a RegisterBlock);
 
 impl<'a> Handoff<'a> {
-    // Handing off DICE artifacts through the USB SRAM requires we power it on.
+    // Handing off artifacts through the USB SRAM requires we power it on.
     // We implement this as a constructor on the producer side of the handoff
     // to ensure this memory is enabled before consumers attempt access.
     // Attempts to access this memory region before powering it on will fault.
