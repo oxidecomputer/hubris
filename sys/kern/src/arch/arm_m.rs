@@ -471,7 +471,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         };
 
         // RLAR = our upper bound
-        let rlar = (region.base + region.size)
+        let rlar = (region.base + region.size - 32)
                 | (i as u32) << 1 // AttrIndx
                 | (1 << 0); // enable
 
