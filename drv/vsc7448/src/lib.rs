@@ -766,6 +766,98 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Implements the VLAN scheme described in RFD 250, with one exception:
+    /// the technician ports are on **every VLAN**, so they can talk to any SP
+    /// without having to go through the CPU port to the Tofino.
+    pub fn configure_vlan_semistrict(&self) -> Result<(), VscError> {
+        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
+
+        const TECHNICIAN_1: u8 = 44;
+        const TECHNICIAN_2: u8 = 45;
+
+        // Enable the VLAN
+        self.write_with(ANA_L3().COMMON().VLAN_CTRL(), |r| r.set_vlan_ena(1))?;
+
+        // By default, there are three VLANs configured in ANA_L3:
+        // 0, 1, and 4095.  We disable all of them, since we only want to
+        // allow very specific VIDs.
+        for vid in [0, 1, 4095] {
+            self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), 0)?;
+        }
+
+        // Configure the downstream ports, which each have their own VLANs
+        for p in (0..=52).filter(|&p| p != UPLINK) {
+            let port = ANA_CL().PORT(p);
+
+            // Pick a mask of what ports are conntected to this port
+            let mask = if p == TECHNICIAN_1 || p == TECHNICIAN_2 {
+                // Technician ports are connected to every port!
+                (1 << 53) - 1
+            } else {
+                // SPs are only connected to the Tofino and technician ports
+                (1 << p)
+                    | (1 << UPLINK)
+                    | (1 << TECHNICIAN_1)
+                    | (1 << TECHNICIAN_2)
+            };
+
+            // Configure the 0x1YY VLAN for this port
+            self.write_port_mask(
+                ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
+                mask,
+            )?;
+
+            // The downstream ports expect untagged frames, and classify
+            // them based on a per-port VID assigned here.
+            self.modify(port.VLAN_CTRL(), |r| {
+                r.set_port_vid(0x100 + p as u32);
+                r.set_vlan_aware_ena(1);
+            })?;
+            // Accept no TPIDs, and only route untagged frames.
+            self.modify(port.VLAN_TPID_CTRL(), |r| {
+                r.set_basic_tpid_aware_dis(0b1111);
+                r.set_rt_tag_ctrl(0b0001);
+            })?;
+        }
+
+        // The uplink port requires one VLAN tag, and pops it on ingress
+        //
+        // It has a default VID of 0x1, but we removed all ports from
+        // that VLAN, so it will only accept our desired set of VIDs.
+        let port = ANA_CL().PORT(UPLINK);
+        self.modify(port.VLAN_CTRL(), |r| {
+            r.set_vlan_pop_cnt(1);
+            r.set_vlan_aware_ena(1);
+        })?;
+        // Only accept 0x8100 as a valid TPID, to keep things simple,
+        // and only route frames with one accepted tag
+        self.modify(port.VLAN_TPID_CTRL(), |r| {
+            r.set_basic_tpid_aware_dis(0b1110);
+            r.set_rt_tag_ctrl(0b0010);
+        })?;
+        // Discard frames with < 1 tag
+        self.modify(port.VLAN_FILTER_CTRL(0), |r| {
+            r.set_tag_required_ena(1);
+        })?;
+        let rew = REW().PORT(UPLINK);
+        // Use the rewriter to tag all frames on egress from the upstream port
+        // (using the VID assigned on ingress into a downstream port)
+        self.modify(rew.TAG_CTRL(), |r| {
+            r.set_tag_cfg(1);
+        })?;
+
+        // Configure VLAN ingress filtering, so packets that arrive and
+        // aren't part of an appropriate VLAN are dropped.  This occurs
+        // after VLAN classification, so the downstream ports that have
+        // frames classified on ingress should work.
+        self.write_port_mask(
+            ANA_L3().COMMON().VLAN_FILTER_CTRL(),
+            (1 << 53) - 1,
+        )?;
+
+        Ok(())
+    }
+
     /// Checks the 10GBASE-KR autonegotiation state machine for the given dev.
     ///
     /// If it is stuck in `WAIT_RATE_DONE`, restarts autonegotiation and returns
