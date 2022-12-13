@@ -27,5 +27,15 @@ dice-cust-cfg = false
 dice-inc-sec-epoch = false
 
 [[signing.certs]]
-cert-paths = ["../../support/fake_certs/fake_certificate.der.crt"  ]
-priv-key = "../../support/fake_certs/fake_private_key.pem"
+cert-paths = ["../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Engineering Offline CA A Trust Anchor.cert.der", 
+  "../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Engineering Online Signer A1.cert.der" ]
+priv-key = "../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Engineering Online Signer A1.key.pem"
+
+[[signing.certs]]
+cert-paths = ["../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Engineering Offline CA B Trust Anchor.cert.der"]
+
+[[signing.certs]]
+cert-paths = ["../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Production Offline CA A Trust Anchor.cert.der"]
+
+[[signing.certs]]
+cert-paths = ["../../support/fake_certs/pki_playground/TEST USE ONLY - Gimlet RoT Stage0 Code Signing Production Offline CA B Trust Anchor.cert.der"]
