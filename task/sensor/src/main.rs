@@ -14,7 +14,7 @@ use userlib::*;
 use task_sensor_api::config::NUM_SENSORS;
 
 struct ServerImpl {
-    data: [Reading; NUM_SENSORS],
+    data: &'static mut [Reading; NUM_SENSORS],
     deadline: u64,
 }
 
@@ -96,10 +96,11 @@ fn main() -> ! {
     //
     sys_set_timer(Some(deadline), TIMER_MASK);
 
-    let mut server = ServerImpl {
-        data: [Reading::Absent; NUM_SENSORS],
-        deadline,
+    let data = mutable_statics::mutable_statics! {
+        static mut SENSOR_DATA: [Reading; NUM_SENSORS] = [|| Reading::Absent; _];
     };
+
+    let mut server = ServerImpl { data, deadline };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 

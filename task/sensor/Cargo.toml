@@ -18,6 +18,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-sensor-api = { path = "../sensor-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+mutable-statics = { path = "../../lib/mutable-statics" }
 
 [build-dependencies]
 anyhow = { workspace = true }
