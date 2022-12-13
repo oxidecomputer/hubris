@@ -332,6 +332,14 @@ stacksize = 2048
 start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
 [tasks.idle]
 name = "task-idle"
 priority = 8
