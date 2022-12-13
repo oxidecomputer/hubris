@@ -13,7 +13,7 @@ use core::convert::Infallible;
 use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
-use stage0_handoff::{HandoffData, RotUpdateDetails};
+use stage0_handoff::{HandoffData, ImageVersion, RotUpdateDetails};
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -161,6 +161,18 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         Ok(BLOCK_SIZE_BYTES)
     }
 
+    // TODO(AJS): Remove this in favor of `status`, once SP code is updated.
+    // This has ripple effects up thorugh control-plane-agent.
+    fn current_version(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<ImageVersion, RequestError<Infallible>> {
+        Ok(ImageVersion {
+            epoch: HUBRIS_BUILD_EPOCH,
+            version: HUBRIS_BUILD_VERSION,
+        })
+    }
+
     fn status(
         &mut self,
         _: &RecvMessage,
@@ -186,8 +198,9 @@ fn main() -> ! {
     }
 }
 
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{UpdateError, UpdateStatus, UpdateTarget};
+    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

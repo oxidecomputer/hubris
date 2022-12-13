@@ -11,6 +11,8 @@ use stage0_handoff::{HandoffDataLoadError, RotUpdateDetails};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
+pub use stage0_handoff::ImageVersion;
+
 #[repr(u8)]
 #[derive(
     FromPrimitive,

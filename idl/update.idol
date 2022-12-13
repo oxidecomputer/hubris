@@ -53,6 +53,13 @@ Interface(
 				err: CLike("UpdateError"),
 			),
 		),
+		"current_version": (
+			doc: "Get the current image version",
+			args : { },
+			reply : Simple("ImageVersion"),
+			idempotent: true,
+			encoding: Hubpack
+		),
 		"status": (
 			doc: "Get info about installed images",
 			args: { },
