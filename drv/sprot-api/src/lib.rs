@@ -207,7 +207,7 @@ pub struct SinkStatus {
 ///
 /// TODO: Finalize this structure before first customer ship.
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct Status {
+pub struct SprotStatus {
     /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
     pub supported: u32,
 

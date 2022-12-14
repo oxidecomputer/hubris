@@ -47,7 +47,7 @@ pub struct RotImageDetails {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct ImageVersion {
     pub epoch: u32,
@@ -55,7 +55,7 @@ pub struct ImageVersion {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub enum RotSlot {
     A = 0,

@@ -42,9 +42,8 @@ Interface(
         ),
         "status": (
             doc: "Return untrusted status from RoT",
-            args: { },
             reply : Result(
-              ok: "Status",
+              ok: "SprotStatus",
               err: CLike("SprotError"),
             ),
             encoding: Hubpack

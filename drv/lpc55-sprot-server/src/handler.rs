@@ -198,7 +198,7 @@ impl Handler {
                     UpdateStatus::LoadError(e) => return Err(e.into()),
                     UpdateStatus::Sp => panic!(),
                 };
-                let status = Status {
+                let status = SprotStatus {
                     supported: state.supported,
                     bootrom_crc32: state.bootrom_crc32,
                     buffer_size: state.buffer_size,

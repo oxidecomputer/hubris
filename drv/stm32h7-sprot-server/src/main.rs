@@ -689,12 +689,13 @@ impl idl::InOrderSpRotImpl for ServerImpl {
     fn status(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<Status, RequestError<SprotError>> {
+    ) -> Result<SprotStatus, RequestError<SprotError>> {
         let txmsg = self.tx_buf.no_payload(MsgType::StatusReq);
         let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
         expect_msg(MsgType::StatusRsp, rxmsg.0.msgtype)?;
-        let status =
-            self.rx_buf.deserialize_hubpack_payload::<Status>(&rxmsg)?;
+        let status = self
+            .rx_buf
+            .deserialize_hubpack_payload::<SprotStatus>(&rxmsg)?;
         Ok(status)
     }
 
@@ -817,7 +818,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
 mod idl {
     use super::{
         IoStats, MsgType, PulseStatus, Received, SinkStatus, SprotError,
-        Status, UpdateTarget,
+        SprotStatus, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
