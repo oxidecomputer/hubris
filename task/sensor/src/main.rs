@@ -136,7 +136,11 @@ fn main() -> ! {
         static mut u32: [u32; NUM_SENSORS] = [|| 0; _];
     };
 
-    let mut server = ServerImpl { data, nerrors, deadline };
+    let mut server = ServerImpl {
+        data,
+        nerrors,
+        deadline,
+    };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 
