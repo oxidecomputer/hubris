@@ -753,10 +753,14 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             r.set_vlan_pop_cnt(1);
             r.set_vlan_aware_ena(1);
         })?;
-        // Only accept 0x8100 as a valid TPID, to keep things simple,
-        // and only route frames with one accepted tag
         self.modify(port.VLAN_TPID_CTRL(), |r| {
+            // Only accept 0x8100 as a valid TPID, to keep things simple. This
+            // is the designated EtherType for "Customer VLAN tag" in IEEE
+            // 802.1Q; the register's polarity requires us to **clear** bit 0 to
+            // accept this TPID.
             r.set_basic_tpid_aware_dis(0b1110);
+
+            // Only route frames with one accepted tag
             r.set_rt_tag_ctrl(0b0010);
         })?;
         // Discard frames with < 1 tag
