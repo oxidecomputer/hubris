@@ -5,6 +5,5 @@ edition = "2021"
 
 [dependencies]
 hubpack = { workspace = true }
-lpc55-pac = { workspace = true }
 serde = { workspace = true }
 static_assertions = { workspace = true }

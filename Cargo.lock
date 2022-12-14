@@ -3614,7 +3614,6 @@ name = "stage0-handoff"
 version = "0.1.0"
 dependencies = [
  "hubpack 0.1.1",
- "lpc55-pac",
  "serde",
  "static_assertions",
 ]

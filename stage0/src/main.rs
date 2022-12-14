@@ -16,7 +16,6 @@ use cortex_m::peripheral::Peripherals as CorePeripherals;
 use cortex_m::peripheral::MPU;
 use cortex_m_rt::entry;
 use lpc55_pac::Peripherals;
-use stage0_handoff::Handoff;
 use unwrap_lite::UnwrapLite;
 
 cfg_if::cfg_if! {
@@ -31,7 +30,9 @@ cfg_if::cfg_if! {
 
 // FIXME Need to fixup the secure interface calls
 //mod hypo;
+mod handoff;
 mod image_header;
+use handoff::Handoff;
 
 use crate::image_header::Image;
 
