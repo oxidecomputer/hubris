@@ -68,14 +68,17 @@ impl TemperatureSensor {
         }
     }
 
-    fn poll(&self, i2c_task: TaskId, sensor_api: &Sensor, now: u64) {
+    fn poll(&self, i2c_task: TaskId, sensor_api: &Sensor) {
         let dev = (self.builder)(i2c_task);
         match &self.device {
             Device::Mwocp68 => {
                 for (i, &s) in self.temperature_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
                     let post_result = match m.read_temperature() {
-                        Ok(v) => sensor_api.post(s, v.0, now),
+                        Ok(v) => {
+                            let now = sys_get_timer().now;
+                            sensor_api.post(s, v.0, now)
+                        }
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
@@ -89,7 +92,10 @@ impl TemperatureSensor {
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
                     let post_result = match m.read_speed() {
-                        Ok(v) => sensor_api.post(s, v.0, now),
+                        Ok(v) => {
+                            let now = sys_get_timer().now;
+                            sensor_api.post(s, v.0, now)
+                        }
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::SpeedReadFailed(s, e));
@@ -131,9 +137,8 @@ fn main() -> ! {
 
     loop {
         hl::sleep_for(TIMER_INTERVAL);
-        let now = sys_get_timer().now;
         for s in &SENSORS {
-            s.poll(i2c_task, &sensor_api, now);
+            s.poll(i2c_task, &sensor_api);
         }
     }
 }
