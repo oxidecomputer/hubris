@@ -74,6 +74,7 @@ struct ServerImpl<'a> {
     mode: ThermalMode,
     control: ThermalControl<'a>,
     deadline: u64,
+    runtime: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
@@ -264,6 +265,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
             .remove_dynamic_input(index)
             .map_err(RequestError::from)
     }
+
+    fn get_runtime(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u64, RequestError<ThermalError>> {
+        Ok(self.runtime)
+    }
 }
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
@@ -296,6 +304,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             }
             self.deadline = now + TIMER_INTERVAL;
         }
+        self.runtime = sys_get_timer().now - now;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
     }
 }
@@ -320,12 +329,23 @@ fn main() -> ! {
         mode: ThermalMode::Off,
         control,
         deadline,
+        runtime: 0,
     };
     if bsp::USE_CONTROLLER {
         server.set_mode_auto().unwrap();
     } else {
         server.set_mode_manual(PWMDuty(0)).unwrap();
     }
+
+    //
+    // We enable the fan watchdog, but with its longest timeout of 30 seconds.
+    // This is longer than it takes to flash on Gimlet -- and right on the edge
+    // of how long it takes to dump.  On some platforms and/or under some
+    // conditions, "humility dump" might be able to induce the watchdog to kick,
+    // which may induce a flight-or-fight reaction for whomever is near the
+    // fans when they blast off...
+    //
+    server.set_watchdog(I2cWatchdog::ThirtySeconds).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {

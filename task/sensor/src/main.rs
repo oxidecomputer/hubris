@@ -15,6 +15,7 @@ use task_sensor_api::config::NUM_SENSORS;
 
 struct ServerImpl {
     data: &'static mut [Reading; NUM_SENSORS],
+    nerrors: &'static mut [u32; NUM_SENSORS],
     deadline: u64,
 }
 
@@ -69,7 +70,38 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
         if index < NUM_SENSORS {
             self.data[index] = Reading::NoData(nodata);
+
+            //
+            // We pack per-`NoData` counters into a u32.
+            //
+            let (nbits, shift) = nodata.counter_encoding::<u32>();
+            let mask = (1 << nbits) - 1;
+            let bitmask = mask << shift;
+            let incr = 1 << shift;
+
+            //
+            // Perform a saturating increment by checking our current value
+            // against our bitmask: if we have unset bits, we can safely add.
+            //
+            if self.nerrors[index] & bitmask != bitmask {
+                self.nerrors[index] += incr;
+            }
+
             Ok(())
+        } else {
+            Err(SensorError::InvalidSensor.into())
+        }
+    }
+
+    fn get_nerrors(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<u32, RequestError<SensorError>> {
+        let index = id.0;
+
+        if index < NUM_SENSORS {
+            Ok(self.nerrors[index])
         } else {
             Err(SensorError::InvalidSensor.into())
         }
@@ -100,7 +132,15 @@ fn main() -> ! {
         static mut SENSOR_DATA: [Reading; NUM_SENSORS] = [|| Reading::Absent; _];
     };
 
-    let mut server = ServerImpl { data, deadline };
+    let nerrors = mutable_statics::mutable_statics! {
+        static mut SENSOR_NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
+    };
+
+    let mut server = ServerImpl {
+        data,
+        nerrors,
+        deadline,
+    };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 

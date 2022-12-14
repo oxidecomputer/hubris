@@ -44,5 +44,17 @@ Interface(
                 err: CLike("SensorError"),
             ),
         ),
+        "get_nerrors": (
+            args: {
+                "id": (
+                    type: "SensorId",
+                    recv: From("usize", None),
+                )
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("SensorError"),
+            ),
+        ),
     },
 )

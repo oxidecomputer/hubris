@@ -31,6 +31,7 @@ use userlib::*;
 pub enum Op {
     WriteRead = 1,
     WriteReadBlock = 2,
+    SelectedMuxSegment = 3,
 }
 
 /// The response code returned from the I2C server.  These response codes pretty
@@ -84,6 +85,8 @@ pub enum ResponseCode {
     BusError = 22,
     /// Bad device state of unknown origin
     BadDeviceState = 23,
+    /// Bad return value for selected mux/segment
+    BadSelectedMux = 24,
 }
 
 ///
@@ -470,6 +473,42 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(())
+        }
+    }
+
+    pub fn selected_mux_segment(
+        &self,
+    ) -> Result<Option<(Mux, Segment)>, ResponseCode> {
+        let mut response = [0u8; 4];
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::SelectedMuxSegment as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                None,
+            )),
+            response.as_bytes_mut(),
+            &[],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            let (address, controller, port, mux) =
+                Marshal::unmarshal(&response)?;
+
+            if controller != self.controller
+                || address != self.address
+                || port != self.port
+            {
+                Err(ResponseCode::BadSelectedMux)
+            } else {
+                Ok(mux)
+            }
         }
     }
 }
