@@ -248,7 +248,7 @@ task-slots = ["sys", "i2c_driver"]
 name = "task-sensor"
 features = ["itm"]
 priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1024
 start = true
 
