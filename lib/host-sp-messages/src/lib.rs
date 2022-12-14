@@ -220,6 +220,7 @@ bitflags::bitflags! {
         const STARTUP_KMDB_BOOT = 1 << 5;
         const STARTUP_BOOT_RAMDISK = 1 << 6;
         const STARTUP_BOOT_NET = 1 << 7;
+        const STARTUP_VERBOSE = 1 << 8;
     }
 }
 
@@ -258,6 +259,10 @@ const_assert_eq!(
 const_assert_eq!(
     HostStartupOptions::STARTUP_BOOT_NET.bits(),
     gateway_messages::StartupOptions::STARTUP_BOOT_NET.bits()
+);
+const_assert_eq!(
+    HostStartupOptions::STARTUP_VERBOSE.bits(),
+    gateway_messages::StartupOptions::STARTUP_VERBOSE.bits()
 );
 const_assert_eq!(
     HostStartupOptions::all().bits(),
