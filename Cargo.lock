@@ -3530,11 +3530,11 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
  "serde",
  "serde-big-array",
 ]
@@ -3542,12 +3542,12 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "corncobs",
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
  "serde",
  "sprockets-common",
  "tinyvec",
