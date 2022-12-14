@@ -1960,7 +1960,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-rot-state-msg#6a458027ec328ac0d722c9fc599270a50a3f4a0a"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-rot-state-msg#8495d85ea626b2df2fa4d2636473fc345dda7e48"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0",
