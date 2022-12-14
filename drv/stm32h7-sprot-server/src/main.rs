@@ -434,14 +434,6 @@ impl ServerImpl {
         Err(errcode)
     }
 
-    /// Retrieve low-level RoT status
-    fn do_status(&mut self) -> Result<Status, SprotError> {
-        let txmsg = self.tx_buf.no_payload(MsgType::StatusReq);
-        let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
-        expect_msg(MsgType::StatusRsp, rxmsg.0.msgtype)?;
-        self.rx_buf.deserialize_hubpack_payload::<Status>(&rxmsg)
-    }
-
     /// Clear the ROT_IRQ and the RoT's Tx buffer by toggling the CSn signal.
     /// ROT_IRQ before and after state is returned for testing.
     fn do_pulse_cs(
@@ -698,7 +690,12 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<Status, RequestError<SprotError>> {
-        self.do_status().map_err(|e| e.into())
+        let txmsg = self.tx_buf.no_payload(MsgType::StatusReq);
+        let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
+        expect_msg(MsgType::StatusRsp, rxmsg.0.msgtype)?;
+        let status =
+            self.rx_buf.deserialize_hubpack_payload::<Status>(&rxmsg)?;
+        Ok(status)
     }
 
     fn block_size(
@@ -788,22 +785,6 @@ impl idl::InOrderSpRotImpl for ServerImpl {
             1,
         )?;
         Ok(())
-    }
-
-    fn current_version(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<ImageVersion, idol_runtime::RequestError<SprotError>> {
-        let txmsg = self.tx_buf.no_payload(MsgType::UpdCurrentVersionReq);
-        let rxmsg = self
-            .do_send_recv_retries(txmsg, TIMEOUT_QUICK, 2)
-            .map_err(idol_runtime::RequestError::Runtime)?;
-
-        expect_msg(MsgType::UpdCurrentVersionRsp, rxmsg.0.msgtype)?;
-        let rsp = self
-            .rx_buf
-            .deserialize_hubpack_payload::<ImageVersion>(&rxmsg)?;
-        Ok(rsp)
     }
 
     fn update_status(

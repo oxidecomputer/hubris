@@ -18,11 +18,13 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
-use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    HandoffDataLoadError, RotUpdateDetails, UpdateError, UpdateStatus,
+    UpdateTarget,
+};
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
-// use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -114,6 +116,9 @@ pub enum SprotError {
     UpdateSpRotError = 41,
     UpdateUnknown = 42,
 
+    // An error relating to Stage0 handoff of image data
+    Stage0HandoffError = 43,
+
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
 }
@@ -159,6 +164,12 @@ impl From<hubpack::Error> for SprotError {
     }
 }
 
+impl From<HandoffDataLoadError> for SprotError {
+    fn from(_: HandoffDataLoadError) -> Self {
+        SprotError::Stage0HandoffError
+    }
+}
+
 // Return true if the error is recoverable, otherwise return false
 pub fn is_recoverable_error(err: SprotError) -> bool {
     matches!(
@@ -195,13 +206,8 @@ pub struct SinkStatus {
 /// structure used to facilitate manufacturing workflows and diagnosis
 /// of problems before trusted communications can be established.
 ///
-/// All of the counters will wrap around.
-///
 /// TODO: Finalize this structure before first customer ship.
-#[derive(
-    Copy, Clone, FromBytes, AsBytes, Serialize, Deserialize, SerializedSize,
-)]
-#[repr(C, packed)]
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct Status {
     /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
     pub supported: u32,
@@ -209,11 +215,20 @@ pub struct Status {
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
+    /// TODO: This should live in the stage0 handoff info
     pub bootrom_crc32: u32,
 
     /// Maxiumum message size that the RoT can handle.
     pub buffer_size: u32,
 
+    pub rot_updates: RotUpdateDetails,
+}
+
+/// Stats from the RoT side of sprot
+///
+/// All of the counters will wrap around.
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct IoStats {
     /// Number of messages received
     pub rx_received: u32,
 
@@ -336,8 +351,10 @@ pub enum MsgType {
     UpdAbortUpdateRsp = 17,
     UpdFinishImageUpdateReq = 18,
     UpdFinishImageUpdateRsp = 19,
-    UpdStatusReq = 20,
-    UpdStatusRsp = 21,
+
+    // Rot/Spi related metrics useful for debugging
+    IoStatsReq = 20,
+    IoStatsRsp = 21,
 
     /// Reserved value.
     Unknown = 0xff,
@@ -366,8 +383,8 @@ impl From<u8> for MsgType {
             17 => MsgType::UpdAbortUpdateRsp,
             18 => MsgType::UpdFinishImageUpdateReq,
             19 => MsgType::UpdFinishImageUpdateRsp,
-            20 => MsgType::UpdStatusReq,
-            21 => MsgType::UpdStatusRsp,
+            20 => MsgType::IoStatsReq,
+            21 => MsgType::IoStatsRsp,
             _ => MsgType::Unknown,
         }
     }

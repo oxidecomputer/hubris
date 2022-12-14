@@ -49,7 +49,6 @@ pub struct ImageVersion {
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub enum RotSlot {
-    Stage0 = 0,
     A = 1,
     B = 2,
 }

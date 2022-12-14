@@ -40,14 +40,23 @@ Interface(
                 err: CLike("SprotError"),
             ),
         ),
-    "status": (
-        doc: "Return untrusted status from RoT",
-        reply: Result(
-            ok: "Status",
-            err: CLike("SprotError"),
+        "status": (
+            doc: "Return untrusted status from RoT",
+            args: { },
+            reply : Result(
+              ok: "Status",
+              err: CLike("SprotError"),
+            ),
+            encoding: Hubpack
+		),
+        "io_status": (
+            doc: "Return untrusted status from RoT",
+            reply: Result(
+                ok: "IoStats",
+                err: CLike("SprotError"),
+            ),
+            encoding: Hubpack, 
         ),
-        encoding: Ssmarshal,
-    ),
         "pulse_cs": (
             doc: "SPI Chip Select assert, delay, deassert",
             args: {

@@ -13,7 +13,7 @@ mod handler;
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
-use drv_sprot_api::*;
+use drv_sprot_api::{Protocol, RxMsg, TxMsg, BUF_SIZE};
 use lpc55_pac as device;
 
 use crc::{Crc, CRC_32_CKSUM};
@@ -69,7 +69,7 @@ const SPI_IRQ: u32 = 1;
 //
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum IoStatus {
+pub(crate) enum IoStatus {
     Flush,
     IOResult { overrun: bool, underrun: bool },
 }
@@ -94,8 +94,43 @@ struct IO {
 
 struct Server<'a> {
     io: &'a mut IO,
-    status: &'a mut Status,
+    state: &'a mut LocalState,
     handler: &'a mut handler::Handler,
+}
+
+// A combination of things generated and/or mutated by the the lpc55 side of sprot
+// and returned from the `drv_sprot_api::Status` and `drv_sprot_api::IoStats` types.
+//
+// Comments copied directly from the `drv_sprot_api` types.
+//
+// This type exists as a mechanism to split the functionality provided by the
+// previous `Status` message into two messages returned by two different API
+// calls, without having to change a lot of other things right now.
+pub(crate) struct LocalState {
+    /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
+    supported: u32,
+    /// CRC32 of the LPC55 boot ROM contents.
+    /// The LPC55 does not have machine readable version information for
+    /// its boot ROM contents and there are known issues with old boot ROMs.
+    /// TODO: This should live in the stage0 handoff info
+    bootrom_crc32: u32,
+
+    /// Maxiumum message size that the RoT can handle.
+    buffer_size: u32,
+    /// Number of messages received
+    pub rx_received: u32,
+
+    /// Number of messages where the RoT failed to service the Rx FIFO in time.
+    pub rx_overrun: u32,
+
+    /// Number of messages where the RoT failed to service the Tx FIFO in time.
+    pub tx_underrun: u32,
+
+    /// Number of invalid messages received
+    pub rx_invalid: u32,
+
+    /// Number of incomplete transmissions (valid data not fetched by SP).
+    pub tx_incomplete: u32,
 }
 
 #[export_name = "main"]
@@ -158,7 +193,7 @@ fn main() -> ! {
         underrun: false,
     };
 
-    let mut status = Status {
+    let mut state = LocalState {
         supported: 1_u32 << (Protocol::V1 as u8),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
         buffer_size: BUF_SIZE as u32,
@@ -171,7 +206,7 @@ fn main() -> ! {
 
     let server = &mut Server {
         io: &mut io,
-        status: &mut status,
+        state: &mut state,
         handler: &mut handler::new(),
     };
 
@@ -182,11 +217,11 @@ fn main() -> ! {
     let bytes_read = 0;
     server.handler.handle(
         transmit,
-        crate::IoStatus::Flush,
+        IoStatus::Flush,
         &server.io.rx_buf,
         bytes_read,
         &mut server.io.tx_buf,
-        server.status,
+        server.state,
     );
 
     loop {
@@ -208,7 +243,7 @@ fn main() -> ! {
             &server.io.rx_buf,
             server.io.rxcount,
             &mut server.io.tx_buf,
-            server.status,
+            server.state,
         ) {
             Some(txlen) => {
                 ringbuf_entry!(Trace::HandlerReturnSize(txlen.0));

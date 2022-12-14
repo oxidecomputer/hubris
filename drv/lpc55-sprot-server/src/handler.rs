@@ -4,7 +4,7 @@
 
 mod sprockets;
 
-use crate::IoStatus;
+use crate::{IoStatus, LocalState};
 use drv_sprot_api::*;
 use drv_update_api::*;
 use ringbuf::*;
@@ -20,14 +20,14 @@ enum PrevMsg {
     Overrun,
 }
 
-pub struct Handler {
+pub(crate) struct Handler {
     sprocket: sprockets_rot::RotSprocket,
     pub update: Update,
     count: usize,
     prev: PrevMsg,
 }
 
-pub fn new() -> Handler {
+pub(crate) fn new() -> Handler {
     Handler {
         sprocket: crate::handler::sprockets::init(),
         update: drv_update_api::Update::from(UPDATE_SERVER.get_task_id()),
@@ -63,7 +63,7 @@ impl Handler {
         rx_buf: &RxMsg,
         rx_bytes: usize,
         tx_buf: &mut TxMsg,
-        status: &mut Status, // for responses and updating
+        state: &mut LocalState, // for responses and updating
     ) -> Option<VerifiedTxMsg> {
         self.count = self.count.wrapping_add(1);
 
@@ -73,7 +73,7 @@ impl Handler {
         match iostat {
             IoStatus::IOResult { overrun, underrun } => {
                 if tx_prev && underrun {
-                    status.tx_underrun = status.tx_underrun.wrapping_add(1);
+                    state.tx_underrun = state.tx_underrun.wrapping_add(1);
                     // If the flow error was in the message as opposed to
                     // possible post-message trailing bytes, then the SP will
                     // see the CRC error and can try again.
@@ -90,8 +90,7 @@ impl Handler {
                             != Protocol::Ignore
                         {
                             let rx_buf = rx_buf.as_slice();
-                            status.rx_overrun =
-                                status.rx_overrun.wrapping_add(1);
+                            state.rx_overrun = state.rx_overrun.wrapping_add(1);
                             ringbuf_entry!(Trace::Prev(self.count, self.prev));
                             self.prev = PrevMsg::Overrun;
                             ringbuf_entry!(Trace::ErrHeader(
@@ -112,7 +111,7 @@ impl Handler {
             }
             IoStatus::Flush => {
                 if tx_prev {
-                    status.tx_incomplete = status.tx_incomplete.wrapping_add(1);
+                    state.tx_incomplete = state.tx_incomplete.wrapping_add(1);
                     // Our message was not delivered
                 }
                 self.prev = PrevMsg::Flush;
@@ -161,9 +160,9 @@ impl Handler {
 
         // At this point, the header and payload are known to be
         // consistent with the CRC and the length is known to be good.
-        status.rx_received = status.rx_received.wrapping_add(1);
+        state.rx_received = state.rx_received.wrapping_add(1);
 
-        match self.run(rx_buf, rxmsg, tx_buf, status) {
+        match self.run(rx_buf, rxmsg, tx_buf, state) {
             Ok((msgtype, payload_size)) => {
                 tx_buf.from_existing(msgtype, payload_size).ok()
             }
@@ -179,7 +178,7 @@ impl Handler {
         rxbuf: &RxMsg,
         rxmsg: VerifiedRxMsg,
         tx_buf: &mut TxMsg,
-        status: &mut Status,
+        state: &mut LocalState,
     ) -> Result<(MsgType, usize), SprotError> {
         let rx_payload = rxbuf.payload(&rxmsg);
         let tx_payload = tx_buf.payload_mut();
@@ -193,7 +192,30 @@ impl Handler {
                 dst.copy_from_slice(rx_payload);
                 dst.len()
             }
-            MsgType::StatusReq => hubpack::serialize(tx_payload, &status)?,
+            MsgType::StatusReq => {
+                let rot_updates = match self.update.status() {
+                    UpdateStatus::Rot(rot_updates) => rot_updates,
+                    UpdateStatus::LoadError(e) => return Err(e.into()),
+                    UpdateStatus::Sp => panic!(),
+                };
+                let status = Status {
+                    supported: state.supported,
+                    bootrom_crc32: state.bootrom_crc32,
+                    buffer_size: state.buffer_size,
+                    rot_updates,
+                };
+                hubpack::serialize(tx_payload, &status)?
+            }
+            MsgType::IoStatsReq => {
+                let stats = IoStats {
+                    rx_received: state.rx_received,
+                    rx_overrun: state.rx_overrun,
+                    tx_underrun: state.tx_underrun,
+                    rx_invalid: state.rx_invalid,
+                    tx_incomplete: state.tx_incomplete,
+                };
+                hubpack::serialize(tx_payload, &stats)?
+            }
             MsgType::SprocketsReq => {
                 self.sprocket.handle(rx_payload, tx_payload).unwrap_or_else(
                     |_| crate::handler::sprockets::bad_encoding_rsp(tx_payload),
@@ -244,10 +266,6 @@ impl Handler {
                     .map_err(|e| e.into());
                 hubpack::serialize(tx_payload, &rsp)?
             }
-            MsgType::UpdStatusReq => {
-                let status = self.update.status();
-                hubpack::serialize(tx_payload, &status)?
-            }
             MsgType::SinkReq => {
                 // The first two bytes of a SinkReq payload are the U16
                 // mod 2^16 sequence number.
@@ -266,9 +284,9 @@ impl Handler {
             | MsgType::UpdWriteOneBlockRsp
             | MsgType::UpdAbortUpdateRsp
             | MsgType::UpdFinishImageUpdateRsp
-            | MsgType::UpdStatusRsp
+            | MsgType::IoStatsRsp
             | MsgType::Unknown => {
-                status.rx_invalid = status.rx_invalid.wrapping_add(1);
+                state.rx_invalid = state.rx_invalid.wrapping_add(1);
                 return Err(SprotError::BadMessageType);
             }
         };
@@ -288,8 +306,8 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         MsgType::UpdWriteOneBlockReq => MsgType::UpdWriteOneBlockRsp,
         MsgType::UpdAbortUpdateReq => MsgType::UpdAbortUpdateRsp,
         MsgType::UpdFinishImageUpdateReq => MsgType::UpdFinishImageUpdateRsp,
-        MsgType::UpdStatusReq => MsgType::UpdStatusRsp,
         MsgType::SinkReq => MsgType::SinkRsp,
+        MsgType::IoStatsReq => MsgType::IoStatsRsp,
 
         // All of the unexpected messages
         MsgType::Invalid
@@ -303,7 +321,7 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         | MsgType::UpdWriteOneBlockRsp
         | MsgType::UpdAbortUpdateRsp
         | MsgType::UpdFinishImageUpdateRsp
-        | MsgType::UpdStatusRsp
+        | MsgType::IoStatsRsp
         | MsgType::Unknown => {
             panic!("MsgType is not a request: {}", msgtype as u8)
         }

@@ -7,11 +7,13 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use stage0_handoff::{HandoffDataLoadError, RotUpdateDetails};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
-pub use stage0_handoff::ImageVersion;
+// Re-export
+pub use stage0_handoff::{
+    HandoffDataLoadError, ImageVersion, RotUpdateDetails,
+};
 
 #[repr(u8)]
 #[derive(
