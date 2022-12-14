@@ -200,8 +200,8 @@ features = ["psc"]
 [tasks.sensor]
 name = "task-sensor"
 priority = 3
-max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 1504    # Sensor data is stored on the stack
+max-sizes = {flash = 8192, ram = 2048 }
+stacksize = 1024
 start = true
 
 [tasks.sensor_polling]

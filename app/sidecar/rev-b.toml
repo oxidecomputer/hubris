@@ -249,7 +249,7 @@ name = "task-sensor"
 features = ["itm"]
 priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
-stacksize = 1920        # Sensor data is stored on the stack
+stacksize = 1024
 start = true
 
 [tasks.ecp5_mainboard]
@@ -331,6 +331,14 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
