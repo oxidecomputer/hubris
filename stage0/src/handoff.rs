@@ -4,7 +4,7 @@
 
 use hubpack::SerializedSize;
 use lpc55_pac::syscon::RegisterBlock;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use stage0_handoff::{HandoffData, HandoffDataHeader};
 
 /// The Handoff type is a thin wrapper over the memory region used to transfer

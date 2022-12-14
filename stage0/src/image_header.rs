@@ -5,10 +5,10 @@
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
+use crate::Handoff;
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::{
-    Handoff, ImageVersion, RotBootState, RotImageDetails, RotSlot,
-};
+use stage0_handoff::{ImageVersion, RotBootState, RotImageDetails, RotSlot};
+
 use unwrap_lite::UnwrapLite;
 
 extern "C" {

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::image_header::Image;
+use crate::Handoff;
 use core::convert::TryInto;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
@@ -11,7 +12,6 @@ use dice_crate::{
 };
 use salty::signature::Keypair;
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::Handoff;
 
 #[cfg(feature = "dice-self")]
 use crate::dice_mfg_self::gen_mfg_artifacts;
