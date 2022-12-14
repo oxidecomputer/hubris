@@ -133,7 +133,7 @@ fn main() -> ! {
     };
 
     let nerrors = mutable_statics::mutable_statics! {
-        static mut u32: [u32; NUM_SENSORS] = [|| 0; _];
+        static mut SENSOR_NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
     };
 
     let mut server = ServerImpl {
