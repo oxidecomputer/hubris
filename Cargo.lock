@@ -2447,7 +2447,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "bitfield 0.14.0",
@@ -2483,7 +2483,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "byteorder",
