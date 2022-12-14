@@ -19,7 +19,7 @@ extern crate memoffset;
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_update_api::{
-    HandoffDataLoadError, RotBootState, UpdateError, UpdateStatus, UpdateTarget,
+    HandoffDataLoadError, RotBootState, UpdateError, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};

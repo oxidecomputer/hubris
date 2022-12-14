@@ -397,11 +397,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         UpdateStatus,
         idol_runtime::RequestError<core::convert::Infallible>,
     > {
-        // TODO: Return which actual bank is in use - Maybe don't use
-        // UpdateTarget for this either, if we can't tell what bank it is.
-        Ok(UpdateStatus {
-            active_slot: UpdateTarget::DevNull,
-        })
+        // TODO(AJS): Return actual info about loaded images for the SP
+        Ok(UpdateStatus::Sp)
     }
 }
 

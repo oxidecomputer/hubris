@@ -49,8 +49,8 @@ Interface(
             ),
             encoding: Hubpack
 		),
-        "io_status": (
-            doc: "Return untrusted status from RoT",
+        "io_stats": (
+            doc: "Return IO stats from RoT",
             reply: Result(
                 ok: "IoStats",
                 err: CLike("SprotError"),
@@ -130,14 +130,5 @@ Interface(
                 err: CLike("SprotError"),
             ),
         ),
-        "update_status": (
-            doc: "Get info about installed images",
-            args: { },
-            reply : Result(
-              ok: "UpdateStatus",
-              err: CLike("SprotError"),
-            ),
-            encoding: Hubpack
-		)
     }
 )
