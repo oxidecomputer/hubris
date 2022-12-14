@@ -636,6 +636,12 @@ impl Transceivers {
                 Addr::LED_CTRL,
                 Reg::LED_CTRL::RESET,
             )?;
+
+            fpga.write(
+                WriteOp::BitSet,
+                Addr::LED_CTRL,
+                Reg::LED_CTRL::OE,
+            )?;
         }
 
         Ok(())
