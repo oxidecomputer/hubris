@@ -7,7 +7,7 @@ use core::ops::Range;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
-unsafe impl HandoffData for RotUpdateDetails {
+unsafe impl HandoffData for RotBootState {
     const VERSION: u32 = 0;
     const MAGIC: [u8; 12] = *b"whatwhatwhat";
     const MEM_RANGE: Range<usize> = UPDATE_RANGE;
@@ -21,13 +21,22 @@ unsafe impl HandoffData for RotUpdateDetails {
 #[derive(
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-pub struct RotUpdateDetails {
+pub struct RotBootState {
     pub active: RotSlot,
     pub a: Option<RotImageDetails>,
     pub b: Option<RotImageDetails>,
 }
 
-fits_in_ram!(RotUpdateDetails);
+impl RotBootState {
+    pub fn active_image(&self) -> Option<RotImageDetails> {
+        match self.active {
+            RotSlot::A => self.a.clone(),
+            RotSlot::B => self.b.clone(),
+        }
+    }
+}
+
+fits_in_ram!(RotBootState);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
@@ -49,6 +58,6 @@ pub struct ImageVersion {
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub enum RotSlot {
-    A = 1,
-    B = 2,
+    A = 0,
+    B = 1,
 }

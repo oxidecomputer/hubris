@@ -19,8 +19,7 @@ extern crate memoffset;
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_update_api::{
-    HandoffDataLoadError, RotUpdateDetails, UpdateError, UpdateStatus,
-    UpdateTarget,
+    HandoffDataLoadError, RotBootState, UpdateError, UpdateStatus, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
@@ -221,7 +220,7 @@ pub struct Status {
     /// Maxiumum message size that the RoT can handle.
     pub buffer_size: u32,
 
-    pub rot_updates: RotUpdateDetails,
+    pub rot_updates: RotBootState,
 }
 
 /// Stats from the RoT side of sprot

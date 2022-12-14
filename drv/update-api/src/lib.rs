@@ -12,7 +12,7 @@ use zerocopy::AsBytes;
 
 // Re-export
 pub use stage0_handoff::{
-    HandoffDataLoadError, ImageVersion, RotUpdateDetails,
+    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
 };
 
 #[repr(u8)]
@@ -46,7 +46,7 @@ pub enum UpdateTarget {
 )]
 pub enum UpdateStatus {
     LoadError(HandoffDataLoadError),
-    Rot(RotUpdateDetails),
+    Rot(RotBootState),
     // TODO(AJS): Fill in details for the SP
     Sp,
 }

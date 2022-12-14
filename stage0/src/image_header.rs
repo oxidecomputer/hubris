@@ -7,7 +7,7 @@ use lpc55_romapi::FLASH_PAGE_SIZE;
 
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{
-    Handoff, ImageVersion, RotImageDetails, RotSlot, RotUpdateDetails,
+    Handoff, ImageVersion, RotBootState, RotImageDetails, RotSlot,
 };
 use unwrap_lite::UnwrapLite;
 
@@ -206,7 +206,7 @@ pub fn dump_image_details_to_ram(handoff: &Handoff) {
     let b = get_image_b().map(image_details);
     let (_, active) = select_image_to_boot();
 
-    let details = RotUpdateDetails { active, a, b };
+    let details = RotBootState { active, a, b };
 
     handoff.store(&details);
 }

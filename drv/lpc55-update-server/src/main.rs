@@ -13,7 +13,7 @@ use core::convert::Infallible;
 use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
-use stage0_handoff::{HandoffData, ImageVersion, RotUpdateDetails};
+use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -177,7 +177,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<UpdateStatus, RequestError<Infallible>> {
-        let status = match RotUpdateDetails::load() {
+        let status = match RotBootState::load() {
             Ok(details) => UpdateStatus::Rot(details),
             Err(e) => UpdateStatus::LoadError(e),
         };
