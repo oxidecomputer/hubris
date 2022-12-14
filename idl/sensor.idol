@@ -7,7 +7,7 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("usize", None),
+                    recv: From("u32", None),
                 )
             },
             reply: Result(
@@ -19,19 +19,20 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("usize", None),
+                    recv: From("u32", None),
                 )
             },
             reply: Result(
                 ok: "Reading",
                 err: CLike("SensorError"),
             ),
+            encoding: Hubpack,
         ),
         "post": (
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("usize", None),
+                    recv: From("u32", None),
                 ),
                 "value": "f32",
                 "timestamp": "u64",
@@ -45,7 +46,7 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("usize", None),
+                    recv: From("u32", None),
                 ),
                 "nodata": (
                     type: "NoData",
@@ -61,7 +62,7 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("usize", None),
+                    recv: From("u32", None),
                 )
             },
             reply: Result(

@@ -45,7 +45,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<Reading, RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             if let Some(nodata) = self.nodata[index] {
@@ -68,7 +68,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         value: f32,
         timestamp: u64,
     ) -> Result<(), RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             self.has_data[index] = true;
@@ -87,7 +87,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
         nodata: NoData,
     ) -> Result<(), RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             self.nodata[index] = Some(nodata);
@@ -119,7 +119,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<u32, RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             Ok(self.nerrors[index])
