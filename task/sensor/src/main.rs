@@ -13,17 +13,27 @@ use userlib::*;
 
 use task_sensor_api::config::NUM_SENSORS;
 
+#[derive(Copy, Clone)]
+enum LastReading {
+    Data,
+    Error,
+}
+
 struct ServerImpl {
     // We're using structure-of-arrays packing here because otherwise padding
     // eats up a considerable amount of RAM; for example, Sidecar goes from 2868
     // to 4200 bytes of RAM!
-    has_data: &'static mut [bool; NUM_SENSORS],
+    //
+    // The compiler is smart enough to present `None` with an invalid
+    // `LastReading` variant tag, so we don't need to store presence separately.
+    last_reading: &'static mut [Option<LastReading>; NUM_SENSORS],
+
     data_value: &'static mut [f32; NUM_SENSORS],
     data_time: &'static mut [u64; NUM_SENSORS],
 
-    // The compiler is smart enough to present `None` with an invalid `NoData`
-    // variant tag, so we don't need to store `has_nodata` separately.
-    nodata: &'static mut [Option<NoData>; NUM_SENSORS],
+    err_value: &'static mut [NoData; NUM_SENSORS],
+    err_time: &'static mut [u64; NUM_SENSORS],
+
     nerrors: &'static mut [u32; NUM_SENSORS],
     deadline: u64,
 }
@@ -48,13 +58,16 @@ impl idl::InOrderSensorImpl for ServerImpl {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            if let Some(nodata) = self.nodata[index] {
-                let err: SensorError = nodata.into();
-                Err(err.into())
-            } else if self.has_data[index] {
-                Ok(Reading::new(self.data_value[index], self.data_time[index]))
-            } else {
-                Err(SensorError::NoReading.into())
+            match self.last_reading[index] {
+                None => Err(SensorError::NoReading.into()),
+                Some(LastReading::Error) => {
+                    let err: SensorError = self.err_value[index].into();
+                    Err(err.into())
+                }
+                Some(LastReading::Data) => Ok(Reading::new(
+                    self.data_value[index],
+                    self.data_time[index],
+                )),
             }
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -71,10 +84,9 @@ impl idl::InOrderSensorImpl for ServerImpl {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.has_data[index] = true;
+            self.last_reading[index] = Some(LastReading::Data);
             self.data_value[index] = value;
             self.data_time[index] = timestamp;
-            self.nodata[index] = None;
             Ok(())
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -86,11 +98,14 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
         nodata: NoData,
+        timestamp: u64,
     ) -> Result<(), RequestError<SensorError>> {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.nodata[index] = Some(nodata);
+            self.last_reading[index] = Some(LastReading::Error);
+            self.err_value[index] = nodata;
+            self.err_time[index] = timestamp;
 
             //
             // We pack per-`NoData` counters into a u32.
@@ -149,19 +164,21 @@ fn main() -> ! {
     //
     sys_set_timer(Some(deadline), TIMER_MASK);
 
-    let (has_data, data_value, data_time, nodata, nerrors) = mutable_statics::mutable_statics! {
-        static mut HAS_DATA: [bool; NUM_SENSORS] = [|| false; _];
+    let (last_reading, data_value, data_time, err_value, err_time, nerrors) = mutable_statics::mutable_statics! {
+        static mut LAST_READING: [Option<LastReading>; NUM_SENSORS] = [|| None; _];
         static mut DATA_VALUE: [f32; NUM_SENSORS] = [|| f32::NAN; _];
         static mut DATA_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
-        static mut NODATA: [Option<NoData>; NUM_SENSORS] = [|| None; _];
+        static mut ERR_VALUE: [NoData; NUM_SENSORS] = [|| NoData::DeviceUnavailable; _];
+        static mut ERR_TIME: [u64; NUM_SENSORS] = [|| 0; _];
         static mut NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
     };
 
     let mut server = ServerImpl {
-        has_data,
+        last_reading,
         data_value,
         data_time,
-        nodata,
+        err_value,
+        err_time,
         nerrors,
         deadline,
     };

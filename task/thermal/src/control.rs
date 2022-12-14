@@ -544,7 +544,7 @@ impl<'a> ThermalControl<'a> {
                     ),
                     Err(e) => {
                         ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                        self.sensor_api.nodata(*sensor_id, e.into())
+                        self.sensor_api.nodata(*sensor_id, e.into(), now_ms)
                     }
                 };
             if let Err(e) = post_result {
@@ -558,7 +558,7 @@ impl<'a> ThermalControl<'a> {
                 Ok(v) => self.sensor_api.post(s.sensor_id, v.0, now_ms),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
-                    self.sensor_api.nodata(s.sensor_id, e.into())
+                    self.sensor_api.nodata(s.sensor_id, e.into(), now_ms)
                 }
             };
             if let Err(e) = post_result {
@@ -603,7 +603,11 @@ impl<'a> ThermalControl<'a> {
                                 e
                             ));
                         }
-                        self.sensor_api.nodata(s.sensor.sensor_id, e.into())
+                        self.sensor_api.nodata(
+                            s.sensor.sensor_id,
+                            e.into(),
+                            now_ms,
+                        )
                     }
                 }
             } else {
@@ -613,6 +617,7 @@ impl<'a> ThermalControl<'a> {
                 self.sensor_api.nodata(
                     s.sensor.sensor_id,
                     task_sensor_api::NoData::DeviceOff,
+                    now_ms,
                 )
             };
             if let Err(e) = post_result {
@@ -950,10 +955,12 @@ impl<'a> ThermalControl<'a> {
 
             // Post this reading to the sensors task as well
             let sensor_id = self.bsp.dynamic_inputs[index];
-            if let Err(e) = self
-                .sensor_api
-                .nodata(sensor_id, task_sensor_api::NoData::DeviceNotPresent)
-            {
+            let now = userlib::sys_get_timer().now;
+            if let Err(e) = self.sensor_api.nodata(
+                sensor_id,
+                task_sensor_api::NoData::DeviceNotPresent,
+                now,
+            ) {
                 ringbuf_entry!(Trace::PostFailed(sensor_id, e));
             }
             Ok(())

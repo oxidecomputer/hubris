@@ -51,7 +51,8 @@ Interface(
                 "nodata": (
                     type: "NoData",
                     recv: FromPrimitive("u8"),
-                )
+                ),
+                "timestamp": "u64",
             },
             reply: Result(
                 ok: "()",
