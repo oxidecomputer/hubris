@@ -21,6 +21,8 @@ struct ServerImpl {
     data_value: &'static mut [f32; NUM_SENSORS],
     data_time: &'static mut [u64; NUM_SENSORS],
 
+    // The compiler is smart enough to present `None` with an invalid `NoData`
+    // variant tag, so we don't need to store `has_nodata` separately.
     nodata: &'static mut [Option<NoData>; NUM_SENSORS],
     nerrors: &'static mut [u32; NUM_SENSORS],
     deadline: u64,
