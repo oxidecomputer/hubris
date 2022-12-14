@@ -720,7 +720,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "serde-big-array",
  "sha3",
@@ -1152,7 +1152,7 @@ dependencies = [
  "num-traits",
  "quote",
  "ringbuf",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty",
  "serde",
  "sprockets-common",
  "sprockets-rot",
@@ -3243,17 +3243,6 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
-dependencies = [
- "ed25519",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "salty"
-version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
@@ -3530,11 +3519,11 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty",
  "serde",
  "serde-big-array",
 ]
@@ -3542,12 +3531,12 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "corncobs",
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty",
  "serde",
  "sprockets-common",
  "tinyvec",
@@ -3596,7 +3585,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "sha3",
  "static_assertions",
