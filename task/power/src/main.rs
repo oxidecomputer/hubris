@@ -429,7 +429,6 @@ fn main() -> ! {
         hl::sleep_for(1000);
 
         let state = get_state();
-        let now = sys_get_timer().now;
 
         for (c, dev) in CONTROLLER_CONFIG.iter().zip(devices.iter_mut()) {
             if c.state == PowerState::A0 && state != PowerState::A0 {
@@ -446,6 +445,7 @@ fn main() -> ! {
             if let Some(id) = c.temperature {
                 match dev.read_temperature() {
                     Ok(reading) => {
+                        let now = sys_get_timer().now;
                         sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
@@ -456,6 +456,7 @@ fn main() -> ! {
 
             match dev.read_iout() {
                 Ok(reading) => {
+                    let now = sys_get_timer().now;
                     sensor.post(c.current, reading.0, now).unwrap();
                 }
                 Err(_) => {
@@ -465,6 +466,7 @@ fn main() -> ! {
 
             match dev.read_vout() {
                 Ok(reading) => {
+                    let now = sys_get_timer().now;
                     sensor.post(c.voltage, reading.0, now).unwrap();
                 }
                 Err(_) => {
@@ -475,6 +477,7 @@ fn main() -> ! {
             if let Some(id) = c.input_voltage {
                 match dev.read_vin() {
                     Ok(reading) => {
+                        let now = sys_get_timer().now;
                         sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
@@ -486,6 +489,7 @@ fn main() -> ! {
             if let Some(id) = c.input_current {
                 match dev.read_iin() {
                     Ok(reading) => {
+                        let now = sys_get_timer().now;
                         sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
