@@ -429,6 +429,7 @@ fn main() -> ! {
         hl::sleep_for(1000);
 
         let state = get_state();
+        let now = sys_get_timer().now;
 
         for (c, dev) in CONTROLLER_CONFIG.iter().zip(devices.iter_mut()) {
             if c.state == PowerState::A0 && state != PowerState::A0 {
@@ -445,7 +446,7 @@ fn main() -> ! {
             if let Some(id) = c.temperature {
                 match dev.read_temperature() {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
                         sensor.nodata(id, NoData::DeviceError).unwrap();
@@ -455,7 +456,7 @@ fn main() -> ! {
 
             match dev.read_iout() {
                 Ok(reading) => {
-                    sensor.post(c.current, reading.0).unwrap();
+                    sensor.post(c.current, reading.0, now).unwrap();
                 }
                 Err(_) => {
                     sensor.nodata(c.current, NoData::DeviceError).unwrap();
@@ -464,7 +465,7 @@ fn main() -> ! {
 
             match dev.read_vout() {
                 Ok(reading) => {
-                    sensor.post(c.voltage, reading.0).unwrap();
+                    sensor.post(c.voltage, reading.0, now).unwrap();
                 }
                 Err(_) => {
                     sensor.nodata(c.voltage, NoData::DeviceError).unwrap();
@@ -474,7 +475,7 @@ fn main() -> ! {
             if let Some(id) = c.input_voltage {
                 match dev.read_vin() {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
                         sensor.nodata(id, NoData::DeviceError).unwrap();
@@ -485,7 +486,7 @@ fn main() -> ! {
             if let Some(id) = c.input_current {
                 match dev.read_iin() {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
                         sensor.nodata(id, NoData::DeviceError).unwrap();

@@ -537,9 +537,11 @@ impl<'a> ThermalControl<'a> {
         for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
             let post_result =
                 match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
-                    Ok(reading) => {
-                        self.sensor_api.post(*sensor_id, reading.0.into())
-                    }
+                    Ok(reading) => self.sensor_api.post(
+                        *sensor_id,
+                        reading.0.into(),
+                        now_ms,
+                    ),
                     Err(e) => {
                         ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
                         self.sensor_api.nodata(*sensor_id, e.into())
@@ -553,7 +555,7 @@ impl<'a> ThermalControl<'a> {
         // Read miscellaneous temperature data and log it to the sensors task
         for s in self.bsp.misc_sensors.iter() {
             let post_result = match s.read_temp(self.i2c_task) {
-                Ok(v) => self.sensor_api.post(s.sensor_id, v.0),
+                Ok(v) => self.sensor_api.post(s.sensor_id, v.0, now_ms),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
                     self.sensor_api.nodata(s.sensor_id, e.into())
@@ -579,7 +581,7 @@ impl<'a> ThermalControl<'a> {
                 match s.sensor.read_temp(self.i2c_task) {
                     Ok(v) => {
                         self.state.write_temperature(i, now_ms, v);
-                        self.sensor_api.post(s.sensor.sensor_id, v.0)
+                        self.sensor_api.post(s.sensor.sensor_id, v.0, now_ms)
                     }
                     Err(e) => {
                         // Ignore errors if the sensor is removable and the
@@ -930,7 +932,7 @@ impl<'a> ThermalControl<'a> {
 
         // Post this reading to the sensors task as well
         let sensor_id = self.bsp.dynamic_inputs[index];
-        if let Err(e) = self.sensor_api.post(sensor_id, temperature.0) {
+        if let Err(e) = self.sensor_api.post(sensor_id, temperature.0, time) {
             ringbuf_entry!(Trace::PostFailed(sensor_id, e));
         }
 

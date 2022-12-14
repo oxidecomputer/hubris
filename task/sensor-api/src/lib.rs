@@ -26,11 +26,22 @@ impl From<SensorId> for usize {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Reading {
-    Absent,
-    Value(f32),
-    NoData(NoData),
+#[derive(Copy, Clone, Debug, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[repr(C)]
+pub struct Reading {
+    pub timestamp: u64,
+    pub value: f32,
+    _pad: u32, // Required for FromBytes / AsBytes
+}
+
+impl Reading {
+    pub fn new(value: f32, timestamp: u64) -> Self {
+        Self {
+            timestamp,
+            value,
+            _pad: 0,
+        }
+    }
 }
 
 //

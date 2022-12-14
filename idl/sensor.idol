@@ -15,6 +15,18 @@ Interface(
                 err: CLike("SensorError"),
             ),
         ),
+        "get_reading": (
+            args: {
+                "id": (
+                    type: "SensorId",
+                    recv: From("usize", None),
+                )
+            },
+            reply: Result(
+                ok: "Reading",
+                err: CLike("SensorError"),
+            ),
+        ),
         "post": (
             args: {
                 "id": (
@@ -22,6 +34,7 @@ Interface(
                     recv: From("usize", None),
                 ),
                 "value": "f32",
+                "timestamp": "u64",
             },
             reply: Result(
                 ok: "()",
