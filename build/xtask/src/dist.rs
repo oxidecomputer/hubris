@@ -1020,18 +1020,17 @@ fn update_image_header(
                 let flash = map.get("flash").unwrap();
 
                 // Compute the total image size by finding the highest address
-                // from all the tasks built. Because this is the kernel all
-                // tasks must be built
-                let mut end = 0;
-
-                for (addr, sec) in all_output_sections {
-                    if (*addr as u32) > flash.start
-                        && (*addr as u32) < flash.end
-                        && (*addr as u32) > end
-                    {
-                        end = addr + (sec.data.len() as u32);
-                    }
-                }
+                // from all the tasks built.
+                let end = all_output_sections
+                    .iter()
+                    .filter(|(addr, _sec)| flash.contains(addr))
+                    .map(|(&addr, sec)| addr + sec.data.len() as u32)
+                    .max();
+                // Normally, at this point, all tasks are built, so we can
+                // compute the actual number. However, in the specific case of
+                // `xtask build kernel`, we need a result from this calculation
+                // but `end` will be `None`. Substitute a placeholder:
+                let end = end.unwrap_or(flash.start);
 
                 let len = end - flash.start;
 
