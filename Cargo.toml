@@ -106,6 +106,7 @@ static_assertions = { version = "1", default-features = false }
 stm32f3 = { version = "0.13.0", default-features = false }
 stm32f4 = { version = "0.13.0", default-features = false }
 stm32h7 = { version = "0.14", default-features = false }
+stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro"] }
 toml = { version = "0.5.6", default-features = false }
@@ -128,7 +129,6 @@ salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroi
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
-stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }

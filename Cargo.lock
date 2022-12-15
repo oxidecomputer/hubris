@@ -3607,7 +3607,8 @@ dependencies = [
 [[package]]
 name = "stm32g0"
 version = "0.15.1"
-source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce2fda706a5ca8a4c4c7c965668ff908c10dfeb1c2da581b6a2007ee60ae4787"
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
