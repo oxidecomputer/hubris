@@ -716,11 +716,11 @@ dependencies = [
  "chrono",
  "dice-mfg-msgs",
  "hkdf",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "serde-big-array",
  "sha3",
@@ -736,7 +736,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/dice-util#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
  "corncobs",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "serde",
  "serde-big-array",
  "zerocopy",
@@ -1144,7 +1144,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-sprot-api",
  "drv-update-api",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "idol-runtime",
  "if_chain",
  "lpc55-pac",
@@ -1152,7 +1152,7 @@ dependencies = [
  "num-traits",
  "quote",
  "ringbuf",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty",
  "serde",
  "sprockets-common",
  "sprockets-rot",
@@ -1446,7 +1446,7 @@ dependencies = [
  "crc",
  "derive-idol-err",
  "drv-update-api",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "idol",
  "idol-runtime",
  "if_chain",
@@ -1605,7 +1605,7 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1750,7 +1750,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "idol",
  "idol-runtime",
  "mutable-statics",
@@ -1771,7 +1771,7 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "idol",
  "num-traits",
  "serde",
@@ -1960,12 +1960,11 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#3e06733ead9547d5ce76b9fa2d794e672f398715"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#4e7c65f7535053d9915504407ceaf62a3d5af1cb"
 dependencies = [
  "bitflags",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack",
  "serde",
- "serde-big-array",
  "serde_repr",
  "smoltcp",
  "static_assertions",
@@ -2187,7 +2186,7 @@ dependencies = [
  "bitflags",
  "fletcher",
  "gateway-messages",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -2202,16 +2201,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70e0e5e2a94d97b34fa215ea1311937ab0880f86ee575ca4acd2ff66fa22b88c"
 dependencies = [
- "hubpack_derive 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
-]
-
-[[package]]
-name = "hubpack"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
-dependencies = [
- "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack_derive",
  "serde",
 ]
 
@@ -2220,16 +2210,6 @@ name = "hubpack_derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35bd74819b334bf50982a40ec2a44cdf4e197ebbc74c02624897ecb66dbf828c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "hubpack_derive"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2264,8 +2244,8 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idol"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
+version = "0.2.1"
+source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
 dependencies = [
  "indexmap",
  "quote",
@@ -2277,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
+source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2447,7 +2427,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "bitfield 0.14.0",
@@ -2483,7 +2463,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -3243,17 +3223,6 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
-dependencies = [
- "ed25519",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "salty"
-version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
@@ -3530,11 +3499,11 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
+ "salty",
  "serde",
  "serde-big-array",
 ]
@@ -3542,12 +3511,12 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "corncobs",
  "derive_more",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
+ "salty",
  "serde",
  "sprockets-common",
  "tinyvec",
@@ -3588,7 +3557,7 @@ dependencies = [
  "digest 0.10.3",
  "ecdsa",
  "hmac 0.10.1",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
  "lpc55_romapi",
@@ -3596,7 +3565,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "sha3",
  "static_assertions",
@@ -4039,11 +4008,13 @@ dependencies = [
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "hubpack",
  "idol",
  "idol-runtime",
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "serde",
  "task-sensor-api",
  "userlib",
  "zerocopy",
@@ -4058,6 +4029,7 @@ dependencies = [
  "build-util",
  "derive-idol-err",
  "drv-i2c-api",
+ "hubpack",
  "idol",
  "num-traits",
  "serde",
@@ -4554,7 +4526,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
 dependencies = [
  "bitflags",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "serde",
 ]
 

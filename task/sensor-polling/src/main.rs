@@ -74,12 +74,14 @@ impl TemperatureSensor {
             Device::Mwocp68 => {
                 for (i, &s) in self.temperature_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    let post_result = match m.read_temperature() {
-                        Ok(v) => sensor_api.post(s, v.0),
+                    let r = m.read_temperature();
+                    let now = sys_get_timer().now;
+                    let post_result = match r {
+                        Ok(v) => sensor_api.post(s, v.0, now),
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
-                            sensor_api.nodata(s, e.into())
+                            sensor_api.nodata(s, e.into(), now)
                         }
                     };
                     if let Err(e) = post_result {
@@ -88,12 +90,14 @@ impl TemperatureSensor {
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    let post_result = match m.read_speed() {
-                        Ok(v) => sensor_api.post(s, v.0),
+                    let r = m.read_speed();
+                    let now = sys_get_timer().now;
+                    let post_result = match r {
+                        Ok(v) => sensor_api.post(s, v.0, now),
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::SpeedReadFailed(s, e));
-                            sensor_api.nodata(s, e.into())
+                            sensor_api.nodata(s, e.into(), now)
                         }
                     };
                     if let Err(e) = post_result {

@@ -13,8 +13,27 @@ use userlib::*;
 
 use task_sensor_api::config::NUM_SENSORS;
 
+#[derive(Copy, Clone)]
+enum LastReading {
+    Data,
+    Error,
+}
+
 struct ServerImpl {
-    data: &'static mut [Reading; NUM_SENSORS],
+    // We're using structure-of-arrays packing here because otherwise padding
+    // eats up a considerable amount of RAM; for example, Sidecar goes from 2868
+    // to 4200 bytes of RAM!
+    //
+    // The compiler is smart enough to present `None` with an invalid
+    // `LastReading` variant tag, so we don't need to store presence separately.
+    last_reading: &'static mut [Option<LastReading>; NUM_SENSORS],
+
+    data_value: &'static mut [f32; NUM_SENSORS],
+    data_time: &'static mut [u64; NUM_SENSORS],
+
+    err_value: &'static mut [NoData; NUM_SENSORS],
+    err_time: &'static mut [u64; NUM_SENSORS],
+
     nerrors: &'static mut [u32; NUM_SENSORS],
     deadline: u64,
 }
@@ -25,19 +44,30 @@ const TIMER_INTERVAL: u64 = 1000;
 impl idl::InOrderSensorImpl for ServerImpl {
     fn get(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
         id: SensorId,
     ) -> Result<f32, RequestError<SensorError>> {
-        let index = id.0;
+        self.get_reading(msg, id).map(|r| r.value)
+    }
+
+    fn get_reading(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<Reading, RequestError<SensorError>> {
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            match self.data[index] {
-                Reading::Absent => Err(SensorError::NoReading.into()),
-                Reading::NoData(nodata) => {
-                    let err: SensorError = nodata.into();
+            match self.last_reading[index] {
+                None => Err(SensorError::NoReading.into()),
+                Some(LastReading::Error) => {
+                    let err: SensorError = self.err_value[index].into();
                     Err(err.into())
                 }
-                Reading::Value(reading) => Ok(reading),
+                Some(LastReading::Data) => Ok(Reading::new(
+                    self.data_value[index],
+                    self.data_time[index],
+                )),
             }
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -49,11 +79,14 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
         value: f32,
+        timestamp: u64,
     ) -> Result<(), RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.data[index] = Reading::Value(value);
+            self.last_reading[index] = Some(LastReading::Data);
+            self.data_value[index] = value;
+            self.data_time[index] = timestamp;
             Ok(())
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -65,11 +98,14 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
         nodata: NoData,
+        timestamp: u64,
     ) -> Result<(), RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.data[index] = Reading::NoData(nodata);
+            self.last_reading[index] = Some(LastReading::Error);
+            self.err_value[index] = nodata;
+            self.err_time[index] = timestamp;
 
             //
             // We pack per-`NoData` counters into a u32.
@@ -98,7 +134,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<u32, RequestError<SensorError>> {
-        let index = id.0;
+        let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             Ok(self.nerrors[index])
@@ -128,16 +164,21 @@ fn main() -> ! {
     //
     sys_set_timer(Some(deadline), TIMER_MASK);
 
-    let data = mutable_statics::mutable_statics! {
-        static mut SENSOR_DATA: [Reading; NUM_SENSORS] = [|| Reading::Absent; _];
-    };
-
-    let nerrors = mutable_statics::mutable_statics! {
-        static mut SENSOR_NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
+    let (last_reading, data_value, data_time, err_value, err_time, nerrors) = mutable_statics::mutable_statics! {
+        static mut LAST_READING: [Option<LastReading>; NUM_SENSORS] = [|| None; _];
+        static mut DATA_VALUE: [f32; NUM_SENSORS] = [|| f32::NAN; _];
+        static mut DATA_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
+        static mut ERR_VALUE: [NoData; NUM_SENSORS] = [|| NoData::DeviceUnavailable; _];
+        static mut ERR_TIME: [u64; NUM_SENSORS] = [|| 0; _];
+        static mut NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
     };
 
     let mut server = ServerImpl {
-        data,
+        last_reading,
+        data_value,
+        data_time,
+        err_value,
+        err_time,
         nerrors,
         deadline,
     };
@@ -150,7 +191,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{NoData, SensorError, SensorId};
+    use super::{NoData, Reading, SensorError, SensorId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

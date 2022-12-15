@@ -73,7 +73,7 @@ fn main() -> Result<()> {
                         "        #[allow(dead_code)]
         pub const {sensor}_SENSOR: SensorId = \
             // {}
-            SensorId(NUM_I2C_SENSORS + {sensor_id});",
+            SensorId(NUM_I2C_SENSORS as u32 + {sensor_id});",
                         d.description
                     )
                     .unwrap();
@@ -88,7 +88,7 @@ fn main() -> Result<()> {
                     for _ in 0..sensor_count {
                         writeln!(
                         &mut sensors_text,
-                        "            SensorId(NUM_I2C_SENSORS + {sensor_id}),"
+                        "            SensorId(NUM_I2C_SENSORS as u32 + {sensor_id}),"
                     )
                         .unwrap();
                         sensor_id += 1;
