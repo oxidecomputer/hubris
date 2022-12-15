@@ -2244,8 +2244,8 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idol"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
+version = "0.2.1"
+source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
 dependencies = [
  "indexmap",
  "quote",
@@ -2257,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f01add54e8406192cf9348265c2863d69aa98f48"
+source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -4008,11 +4008,13 @@ dependencies = [
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "hubpack",
  "idol",
  "idol-runtime",
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "serde",
  "task-sensor-api",
  "userlib",
  "zerocopy",
@@ -4027,6 +4029,7 @@ dependencies = [
  "build-util",
  "derive-idol-err",
  "drv-i2c-api",
+ "hubpack",
  "idol",
  "num-traits",
  "serde",

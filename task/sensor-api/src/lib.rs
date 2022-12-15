@@ -8,29 +8,46 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(zerocopy::AsBytes, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(
+    zerocopy::AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(C)]
-pub struct SensorId(pub usize);
+pub struct SensorId(pub u32);
 
-impl From<usize> for SensorId {
-    fn from(id: usize) -> Self {
+impl From<u32> for SensorId {
+    fn from(id: u32) -> Self {
         SensorId(id)
     }
 }
 
-impl From<SensorId> for usize {
+impl From<SensorId> for u32 {
     fn from(id: SensorId) -> Self {
         id.0
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Reading {
-    Absent,
-    Value(f32),
-    NoData(NoData),
+#[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
+pub struct Reading {
+    pub timestamp: u64,
+    pub value: f32,
+}
+
+impl Reading {
+    pub fn new(value: f32, timestamp: u64) -> Self {
+        Self { timestamp, value }
+    }
 }
 
 //
