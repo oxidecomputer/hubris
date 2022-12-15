@@ -704,9 +704,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// - The uplink port (49) sends and receives packets with one VLAN tag, and
     ///   uses that packet to select which VLAN (i.e. which downstream port)
     ///   should receive that packet.  The VLAN tag is stripped on egress.
-    fn configure_vlan_with_mask<F: Fn(u8) -> u64>(
+    fn configure_vlan_with_mask(
         &self,
-        f: F,
+        f: fn(u8) -> u64,
     ) -> Result<(), VscError> {
         const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
 
