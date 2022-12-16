@@ -131,6 +131,7 @@ impl From<NoData> for SensorError {
 
 impl Sensor {
     /// Post the given data with a timestamp of now
+    #[inline]
     pub fn post_now(
         &self,
         id: SensorId,
@@ -140,6 +141,7 @@ impl Sensor {
     }
 
     /// Post the given `NoData` error with a timestamp of now
+    #[inline]
     pub fn nodata_now(
         &self,
         id: SensorId,
