@@ -938,7 +938,8 @@ fn build_kernel(
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &cfg.toml.image_memories("flash".to_string())?,
+        &cfg.toml.all_regions("flash".to_string())?,
+        &image_name,
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -1225,6 +1226,18 @@ fn generate_task_linker_script(
         emit(&mut linkscr, &name, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
+    append_image_names(&mut linkscr, images, image_name)?;
+    append_task_sections(&mut linkscr, sections)?;
+
+    Ok(())
+}
+
+fn append_image_names(
+    linkscr: &mut std::fs::File,
+
+    images: &IndexMap<String, Range<u32>>,
+    image_name: &str,
+) -> Result<()> {
     for (name, out) in images {
         if name == image_name {
             writeln!(linkscr, "__this_image = {:#010x};", out.start)?;
@@ -1242,8 +1255,6 @@ fn generate_task_linker_script(
             out.end
         )?;
     }
-
-    append_task_sections(&mut linkscr, sections)?;
 
     Ok(())
 }
@@ -1271,6 +1282,7 @@ fn generate_kernel_linker_script(
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
+    image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1317,32 +1329,13 @@ fn generate_kernel_linker_script(
         )
         .unwrap();
     }
-
-    for (name, out) in images {
-        writeln!(
-            linkscr,
-            "IMAGE{}_FLASH (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-            name.to_uppercase(),
-            out.start,
-            out.end - out.start
-        )
-        .unwrap();
-    }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
 
-    for (name, _) in images {
-        writeln!(
-            linkscr,
-            "IMAGE{} = ORIGIN(IMAGE{}_FLASH);",
-            name.to_uppercase(),
-            name.to_uppercase(),
-        )
-        .unwrap();
-    }
+    append_image_names(&mut linkscr, images, image_name)?;
     Ok(())
 }
 

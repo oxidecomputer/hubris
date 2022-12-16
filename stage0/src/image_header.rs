@@ -6,8 +6,8 @@ use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
 extern "C" {
-    static IMAGEA: abi::ImageVectors;
-    static IMAGEB: abi::ImageVectors;
+    static __IMAGE_A_BASE: abi::ImageVectors;
+    static __IMAGE_B_BASE: abi::ImageVectors;
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -43,7 +43,7 @@ const PAGE_SIZE: u32 = FLASH_PAGE_SIZE as u32;
 // being furnished by our linker script, which we trust.
 
 pub fn get_image_b() -> Option<Image> {
-    let imageb = unsafe { &IMAGEB };
+    let imageb = unsafe { &__IMAGE_B_BASE };
 
     let img = Image(imageb);
 
@@ -55,7 +55,7 @@ pub fn get_image_b() -> Option<Image> {
 }
 
 pub fn get_image_a() -> Option<Image> {
-    let imagea = unsafe { &IMAGEA };
+    let imagea = unsafe { &__IMAGE_A_BASE };
 
     let img = Image(imagea);
 
