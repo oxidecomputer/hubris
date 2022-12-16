@@ -7,17 +7,6 @@ stacksize = 2048
 [kernel]
 name = "gimletlet"
 requires = {flash = 32768, ram = 4096}
-#
-# For the kernel (and for any task that logs), we are required to enable
-# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
-# Macrocell) or "semihosting" (denoting logging/panicking via ARM
-# semihosting).  We are biased to ITM because semihosting is excruciatingly
-# slow (it is breakpoint based) and has an undesirable failure mode if logging
-# output is generated and debugger is not attached (namely, the target stops).
-# If one does choose to change this to semihosting for purposes of
-# development, be sure to also change it in every task of interest.
-#
-features = ["itm"]
 
 [tasks.runner]
 name = "test-runner"

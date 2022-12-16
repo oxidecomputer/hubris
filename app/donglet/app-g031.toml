@@ -6,9 +6,9 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 11702, ram = 1680}
-features = ["g031", "panic-halt"]
-stacksize = 640
+requires = {flash = 18000, ram = 1820}
+features = ["g031"]
+stacksize = 936
 
 [tasks.jefe]
 name = "task-jefe"

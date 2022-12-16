@@ -10,7 +10,6 @@ secure-task = "secure"
 [kernel]
 name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
-features = ["itm"]
 
 [tasks.jefe]
 name = "task-jefe"

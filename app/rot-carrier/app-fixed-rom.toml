@@ -9,7 +9,6 @@ image-names = ["a", "b"]
 [kernel]
 name = "rot-carrier"
 requires = {flash = 21504, ram = 4096}
-features = ["itm"]
 
 [tasks.jefe]
 name = "task-jefe"

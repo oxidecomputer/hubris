@@ -6,8 +6,8 @@ board = "stm32g031-nucleo"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 11702, ram = 1536}
-features = ["g031", "panic-halt"]
+requires = {flash = 18000, ram = 1424}
+features = ["g031"]
 stacksize = 640
 
 [tasks.jefe]
