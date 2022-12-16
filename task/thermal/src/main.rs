@@ -34,7 +34,7 @@ use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{
     ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
 };
-use userlib::units::{Celsius, PWMDuty};
+use userlib::units::PWMDuty;
 use userlib::*;
 
 // We define our own Fan type, as we may have more fans than any single
@@ -241,15 +241,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         &mut self,
         _: &RecvMessage,
         index: usize,
-        time: u64,
         model: ThermalProperties,
-        temperature: Celsius,
     ) -> Result<(), RequestError<ThermalError>> {
         if self.mode != ThermalMode::Auto {
             return Err(ThermalError::NotInAutoMode.into());
         }
         self.control
-            .update_dynamic_input(index, time, model, temperature)
+            .update_dynamic_input(index, model)
             .map_err(RequestError::from)
     }
 
@@ -282,6 +280,10 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     fn handle_notification(&mut self, _bits: u32) {
         let now = sys_get_timer().now;
         if now >= self.deadline {
+            // We *always* read sensor data, which does not touch the control
+            // loop; this simply posts results to the `sensors` task.
+            self.control.read_sensors();
+
             match self.mode {
                 ThermalMode::Auto => {
                     // The thermal loop handles most failures, but will return
@@ -290,13 +292,12 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
                     //
                     // (if things actually overheat, `run_control` will cut
                     //  power to the system)
-                    if let Err(e) = self.control.run_control(now) {
+                    if let Err(e) = self.control.run_control() {
                         ringbuf_entry!(Trace::ControlError(e));
                     }
                 }
                 ThermalMode::Manual => {
-                    // Read sensors and post them to the `sensors` task
-                    self.control.read_sensors(now);
+                    // Nothing to do; we already read the sensors
                 }
                 ThermalMode::Off => {
                     panic!("Mode must not be 'Off' when server is running")
@@ -357,7 +358,7 @@ fn main() -> ! {
 
 mod idl {
     use super::{
-        Celsius, ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+        ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -222,6 +222,8 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     ),
 ];
 
+// This must be in the same order as the `SENSOR_IDS` array in
+// `transceivers-srv/src/main.rs`
 const DYNAMIC_INPUTS: [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS] = [
     other_sensors::QSFP_XCVR0_TEMPERATURE_SENSOR,
     other_sensors::QSFP_XCVR1_TEMPERATURE_SENSOR,

@@ -1751,6 +1751,7 @@ dependencies = [
  "ssmarshal",
  "stm32h7",
  "task-net-api",
+ "task-sensor-api",
  "task-thermal-api",
  "transceiver-messages",
  "userlib",

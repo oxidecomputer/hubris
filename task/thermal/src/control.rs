@@ -18,9 +18,10 @@ use drv_i2c_devices::{
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{Sensor as SensorApi, SensorId};
+use task_sensor_api::{Reading, Sensor as SensorApi, SensorId};
 use task_thermal_api::{ThermalAutoState, ThermalProperties};
 use userlib::{
+    sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
     TaskId,
 };
@@ -361,11 +362,15 @@ impl Default for OneSidedPidState {
 
 const TEMPERATURE_ARRAY_SIZE: usize =
     bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS;
+
 /// This corresponds to states shown in RFD 276
 ///
 /// All of our temperature arrays contain, in order
 /// - I2C temperature inputs (read by this task)
 /// - Dynamic temperature inputs (read by another task and passed in)
+///
+/// Note that the canonical temperatures are stored in the `sensors` task; we
+/// copy them into these arrays for local operations.
 enum ThermalControlState {
     /// Wait for each sensor to report in at least once
     ///
@@ -401,20 +406,18 @@ enum ControlResult {
 }
 
 impl ThermalControlState {
-    fn write_temperature(
-        &mut self,
-        index: usize,
-        time_ms: u64,
-        value: Celsius,
-    ) {
+    fn write_temperature(&mut self, index: usize, reading: Reading) {
+        let r = TemperatureReading::Valid {
+            time_ms: reading.timestamp,
+            value: Celsius(reading.value),
+        };
         match self {
             ThermalControlState::Boot { values } => {
-                values[index] =
-                    Some(TemperatureReading::Valid { time_ms, value })
+                values[index] = Some(r);
             }
             ThermalControlState::Running { values, .. }
             | ThermalControlState::Overheated { values, .. } => {
-                values[index] = TemperatureReading::Valid { time_ms, value }
+                values[index] = r;
             }
             ThermalControlState::Uncontrollable => (),
         }
@@ -523,23 +526,21 @@ impl<'a> ThermalControl<'a> {
     }
 
     /// Reads all temperature and fan RPM sensors, posting their results
-    /// to the sensors task API and recording them in `self.state`.
+    /// to the sensors task API.
     ///
     /// Records failed sensor reads and failed posts to the sensors task in
     /// the local ringbuf.
-    pub fn read_sensors(&mut self, now_ms: u64) {
+    pub fn read_sensors(&self) {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
             let post_result =
                 match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
-                    Ok(reading) => self.sensor_api.post(
-                        *sensor_id,
-                        reading.0.into(),
-                        now_ms,
-                    ),
+                    Ok(reading) => {
+                        self.sensor_api.post_now(*sensor_id, reading.0.into())
+                    }
                     Err(e) => {
                         ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                        self.sensor_api.nodata(*sensor_id, e.into(), now_ms)
+                        self.sensor_api.nodata_now(*sensor_id, e.into())
                     }
                 };
             if let Err(e) = post_result {
@@ -550,10 +551,10 @@ impl<'a> ThermalControl<'a> {
         // Read miscellaneous temperature data and log it to the sensors task
         for s in self.bsp.misc_sensors.iter() {
             let post_result = match s.read_temp(self.i2c_task) {
-                Ok(v) => self.sensor_api.post(s.sensor_id, v.0, now_ms),
+                Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
-                    self.sensor_api.nodata(s.sensor_id, e.into(), now_ms)
+                    self.sensor_api.nodata_now(s.sensor_id, e.into())
                 }
             };
             if let Err(e) = post_result {
@@ -561,64 +562,46 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        // When the power mode changes, we may require a new set of sensors to
-        // be online.  Reset the control state, waiting for all newly-required
-        // sensors to come online before re-entering the control loop.
-        let prev_power_mode = self.power_mode;
-        self.power_mode = self.bsp.power_mode();
-        if prev_power_mode != self.power_mode {
-            ringbuf_entry!(Trace::PowerModeChanged(self.power_mode));
-            self.reset_state();
-        }
-
-        for (i, s) in self.bsp.inputs.iter().enumerate() {
-            let post_result = if self.power_mode.intersects(s.power_mode_mask) {
+        // We read the power mode right before reading sensors, to avoid
+        // potential TOCTOU issues; some sensors cannot be read if they are not
+        // powered.
+        let power_mode = self.bsp.power_mode();
+        for s in self.bsp.inputs.iter() {
+            let post_result = if power_mode.intersects(s.power_mode_mask) {
                 match s.sensor.read_temp(self.i2c_task) {
-                    Ok(v) => {
-                        self.state.write_temperature(i, now_ms, v);
-                        self.sensor_api.post(s.sensor.sensor_id, v.0, now_ms)
-                    }
+                    Ok(v) => self.sensor_api.post_now(s.sensor.sensor_id, v.0),
                     Err(e) => {
-                        // Ignore errors if the sensor is removable and the
-                        // error indicates that it's not present.
-                        if s.removable
-                            && e == SensorReadError::I2cError(
+                        // Record an error errors if the sensor is not removable
+                        // or we get a unexpected error from a removable sensor
+                        if !s.removable
+                            || e == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
                             )
                         {
-                            self.state.write_temperature_inactive(i);
-                        } else {
-                            // By not calling self.state.write_temperature_*,
-                            // we're leaving the stale data into the controller;
-                            // if the sensor failure is persistent, then thermal
-                            // loop will eventually handle it (once the modelled
-                            // worst-case temperature is sufficiently high)
                             ringbuf_entry!(Trace::SensorReadFailed(
                                 s.sensor.sensor_id,
                                 e
                             ));
                         }
-                        self.sensor_api.nodata(
-                            s.sensor.sensor_id,
-                            e.into(),
-                            now_ms,
-                        )
+                        self.sensor_api.nodata_now(s.sensor.sensor_id, e.into())
                     }
                 }
             } else {
                 // If the device isn't supposed to be on in the current power
-                // state, then don't try to read its temperature.
-                self.state.write_temperature_inactive(i);
-                self.sensor_api.nodata(
+                // state, then record it as Off in the sensors task.
+                self.sensor_api.nodata_now(
                     s.sensor.sensor_id,
                     task_sensor_api::NoData::DeviceOff,
-                    now_ms,
                 )
             };
             if let Err(e) = post_result {
                 ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));
             }
         }
+
+        // Note that this function does not send data about dynamic temperature
+        // inputs to the `sensors` task!  This is because we don't know what
+        // they are, so someone else has to do that.
     }
 
     /// Returns an iterator over tuples of `(value, thermal model)`
@@ -653,13 +636,47 @@ impl<'a> ThermalControl<'a> {
     /// Returns an error if the control loop failed to read critical sensors;
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
-    pub fn run_control(&mut self, now_ms: u64) -> Result<(), ThermalError> {
-        self.read_sensors(now_ms);
+    pub fn run_control(&mut self) -> Result<(), ThermalError> {
+        let now_ms = sys_get_timer().now;
+
+        // When the power mode changes, we may require a new set of sensors to
+        // be online.  Reset the control state, waiting for all newly-required
+        // sensors to come online before re-entering the control loop.
+        let prev_power_mode = self.power_mode;
+        self.power_mode = self.bsp.power_mode();
+        if prev_power_mode != self.power_mode {
+            ringbuf_entry!(Trace::PowerModeChanged(self.power_mode));
+            self.reset_state();
+        }
+
+        // Load sensor readings from the `sensors` API
+        for (i, s) in self.bsp.inputs.iter().enumerate() {
+            if self.power_mode.intersects(s.power_mode_mask) {
+                // TODO:
+                let r =
+                    self.sensor_api.get_reading(s.sensor.sensor_id).unwrap();
+                self.state.write_temperature(i, r);
+            } else {
+                self.state.write_temperature_inactive(i);
+            }
+        }
+        for (i, sensor_id) in self
+            .bsp
+            .dynamic_inputs
+            .iter()
+            .enumerate()
+            .filter(|(i, _s)| self.dynamic_inputs[*i].is_some())
+        {
+            // TODO:
+            let r = self.sensor_api.get_reading(*sensor_id).unwrap();
+            self.state.write_temperature(i + self.bsp.inputs.len(), r);
+        }
 
         // A bit awkward, but we have to borrow these explicitly to work around
         // the lifetime checker, which won't let us call a &self function when
         // self.state is mutably borrowed.
         let inputs = (self.bsp.inputs, self.dynamic_inputs.as_slice());
+
         let control_result = match &mut self.state {
             ThermalControlState::Boot { values } => {
                 let mut all_some = true;
@@ -670,13 +687,18 @@ impl<'a> ThermalControl<'a> {
                         Some(TemperatureReading::Valid { value, time_ms }) => {
                             // Model the current temperature based on the last
                             // reading and the worst-case slew rate.  This only
-                            // matters when samples are dropped; if we received
-                            // a reading on this control cycle, then time_ms ==
-                            // now_ms, so this becomes v.value (i.e. the most
-                            // recent reading).
+                            // matters when samples are dropped or if there is
+                            // significant lag in the sensors system; if we
+                            // received a reading on this control cycle, then
+                            // time_ms ≈ now_ms, so this is close to v.value
+                            // (i.e. the most recent reading).
                             //
                             // Otherwise, time_ms is earlier (less) than now_ms,
                             // so this subtraction is safe.
+                            //
+                            // TODO: if someone maliciously posts invalid
+                            // temperatures to the sensors task, this could
+                            // underflow.
                             let temperature = value.0
                                 + (now_ms - time_ms) as f32 / 1000.0
                                     * model.temperature_slew_deg_per_sec;
@@ -689,6 +711,7 @@ impl<'a> ThermalControl<'a> {
                             // Inactive sensors are ignored, but do not gate us
                             // from transitioning to `Running`
                         }
+
                         None => all_some = false,
                     }
                 }
@@ -916,26 +939,12 @@ impl<'a> ThermalControl<'a> {
     pub fn update_dynamic_input(
         &mut self,
         index: usize,
-        time: u64,
         model: ThermalProperties,
-        temperature: Celsius,
     ) -> Result<(), ThermalError> {
         if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
             return Err(ThermalError::InvalidIndex);
         }
-        self.state.write_temperature(
-            index + bsp::NUM_TEMPERATURE_INPUTS,
-            time,
-            temperature,
-        );
         self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
-
-        // Post this reading to the sensors task as well
-        let sensor_id = self.bsp.dynamic_inputs[index];
-        if let Err(e) = self.sensor_api.post(sensor_id, temperature.0, time) {
-            ringbuf_entry!(Trace::PostFailed(sensor_id, e));
-        }
-
         Ok(())
     }
 
@@ -950,11 +959,9 @@ impl<'a> ThermalControl<'a> {
 
             // Post this reading to the sensors task as well
             let sensor_id = self.bsp.dynamic_inputs[index];
-            let now = userlib::sys_get_timer().now;
-            if let Err(e) = self.sensor_api.nodata(
+            if let Err(e) = self.sensor_api.nodata_now(
                 sensor_id,
                 task_sensor_api::NoData::DeviceNotPresent,
-                now,
             ) {
                 ringbuf_entry!(Trace::PostFailed(sensor_id, e));
             }
