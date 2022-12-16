@@ -359,6 +359,8 @@ impl Default for OneSidedPidState {
     }
 }
 
+const TEMPERATURE_ARRAY_SIZE: usize =
+    bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS;
 /// This corresponds to states shown in RFD 276
 ///
 /// All of our temperature arrays contain, in order
@@ -370,14 +372,12 @@ enum ThermalControlState {
     /// (dynamic sensors must report in *if* they are present, i.e. not `None`
     /// in the `dynamic_inputs` array)
     Boot {
-        values: [Option<TemperatureReading>;
-            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+        values: [Option<TemperatureReading>; TEMPERATURE_ARRAY_SIZE],
     },
 
     /// Normal happy control loop
     Running {
-        values: [TemperatureReading;
-            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
         pid: OneSidedPidState,
     },
 
@@ -386,8 +386,7 @@ enum ThermalControlState {
     /// the time at which we entered this state; at a certain point, we will
     /// timeout and drop into `Uncontrolled` if components do not recover.
     Overheated {
-        values: [TemperatureReading;
-            bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
         start_time: u64,
     },
 
@@ -445,9 +444,7 @@ impl<'a> ThermalControl<'a> {
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot {
-                values: [None;
-                    bsp::NUM_TEMPERATURE_INPUTS
-                        + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+                values: [None; TEMPERATURE_ARRAY_SIZE],
             },
             pid_config: bsp.pid_config,
 
