@@ -517,9 +517,7 @@ impl<'a> ThermalControl<'a> {
     /// Resets the control state
     fn reset_state(&mut self) {
         self.state = ThermalControlState::Boot {
-            values: [None;
-                bsp::NUM_TEMPERATURE_INPUTS
-                    + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+            values: [None; TEMPERATURE_ARRAY_SIZE],
         };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
