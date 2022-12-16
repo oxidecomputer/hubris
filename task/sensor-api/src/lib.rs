@@ -129,5 +129,25 @@ impl From<NoData> for SensorError {
     }
 }
 
+impl Sensor {
+    /// Post the given data with a timestamp of now
+    pub fn post_now(
+        &self,
+        id: SensorId,
+        value: f32,
+    ) -> Result<(), SensorError> {
+        self.post(id, value, sys_get_timer().now)
+    }
+
+    /// Post the given `NoData` error with a timestamp of now
+    pub fn nodata_now(
+        &self,
+        id: SensorId,
+        nodata: NoData,
+    ) -> Result<(), SensorError> {
+        self.nodata(id, nodata, sys_get_timer().now)
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 include!(concat!(env!("OUT_DIR"), "/sensor_config.rs"));

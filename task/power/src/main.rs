@@ -482,65 +482,52 @@ impl ServerImpl {
             }
 
             if let Some(id) = c.temperature {
-                let r = dev.read_temperature();
-                let now = sys_get_timer().now;
-                match r {
+                match dev.read_temperature() {
                     Ok(reading) => {
-                        sensor.post(id, reading.0, now).unwrap();
+                        sensor.post_now(id, reading.0).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
+                        sensor.nodata_now(id, NoData::DeviceError).unwrap();
                     }
                 }
             }
 
-            let r = dev.read_iout();
-            let now = sys_get_timer().now;
-            match r {
+            match dev.read_iout() {
                 Ok(reading) => {
-                    sensor.post(c.current, reading.0, now).unwrap();
+                    sensor.post_now(c.current, reading.0).unwrap();
                 }
                 Err(_) => {
-                    sensor.nodata(c.current, NoData::DeviceError, now).unwrap();
+                    sensor.nodata_now(c.current, NoData::DeviceError).unwrap();
                 }
             }
 
-            let r = dev.read_vout();
-            let now = sys_get_timer().now;
-            match r {
+            match dev.read_vout() {
                 Ok(reading) => {
-                    let now = sys_get_timer().now;
-                    sensor.post(c.voltage, reading.0, now).unwrap();
+                    sensor.post_now(c.voltage, reading.0, now).unwrap();
                 }
                 Err(_) => {
-                    sensor.nodata(c.voltage, NoData::DeviceError, now).unwrap();
+                    sensor.nodata_now(c.voltage, NoData::DeviceError).unwrap();
                 }
             }
 
             if let Some(id) = c.input_voltage {
-                let r = dev.read_vin();
-                let now = sys_get_timer().now;
-                match r {
+                match dev.read_vin() {
                     Ok(reading) => {
-                        let now = sys_get_timer().now;
-                        sensor.post(id, reading.0, now).unwrap();
+                        sensor.post_now(id, reading.0).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
+                        sensor.nodata_now(id, NoData::DeviceError).unwrap();
                     }
                 }
             }
 
             if let Some(id) = c.input_current {
-                let r = dev.read_iin();
-                let now = sys_get_timer().now;
-                match r {
+                match dev.read_iin() {
                     Ok(reading) => {
-                        let now = sys_get_timer().now;
-                        sensor.post(id, reading.0, now).unwrap();
+                        sensor.post_now(id, reading.0).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
+                        sensor.nodata_now(id, NoData::DeviceError).unwrap();
                     }
                 }
             }
