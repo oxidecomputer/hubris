@@ -503,7 +503,7 @@ impl ServerImpl {
 
             match dev.read_vout() {
                 Ok(reading) => {
-                    sensor.post_now(c.voltage, reading.0, now).unwrap();
+                    sensor.post_now(c.voltage, reading.0).unwrap();
                 }
                 Err(_) => {
                     sensor.nodata_now(c.voltage, NoData::DeviceError).unwrap();
