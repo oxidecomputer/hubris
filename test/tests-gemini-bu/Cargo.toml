@@ -5,17 +5,12 @@ name = "tests-gemini-bu"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 h753 = ["stm32h7/stm32h753"]
 
 [dependencies]
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-panic-halt = { workspace= true, optional = true }
-panic-itm = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 stm32h7 = { workspace = true, features = ["rt"] }
 
 kern = { path = "../../sys/kern" }

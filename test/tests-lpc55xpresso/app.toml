@@ -9,7 +9,6 @@ image-names = ["a", "b"]
 [kernel]
 name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
-features = ["itm"]
 
 [tasks.runner]
 name = "test-runner"

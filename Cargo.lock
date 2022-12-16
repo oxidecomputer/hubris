@@ -43,9 +43,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -604,9 +601,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32f3",
  "stm32f4",
 ]
@@ -620,9 +614,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -636,9 +627,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -1982,9 +1970,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2019,8 +2004,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2034,9 +2017,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -2049,9 +2029,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2493,9 +2470,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -2768,15 +2742,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
-name = "panic-itm"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d577d97d1b31268087b6dddf2470e6794ef5eee87d9dca7fcd0481695391a4c"
-dependencies = [
- "cortex-m",
-]
-
-[[package]]
 name = "panic-semihosting"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2994,8 +2959,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -3156,9 +3119,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -3412,9 +3372,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4352,9 +4309,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4367,9 +4321,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4382,9 +4333,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -4400,9 +4348,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -4412,9 +4357,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32f3",
  "stm32f4",
 ]
@@ -4428,9 +4370,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -4443,9 +4382,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 

@@ -5,17 +5,12 @@ name = "app-donglet"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 g030 = ["stm32g0/stm32g030"]
 g031 = ["stm32g0/stm32g031"]
 
 [dependencies]
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-panic-itm = { workspace = true, optional = true }
-panic-halt = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 cfg-if = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt"] }
 

@@ -5,9 +5,6 @@ name = "tests-rot-carrier"
 version = "0.1.0"
 
 [features]
-default = ["itm"]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 plls = []
 
 [dependencies]
@@ -15,9 +12,6 @@ cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 lpc55-pac = { workspace = true }
-panic-halt = { workspace= true, optional = true }
-panic-itm = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 
 kern = { path = "../../sys/kern" }
 
