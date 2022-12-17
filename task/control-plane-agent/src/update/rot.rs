@@ -8,6 +8,7 @@ use core::ops::Range;
 use drv_sprot_api::{SpRot, SprotError};
 use drv_update_api::lpc55::BLOCK_SIZE_BYTES;
 use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use ringbuf::{ringbuf, ringbuf_entry};
 
 use gateway_messages::{
     ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
@@ -16,6 +17,15 @@ use gateway_messages::{
 };
 
 userlib::task_slot!(SPROT, sprot);
+
+ringbuf!(Trace, 64, Trace::None);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Trace {
+    None,
+    IngestChunkInput { offset: u32, len: usize },
+    IngestChunkState { offset: u32, len: usize },
+}
 
 pub(crate) struct RotUpdate {
     task: SpRot,
@@ -130,6 +140,11 @@ impl ComponentUpdater for RotUpdate {
         offset: u32,
         mut data: &[u8],
     ) -> Result<(), SpError> {
+        ringbuf_entry!(Trace::IngestChunkInput {
+            offset,
+            len: data.len()
+        });
+
         // Ensure we are expecting data.
         let current =
             self.current.as_mut().ok_or(SpError::UpdateNotPrepared)?;
@@ -149,6 +164,11 @@ impl ComponentUpdater for RotUpdate {
                 return Err(SpError::UpdateFailed(*err as u32))
             }
         };
+
+        ringbuf_entry!(Trace::IngestChunkState {
+            offset: *next_write_offset,
+            len: buffer.len()
+        });
 
         // Reject chunks that don't match our current update ID.
         if *id != current_id {

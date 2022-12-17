@@ -13,7 +13,7 @@ mod handler;
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
-use drv_sprot_api::{Protocol, RxMsg, TxMsg, BUF_SIZE};
+use drv_sprot_api::{Protocol, RxMsg2, TxMsg2, VerifiedTxMsg2, BUF_SIZE};
 use lpc55_pac as device;
 
 use crc::{Crc, CRC_32_CKSUM};
@@ -24,14 +24,14 @@ use userlib::*;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    HandleReturnNone,
-    HandlerReturnSize(usize),
     Overrun(usize),
     Pio(bool),
     RotIrqAssert,
     RotIrqDeassert,
-    Transmit(usize, usize),
     Underrun(usize),
+    SpiSsd,
+    SpiSsa,
+    Busy,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -78,14 +78,6 @@ pub(crate) enum IoStatus {
 struct IO {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
-    // Transmit Buffer
-    tx_buf: TxMsg,
-    // Receive Buffer
-    rx_buf: RxMsg,
-    // Number of bytes copied into the receive buffer
-    rxcount: usize,
-    // Number of bytes copied from the transmit buffer into the FIFO
-    txcount: usize,
     // Failed to keep up with FIFORD
     overrun: bool,
     // Failed to keep up with FIFOWR
@@ -182,13 +174,13 @@ fn main() -> ! {
     pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
+    // Receive buffer
+    let mut rx_buf = [0u8; BUF_SIZE];
+    let mut tx_buf = [0u8; BUF_SIZE];
+
     let mut io = IO {
-        tx_buf: TxMsg::new(),
-        rx_buf: RxMsg::new(),
         gpio,
         spi,
-        rxcount: 0,
-        txcount: 0,
         overrun: false,
         underrun: false,
     };
@@ -210,69 +202,46 @@ fn main() -> ! {
         handler: &mut handler::new(),
     };
 
-    let mut transmit = false;
-
-    // Process a null message as if it had been just received.
-    // Expect that the Tx buffer is cleared.
-    let bytes_read = 0;
-    server.handler.handle(
-        transmit,
-        IoStatus::Flush,
-        &server.io.rx_buf,
-        bytes_read,
-        &mut server.io.tx_buf,
-        server.state,
-    );
+    // Create an VerifiedTxMsg2 full of 0s to start the loop with
+    let mut verified_tx_msg: Option<VerifiedTxMsg2> = None;
 
     loop {
-        server.io.pio(transmit);
-        let iostat = if server.io.rxcount == 0
-            && !server.io.underrun
-            && !server.io.overrun
-        {
-            IoStatus::Flush
-        } else {
-            IoStatus::IOResult {
-                underrun: server.io.underrun,
-                overrun: server.io.overrun,
-            }
-        };
-        transmit = match server.handler.handle(
-            transmit, // true if previous loop transmitted.
-            iostat,
-            &server.io.rx_buf,
-            server.io.rxcount,
-            &mut server.io.tx_buf,
-            server.state,
-        ) {
-            Some(txlen) => {
-                ringbuf_entry!(Trace::HandlerReturnSize(txlen.0));
-                true
-            }
-            None => {
-                ringbuf_entry!(Trace::HandleReturnNone);
-                false
-            }
+        let mut rx_msg = RxMsg2::new(&mut rx_buf[..]);
+        if verified_tx_msg.is_none() {
+            verified_tx_msg = Some(TxMsg2::new(&mut tx_buf[..]).zeroes());
         }
+        server
+            .io
+            .pio(verified_tx_msg.as_mut().unwrap_lite(), &mut rx_msg);
+        let iostat =
+            if rx_msg.len() == 0 && !server.io.underrun && !server.io.overrun {
+                IoStatus::Flush
+            } else {
+                IoStatus::IOResult {
+                    underrun: server.io.underrun,
+                    overrun: server.io.overrun,
+                }
+            };
+
+        verified_tx_msg = server.handler.handle(
+            iostat,
+            rx_msg,
+            verified_tx_msg.unwrap_lite(),
+            server.state,
+        );
     }
 }
 
 impl IO {
     /// Wait for chip select to be asserted then service the FIFOs until end of frame.
     /// Returns false on spurious interrupt.
-    fn pio(&mut self, transmit: bool) {
-        ringbuf_entry!(Trace::Pio(transmit));
-        let tx_end = self.tx_buf.as_slice().len(); // Available bytes and trailing zeros
-        let rx_end = self.rx_buf.as_slice().len(); // All of the available bytes
-        self.txcount = 0;
-        self.rxcount = 0;
+    fn pio(&mut self, tx_msg: &mut VerifiedTxMsg2, rx_msg: &mut RxMsg2) {
         self.overrun = false;
         self.underrun = false;
+        let transmit = tx_msg.contains_data();
+        let mut tx_iter = tx_msg.iter();
 
-        if !transmit {
-            // Ensure that unused Tx buffer is zero-filled.
-            self.tx_buf.as_mut().fill(0);
-        }
+        ringbuf_entry!(Trace::Pio(transmit));
 
         // Prime FIFOWR in order to be ready for start of frame.
         //
@@ -282,16 +251,16 @@ impl IO {
         // frame when we are not in a realtime situation.
         self.spi.drain_tx(); // FIFOWR is now empty; we'll get an interrupt.
         loop {
-            if self.txcount >= tx_end || !self.spi.can_tx() {
+            if !self.spi.can_tx() {
                 break;
             }
-            let b = self.tx_buf.as_slice()[self.txcount];
-            self.spi.send_u8(b);
-            self.txcount += 1;
+            match tx_iter.next() {
+                Some(b) => self.spi.send_u8(b),
+                None => break, // FIFOWR is full
+            }
         }
 
         if transmit {
-            ringbuf_entry!(Trace::Transmit(self.txcount, tx_end));
             ringbuf_entry!(Trace::RotIrqAssert);
             self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
         }
@@ -336,6 +305,7 @@ impl IO {
                 // Track Spi Select Asserted and Deasserted to determine if
                 // we are in frame and update Rx/Tx state as needed.
                 if intstat.ssa().bit() {
+                    ringbuf_entry!(Trace::SpiSsa);
                     self.spi.ssa_clear();
                     inframe = true;
                 }
@@ -343,6 +313,7 @@ impl IO {
                 // Note that while Tx is done at end of frame,
                 // FIFORD may still have bytes to read.
                 if intstat.ssd().bit() {
+                    ringbuf_entry!(Trace::SpiSsd);
                     self.spi.ssd_clear();
                     if transmit {
                         self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
@@ -356,43 +327,32 @@ impl IO {
                 if fifostat.rxerr().bit() {
                     self.spi.rxerr_clear();
                     self.overrun = true;
-                    ringbuf_entry!(Trace::Overrun(self.rxcount));
+                    ringbuf_entry!(Trace::Overrun(rx_msg.len()));
                     // Overrun accounting is done in handler.
                 }
                 if fifostat.txerr().bit() {
                     self.spi.txerr_clear();
                     // Underrun accounting is done in handler.
-                    ringbuf_entry!(Trace::Underrun(self.rxcount));
+                    ringbuf_entry!(Trace::Underrun(rx_msg.len()));
                     self.underrun = true;
                 }
                 // Service the FIFOs
                 //   - inframe: normal service
                 //   - !inframe: this is the last service needed for FIFORD
-                loop {
-                    let mut io = false;
+                let mut io = true;
+                while io == true {
+                    io = false;
                     if self.spi.can_tx() {
-                        let (b, incr) = if self.txcount < tx_end {
+                        if let Some(b) = tx_iter.next() {
                             io = true;
-                            (self.tx_buf.as_slice()[self.txcount], 1)
-                        } else {
-                            (0, 0)
-                        };
-                        self.spi.send_u8(b);
-                        self.txcount += incr;
+                            self.spi.send_u8(b);
+                        }
                     }
                     if self.spi.has_byte() {
                         let b = self.spi.read_u8();
-                        let incr = if self.rxcount < rx_end {
+                        if rx_msg.push(b).is_ok() {
                             io = true;
-                            self.rx_buf.as_mut()[self.rxcount] = b;
-                            1
-                        } else {
-                            0
-                        };
-                        self.rxcount += incr;
-                    }
-                    if !io {
-                        break;
+                        }
                     }
                 }
                 if !inframe {
@@ -440,6 +400,7 @@ impl IO {
         // overrun, when we come back instead of just a Tx not full interrupt.
         self.spi.drain_tx();
         // Put a Protocol::Busy value in FIFOWR so that SP/logic analyzer knows we're away.
+        ringbuf_entry!(Trace::Busy);
         self.spi.send_u8(Protocol::Busy as u8);
         if transmit {
             self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();

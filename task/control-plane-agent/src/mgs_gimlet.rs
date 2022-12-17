@@ -37,8 +37,10 @@ use host_phase2::HostPhase2Requester;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks or host flash pages.
-const UPDATE_BUFFER_SIZE: usize =
-    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE);
+const UPDATE_BUFFER_SIZE: usize = usize_max(
+    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE),
+    RotUpdate::BLOCK_SIZE,
+);
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).
