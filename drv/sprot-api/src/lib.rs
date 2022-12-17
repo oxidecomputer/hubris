@@ -711,6 +711,7 @@ impl<'a> RxMsg2<'a> {
         if self.len < HEADER_SIZE {
             return Err((self.header_bytes(), SprotError::Incomplete));
         }
+
         let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])
             .map_err(|e| (self.header_bytes(), e.into()))?;
         if header.payload_len as usize > PAYLOAD_SIZE_MAX {
@@ -720,9 +721,10 @@ impl<'a> RxMsg2<'a> {
         self.validate_crc(&header)
             .map_err(|e| (self.header_bytes(), e))?;
 
+        let payload_end = HEADER_SIZE + header.payload_len as usize;
         Ok(VerifiedRxMsg2 {
             header,
-            payload: &mut self.buf[HEADER_SIZE..header.payload_len as usize],
+            payload: &mut self.buf[HEADER_SIZE..payload_end],
         })
     }
 

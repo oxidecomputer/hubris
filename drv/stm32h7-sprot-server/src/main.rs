@@ -58,13 +58,14 @@ ringbuf!(Trace, 64, Trace::None);
 const SP_TO_ROT_SPI_DEVICE: u8 = 0;
 
 // TODO: These timeouts are somewhat arbitrary.
+// All timeouts are in 'ticks'
 
 /// Timeout for status message
-const TIMEOUT_QUICK: u32 = 100;
+const TIMEOUT_QUICK: u32 = 250;
 /// Maximum timeout for an arbitrary message
-const TIMEOUT_MAX: u32 = 250;
+const TIMEOUT_MAX: u32 = 500;
 // XXX tune the RoT flash write timeout
-const TIMEOUT_WRITE_ONE_BLOCK: u32 = 250;
+const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
