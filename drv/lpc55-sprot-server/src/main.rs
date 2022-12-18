@@ -29,11 +29,14 @@ enum Trace {
     RotIrqAssert,
     RotIrqDeassert,
     Underrun(usize),
-    SpiSsd,
-    SpiSsa,
-    Busy,
+    SsaAndSsd,
+    SpuriousInterrupt,
+    SSA,
+    SSD,
+    AfterOuterLoop(usize),
+    TopLevelSendByte,
 }
-ringbuf!(Trace, 32, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -255,7 +258,10 @@ impl IO {
                 break;
             }
             match tx_iter.next() {
-                Some(b) => self.spi.send_u8(b),
+                Some(b) => {
+                    ringbuf_entry!(Trace::TopLevelSendByte);
+                    self.spi.send_u8(b);
+                }
                 None => break, // FIFOWR is full
             }
         }
@@ -299,13 +305,18 @@ impl IO {
                     // These are only happening just after queuing a
                     // response.
                     // TODO: It would be nice to eliminate the spurious interrupt.
+                    ringbuf_entry!(Trace::SpuriousInterrupt);
                     continue 'outer;
+                }
+
+                if intstat.ssa().bit() && intstat.ssd().bit() {
+                    ringbuf_entry!(Trace::SsaAndSsd);
                 }
 
                 // Track Spi Select Asserted and Deasserted to determine if
                 // we are in frame and update Rx/Tx state as needed.
                 if intstat.ssa().bit() {
-                    ringbuf_entry!(Trace::SpiSsa);
+                    ringbuf_entry!(Trace::SSA);
                     self.spi.ssa_clear();
                     inframe = true;
                 }
@@ -313,9 +324,10 @@ impl IO {
                 // Note that while Tx is done at end of frame,
                 // FIFORD may still have bytes to read.
                 if intstat.ssd().bit() {
-                    ringbuf_entry!(Trace::SpiSsd);
                     self.spi.ssd_clear();
+                    ringbuf_entry!(Trace::SSD);
                     if transmit {
+                        ringbuf_entry!(Trace::RotIrqDeassert);
                         self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
                     }
                     inframe = false;
@@ -383,6 +395,7 @@ impl IO {
             } // FIFO polling loop
         }
         // Done, deassert ROT_IRQ
+        ringbuf_entry!(Trace::AfterOuterLoop(rx_msg.len()));
 
         // XXX Denial of service by forever asserting CSn?
         // We could mitigate by imposing a time limit
@@ -399,8 +412,8 @@ impl IO {
         // a message, then we will see an underrun, and possibly an
         // overrun, when we come back instead of just a Tx not full interrupt.
         self.spi.drain_tx();
+
         // Put a Protocol::Busy value in FIFOWR so that SP/logic analyzer knows we're away.
-        ringbuf_entry!(Trace::Busy);
         self.spi.send_u8(Protocol::Busy as u8);
         if transmit {
             self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();

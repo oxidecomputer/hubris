@@ -52,6 +52,8 @@ enum Trace {
     UpdatePrep,
     UpdateWriteOneBlock,
     UpdateFinish,
+    ErrRespNoPayload,
+    Recoverable(SprotError),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -59,6 +61,9 @@ const SP_TO_ROT_SPI_DEVICE: u8 = 0;
 
 // TODO: These timeouts are somewhat arbitrary.
 // All timeouts are in 'ticks'
+
+/// Retry timeout for send_recv_retries
+const RETRY_TIMEOUT: u64 = 100;
 
 /// Timeout for status message
 const TIMEOUT_QUICK: u32 = 250;
@@ -250,9 +255,9 @@ impl ServerImpl {
         }
         if !part2.is_empty() {
             hl::sleep_for(PART2_DELAY); // TODO: configurable
-            ringbuf_entry!(Trace::CSnDeassert);
             if self.spi.write(part2).is_err() {
                 _ = self.spi.release();
+                ringbuf_entry!(Trace::CSnDeassert);
                 return Err(SprotError::SpiServerError);
             }
         }
@@ -261,6 +266,7 @@ impl ServerImpl {
         {
             return Err(SprotError::SpiServerError);
         }
+        ringbuf_entry!(Trace::CSnDeassert);
 
         /*
         // TODO: Use STM32 EXTI
@@ -389,6 +395,7 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::SprotError(err));
                     if is_recoverable_error(err) {
                         errcode = err;
+                        hl::sleep_for(RETRY_TIMEOUT);
                         continue;
                     } else {
                         return Err(err);
@@ -405,21 +412,20 @@ impl ServerImpl {
                                     rxmsg.0.payload_len
                                 ));
                                 // Treat this as a recoverable error
+                                hl::sleep_for(RETRY_TIMEOUT);
+                                ringbuf_entry!(Trace::ErrRespNoPayload);
                                 continue;
                             }
                             let payload = &self.rx_buf.payload(&rxmsg);
                             errcode = SprotError::from(payload[0]);
                             ringbuf_entry!(Trace::SprotError(errcode));
-                            if matches!(
-                                errcode,
-                                SprotError::FlowError
-                                    | SprotError::InvalidCrc
-                                    | SprotError::UnsupportedProtocol
-                            ) {
+                            if is_recoverable_error(errcode) {
                                 // TODO: There are rare cases where
                                 // the RoT dose not receive
                                 // a 0x01 as the first byte in a message.
                                 // See issue #929.
+                                hl::sleep_for(RETRY_TIMEOUT);
+                                ringbuf_entry!(Trace::Recoverable(errcode));
                                 continue;
                             }
                             // Other errors from RoT are not recoverable with

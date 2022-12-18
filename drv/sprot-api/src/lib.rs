@@ -179,6 +179,10 @@ pub fn is_recoverable_error(err: SprotError) -> bool {
             | SprotError::EmptyMessage
             | SprotError::RotNotReady
             | SprotError::RotBusy
+            | SprotError::FlowError
+            | SprotError::UnsupportedProtocol
+            | SprotError::BadMessageLength
+            | SprotError::Serialization
     )
 }
 

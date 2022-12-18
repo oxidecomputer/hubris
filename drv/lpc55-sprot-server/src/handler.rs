@@ -18,6 +18,7 @@ enum PrevMsg {
     Flush,
     Good(MsgType),
     Overrun,
+    Err(SprotError),
 }
 
 pub(crate) struct Handler {
@@ -44,10 +45,11 @@ enum Trace {
     Overrun(usize),
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
-    Ignore,
-    HandleMsg,
+    IgnoreOnParse,
+    IgnoreOnOverrun,
+    Flush,
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 impl Handler {
     /// The Sp RoT target message handler processes the incoming message
@@ -66,7 +68,6 @@ impl Handler {
         verified_tx_msg: VerifiedTxMsg2<'a>,
         state: &mut LocalState, // for responses and updating
     ) -> Option<VerifiedTxMsg2<'a>> {
-        ringbuf_entry!(Trace::HandleMsg);
         self.count = self.count.wrapping_add(1);
 
         // true if previous loop transmitted.
@@ -99,23 +100,19 @@ impl Handler {
                             self.prev = PrevMsg::Overrun;
                             None
                         }
-                        // XXX(AJS): Previously unhandled case.
                         Some(protocol) if protocol == Protocol::Ignore => {
-                            ringbuf_entry!(Trace::Ignore);
+                            ringbuf_entry!(Trace::IgnoreOnOverrun);
                             None
                         }
                         Some(_) => {
                             state.rx_overrun = state.rx_overrun.wrapping_add(1);
-                            ringbuf_entry!(Trace::Prev(self.count, self.prev));
-                            self.prev = PrevMsg::Overrun;
                             ringbuf_entry!(Trace::ErrHeader(
                                 self.count,
                                 self.prev,
                                 rx_buf.header_bytes()
                             ));
-                            return Some(
-                                tx_buf.error_rsp(SprotError::FlowError),
-                            );
+                            self.prev = PrevMsg::Overrun;
+                            Some(tx_buf.error_rsp(SprotError::FlowError))
                         }
                     };
                 }
@@ -126,6 +123,7 @@ impl Handler {
                     // Our message was not delivered
                 }
                 self.prev = PrevMsg::Flush;
+                ringbuf_entry!(Trace::Flush);
                 return None;
             }
         }
@@ -145,6 +143,7 @@ impl Handler {
             }
             Err((header_bytes, msgerr)) => {
                 if msgerr == SprotError::NoMessage {
+                    ringbuf_entry!(Trace::IgnoreOnParse);
                     self.prev = PrevMsg::None;
                     return None;
                 }
@@ -153,6 +152,7 @@ impl Handler {
                     self.prev,
                     header_bytes
                 ));
+                self.prev = PrevMsg::Err(msgerr);
                 return Some(tx_buf.error_rsp(msgerr));
             }
         };
