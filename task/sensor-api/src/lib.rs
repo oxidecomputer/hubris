@@ -115,6 +115,9 @@ pub enum SensorError {
     DeviceUnavailable = 5,
     DeviceTimeout = 6,
     DeviceOff = 7,
+
+    #[idol(server_death)]
+    ServerDied,
 }
 
 impl From<NoData> for SensorError {

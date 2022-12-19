@@ -649,13 +649,18 @@ impl<'a> ThermalControl<'a> {
             self.reset_state();
         }
 
-        // Load sensor readings from the `sensors` API
+        // Load sensor readings from the `sensors` API.
+        //
+        // If the most recent reading is an error, then leave the previous value
+        // in `self.state`.  When we're in the `Boot` state, this will leave the
+        // value as `None`; when we're `Running`, it will maintain the previous
+        // state, estimating a new temperature with the thermal model.
         for (i, s) in self.bsp.inputs.iter().enumerate() {
             if self.power_mode.intersects(s.power_mode_mask) {
-                // TODO:
-                let r =
-                    self.sensor_api.get_reading(s.sensor.sensor_id).unwrap();
-                self.state.write_temperature(i, r);
+                let sensor_id = s.sensor.sensor_id;
+                if let Ok(r) = self.sensor_api.get_reading(sensor_id) {
+                    self.state.write_temperature(i, r);
+                }
             } else {
                 self.state.write_temperature_inactive(i);
             }
@@ -667,9 +672,9 @@ impl<'a> ThermalControl<'a> {
             .enumerate()
             .filter(|(i, _s)| self.dynamic_inputs[*i].is_some())
         {
-            // TODO:
-            let r = self.sensor_api.get_reading(*sensor_id).unwrap();
-            self.state.write_temperature(i + self.bsp.inputs.len(), r);
+            if let Ok(r) = self.sensor_api.get_reading(*sensor_id) {
+                self.state.write_temperature(i + self.bsp.inputs.len(), r);
+            }
         }
 
         // A bit awkward, but we have to borrow these explicitly to work around
@@ -693,14 +698,14 @@ impl<'a> ThermalControl<'a> {
                             // time_ms ≈ now_ms, so this is close to v.value
                             // (i.e. the most recent reading).
                             //
-                            // Otherwise, time_ms is earlier (less) than now_ms,
-                            // so this subtraction is safe.
-                            //
-                            // TODO: if someone maliciously posts invalid
-                            // temperatures to the sensors task, this could
-                            // underflow.
+                            // Typically, time_ms is earlier (less) than now_ms,
+                            // so this subtraction is safe.  If there's invalid
+                            // data in the sensors task (i.e. readings claiming
+                            // to be from the future), then this will saturate
+                            // instead of underflowing.
                             let temperature = value.0
-                                + (now_ms - time_ms) as f32 / 1000.0
+                                + now_ms.saturating_sub(*time_ms) as f32
+                                    / 1000.0
                                     * model.temperature_slew_deg_per_sec;
                             any_power_down |=
                                 temperature >= model.power_down_temperature.0;
@@ -758,7 +763,7 @@ impl<'a> ThermalControl<'a> {
                 for (v, model) in Self::zip_temperatures(values, inputs) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (now_ms - time_ms) as f32 / 1000.0
+                            + now_ms.saturating_sub(*time_ms) as f32 / 1000.0
                                 * model.temperature_slew_deg_per_sec;
                         any_power_down |=
                             temperature >= model.power_down_temperature.0;
@@ -809,7 +814,7 @@ impl<'a> ThermalControl<'a> {
                 for (v, model) in Self::zip_temperatures(values, inputs) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (now_ms - time_ms) as f32 / 1000.0
+                            + now_ms.saturating_sub(*time_ms) as f32 / 1000.0
                                 * model.temperature_slew_deg_per_sec;
 
                         all_subcritical &= temperature
@@ -944,7 +949,13 @@ impl<'a> ThermalControl<'a> {
         if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
             return Err(ThermalError::InvalidIndex);
         }
-        self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
+        // If we're adding a new dynamic input, then reset the state to `Boot`,
+        // ensuring that we'll wait for that channel to provide us with at least
+        // one valid reading before resuming the PID loop.
+        if self.dynamic_inputs[index].is_none() {
+            self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
+            self.reset_state();
+        }
         Ok(())
     }
 

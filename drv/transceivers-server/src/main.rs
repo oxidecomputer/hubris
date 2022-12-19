@@ -23,7 +23,9 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
-use task_sensor_api::{config::other_sensors, Sensor, SensorError, SensorId};
+use task_sensor_api::{
+    config::other_sensors, NoData, Sensor, SensorError, SensorId,
+};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::mgmt::ManagementInterface;
 use userlib::{units::Celsius, *};
@@ -278,6 +280,14 @@ impl ServerImpl {
                 // This transceiver went away; remove it from the thermal loop
                 if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
                     ringbuf_entry!(Trace::ThermalError(i, e));
+                }
+
+                // Tell the `sensor` task that this device is no longer present
+                if let Err(e) = self
+                    .sensor_api
+                    .nodata_now(SENSOR_IDS[i], NoData::DeviceNotPresent)
+                {
+                    ringbuf_entry!(Trace::SensorError(i, e));
                 }
 
                 ringbuf_entry!(Trace::UnpluggedModule(i));

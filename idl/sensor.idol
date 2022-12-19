@@ -41,6 +41,7 @@ Interface(
                 ok: "()",
                 err: CLike("SensorError"),
             ),
+            idempotent: true,
         ),
         "nodata": (
             args: {
@@ -58,6 +59,7 @@ Interface(
                 ok: "()",
                 err: CLike("SensorError"),
             ),
+            idempotent: true,
         ),
         "get_nerrors": (
             args: {
