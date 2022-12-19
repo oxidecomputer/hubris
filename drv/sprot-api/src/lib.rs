@@ -232,13 +232,29 @@ pub struct SprotStatus {
 /// Stats from the RoT side of sprot
 ///
 /// All of the counters will wrap around.
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(Default, Copy, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct IoStats {
     /// Number of messages received
     pub rx_received: u32,
 
     /// Number of messages where the RoT failed to service the Rx FIFO in time.
     pub rx_overrun: u32,
+
+    /// The number of times an SP sent more bytes than expected for one
+    /// message. In otherwords, the number of bytes sent by the SP to the RoT
+    /// between CSn assert and CSn de-assert exceeds `BUF_SIZE`.
+    pub rx_protocol_error_too_many_bytes: u32,
+
+    /// Number of times we've gotten an unexpeceted CSn assert
+    pub unexpected_csn_asserts: u32,
+
+    /// Max number of times in a row we've gotten an unexpeted CSn assert
+    /// This occurs if we keep getting CSn de-assert along with CSn assert in our
+    /// tight read loop on the RoT.
+    pub max_unexpected_csn_asserts_in_one_read_loop: u32,
+
+    /// The number of CSn pulses seen by the RoT
+    pub csn_pulses: u32,
 
     /// Number of messages where the RoT failed to service the Tx FIFO in time.
     pub tx_underrun: u32,

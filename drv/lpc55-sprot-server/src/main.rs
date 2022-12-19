@@ -9,6 +9,7 @@
 #![no_main]
 
 mod handler;
+mod main2;
 
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
