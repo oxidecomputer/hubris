@@ -43,7 +43,7 @@
 //! sands...
 //!
 
-use crate::Disposition;
+use crate::{Disposition, TaskStatus};
 use core::sync::atomic::{AtomicU32, Ordering};
 
 #[cfg(armv6m)]
@@ -100,43 +100,92 @@ static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 /// potentially modifying the passed array.  Returns a boolean to indicate if
 /// a valid external request was received.
 ///
-pub fn check(disposition: &mut [Disposition]) -> bool {
+pub(crate) fn check(states: &mut [TaskStatus]) {
+    // This wrapper is responsible for updating operation counters, and allowing
+    // the inner function to use Result for convenience.
+    match check_inner(states) {
+        Ok(true) => {
+            JEFE_EXTERNAL_REQUESTS.fetch_add(1, Ordering::SeqCst);
+        }
+        Ok(false) => {
+            // Did not perform a request
+        }
+        Err(e) => {
+            ringbuf_entry!(Trace::Error(e));
+            JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+}
+
+// Implementation factor of `check` that can use Result.
+fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
     if JEFE_EXTERNAL_KICK.swap(0, Ordering::SeqCst) == 0 {
-        return false;
+        return Ok(false);
     }
 
     let val = JEFE_EXTERNAL_REQUEST.load(Ordering::SeqCst);
 
-    if let Some(request) = Request::from_u32(val) {
-        let ndx = JEFE_EXTERNAL_TASKINDEX.load(Ordering::SeqCst) as usize;
+    let request = Request::from_u32(val).ok_or(Error::BadRequest)?;
+    let ndx = JEFE_EXTERNAL_TASKINDEX.load(Ordering::SeqCst) as usize;
 
-        if ndx == 0 {
-            ringbuf_entry!(Trace::Error(Error::IllegalTask));
-        } else if ndx >= disposition.len() {
-            ringbuf_entry!(Trace::Error(Error::BadTask));
-        } else {
-            let task = TaskIndex(ndx as u16);
-            ringbuf_entry!(Trace::Request(request, task));
-
-            disposition[ndx] = match request {
-                Request::None => disposition[ndx],
-                Request::Hold => Disposition::Hold,
-                Request::Release => Disposition::Restart,
-                Request::Start => Disposition::Start,
-                Request::Fault => Disposition::Fault,
-            };
-
-            ringbuf_entry!(Trace::Disposition(task, disposition[ndx]));
-            JEFE_EXTERNAL_REQUESTS.fetch_add(1, Ordering::SeqCst);
-
-            return true;
-        }
-    } else {
-        ringbuf_entry!(Trace::Error(Error::BadRequest));
+    // Do not allow requests to alter the supervisor (us).
+    if ndx == 0 {
+        return Err(Error::IllegalTask);
     }
 
-    JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
-    false
+    // Ensure the task index is in range.
+    let state = states.get_mut(ndx).ok_or(Error::BadTask)?;
+
+    let task = TaskIndex(ndx as u16);
+    ringbuf_entry!(Trace::Request(request, task));
+
+    match request {
+        Request::None => (),
+
+        Request::Hold => {
+            // This is just a bookkeeping state update, we do not interrupt or
+            // fault the task in response to this one.
+            state.disposition = Disposition::Hold;
+        }
+
+        Request::Start => {
+            // This makes a task run.
+            // - If the task is not configured `start = true` on boot, this will
+            //   start it running.
+            // - If the task is held at a fault, this will make it go.
+            //
+            // As a useful side effect, if a task is _already running,_ this
+            // will restart it.
+            //
+            // Note that this command does _not_ clear task holds! For that, you
+            // must issue Release, below. This means it's useful for starting
+            // the task but still catching it on the _next_ fault.
+            kipc::restart_task(ndx, true);
+        }
+
+        Request::Release => {
+            // This reverses the effect of Hold. Note that this has to reverse
+            // not only the disposition change, but may also have to restart the
+            // task to clear a held fault.
+            state.disposition = Disposition::Restart;
+            if state.holding_fault {
+                state.holding_fault = false;
+                kipc::restart_task(ndx, true);
+            }
+        }
+
+        Request::Fault => {
+            // Indicate that the task has faulted on purpose:
+            state.disposition = Disposition::Hold;
+            // And make its day substantially worse. This will cause us
+            // to be notified, and the fault will be processed and
+            // logged on the next iteration through the server loop.
+            kipc::fault_task(ndx);
+        }
+    }
+
+    ringbuf_entry!(Trace::Disposition(task, state.disposition));
+    Ok(true)
 }
 
 ///
