@@ -851,13 +851,11 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    fn generate_device(&self, d: &I2cDevice, indent: usize) -> String {
+    fn lookup_controller_port(&self, d: &I2cDevice) -> (u8, usize) {
         let controller = match &d.bus {
             Some(bus) => self.buses.get(bus).unwrap().0,
             None => d.controller.unwrap(),
         };
-
-        let indent = format!("{:indent$}", "", indent = indent);
 
         let port = match (&d.bus, &d.port) {
             (Some(_), Some(_)) => {
@@ -892,6 +890,12 @@ impl ConfigGenerator {
             },
         };
 
+        (controller, *port)
+    }
+
+    fn generate_device(&self, d: &I2cDevice, indent: usize) -> String {
+        let (controller, port) = self.lookup_controller_port(d);
+
         let segment = match (d.mux, d.segment) {
             (Some(mux), Some(segment)) => {
                 format!(
@@ -907,6 +911,8 @@ impl ConfigGenerator {
                 panic!("device {} specifies a segment but no mux", d.device)
             }
         };
+
+        let indent = format!("{:indent$}", "", indent = indent);
 
         format!(
             r##"
@@ -934,8 +940,16 @@ impl ConfigGenerator {
         let mut by_name = HashMap::new();
         let mut by_bus = MultiMap::new();
 
-        for d in &self.devices {
+        let mut by_port = MultiMap::new();
+        let mut by_controller = MultiMap::new();
+
+        for (index, d) in self.devices.iter().enumerate() {
             by_device.insert(&d.device, d);
+
+            let (controller, port) = self.lookup_controller_port(&d);
+
+            by_port.insert(port, index);
+            by_controller.insert(controller, index);
 
             if let Some(bus) = &d.bus {
                 by_bus.insert((&d.device, bus), d);
@@ -956,6 +970,66 @@ impl ConfigGenerator {
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         #[allow(unused_imports)]
         use userlib::TaskId;
+"##
+        )?;
+
+        write!(
+            &mut self.output,
+            r##"
+        #[allow(dead_code)]
+        pub fn lookup_controller(index: usize) -> Option<Controller> {{
+            match index {{"##
+        )?;
+
+        for (controller, indices) in by_controller.iter_all() {
+            let s: Vec<String> =
+                indices.iter().map(|f| format!("{}", f)).collect::<_>();
+
+            write!(
+                &mut self.output,
+                r##"
+                {} => Some(Controller::I2C{}),"##,
+                s.join("\n                | "),
+                controller,
+            )?;
+        }
+
+        write!(
+            &mut self.output,
+            r##"
+                _ => None
+            }}
+        }}
+"##
+        )?;
+
+        write!(
+            &mut self.output,
+            r##"
+        #[allow(dead_code)]
+        pub fn lookup_port(index: usize) -> Option<PortIndex> {{
+            match index {{"##
+        )?;
+
+        for (port, indices) in by_port.iter_all() {
+            let s: Vec<String> =
+                indices.iter().map(|f| format!("{}", f)).collect::<_>();
+
+            write!(
+                &mut self.output,
+                r##"
+                {} => Some(PortIndex({})),"##,
+                s.join("\n                | "),
+                port,
+            )?;
+        }
+
+        write!(
+            &mut self.output,
+            r##"
+                _ => None
+            }}
+        }}
 "##
         )?;
 
@@ -1368,6 +1442,7 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
         }
 
         Disposition::Validation => {
+            g.generate_devices()?;
             g.generate_validation()?;
         }
     }

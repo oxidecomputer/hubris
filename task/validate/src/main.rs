@@ -50,6 +50,33 @@ impl idl::InOrderValidateImpl for ServerImpl {
             },
         }
     }
+
+    //
+    // A quick-and-dirty entry point to indicate the last mux and segment to
+    // aid in debugging locked I2C bus conditions.
+    //
+    fn selected_mux_segment(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<[u8; 2], RequestError<ValidateError>> {
+        use i2c_config::devices::{lookup_controller, lookup_port};
+
+        let c = lookup_controller(index).ok_or(ValidateError::InvalidDevice)?;
+        let p = lookup_port(index).ok_or(ValidateError::InvalidDevice)?;
+
+        let task = I2C.get_task_id();
+        let device = drv_i2c_api::I2cDevice::new(task, c, p, None, 0);
+
+        match device.selected_mux_segment() {
+            Ok(None) => Ok([0xff, 0xff]),
+            Ok(Some((mux, segment))) => Ok([mux as u8, segment as u8]),
+            Err(err) => {
+                let err: ValidateError = err.into();
+                Err(err.into())
+            }
+        }
+    }
 }
 
 #[export_name = "main"]

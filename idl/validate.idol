@@ -12,5 +12,14 @@ Interface(
                 err: CLike("ValidateError"),
             ),
         ),
+        "selected_mux_segment": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "[u8; 2]",
+                err: CLike("ValidateError"),
+            ),
+        ),
     },
 )
