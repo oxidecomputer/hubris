@@ -963,6 +963,7 @@ dependencies = [
  "pmbus",
  "ringbuf",
  "smbus-pec",
+ "task-power-api",
  "userlib",
  "zerocopy",
 ]
@@ -2853,7 +2854,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#9f5d86bfd04cbb6d7a7fcb38e00071c8b643f6f3"
 dependencies = [
  "anyhow",
  "convert_case 0.3.2",
@@ -3938,11 +3938,13 @@ dependencies = [
 name = "task-power-api"
 version = "0.1.0"
 dependencies = [
- "derive-idol-err",
+ "drv-i2c-api",
  "hubpack",
  "idol",
  "num-traits",
+ "pmbus",
  "serde",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]

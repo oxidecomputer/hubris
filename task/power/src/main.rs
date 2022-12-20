@@ -17,6 +17,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use task_power_api::PmbusValue;
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -46,6 +47,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::sensors;
 
 #[allow(dead_code, clippy::upper_case_acronyms)]
+#[derive(Clone, Copy)]
 enum DeviceType {
     IBC,
     Core,
@@ -142,6 +144,22 @@ impl Device {
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
+    }
+
+    fn pmbus_read(
+        &self,
+        op: task_power_api::Operation,
+    ) -> Result<PmbusValue, ResponseCode> {
+        let v = match &self {
+            Device::Mwocp68(dev) => dev.pmbus_read(op)?,
+            Device::Bmr491(_)
+            | Device::Raa229618(_)
+            | Device::Isl68224(_)
+            | Device::Tps546B24A(_)
+            | Device::Adm1272(_)
+            | Device::Max5970(_) => return Err(ResponseCode::NoDevice),
+        };
+        Ok(v)
     }
 }
 
@@ -425,6 +443,7 @@ fn main() -> ! {
     let i2c_task = I2C.get_task_id();
 
     let mut server = ServerImpl {
+        i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
     };
@@ -437,6 +456,7 @@ fn main() -> ! {
 }
 
 struct ServerImpl {
+    i2c_task: TaskId,
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; CONTROLLER_CONFIG.len()],
 }
@@ -541,13 +561,32 @@ impl idl::InOrderPowerImpl for ServerImpl {
     fn pmbus_read(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _dev: task_power_api::Device,
-        _op: task_power_api::Operation,
-    ) -> Result<
-        task_power_api::Value,
-        idol_runtime::RequestError<task_power_api::PowerError>,
-    > {
-        todo!()
+        req_dev: task_power_api::Device,
+        req_rail: u8,
+        req_index: u32,
+        op: task_power_api::Operation,
+    ) -> Result<PmbusValue, idol_runtime::RequestError<ResponseCode>> {
+        use task_power_api::Device;
+
+        // Skim through `CONTROLLER_CONFIG` looking for the requested device.
+        let device = CONTROLLER_CONFIG
+            .iter()
+            .filter_map(|dev| {
+                match (dev.device, req_dev) {
+                    // Filter down to only devices that match types...
+                    (DeviceType::PowerShelf, Device::PowerShelf) => {
+                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        // ... and rails
+                        (rail == req_rail)
+                            .then_some(dev.get_device(self.i2c_task))
+                    }
+                    _ => None,
+                }
+            })
+            .nth(req_index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        Ok(device.pmbus_read(op)?)
     }
 }
 

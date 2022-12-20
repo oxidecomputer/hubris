@@ -7,18 +7,14 @@ Interface(
             doc: "performs a pmbus read operation",
             encoding: Hubpack,
             args: {
-                "dev": (
-                    type: "Device",
-                    recv: FromPrimitive("u8"),
-                ),
-                "op": (
-                    type: "Operation",
-                    recv: FromPrimitive("u8"),
-                ),
+                "dev": "Device",
+                "rail": "u8",
+                "index": "u32",
+                "op": "Operation",
             },
             reply: Result(
-                ok: "Value",
-                err: CLike("PowerError"),
+                ok: "PmbusValue",
+                err: CLike("ResponseCode"),
             ),
         ),
     },

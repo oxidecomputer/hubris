@@ -14,6 +14,7 @@ use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
+use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
 
 pub struct Mwocp68 {
@@ -112,6 +113,229 @@ impl Mwocp68 {
             }
         };
         Ok(r)
+    }
+
+    #[inline(always)]
+    fn read_block<const N: usize>(
+        &self,
+        cmd: CommandCode,
+    ) -> Result<PmbusValue, Error> {
+        // We can't use static_assertions with const generics (yet), so use a
+        // regular assert and hope that the compiler removes it since both of
+        // these are known constants.
+        assert!(N <= task_power_api::MAX_BLOCK_LEN);
+
+        // Pass through to the non-generic implementation.
+        self.read_block_impl(cmd, N)
+    }
+
+    #[inline(never)]
+    fn read_block_impl(
+        &self,
+        cmd: CommandCode,
+        len: usize,
+    ) -> Result<PmbusValue, Error> {
+        let cmd = cmd as u8;
+        let mut data = [0; task_power_api::MAX_BLOCK_LEN];
+        let len = self
+            .device
+            .read_block(cmd, &mut data[..len])
+            .map_err(|code| Error::BadRead { cmd, code })?;
+        Ok(PmbusValue::Block {
+            data,
+            len: len as u8,
+        })
+    }
+
+    pub fn pmbus_read(
+        &self,
+        op: task_power_api::Operation,
+    ) -> Result<PmbusValue, Error> {
+        use task_power_api::Operation;
+
+        self.set_rail()?;
+
+        let val = match op {
+            Operation::FanConfig1_2 => PmbusValue::Raw8(
+                pmbus_read!(self.device, FAN_CONFIG_1_2)?.get()?,
+            ),
+            Operation::FanCommand1 => PmbusValue::Unitless(
+                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?.0,
+            ),
+            Operation::FanCommand2 => PmbusValue::Unitless(
+                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?.0,
+            ),
+            Operation::IoutOcFaultLimit => PmbusValue::from(
+                pmbus_read!(self.device, IOUT_OC_FAULT_LIMIT)?.get()?,
+            ),
+            Operation::IoutOcWarnLimit => PmbusValue::from(
+                pmbus_read!(self.device, IOUT_OC_WARN_LIMIT)?.get()?,
+            ),
+            Operation::OtWarnLimit => PmbusValue::from(
+                pmbus_read!(self.device, OT_WARN_LIMIT)?.get()?,
+            ),
+            Operation::IinOcWarnLimit => PmbusValue::from(
+                pmbus_read!(self.device, IIN_OC_WARN_LIMIT)?.get()?,
+            ),
+            Operation::PoutOpWarnLimit => PmbusValue::from(
+                pmbus_read!(self.device, POUT_OP_WARN_LIMIT)?.get()?,
+            ),
+            Operation::PinOpWarnLimit => PmbusValue::from(
+                pmbus_read!(self.device, PIN_OP_WARN_LIMIT)?.get()?,
+            ),
+            Operation::StatusByte => {
+                let (val, width) = pmbus_read!(self.device, STATUS_BYTE)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusWord => {
+                let (val, width) = pmbus_read!(self.device, STATUS_WORD)?.raw();
+                assert_eq!(width.0, 16);
+                PmbusValue::Raw16(val as u16)
+            }
+            Operation::StatusVout => {
+                let (val, width) = pmbus_read!(self.device, STATUS_VOUT)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusIout => {
+                let (val, width) = pmbus_read!(self.device, STATUS_IOUT)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusInput => {
+                let (val, width) =
+                    pmbus_read!(self.device, STATUS_INPUT)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusTemperature => {
+                let (val, width) =
+                    pmbus_read!(self.device, STATUS_TEMPERATURE)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusCml => {
+                let (val, width) = pmbus_read!(self.device, STATUS_CML)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusMfrSpecific => PmbusValue::Raw8(
+                pmbus_read!(self.device, STATUS_MFR_SPECIFIC)?.get()?,
+            ),
+            Operation::StatusFans1_2 => PmbusValue::Raw8(
+                pmbus_read!(self.device, STATUS_FANS_1_2)?.get()?,
+            ),
+            Operation::ReadEin => {
+                self.read_block::<6>(CommandCode::READ_EIN)?
+            }
+            Operation::ReadEout => {
+                self.read_block::<6>(CommandCode::READ_EOUT)?
+            }
+            Operation::ReadVin => {
+                PmbusValue::from(pmbus_read!(self.device, READ_VIN)?.get()?)
+            }
+            Operation::ReadIin => {
+                PmbusValue::from(pmbus_read!(self.device, READ_IIN)?.get()?)
+            }
+            Operation::ReadVcap => {
+                let vcap = pmbus_read!(self.device, READ_VCAP)?;
+                PmbusValue::from(vcap.get(self.read_mode()?)?)
+            }
+            Operation::ReadVout => {
+                let vout = pmbus_read!(self.device, READ_VOUT)?;
+                PmbusValue::from(vout.get(self.read_mode()?)?)
+            }
+            Operation::ReadIout => {
+                PmbusValue::from(pmbus_read!(self.device, READ_IOUT)?.get()?)
+            }
+            Operation::ReadTemperature1 => PmbusValue::from(
+                pmbus_read!(self.device, READ_TEMPERATURE_1)?.get()?,
+            ),
+            Operation::ReadTemperature2 => PmbusValue::from(
+                pmbus_read!(self.device, READ_TEMPERATURE_2)?.get()?,
+            ),
+            Operation::ReadTemperature3 => PmbusValue::from(
+                pmbus_read!(self.device, READ_TEMPERATURE_3)?.get()?,
+            ),
+            Operation::ReadFanSpeed1 => PmbusValue::from(
+                pmbus_read!(self.device, READ_FAN_SPEED_1)?.get()?,
+            ),
+            Operation::ReadFanSpeed2 => PmbusValue::from(
+                pmbus_read!(self.device, READ_FAN_SPEED_2)?.get()?,
+            ),
+            Operation::ReadPout => {
+                PmbusValue::from(pmbus_read!(self.device, READ_POUT)?.get()?)
+            }
+            Operation::ReadPin => {
+                PmbusValue::from(pmbus_read!(self.device, READ_PIN)?.get()?)
+            }
+            Operation::PmbusRevision => PmbusValue::Raw8(
+                pmbus_read!(self.device, PMBUS_REVISION)?.get()?,
+            ),
+            Operation::MfrId => self.read_block::<9>(CommandCode::MFR_ID)?,
+            Operation::MfrModel => {
+                self.read_block::<17>(CommandCode::MFR_MODEL)?
+            }
+            Operation::MfrRevision => {
+                self.read_block::<14>(CommandCode::MFR_REVISION)?
+            }
+            Operation::MfrLocation => {
+                self.read_block::<5>(CommandCode::MFR_LOCATION)?
+            }
+            Operation::MfrDate => {
+                self.read_block::<4>(CommandCode::MFR_DATE)?
+            }
+            Operation::MfrSerial => {
+                self.read_block::<12>(CommandCode::MFR_SERIAL)?
+            }
+            Operation::MfrVinMin => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_VIN_MIN)?.get()?)
+            }
+            Operation::MfrVinMax => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_VIN_MAX)?.get()?)
+            }
+            Operation::MfrIinMax => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_IIN_MAX)?.get()?)
+            }
+            Operation::MfrPinMax => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_PIN_MAX)?.get()?)
+            }
+            Operation::MfrVoutMin => {
+                let vout = pmbus_read!(self.device, MFR_VOUT_MIN)?;
+                PmbusValue::from(vout.get(self.read_mode()?)?)
+            }
+            Operation::MfrVoutMax => {
+                let vout = pmbus_read!(self.device, MFR_VOUT_MAX)?;
+                PmbusValue::from(vout.get(self.read_mode()?)?)
+            }
+            Operation::MfrIoutMax => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_IOUT_MAX)?.get()?)
+            }
+            Operation::MfrPoutMax => {
+                PmbusValue::from(pmbus_read!(self.device, MFR_POUT_MAX)?.get()?)
+            }
+            Operation::MfrTambientMax => PmbusValue::from(
+                pmbus_read!(self.device, MFR_TAMBIENT_MAX)?.get()?,
+            ),
+            Operation::MfrTambientMin => PmbusValue::from(
+                pmbus_read!(self.device, MFR_TAMBIENT_MIN)?.get()?,
+            ),
+            Operation::MfrEfficiencyHl => {
+                self.read_block::<14>(CommandCode::MFR_EFFICIENCY_HL)?
+            }
+            Operation::MfrMaxTemp1 => PmbusValue::from(
+                pmbus_read!(self.device, MFR_MAX_TEMP_1)?.get()?,
+            ),
+            Operation::MfrMaxTemp2 => PmbusValue::from(
+                pmbus_read!(self.device, MFR_MAX_TEMP_2)?.get()?,
+            ),
+            Operation::MfrMaxTemp3 => PmbusValue::from(
+                pmbus_read!(self.device, MFR_MAX_TEMP_3)?.get()?,
+            ),
+        };
+
+        Ok(val)
     }
 }
 

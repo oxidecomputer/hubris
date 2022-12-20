@@ -6,10 +6,12 @@ edition = "2021"
 [dependencies]
 hubpack.workspace = true
 num-traits.workspace = true
+pmbus.workspace = true
 serde.workspace = true
+static_assertions.workspace = true
 zerocopy.workspace = true
 
-derive-idol-err = { path = "../../lib/derive-idol-err"  }
+drv-i2c-api = { path = "../../drv/i2c-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
