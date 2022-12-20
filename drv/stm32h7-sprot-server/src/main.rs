@@ -335,6 +335,7 @@ impl ServerImpl {
     // We know statically that self.rx_buf is large enough to hold
     // part1_len bytes.
     fn do_read_response(&mut self) -> Result<VerifiedRxMsg, SprotError> {
+        self.rx_buf.clear();
         let part1_len = MIN_MSG_SIZE.min(ROT_FIFO_SIZE);
         ringbuf_entry!(Trace::RxPart1(part1_len));
 

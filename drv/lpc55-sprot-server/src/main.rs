@@ -363,14 +363,17 @@ impl Io {
                             break;
                         }
                     }
-                    WriteState::Writing => self.write_response(
-                        &mut tx_iter,
-                        response.data_len() - bytes_written,
-                    ),
+                    WriteState::Writing => {
+                        let data_bytes_written =
+                            core::cmp::min(response.data_len(), bytes_written);
+                        self.write_response(
+                            &mut tx_iter,
+                            response.data_len() - data_bytes_written,
+                        );
+                    }
                     WriteState::ResponseWritten
                     | WriteState::Flush
                     | WriteState::Underrun => {
-                        self.zero_tx_buf();
                         return;
                     }
                 }
@@ -625,37 +628,43 @@ impl Io {
                 }
             }
 
-            while self.spi.has_byte() {
-                let b = self.spi.read_u8();
-                if rx_msg.push(b).is_err()
-                    && state != ReadState::UnexpectedCsnAssert
-                {
-                    // The SP has sent us more then BUF_SIZE bytes! This is
-                    // a major problem. Either we somehow got desynchronized
-                    // or the SP is confused about our capabilities. If there
-                    // is an overrun, we're likely desynchronized. However, an
-                    // overrun should give us fewer bytes to receive, not more
-                    // so the SP must be confused about our buffer size unless
-                    // it's already asserted CSn for the next message.
-                    //
-                    // If we are desynchronized due to receiving an unexpected
-                    // CSn Assert, we'll also see that in our check below, and
-                    // behave as we normally do in that case.
-                    //
-                    // If we don't have an untimely CSn Assert then the SP
-                    // is confused. We should keep pulling bytes until CSn
-                    // de-assert to stay synchronized so the SP can handler
-                    // replies, and then inform the SP of the problem.
-                    self.stats.rx_protocol_error_too_many_bytes = self
-                        .stats
-                        .rx_protocol_error_too_many_bytes
-                        .wrapping_add(1);
+            let mut io = true;
+            while io == true {
+                io = false;
+                if self.spi.has_byte() {
+                    io = true;
+                    let b = self.spi.read_u8();
+                    if rx_msg.push(b).is_err()
+                        && state != ReadState::UnexpectedCsnAssert
+                    {
+                        // The SP has sent us more then BUF_SIZE bytes! This is
+                        // a major problem. Either we somehow got desynchronized
+                        // or the SP is confused about our capabilities. If there
+                        // is an overrun, we're likely desynchronized. However, an
+                        // overrun should give us fewer bytes to receive, not more
+                        // so the SP must be confused about our buffer size unless
+                        // it's already asserted CSn for the next message.
+                        //
+                        // If we are desynchronized due to receiving an unexpected
+                        // CSn Assert, we'll also see that in our check below, and
+                        // behave as we normally do in that case.
+                        //
+                        // If we don't have an untimely CSn Assert then the SP
+                        // is confused. We should keep pulling bytes until CSn
+                        // de-assert to stay synchronized so the SP can handler
+                        // replies, and then inform the SP of the problem.
+                        self.stats.rx_protocol_error_too_many_bytes = self
+                            .stats
+                            .rx_protocol_error_too_many_bytes
+                            .wrapping_add(1);
 
-                    state = ReadState::SpProtocolCapabilitiesMismatch;
+                        state = ReadState::SpProtocolCapabilitiesMismatch;
+                    }
                 }
-            }
-            while self.spi.can_tx() {
-                self.spi.send_u8(0);
+                if self.spi.can_tx() {
+                    io = true;
+                    self.spi.send_u8(0);
+                }
             }
 
             if csn_deasserted {

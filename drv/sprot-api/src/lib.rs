@@ -708,6 +708,7 @@ pub struct BufFull;
 impl<'a> RxMsg2<'a> {
     pub fn new(buf: &'a mut [u8]) -> RxMsg2<'a> {
         assert_eq!(buf.len(), BUF_SIZE);
+        buf.fill(0);
         RxMsg2 { buf, len: 0 }
     }
 
@@ -807,6 +808,10 @@ pub struct VerifiedRxMsg2<'a> {
 impl RxMsg {
     pub fn new() -> RxMsg {
         RxMsg { buf: [0; BUF_SIZE] }
+    }
+
+    pub fn clear(&mut self) {
+        self.buf.fill(0);
     }
 
     pub fn as_slice(&self) -> &[u8] {
