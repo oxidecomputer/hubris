@@ -75,7 +75,9 @@ pub enum SprotError {
     CannotAssertCSn = 12,
     RotNotReady = 13,
     RspTimeout = 14,
-    BadResponse = 15,
+    // The SP is violating protocol constraints
+    // Example: The SP is sending messages that don't fit in the RoT RX Buffer
+    ProtocolInvariantViolated = 15,
     RotBusy = 16,
     /// Feature is not implemented
     NotImplemented = 17,

@@ -9,10 +9,10 @@
 //!
 //! The RoT indicates that a response is ready by asserting ROT_IRQ to the SP.
 //!
-//! It is possible for the SP to send a new message to the SP while receiving
-//! the RoT's reponse to the SP's previous message. In this protocol, the new
-//! message will be ignored, because the response is currently being clocked
-//! out.
+//! The protocol implemented is strictly request/response. While an RoT is
+//! responding to an SP request, the SP should not be sending another messsage
+//! This drastically simplifies the state machine and helps us easily catch
+//! when the SP is moving too fast for the RoT to catch up.
 //!
 //! See drv/sprot-api for message layout.
 //!
@@ -25,11 +25,6 @@
 //!
 //! ROT_IRQ is intended to be an edge triggered interrupt on the SP.
 //! ROT_IRQ is de-asserted only after CSn is deasserted.
-//!
-//! The RoT sets up to transfer the full Tx buffer contents to SP even if it is
-//! longer than the valid message or if there is no valid message. Extra bytes
-//! are set to zero. This keeps the inner IO loop simple and ensures that there
-//! are no bytes from any previous Tx message still in the Tx buffer.
 
 #![no_std]
 #![no_main]
@@ -46,19 +41,14 @@ use lpc55_pac as device;
 use crc::{Crc, CRC_32_CKSUM};
 use lpc55_romapi::bootrom;
 
+mod handler2;
+
 #[derive(Copy, Clone, PartialEq)]
-enum Trace {
+pub(crate) enum Trace {
     None,
-    Overrun(usize),
-    Pio(bool),
-    RotIrqAssert,
-    RotIrqDeassert,
-    Underrun(usize),
-    SsaAndSsd,
-    SpuriousInterrupt,
-    SSA,
-    SSD,
-    AfterOuterLoop(usize),
+    ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
+    ErrWithTypedHeader(SprotError, MsgHeader),
+    IgnoreOnParse,
     TopLevelSendByte,
 }
 ringbuf!(Trace, 128, Trace::None);
@@ -100,7 +90,6 @@ fn configure_spi() -> IoControl {
     // Ensure that ROT_IRQ is not asserted
     gpio.set_dir(ROT_IRQ, Direction::Output).unwrap_lite();
     gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
-    ringbuf_entry!(Trace::RotIrqDeassert);
 
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual SPI block. These are technically
@@ -268,41 +257,23 @@ pub enum ReadState {
 #[export_name = "main"]
 fn main() -> ! {
     let mut io = configure_spi();
-    let mut stats = IoStats::default();
 
     pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
     let mut rx_buf = [0u8; BUF_SIZE];
     let mut tx_buf = [0u8; BUF_SIZE];
 
+    let mut handler = Handler::new();
+
     loop {
         let mut rx_msg = RxMsg2::new(&mut rx_buf[..]);
         let mut tx_msg = TxMsg2::new(&mut tx_buf[..]);
-        io.spi_read(&mut rx_msg);
-
-        let response = match io.state.read() {
-            ReadState::FrameRead => {
-                io.mark_busy();
-                handle_response(&rx_msg, tx_msg)
-            }
-            ReadState::Flush | ReadState::UnexpectedCsnAssert => {
-                // Start reading again without sending a response.
-                continue;
-            }
-            ReadState::Overrun => {
-                io.mark_busy();
-                flow_error(tx_msg)
-            }
-            ReadState::SpProtocolCapabilitiesMismatch => {
-                io.mark_busy();
-                protocol_error(tx_msg)
-            }
-            _ => panic!(),
-        };
+        if let Some(response) = io.spi_read(rx_msg, tx_msg, handler) {
+            io.spi_write(response);
+            // TODO: Do we need to match on the spi WriteState ?
+        }
 
         io.spi_write(response);
-
-        // TODO: Do we need to match on the spi WriteState ?
     }
 }
 
@@ -330,7 +301,12 @@ impl Io {
     // Read a request from the SP
     //
     // We clock out 0s until CSn is de-asserted
-    pub fn spi_read<'a>(&mut self, rxmsg: RxMsg2<'a>) {
+    pub fn spi_read<'a>(
+        &mut self,
+        rxmsg: RxMsg2<'a>,
+        tx_msg: TxMsg2,
+        handler: &mut Handler,
+    ) {
         self.state = State::Read(ReadState::WaitingForRequest);
         self.zero_tx_buf();
         'outer: loop {
@@ -340,11 +316,29 @@ impl Io {
                 match self.state.read() {
                     ReadState::WaitingForRequest => self.wait_for_csn_assert(),
                     ReadState::InFrame => read_until_csn_deassert(&mut rxmsg),
-                    ReadState::FrameRead => break,
-                    ReadState::Flush => break,
-                    ReadState::Overrun => break,
-                    ReadState::UnexpectedCsnAssert => break,
-                    ReadState::SpProtocolCapabilitiesMismatch => break,
+                    ReadState::FrameRead => {
+                        self.mark_busy();
+                        return handler.handle(
+                            &rx_msg,
+                            tx_msg,
+                            &mut self.stats,
+                        );
+                    }
+                    ReadState::Flush | ReadState::UnexpectedCsnAssert => {
+                        return None;
+                    }
+                    ReadState::Overrun => {
+                        self.mark_busy();
+                        return Some(
+                            handler.flow_error(tx_msg, &mut self.stats),
+                        );
+                    }
+                    ReadState::SpProtocolCapabilitiesMismatch => {
+                        io.mark_busy();
+                        return Some(
+                            handler.protocol_error(tx_msg, &mut self.stats),
+                        );
+                    }
                 }
             }
         }
@@ -394,18 +388,18 @@ impl Io {
             if fifostat.txerr().bit() {
                 // We don't do anything with tx errors other than record them
                 self.spi.txerr_clear();
-                self.stats.tx_underrun += 1;
+                self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
             }
 
             if intstat.ssa().bit() {
                 self.spi.ssa_clear();
-                self.stats.rx_overrun += 1;
                 state = ReadState::UnexpectedCsnAssert;
 
                 // We have to keep pulling bytes, waiting for the next CSnDeassert
                 // Let's also keep track of this.
                 csn_deasserted = false;
-                self.stats.unexpected_csn_asserts += 1;
+                self.stats.unexpected_csn_asserts =
+                    self.stats.unexpected_csn_asserts.wrapping_add(1);
                 num_unexpected_csn_asserts_in_this_loop += 1;
                 if num_unexpected_csn_asserts_in_this_loop
                     > self.stats.max_unexpected_csn_asserts_in_one_read_loop
@@ -420,7 +414,7 @@ impl Io {
                 // data. We should report this to the SP. This can be used to
                 // potentially throttle sends in the future.
                 self.spi.rxerr_clear();
-                self.stats.rx_overrun += 1;
+                self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
                 overrun_seen = true;
 
                 // Other error states take precedence
@@ -450,7 +444,11 @@ impl Io {
                     // is confused. We should keep pulling bytes until CSn
                     // de-assert to stay synchronized so the SP can handler
                     // replies, and then inform the SP of the problem.
-                    self.stats.rx_protocol_error_too_many_bytes += 1;
+                    self.stats.rx_protocol_error_too_many_bytes = self
+                        .stats
+                        .rx_protocol_error_too_many_bytes
+                        .wrapping_add(1);
+
                     state = ReadState::SpProtocolCapabilitiesMismatch;
                 }
                 if self.spi.can_tx() {
@@ -479,7 +477,7 @@ impl Io {
         // start of a pulse. While the behavior of both those states is the
         // same, for tracking purposes we return in `ReadState::Flush`, since
         // that's more specific, and not an error.
-        self.stats.csn_pulses += 1;
+        self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
         state = ReadState::Flush;
 
         self.state = State::Read(state);
