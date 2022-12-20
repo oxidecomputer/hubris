@@ -35,6 +35,9 @@ enum PowerState {
     A2,
 }
 
+const TIMER_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 1000;
+
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
@@ -419,18 +422,31 @@ fn preinit() {
 fn main() -> ! {
     preinit();
 
-    let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
-
     let i2c_task = I2C.get_task_id();
 
-    let devices = claim_devices(i2c_task);
+    let mut server = ServerImpl {
+        sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
+        devices: claim_devices(i2c_task),
+    };
+    let mut buffer = [0; idl::INCOMING_SIZE];
 
+    sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
     loop {
-        hl::sleep_for(1000);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
+    }
+}
 
+struct ServerImpl {
+    sensor: sensor_api::Sensor,
+    devices: &'static mut [Device; CONTROLLER_CONFIG.len()],
+}
+
+impl ServerImpl {
+    fn handle_timer_fired(&mut self) {
         let state = get_state();
+        let sensor = &self.sensor;
 
-        for (c, dev) in CONTROLLER_CONFIG.iter().zip(devices.iter_mut()) {
+        for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
             if c.state == PowerState::A0 && state != PowerState::A0 {
                 let now = sys_get_timer().now;
                 sensor.nodata(c.voltage, NoData::DeviceOff, now).unwrap();
@@ -510,6 +526,31 @@ fn main() -> ! {
     }
 }
 
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        self.handle_timer_fired();
+        sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
+    }
+}
+
+impl idl::InOrderPowerImpl for ServerImpl {
+    fn pmbus_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _dev: task_power_api::Device,
+        _op: task_power_api::Operation,
+    ) -> Result<
+        task_power_api::Value,
+        idol_runtime::RequestError<task_power_api::PowerError>,
+    > {
+        todo!()
+    }
+}
+
 /// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.
 ///
 /// This function can only be called once, and will panic otherwise!
@@ -522,4 +563,9 @@ fn claim_devices(
             [|| iter.next().unwrap().get_device(i2c_task); _];
     );
     dev
+}
+
+mod idl {
+    use task_power_api::*;
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
