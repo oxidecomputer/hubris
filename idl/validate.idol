@@ -5,7 +5,7 @@ Interface(
     ops: {
         "validate_i2c": (
             args: {
-                "index": "usize",
+                "index": "u32",
             },
             reply: Result(
                 ok: (type : "ValidateOk", recv: FromPrimitive("u8")),
@@ -14,12 +14,13 @@ Interface(
         ),
         "selected_mux_segment": (
             args: {
-                "index": "usize",
+                "index": "u32",
             },
             reply: Result(
-                ok: "[u8; 2]",
+                ok: "Option<MuxSegment>",
                 err: CLike("ValidateError"),
             ),
+            encoding: Hubpack,
         ),
     },
 )

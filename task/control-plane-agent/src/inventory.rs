@@ -94,7 +94,7 @@ impl Inventory {
 
         let device = &VALIDATE_DEVICES[index];
 
-        let presence = match self.validate_task.validate_i2c(index) {
+        let presence = match self.validate_task.validate_i2c(index as u32) {
             Ok(ValidateOk::Present | ValidateOk::Validated) => {
                 DevicePresence::Present
             }

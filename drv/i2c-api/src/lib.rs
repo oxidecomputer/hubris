@@ -22,6 +22,8 @@
 
 #![no_std]
 
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes};
 
 use derive_idol_err::IdolError;
@@ -94,7 +96,17 @@ pub enum ResponseCode {
 /// assumed to follow the numbering for the peripheral as described by the
 /// microcontroller.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
 #[repr(u8)]
 pub enum Controller {
     I2C0 = 0,
@@ -147,7 +159,17 @@ pub struct PortIndex(pub u8);
 /// A multiplexer identifier for a given I2C bus.  Multiplexer identifiers
 /// need not start at 0.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
 #[repr(u8)]
 pub enum Mux {
     M1 = 1,
@@ -160,7 +182,17 @@ pub enum Mux {
 /// A segment identifier on a given multiplexer.  Segment identifiers
 /// need not start at 0.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
 #[repr(u8)]
 pub enum Segment {
     S1 = 1,
