@@ -791,7 +791,7 @@ impl<'a> ThermalControl<'a> {
                 for (v, model) in Self::zip_temperatures(values, inputs) {
                     if let TemperatureReading::Valid { value, time_ms } = v {
                         let temperature = value.0
-                            + (time_ms - now_ms) as f32 / 1000.0
+                            + (now_ms - time_ms) as f32 / 1000.0
                                 * model.temperature_slew_deg_per_sec;
 
                         all_subcritical &= temperature
