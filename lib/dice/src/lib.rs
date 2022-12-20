@@ -190,8 +190,8 @@ impl SeedBuf for CdiL1 {
 
 impl CdiL1 {
     pub fn new(cdi: &Cdi, tci: &[u8; SEED_LENGTH]) -> Self {
-        let mut hmac = Hmac::<Sha3_256>::new_from_slice(cdi.as_bytes())
-            .unwrap();
+        let mut hmac =
+            Hmac::<Sha3_256>::new_from_slice(cdi.as_bytes()).unwrap();
         hmac.update(tci);
 
         let result = hmac.finalize();
