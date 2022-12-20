@@ -266,6 +266,16 @@ pub struct IoStats {
 
     /// Number of incomplete transmissions (valid data not fetched by SP).
     pub tx_incomplete: u32,
+
+    /// Number of times The SP was trying to send data to the RoT when the RoT
+    /// was replying. This implies desynchronization, as the SP should only
+    /// clock out zeros when receiving responses from the RoT.
+    pub received_data_while_replying: u32,
+
+    // Number of times the RoT got a CSn deassert before it completed sending
+    // all its data. This is distinct from a csn_pulse, because some bytes were
+    // clocked in and out at the RoT.
+    pub unexpected_csn_deassert_while_replying: u32,
 }
 
 #[derive(
@@ -529,13 +539,14 @@ impl<'a> TxMsg2<'a> {
         // Include the whole CRC, including trailing zeroes, since we may have
         // to transmit while receiving, even if we have no more data.
         // This is because we must clock a byte out on MISO for each cycle.
-        VerifiedTxMsg2::new(msgtype, self.buf)
+        VerifiedTxMsg2::new(msgtype, self.buf, end)
     }
 }
 
 pub struct VerifiedTxMsg2<'a> {
     msgtype: Option<MsgType>,
     data: &'a mut [u8],
+    data_len: usize,
 }
 
 impl<'a> VerifiedTxMsg2<'a> {
@@ -547,6 +558,10 @@ impl<'a> VerifiedTxMsg2<'a> {
         self.msgtype.is_some()
     }
 
+    pub fn data_len(&self) -> usize {
+        self.data_len
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
         self.data.iter().cloned()
     }
@@ -556,10 +571,15 @@ impl<'a> VerifiedTxMsg2<'a> {
     }
 
     // A data containing buffer can only be created by a TxMsg2.
-    fn new(msgtype: MsgType, data: &'a mut [u8]) -> VerifiedTxMsg2<'a> {
+    fn new(
+        msgtype: MsgType,
+        data: &'a mut [u8],
+        data_len: u8,
+    ) -> VerifiedTxMsg2<'a> {
         VerifiedTxMsg2 {
             msgtype: Some(msgtype),
             data,
+            data_len,
         }
     }
 
@@ -569,6 +589,7 @@ impl<'a> VerifiedTxMsg2<'a> {
         VerifiedTxMsg2 {
             msgtype: None,
             data,
+            data_len: 0,
         }
     }
 }

@@ -254,6 +254,32 @@ pub enum ReadState {
     SpProtocolCapabilitiesMismatch,
 }
 
+/// The state of the IO state machine when trying to write a response to the SP
+#[derive(Clone, Copy, PartialEq)]
+pub enum WriteState {
+    /// The RoT has asserted ROT_IRQ, and is waiting for CSn to be asserted
+    /// so it can clock out it's response.
+    WaitingToTransmit,
+
+    /// The RoT is writing it's response
+    Writing,
+
+    /// The response has successfully been written out, ROT_IRQ has been
+    /// de-asserted, and CSn has been de-asserted. We can safely go back to
+    /// reading.
+    ResponseWritten,
+
+    /// The SP has pulsed CSn, which means that CSn was asserted and de-
+    /// asserted with no data clocked at all. This means that the response
+    /// from the RoT was unexpected.
+    Flush,
+
+    /// The RoT did not clock out all its response bytes in time.
+    /// The RoT must de-assert ROT_IRQ, wait for CSn to be de-asserted,
+    /// and then go back to waiting for the next request.
+    Underrun,
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut io = configure_spi();
@@ -269,11 +295,8 @@ fn main() -> ! {
         let mut rx_msg = RxMsg2::new(&mut rx_buf[..]);
         let mut tx_msg = TxMsg2::new(&mut tx_buf[..]);
         if let Some(response) = io.spi_read(rx_msg, tx_msg, handler) {
-            io.spi_write(response);
-            // TODO: Do we need to match on the spi WriteState ?
+            io.spi_write(response, &mut io.stats);
         }
-
-        io.spi_write(response);
     }
 }
 
@@ -298,9 +321,152 @@ impl Io {
         self.spi.send_u8(Protocol::Busy as u8);
     }
 
-    // Read a request from the SP
-    //
-    // We clock out 0s until CSn is de-asserted
+    /// Write a response to the SP
+    ///
+    /// We expect to only clock in 0s from the SP, or else the SP and RoT are
+    /// desynchronized.
+    pub fn spi_write<'a>(
+        &mut self,
+        response: VerifiedTxMsg2,
+        stats: &mut IoStats,
+    ) {
+        self.assert_rot_irq();
+        loop {
+            sys_irq_control(SPI_IRQ, true);
+            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
+            loop {
+                match self.state.write() {
+                    WriteState::WaitingToTransmit => {
+                        self.write_wait_for_csn_asserted()
+                    }
+                    WriteState::Writing => self.write_response(response, stats),
+                    WriteState::ResponseWritten
+                    | WriteState::Flush
+                    | WriteState::Underrun => {
+                        self.zero_tx_buf();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // We are waiting for CSn to be asserted so we can transmit our response.
+    fn write_wait_for_csn_asserted(&mut self) {
+        // Get frame start/end interrupt from intstat (SSA/SSD).
+        let intstat = self.spi.intstat();
+        let fifostat = self.spi.fifostat();
+
+        // CSn asserted by the SP.
+        if intstat.ssa().bit() {
+            self.spi.ssa_clear();
+            self.state = State::Write(WriteState::Writing);
+        }
+    }
+
+    fn write_response(
+        &mut self,
+        response: VerifiedTxMsg2,
+        stats: &mut IoStats,
+    ) {
+        let mut bytes_read: usize = 0;
+        let mut bytes_written: usize = 0;
+        let mut tx_iter = response.iter();
+        let response_len = response.data_len();
+        let mut state = state.write();
+        let mut overrun_seen = false;
+
+        loop {
+            let intstat = self.spi.intstat();
+            let fifostat = self.spi.fifostat();
+
+            if fifostat.txerr().bit() {
+                // We missed our window to send :(
+                self.spi.txerr_clear();
+                self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+                // If we've already written our full response, underrun doesn't matter.
+                // This can happen if we clock out BUF_SIZE of data, but are waiting
+                // for a CSn de-assert.
+                if state != WriteState::ResponseWritten {
+                    state = WriteState::Underrun;
+                    self.deassert_rot_irq();
+                }
+            }
+
+            if fifostat.rxerr().bit() {
+                // We missed a byte to read. But we are only expecting 0s, so
+                // this isn't critical, except to judge if we got a CSn pulse
+                // or not.
+                self.spi.rxerr_clear();
+                self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
+                overrun_seen = true;
+            }
+
+            while self.spi.can_tx() {
+                if let Some(b) = tx_iter.next() {
+                    self.spi.send_u8(b);
+                    bytes_written += 1;
+                }
+                // Just clock out zeros and prevent an unnecessary underrun
+                self.spi.send_u8(0);
+            }
+
+            while self.spi.has_byte() {
+                // The SP should only clock out zeros while waiting for a
+                // response. We'll record it, but still finish sending our reply.
+                if self.spi.read_u8() != 0 {
+                    self.stats.received_data_while_replying =
+                        self.stats.received_data_while_replying.wrapping_add(1);
+                }
+                bytes_read += 1;
+            }
+
+            // Check for an unexpected CSn de-assert
+            if intstat.ssd().bit() {
+                self.spi.ssd_clear();
+                // We have to de-assert ROT_IRQ.
+                self.deassert_rot_irq();
+
+                // We can't say if
+                if bytes_read == 0 && state =
+                    WriteState::Writing && !overrun_seen
+                {
+                    self.stats.csn_pulses =
+                        self.stats.csn_pulses.wrapping_add(1);
+                    state = WriteState::Flush;
+                    break;
+                }
+
+                if state == WriteState::ResponseWritten {
+                    // We're done!
+                    break;
+                }
+
+                // Uh-oh, we didn't actually complete writing our response.
+                self.stats.unexpected_csn_deassert_while_replying = self
+                    .stats
+                    .unexpected_csn_deassert_while_replying
+                    .wrapping_add(1);
+                // Just go ahead and flush if we are still writing
+                if state == WriteState::Writing {
+                    state = WriteState::Flush;
+                }
+                break;
+            }
+
+            // Are we done sending our response?
+            if bytes_written >= response_len && state == WriteState::Writing {
+                self.deassert_rot_irq();
+                state = WriteState::ResponseWritten;
+            }
+        }
+
+        self.state = State::Write(state);
+    }
+
+    /// Read a request from the SP
+    ///
+    /// We clock out 0s until CSn is de-asserted
     pub fn spi_read<'a>(
         &mut self,
         rxmsg: RxMsg2<'a>,
@@ -309,12 +475,14 @@ impl Io {
     ) {
         self.state = State::Read(ReadState::WaitingForRequest);
         self.zero_tx_buf();
-        'outer: loop {
+        loop {
             sys_irq_control(SPI_IRQ, true);
             sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
                 match self.state.read() {
-                    ReadState::WaitingForRequest => self.wait_for_csn_assert(),
+                    ReadState::WaitingForRequest => {
+                        self.read_wait_for_csn_assert()
+                    }
                     ReadState::InFrame => read_until_csn_deassert(&mut rxmsg),
                     ReadState::FrameRead => {
                         self.mark_busy();
@@ -345,7 +513,7 @@ impl Io {
     }
 
     // We are waiting for a new request from the SP.
-    fn wait_for_csn_asserted(&mut self) {
+    fn read_wait_for_csn_asserted(&mut self) {
         // Get frame start/end interrupt from intstat (SSA/SSD).
         let intstat = self.spi.intstat();
         let fifostat = self.spi.fifostat();
@@ -451,9 +619,9 @@ impl Io {
 
                     state = ReadState::SpProtocolCapabilitiesMismatch;
                 }
-                if self.spi.can_tx() {
-                    self.spi.send_u8(0);
-                }
+            }
+            while self.spi.can_tx() {
+                self.spi.send_u8(0);
             }
 
             if csn_deasserted {
@@ -477,8 +645,10 @@ impl Io {
         // start of a pulse. While the behavior of both those states is the
         // same, for tracking purposes we return in `ReadState::Flush`, since
         // that's more specific, and not an error.
-        self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
-        state = ReadState::Flush;
+        if rxmsg.len() == 0 && !overrun_seen {
+            self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
+            state = ReadState::Flush;
+        }
 
         self.state = State::Read(state);
     }
@@ -491,7 +661,15 @@ impl Io {
     fn zero_tx_buf(&mut self) {
         self.spi.drain_tx(); // FIFOWR is now empty; we'll get an interrupt.
         while self.spi.can_tx() {
-            self.pi.send_u8(0);
+            self.spi.send_u8(0);
         }
+    }
+
+    fn assert_rot_irq(&self) {
+        self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
+    }
+
+    fn deassert_rot_irq(&self) {
+        self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
     }
 }
