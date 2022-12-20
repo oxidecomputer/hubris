@@ -615,7 +615,29 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "TBD"
+                    "desc": "A1 State machine enum.",
+                    "encode": [
+                        {
+                            "name": "A1Idle",
+                            "value": 0
+                        },
+                        {
+                            "name": "A1Enable",
+                            "value": 1
+                        },
+                        {
+                            "name": "A1WaitPG",
+                            "value": 2
+                        },
+                        {
+                            "name": "A1Delay",
+                            "value": 3
+                        },
+                        {
+                            "name": "A1Done",
+                            "value": 5
+                        }
+                    ]
                 }
             ]
         },
@@ -635,7 +657,65 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "TBD"
+                    "desc": "A0 State machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
                 }
             ]
         },

@@ -18,7 +18,7 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use seq_spi::{A0StateMachine, Addr, Reg};
+use seq_spi::{Addr, Reg};
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
@@ -496,7 +496,7 @@ impl ServerImpl {
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
-                    if power[1] == A0StateMachine::GROUPC_PG.into() {
+                    if power[1] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
                     }
 
@@ -518,7 +518,7 @@ impl ServerImpl {
                     self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A0Power(power[0]));
 
-                    if power[0] == A0StateMachine::DONE.into() {
+                    if power[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
                         break;
                     }
 
