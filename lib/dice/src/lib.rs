@@ -6,6 +6,7 @@
 
 use core::{mem, slice};
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use hubpack::SerializedSize;
 use salty::constants::SECRETKEY_SEED_LENGTH;
 use serde::{Deserialize, Serialize};
@@ -175,10 +176,9 @@ impl CertSerialNumber {
     }
 }
 
-/// CdiL1 is a type that represents the compound device identifier (CDI) that's
-/// derived from the Cdi and a seed value. This seed value must be the TCB
-/// component identifier (TCI) representing the layer 1 (L1) firmware. This is
-/// the hash of the Hubris image stage0 will attempt to boot.
+/// CdiL1 is a type that represents the compound device identifier (CDI) for
+/// the layer 1 (L1) software. The CdiL1 value is constructed from Cdi and the
+/// TCB component identifier (TCI) representing the layer 1 software.
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct CdiL1([u8; SEED_LENGTH]);
 
@@ -189,18 +189,13 @@ impl SeedBuf for CdiL1 {
 }
 
 impl CdiL1 {
-    pub fn new(cdi: &Cdi, tcb_tci: &[u8; SEED_LENGTH]) -> Self {
-        let mut okm = [0u8; SEED_LENGTH];
-        // TODO: Not sure FWID should be the salt here as we don't know much
-        // about its entropy content (hash of FW). The CDI should have good
-        // entropy though so maybe the CDI should be the salt and the FWID
-        // should be the IKM? Does it matter?
-        let hk = Hkdf::<Sha3_256>::new(Some(tcb_tci), cdi.as_bytes());
-        // No info provided to 'expand', see RFC 5869 §3.2.
-        // TODO: return error instead of expect
-        hk.expand(&[], &mut okm).expect("failed to expand");
+    pub fn new(cdi: &Cdi, tci: &[u8; SEED_LENGTH]) -> Self {
+        let mut hmac = Hmac::<Sha3_256>::new_from_slice(cdi.as_bytes())
+            .unwrap();
+        hmac.update(tci);
 
-        CdiL1(okm)
+        let result = hmac.finalize();
+        CdiL1(result.into_bytes().into())
     }
 }
 
