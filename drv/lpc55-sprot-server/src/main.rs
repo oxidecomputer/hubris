@@ -59,6 +59,9 @@ pub(crate) enum Trace {
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
     IgnoreOnParse,
+    State(State),
+    Stats(IoStats),
+    FifoStat(u8, u8, bool, bool),
 }
 ringbuf!(Trace, 128, Trace::None);
 
@@ -288,7 +291,9 @@ fn main() -> ! {
         let rx_msg = RxMsg2::new(&mut rx_buf[..]);
         let tx_msg = TxMsg2::new(&mut tx_buf[..]);
         if let Some(response) = io.spi_read(rx_msg, tx_msg, &mut handler) {
+            ringbuf_entry!(Trace::Stats(io.stats));
             io.spi_write(response);
+            ringbuf_entry!(Trace::Stats(io.stats));
         }
     }
 }
@@ -309,7 +314,7 @@ impl Io {
     ///
     /// At the same time, it's nice to see this byte on the logic analyzer to
     /// indicate what's going on.
-    pub fn mark_busy(&mut self) {
+    fn mark_busy(&mut self) {
         self.spi.drain_tx();
         self.spi.send_u8(Protocol::Busy as u8);
     }
@@ -320,16 +325,48 @@ impl Io {
     /// desynchronized.
     pub fn spi_write<'a>(&mut self, response: VerifiedTxMsg2) {
         self.state = State::Write(WriteState::WaitingToTransmit);
+
+        // Prime the fifo with the first part of the response to prevent
+        // underrun while waiting for an interrupt.
+        self.spi.drain_tx();
+        let mut tx_iter = response.iter();
+        let mut bytes_written = 0;
+        while self.spi.can_tx() {
+            if let Some(b) = tx_iter.next() {
+                self.spi.send_u8(b);
+                bytes_written += 1;
+            }
+        }
+
         self.assert_rot_irq();
         loop {
             sys_irq_control(SPI_IRQ, true);
             sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
+                // Just for debugging
+                let fifostat = self.spi.fifostat();
+                ringbuf_entry!(Trace::FifoStat(
+                    fifostat.txlvl().bits(),
+                    fifostat.rxlvl().bits(),
+                    fifostat.txerr().bits(),
+                    fifostat.rxerr().bits()
+                ));
+
+                ringbuf_entry!(Trace::State(self.state));
                 match self.state.write() {
                     WriteState::WaitingToTransmit => {
-                        self.write_wait_for_csn_asserted()
+                        self.write_wait_for_csn_asserted();
+                        if self.state
+                            == State::Write(WriteState::WaitingToTransmit)
+                        {
+                            // wait for an interrupt
+                            break;
+                        }
                     }
-                    WriteState::Writing => self.write_response(&response),
+                    WriteState::Writing => self.write_response(
+                        &mut tx_iter,
+                        response.data_len() - bytes_written,
+                    ),
                     WriteState::ResponseWritten
                     | WriteState::Flush
                     | WriteState::Underrun => {
@@ -356,9 +393,16 @@ impl Io {
             sys_irq_control(SPI_IRQ, true);
             sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
+                ringbuf_entry!(Trace::State(self.state));
                 match self.state.read() {
                     ReadState::WaitingForRequest => {
-                        self.read_wait_for_csn_asserted()
+                        self.read_wait_for_csn_asserted();
+                        if self.state
+                            == State::Read(ReadState::WaitingForRequest)
+                        {
+                            // Wait for interrupt
+                            break;
+                        }
                     }
                     ReadState::InFrame => {
                         self.read_until_csn_deasserted(&mut rx_msg)
@@ -395,11 +439,13 @@ impl Io {
         }
     }
 
-    fn write_response(&mut self, response: &VerifiedTxMsg2) {
+    fn write_response(
+        &mut self,
+        tx_iter: &mut dyn Iterator<Item = u8>,
+        response_len: usize,
+    ) {
         let mut bytes_read: usize = 0;
         let mut bytes_written: usize = 0;
-        let mut tx_iter = response.iter();
-        let response_len = response.data_len();
         let mut state = self.state.write();
         let mut overrun_seen = false;
 
@@ -429,32 +475,45 @@ impl Io {
                 overrun_seen = true;
             }
 
-            while self.spi.can_tx() {
-                if let Some(b) = tx_iter.next() {
-                    self.spi.send_u8(b);
-                    bytes_written += 1;
+            let mut io = true;
+            while io == true {
+                io = false;
+                if self.spi.can_tx() {
+                    io = true;
+                    if let Some(b) = tx_iter.next() {
+                        self.spi.send_u8(b);
+                        bytes_written += 1;
+                    } else {
+                        // Just clock out zeros and prevent an unnecessary underrun
+                        self.spi.send_u8(0);
+                    }
                 }
-                // Just clock out zeros and prevent an unnecessary underrun
-                self.spi.send_u8(0);
+
+                if self.spi.has_byte() {
+                    io = true;
+                    // The SP should only clock out zeros while waiting for a
+                    // response. We'll record it, but still finish sending our reply.
+                    if self.spi.read_u8() != 0 {
+                        self.stats.received_data_while_replying = self
+                            .stats
+                            .received_data_while_replying
+                            .wrapping_add(1);
+                    }
+                    bytes_read += 1;
+                }
             }
 
-            while self.spi.has_byte() {
-                // The SP should only clock out zeros while waiting for a
-                // response. We'll record it, but still finish sending our reply.
-                if self.spi.read_u8() != 0 {
-                    self.stats.received_data_while_replying =
-                        self.stats.received_data_while_replying.wrapping_add(1);
-                }
-                bytes_read += 1;
+            // Are we done sending our response?
+            if bytes_written >= response_len && state == WriteState::Writing {
+                self.deassert_rot_irq();
+                state = WriteState::ResponseWritten;
             }
 
             // Check for an unexpected CSn de-assert
             if intstat.ssd().bit() {
                 self.spi.ssd_clear();
-                // We have to de-assert ROT_IRQ.
-                self.deassert_rot_irq();
 
-                // We can't say if
+                // Is this a CSn pulse?
                 if bytes_read == 0
                     && state == WriteState::Writing
                     && !overrun_seen
@@ -462,6 +521,7 @@ impl Io {
                     self.stats.csn_pulses =
                         self.stats.csn_pulses.wrapping_add(1);
                     state = WriteState::Flush;
+                    self.deassert_rot_irq();
                     break;
                 }
 
@@ -470,22 +530,17 @@ impl Io {
                     break;
                 }
 
-                // Uh-oh, we didn't actually complete writing our response.
-                self.stats.unexpected_csn_deassert_while_replying = self
-                    .stats
-                    .unexpected_csn_deassert_while_replying
-                    .wrapping_add(1);
                 // Just go ahead and flush if we are still writing
                 if state == WriteState::Writing {
+                    // Uh-oh, we didn't actually complete writing our response.
+                    self.stats.unexpected_csn_deassert_while_replying = self
+                        .stats
+                        .unexpected_csn_deassert_while_replying
+                        .wrapping_add(1);
                     state = WriteState::Flush;
+                    self.deassert_rot_irq();
                 }
                 break;
-            }
-
-            // Are we done sending our response?
-            if bytes_written >= response_len && state == WriteState::Writing {
-                self.deassert_rot_irq();
-                state = WriteState::ResponseWritten;
             }
         }
 

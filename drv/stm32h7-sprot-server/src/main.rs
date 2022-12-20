@@ -54,6 +54,8 @@ enum Trace {
     UpdateFinish,
     ErrRespNoPayload,
     Recoverable(SprotError),
+    Header(MsgHeader),
+    MsgDump([u8; 50]),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -358,6 +360,12 @@ impl ServerImpl {
         // Read part two
         let buf = &mut self.rx_buf.as_mut()[part1_len..][..part2_len];
         self.spi.read(buf).map_err(|_| SprotError::SpiServerError)?;
+
+        ringbuf_entry!(Trace::Header(header));
+
+        let mut msgbuf = [0u8; 50];
+        msgbuf.copy_from_slice(&self.rx_buf.as_mut()[..50]);
+        ringbuf_entry!(Trace::MsgDump(msgbuf));
 
         self.rx_buf.validate_crc(&header)?;
 
