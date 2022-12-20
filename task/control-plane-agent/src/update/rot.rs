@@ -193,7 +193,7 @@ impl ComponentUpdater for RotUpdate {
             if buffer.len() == buffer.capacity()
                 || *next_write_offset + buffer.len() as u32 == total_size
             {
-                let block_num = *next_write_offset / buffer.len() as u32;
+                let block_num = *next_write_offset / Self::BLOCK_SIZE as u32;
                 if let Err(err) = self.task.write_one_block(block_num, buffer) {
                     *current.state_mut() = State::Failed(err);
                     return Err(SpError::UpdateFailed(err as u32));
