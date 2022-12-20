@@ -574,7 +574,7 @@ impl<'a> VerifiedTxMsg2<'a> {
     fn new(
         msgtype: MsgType,
         data: &'a mut [u8],
-        data_len: u8,
+        data_len: usize,
     ) -> VerifiedTxMsg2<'a> {
         VerifiedTxMsg2 {
             msgtype: Some(msgtype),

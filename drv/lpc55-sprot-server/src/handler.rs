@@ -4,15 +4,21 @@
 
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_sprot_api::{IoStats, Protocol, RxMsg2, TxMsg2, VerifiedTxMsg2};
-use drv_update_api::{update_server, Update};
+use drv_sprot_api::{
+    IoStats, MsgType, Protocol, RxMsg2, SprotError, SprotStatus, TxMsg2,
+    UpdateRspHeader, VerifiedTxMsg2, BUF_SIZE,
+};
+use drv_update_api::{Update, UpdateStatus, UpdateTarget};
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use sprockets_rot::RotSprocket;
+use userlib::{task_slot, UnwrapLite};
 
 mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
+
+pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
 /// State that is set once at the start of the driver
 pub struct StartupState {
@@ -29,39 +35,32 @@ pub struct StartupState {
 }
 
 pub struct Handler {
-    sprocket: sprockets_rot::RotSprocket,
+    sprocket: RotSprocket,
     update: Update,
     startup_state: StartupState,
 }
 
-pub(crate) fn new() -> Handler {
-    Handler {
-        sprocket: crate::handler::sprockets::init(),
-        update: Update::from(UPDATE_SERVER.get_task_id()),
-        startup_state: StartupState {
-            supported: 1_u32 << (Protocol::V1 as u8),
-            bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-            buffer_size: BUF_SIZE as u32,
-        },
-    }
-}
 impl Handler {
-    /// Serialize and return a `SprotError::FlowError`
-    pub fn flow_error<'a>(
-        &self,
-        tx_buf: TxMsg2<'a>,
-        stats: &mut IoStats,
-    ) -> VerifiedTxMsg2<'a> {
-        tx_buf.error_rsp(SprotError::FlowError);
+    pub fn new() -> Handler {
+        Handler {
+            sprocket: crate::handler::sprockets::init(),
+            update: Update::from(UPDATE_SERVER.get_task_id()),
+            startup_state: StartupState {
+                supported: 1_u32 << (Protocol::V1 as u8),
+                bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
+                buffer_size: BUF_SIZE as u32,
+            },
+        }
     }
 
     /// Serialize and return a `SprotError::FlowError`
-    pub fn protocol_error<'a>(
-        &self,
-        tx_buf: TxMsg2<'a>,
-        stats: &mut IoStats,
-    ) -> VerifiedTxMsg2<'a> {
-        tx_buf.error_rsp(SprotError::ProtocolInvariantViolated);
+    pub fn flow_error<'a>(&self, tx_buf: TxMsg2<'a>) -> VerifiedTxMsg2<'a> {
+        tx_buf.error_rsp(SprotError::FlowError)
+    }
+
+    /// Serialize and return a `SprotError::FlowError`
+    pub fn protocol_error<'a>(&self, tx_buf: TxMsg2<'a>) -> VerifiedTxMsg2<'a> {
+        tx_buf.error_rsp(SprotError::ProtocolInvariantViolated)
     }
 
     pub fn handle<'a>(
@@ -78,7 +77,7 @@ impl Handler {
                     ringbuf_entry!(Trace::IgnoreOnParse);
                     return None;
                 }
-                ringbuf_entry!(Trace::ErrHeader(header_bytes));
+                ringbuf_entry!(Trace::ErrWithHeader(msgerr, header_bytes));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 return Some(tx_buf.error_rsp(msgerr));
             }
@@ -86,8 +85,8 @@ impl Handler {
 
         // The CRC validated header and range checked length of the receiver can
         // be trusted now.
-        let rx_payload = rxmsg.payload;
-        let res = match rxmsg.header.msgtype {
+        let rx_payload = rx_msg.payload;
+        let res = match rx_msg.header.msgtype {
             MsgType::EchoReq => {
                 // We know payload_len is within bounds since the received
                 // header was parsed successfully and the send and receive
@@ -113,7 +112,9 @@ impl Handler {
                 }
                 UpdateStatus::Sp => Err((tx_buf, SprotError::UpdateBadStatus)),
             },
-            MsgType::IoStatsReq => tx_buf.serialize(MsgType::IoStatsRsp, stats),
+            MsgType::IoStatsReq => {
+                tx_buf.serialize(MsgType::IoStatsRsp, *stats)
+            }
             MsgType::SprocketsReq => {
                 let tx_payload = tx_buf.payload_mut();
                 let n = self
@@ -201,20 +202,20 @@ impl Handler {
             | MsgType::UpdFinishImageUpdateRsp
             | MsgType::IoStatsRsp
             | MsgType::Unknown => {
-                state.rx_invalid = state.rx_invalid.wrapping_add(1);
-                return tx_buf.error_rsp(SprotError::BadMessageType);
+                stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
+                return Some(tx_buf.error_rsp(SprotError::BadMessageType));
             }
         };
 
         match res {
             Ok(verified_tx_msg) => {
                 stats.rx_received = stats.rx_received.wrapping_add(1);
-                verified_tx_msg
+                Some(verified_tx_msg)
             }
             Err((tx_buf, err)) => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                ringbuf_entry!(Trace::ErrWithTypedHeader(err, rxmsg.header));
-                tx_buf.error_rsp(err)
+                ringbuf_entry!(Trace::ErrWithTypedHeader(err, rx_msg.header));
+                Some(tx_buf.error_rsp(err))
             }
         }
     }

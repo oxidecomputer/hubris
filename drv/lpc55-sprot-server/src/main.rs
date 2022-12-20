@@ -36,16 +36,22 @@
 #![no_std]
 #![no_main]
 
-use device::spi0::{fifostat, intstat};
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    IoStats, Protocol, RxMsg2, TxMsg2, VerifiedTxMsg2, BUF_SIZE,
+    IoStats, MsgHeader, Protocol, RxMsg2, SprotError, TxMsg2, VerifiedTxMsg2,
+    BUF_SIZE, HEADER_SIZE,
 };
 use lpc55_pac as device;
+use ringbuf::{ringbuf, ringbuf_entry};
+use userlib::{
+    sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
+};
 
-mod handler2;
+mod handler;
+
+use handler::Handler;
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
@@ -53,7 +59,6 @@ pub(crate) enum Trace {
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
     IgnoreOnParse,
-    TopLevelSendByte,
 }
 ringbuf!(Trace, 128, Trace::None);
 
@@ -64,7 +69,7 @@ task_slot!(GPIO, gpio_driver);
 const SPI_IRQ: u32 = 1;
 
 /// Setup spi and its associated GPIO pins
-fn configure_spi() -> IoControl {
+fn configure_spi() -> Io {
     let syscon = Syscon::from(SYSCON.get_task_id());
 
     // Turn the actual peripheral on so that we can interact with it.
@@ -140,7 +145,7 @@ struct Io {
 #[derive(Clone, Copy, PartialEq)]
 pub enum State {
     Read(ReadState),
-    Write,
+    Write(WriteState),
 }
 
 impl State {
@@ -151,16 +156,16 @@ impl State {
 
     /// Return the read state. Panics if the RoT is not currently reading.
     fn read(&self) -> ReadState {
-        match self.state {
-            Read(s) => s,
+        match self {
+            State::Read(s) => *s,
             _ => panic!(),
         }
     }
 
     /// Return the write state. Panics if the RoT is not currently writing.
     fn write(&self) -> WriteState {
-        match self.state {
-            Write(s) => s,
+        match self {
+            State::Write(s) => *s,
             _ => panic!(),
         }
     }
@@ -274,18 +279,16 @@ pub enum WriteState {
 fn main() -> ! {
     let mut io = configure_spi();
 
-    pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
-
     let mut rx_buf = [0u8; BUF_SIZE];
     let mut tx_buf = [0u8; BUF_SIZE];
 
     let mut handler = Handler::new();
 
     loop {
-        let mut rx_msg = RxMsg2::new(&mut rx_buf[..]);
-        let mut tx_msg = TxMsg2::new(&mut tx_buf[..]);
-        if let Some(response) = io.spi_read(rx_msg, tx_msg, handler) {
-            io.spi_write(response, &mut io.stats);
+        let rx_msg = RxMsg2::new(&mut rx_buf[..]);
+        let tx_msg = TxMsg2::new(&mut tx_buf[..]);
+        if let Some(response) = io.spi_read(rx_msg, tx_msg, &mut handler) {
+            io.spi_write(response);
         }
     }
 }
@@ -315,11 +318,8 @@ impl Io {
     ///
     /// We expect to only clock in 0s from the SP, or else the SP and RoT are
     /// desynchronized.
-    pub fn spi_write<'a>(
-        &mut self,
-        response: VerifiedTxMsg2,
-        stats: &mut IoStats,
-    ) {
+    pub fn spi_write<'a>(&mut self, response: VerifiedTxMsg2) {
+        self.state = State::Write(WriteState::WaitingToTransmit);
         self.assert_rot_irq();
         loop {
             sys_irq_control(SPI_IRQ, true);
@@ -329,7 +329,7 @@ impl Io {
                     WriteState::WaitingToTransmit => {
                         self.write_wait_for_csn_asserted()
                     }
-                    WriteState::Writing => self.write_response(response, stats),
+                    WriteState::Writing => self.write_response(&response),
                     WriteState::ResponseWritten
                     | WriteState::Flush
                     | WriteState::Underrun => {
@@ -341,11 +341,52 @@ impl Io {
         }
     }
 
+    /// Read a request from the SP
+    ///
+    /// We clock out 0s until CSn is de-asserted
+    pub fn spi_read<'a>(
+        &mut self,
+        mut rx_msg: RxMsg2<'a>,
+        tx_msg: TxMsg2<'a>,
+        handler: &mut Handler,
+    ) -> Option<VerifiedTxMsg2<'a>> {
+        self.state = State::Read(ReadState::WaitingForRequest);
+        self.zero_tx_buf();
+        loop {
+            sys_irq_control(SPI_IRQ, true);
+            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
+            loop {
+                match self.state.read() {
+                    ReadState::WaitingForRequest => {
+                        self.read_wait_for_csn_asserted()
+                    }
+                    ReadState::InFrame => {
+                        self.read_until_csn_deasserted(&mut rx_msg)
+                    }
+                    ReadState::FrameRead => {
+                        self.mark_busy();
+                        return handler.handle(rx_msg, tx_msg, &mut self.stats);
+                    }
+                    ReadState::Flush | ReadState::UnexpectedCsnAssert => {
+                        return None;
+                    }
+                    ReadState::Overrun => {
+                        self.mark_busy();
+                        return Some(handler.flow_error(tx_msg));
+                    }
+                    ReadState::SpProtocolCapabilitiesMismatch => {
+                        self.mark_busy();
+                        return Some(handler.protocol_error(tx_msg));
+                    }
+                }
+            }
+        }
+    }
+
     // We are waiting for CSn to be asserted so we can transmit our response.
     fn write_wait_for_csn_asserted(&mut self) {
         // Get frame start/end interrupt from intstat (SSA/SSD).
         let intstat = self.spi.intstat();
-        let fifostat = self.spi.fifostat();
 
         // CSn asserted by the SP.
         if intstat.ssa().bit() {
@@ -354,16 +395,12 @@ impl Io {
         }
     }
 
-    fn write_response(
-        &mut self,
-        response: VerifiedTxMsg2,
-        stats: &mut IoStats,
-    ) {
+    fn write_response(&mut self, response: &VerifiedTxMsg2) {
         let mut bytes_read: usize = 0;
         let mut bytes_written: usize = 0;
         let mut tx_iter = response.iter();
         let response_len = response.data_len();
-        let mut state = state.write();
+        let mut state = self.state.write();
         let mut overrun_seen = false;
 
         loop {
@@ -418,8 +455,9 @@ impl Io {
                 self.deassert_rot_irq();
 
                 // We can't say if
-                if bytes_read == 0 && state =
-                    WriteState::Writing && !overrun_seen
+                if bytes_read == 0
+                    && state == WriteState::Writing
+                    && !overrun_seen
                 {
                     self.stats.csn_pulses =
                         self.stats.csn_pulses.wrapping_add(1);
@@ -454,59 +492,10 @@ impl Io {
         self.state = State::Write(state);
     }
 
-    /// Read a request from the SP
-    ///
-    /// We clock out 0s until CSn is de-asserted
-    pub fn spi_read<'a>(
-        &mut self,
-        rxmsg: RxMsg2<'a>,
-        tx_msg: TxMsg2,
-        handler: &mut Handler,
-    ) {
-        self.state = State::Read(ReadState::WaitingForRequest);
-        self.zero_tx_buf();
-        loop {
-            sys_irq_control(SPI_IRQ, true);
-            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
-            loop {
-                match self.state.read() {
-                    ReadState::WaitingForRequest => {
-                        self.read_wait_for_csn_assert()
-                    }
-                    ReadState::InFrame => read_until_csn_deassert(&mut rxmsg),
-                    ReadState::FrameRead => {
-                        self.mark_busy();
-                        return handler.handle(
-                            &rx_msg,
-                            tx_msg,
-                            &mut self.stats,
-                        );
-                    }
-                    ReadState::Flush | ReadState::UnexpectedCsnAssert => {
-                        return None;
-                    }
-                    ReadState::Overrun => {
-                        self.mark_busy();
-                        return Some(
-                            handler.flow_error(tx_msg, &mut self.stats),
-                        );
-                    }
-                    ReadState::SpProtocolCapabilitiesMismatch => {
-                        io.mark_busy();
-                        return Some(
-                            handler.protocol_error(tx_msg, &mut self.stats),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     // We are waiting for a new request from the SP.
     fn read_wait_for_csn_asserted(&mut self) {
         // Get frame start/end interrupt from intstat (SSA/SSD).
         let intstat = self.spi.intstat();
-        let fifostat = self.spi.fifostat();
 
         // CSn asserted by the SP.
         if intstat.ssa().bit() {
@@ -522,14 +511,14 @@ impl Io {
     // and resetting the SP if it is exceeded.
     // But, the management plane is going to notice that
     // the RoT is not available. So, does it matter?
-    fn read_until_csn_deassert<'a>(&mut self, rxmsg: &mut RxMsg2<'a>) {
+    fn read_until_csn_deasserted<'a>(&mut self, rx_msg: &mut RxMsg2<'a>) {
         let mut num_unexpected_csn_asserts_in_this_loop: u32 = 0;
         let mut overrun_seen = false;
-        let mut state = state.read();
+        let mut state = self.state.read();
         loop {
             let intstat = self.spi.intstat();
             let fifostat = self.spi.fifostat();
-            let mut csn_deasserted = intstat.ssd.bit();
+            let mut csn_deasserted = intstat.ssd().bit();
 
             if csn_deasserted {
                 // Cool, we have a complete frame.
@@ -635,7 +624,7 @@ impl Io {
         // start of a pulse. While the behavior of both those states is the
         // same, for tracking purposes we return in `ReadState::Flush`, since
         // that's more specific, and not an error.
-        if rxmsg.len() == 0 && !overrun_seen {
+        if rx_msg.len() == 0 && !overrun_seen {
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
             state = ReadState::Flush;
         }
