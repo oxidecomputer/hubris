@@ -2,178 +2,91 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-mod sprockets;
+use crate::Trace;
+use crc::{Crc, CRC_32_CKSUM};
+use drv_sprot_api::{IoStats, Protocol, RxMsg2, TxMsg2, VerifiedTxMsg2};
+use drv_update_api::{update_server, Update};
+use lpc55_romapi::bootrom;
+use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use sprockets_rot::RotSprocket;
 
-use crate::{IoStatus, LocalState};
-use drv_sprot_api::*;
-use drv_update_api::*;
-use ringbuf::*;
-use userlib::*;
+mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
 
-#[derive(Copy, Clone, PartialEq)]
-enum PrevMsg {
-    None,
-    Flush,
-    Good(MsgType),
-    Overrun,
-    Err(SprotError),
+/// State that is set once at the start of the driver
+pub struct StartupState {
+    /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
+    pub supported: u32,
+    /// CRC32 of the LPC55 boot ROM contents.
+    /// The LPC55 does not have machine readable version information for
+    /// its boot ROM contents and there are known issues with old boot ROMs.
+    /// TODO: This should live in the stage0 handoff info
+    pub bootrom_crc32: u32,
+
+    /// Maxiumum message size that the RoT can handle.
+    pub buffer_size: u32,
 }
 
-pub(crate) struct Handler {
+pub struct Handler {
     sprocket: sprockets_rot::RotSprocket,
-    pub update: Update,
-    count: usize,
-    prev: PrevMsg,
+    update: Update,
+    startup_state: StartupState,
 }
 
 pub(crate) fn new() -> Handler {
     Handler {
         sprocket: crate::handler::sprockets::init(),
-        update: drv_update_api::Update::from(UPDATE_SERVER.get_task_id()),
-        prev: PrevMsg::None,
-        count: 0,
+        update: Update::from(UPDATE_SERVER.get_task_id()),
+        startup_state: StartupState {
+            supported: 1_u32 << (Protocol::V1 as u8),
+            bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
+            buffer_size: BUF_SIZE as u32,
+        },
     }
 }
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Prev(usize, PrevMsg),
-    ErrHeader(usize, PrevMsg, [u8; HEADER_SIZE]),
-    Overrun(usize),
-    ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
-    ErrWithTypedHeader(SprotError, MsgHeader),
-    IgnoreOnParse,
-    IgnoreOnOverrun,
-    Flush,
-}
-ringbuf!(Trace, 128, Trace::None);
-
 impl Handler {
-    /// The Sp RoT target message handler processes the incoming message
-    /// and returns the length of the response placed in the Tx buffer.
-    /// If the length of the Tx buffer is greater than zero, the driver
-    /// will interrupt the SP to notify it of the response.
-    /// The driver will pad the unused portion of the Tx buffer with
-    /// zeros to satisfy IO needs when the SP clocks out more bytes than
-    /// available.
-    ///
-    /// Returns the number of bytes to transmit out of the Tx buffer.
+    /// Serialize and return a `SprotError::FlowError`
+    pub fn flow_error<'a>(
+        &self,
+        tx_buf: TxMsg2<'a>,
+        stats: &mut IoStats,
+    ) -> VerifiedTxMsg2<'a> {
+        tx_buf.error_rsp(SprotError::FlowError);
+    }
+
+    /// Serialize and return a `SprotError::FlowError`
+    pub fn protocol_error<'a>(
+        &self,
+        tx_buf: TxMsg2<'a>,
+        stats: &mut IoStats,
+    ) -> VerifiedTxMsg2<'a> {
+        tx_buf.error_rsp(SprotError::ProtocolInvariantViolated);
+    }
+
     pub fn handle<'a>(
         &mut self,
-        iostat: IoStatus,
         rx_buf: RxMsg2,
-        verified_tx_msg: VerifiedTxMsg2<'a>,
-        state: &mut LocalState, // for responses and updating
+        mut tx_buf: TxMsg2<'a>,
+        stats: &mut IoStats,
     ) -> Option<VerifiedTxMsg2<'a>> {
-        self.count = self.count.wrapping_add(1);
-
-        // true if previous loop transmitted.
-        let tx_prev = verified_tx_msg.contains_data();
-        // Let's get back a zeroed out, writable buffer
-        let tx_buf = verified_tx_msg.into_txmsg();
-
-        // Before looking at the received message, check for explicit flush or
-        // a receive overrun condition.
-        // Reject received messages if we had an overrun.
-        match iostat {
-            IoStatus::IOResult { overrun, underrun } => {
-                if tx_prev && underrun {
-                    state.tx_underrun = state.tx_underrun.wrapping_add(1);
-                    // If the flow error was in the message as opposed to
-                    // possible post-message trailing bytes, then the SP will
-                    // see the CRC error and can try again.
-                    // We discard our own possibly-failed Tx data and the SP
-                    // can retry if it wants to.
-                }
-                // In all known cases, the first ${FIFO_LENGTH}-bytes in the
-                // FIFO will be received correctly.
-                // That includes the protocol identifier.
-                // If it is not an ignored protocol, then send an error.
-                if overrun {
-                    return match rx_buf.protocol() {
-                        None => {
-                            ringbuf_entry!(Trace::Prev(self.count, self.prev));
-                            ringbuf_entry!(Trace::Overrun(self.count));
-                            self.prev = PrevMsg::Overrun;
-                            None
-                        }
-                        Some(protocol) if protocol == Protocol::Ignore => {
-                            ringbuf_entry!(Trace::IgnoreOnOverrun);
-                            None
-                        }
-                        Some(_) => {
-                            state.rx_overrun = state.rx_overrun.wrapping_add(1);
-                            ringbuf_entry!(Trace::ErrHeader(
-                                self.count,
-                                self.prev,
-                                rx_buf.header_bytes()
-                            ));
-                            self.prev = PrevMsg::Overrun;
-                            Some(tx_buf.error_rsp(SprotError::FlowError))
-                        }
-                    };
-                }
-            }
-            IoStatus::Flush => {
-                if tx_prev {
-                    state.tx_incomplete = state.tx_incomplete.wrapping_add(1);
-                    // Our message was not delivered
-                }
-                self.prev = PrevMsg::Flush;
-                ringbuf_entry!(Trace::Flush);
-                return None;
-            }
-        }
-
-        // Check for the minimum receive length being satisfied.
-        if rx_buf.len() < MIN_MSG_SIZE {
-            let err = SprotError::BadMessageLength;
-            ringbuf_entry!(Trace::ErrWithHeader(err, rx_buf.header_bytes()));
-            return Some(tx_buf.error_rsp(err));
-        }
-
         // Parse the header and validate the CRC
-        let rxmsg = match rx_buf.parse() {
-            Ok(rxmsg) => {
-                self.prev = PrevMsg::Good(rxmsg.header.msgtype);
-                rxmsg
-            }
+        let rx_msg = match rx_buf.parse() {
+            Ok(rxmsg) => rxmsg,
             Err((header_bytes, msgerr)) => {
                 if msgerr == SprotError::NoMessage {
                     ringbuf_entry!(Trace::IgnoreOnParse);
-                    self.prev = PrevMsg::None;
                     return None;
                 }
-                ringbuf_entry!(Trace::ErrHeader(
-                    self.count,
-                    self.prev,
-                    header_bytes
-                ));
-                self.prev = PrevMsg::Err(msgerr);
+                ringbuf_entry!(Trace::ErrHeader(header_bytes));
+                stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 return Some(tx_buf.error_rsp(msgerr));
             }
         };
 
-        // At this point, the header and payload are known to be
-        // consistent with the CRC and the length is known to be good.
-        state.rx_received = state.rx_received.wrapping_add(1);
-
-        Some(self.run(rxmsg, tx_buf, state))
-    }
-
-    // Run the command for the given MsgType, serialize the reply into `tx_output` and return the response MsgType
-    // and payload size or return an error.
-    fn run<'a>(
-        &mut self,
-        rxmsg: VerifiedRxMsg2,
-        mut tx_buf: TxMsg2<'a>,
-        state: &mut LocalState,
-    ) -> VerifiedTxMsg2<'a> {
+        // The CRC validated header and range checked length of the receiver can
+        // be trusted now.
         let rx_payload = rxmsg.payload;
-        // The CRC validate header and range checked length of the receiver can be trusted now.
         let res = match rxmsg.header.msgtype {
             MsgType::EchoReq => {
                 // We know payload_len is within bounds since the received
@@ -188,9 +101,9 @@ impl Handler {
             MsgType::StatusReq => match self.update.status() {
                 UpdateStatus::Rot(rot_updates) => {
                     let msg = SprotStatus {
-                        supported: state.supported,
-                        bootrom_crc32: state.bootrom_crc32,
-                        buffer_size: state.buffer_size,
+                        supported: self.startup_state.supported,
+                        bootrom_crc32: self.startup_state.bootrom_crc32,
+                        buffer_size: self.startup_state.buffer_size,
                         rot_updates,
                     };
                     tx_buf.serialize(MsgType::StatusRsp, msg)
@@ -200,16 +113,7 @@ impl Handler {
                 }
                 UpdateStatus::Sp => Err((tx_buf, SprotError::UpdateBadStatus)),
             },
-            MsgType::IoStatsReq => {
-                let msg = IoStats {
-                    rx_received: state.rx_received,
-                    rx_overrun: state.rx_overrun,
-                    tx_underrun: state.tx_underrun,
-                    rx_invalid: state.rx_invalid,
-                    tx_incomplete: state.tx_incomplete,
-                };
-                tx_buf.serialize(MsgType::IoStatsRsp, msg)
-            }
+            MsgType::IoStatsReq => tx_buf.serialize(MsgType::IoStatsRsp, stats),
             MsgType::SprocketsReq => {
                 let tx_payload = tx_buf.payload_mut();
                 let n = self
@@ -303,8 +207,12 @@ impl Handler {
         };
 
         match res {
-            Ok(verified_tx_msg) => verified_tx_msg,
+            Ok(verified_tx_msg) => {
+                stats.rx_received = stats.rx_received.wrapping_add(1);
+                verified_tx_msg
+            }
             Err((tx_buf, err)) => {
+                stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 ringbuf_entry!(Trace::ErrWithTypedHeader(err, rxmsg.header));
                 tx_buf.error_rsp(err)
             }
