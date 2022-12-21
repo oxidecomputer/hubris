@@ -14,6 +14,8 @@ use userlib::*;
 use zerocopy::AsBytes;
 
 pub use task_sensor_api::SensorId;
+pub use drv_i2c_api::Mux;
+pub use drv_i2c_api::Segment;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ValidateError {
@@ -49,8 +51,8 @@ pub enum ValidateOk {
 
 #[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
 pub struct MuxSegment {
-    pub mux: drv_i2c_api::Mux,
-    pub segment: drv_i2c_api::Segment,
+    pub mux: Mux,
+    pub segment: Segment,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
