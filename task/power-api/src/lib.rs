@@ -87,7 +87,7 @@ pub enum PmbusValue {
     Rpm(f32),
     Raw8(u8),
     Raw16(u16),
-    Unitless(f32),
+    Percent(f32),
     Block { data: [u8; MAX_BLOCK_LEN], len: u8 },
 }
 
@@ -118,6 +118,12 @@ impl From<pmbus::units::Volts> for PmbusValue {
 impl From<pmbus::units::Rpm> for PmbusValue {
     fn from(value: pmbus::units::Rpm) -> Self {
         Self::Rpm(value.0)
+    }
+}
+
+impl From<pmbus::units::Percent> for PmbusValue {
+    fn from(value: pmbus::units::Percent) -> Self {
+        Self::Percent(value.0)
     }
 }
 

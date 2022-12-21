@@ -124,7 +124,7 @@ idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-
 lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
-pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false, branch = "extra-mwocp68" }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false, branch = "extra-mwocp68" } # FIXME after merging pmbus#9
 salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroize", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }

@@ -156,14 +156,17 @@ impl Mwocp68 {
         self.set_rail()?;
 
         let val = match op {
-            Operation::FanConfig1_2 => PmbusValue::Raw8(
-                pmbus_read!(self.device, FAN_CONFIG_1_2)?.get()?,
+            Operation::FanConfig1_2 => {
+                let (val, width) =
+                    pmbus_read!(self.device, FAN_CONFIG_1_2)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::FanCommand1 => PmbusValue::from(
+                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?,
             ),
-            Operation::FanCommand1 => PmbusValue::Unitless(
-                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?.0,
-            ),
-            Operation::FanCommand2 => PmbusValue::Unitless(
-                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?.0,
+            Operation::FanCommand2 => PmbusValue::from(
+                pmbus_read!(self.device, FAN_COMMAND_1)?.get()?,
             ),
             Operation::IoutOcFaultLimit => PmbusValue::from(
                 pmbus_read!(self.device, IOUT_OC_FAULT_LIMIT)?.get()?,
@@ -220,12 +223,18 @@ impl Mwocp68 {
                 assert_eq!(width.0, 8);
                 PmbusValue::Raw8(val as u8)
             }
-            Operation::StatusMfrSpecific => PmbusValue::Raw8(
-                pmbus_read!(self.device, STATUS_MFR_SPECIFIC)?.get()?,
-            ),
-            Operation::StatusFans1_2 => PmbusValue::Raw8(
-                pmbus_read!(self.device, STATUS_FANS_1_2)?.get()?,
-            ),
+            Operation::StatusMfrSpecific => {
+                let (val, width) =
+                    pmbus_read!(self.device, STATUS_MFR_SPECIFIC)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
+            Operation::StatusFans1_2 => {
+                let (val, width) =
+                    pmbus_read!(self.device, STATUS_FANS_1_2)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
             Operation::ReadEin => {
                 self.read_block::<6>(CommandCode::READ_EIN)?
             }
