@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
-pub use task_sensor_api::SensorId;
 pub use drv_i2c_api::Mux;
 pub use drv_i2c_api::Segment;
+pub use task_sensor_api::SensorId;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ValidateError {
