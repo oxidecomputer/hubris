@@ -4,30 +4,138 @@
 
 use crate::image_header::Image;
 use crate::Handoff;
+use core::mem;
 use dice_crate::{
-    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
-    DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
-    SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, Cert, CertData,
+    CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, RngData, RngSeed,
+    SeedBuf, SerialNumber, SizedBlob, SpMeasureCertBuilder, SpMeasureData,
+    SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
-use salty::signature::Keypair;
+use lpc55_puf::Puf;
+use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 
-#[cfg(feature = "dice-self")]
-use crate::dice_mfg_self::gen_mfg_artifacts;
 #[cfg(feature = "dice-mfg")]
-use crate::dice_mfg_usart::gen_mfg_artifacts;
+use crate::dice_mfg_usart;
 
-fn gen_deviceid_keypair(cdi: &Cdi) -> Keypair {
-    let devid_okm = DeviceIdOkm::from_cdi(cdi);
+pub const SEED_LEN: usize = SECRETKEY_SEED_LENGTH;
+pub const KEYCODE_LEN: usize =
+    Puf::key_to_keycode_len(SEED_LEN) / mem::size_of::<u32>();
+pub const KEY_INDEX: u32 = 1;
 
-    Keypair::from(devid_okm.as_bytes())
-}
-
-pub struct SerialNumbers {
+/// Data we get back from the manufacturing process.
+pub struct MfgResult {
     pub cert_serial_number: CertSerialNumber,
     pub serial_number: SerialNumber,
+    pub persistid_keypair: Keypair,
+    pub persistid_cert: SizedBlob,
+    pub intermediate_cert: SizedBlob,
 }
 
+/// Generate stuff associated with the manufacturing process.
+fn gen_mfg_artifacts(peripherals: &Peripherals) -> MfgResult {
+    // Select manufacturing process based on feature. This module assumes
+    // that one of the manufacturing flavors has been enabled.
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "dice-mfg")] {
+            dice_mfg_usart::gen_mfg_artifacts_usart(peripherals)
+        } else if #[cfg(feature = "dice-self")] {
+            gen_mfg_artifacts_self(peripherals)
+        } else {
+            compile_error!("No DICE manufacturing process selected.");
+        }
+    }
+}
+
+/// This function defines the manufacturing process for self signed identity
+/// certificates. This is expected to be useful for development systems that
+/// cannot easily have identities certified by an external CA.
+#[cfg(feature = "dice-self")]
+fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
+    use dice_crate::{DiceMfg, PersistIdSeed, SelfMfg};
+
+    let puf = Puf::new(&peripherals.PUF);
+
+    // Create key code for an ed25519 seed using the PUF. We use this seed
+    // to generate a key used as an identity that is independent from the
+    // DICE measured boot.
+    let mut keycode = [0u32; KEYCODE_LEN];
+    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, &mut keycode) {
+        panic!("failed to generate keycode");
+    }
+    let keycode = keycode;
+
+    // get keycode from DICE MFG flash region
+    let mut seed = [0u8; SEED_LEN];
+    if !puf.get_key(&keycode, &mut seed) {
+        // failure to get this key isn't recoverable
+        panic!("failed to get seed");
+    }
+    let seed = seed;
+
+    // we're done with the puf: block the key index
+    if !puf.block_index(KEY_INDEX) {
+        panic!("failed to block PUF index");
+    }
+    // lock the lower key indices to prevent use of this index till reset
+    puf.lock_indices_low();
+
+    let id_seed = PersistIdSeed::new(seed);
+    let id_keypair = Keypair::from(id_seed.as_bytes());
+
+    let mfg_state = SelfMfg::new(&id_keypair).run();
+
+    // Return new CertSerialNumber and platform serial number to caller.
+    // These are used to fill in the templates for certs signed by the
+    // DeviceId.
+    MfgResult {
+        cert_serial_number: Default::default(),
+        serial_number: mfg_state.serial_number,
+        persistid_keypair: id_keypair,
+        persistid_cert: mfg_state.persistid_cert,
+        intermediate_cert: mfg_state.intermediate_cert,
+    }
+}
+
+/// Generate the DICE DeviceId key and certificate. The cert is never returned
+/// to the caller, instead it's packaged up with the certs passed as
+/// parameters and haded off to Hubris through the Handoff type.
+fn gen_deviceid_artifacts(
+    cdi: &Cdi,
+    cert_serial_number: &mut CertSerialNumber,
+    serial_number: &SerialNumber,
+    persistid_keypair: Keypair,
+    persistid_cert: SizedBlob,
+    intermediate_cert: SizedBlob,
+    handoff: &Handoff,
+) -> Keypair {
+    let devid_okm = DeviceIdOkm::from_cdi(cdi);
+
+    let deviceid_keypair = Keypair::from(devid_okm.as_bytes());
+
+    let deviceid_cert = DeviceIdCertBuilder::new(
+        &cert_serial_number.next(),
+        &serial_number,
+        &deviceid_keypair.public,
+    )
+    .sign(&persistid_keypair);
+
+    // transfer certs to CertData for serialization
+    let cert_data = CertData::new(
+        SizedBlob::try_from(deviceid_cert.as_bytes()).unwrap(),
+        persistid_cert,
+        intermediate_cert,
+    );
+
+    handoff.store(&cert_data);
+
+    deviceid_keypair
+}
+
+/// Generate DICE keys and credentials that we pass to the root of trust
+/// for reporting (RoT-R). This is the Alias key and cert, as well as
+/// another key ahnd credential we use for the trust quorum diffie hellman
+/// exchange (TQDHE).
 fn gen_alias_artifacts(
     cdi_l1: &CdiL1,
     cert_serial_number: &mut CertSerialNumber,
@@ -64,6 +172,8 @@ fn gen_alias_artifacts(
     handoff.store(&alias_data);
 }
 
+/// Generate DICE keys and credentials that we pass to the Hubris task with
+/// control over the SP (the next link in the measurement chain).
 fn gen_spmeasure_artifacts(
     cdi_l1: &CdiL1,
     cert_serial_number: &mut CertSerialNumber,
@@ -88,6 +198,7 @@ fn gen_spmeasure_artifacts(
     handoff.store(&spmeasure_data);
 }
 
+/// Generate seed for the RNG task to seed its RNG.
 fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
     let rng_seed = RngSeed::from_cdi(cdi_l1);
     let rng_data = RngData::new(rng_seed);
@@ -108,15 +219,25 @@ pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
+    // We get the CDI before mfg data to ensure that DICE is enabled. If
+    // DICE has not been enabled we shouldn't do the mfg flows, but also
+    // the PUF probably hasn't initialized by the ROM.
     let cdi = match Cdi::from_reg() {
         Some(cdi) => cdi,
         None => return,
     };
 
-    let deviceid_keypair = gen_deviceid_keypair(&cdi);
+    let mut mfg_data = gen_mfg_artifacts(&peripherals);
 
-    let mut serial_numbers =
-        gen_mfg_artifacts(&deviceid_keypair, &peripherals, handoff);
+    let deviceid_keypair = gen_deviceid_artifacts(
+        &cdi,
+        &mut mfg_data.cert_serial_number,
+        &mfg_data.serial_number,
+        mfg_data.persistid_keypair,
+        mfg_data.persistid_cert,
+        mfg_data.intermediate_cert,
+        handoff,
+    );
 
     let fwid = gen_fwid(image);
 
@@ -125,8 +246,8 @@ pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
 
     gen_alias_artifacts(
         &cdi_l1,
-        &mut serial_numbers.cert_serial_number,
-        &serial_numbers.serial_number,
+        &mut mfg_data.cert_serial_number,
+        &mfg_data.serial_number,
         &deviceid_keypair,
         &fwid,
         handoff,
@@ -134,8 +255,8 @@ pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
 
     gen_spmeasure_artifacts(
         &cdi_l1,
-        &mut serial_numbers.cert_serial_number,
-        &serial_numbers.serial_number,
+        &mut mfg_data.cert_serial_number,
+        &mfg_data.serial_number,
         &deviceid_keypair,
         &fwid,
         handoff,

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{deviceid_csr_tmpl, SerialNumber};
+use crate::{persistid_csr_tmpl, SerialNumber};
 use core::ops::Range;
 use dice_mfg_msgs::SizedBlob;
 use hubpack::SerializedSize;
@@ -56,18 +56,18 @@ pub trait CsrBuilder {
 }
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct DeviceIdCsrBuilder(
-    #[serde(with = "BigArray")] [u8; deviceid_csr_tmpl::SIZE],
+pub struct PersistIdCsrBuilder(
+    #[serde(with = "BigArray")] [u8; persistid_csr_tmpl::SIZE],
 );
 
-impl DeviceIdCsrBuilder {
+impl PersistIdCsrBuilder {
     pub fn new(dname_sn: &SerialNumber, public_key: &PublicKey) -> Self {
-        Self(deviceid_csr_tmpl::CSR_TMPL.clone())
+        Self(persistid_csr_tmpl::CSR_TMPL.clone())
             .set_subject_sn(dname_sn)
             .set_pub(public_key.as_bytes())
     }
 
-    const SIGNDATA_RANGE: Range<usize> = deviceid_csr_tmpl::SIGNDATA_RANGE;
+    const SIGNDATA_RANGE: Range<usize> = persistid_csr_tmpl::SIGNDATA_RANGE;
 
     pub fn sign(self, keypair: &Keypair) -> SizedBlob
     where
@@ -81,10 +81,10 @@ impl DeviceIdCsrBuilder {
     }
 }
 
-impl CsrBuilder for DeviceIdCsrBuilder {
-    const PUB_RANGE: Range<usize> = deviceid_csr_tmpl::PUB_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = deviceid_csr_tmpl::SUBJECT_SN_RANGE;
-    const SIG_RANGE: Range<usize> = deviceid_csr_tmpl::SIG_RANGE;
+impl CsrBuilder for PersistIdCsrBuilder {
+    const PUB_RANGE: Range<usize> = persistid_csr_tmpl::PUB_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> = persistid_csr_tmpl::SUBJECT_SN_RANGE;
+    const SIG_RANGE: Range<usize> = persistid_csr_tmpl::SIG_RANGE;
 
     fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.0
@@ -92,6 +92,6 @@ impl CsrBuilder for DeviceIdCsrBuilder {
 }
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct DeviceIdCsr(
-    #[serde(with = "BigArray")] [u8; deviceid_csr_tmpl::SIZE],
+pub struct PersistIdCsr(
+    #[serde(with = "BigArray")] [u8; persistid_csr_tmpl::SIZE],
 );

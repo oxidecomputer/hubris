@@ -18,7 +18,7 @@ use static_assertions as sa;
 // to this address must be coordinated with the [dice_*] tables in
 // chips/lpc55/chip.toml
 // TODO: get from app.toml -> chip.toml at build time
-const CERTS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0x800);
+const CERTS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0xa00);
 const ALIAS_RANGE: Range<usize> = CERTS_RANGE.end..(CERTS_RANGE.end + 0x800);
 const SPMEASURE_RANGE: Range<usize> =
     ALIAS_RANGE.end..(ALIAS_RANGE.end + 0x800);
@@ -35,6 +35,7 @@ sa::const_assert!(RNG_RANGE.end <= MEM_RANGE.end);
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct CertData {
     pub deviceid_cert: SizedBlob,
+    pub persistid_cert: SizedBlob,
     pub intermediate_cert: SizedBlob,
 }
 
@@ -55,9 +56,20 @@ unsafe impl HandoffData for CertData {
 fits_in_ram!(CertData);
 
 impl CertData {
-    pub fn new(deviceid_cert: SizedBlob, intermediate_cert: SizedBlob) -> Self {
+    // This function is unfortunately error prone: All parameters are the
+    // same type and so if we get the order wrong verification of the cert
+    // chain down the line will probably fail as they'll end up in the
+    // wrong order. We can reduce this possibility by using the DeviceIdCert
+    // type directly but the persistid and intermediate cert will remain
+    // problematic.
+    pub fn new(
+        deviceid_cert: SizedBlob,
+        persistid_cert: SizedBlob,
+        intermediate_cert: SizedBlob,
+    ) -> Self {
         Self {
             deviceid_cert,
+            persistid_cert,
             intermediate_cert,
         }
     }

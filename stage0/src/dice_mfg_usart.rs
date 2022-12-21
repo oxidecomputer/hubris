@@ -2,16 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::dice::SerialNumbers;
-use crate::Handoff;
+use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::Deref;
 use dice_crate::{
-    CertData, CertSerialNumber, DeviceIdSerialMfg, DiceMfg, SerialNumber,
+    CertSerialNumber, DiceMfg, PersistIdSeed, SeedBuf, SerialMfg, SerialNumber,
     SizedBlob,
 };
 use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;
 use lpc55_pac::Peripherals;
+use lpc55_puf::Puf;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
@@ -47,8 +47,9 @@ pub enum DiceStateError {
 /// serialized to flash after mfg as device identity
 #[derive(Deserialize, Serialize, SerializedSize)]
 struct DiceState {
+    pub persistid_key_code: [u32; KEYCODE_LEN],
     pub serial_number: SerialNumber,
-    pub deviceid_cert: SizedBlob,
+    pub persistid_cert: SizedBlob,
     pub intermediate_cert: SizedBlob,
 }
 
@@ -105,11 +106,41 @@ impl DiceState {
     }
 }
 
-fn gen_artifacts_from_mfg(
-    deviceid_keypair: &Keypair,
-    peripherals: &Peripherals,
-    handoff: &Handoff,
-) -> SerialNumbers {
+/// Generate platform identity key from PUF and manufacture the system
+/// by certifying this identity. The certification process uses the usart
+/// peripheral to exchange manufacturing data, CSR & cert with the
+/// manufacturing line.
+fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
+    let puf = Puf::new(&peripherals.PUF);
+
+    // Create key code for an ed25519 seed using the PUF. We use this seed
+    // to generate a key used as an identity that is independent from the
+    // DICE measured boot.
+    let mut id_keycode = [0u32; KEYCODE_LEN];
+    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, &mut id_keycode) {
+        panic!("failed to generate key code");
+    }
+    let id_keycode = id_keycode;
+
+    // get keycode from DICE MFG flash region
+    // good opportunity to put a magic value in the DICE MFG flash region
+    let mut seed = [0u8; SEED_LEN];
+    if !puf.get_key(&id_keycode, &mut seed) {
+        panic!("failed to get ed25519 seed");
+    }
+    let seed = seed;
+
+    // we're done with the puf: block the key index used for the identity
+    // key and lock the block register
+    if !puf.block_index(KEY_INDEX) {
+        panic!("failed to block PUF index");
+    }
+    puf.lock_indices_low();
+
+    let id_seed = PersistIdSeed::new(seed);
+
+    let id_keypair = Keypair::from(id_seed.as_bytes());
+
     usart_setup(
         &peripherals.SYSCON,
         &peripherals.IOCON,
@@ -117,47 +148,66 @@ fn gen_artifacts_from_mfg(
     );
 
     let usart = Usart::from(peripherals.USART0.deref());
-    let mfg_state = DeviceIdSerialMfg::new(&deviceid_keypair, usart).run();
+
+    let dice_data = SerialMfg::new(&id_keypair, usart).run();
 
     let dice_state = DiceState {
-        deviceid_cert: mfg_state.deviceid_cert,
-        intermediate_cert: mfg_state.intermediate_cert,
-        serial_number: mfg_state.serial_number,
+        persistid_key_code: id_keycode,
+        serial_number: dice_data.serial_number,
+        persistid_cert: dice_data.persistid_cert,
+        intermediate_cert: dice_data.intermediate_cert,
     };
-    dice_state.to_flash().expect("DiceState::to_flash");
 
-    let cert_data =
-        CertData::new(dice_state.deviceid_cert, dice_state.intermediate_cert);
-    handoff.store(&cert_data);
+    dice_state.to_flash().unwrap();
 
-    SerialNumbers {
-        cert_serial_number: mfg_state.cert_serial_number,
-        serial_number: mfg_state.serial_number,
+    MfgResult {
+        cert_serial_number: Default::default(),
+        serial_number: dice_state.serial_number,
+        persistid_keypair: id_keypair,
+        persistid_cert: dice_state.persistid_cert,
+        intermediate_cert: dice_state.intermediate_cert,
     }
 }
 
-fn gen_artifacts_from_flash(handoff: &Handoff) -> SerialNumbers {
+/// Get platform identity data from the DICE flash region. This is the data
+/// we get from the 'gen_artifacts_from_mfg' function.
+fn gen_artifacts_from_flash(peripherals: &Peripherals) -> MfgResult {
     let dice_state = DiceState::from_flash().expect("DiceState::from_flash");
 
-    let cert_data =
-        CertData::new(dice_state.deviceid_cert, dice_state.intermediate_cert);
-    handoff.store(&cert_data);
+    let puf = Puf::new(&peripherals.PUF);
 
-    SerialNumbers {
+    // get keycode from DICE MFG flash region
+    let mut seed = [0u8; SEED_LEN];
+    if !puf.get_key(&dice_state.persistid_key_code, &mut seed) {
+        panic!("failed to get ed25519 seed");
+    }
+    let seed = seed;
+
+    // we're done with the puf: block the key index used for the identity
+    // key and lock the block register
+    if !puf.block_index(KEY_INDEX) {
+        panic!("failed to block PUF index");
+    }
+    puf.lock_indices_low();
+
+    let id_seed = PersistIdSeed::new(seed);
+
+    let id_keypair = Keypair::from(id_seed.as_bytes());
+
+    MfgResult {
         cert_serial_number: CertSerialNumber::default(),
         serial_number: dice_state.serial_number,
+        persistid_keypair: id_keypair,
+        persistid_cert: dice_state.persistid_cert,
+        intermediate_cert: dice_state.intermediate_cert,
     }
 }
 
-pub fn gen_mfg_artifacts(
-    deviceid_keypair: &Keypair,
-    peripherals: &Peripherals,
-    handoff: &Handoff,
-) -> SerialNumbers {
+pub fn gen_mfg_artifacts_usart(peripherals: &Peripherals) -> MfgResult {
     if DiceState::is_programmed() {
-        gen_artifacts_from_flash(handoff)
+        gen_artifacts_from_flash(peripherals)
     } else {
-        gen_artifacts_from_mfg(deviceid_keypair, peripherals, handoff)
+        gen_artifacts_from_mfg(peripherals)
     }
 }
 

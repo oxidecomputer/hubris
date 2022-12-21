@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    alias_cert_tmpl, deviceid_cert_tmpl, spmeasure_cert_tmpl,
-    trust_quorum_dhe_cert_tmpl, CertSerialNumber,
+    alias_cert_tmpl, deviceid_cert_tmpl, persistid_cert_tmpl,
+    spmeasure_cert_tmpl, trust_quorum_dhe_cert_tmpl, CertSerialNumber,
 };
 use core::ops::Range;
 use dice_mfg_msgs::SerialNumber;
@@ -135,9 +135,78 @@ pub trait CertBuilder {
     }
 }
 
-pub struct DeviceIdSelfCertBuilder([u8; deviceid_cert_tmpl::SIZE]);
+pub struct PersistIdSelfCertBuilder([u8; persistid_cert_tmpl::SIZE]);
 
-impl DeviceIdSelfCertBuilder {
+impl PersistIdSelfCertBuilder {
+    pub fn new(
+        cert_sn: &CertSerialNumber,
+        dname_sn: &SerialNumber,
+        public_key: &PublicKey,
+    ) -> Self {
+        Self(persistid_cert_tmpl::CERT_TMPL.clone())
+            .set_serial_number(cert_sn)
+            .set_issuer_sn(dname_sn)
+            .set_subject_sn(dname_sn)
+            .set_pub(public_key.as_bytes())
+    }
+
+    const SIGNDATA_RANGE: Range<usize> = persistid_cert_tmpl::SIGNDATA_RANGE;
+
+    pub fn sign(self, keypair: &Keypair) -> PersistIdSelfCert
+    where
+        Self: Sized,
+    {
+        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let sig = keypair.sign(signdata);
+        let tmp = self.set_sig(&sig.to_bytes());
+
+        PersistIdSelfCert(tmp.0)
+    }
+}
+
+impl CertBuilder for PersistIdSelfCertBuilder {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        persistid_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> = persistid_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        persistid_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = persistid_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = persistid_cert_tmpl::SIG_RANGE;
+
+    fn as_mut_bytes(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+/// This type represents a self-signed PersistId certificate. Unlike the other
+/// types implementing the Cert trait this type derives Clone allowing explicit
+/// copying. We rely on Clone when copying the PersistIdSelfCert into the
+/// handoff structures.
+#[derive(Clone, Deserialize, Serialize, SerializedSize)]
+pub struct PersistIdSelfCert(
+    #[serde(with = "BigArray")] [u8; persistid_cert_tmpl::SIZE],
+);
+
+impl Cert for PersistIdSelfCert {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        persistid_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> = persistid_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        persistid_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = persistid_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = persistid_cert_tmpl::SIG_RANGE;
+    const SIGNDATA_RANGE: Range<usize> = persistid_cert_tmpl::SIGNDATA_RANGE;
+
+    fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+// TODO: this type is brittle: The subject name in the persistent id cert
+// MUST match the issuer
+pub struct DeviceIdCertBuilder([u8; deviceid_cert_tmpl::SIZE]);
+
+impl DeviceIdCertBuilder {
     pub fn new(
         cert_sn: &CertSerialNumber,
         dname_sn: &SerialNumber,
@@ -152,7 +221,7 @@ impl DeviceIdSelfCertBuilder {
 
     const SIGNDATA_RANGE: Range<usize> = deviceid_cert_tmpl::SIGNDATA_RANGE;
 
-    pub fn sign(self, keypair: &Keypair) -> DeviceIdSelfCert
+    pub fn sign(self, keypair: &Keypair) -> DeviceIdCert
     where
         Self: Sized,
     {
@@ -160,11 +229,11 @@ impl DeviceIdSelfCertBuilder {
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
-        DeviceIdSelfCert(tmp.0)
+        DeviceIdCert(tmp.0)
     }
 }
 
-impl CertBuilder for DeviceIdSelfCertBuilder {
+impl CertBuilder for DeviceIdCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         deviceid_cert_tmpl::SERIAL_NUMBER_RANGE;
     const ISSUER_SN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_SN_RANGE;
@@ -177,16 +246,12 @@ impl CertBuilder for DeviceIdSelfCertBuilder {
     }
 }
 
-/// This type represents a self-signed DeviceId certificate. Unlike the other
-/// types implementing the Cert trait this type derives Clone allowing explicit
-/// copying. We rely on Clone when copying the DeviceIdSelfCert into the
-/// handoff structures.
-#[derive(Clone, Deserialize, Serialize, SerializedSize)]
-pub struct DeviceIdSelfCert(
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct DeviceIdCert(
     #[serde(with = "BigArray")] [u8; deviceid_cert_tmpl::SIZE],
 );
 
-impl Cert for DeviceIdSelfCert {
+impl Cert for DeviceIdCert {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         deviceid_cert_tmpl::SERIAL_NUMBER_RANGE;
     const ISSUER_SN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_SN_RANGE;
@@ -442,7 +507,7 @@ mod tests {
     #[test]
     fn serial_number_from_new() {
         let sn = CertSerialNumber::new(0x10);
-        let cert = DeviceIdSelfCert([0u8; deviceid_cert_tmpl::SIZE])
+        let cert = PersistIdSelfCert([0u8; persistid_cert_tmpl::SIZE])
             .set_serial_number(&sn);
 
         assert_eq!(sn, cert.get_serial_number());
@@ -451,7 +516,7 @@ mod tests {
     #[test]
     fn issuer_sn_from_new() {
         let sn = SerialNumber::from_str("0123456789ab").expect("SN from_str");
-        let cert = DeviceIdSelfCert([0u8; deviceid_cert_tmpl::SIZE])
+        let cert = PersistIdSelfCert([0u8; persistid_cert_tmpl::SIZE])
             .set_issuer_sn(&sn);
 
         assert_eq!(cert.get_issuer_sn().as_bytes(), sn.as_bytes());
@@ -460,7 +525,7 @@ mod tests {
     #[test]
     fn subject_sn_from_new() {
         let sn = SerialNumber::from_str("0123456789ab").expect("SN from_str");
-        let cert = DeviceIdSelfCert([0u8; deviceid_cert_tmpl::SIZE])
+        let cert = PersistIdSelfCert([0u8; persistid_cert_tmpl::SIZE])
             .set_subject_sn(&sn);
 
         assert_eq!(cert.get_subject_sn().as_bytes(), sn.as_bytes());
@@ -485,9 +550,9 @@ mod tests {
 
         let sn = SerialNumber::from_str("0123456789ab").expect("SN from_str");
         let cert_sn = CertSerialNumber::new(0);
-        let cert = DeviceIdSelfCert::new(&cert_sn, &sn, &keypair);
+        let cert = PersistIdSelfCert::new(&cert_sn, &sn, &keypair);
 
-        for (index, byte) in cert.as_bytes()[deviceid_cert_tmpl::SIG_RANGE]
+        for (index, byte) in cert.as_bytes()[persistid_cert_tmpl::SIG_RANGE]
             .iter()
             .enumerate()
         {
@@ -497,6 +562,6 @@ mod tests {
                 print!("{:#04X}, ", byte);
             }
         }
-        assert_eq!(cert.0[deviceid_cert_tmpl::SIG_RANGE], SIG_EXPECTED);
+        assert_eq!(cert.0[persistid_cert_tmpl::SIG_RANGE], SIG_EXPECTED);
     }
 }
