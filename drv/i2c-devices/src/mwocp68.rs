@@ -270,9 +270,12 @@ impl Mwocp68 {
             Operation::ReadPin => {
                 PmbusValue::from(pmbus_read!(self.device, READ_PIN)?.get()?)
             }
-            Operation::PmbusRevision => PmbusValue::Raw8(
-                pmbus_read!(self.device, PMBUS_REVISION)?.get()?,
-            ),
+            Operation::PmbusRevision => {
+                let (val, width) =
+                    pmbus_read!(self.device, PMBUS_REVISION)?.raw();
+                assert_eq!(width.0, 8);
+                PmbusValue::Raw8(val as u8)
+            }
             Operation::MfrId => self.read_block::<9>(CommandCode::MFR_ID)?,
             Operation::MfrModel => {
                 self.read_block::<17>(CommandCode::MFR_MODEL)?
