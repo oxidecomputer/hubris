@@ -88,10 +88,7 @@ pub enum PmbusValue {
     Raw8(u8),
     Raw16(u16),
     Unitless(f32),
-    Block {
-        data: [u8; MAX_BLOCK_LEN],
-        len: u8,
-    },
+    Block { data: [u8; MAX_BLOCK_LEN], len: u8 },
 }
 
 impl From<pmbus::units::Celsius> for PmbusValue {
