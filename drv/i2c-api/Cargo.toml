@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+hubpack = { workspace = true }
+serde = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 ringbuf = { path = "../../lib/ringbuf" }

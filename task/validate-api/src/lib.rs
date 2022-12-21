@@ -8,9 +8,13 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
+pub use drv_i2c_api::Mux;
+pub use drv_i2c_api::Segment;
 pub use task_sensor_api::SensorId;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
@@ -43,6 +47,12 @@ pub enum ValidateOk {
     Present = 1,
     Validated = 2,
     Removed = 3,
+}
+
+#[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
+pub struct MuxSegment {
+    pub mux: Mux,
+    pub segment: Segment,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

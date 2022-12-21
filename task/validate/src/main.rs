@@ -9,7 +9,7 @@
 
 use idol_runtime::RequestError;
 use ringbuf::*;
-use task_validate_api::{ValidateError, ValidateOk};
+use task_validate_api::{MuxSegment, ValidateError, ValidateOk};
 use userlib::*;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -31,10 +31,11 @@ impl idl::InOrderValidateImpl for ServerImpl {
     fn validate_i2c(
         &mut self,
         _: &RecvMessage,
-        index: usize,
+        index: u32,
     ) -> Result<ValidateOk, RequestError<ValidateError>> {
         use i2c_config::validation::I2cValidation;
 
+        let index = index as usize;
         ringbuf_entry!(Trace::Validate(index));
 
         match i2c_config::validation::validate(I2C.get_task_id(), index) {
@@ -50,6 +51,34 @@ impl idl::InOrderValidateImpl for ServerImpl {
             },
         }
     }
+
+    //
+    // A quick-and-dirty entry point to indicate the last mux and segment to
+    // aid in debugging locked I2C bus conditions.
+    //
+    fn selected_mux_segment(
+        &mut self,
+        _: &RecvMessage,
+        index: u32,
+    ) -> Result<Option<MuxSegment>, RequestError<ValidateError>> {
+        use i2c_config::devices::{lookup_controller, lookup_port};
+
+        let index = index as usize;
+        let c = lookup_controller(index).ok_or(ValidateError::InvalidDevice)?;
+        let p = lookup_port(index).ok_or(ValidateError::InvalidDevice)?;
+
+        let task = I2C.get_task_id();
+        let device = drv_i2c_api::I2cDevice::new(task, c, p, None, 0);
+
+        match device.selected_mux_segment() {
+            Ok(None) => Ok(None),
+            Ok(Some((mux, segment))) => Ok(Some(MuxSegment { mux, segment })),
+            Err(err) => {
+                let err: ValidateError = err.into();
+                Err(err.into())
+            }
+        }
+    }
 }
 
 #[export_name = "main"]
@@ -63,7 +92,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{ValidateError, ValidateOk};
+    use super::{MuxSegment, ValidateError, ValidateOk};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
