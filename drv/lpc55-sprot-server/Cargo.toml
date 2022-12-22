@@ -13,6 +13,7 @@ num-traits = { workspace = true }
 salty = { workspace = true }
 sprockets-common = { workspace = true }
 sprockets-rot = { workspace = true }
+static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }

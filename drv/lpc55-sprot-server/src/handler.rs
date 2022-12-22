@@ -196,7 +196,7 @@ impl Handler {
                 let rot_updates = match self.update.status() {
                     UpdateStatus::Rot(rot_updates) => rot_updates,
                     UpdateStatus::LoadError(e) => return Err(e.into()),
-                    UpdateStatus::Sp => panic!(),
+                    _ => unreachable!(),
                 };
                 let status = SprotStatus {
                     supported: state.supported,

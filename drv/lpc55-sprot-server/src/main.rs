@@ -15,6 +15,7 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{Protocol, RxMsg, TxMsg, BUF_SIZE};
 use lpc55_pac as device;
+use static_assertions::const_assert;
 
 use crc::{Crc, CRC_32_CKSUM};
 use lpc55_romapi::bootrom;
@@ -193,8 +194,10 @@ fn main() -> ! {
         underrun: false,
     };
 
+    const_assert!(Protocol::V1 as u8 > 0 && (Protocol::V1 as u8) < 32);
+
     let mut state = LocalState {
-        supported: 1_u32 << (Protocol::V1 as u8),
+        supported: 1_u32 << (Protocol::V1 as u8 - 1),
         bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
         buffer_size: BUF_SIZE as u32,
         rx_received: 0,

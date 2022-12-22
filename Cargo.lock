@@ -1146,6 +1146,7 @@ dependencies = [
  "serde",
  "sprockets-common",
  "sprockets-rot",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]
