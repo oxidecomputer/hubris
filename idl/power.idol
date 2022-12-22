@@ -1,0 +1,21 @@
+// Power API
+
+Interface(
+    name: "Power",
+    ops: {
+        "pmbus_read": (
+            doc: "performs a pmbus read operation",
+            encoding: Hubpack,
+            args: {
+                "dev": "Device",
+                "rail": "u8",
+                "index": "u32",
+                "op": "Operation",
+            },
+            reply: Result(
+                ok: "PmbusValue",
+                err: CLike("ResponseCode"),
+            ),
+        ),
+    },
+)

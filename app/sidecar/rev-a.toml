@@ -300,7 +300,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 name = "task-power"
 features = ["itm", "sidecar"]
 priority = 6
-max-sizes = {flash = 16384, ram = 4096 }
+max-sizes = {flash = 32768, ram = 4096 }
 stacksize = 2048
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]
