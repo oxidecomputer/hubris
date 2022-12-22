@@ -1951,7 +1951,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-rot-state-msg#8495d85ea626b2df2fa4d2636473fc345dda7e48"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-rot-state-msg#488230a238becc39412ee33d3a7392c78f838c7e"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2167,16 +2167,6 @@ dependencies = [
 
 [[package]]
 name = "hubpack"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
-dependencies = [
-<<<<<<< HEAD
- "hubpack_derive 0.1.0",
- "serde",
-]
-
-[[package]]
-name = "hubpack"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf8f3c0e51b49dd73e277f8d157f7248e91b3597e3487884181b259682b715d3"
@@ -2186,17 +2176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hubpack_derive"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-<<<<<<< HEAD
 name = "hubpack_derive"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2407,7 +2386,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-update-api",
- "hubpack 0.1.1",
+ "hubpack",
  "hypocalls",
  "idol",
  "idol-runtime",
@@ -3554,7 +3533,7 @@ dependencies = [
 name = "stage0-handoff"
 version = "0.1.0"
 dependencies = [
- "hubpack 0.1.1",
+ "hubpack",
  "serde",
  "static_assertions",
 ]
@@ -3619,7 +3598,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "drv-update-api",
- "hubpack 0.1.1",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
