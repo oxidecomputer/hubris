@@ -47,7 +47,7 @@ Interface(
               err: CLike("SprotError"),
             ),
             encoding: Hubpack
-		),
+        ),
         "io_stats": (
             doc: "Return IO stats from RoT",
             reply: Result(
