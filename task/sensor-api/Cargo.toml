@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
+hubpack.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+zerocopy.workspace = true
 
-derive-idol-err = { path = "../../lib/derive-idol-err" }
-drv-i2c-api = { path = "../../drv/i2c-api" }
-userlib = { path = "../../sys/userlib" }
+derive-idol-err.path = "../../lib/derive-idol-err"
+drv-i2c-api.path = "../../drv/i2c-api"
+userlib.path = "../../sys/userlib"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
@@ -18,4 +20,14 @@ test = false
 bench = false
 
 [build-dependencies]
+anyhow = { workspace = true }
 idol = { workspace = true }
+serde = { workspace = true }
+
+build-i2c = { path = "../../build/i2c" }
+build-util = { path = "../../build/util" }
+
+[features]
+h743 = ["build-i2c/h743"]
+h753 = ["build-i2c/h753"]
+h7b3 = ["build-i2c/h7b3"]

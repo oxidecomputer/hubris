@@ -5,15 +5,10 @@ name = "gimlet-rot"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 
 [dependencies]
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-panic-itm = { workspace = true, optional = true }
-panic-halt = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 lpc55-pac = { workspace = true, features = ["rt"]}
 cfg-if = { workspace = true }
 

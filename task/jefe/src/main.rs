@@ -98,12 +98,11 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {
+    #[default]
     Restart,
-    Start,
     Hold,
-    Fault,
 }
 
 // We install a timeout to periodcally check for an external direction
@@ -120,10 +119,11 @@ const FAULT_MASK: u32 = 1 << 0;
 fn main() -> ! {
     sys_log!("viva el jefe");
 
-    let mut disposition: [Disposition; hubris_num_tasks::NUM_TASKS] =
-        [Disposition::Restart; hubris_num_tasks::NUM_TASKS];
-    let mut logged: [bool; hubris_num_tasks::NUM_TASKS] =
-        [false; hubris_num_tasks::NUM_TASKS];
+    let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
+    for held_task in generated::HELD_TASKS {
+        task_states[held_task as usize].disposition = Disposition::Hold;
+    }
+
     let deadline = sys_get_timer().now + TIMER_INTERVAL;
 
     sys_set_timer(Some(deadline), TIMER_MASK);
@@ -133,8 +133,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: 0,
         deadline,
-        disposition: &mut disposition,
-        logged: &mut logged,
+        task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
@@ -146,8 +145,7 @@ fn main() -> ! {
 
 struct ServerImpl<'s> {
     state: u32,
-    disposition: &'s mut [Disposition; NUM_TASKS],
-    logged: &'s mut [bool; NUM_TASKS],
+    task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
 }
@@ -204,50 +202,63 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     }
 }
 
+/// Structure we use for tracking the state of the tasks we supervise. There is
+/// one of these per supervised task.
+#[derive(Copy, Clone, Debug, Default)]
+struct TaskStatus {
+    disposition: Disposition,
+    holding_fault: bool,
+}
+
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         FAULT_MASK | TIMER_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        // Check to see if we have any external requests
-        let changed = external::check(self.disposition);
+        // Handle any external (debugger) requests.
+        external::check(self.task_states);
 
-        // If our timer went off, we need to reestablish it
         if bits & TIMER_MASK != 0 {
-            self.deadline += TIMER_INTERVAL;
-            sys_set_timer(Some(self.deadline), TIMER_MASK);
+            // If our timer went off, we need to reestablish it
+            if sys_get_timer().now >= self.deadline {
+                self.deadline += TIMER_INTERVAL;
+                sys_set_timer(Some(self.deadline), TIMER_MASK);
+            }
         }
 
-        // If our disposition has changed or if we have been notified of
-        // a faulting task, we need to iterate over all of our tasks.
-        if changed || (bits & FAULT_MASK) != 0 {
-            for i in 0..NUM_TASKS {
+        if bits & FAULT_MASK != 0 {
+            // Work out who faulted. It's theoretically possible for more than
+            // one task to have faulted since we last looked, but it's somewhat
+            // unlikely since a fault causes us to immediately preempt. In any
+            // case, let's assume we might have to handle multiple tasks.
+            //
+            // TODO: it would be fantastic to have a way of finding this out in
+            // one syscall.
+            for (i, status) in self.task_states.iter_mut().enumerate() {
+                // If we're aware that this task is in a fault state, don't
+                // bother making a syscall to enquire.
+                if status.holding_fault {
+                    continue;
+                }
+
                 match kipc::read_task_status(i) {
                     abi::TaskState::Faulted { fault, .. } => {
-                        if !self.logged[i] {
-                            log_fault(i, &fault);
-                            self.logged[i] = true;
-                        }
+                        // Well! A fault we didn't know about.
+                        log_fault(i, &fault);
 
-                        if self.disposition[i] == Disposition::Restart {
+                        if status.disposition == Disposition::Restart {
                             // Stand it back up
                             kipc::restart_task(i, true);
-                            self.logged[i] = false;
+                        } else {
+                            // Mark this one off so we don't revisit it until
+                            // requested.
+                            status.holding_fault = true;
                         }
                     }
 
-                    abi::TaskState::Healthy(abi::SchedState::Stopped) => {
-                        if self.disposition[i] == Disposition::Start {
-                            kipc::restart_task(i, true);
-                        }
-                    }
-
-                    abi::TaskState::Healthy(..) => {
-                        if self.disposition[i] == Disposition::Fault {
-                            kipc::fault_task(i);
-                        }
-                    }
+                    // For the purposes of this loop, ignore all other tasks.
+                    _ => (),
                 }
             }
         }

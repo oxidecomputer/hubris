@@ -5,17 +5,12 @@ name = "tests-stm32g0"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 g070 = ["stm32g0/stm32g070"]
 
 [dependencies]
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-panic-halt = { workspace = true, optional = true }
-panic-itm = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 stm32g0 = { workspace = true }
 
 kern = { path = "../../sys/kern" }

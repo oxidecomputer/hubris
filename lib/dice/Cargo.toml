@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 dice-mfg-msgs = { workspace = true }
 hkdf = { workspace = true }
+hmac = { workspace = true }
 hubpack = { workspace = true }
 lpc55-pac = { workspace = true }
 nb = { workspace = true }

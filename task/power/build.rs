@@ -2,13 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
-    let disposition = build_i2c::Disposition::Sensors;
+    idol::server::build_server_support(
+        "../../idl/power.idol",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
+    )?;
 
-    if let Err(e) = build_i2c::codegen(disposition) {
-        println!("code generation failed: {}", e);
-        std::process::exit(1);
-    }
+    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
+
+    Ok(())
 }

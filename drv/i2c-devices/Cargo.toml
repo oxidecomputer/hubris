@@ -15,6 +15,7 @@ derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-onewire = { path = "../onewire" }
 ringbuf = { path = "../../lib/ringbuf" }
+task-power-api = { path = "../../task/power-api" }
 userlib = { path = "../../sys/userlib" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

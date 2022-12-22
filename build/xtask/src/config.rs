@@ -450,20 +450,6 @@ impl Config {
         Ok(memories)
     }
 
-    pub fn image_memories(
-        &self,
-        region: String,
-    ) -> Result<IndexMap<String, Range<u32>>> {
-        let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
-        for a in &self.external_images {
-            if let Some(r) = self.memories(a)?.get(&region) {
-                memories.insert(a.clone(), r.start..r.end);
-            }
-        }
-
-        Ok(memories)
-    }
-
     /// Calculates the output region which contains the given address
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
         let vaddr = u32::try_from(vaddr).ok()?;

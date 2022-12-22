@@ -17,6 +17,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use task_power_api::PmbusValue;
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -35,6 +36,9 @@ enum PowerState {
     A2,
 }
 
+const TIMER_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 1000;
+
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
@@ -43,6 +47,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::sensors;
 
 #[allow(dead_code, clippy::upper_case_acronyms)]
+#[derive(Clone, Copy)]
 enum DeviceType {
     IBC,
     Core,
@@ -139,6 +144,24 @@ impl Device {
             _ => return Err(ResponseCode::NoDevice),
         };
         Ok(r)
+    }
+
+    fn pmbus_read(
+        &self,
+        op: task_power_api::Operation,
+    ) -> Result<PmbusValue, ResponseCode> {
+        let v = match &self {
+            Device::Mwocp68(dev) => dev.pmbus_read(op)?,
+            Device::Bmr491(_)
+            | Device::Raa229618(_)
+            | Device::Isl68224(_)
+            | Device::Tps546B24A(_)
+            | Device::Adm1272(_)
+            | Device::Max5970(_) => {
+                return Err(ResponseCode::OperationNotSupported)
+            }
+        };
+        Ok(v)
     }
 }
 
@@ -419,80 +442,153 @@ fn preinit() {
 fn main() -> ! {
     preinit();
 
-    let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
-
     let i2c_task = I2C.get_task_id();
 
-    let devices = claim_devices(i2c_task);
+    let mut server = ServerImpl {
+        i2c_task,
+        sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
+        devices: claim_devices(i2c_task),
+    };
+    let mut buffer = [0; idl::INCOMING_SIZE];
 
+    sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
     loop {
-        hl::sleep_for(1000);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
+    }
+}
 
+struct ServerImpl {
+    i2c_task: TaskId,
+    sensor: sensor_api::Sensor,
+    devices: &'static mut [Device; CONTROLLER_CONFIG.len()],
+}
+
+impl ServerImpl {
+    fn handle_timer_fired(&mut self) {
         let state = get_state();
+        let sensor = &self.sensor;
 
-        for (c, dev) in CONTROLLER_CONFIG.iter().zip(devices.iter_mut()) {
+        for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
             if c.state == PowerState::A0 && state != PowerState::A0 {
-                sensor.nodata(c.voltage, NoData::DeviceOff).unwrap();
-                sensor.nodata(c.current, NoData::DeviceOff).unwrap();
+                let now = sys_get_timer().now;
+                sensor.nodata(c.voltage, NoData::DeviceOff, now).unwrap();
+                sensor.nodata(c.current, NoData::DeviceOff, now).unwrap();
 
                 if let Some(id) = c.temperature {
-                    sensor.nodata(id, NoData::DeviceOff).unwrap();
+                    sensor.nodata(id, NoData::DeviceOff, now).unwrap();
                 }
 
                 continue;
             }
 
             if let Some(id) = c.temperature {
-                match dev.read_temperature() {
+                let r = dev.read_temperature();
+                let now = sys_get_timer().now;
+                match r {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError).unwrap();
+                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
                     }
                 }
             }
 
-            match dev.read_iout() {
+            let r = dev.read_iout();
+            let now = sys_get_timer().now;
+            match r {
                 Ok(reading) => {
-                    sensor.post(c.current, reading.0).unwrap();
+                    sensor.post(c.current, reading.0, now).unwrap();
                 }
                 Err(_) => {
-                    sensor.nodata(c.current, NoData::DeviceError).unwrap();
+                    sensor.nodata(c.current, NoData::DeviceError, now).unwrap();
                 }
             }
 
-            match dev.read_vout() {
+            let r = dev.read_vout();
+            let now = sys_get_timer().now;
+            match r {
                 Ok(reading) => {
-                    sensor.post(c.voltage, reading.0).unwrap();
+                    let now = sys_get_timer().now;
+                    sensor.post(c.voltage, reading.0, now).unwrap();
                 }
                 Err(_) => {
-                    sensor.nodata(c.voltage, NoData::DeviceError).unwrap();
+                    sensor.nodata(c.voltage, NoData::DeviceError, now).unwrap();
                 }
             }
 
             if let Some(id) = c.input_voltage {
-                match dev.read_vin() {
+                let r = dev.read_vin();
+                let now = sys_get_timer().now;
+                match r {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        let now = sys_get_timer().now;
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError).unwrap();
+                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
                     }
                 }
             }
 
             if let Some(id) = c.input_current {
-                match dev.read_iin() {
+                let r = dev.read_iin();
+                let now = sys_get_timer().now;
+                match r {
                     Ok(reading) => {
-                        sensor.post(id, reading.0).unwrap();
+                        let now = sys_get_timer().now;
+                        sensor.post(id, reading.0, now).unwrap();
                     }
                     Err(_) => {
-                        sensor.nodata(id, NoData::DeviceError).unwrap();
+                        sensor.nodata(id, NoData::DeviceError, now).unwrap();
                     }
                 }
             }
         }
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        self.handle_timer_fired();
+        sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
+    }
+}
+
+impl idl::InOrderPowerImpl for ServerImpl {
+    fn pmbus_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        req_dev: task_power_api::Device,
+        req_rail: u8,
+        req_index: u32,
+        op: task_power_api::Operation,
+    ) -> Result<PmbusValue, idol_runtime::RequestError<ResponseCode>> {
+        use task_power_api::Device;
+
+        // Skim through `CONTROLLER_CONFIG` looking for the requested device.
+        let device = CONTROLLER_CONFIG
+            .iter()
+            .filter_map(|dev| {
+                match (dev.device, req_dev) {
+                    // Filter down to only devices that match types...
+                    (DeviceType::PowerShelf, Device::PowerShelf) => {
+                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        // ... and rails
+                        (rail == req_rail)
+                            .then_some(dev.get_device(self.i2c_task))
+                    }
+                    _ => None,
+                }
+            })
+            .nth(req_index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        Ok(device.pmbus_read(op)?)
     }
 }
 
@@ -508,4 +604,9 @@ fn claim_devices(
             [|| iter.next().unwrap().get_device(i2c_task); _];
     );
     dev
+}
+
+mod idl {
+    use task_power_api::*;
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

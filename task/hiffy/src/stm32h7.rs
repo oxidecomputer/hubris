@@ -72,6 +72,8 @@ pub enum Functions {
         (Controller, PortIndex, Mux, Segment, u8, u8, usize, usize),
         ResponseCode,
     ),
+    #[cfg(feature = "i2c")]
+    I2cSelectedMuxSegment((Controller, PortIndex), ResponseCode),
     #[cfg(feature = "gpio")]
     GpioInput(drv_stm32xx_sys_api::Port, drv_stm32xx_sys_api::GpioError),
     #[cfg(feature = "gpio")]
@@ -372,6 +374,57 @@ fn i2c_bulk_write(
     }
 }
 
+#[cfg(feature = "i2c")]
+fn i2c_selected_mux_segment(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 2;
+
+    let controller = match stack[fp] {
+        Some(controller) => match Controller::from_u32(controller) {
+            Some(controller) => controller,
+            None => return Err(Failure::Fault(Fault::BadParameter(0))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    let port = match stack[fp + 1] {
+        Some(port) => {
+            if port > core::u8::MAX.into() {
+                return Err(Failure::Fault(Fault::BadParameter(1)));
+            }
+
+            PortIndex(port as u8)
+        }
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+        }
+    };
+
+    if rval.len() < 2 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let task = I2C.get_task_id();
+    let device = I2cDevice::new(task, controller, port, None, 0);
+
+    match device.selected_mux_segment() {
+        Ok(None) => Ok(0),
+        Ok(Some((mux, segment))) => {
+            rval[0] = mux as u8;
+            rval[1] = segment as u8;
+            Ok(2)
+        }
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
 #[cfg(feature = "gpio")]
 fn gpio_args(
     stack: &[Option<u32>],
@@ -570,6 +623,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     i2c_write,
     #[cfg(feature = "i2c")]
     i2c_bulk_write,
+    #[cfg(feature = "i2c")]
+    i2c_selected_mux_segment,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]

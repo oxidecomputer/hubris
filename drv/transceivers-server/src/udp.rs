@@ -7,9 +7,15 @@
 //! This is in a separate module to avoid polluting `main.rs` with a bunch of
 //! imports from the `transceiver_messages` crate; it simply adds more functions
 //! to our existing `ServerImpl`.
+//!
+//! All of the API types in `transceiver_messages` operate on **physical**
+//! ports, i.e. an FPGA paired by a physical port index (or mask).
 use crate::ServerImpl;
 use drv_sidecar_front_io::{
-    transceivers::{FpgaController, FpgaPortMasks, Transceivers},
+    transceivers::{
+        FpgaController, FpgaPortMasks, PhysicalPort, PhysicalPortMask,
+        PortLocation,
+    },
     Addr, Reg,
 };
 use drv_transceivers_api::PowerState;
@@ -60,12 +66,12 @@ fn get_mask(m: ModuleId) -> Result<FpgaPortMasks, Error> {
     let fpga_ports: u16 = m.ports.0;
     match m.fpga_id {
         0 => Ok(FpgaPortMasks {
-            left: fpga_ports,
-            right: 0,
+            left: PhysicalPortMask(fpga_ports),
+            right: PhysicalPortMask::default(),
         }),
         1 => Ok(FpgaPortMasks {
-            left: 0,
-            right: fpga_ports,
+            left: PhysicalPortMask::default(),
+            right: PhysicalPortMask(fpga_ports),
         }),
         i => Err(Error::InvalidFpga(i)),
     }
@@ -80,91 +86,92 @@ impl ServerImpl {
         rx_data_buf: &mut [u8],
         tx_data_buf: &mut [u8],
     ) {
-        const SOCKET: SocketName = SocketName::transceivers;
-
         match self.net.recv_packet(
-            SOCKET,
+            SocketName::transceivers,
             LargePayloadBehavior::Discard,
             rx_data_buf,
         ) {
-            Ok(mut meta) => {
-                // Modify meta.size based on the output packet size
-                let out_len =
-                    match hubpack::deserialize(
-                        &rx_data_buf[0..meta.size as usize],
-                    ) {
-                        Ok((msg, data)) => {
-                            self.handle_message(msg, data, tx_data_buf)
-                        }
-                        Err(e) => {
-                            // At this point, deserialization has failed, so we
-                            // can't handle the packet.  We'll attempt to
-                            // deserialize *just the header* (which should never
-                            // change), in the hopes of logging a more detailed
-                            // error message about a version mismatch.  If the
-                            // header deserializes correctly, we'll also return
-                            // a `ProtocolError` message to the host (since
-                            // we've got a packet number).
-                            ringbuf_entry!(Trace::DeserializeError(e));
-                            match hubpack::deserialize::<Header>(rx_data_buf) {
-                                Ok((header, _)) => {
-                                    if header.version == version::CURRENT {
-                                        Some(hubpack::serialize(
-                                            tx_data_buf,
-                                            &Message {
-                                                header,
-                                                modules: ModuleId::default(),
-                                                body: MessageBody::SpResponse(
-                                                    SpResponse::Error(
-                                                        Error::ProtocolError,
-                                                    ),
-                                                ),
-                                            },
-                                        )
-                                        .unwrap() as u32)
-                                    } else {
-                                        ringbuf_entry!(Trace::WrongVersion(
-                                            header.version
-                                        ));
-                                        None
-                                    }
-                                }
-                                Err(e) => {
-                                    ringbuf_entry!(
-                                        Trace::DeserializeHeaderError(e)
-                                    );
-                                    None
-                                }
-                            }
-                        }
-                    };
-
-                if let Some(out_len) = out_len {
-                    meta.size = out_len;
-                    if let Err(e) = self.net.send_packet(
-                        SOCKET,
-                        meta,
-                        &tx_data_buf[..meta.size as usize],
-                    ) {
-                        // We'll drop packets if the outgoing queue is full;
-                        // the host is responsible for retrying.
-                        //
-                        // Other errors are unexpected and panic.
-                        ringbuf_entry!(Trace::SendError(e));
-                        match e {
-                            SendError::QueueFull => (),
-                            SendError::Other
-                            | SendError::NotYours
-                            | SendError::InvalidVLan => panic!(),
-                        }
-                    }
-                }
-            }
+            Ok(meta) => self.handle_packet(meta, rx_data_buf, tx_data_buf),
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets
                 // in dispatch_n, back in the main loop.
             }
             Err(RecvError::NotYours | RecvError::Other) => panic!(),
+        }
+    }
+
+    fn handle_packet(
+        &mut self,
+        mut meta: UdpMetadata,
+        rx_data_buf: &[u8],
+        tx_data_buf: &mut [u8],
+    ) {
+        let out_len =
+            match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
+                Ok((msg, data)) => self.handle_message(msg, data, tx_data_buf),
+                Err(e) => {
+                    ringbuf_entry!(Trace::DeserializeError(e));
+                    self.handle_deserialization_error(rx_data_buf, tx_data_buf)
+                }
+            };
+
+        if let Some(out_len) = out_len {
+            // Modify meta.size based on the output packet size
+            meta.size = out_len;
+            if let Err(e) = self.net.send_packet(
+                SocketName::transceivers,
+                meta,
+                &tx_data_buf[..meta.size as usize],
+            ) {
+                // We'll drop packets if the outgoing queue is full;
+                // the host is responsible for retrying.
+                //
+                // Other errors are unexpected and panic.
+                ringbuf_entry!(Trace::SendError(e));
+                match e {
+                    SendError::QueueFull => (),
+                    SendError::Other
+                    | SendError::NotYours
+                    | SendError::InvalidVLan => panic!(),
+                }
+            }
+        }
+    }
+
+    /// At this point, deserialization has failed, so we can't handle the
+    /// packet.  We'll attempt to deserialize *just the header* (which should
+    /// never change), in the hopes of logging a more detailed error message
+    /// about a version mismatch.  If the header deserializes correctly, we'll
+    /// also return a `ProtocolError` message to the host (since we've got a
+    /// packet number).
+    fn handle_deserialization_error(
+        &mut self,
+        rx_data_buf: &[u8],
+        tx_data_buf: &mut [u8],
+    ) -> Option<u32> {
+        match hubpack::deserialize::<Header>(rx_data_buf) {
+            Ok((header, _)) => {
+                if header.version == version::CURRENT {
+                    let n = hubpack::serialize(
+                        tx_data_buf,
+                        &Message {
+                            header,
+                            modules: ModuleId::default(),
+                            body: MessageBody::SpResponse(SpResponse::Error(
+                                Error::ProtocolError,
+                            )),
+                        },
+                    );
+                    Some(n.unwrap() as u32)
+                } else {
+                    ringbuf_entry!(Trace::WrongVersion(header.version));
+                    None
+                }
+            }
+            Err(e) => {
+                ringbuf_entry!(Trace::DeserializeHeaderError(e));
+                None
+            }
         }
     }
 
@@ -271,35 +278,16 @@ impl ServerImpl {
             }
             HostRequest::SetPowerMode(mode) => {
                 let mask = get_mask(modules)?;
-                match mode {
-                    PowerMode::Off => {
-                        self.transceivers
-                            .set_power_state(PowerState::A3, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                    PowerMode::Low => {
-                        self.transceivers
-                            .set_power_state(PowerState::A2, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                    PowerMode::High => {
-                        self.transceivers
-                            .set_power_state(PowerState::A0, mask)
-                            .map_err(|_e| {
-                                Error::PowerModeFailed(
-                                    HwError::ControlPortWriteFailed,
-                                )
-                            })?;
-                    }
-                }
+                let state = match mode {
+                    PowerMode::Off => PowerState::A3,
+                    PowerMode::Low => PowerState::A2,
+                    PowerMode::High => PowerState::A0,
+                };
+                self.transceivers.set_power_state(state, mask).map_err(
+                    |_e| {
+                        Error::PowerModeFailed(HwError::ControlPortWriteFailed)
+                    },
+                )?;
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::ManagementInterface(i) => {
@@ -432,7 +420,7 @@ impl ServerImpl {
             .transceivers
             .wait_and_check_i2c(mask)
             .map_err(|_e| HwError::WaitFailed)?;
-        if err_mask.left != 0 || err_mask.right != 0 {
+        if !err_mask.left.is_empty() || !err_mask.right.is_empty() {
             // FPGA reported an I2C error
             return Err(HwError::I2cError);
         }
@@ -445,7 +433,6 @@ impl ServerImpl {
         modules: ModuleId,
         out: &mut [u8],
     ) -> Result<(), Error> {
-        let controller = get_fpga(modules)?;
         let mask = get_mask(modules)?;
 
         // Switch pages (if necessary)
@@ -457,8 +444,6 @@ impl ServerImpl {
             .setup_i2c_read(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::ReadFailed(HwError::ReadSetupFailed))?;
 
-        let fpga = self.transceivers.fpga(controller);
-
         for (port, out) in modules
             .ports
             .to_indices()
@@ -469,12 +454,17 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
+            let port = PortLocation {
+                controller: get_fpga(modules)?,
+                port: PhysicalPort(port),
+            };
             loop {
-                fpga.read_bytes(
-                    Transceivers::read_status_address(port),
-                    &mut buf[0..(out.len() + 1)],
-                )
-                .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
+                self.transceivers
+                    .get_i2c_status_and_read_buffer(
+                        port,
+                        &mut buf[0..(out.len() + 1)],
+                    )
+                    .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
                 let status = buf[0];
 
                 // Use QSFP::PORT0 for constants, since they're all identical

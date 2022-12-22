@@ -938,7 +938,8 @@ fn build_kernel(
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &cfg.toml.image_memories("flash".to_string())?,
+        &cfg.toml.all_regions("flash".to_string())?,
+        &image_name,
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -1020,18 +1021,17 @@ fn update_image_header(
                 let flash = map.get("flash").unwrap();
 
                 // Compute the total image size by finding the highest address
-                // from all the tasks built. Because this is the kernel all
-                // tasks must be built
-                let mut end = 0;
-
-                for (addr, sec) in all_output_sections {
-                    if (*addr as u32) > flash.start
-                        && (*addr as u32) < flash.end
-                        && (*addr as u32) > end
-                    {
-                        end = addr + (sec.data.len() as u32);
-                    }
-                }
+                // from all the tasks built.
+                let end = all_output_sections
+                    .iter()
+                    .filter(|(addr, _sec)| flash.contains(addr))
+                    .map(|(&addr, sec)| addr + sec.data.len() as u32)
+                    .max();
+                // Normally, at this point, all tasks are built, so we can
+                // compute the actual number. However, in the specific case of
+                // `xtask build kernel`, we need a result from this calculation
+                // but `end` will be `None`. Substitute a placeholder:
+                let end = end.unwrap_or(flash.start);
 
                 let len = end - flash.start;
 
@@ -1226,6 +1226,18 @@ fn generate_task_linker_script(
         emit(&mut linkscr, &name, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
+    append_image_names(&mut linkscr, images, image_name)?;
+    append_task_sections(&mut linkscr, sections)?;
+
+    Ok(())
+}
+
+fn append_image_names(
+    linkscr: &mut std::fs::File,
+
+    images: &IndexMap<String, Range<u32>>,
+    image_name: &str,
+) -> Result<()> {
     for (name, out) in images {
         if name == image_name {
             writeln!(linkscr, "__this_image = {:#010x};", out.start)?;
@@ -1243,8 +1255,6 @@ fn generate_task_linker_script(
             out.end
         )?;
     }
-
-    append_task_sections(&mut linkscr, sections)?;
 
     Ok(())
 }
@@ -1272,6 +1282,7 @@ fn generate_kernel_linker_script(
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
+    image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1318,32 +1329,13 @@ fn generate_kernel_linker_script(
         )
         .unwrap();
     }
-
-    for (name, out) in images {
-        writeln!(
-            linkscr,
-            "IMAGE{}_FLASH (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-            name.to_uppercase(),
-            out.start,
-            out.end - out.start
-        )
-        .unwrap();
-    }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
 
-    for (name, _) in images {
-        writeln!(
-            linkscr,
-            "IMAGE{} = ORIGIN(IMAGE{}_FLASH);",
-            name.to_uppercase(),
-            name.to_uppercase(),
-        )
-        .unwrap();
-    }
+    append_image_names(&mut linkscr, images, image_name)?;
     Ok(())
 }
 

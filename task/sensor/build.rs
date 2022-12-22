@@ -4,13 +4,10 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
-    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
-
     idol::server::build_server_support(
         "../../idl/sensor.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
     )?;
-
     Ok(())
 }

@@ -93,8 +93,9 @@ impl MgsHandler {
         let usart = UsartHandler::claim_static_resources();
 
         // XXX For now, we want to default to these options.
-        let startup_options =
-            HostStartupOptions::STARTUP_KMDB | HostStartupOptions::STARTUP_PROM;
+        let startup_options = HostStartupOptions::STARTUP_KMDB
+            | HostStartupOptions::STARTUP_PROM
+            | HostStartupOptions::STARTUP_VERBOSE;
 
         Self {
             common: MgsCommon::claim_static_resources(),

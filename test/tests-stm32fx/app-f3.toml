@@ -7,7 +7,7 @@ stacksize = 2048
 [kernel]
 name = "demo-stm32f4-discovery"
 requires = {flash = 65536, ram = 4096}
-features = ["itm", "stm32f3"]
+features = ["stm32f3"]
 
 [tasks.runner]
 name = "test-runner"

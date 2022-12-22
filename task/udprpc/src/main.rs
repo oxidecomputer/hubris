@@ -22,9 +22,6 @@ enum RpcReply {
     /// The size of the packet does not agree with the number of bytes specified
     /// in the `nbytes` field of the packet
     NBytesMismatch,
-    /// The result of the function does not agree with the number of bytes
-    /// specified in the `nreply` field of the packet
-    NReplyMismatch,
     /// The output would overflow `tx_data_buf`
     NReplyOverflow,
 }
@@ -56,8 +53,8 @@ fn main() -> ! {
 
     // The output format is dependent on status code.  The first byte is always
     // a member of `RpcReply` as a `u8`.
-    // - `NBytesMismatch`, `NReplyMismatch`, `NReplyOverflow` return nothing
-    //   else (so the reply is 1 byte)
+    // - `NBytesMismatch`, `NReplyOverflow` return nothing else (so the reply is
+    //   1 byte)
     // - `BadImageId` is followed by the *actual* 64-bit image id as a
     //   little-endian value
     // - `Ok` is followed by the return code as a 32-bit, little-endian value,
@@ -86,7 +83,7 @@ fn main() -> ! {
                             .unwrap();
 
                     let nbytes = header.nbytes.get() as usize;
-                    let nreply = header.nreply.get() as usize;
+                    let mut nreply = header.nreply.get() as usize;
 
                     let r = if image_id != header.image_id.get() {
                         tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
@@ -112,14 +109,19 @@ fn main() -> ! {
                             tx_data,
                             &[],
                         );
-                        if rc == 0 && len != nreply {
-                            RpcReply::NReplyMismatch
-                        } else {
-                            // Store the return code
-                            tx_data_buf[1..5]
-                                .copy_from_slice(&rc.to_be_bytes());
-                            RpcReply::Ok
-                        }
+
+                        // Store the return code
+                        tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
+
+                        // For idol calls with ssmarshal or hubpack encoding,
+                        // the actual reply len may be less than `nreply` (the
+                        // max possible encoding length); fill in the
+                        // possibly-truncated length here. We know `len` is at
+                        // most `nreply`: if it weren't, `sys_send()` would have
+                        // faulted us for providing a too-short buffer.
+                        nreply = len;
+
+                        RpcReply::Ok
                     };
                     (r, nreply)
                 };
@@ -129,8 +131,7 @@ fn main() -> ! {
                 meta.size = match r {
                     RpcReply::TooShort
                     | RpcReply::NBytesMismatch
-                    | RpcReply::NReplyOverflow
-                    | RpcReply::NReplyMismatch => 1,
+                    | RpcReply::NReplyOverflow => 1,
                     RpcReply::BadImageId => {
                         (1 + core::mem::size_of_val(&image_id)) as u32
                     }

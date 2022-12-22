@@ -31,8 +31,10 @@ use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
-use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
-use userlib::units::PWMDuty;
+use task_thermal_api::{
+    ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+};
+use userlib::units::{Celsius, PWMDuty};
 use userlib::*;
 
 // We define our own Fan type, as we may have more fans than any single
@@ -72,6 +74,7 @@ struct ServerImpl<'a> {
     mode: ThermalMode,
     control: ThermalControl<'a>,
     deadline: u64,
+    runtime: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
@@ -233,6 +236,42 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         }
         Ok(self.control.get_margin())
     }
+
+    fn update_dynamic_input(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+        time: u64,
+        model: ThermalProperties,
+        temperature: Celsius,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control
+            .update_dynamic_input(index, time, model, temperature)
+            .map_err(RequestError::from)
+    }
+
+    fn remove_dynamic_input(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        self.control
+            .remove_dynamic_input(index)
+            .map_err(RequestError::from)
+    }
+
+    fn get_runtime(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u64, RequestError<ThermalError>> {
+        Ok(self.runtime)
+    }
 }
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
@@ -265,6 +304,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             }
             self.deadline = now + TIMER_INTERVAL;
         }
+        self.runtime = sys_get_timer().now - now;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
     }
 }
@@ -289,12 +329,23 @@ fn main() -> ! {
         mode: ThermalMode::Off,
         control,
         deadline,
+        runtime: 0,
     };
     if bsp::USE_CONTROLLER {
         server.set_mode_auto().unwrap();
     } else {
         server.set_mode_manual(PWMDuty(0)).unwrap();
     }
+
+    //
+    // We enable the fan watchdog, but with its longest timeout of 30 seconds.
+    // This is longer than it takes to flash on Gimlet -- and right on the edge
+    // of how long it takes to dump.  On some platforms and/or under some
+    // conditions, "humility dump" might be able to induce the watchdog to kick,
+    // which may induce a flight-or-fight reaction for whomever is near the
+    // fans when they blast off...
+    //
+    server.set_watchdog(I2cWatchdog::ThirtySeconds).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -305,7 +356,9 @@ fn main() -> ! {
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ThermalAutoState, ThermalError, ThermalMode};
+    use super::{
+        Celsius, ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+    };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 

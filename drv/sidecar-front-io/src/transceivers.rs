@@ -19,18 +19,42 @@ pub enum FpgaController {
     Right = 1,
 }
 
-// The necessary information to control a given port.
+/// Physical port location
 #[derive(Copy, Clone)]
 pub struct PortLocation {
     pub controller: FpgaController,
-    pub port: u8,
+    pub port: PhysicalPort,
+}
+
+/// Physical port location within a particular FPGA, as a 0-15 index
+#[derive(Copy, Clone)]
+pub struct PhysicalPort(pub u8);
+impl PhysicalPort {
+    pub fn as_mask(&self) -> PhysicalPortMask {
+        PhysicalPortMask(1 << self.0)
+    }
+}
+
+/// Physical port mask within a particular FPGA, as a 16-bit bitfield
+#[derive(Copy, Clone, Default)]
+pub struct PhysicalPortMask(pub u16);
+impl PhysicalPortMask {
+    pub fn set(&mut self, i: PhysicalPort) {
+        self.0 |= i.as_mask().0
+    }
+    pub fn is_set(&self, i: PhysicalPort) -> bool {
+        self.0 & i.as_mask().0 != 0
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
 }
 
 /// Physical port maps, using bitfields to mark active ports
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct FpgaPortMasks {
-    pub left: u16,
-    pub right: u16,
+    pub left: PhysicalPortMask,
+    pub right: PhysicalPortMask,
 }
 
 impl FpgaPortMasks {
@@ -39,8 +63,8 @@ impl FpgaPortMasks {
     /// (possibilities include `Left`, `Right`, both, or none)
     fn iter_fpgas(&self) -> impl Iterator<Item = FpgaController> {
         let out = [
-            Some(FpgaController::Left).filter(|_| self.left != 0),
-            Some(FpgaController::Right).filter(|_| self.right != 0),
+            Some(FpgaController::Left).filter(|_| !self.left.is_empty()),
+            Some(FpgaController::Right).filter(|_| !self.right.is_empty()),
         ];
         out.into_iter().flatten()
     }
@@ -52,185 +76,200 @@ impl FpgaPortMasks {
 /// index 0 is for port 0, and so on. The ports numbered 0-15 left to right
 /// across the top of the board and 16-31 left to right across the bottom. The
 /// ports are split up between the FPGAs based on locality, not logically and
-/// the FPGAs share code, resulting in each one reporting in terms of ports 0-15
-/// . This is the FPGA -> logical mapping.
+/// the FPGAs share code, resulting in each one reporting in terms of ports
+/// 0-15.
+///
+/// This is the FPGA -> logical mapping.
 const PORT_MAP: [PortLocation; 32] = [
     // Port 0
     PortLocation {
         controller: FpgaController::Left,
-        port: 0,
+        port: PhysicalPort(0),
     },
     // Port 1
     PortLocation {
         controller: FpgaController::Left,
-        port: 1,
+        port: PhysicalPort(1),
     },
     // Port 2
     PortLocation {
         controller: FpgaController::Left,
-        port: 2,
+        port: PhysicalPort(2),
     },
     // Port 3
     PortLocation {
         controller: FpgaController::Left,
-        port: 3,
+        port: PhysicalPort(3),
     },
     // Port 4
     PortLocation {
         controller: FpgaController::Left,
-        port: 4,
+        port: PhysicalPort(4),
     },
     // Port 5
     PortLocation {
         controller: FpgaController::Left,
-        port: 5,
+        port: PhysicalPort(5),
     },
     // Port 6
     PortLocation {
         controller: FpgaController::Left,
-        port: 6,
+        port: PhysicalPort(6),
     },
     // Port 7
     PortLocation {
         controller: FpgaController::Left,
-        port: 7,
+        port: PhysicalPort(7),
     },
     // Port 8
     PortLocation {
         controller: FpgaController::Right,
-        port: 0,
+        port: PhysicalPort(0),
     },
     // Port 9
     PortLocation {
         controller: FpgaController::Right,
-        port: 1,
+        port: PhysicalPort(1),
     },
     // Port 10
     PortLocation {
         controller: FpgaController::Right,
-        port: 2,
+        port: PhysicalPort(2),
     },
     // Port 11
     PortLocation {
         controller: FpgaController::Right,
-        port: 3,
+        port: PhysicalPort(3),
     },
     // Port 12
     PortLocation {
         controller: FpgaController::Right,
-        port: 4,
+        port: PhysicalPort(4),
     },
     // Port 13
     PortLocation {
         controller: FpgaController::Right,
-        port: 5,
+        port: PhysicalPort(5),
     },
     // Port 14
     PortLocation {
         controller: FpgaController::Right,
-        port: 6,
+        port: PhysicalPort(6),
     },
     // Port 15
     PortLocation {
         controller: FpgaController::Right,
-        port: 7,
+        port: PhysicalPort(7),
     },
     // Port 16
     PortLocation {
         controller: FpgaController::Left,
-        port: 8,
+        port: PhysicalPort(8),
     },
     // Port 17
     PortLocation {
         controller: FpgaController::Left,
-        port: 9,
+        port: PhysicalPort(9),
     },
     // Port 18
     PortLocation {
         controller: FpgaController::Left,
-        port: 10,
+        port: PhysicalPort(10),
     },
     // Port 19
     PortLocation {
         controller: FpgaController::Left,
-        port: 11,
+        port: PhysicalPort(11),
     },
     // Port 20
     PortLocation {
         controller: FpgaController::Left,
-        port: 12,
+        port: PhysicalPort(12),
     },
     // Port 21
     PortLocation {
         controller: FpgaController::Left,
-        port: 13,
+        port: PhysicalPort(13),
     },
     // Port 22
     PortLocation {
         controller: FpgaController::Left,
-        port: 14,
+        port: PhysicalPort(14),
     },
     // Port 23
     PortLocation {
         controller: FpgaController::Left,
-        port: 15,
+        port: PhysicalPort(15),
     },
     // Port 24
     PortLocation {
         controller: FpgaController::Right,
-        port: 8,
+        port: PhysicalPort(8),
     },
     // Port 25
     PortLocation {
         controller: FpgaController::Right,
-        port: 9,
+        port: PhysicalPort(9),
     },
     // Port 26
     PortLocation {
         controller: FpgaController::Right,
-        port: 10,
+        port: PhysicalPort(10),
     },
     // Port 27
     PortLocation {
         controller: FpgaController::Right,
-        port: 11,
+        port: PhysicalPort(11),
     },
     // Port 28
     PortLocation {
         controller: FpgaController::Right,
-        port: 12,
+        port: PhysicalPort(12),
     },
     // Port 29
     PortLocation {
         controller: FpgaController::Right,
-        port: 13,
+        port: PhysicalPort(13),
     },
     // Port 30
     PortLocation {
         controller: FpgaController::Right,
-        port: 14,
+        port: PhysicalPort(14),
     },
     // Port 31
     PortLocation {
         controller: FpgaController::Right,
-        port: 15,
+        port: PhysicalPort(15),
     },
 ];
 
+/// Represents a set of selected logical ports, i.e. a 32-bit bitmask
+#[derive(Copy, Clone, Debug)]
+pub struct LogicalPortMask(pub u32);
+
+/// Represents a single logical port (0-31)
+#[derive(Copy, Clone, Debug)]
+pub struct LogicalPort(pub u8);
+impl LogicalPort {
+    pub fn as_mask(&self) -> LogicalPortMask {
+        LogicalPortMask(1 << self.0)
+    }
+}
+
 // Maps logical port `mask` to physical FPGA locations
-impl From<u32> for FpgaPortMasks {
-    fn from(mask: u32) -> FpgaPortMasks {
-        let mut fpga_port_masks = FpgaPortMasks { left: 0, right: 0 };
+impl From<LogicalPortMask> for FpgaPortMasks {
+    fn from(mask: LogicalPortMask) -> FpgaPortMasks {
+        let mut fpga_port_masks = FpgaPortMasks::default();
 
         for (i, port_loc) in PORT_MAP.iter().enumerate() {
             let port_mask: u32 = 1 << i;
-            if (mask & port_mask) != 0 {
+            if (mask.0 & port_mask) != 0 {
                 match port_loc.controller {
                     FpgaController::Left => {
-                        fpga_port_masks.left |= 1 << port_loc.port
+                        fpga_port_masks.left.set(port_loc.port);
                     }
                     FpgaController::Right => {
-                        fpga_port_masks.right |= 1 << port_loc.port
+                        fpga_port_masks.right.set(port_loc.port);
                     }
                 }
             }
@@ -240,9 +279,9 @@ impl From<u32> for FpgaPortMasks {
     }
 }
 
-impl From<u8> for PortLocation {
-    fn from(port: u8) -> PortLocation {
-        PORT_MAP[port as usize]
+impl From<LogicalPort> for PortLocation {
+    fn from(port: LogicalPort) -> PortLocation {
+        PORT_MAP[port.0 as usize]
     }
 }
 
@@ -274,13 +313,13 @@ impl Transceivers {
                 FpgaController::Right => fpga_masks.right,
             };
 
-            if mask != 0 {
+            if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
                 for port in 0..16 {
-                    if mask & (1 << port) != 0 {
+                    if mask.is_set(PhysicalPort(port)) {
                         fpga.write(
                             WriteOp::Write,
-                            Addr::QSFP_CONTROL_PORT0 as u16 + port,
+                            Addr::QSFP_CONTROL_PORT0 as u16 + u16::from(port),
                             value,
                         )?;
                     }
@@ -300,13 +339,14 @@ impl Transceivers {
             .fpga(FpgaController::Right)
             .read(Addr::QSFP_CTRL_EN_H)?;
 
+        // Philosophically, this should be a [LogicalPort; 8], but we don't expose
+        // that type in the transceivers API.
         let mut status_masks: [u32; 8] = [0; 8];
 
-        // loop through each port
-        for (port, port_loc) in PORT_MAP.iter().enumerate() {
-            // get a mask for where the current logical port is mapped
-            // locally on the FPGA
-            let local_port_mask = 1 << port_loc.port;
+        // loop through each logical port
+        for port in (0..32).map(LogicalPort) {
+            // Convert to a physical port using PORT_MAP
+            let port_loc: PortLocation = port.into();
 
             // get the relevant data from the correct FPGA
             let local_data = match port_loc.controller {
@@ -318,9 +358,9 @@ impl Transceivers {
             for (word, out) in local_data.iter().zip(status_masks.iter_mut()) {
                 // if the bit is set, update our status mask at the correct
                 // logical position
-                let word: u16 = (*word).into();
-                if (word & local_port_mask) != 0 {
-                    *out |= 1 << port;
+                let word: PhysicalPortMask = PhysicalPortMask((*word).into());
+                if word.is_set(port_loc.port) {
+                    *out |= 1 << port.0;
                 }
             }
         }
@@ -346,7 +386,7 @@ impl Transceivers {
                 FpgaController::Left => &f0,
                 FpgaController::Right => &f1,
             };
-            let power_status_field = (local_data[port_loc.port as usize]
+            let power_status_field = (local_data[port_loc.port.0 as usize]
                 & Reg::QSFP::CONTROL_PORT0::POWER_STATE)
                 >> 5;
             data[port] = power_status_field
@@ -462,11 +502,11 @@ impl Transceivers {
             TransceiverI2COperation::Write
         };
 
-        if fpga_masks.left != 0 {
+        if !fpga_masks.left.is_empty() {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga_masks.left),
+                mask: U16::new(fpga_masks.left.0),
                 op: i2c_op as u8,
             };
 
@@ -477,11 +517,11 @@ impl Transceivers {
             )?;
         }
 
-        if fpga_masks.right != 0 {
+        if !fpga_masks.right.is_empty() {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga_masks.right),
+                mask: U16::new(fpga_masks.right.0),
                 op: i2c_op as u8,
             };
             self.fpga(FpgaController::Right).write(
@@ -507,6 +547,20 @@ impl Transceivers {
             .read_bytes(Self::read_buffer_address(port_loc.port), buf)
     }
 
+    /// Get `buf.len()` bytes of data, where the first byte is port status and
+    /// trailing bytes are the I2C read buffer for a `port`. The buffer stores
+    /// data from the last I2C read transaction done and thus only the number of
+    /// bytes read will be valid in the buffer.
+    pub fn get_i2c_status_and_read_buffer<P: Into<PortLocation>>(
+        &self,
+        port: P,
+        buf: &mut [u8],
+    ) -> Result<(), FpgaError> {
+        let port_loc = port.into();
+        self.fpga(port_loc.controller)
+            .read_bytes(Self::read_status_address(port_loc.port), buf)
+    }
+
     /// Write `buf.len()` bytes of data into the I2C write buffer. Upon a write
     /// transaction happening, the number of bytes specified will be pulled from
     /// the write buffer. Setting data in the write buffer does not require a
@@ -530,8 +584,8 @@ impl Transceivers {
     }
 
     /// For a given `local_port`, return the Addr where its read buffer begins
-    pub fn read_buffer_address(local_port: u8) -> Addr {
-        match local_port % 16 {
+    pub fn read_buffer_address(local_port: PhysicalPort) -> Addr {
+        match local_port.0 % 16 {
             0 => Addr::QSFP_PORT0_READ_BUFFER,
             1 => Addr::QSFP_PORT1_READ_BUFFER,
             2 => Addr::QSFP_PORT2_READ_BUFFER,
@@ -552,8 +606,8 @@ impl Transceivers {
         }
     }
 
-    pub fn read_status_address(local_port: u8) -> Addr {
-        match local_port % 16 {
+    pub fn read_status_address(local_port: PhysicalPort) -> Addr {
+        match local_port.0 % 16 {
             0 => Addr::QSFP_PORT0_STATUS,
             1 => Addr::QSFP_PORT1_STATUS,
             2 => Addr::QSFP_PORT2_STATUS,
@@ -582,6 +636,8 @@ impl Transceivers {
                 Addr::LED_CTRL,
                 Reg::LED_CTRL::RESET,
             )?;
+
+            fpga.write(WriteOp::BitSet, Addr::LED_CTRL, Reg::LED_CTRL::OE)?;
         }
 
         Ok(())
@@ -595,7 +651,7 @@ impl Transceivers {
         &mut self,
         mask: FpgaPortMasks,
     ) -> Result<FpgaPortMasks, FpgaError> {
-        let mut out = FpgaPortMasks { left: 0, right: 0 };
+        let mut out = FpgaPortMasks::default();
 
         #[derive(AsBytes, Default, FromBytes)]
         #[repr(C)]
@@ -620,20 +676,21 @@ impl Transceivers {
                 FpgaController::Left => mask.left,
                 FpgaController::Right => mask.right,
             };
-            for port in 0..16 {
-                if mask & (1 << port) == 0 {
+            for port in (0..16).map(PhysicalPort) {
+                if !mask.is_set(port) {
                     continue;
                 }
                 // Each error byte packs together two ports
-                let err = status.err[port / 2] >> ((port % 2) * 4);
+                let err = status.err[port.0 as usize / 2]
+                    >> ((port.0 as usize % 2) * 4);
 
                 // For now, check for the presence of an error, but don't bother
                 // reporting the details.
                 let has_err = (err & 0b1000) != 0;
                 if has_err {
                     match fpga_index {
-                        FpgaController::Left => out.left |= 1 << port,
-                        FpgaController::Right => out.right |= 1 << port,
+                        FpgaController::Left => out.left.set(port),
+                        FpgaController::Right => out.right.set(port),
                     }
                 }
             }

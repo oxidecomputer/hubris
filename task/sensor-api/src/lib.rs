@@ -8,41 +8,89 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(zerocopy::AsBytes, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(
+    zerocopy::AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(C)]
-pub struct SensorId(pub usize);
+pub struct SensorId(pub u32);
 
-impl From<usize> for SensorId {
-    fn from(id: usize) -> Self {
+impl From<u32> for SensorId {
+    fn from(id: u32) -> Self {
         SensorId(id)
     }
 }
 
-impl From<SensorId> for usize {
+impl From<SensorId> for u32 {
     fn from(id: SensorId) -> Self {
         id.0
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Reading {
-    Absent,
-    Value(f32),
-    NoData(NoData),
+#[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
+pub struct Reading {
+    pub timestamp: u64,
+    pub value: f32,
 }
 
+impl Reading {
+    pub fn new(value: f32, timestamp: u64) -> Self {
+        Self { timestamp, value }
+    }
+}
+
+//
+// Note that [`counter_encoding`] relies on [`NoData`] being numbered from 0 and
+// being numbered sequentially.
+//
 #[derive(
     zerocopy::AsBytes, Copy, Clone, Debug, FromPrimitive, Eq, PartialEq,
 )]
 #[repr(u8)]
 pub enum NoData {
-    DeviceOff,
-    DeviceError,
-    DeviceNotPresent,
-    DeviceUnavailable,
-    DeviceTimeout,
+    DeviceOff = 0,
+    DeviceError = 1,
+    DeviceNotPresent = 2,
+    DeviceUnavailable = 3,
+    DeviceTimeout = 4,
+}
+
+impl NoData {
+    ///
+    /// Routine to determine the number of bits and size of shift
+    /// to pack a counter for each [`NoData`] variant into type `T`.
+    ///
+    pub fn counter_encoding<T>(self) -> (usize, usize) {
+        //
+        // We need to encode the number of variants in [`NoData`] here.  There
+        // is a very convenient core::mem::variant_count() that does exactly
+        // this, but it's currently unstable -- so instead we have an
+        // exhaustive match to assure that the enum can't be updated without
+        // modifying this code.
+        //
+        let nbits = (core::mem::size_of::<T>() * 8)
+            / match self {
+                NoData::DeviceOff
+                | NoData::DeviceError
+                | NoData::DeviceNotPresent
+                | NoData::DeviceUnavailable
+                | NoData::DeviceTimeout => 5,
+            };
+
+        let shift = (self as usize) * nbits;
+        (nbits, shift)
+    }
 }
 
 impl From<ResponseCode> for NoData {
@@ -82,3 +130,4 @@ impl From<NoData> for SensorError {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+include!(concat!(env!("OUT_DIR"), "/sensor_config.rs"));

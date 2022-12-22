@@ -15,7 +15,6 @@ cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 digest = { workspace = true, optional = false}
 ecdsa = { workspace = true }
-hmac = { workspace = true }
 hubpack = { workspace = true, optional = false}
 lpc55-pac = { workspace = true, features = ["rt"] }
 nb = { workspace = true }

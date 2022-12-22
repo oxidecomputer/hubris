@@ -8,17 +8,6 @@ stacksize = 896
 [kernel]
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
-#
-# For the kernel (and for any task that logs), we are required to enable
-# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
-# Macrocell) or "semihosting" (denoting logging/panicking via ARM
-# semihosting).  We are biased to ITM because semihosting is excruciatingly
-# slow (it is breakpoint based) and has an undesirable failure mode if logging
-# output is generated and debugger is not attached (namely, the target stops).
-# If one does choose to change this to semihosting for purposes of
-# development, be sure to also change it in every task of interest.
-#
-features = ["itm"]
 
 [tasks.jefe]
 name = "task-jefe"
@@ -27,6 +16,9 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+
+[tasks.jefe.config]
+tasks-to-hold = ["thermal"]
 
 [tasks.jefe.config.on-state-change]
 net = {bit-number = 3}
@@ -192,8 +184,8 @@ interrupts = {"flash_controller.irq" = 0b1}
 name = "task-sensor"
 features = ["itm"]
 priority = 4
-max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 3800        # Sensor data is stored on the stack
+max-sizes = {flash = 8192, ram = 8192 }
+stacksize = 1024
 start = true
 
 [tasks.host_sp_comms]

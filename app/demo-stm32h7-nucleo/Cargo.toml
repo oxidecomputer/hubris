@@ -5,8 +5,6 @@ name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-startup/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-startup/h753"]
 
@@ -14,9 +12,6 @@ h753 = ["stm32h7/stm32h753", "drv-stm32h7-startup/h753"]
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
-panic-halt = { workspace = true, optional = true }
-panic-itm = { workspace = true, optional = true }
-panic-semihosting = { workspace = true, optional = true }
 stm32h7 = { workspace = true, features = ["rt"] }
 
 drv-stm32h7-startup = {path = "../../drv/stm32h7-startup"}

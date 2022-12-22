@@ -43,9 +43,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -529,16 +526,6 @@ dependencies = [
 
 [[package]]
 name = "crypto-mac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
-name = "crypto-mac"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
@@ -611,9 +598,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32f3",
  "stm32f4",
 ]
@@ -627,9 +611,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -643,9 +624,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -723,11 +701,12 @@ dependencies = [
  "chrono",
  "dice-mfg-msgs",
  "hkdf",
- "hubpack 0.1.1",
+ "hmac 0.12.1",
+ "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "serde-big-array",
  "sha3",
@@ -744,7 +723,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/dice-util#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
 dependencies = [
  "corncobs",
- "hubpack 0.1.1",
+ "hubpack",
  "serde",
  "serde-big-array",
  "zerocopy",
@@ -971,8 +950,10 @@ name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "hubpack",
  "num-traits",
  "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]
@@ -990,6 +971,7 @@ dependencies = [
  "pmbus",
  "ringbuf",
  "smbus-pec",
+ "task-power-api",
  "userlib",
  "zerocopy",
 ]
@@ -1152,7 +1134,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-sprot-api",
  "drv-update-api",
- "hubpack 0.1.1",
+ "hubpack",
  "idol-runtime",
  "if_chain",
  "lpc55-pac",
@@ -1160,7 +1142,7 @@ dependencies = [
  "num-traits",
  "quote",
  "ringbuf",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "salty",
  "serde",
  "sprockets-common",
  "sprockets-rot",
@@ -1454,7 +1436,7 @@ dependencies = [
  "crc",
  "derive-idol-err",
  "drv-update-api",
- "hubpack 0.1.1",
+ "hubpack",
  "idol",
  "idol-runtime",
  "if_chain",
@@ -1613,7 +1595,7 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hubpack 0.1.1",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1752,12 +1734,13 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cfg-if",
+ "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
- "hubpack 0.1.1",
+ "hubpack",
  "idol",
  "idol-runtime",
  "mutable-statics",
@@ -1767,6 +1750,7 @@ dependencies = [
  "ssmarshal",
  "stm32h7",
  "task-net-api",
+ "task-thermal-api",
  "transceiver-messages",
  "userlib",
  "zerocopy",
@@ -1777,7 +1761,7 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "hubpack 0.1.1",
+ "hubpack",
  "idol",
  "num-traits",
  "serde",
@@ -1970,9 +1954,8 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-rot-state-msg#8495d85ea626b2df2fa4d2636473fc345dda7e48"
 dependencies = [
  "bitflags",
- "hubpack 0.1.0",
+ "hubpack",
  "serde",
- "serde-big-array",
  "serde_repr",
  "smoltcp",
  "static_assertions",
@@ -1990,9 +1973,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2027,8 +2007,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2042,9 +2020,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -2057,9 +2032,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -2160,21 +2132,11 @@ dependencies = [
 
 [[package]]
 name = "hmac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
-dependencies = [
- "crypto-mac 0.10.1",
- "digest 0.9.0",
-]
-
-[[package]]
-name = "hmac"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
- "crypto-mac 0.11.1",
+ "crypto-mac",
  "digest 0.9.0",
 ]
 
@@ -2194,7 +2156,7 @@ dependencies = [
  "bitflags",
  "fletcher",
  "gateway-messages",
- "hubpack 0.1.1",
+ "hubpack",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -2208,6 +2170,7 @@ name = "hubpack"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack.git?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
+<<<<<<< HEAD
  "hubpack_derive 0.1.0",
  "serde",
 ]
@@ -2218,7 +2181,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf8f3c0e51b49dd73e277f8d157f7248e91b3597e3487884181b259682b715d3"
 dependencies = [
- "hubpack_derive 0.1.1",
+ "hubpack_derive",
  "serde",
 ]
 
@@ -2233,6 +2196,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "hubpack_derive"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2458,7 +2422,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "bitfield 0.14.0",
@@ -2494,7 +2458,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#c633dbbf277238f44bc2f576b0b07d39e601b74e"
+source = "git+https://github.com/oxidecomputer/lpc55_support#0f4333183310f20f32cd28c688d393a996a1bf73"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2524,9 +2488,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -2799,15 +2760,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
-name = "panic-itm"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d577d97d1b31268087b6dddf2470e6794ef5eee87d9dca7fcd0481695391a4c"
-dependencies = [
- "cortex-m",
-]
-
-[[package]]
 name = "panic-semihosting"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2936,7 +2888,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#9f5d86bfd04cbb6d7a7fcb38e00071c8b643f6f3"
+source = "git+https://github.com/oxidecomputer/pmbus#781cf33414b267277e168ed7f8699c3959090f76"
 dependencies = [
  "anyhow",
  "convert_case 0.3.2",
@@ -3025,8 +2977,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -3187,9 +3137,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -3250,17 +3197,6 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "salty"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
-dependencies = [
- "ed25519",
- "subtle",
- "zeroize",
-]
 
 [[package]]
 name = "salty"
@@ -3454,9 +3390,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -3541,11 +3474,11 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "derive_more",
- "hubpack 0.1.0",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
+ "salty",
  "serde",
  "serde-big-array",
 ]
@@ -3553,12 +3486,12 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/sprockets.git#77df31efa5619d0767ffc837ef7468101608aee9"
+source = "git+https://github.com/oxidecomputer/sprockets.git#428bdd0978bc39e202438f2f3d749b886f7359aa"
 dependencies = [
  "corncobs",
  "derive_more",
- "hubpack 0.1.0",
- "salty 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
+ "salty",
  "serde",
  "sprockets-common",
  "tinyvec",
@@ -3599,8 +3532,7 @@ dependencies = [
  "dice",
  "digest 0.10.3",
  "ecdsa",
- "hmac 0.10.1",
- "hubpack 0.1.1",
+ "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
  "lpc55_romapi",
@@ -3608,7 +3540,7 @@ dependencies = [
  "p256",
  "panic-halt",
  "panic-semihosting",
- "salty 0.2.0 (git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize)",
+ "salty",
  "serde",
  "sha3",
  "stage0-handoff",
@@ -3660,7 +3592,8 @@ dependencies = [
 [[package]]
 name = "stm32g0"
 version = "0.15.1"
-source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce2fda706a5ca8a4c4c7c965668ff908c10dfeb1c2da581b6a2007ee60ae4787"
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
@@ -4035,10 +3968,31 @@ dependencies = [
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
  "drv-stm32xx-sys-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
  "mutable-statics",
+ "num-traits",
  "paste",
  "ringbuf",
+ "serde",
+ "task-power-api",
  "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-power-api"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "hubpack",
+ "idol",
+ "num-traits",
+ "pmbus",
+ "serde",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]
@@ -4058,16 +4012,18 @@ name = "task-sensor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "build-i2c",
  "build-util",
  "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "hubpack",
  "idol",
  "idol-runtime",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
+ "serde",
  "task-sensor-api",
  "userlib",
  "zerocopy",
@@ -4077,10 +4033,15 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
  "derive-idol-err",
  "drv-i2c-api",
+ "hubpack",
  "idol",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy",
 ]
@@ -4159,6 +4120,7 @@ dependencies = [
  "drv-onewire",
  "drv-onewire-devices",
  "drv-sidecar-seq-api",
+ "drv-transceivers-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -4240,10 +4202,12 @@ dependencies = [
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
  "task-validate-api",
  "userlib",
  "zerocopy",
@@ -4256,8 +4220,10 @@ dependencies = [
  "build-i2c",
  "derive-idol-err",
  "drv-i2c-api",
+ "hubpack",
  "idol",
  "num-traits",
+ "serde",
  "task-sensor-api",
  "userlib",
  "zerocopy",
@@ -4398,9 +4364,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4413,9 +4376,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4428,9 +4388,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -4446,9 +4403,6 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -4458,9 +4412,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32f3",
  "stm32f4",
 ]
@@ -4474,9 +4425,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32g0",
 ]
 
@@ -4489,9 +4437,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
  "stm32h7",
 ]
 
@@ -4573,7 +4518,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
 dependencies = [
  "bitflags",
- "hubpack 0.1.1",
+ "hubpack",
  "serde",
 ]
 

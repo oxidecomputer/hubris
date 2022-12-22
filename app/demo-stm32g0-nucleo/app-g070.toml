@@ -7,8 +7,8 @@ stacksize = 944
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 12000, ram = 2000}
-features = ["g070", "panic-halt"]
+requires = {flash = 18016, ram = 1632}
+features = ["g070"]
 stacksize = 640
 
 [tasks.jefe]
