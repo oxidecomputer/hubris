@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Load an image using the humility hiffy interface for the lpc55-update-server.
 #
