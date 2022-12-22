@@ -10,6 +10,7 @@ use gateway_messages::{
     SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
 use task_net_api::MacAddress;
 use userlib::kipc;
@@ -59,13 +60,22 @@ impl MgsCommon {
         update: &SpUpdate,
         power_state: PowerState,
     ) -> Result<SpState, SpError> {
+        // SpState has extra-wide fields for the serial and model number. Below
+        // when we fill them in we use `usize::min` to pick the right length
+        // regardless of which is longer, but really we want to know we aren't
+        // truncating our values. We'll statically assert that `SpState`'s field
+        // length is wider than `VpdIdentity`'s to catch this early.
+        const SP_STATE_FIELD_WIDTH: usize = 32;
+        const_assert!(SP_STATE_FIELD_WIDTH >= VpdIdentity::SERIAL_LEN);
+        const_assert!(SP_STATE_FIELD_WIDTH >= VpdIdentity::PART_NUMBER_LEN);
+
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
 
         let id = self.identity();
 
         let mut state = SpState {
-            serial_number: [0; 32],
-            model: [0; 32],
+            serial_number: [0; SP_STATE_FIELD_WIDTH],
+            model: [0; SP_STATE_FIELD_WIDTH],
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
             base_mac_address: self.base_mac_address.0,
