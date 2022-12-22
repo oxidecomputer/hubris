@@ -157,7 +157,9 @@ impl Device {
             | Device::Isl68224(_)
             | Device::Tps546B24A(_)
             | Device::Adm1272(_)
-            | Device::Max5970(_) => return Err(ResponseCode::NoDevice),
+            | Device::Max5970(_) => {
+                return Err(ResponseCode::OperationNotSupported)
+            }
         };
         Ok(v)
     }
