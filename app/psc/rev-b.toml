@@ -121,6 +121,7 @@ uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
 task-slots = [
+    "i2c_driver",
     "jefe",
     "net",
     "update_server",
@@ -129,7 +130,7 @@ task-slots = [
     "sensor",
     "sprot",
 ]
-features = ["psc", "vlan"]
+features = ["psc", "vlan", "vpd-identity"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -178,7 +179,7 @@ task-slots = ["i2c_driver"]
 [tasks.power]
 name = "task-power"
 priority = 4
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1000
 start = true
 task-slots = ["i2c_driver", "sensor", "sys"]

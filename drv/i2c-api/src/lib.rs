@@ -89,6 +89,8 @@ pub enum ResponseCode {
     BadDeviceState = 23,
     /// Bad return value for selected mux/segment
     BadSelectedMux = 24,
+    /// Requested operation is not supported
+    OperationNotSupported = 25,
 }
 
 ///
