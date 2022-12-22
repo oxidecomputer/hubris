@@ -27,7 +27,7 @@ use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
 };
-use task_net_api::{Address, UdpMetadata};
+use task_net_api::{Address, MacAddress, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
@@ -91,7 +91,7 @@ pub(crate) struct MgsHandler {
 impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
-    pub(crate) fn claim_static_resources() -> Self {
+    pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         let usart = UsartHandler::claim_static_resources();
 
         // XXX For now, we want to default to these options.
@@ -100,7 +100,7 @@ impl MgsHandler {
             | HostStartupOptions::STARTUP_VERBOSE;
 
         Self {
-            common: MgsCommon::claim_static_resources(),
+            common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
             host_phase2: HostPhase2Requester::claim_static_resources(),
             sp_update: SpUpdate::new(),

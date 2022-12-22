@@ -11,6 +11,7 @@ use gateway_messages::{
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_control_plane_agent_api::VpdIdentity;
+use task_net_api::MacAddress;
 use userlib::kipc;
 
 #[cfg(feature = "vpd-identity")]
@@ -21,14 +22,16 @@ pub(crate) struct MgsCommon {
     reset_requested: bool,
     inventory: Inventory,
     identity: RefCell<Option<VpdIdentity>>,
+    base_mac_address: MacAddress,
 }
 
 impl MgsCommon {
-    pub(crate) fn claim_static_resources() -> Self {
+    pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
             reset_requested: false,
             inventory: Inventory::new(),
             identity: RefCell::new(None),
+            base_mac_address,
         }
     }
 
@@ -65,6 +68,7 @@ impl MgsCommon {
             model: [0; 32],
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
+            base_mac_address: self.base_mac_address.0,
             version: update.current_version(),
             power_state,
             rot: rot_state(update.sprot_task()),

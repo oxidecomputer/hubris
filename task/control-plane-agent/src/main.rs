@@ -159,9 +159,11 @@ struct ServerImpl {
 
 impl ServerImpl {
     fn claim_static_resources() -> Self {
+        let net_handler = NetHandler::claim_static_resources();
+        let base_mac_address = net_handler.net.get_mac_address();
         Self {
-            mgs_handler: MgsHandler::claim_static_resources(),
-            net_handler: NetHandler::claim_static_resources(),
+            mgs_handler: MgsHandler::claim_static_resources(base_mac_address),
+            net_handler,
         }
     }
 
