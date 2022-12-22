@@ -57,6 +57,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "armv8-m-mpu"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2327,6 +2334,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "anyhow",
+ "armv8-m-mpu",
  "bitflags",
  "build-kconfig",
  "build-util",
@@ -3583,6 +3591,7 @@ name = "stage0"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "armv8-m-mpu",
  "build-util",
  "cfg-if",
  "cortex-m",

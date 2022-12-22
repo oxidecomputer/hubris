@@ -29,6 +29,7 @@ static_assertions = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 
 abi = { path = "../sys/abi" }
+armv8-m-mpu = { path = "../lib/armv8-m-mpu" }
 lib-lpc55-usart = { path = "../lib/lpc55-usart", optional = true }
 lpc55_romapi = { path = "../lib/lpc55-romapi" }
 stage0-handoff = { path = "../lib/stage0-handoff"}

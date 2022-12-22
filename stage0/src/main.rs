@@ -12,6 +12,7 @@ use core::arch;
 
 extern crate lpc55_pac;
 extern crate panic_halt;
+use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::Peripherals as CorePeripherals;
 use cortex_m::peripheral::MPU;
 use cortex_m_rt::entry;
@@ -153,19 +154,9 @@ unsafe fn branch_to_image(image: Image) -> ! {
 // Setup the MPU so that we can treat the USB RAM as normal RAM, and not as a
 // peripheral. Specifically we want to clear the `DEVICE` attributes, so that
 // we can allow unaligned access.
-//
-// NB: Portions opied from `sys/kern/src/arch/arm_m.rs:apply_memory_proteciton`
 fn apply_memory_protection(mpu: MPU) {
     unsafe {
-        const DISABLE: u32 = 0b000;
-        const PRIVDEFENA: u32 = 0b100;
-        // From the ARMv8m MPU manual
-        //
-        // Any outstanding memory transactions must be forced to complete by
-        // executing a DMB instruction and the MPU disabled before it can be
-        // configured
-        cortex_m::asm::dmb();
-        mpu.ctrl.write(DISABLE | PRIVDEFENA);
+        disable_mpu(&mpu);
     }
 
     const USB_RAM_BASE: u32 = 0x4010_0000;
@@ -193,18 +184,7 @@ fn apply_memory_protection(mpu: MPU) {
     }
 
     unsafe {
-        const ENABLE: u32 = 0b001;
-        const PRIVDEFENA: u32 = 0b100;
-        mpu.ctrl.write(ENABLE | PRIVDEFENA);
-        // From the ARMv8m MPU manual
-        //
-        // The final step is to enable the MPU by writing to MPU_CTRL. Code
-        // should then execute a memory barrier to ensure that the register
-        // updates are seen by any subsequent memory accesses. An Instruction
-        // Synchronization Barrier (ISB) ensures the updated configuration
-        // [is] used by any subsequent instructions.
-        cortex_m::asm::dmb();
-        cortex_m::asm::isb();
+        enable_mpu(&mpu, true);
     }
 }
 
