@@ -113,6 +113,25 @@ pub unsafe trait HandoffData {
         let (data, _) = hubpack::deserialize::<Self>(rest)?;
         Ok(data)
     }
+
+    fn load_from_addr(src: &[u8]) -> Result<Self, HandoffDataLoadError>
+    where
+        Self: SerializedSize + Sized,
+        for<'d> Self: Deserialize<'d>,
+    {
+        let (header, rest) = hubpack::deserialize::<HandoffDataHeader>(src)?;
+        if header.version != Self::VERSION {
+            return Err(HandoffDataLoadError::UnexpectedVersion(
+                header.version,
+            ));
+        }
+        if header.magic != Self::MAGIC {
+            return Err(HandoffDataLoadError::BadMagic);
+        }
+
+        let (data, _) = hubpack::deserialize::<Self>(rest)?;
+        Ok(data)
+    }
 }
 
 /// Assert at compile time that the given serialized `HandoffData`

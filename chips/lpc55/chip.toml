@@ -64,10 +64,6 @@ size = 0x800
 address = 0x40101800
 size = 0x100
 
-[update_details]
-address = 0x40102000
-size = 0x1000
-
 [secure_syscon]
 address = 0x50000000
 size = 4096

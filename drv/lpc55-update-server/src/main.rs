@@ -10,11 +10,16 @@
 #![no_main]
 
 use core::convert::Infallible;
+use core::mem::MaybeUninit;
 use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
+
+#[used]
+#[link_section = ".bootstate"]
+static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "lpcxpresso55s69")] {
@@ -177,7 +182,9 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<UpdateStatus, RequestError<Infallible>> {
-        let status = match RotBootState::load() {
+        // Safety: Data is published by stage0
+        let addr: &[u8] = unsafe { BOOTSTATE.assume_init_ref() };
+        let status = match RotBootState::load_from_addr(&addr) {
             Ok(details) => UpdateStatus::Rot(details),
             Err(e) => UpdateStatus::LoadError(e),
         };

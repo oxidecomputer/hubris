@@ -27,6 +27,7 @@ impl<'a> Handoff<'a> {
         Self(syscon)
     }
 
+    #[allow(unused)]
     pub fn turn_off(self) {
         self.0
             .presetctrl2
