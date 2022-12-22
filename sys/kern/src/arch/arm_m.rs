@@ -84,6 +84,7 @@ use crate::umem::USlice;
 use abi::FaultInfo;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
+#[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
 
