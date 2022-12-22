@@ -29,26 +29,27 @@ pub enum UartClient {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, FromBytes, AsBytes)]
 #[repr(C, packed)]
-pub struct Identity {
+pub struct VpdIdentity {
     pub part_number: [u8; Self::PART_NUMBER_LEN],
     pub revision: u32,
     pub serial: [u8; Self::SERIAL_LEN],
 }
 
-impl Identity {
+impl VpdIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
 }
 
-impl From<Identity> for host_sp_messages::Identity {
-    fn from(id: Identity) -> Self {
+impl From<VpdIdentity> for host_sp_messages::Identity {
+    fn from(id: VpdIdentity) -> Self {
         // The Host/SP protocol has larger fields for model/serial than we
         // use currently; statically assert that we haven't outgrown them.
         const_assert!(
-            Identity::PART_NUMBER_LEN <= host_sp_messages::Identity::MODEL_LEN
+            VpdIdentity::PART_NUMBER_LEN
+                <= host_sp_messages::Identity::MODEL_LEN
         );
         const_assert!(
-            Identity::SERIAL_LEN <= host_sp_messages::Identity::SERIAL_LEN
+            VpdIdentity::SERIAL_LEN <= host_sp_messages::Identity::SERIAL_LEN
         );
 
         let mut new_id = Self::default();
