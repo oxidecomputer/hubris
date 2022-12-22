@@ -18,8 +18,8 @@ use gateway_messages::{
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_control_plane_agent_api::ControlPlaneAgentError;
-use task_net_api::UdpMetadata;
+use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
+use task_net_api::{MacAddress, UdpMetadata};
 use userlib::sys_get_timer;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
@@ -62,14 +62,18 @@ pub(crate) struct MgsHandler {
 impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
-    pub(crate) fn claim_static_resources() -> Self {
+    pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
-            common: MgsCommon::claim_static_resources(),
+            common: MgsCommon::claim_static_resources(base_mac_address),
             sequencer: Sequencer::from(SIDECAR_SEQ.get_task_id()),
             monorail: Monorail::from(MONORAIL.get_task_id()),
             sp_update: SpUpdate::new(),
             ignition: IgnitionController::new(),
         }
+    }
+
+    pub(crate) fn identity(&self) -> VpdIdentity {
+        self.common.identity()
     }
 
     /// If we want to be woken by the system timer, we return a deadline here.
