@@ -14,26 +14,27 @@ set -x
 image=$1
 image_type=$2
 
-binsize=`ls -la $image | cut -w -f 5`
-numblocks=$(($binsize / 512))
-total_before_last_block=$((numblocks * 512))
-lastblocksize=$(($binsize - $total_before_last_block))
-loopend=$(($numblocks-1))
-
-humility -a $ARCHIVE hiffy -c Update.prep_image_update -a image_type=$image_type
+block_size=512
+binsize=$(stat -c '%s' "${image}")
+numblocks=$(("${binsize}" / "${block_size}"))
+total_before_last_block=$((numblocks * "${block_size}"))
+lastblocksize=$(("${binsize}" - "${total_before_last_block}"))
+loopend=$(("${numblocks}"-1))
 
 write_blocks() {
-  start=$1
-  end=$2
-  block_image=$3
+  start="${1:?Missing start block number}"
+  shift
+  end="${1:?Missing end block number}"
+  shift
+  block_image="${1:?Missing path to image}"
+  shift
 
-  echo $start
-  echo $end
+  echo "${start}"
+  echo "${end}"
 
-  for ((i=$start;i<=$end;i++))
+  for (( i=start; i<=end; i++))
   do
-    humility -a $ARCHIVE hiffy -c Update.write_one_block -a block_num=$i -i <(dd if=$block_image bs=512 count=1 skip=$i)
-    if [ "$?" -ne 0 ]
+    if ! humility -a "${ARCHIVE}" hiffy -c Update.write_one_block -a block_num="${i}" -i <(dd if="${block_image}" bs="${block_size}" count=1 skip="${i}")
     then
       # Retry once
       #
@@ -49,18 +50,21 @@ write_blocks() {
       #     2: Target device responded with WAIT response to request.
       # Error: humility failed
       sleep 1
-        humility -a $ARCHIVE hiffy -c Update.write_one_block -a block_num=$i -i <(dd if=$block_image bs=512 count=1 skip=$i)
+      if !  humility -a "${ARCHIVE}" hiffy -c Update.write_one_block -a block_num="${i}" -i <(dd if="${block_image}" bs="${block_size}" count=1 skip="${i}")
+      then
+        exit 1
+      fi
     fi
-    if [ "$?" -ne 0 ]
-    then
-      exit 1
-     fi
   done
-
 }
 
-write_blocks 1 $loopend $image
-humility -a $ARCHIVE hiffy -c Update.write_one_block -a block_num=$numblocks -i <(dd if=$image bs=1 count=$lastblocksize skip=$total_before_last_block) 
+humility -a "${ARCHIVE}" hiffy -c Update.prep_image_update -a image_type="${image_type}"
+
+# Begin by invalidating the header which resides at offset 0x130 (in block zero).
 write_blocks 0 0 /dev/zero
-write_blocks 0 0 $image
-humility -a $ARCHIVE hiffy -c Update.finish_image_update
+write_blocks 1 "${loopend}" "${image}"
+humility -a "${ARCHIVE}" hiffy -c Update.write_one_block -a block_num="${numblocks}" -i <(dd if="${image}" bs=1 count="${lastblocksize}" skip="${total_before_last_block}") 
+# Lastly, write the correct block zero.
+write_blocks 0 0 "${image}"
+
+humility -a "${ARCHIVE}" hiffy -c Update.finish_image_update
