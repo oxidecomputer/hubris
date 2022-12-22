@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Load an image using the humility hiffy interface for the lpc55-update-server.
 #
@@ -9,13 +9,15 @@
 # RoT. In this example, slot A is currently running, so we upload to slot b via
 # a saved build in `rot-carrier-v2` and additionally give the keyword `ImageB`.
 
+# NOTE: Make sure you are not runnning this on an ancient version of bash on Mac OSX
+
 set -x
 
 image=$1
 image_type=$2
 
 block_size=512
-binsize=$(stat -c '%s' "${image}")
+binsize=`ls -la $image | cut -w -f 5`
 numblocks=$(("${binsize}" / "${block_size}"))
 total_before_last_block=$((numblocks * "${block_size}"))
 lastblocksize=$(("${binsize}" - "${total_before_last_block}"))
