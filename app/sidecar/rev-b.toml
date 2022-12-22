@@ -137,7 +137,7 @@ task-slots = ["sys", "i2c_driver",
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 65536, ram = 16384}
+max-sizes = {flash = 131072, ram = 16384}
 stacksize = 4096
 start = true
 uses = [
@@ -155,8 +155,9 @@ task-slots = [
     "sensor",
     "sprot",
     "ignition",
+    "i2c_driver",
 ]
-features = ["sidecar", "vlan", "auxflash"]
+features = ["sidecar", "vlan", "auxflash", "vpd-identity"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

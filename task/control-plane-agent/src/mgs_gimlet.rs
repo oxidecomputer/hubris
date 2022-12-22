@@ -24,7 +24,9 @@ use heapless::Deque;
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_control_plane_agent_api::{ControlPlaneAgentError, UartClient};
+use task_control_plane_agent_api::{
+    ControlPlaneAgentError, UartClient, VpdIdentity,
+};
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
 
@@ -109,6 +111,10 @@ impl MgsHandler {
             serial_console_write_offset: 0,
             next_message_id: 0,
         }
+    }
+
+    pub(crate) fn identity(&self) -> VpdIdentity {
+        self.common.identity()
     }
 
     /// If we want to be woken by the system timer, we return a deadline here.

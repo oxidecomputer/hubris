@@ -60,7 +60,7 @@ Interface(
         ),
         "identity": (
             doc: "Get the identity of the current sled.",
-            reply: Simple("Identity"),
+            reply: Simple("VpdIdentity"),
             idempotent: true,
         ),
         "get_uart_client": (

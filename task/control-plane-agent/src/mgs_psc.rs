@@ -16,7 +16,7 @@ use gateway_messages::{
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_control_plane_agent_api::ControlPlaneAgentError;
+use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
 use task_net_api::UdpMetadata;
 use userlib::sys_get_timer;
 
@@ -50,6 +50,10 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(),
             sp_update: SpUpdate::new(),
         }
+    }
+
+    pub(crate) fn identity(&self) -> VpdIdentity {
+        self.common.identity()
     }
 
     /// If we want to be woken by the system timer, we return a deadline here.

@@ -14,7 +14,7 @@ use idol_runtime::{Leased, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::{
-    ControlPlaneAgentError, Identity, UartClient,
+    ControlPlaneAgentError, UartClient, VpdIdentity,
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -40,9 +40,6 @@ use self::mgs_handler::MgsHandler;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
-
-#[cfg(feature = "vpd-identity")]
-task_slot!(I2C, i2c_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -171,66 +168,6 @@ impl ServerImpl {
     fn timer_deadline(&self) -> Option<u64> {
         self.mgs_handler.timer_deadline()
     }
-
-    #[cfg(feature = "vpd-identity")]
-    fn identity_from_vpd(&self) -> Option<Identity> {
-        use core::{mem, str};
-        use zerocopy::{AsBytes, FromBytes};
-
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, AsBytes, FromBytes)]
-        #[repr(C, packed)]
-        pub struct BarcodeVpd {
-            pub version: [u8; 4],
-            pub delim0: u8,
-            // VPD omits the hyphen 3 bytes into the part number, which we add
-            // back into `Identity` below, hence the "minus 1".
-            pub part_number: [u8; Identity::PART_NUMBER_LEN - 1],
-            pub delim1: u8,
-            pub revision: [u8; 3],
-            pub delim2: u8,
-            pub serial: [u8; Identity::SERIAL_LEN],
-        }
-        static_assertions::const_assert_eq!(mem::size_of::<BarcodeVpd>(), 31);
-
-        let i2c_task = I2C.get_task_id();
-        let barcode: BarcodeVpd =
-            drv_local_vpd::read_config(i2c_task, *b"BARC").ok()?;
-
-        // Check expected values of fields, since `barcode` was created
-        // via zerocopy (i.e., memcopying a byte array).
-        if barcode.delim0 != b':'
-            || barcode.delim1 != b':'
-            || barcode.delim2 != b':'
-        {
-            return None;
-        }
-
-        // Allow `0` or `O` for the first byte of the version (which isn't
-        // part of the identity we return, but tells us the format of the
-        // barcode string itself).
-        if barcode.version != *b"0XV1" && barcode.version != *b"OXV1" {
-            return None;
-        }
-
-        let mut identity = Identity::default();
-
-        // Parse revision into a u32
-        identity.revision =
-            str::from_utf8(&barcode.revision).ok()?.parse().ok()?;
-
-        // Insert a hyphen 3 characters into the part number (which we know we
-        // have room for based on the size of the `part_number` fields)
-        identity.part_number[..3].copy_from_slice(&barcode.part_number[..3]);
-        identity.part_number[3] = b'-';
-        identity.part_number[4..][..barcode.part_number.len() - 3]
-            .copy_from_slice(&barcode.part_number[3..]);
-
-        // Copy the serial as-is.
-        identity.serial[..barcode.serial.len()]
-            .copy_from_slice(&barcode.serial);
-
-        Some(identity)
-    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -303,14 +240,8 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     fn identity(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<Identity, RequestError<core::convert::Infallible>> {
-        #[cfg(feature = "vpd-identity")]
-        let id = self.identity_from_vpd().unwrap_or_default();
-
-        #[cfg(not(feature = "vpd-identity"))]
-        let id = Identity::default();
-
-        Ok(id)
+    ) -> Result<VpdIdentity, RequestError<core::convert::Infallible>> {
+        Ok(self.mgs_handler.identity())
     }
 
     #[cfg(feature = "gimlet")]
@@ -536,7 +467,7 @@ const fn usize_max(a: usize, b: usize) -> usize {
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions, Identity, UartClient,
+        ControlPlaneAgentError, HostStartupOptions, UartClient, VpdIdentity,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
