@@ -5,7 +5,7 @@ chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
 epoch = 0
-version = 0
+version = 2
 
 [kernel]
 name = "gimletlet"

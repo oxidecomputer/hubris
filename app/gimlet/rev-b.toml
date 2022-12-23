@@ -8,6 +8,7 @@ stacksize = 896
 [kernel]
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
+features = []
 
 [tasks.jefe]
 name = "task-jefe"
