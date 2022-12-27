@@ -10,8 +10,10 @@ use dice_crate::{
     DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
     SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
+use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 use sha3::{Digest, Sha3_256};
+use unwrap_lite::UnwrapLite;
 
 #[cfg(feature = "dice-self")]
 use crate::dice_mfg_self::gen_mfg_artifacts;
@@ -121,7 +123,9 @@ pub fn run(image: &Image, handoff: &Handoff) {
 
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
 
-    let mut serial_numbers = gen_mfg_artifacts(&deviceid_keypair, handoff);
+    let peripherals = Peripherals::take().unwrap_lite();
+    let mut serial_numbers =
+        gen_mfg_artifacts(&deviceid_keypair, &peripherals, handoff);
 
     let fwid = gen_fwid(image);
 

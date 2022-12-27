@@ -5,10 +5,12 @@
 use crate::dice::SerialNumbers;
 use crate::Handoff;
 use dice_crate::{CertData, DeviceIdSelfMfg, DiceMfg};
+use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 
 pub fn gen_mfg_artifacts(
     deviceid_keypair: &Keypair,
+    _: &Peripherals,
     handoff: &Handoff,
 ) -> SerialNumbers {
     let mfg_state = DeviceIdSelfMfg::new(&deviceid_keypair).run();

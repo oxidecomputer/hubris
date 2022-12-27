@@ -3,10 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dice::SerialNumbers;
+use crate::Handoff;
 use core::ops::Deref;
 use dice_crate::{
-    CertData, CertSerialNumber, DeviceIdSerialMfg, DiceMfg, Handoff,
-    SerialNumber, SizedBlob,
+    CertData, CertSerialNumber, DeviceIdSerialMfg, DiceMfg, SerialNumber,
+    SizedBlob,
 };
 use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;

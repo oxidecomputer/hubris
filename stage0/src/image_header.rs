@@ -77,12 +77,10 @@ impl Image {
         self.0 as *const ImageVectors as u32
     }
 
-    //  #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     fn get_img_size(&self) -> Option<usize> {
         usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
     }
 
-    //    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     pub fn as_bytes(&self) -> &[u8] {
         let img_ptr = self.get_img_start() as *const u8;
         let img_size = self.get_img_size().unwrap_lite();
