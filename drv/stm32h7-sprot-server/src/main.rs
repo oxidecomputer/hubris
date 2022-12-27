@@ -176,8 +176,6 @@ impl ServerImpl {
         txmsg: VerifiedTxMsg,
         timeout: u32,
     ) -> Result<VerifiedRxMsg, SprotError> {
-        let size = txmsg.0;
-        ringbuf_entry!(Trace::SendRecv(size));
         // Polling and timeout configuration
         // TODO: Use EXTI interrupt and just a timeout, no polling.
 
@@ -214,52 +212,10 @@ impl ServerImpl {
                 }
             }
         }
-        let buf = &self.tx_buf.as_slice()[..size];
 
-        // In order to improve reliability, start by sending only the
-        // first ROT_FIFO_SIZE bytes and then delaying a short time.
-        // If the RoT is ready, those first bytes will always fit
-        // in the RoT receive FIFO. Eventually, the RoT FW will respond
-        // to the interrupt and enter a tight loop to receive.
-        // The short delay should cover most of the lag in RoT interrupt
-        // handling.
-        let part1 = if let Some(part1) = buf.get(0..ROT_FIFO_SIZE.min(size)) {
-            part1
-        } else {
-            return Err(SprotError::BadMessageLength);
-        };
-        let part2 = buf.get(part1.len()..).unwrap_lite(); // empty or not
-        ringbuf_entry!(Trace::TxPart1(part1.len()));
-        ringbuf_entry!(Trace::TxPart2(part2.len()));
-        if (PART1_DELAY != 0) || !part2.is_empty() {
-            ringbuf_entry!(Trace::CSnAssert);
-            self.spi
-                .lock(CsState::Asserted)
-                .map_err(|_| SprotError::SpiServerError)?;
-            if PART1_DELAY != 0 {
-                hl::sleep_for(PART1_DELAY);
-            }
-        }
-        if self.spi.write(part1).is_err() {
-            if (PART1_DELAY != 0) || !part2.is_empty() {
-                ringbuf_entry!(Trace::CSnDeassert);
-                _ = self.spi.release();
-            }
-            return Err(SprotError::SpiServerError);
-        }
-        if !part2.is_empty() {
-            hl::sleep_for(PART2_DELAY); // TODO: configurable
-            ringbuf_entry!(Trace::CSnDeassert);
-            if self.spi.write(part2).is_err() {
-                _ = self.spi.release();
-                return Err(SprotError::SpiServerError);
-            }
-        }
-        if ((PART1_DELAY != 0) || !part2.is_empty())
-            && self.spi.release().is_err()
-        {
-            return Err(SprotError::SpiServerError);
-        }
+        let res = self.do_send_request(txmsg.0);
+        _ = self.spi.release(); // TODO: use spi.lock_auto()
+        res?;
 
         /*
         // TODO: Use STM32 EXTI
@@ -292,9 +248,7 @@ impl ServerImpl {
         // Read just the header.
         // Keep CSn asserted over the two reads.
         ringbuf_entry!(Trace::CSnAssert);
-        self.spi
-            .lock(CsState::Asserted)
-            .map_err(|_| SprotError::SpiServerError)?;
+        self.spi.lock(CsState::Asserted)?;
         if PART1_DELAY != 0 {
             hl::sleep_for(PART1_DELAY);
         }
@@ -304,13 +258,43 @@ impl ServerImpl {
 
         // We must release the SPI bus before we return
         ringbuf_entry!(Trace::CSnDeassert);
-        self.spi.release().map_err(|_| SprotError::SpiServerError)?;
+        self.spi.release()?;
 
         res
     }
 
-    // Fetch as many bytes as we can and parse the header.
+    fn do_send_request(&mut self, size: usize) -> Result<(), SprotError> {
+        ringbuf_entry!(Trace::SendRecv(size));
+        let buf = &self.tx_buf.as_slice()[..size];
+
+        // In order to improve reliability, start by sending only the
+        // first ROT_FIFO_SIZE bytes and then delaying a short time.
+        // If the RoT is ready, those first bytes will always fit
+        // in the RoT receive FIFO. Eventually, the RoT FW will respond
+        // to the interrupt and enter a tight loop to receive.
+        // The short delay should cover most of the lag in RoT interrupt
+        // handling.
+        let part1 = &buf[..ROT_FIFO_SIZE.min(size)];
+        let part2 = &buf[part1.len()..];
+        ringbuf_entry!(Trace::TxPart1(part1.len()));
+        ringbuf_entry!(Trace::TxPart2(part2.len()));
+        ringbuf_entry!(Trace::CSnAssert);
+        self.spi.lock(CsState::Asserted)?;
+        if PART1_DELAY != 0 {
+            hl::sleep_for(PART1_DELAY);
+        }
+        self.spi.write(part1)?;
+        if !part2.is_empty() {
+            hl::sleep_for(PART2_DELAY); // TODO: configurable
+            self.spi.write(part2)?;
+        }
+        Ok(())
+    }
+
+    // Read a complete response by first reading the header,
+    // parsing it, then fetching any remainder.
     // Return the parsed header or an error.
+    // Errors on mal-formed messages, CRC, or IO errors.
     //
     // We can fetch FIFO size number of bytes reliably.
     // After that, a short delay and fetch the rest if there is
@@ -326,44 +310,35 @@ impl ServerImpl {
     // We know statically that self.rx_buf is large enough to hold
     // part1_len bytes.
     fn do_read_response(&mut self) -> Result<VerifiedRxMsg, SprotError> {
-        let part1_len = MIN_MSG_SIZE.min(ROT_FIFO_SIZE);
+        let part1_len = MIN_MSG_SIZE.max(ROT_FIFO_SIZE);
         ringbuf_entry!(Trace::RxPart1(part1_len));
 
-        // We fill in all of buf or we fail
         let buf = &mut self.rx_buf.as_mut()[..part1_len];
-        self.spi.read(buf).map_err(|_| {
-            ringbuf_entry!(Trace::RxSpiError);
-            SprotError::SpiServerError
-        })?;
-
+        self.spi.read(buf)?;
         let header = self.rx_buf.parse_header(part1_len).map_err(|e| {
-            self.log_parse_error();
+            ringbuf_entry!(Trace::RxParseError(
+                self.rx_buf.as_slice()[0],
+                self.rx_buf.as_slice()[1],
+                self.rx_buf.as_slice()[2],
+                self.rx_buf.as_slice()[3]
+            ));
             e
         })?;
 
-        let part2_len =
-            MIN_MSG_SIZE + (header.payload_len as usize) - part1_len;
-        ringbuf_entry!(Trace::RxPart2(part2_len));
-
-        // Allow RoT time to rouse itself.
-        hl::sleep_for(PART2_DELAY);
-
-        // Read part two
-        let buf = &mut self.rx_buf.as_mut()[part1_len..][..part2_len];
-        self.spi.read(buf).map_err(|_| SprotError::SpiServerError)?;
+        if part1_len < MIN_MSG_SIZE + (header.payload_len as usize) {
+            let part2_len =
+                MIN_MSG_SIZE + (header.payload_len as usize) - part1_len;
+            ringbuf_entry!(Trace::RxPart2(part2_len));
+            // Allow RoT time to rouse itself.
+            hl::sleep_for(PART2_DELAY);
+            // Read part two
+            let buf = &mut self.rx_buf.as_mut()[part1_len..][..part2_len];
+            self.spi.read(buf)?;
+        };
 
         self.rx_buf.validate_crc(&header)?;
 
         Ok(VerifiedRxMsg(header))
-    }
-
-    fn log_parse_error(&self) {
-        ringbuf_entry!(Trace::RxParseError(
-            self.rx_buf.as_slice()[0],
-            self.rx_buf.as_slice()[1],
-            self.rx_buf.as_slice()[2],
-            self.rx_buf.as_slice()[3]
-        ));
     }
 
     fn do_send_recv_retries(
@@ -451,9 +426,7 @@ impl ServerImpl {
     ) -> Result<PulseStatus, SprotError> {
         let rot_irq_begin = self.is_rot_irq_asserted();
         ringbuf_entry!(Trace::CSnAssert);
-        self.spi
-            .lock(CsState::Asserted)
-            .map_err(|_| SprotError::CannotAssertCSn)?;
+        self.spi.lock(CsState::Asserted)?;
         if delay != 0 {
             hl::sleep_for(delay);
         }
@@ -601,11 +574,16 @@ impl idl::InOrderSpRotImpl for ServerImpl {
                 let size = size as usize;
                 debug_set(&self.sys, false);
 
+                let buf = &mut self.tx_buf.payload_mut();
+                if size > buf.len() {
+                    return Err(RequestError::Runtime(SprotError::BadMessageLength));
+                }
+
                 if size > core::mem::size_of::<u16>() {
                     // The payload is big enough to contain the sequence number
                     // and additional bytes.
                     let mut n: u8 = HEADER_SIZE as u8;
-                    let buf = &mut self.tx_buf.payload_mut()[..size];
+                    let buf = &mut buf[..size];
                     buf.fill_with(|| {
                         let seq = n;
                         n = n.wrapping_add(1);
@@ -730,7 +708,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         ringbuf_entry!(Trace::UpdatePrep);
         let payload = self.tx_buf.payload_mut();
-        let payload_len = hubpack::serialize(&mut payload[0..], &image_type)
+        let payload_len = hubpack::serialize(&mut payload[..], &image_type)
             .map_err(Into::<SprotError>::into)?;
         let _ = self.upd(
             MsgType::UpdPrepImageUpdateReq,

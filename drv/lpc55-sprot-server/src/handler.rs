@@ -252,8 +252,12 @@ impl Handler {
             MsgType::SinkReq => {
                 // The first two bytes of a SinkReq payload are the U16
                 // mod 2^16 sequence number.
-                tx_payload[0..2].copy_from_slice(&rx_payload[0..2]);
-                2
+                if rx_payload.len() >= core::mem::size_of::<u16>() {
+                    tx_payload[0..2].copy_from_slice(&rx_payload[0..core::mem::size_of::<u16>()]);
+                    core::mem::size_of::<u16>()
+                } else {
+                    0
+                }
             }
             // All of the unexpected messages
             MsgType::Invalid
