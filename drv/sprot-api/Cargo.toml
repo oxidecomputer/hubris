@@ -23,3 +23,7 @@ userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 idol = { workspace = true }
+
+[features]
+sink_test = []
+
