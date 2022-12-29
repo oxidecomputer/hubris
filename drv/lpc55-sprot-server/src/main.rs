@@ -330,11 +330,12 @@ impl Io {
         // underrun while waiting for an interrupt.
         self.spi.drain_tx();
         let mut tx_iter = response.iter();
-        let mut bytes_written = 0;
         while self.spi.can_tx() {
             if let Some(b) = tx_iter.next() {
                 self.spi.send_u8(b);
-                bytes_written += 1;
+            } else {
+                // Prevent underrun
+                self.spi.send_u8(0);
             }
         }
 
@@ -363,14 +364,7 @@ impl Io {
                             break;
                         }
                     }
-                    WriteState::Writing => {
-                        let data_bytes_written =
-                            core::cmp::min(response.data_len(), bytes_written);
-                        self.write_response(
-                            &mut tx_iter,
-                            response.data_len() - data_bytes_written,
-                        );
-                    }
+                    WriteState::Writing => self.write_response(&mut tx_iter),
                     WriteState::ResponseWritten
                     | WriteState::Flush
                     | WriteState::Underrun => {
@@ -442,15 +436,15 @@ impl Io {
         }
     }
 
-    fn write_response(
-        &mut self,
-        tx_iter: &mut dyn Iterator<Item = u8>,
-        response_len: usize,
-    ) {
+    fn write_response(&mut self, tx_iter: &mut dyn Iterator<Item = u8>) {
         let mut bytes_read: usize = 0;
-        let mut bytes_written: usize = 0;
         let mut state = self.state.write();
         let mut overrun_seen = false;
+
+        // Set to true when `tx_iter` has been exhausted. Note that we may
+        // continue sending `0` after this if we are still clocking in bytes
+        // from the SP.
+        let mut response_sent = false;
 
         loop {
             let intstat = self.spi.intstat();
@@ -485,8 +479,8 @@ impl Io {
                     io = true;
                     if let Some(b) = tx_iter.next() {
                         self.spi.send_u8(b);
-                        bytes_written += 1;
                     } else {
+                        response_sent = true;
                         // Just clock out zeros and prevent an unnecessary underrun
                         self.spi.send_u8(0);
                     }
@@ -507,7 +501,7 @@ impl Io {
             }
 
             // Are we done sending our response?
-            if bytes_written >= response_len && state == WriteState::Writing {
+            if response_sent && state == WriteState::Writing {
                 self.deassert_rot_irq();
                 state = WriteState::ResponseWritten;
             }

@@ -26,6 +26,8 @@ use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
+#[cfg(feature = "sink_test")]
+use zerocopy::{ByteOrder, LittleEndian};
 
 /// The canonical SpRot protocol error returned by this API
 //
@@ -124,6 +126,12 @@ pub enum SprotError {
 
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
+}
+
+impl From<SpiError> for SprotError {
+    fn from(_value: SpiError) -> Self {
+        SprotError::SpiServerError
+    }
 }
 
 impl From<UpdateError> for SprotError {
@@ -370,7 +378,7 @@ pub enum MsgType {
     SprocketsReq = 6,
     /// Payload contains a sprockets response.
     SprocketsRsp = 7,
-    /// RoT sinks this message sending back a SinkReq with no payload.
+    /// RoT sinks this message sending back a SinkRsp with no payload.
     SinkReq = 8,
     /// Acknowledge recepit of SinkReq
     SinkRsp = 9,
@@ -425,8 +433,6 @@ impl From<u8> for MsgType {
     }
 }
 
-/// A builder/serializer for messages that wraps the transmit buffer
-///
 /// Each public method returns the serialized buffer that can be sent on the
 /// wire.
 pub struct TxMsg {
@@ -445,6 +451,8 @@ impl Default for TxMsg {
     }
 }
 
+/// A builder/serializer for messages that wraps the transmit buffer
+///
 pub struct TxMsg2<'a> {
     buf: &'a mut [u8],
 }
@@ -452,17 +460,10 @@ pub struct TxMsg2<'a> {
 impl<'a> TxMsg2<'a> {
     /// Wrap `buf`, and zero it.
     pub fn new(buf: &'a mut [u8]) -> TxMsg2<'a> {
+        assert_eq!(buf.len(), BUF_SIZE);
         // Ensure we start with a zero filled buffer
         buf.fill(0);
-        assert_eq!(buf.len(), BUF_SIZE);
         TxMsg2 { buf }
-    }
-
-    /// Expected to be called with a buffer of all zeroes, so write after new.
-    /// As all public functions are consuming, we know that this is actually a
-    /// buffer of zeroes.
-    pub fn zeroes(self) -> VerifiedTxMsg2<'a> {
-        VerifiedTxMsg2::zeroes(self.buf)
     }
 
     /// Serialize an ErrorRsp with a one byte payload, which is a serialized
@@ -480,6 +481,44 @@ impl<'a> TxMsg2<'a> {
         self.write_header(msgtype, payload_size);
         self.write_crc(msgtype, payload_size)
     }
+
+    /// Fill the payload with a known pattern of `size` bytes of data generated
+    /// and include a sequence number as the first 2 bytes of the payload. The
+    /// sequence number requirement necessitates that `size > 2`.
+    ///
+    /// Then serialize the request via `from_existing`, which writes the header
+    /// and trailing CRC.
+    ///
+    /// For the sake of working with a logic analyzer, a known pattern is put
+    /// into the SinkReq messages so that most of the received bytes match
+    /// their buffer index modulo 0x100.
+    #[cfg(feature = "sink_test")]
+    pub fn sink_req(
+        mut self,
+        size: usize,
+        seq_num: u16,
+    ) -> Result<VerifiedTxMsg2<'a>, (Self, SprotError)> {
+        let seq_num_size = core::mem::size_of::<u16>;
+        if size > PAYLOAD_SIZE_MAX || size < seq_num_size {
+            return (self, SprotError::BadMessageLength);
+        }
+        let buf = self.payload_mut()[..size];
+
+        // Fill the payload with a known pattern
+        let mut n: u8 = HEADER_SIZE as u8;
+        buf.fill_with(|| {
+            let seq = n;
+            n = n.wrapping_add(1);
+            seq
+        });
+
+        // Overwrite the first two bytes with a sequence number.
+        let seq_buf = &mut buf[..seq_num_size];
+        LittleEndian::write_u16(seq_buf, seq_num);
+
+        self.from_existing(MsgType::SinkReq, size)
+    }
+
     /// Serialize an arbitrary message, consuming self
     ///
     /// If there is an error, return it along with self
@@ -494,11 +533,53 @@ impl<'a> TxMsg2<'a> {
         }
     }
 
+    /// Return the mutable payload buffer
+    //
     // TODO(AJS): Make this private if possible
-    // It's currently used publicly for Echo and Sprockets messages along with
-    // `from_existing`.
+    // It's currently used publicly on the RoT side for Echo and Sprockets
+    // messages along with `from_existing`, and for update messages on the
+    // SP side.
     pub fn payload_mut(&mut self) -> &mut [u8] {
         &mut self.buf[HEADER_SIZE..BUF_SIZE - CRC_SIZE]
+    }
+
+    /// Serialize a block
+    ///
+    /// Each block is prefixed by its block num serialized as a u32
+    pub fn block(
+        self,
+        block_num: u32,
+        block: idol_runtime::LenLimit<
+            idol_runtime::Leased<idol_runtime::R, [u8]>,
+            1024,
+        >,
+    ) -> Result<VerifiedTxMsg2<'a>, SprotError> {
+        let n = hubpack::serialize(self.payload_mut(), &block_num)?;
+        block
+            .read_range(0..block.len(), &mut payload[n..n + block.len()])
+            .map_err(|_| SprotError::TaskRestart)?;
+        let payload_len = n + block.len();
+        self.write_header(msgtype, source.len());
+        Ok(self.write_crc(msgtype, source.len()))
+    }
+
+    /// Serialize a request from a MsgType and Lease
+    pub fn from_lease(
+        &mut self,
+        msgtype: MsgType,
+        source: Leased<R, [u8]>,
+    ) -> Result<VerifiedTxMsg2<'a>, SprotError> {
+        if source.len() > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::Oversize);
+        }
+
+        let dest = &mut self.buf[HEADER_SIZE..][..source.len()];
+        source
+            .read_range(0..source.len(), dest)
+            .map_err(|_| SprotError::TaskRestart)?;
+
+        self.write_header(msgtype, source.len());
+        Ok(self.write_crc(msgtype, source.len()))
     }
 
     /// Serialize a request into `self.buf` with an already written payload
@@ -538,17 +619,15 @@ impl<'a> TxMsg2<'a> {
         let crc_buf = &mut self.buf[crc_begin..end];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
 
-        // Include the whole CRC, including trailing zeroes, since we may have
-        // to transmit while receiving, even if we have no more data.
-        // This is because we must clock a byte out on MISO for each cycle.
-        VerifiedTxMsg2::new(msgtype, self.buf, end)
+        VerifiedTxMsg2::new(msgtype, &mut self.buf[..end])
     }
 }
 
 pub struct VerifiedTxMsg2<'a> {
     msgtype: Option<MsgType>,
+    // Contains only the actual message. 0 bytes may need to be clocked out to prevent
+    // underrun after this is exhausted.
     data: &'a mut [u8],
-    data_len: usize,
 }
 
 impl<'a> VerifiedTxMsg2<'a> {
@@ -556,12 +635,12 @@ impl<'a> VerifiedTxMsg2<'a> {
         self.msgtype
     }
 
-    pub fn contains_data(&self) -> bool {
-        self.msgtype.is_some()
+    pub fn len(&self) -> usize {
+        self.data.len()
     }
 
-    pub fn data_len(&self) -> usize {
-        self.data_len
+    pub fn as_slice(&self) -> &'a [u8] {
+        &self.data
     }
 
     pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
@@ -573,25 +652,10 @@ impl<'a> VerifiedTxMsg2<'a> {
     }
 
     // A data containing buffer can only be created by a TxMsg2.
-    fn new(
-        msgtype: MsgType,
-        data: &'a mut [u8],
-        data_len: usize,
-    ) -> VerifiedTxMsg2<'a> {
+    fn new(msgtype: MsgType, data: &'a mut [u8]) -> VerifiedTxMsg2<'a> {
         VerifiedTxMsg2 {
             msgtype: Some(msgtype),
             data,
-            data_len,
-        }
-    }
-
-    // Create a verified message containing all zeroes
-    // Useful for when no data needs to be transmitted
-    fn zeroes(data: &'a mut [u8]) -> VerifiedTxMsg2<'a> {
-        VerifiedTxMsg2 {
-            msgtype: None,
-            data,
-            data_len: 0,
         }
     }
 }
@@ -737,6 +801,24 @@ impl<'a> RxMsg2<'a> {
         }
     }
 
+    /// Read `len` data into the underlying buffer at the current offset
+    /// given a closure that takes the buffer. This method assumes
+    /// that `len` bytes are  written after the closure returns. If `len` bytes
+    /// are not available in `self.buf`, or `f` fails then an error is returned.
+    pub fn read<F: FnMut(&mut [u8]) -> Result<(), SprotError>>(
+        &self,
+        len: usize,
+        f: F,
+    ) -> Result<(), SprotError> {
+        if self.buf.len() - self.len < len {
+            return SprotError::BadMessageLength;
+        }
+        let buf = &mut self.buf[self.len..][..len];
+        f(buf)?;
+        self.len += len;
+        Ok(())
+    }
+
     /// Return an array containing the actual header bytes received so far
     /// and 0 bytes for any not filled.
     pub fn header_bytes(&self) -> [u8; HEADER_SIZE] {
@@ -744,6 +826,23 @@ impl<'a> RxMsg2<'a> {
         let end = core::cmp::min(self.len, HEADER_SIZE);
         buf[..end].copy_from_slice(&self.buf[..end]);
         buf
+    }
+
+    // Parse just the header and return it, or an error.
+    pub fn parse_header(
+        &self,
+        valid_bytes: usize,
+    ) -> Result<MsgHeader, SprotError> {
+        // We want to be able to return `RotBusy` before `Incomplete`.
+        self.parse_protocol()?;
+        if self.len < HEADER_SIZE {
+            return Err(SprotError::Incomplete);
+        }
+        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
+        if header.payload_len as usize > PAYLOAD_SIZE_MAX {
+            return Err(SprotError::BadMessageLength);
+        }
+        Ok(header)
     }
 
     /// Parse the header, validate the CRC, and returned a VerifiedRxMsg2.
@@ -801,8 +900,27 @@ impl<'a> RxMsg2<'a> {
 }
 
 pub struct VerifiedRxMsg2<'a> {
-    pub header: MsgHeader,
-    pub payload: &'a mut [u8],
+    header: MsgHeader,
+    payload: &'a mut [u8],
+}
+
+impl<'a> VerifiedRxMsg2<'a> {
+    fn header(&self) -> MsgHeader {
+        self.header
+    }
+
+    fn payload(&self) -> &'a [u8] {
+        &self.payload[..]
+    }
+
+    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
+    pub fn deserialize_hubpack_payload<M>(&self) -> Result<M, SprotError>
+    where
+        M: for<'de> Deserialize<'de>,
+    {
+        let (msg, _) = hubpack::deserialize::<M>(self.payload())?;
+        Ok(msg)
+    }
 }
 
 impl RxMsg {
@@ -850,18 +968,6 @@ impl RxMsg {
         } else {
             Err(SprotError::InvalidCrc)
         }
-    }
-
-    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
-    pub fn deserialize_hubpack_payload<M>(
-        &self,
-        rxmsg: &VerifiedRxMsg,
-    ) -> Result<M, SprotError>
-    where
-        M: for<'de> Deserialize<'de>,
-    {
-        let (msg, _) = hubpack::deserialize::<M>(self.payload(rxmsg))?;
-        Ok(msg)
     }
 
     /// Parse the first byte of the protocol, returning an appropriate error
