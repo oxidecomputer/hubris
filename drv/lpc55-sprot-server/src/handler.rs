@@ -85,8 +85,8 @@ impl Handler {
 
         // The CRC validated header and range checked length of the receiver can
         // be trusted now.
-        let rx_payload = rx_msg.payload;
-        let res = match rx_msg.header.msgtype {
+        let rx_payload = rx_msg.payload();
+        let res = match rx_msg.header().msgtype {
             MsgType::EchoReq => {
                 // We know payload_len is within bounds since the received
                 // header was parsed successfully and the send and receive
@@ -214,7 +214,7 @@ impl Handler {
             }
             Err((tx_buf, err)) => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                ringbuf_entry!(Trace::ErrWithTypedHeader(err, rx_msg.header));
+                ringbuf_entry!(Trace::ErrWithTypedHeader(err, rx_msg.header()));
                 Some(tx_buf.error_rsp(err))
             }
         }

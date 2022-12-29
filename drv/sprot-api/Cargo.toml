@@ -15,6 +15,7 @@ ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
+drv-spi-api = { path = "../../drv/spi-api" }
 drv-update-api = { path = "../../drv/update-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }

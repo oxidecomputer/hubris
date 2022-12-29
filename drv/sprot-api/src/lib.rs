@@ -18,6 +18,7 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
+use drv_spi_api::SpiError;
 use drv_update_api::{
     HandoffDataLoadError, RotBootState, UpdateError, UpdateTarget,
 };
@@ -547,7 +548,7 @@ impl<'a> TxMsg2<'a> {
     ///
     /// Each block is prefixed by its block num serialized as a u32
     pub fn block(
-        self,
+        mut self,
         block_num: u32,
         block: idol_runtime::LenLimit<
             idol_runtime::Leased<idol_runtime::R, [u8]>,
@@ -556,16 +557,19 @@ impl<'a> TxMsg2<'a> {
     ) -> Result<VerifiedTxMsg2<'a>, SprotError> {
         let n = hubpack::serialize(self.payload_mut(), &block_num)?;
         block
-            .read_range(0..block.len(), &mut payload[n..n + block.len()])
+            .read_range(
+                0..block.len(),
+                &mut self.payload_mut()[n..n + block.len()],
+            )
             .map_err(|_| SprotError::TaskRestart)?;
         let payload_len = n + block.len();
-        self.write_header(msgtype, source.len());
-        Ok(self.write_crc(msgtype, source.len()))
+        self.from_existing(MsgType::UpdWriteOneBlockReq, payload_len)
+            .map_err(|(_, e)| e)
     }
 
     /// Serialize a request from a MsgType and Lease
     pub fn from_lease(
-        &mut self,
+        mut self,
         msgtype: MsgType,
         source: Leased<R, [u8]>,
     ) -> Result<VerifiedTxMsg2<'a>, SprotError> {
@@ -639,7 +643,7 @@ impl<'a> VerifiedTxMsg2<'a> {
         self.data.len()
     }
 
-    pub fn as_slice(&self) -> &'a [u8] {
+    pub fn as_slice(&self) -> &[u8] {
         &self.data
     }
 
@@ -806,12 +810,12 @@ impl<'a> RxMsg2<'a> {
     /// that `len` bytes are  written after the closure returns. If `len` bytes
     /// are not available in `self.buf`, or `f` fails then an error is returned.
     pub fn read<F: FnMut(&mut [u8]) -> Result<(), SprotError>>(
-        &self,
+        &mut self,
         len: usize,
-        f: F,
+        mut f: F,
     ) -> Result<(), SprotError> {
         if self.buf.len() - self.len < len {
-            return SprotError::BadMessageLength;
+            return Err(SprotError::BadMessageLength);
         }
         let buf = &mut self.buf[self.len..][..len];
         f(buf)?;
@@ -829,10 +833,7 @@ impl<'a> RxMsg2<'a> {
     }
 
     // Parse just the header and return it, or an error.
-    pub fn parse_header(
-        &self,
-        valid_bytes: usize,
-    ) -> Result<MsgHeader, SprotError> {
+    pub fn parse_header(&self) -> Result<MsgHeader, SprotError> {
         // We want to be able to return `RotBusy` before `Incomplete`.
         self.parse_protocol()?;
         if self.len < HEADER_SIZE {
@@ -905,12 +906,12 @@ pub struct VerifiedRxMsg2<'a> {
 }
 
 impl<'a> VerifiedRxMsg2<'a> {
-    fn header(&self) -> MsgHeader {
+    pub fn header(&self) -> MsgHeader {
         self.header
     }
 
-    fn payload(&self) -> &'a [u8] {
-        &self.payload[..]
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
     }
 
     /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
