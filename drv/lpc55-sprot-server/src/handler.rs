@@ -5,8 +5,8 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    IoStats, MsgType, Protocol, RxMsg2, SprotError, SprotStatus, TxMsg2,
-    UpdateRspHeader, VerifiedTxMsg2, BUF_SIZE,
+    IoStats, MsgType, Protocol, RxMsg, SprotError, SprotStatus, TxMsg,
+    UpdateRspHeader, VerifiedTxMsg, BUF_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus, UpdateTarget};
 use lpc55_romapi::bootrom;
@@ -54,21 +54,21 @@ impl Handler {
     }
 
     /// Serialize and return a `SprotError::FlowError`
-    pub fn flow_error<'a>(&self, tx_buf: TxMsg2<'a>) -> VerifiedTxMsg2<'a> {
+    pub fn flow_error<'a>(&self, tx_buf: TxMsg<'a>) -> VerifiedTxMsg<'a> {
         tx_buf.error_rsp(SprotError::FlowError)
     }
 
     /// Serialize and return a `SprotError::FlowError`
-    pub fn protocol_error<'a>(&self, tx_buf: TxMsg2<'a>) -> VerifiedTxMsg2<'a> {
+    pub fn protocol_error<'a>(&self, tx_buf: TxMsg<'a>) -> VerifiedTxMsg<'a> {
         tx_buf.error_rsp(SprotError::ProtocolInvariantViolated)
     }
 
     pub fn handle<'a>(
         &mut self,
-        rx_buf: RxMsg2,
-        mut tx_buf: TxMsg2<'a>,
+        rx_buf: RxMsg,
+        mut tx_buf: TxMsg<'a>,
         stats: &mut IoStats,
-    ) -> Option<VerifiedTxMsg2<'a>> {
+    ) -> Option<VerifiedTxMsg<'a>> {
         // Parse the header and validate the CRC
         let rx_msg = match rx_buf.parse() {
             Ok(rxmsg) => rxmsg,

@@ -72,11 +72,15 @@ const TIMEOUT_QUICK: u32 = 250;
 const TIMEOUT_MAX: u32 = 500;
 // XXX tune the RoT flash write timeout
 const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
+
+// Delay between asserting CSn and sending the portion of a message
+// that fits entierly in the RoT's FIFO.
+const PART1_DELAY: u64 = 0;
+
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
-const PART1_DELAY: u64 = 0;
-const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
+const PART2_DELAY: u64 = 3; // Observed to be at least 2ms on gimletlet
 
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
 cfg_if::cfg_if! {
@@ -288,6 +292,8 @@ impl Io {
             // Read part two
             rxmsg.read(part2_len, |buf| spi.read(buf).map_err(|e| e.into()))?;
         }
+
+        ringbuf_entry!(Trace::Header(header));
 
         // This re-does a few inexpensive checks around header validation
         // and parsing, but prevents silly errors and keeps the API small.

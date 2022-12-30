@@ -606,45 +606,54 @@ impl<'a> TxMsg<'a> {
         let crc_buf = &mut self.buf[crc_begin..end];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
 
-        VerifiedTxMsg::new(msgtype, &mut self.buf[..end])
+        // Include the whole buffer, including trailing zeroes, so we can
+        // convert back into a `TxMsg` backing the full buffer size.
+        VerifiedTxMsg::new(msgtype, self.buf, end)
     }
 }
 
 pub struct VerifiedTxMsg<'a> {
     msgtype: Option<MsgType>,
-    // Contains only the actual message. 0 bytes may need to be clocked out to prevent
-    // underrun after this is exhausted.
     data: &'a mut [u8],
+
+    // The amount of data written into the buffer,
+    // Followed by zeroes if `len < data.len()`.
+    len: usize,
 }
 
 // A fully serialized message
 impl<'a> VerifiedTxMsg<'a> {
+    // A data containing buffer can only be created by a TxMsg.
+    fn new(
+        msgtype: MsgType,
+        data: &'a mut [u8],
+        len: usize,
+    ) -> VerifiedTxMsg<'a> {
+        VerifiedTxMsg {
+            msgtype: Some(msgtype),
+            data,
+            len,
+        }
+    }
+
     pub fn msgtype(&self) -> Option<MsgType> {
         self.msgtype
     }
 
     pub fn len(&self) -> usize {
-        self.data.len()
+        self.len
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &self.data
+        &self.data[..self.len]
     }
 
     pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
-        self.data.iter().cloned()
+        self.as_slice().iter().cloned()
     }
 
     pub fn into_txmsg(self) -> TxMsg<'a> {
         TxMsg::new(self.data)
-    }
-
-    // A data containing buffer can only be created by a TxMsg.
-    fn new(msgtype: MsgType, data: &'a mut [u8]) -> VerifiedTxMsg<'a> {
-        VerifiedTxMsg {
-            msgtype: Some(msgtype),
-            data,
-        }
     }
 }
 
@@ -694,29 +703,6 @@ impl<'a> RxMsg<'a> {
     pub fn payload_error_byte(&self) -> u8 {
         assert!(self.len > MIN_MSG_SIZE + 1);
         self.buf[HEADER_SIZE]
-    }
-
-    /// Return a mutable buffer of `len` bytes that is intended to be filled
-    /// by the caller. The buffer starts at offset `self.len`, and `self.len`
-    /// will be incremeneted to the size of the buffer before returning. If
-    /// the buffer is not filled, or an error occurs, this `RxMsg` is in an
-    /// inconsistent state and should be dropped. Given current usage, with
-    /// which a spi error will be returned and the `RxMsg` dropped this should
-    /// not cause any issues.
-    ///
-    /// N.B. This is an unfortunate API, caused by borrow checker issues inside
-    /// an idol callback that owns the underlying buffer mutably borrowed by
-    /// `RxMsg`. and the spi device used to fill the buffer. An attempt was
-    /// made to pass a closure that would allow reading from spi and bumping
-    /// the len on success, but that triggered the aformentioned borrow checker
-    /// issues.
-    pub fn fillable(&mut self, len: usize) -> Result<&mut [u8], SprotError> {
-        if self.buf.len() - self.len < len {
-            return Err(SprotError::BadMessageLength);
-        }
-        let buf = &mut self.buf[self.len..][..len];
-        self.len += len;
-        Ok(buf)
     }
 
     /// Read `len` data into the underlying buffer at the current offset

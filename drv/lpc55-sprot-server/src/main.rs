@@ -40,7 +40,7 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    IoStats, MsgHeader, Protocol, RxMsg2, SprotError, TxMsg2, VerifiedTxMsg2,
+    IoStats, MsgHeader, Protocol, RxMsg, SprotError, TxMsg, VerifiedTxMsg,
     BUF_SIZE, HEADER_SIZE,
 };
 use lpc55_pac as device;
@@ -61,6 +61,7 @@ pub(crate) enum Trace {
     IgnoreOnParse,
     State(State),
     Stats(IoStats),
+    PrimingWithZero,
     FifoStat(u8, u8, bool, bool),
 }
 ringbuf!(Trace, 128, Trace::None);
@@ -288,8 +289,8 @@ fn main() -> ! {
     let mut handler = Handler::new();
 
     loop {
-        let rx_msg = RxMsg2::new(&mut rx_buf[..]);
-        let tx_msg = TxMsg2::new(&mut tx_buf[..]);
+        let rx_msg = RxMsg::new(&mut rx_buf[..]);
+        let tx_msg = TxMsg::new(&mut tx_buf[..]);
         if let Some(response) = io.spi_read(rx_msg, tx_msg, &mut handler) {
             ringbuf_entry!(Trace::Stats(io.stats));
             io.spi_write(response);
@@ -323,7 +324,7 @@ impl Io {
     ///
     /// We expect to only clock in 0s from the SP, or else the SP and RoT are
     /// desynchronized.
-    pub fn spi_write<'a>(&mut self, response: VerifiedTxMsg2) {
+    pub fn spi_write<'a>(&mut self, response: VerifiedTxMsg) {
         self.state = State::Write(WriteState::WaitingToTransmit);
 
         // Prime the fifo with the first part of the response to prevent
@@ -334,25 +335,14 @@ impl Io {
             if let Some(b) = tx_iter.next() {
                 self.spi.send_u8(b);
             } else {
-                // Prevent underrun
                 self.spi.send_u8(0);
             }
         }
-
         self.assert_rot_irq();
         loop {
             sys_irq_control(SPI_IRQ, true);
             sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
             loop {
-                // Just for debugging
-                let fifostat = self.spi.fifostat();
-                ringbuf_entry!(Trace::FifoStat(
-                    fifostat.txlvl().bits(),
-                    fifostat.rxlvl().bits(),
-                    fifostat.txerr().bits(),
-                    fifostat.rxerr().bits()
-                ));
-
                 ringbuf_entry!(Trace::State(self.state));
                 match self.state.write() {
                     WriteState::WaitingToTransmit => {
@@ -380,10 +370,10 @@ impl Io {
     /// We clock out 0s until CSn is de-asserted
     pub fn spi_read<'a>(
         &mut self,
-        mut rx_msg: RxMsg2<'a>,
-        tx_msg: TxMsg2<'a>,
+        mut rx_msg: RxMsg<'a>,
+        tx_msg: TxMsg<'a>,
         handler: &mut Handler,
-    ) -> Option<VerifiedTxMsg2<'a>> {
+    ) -> Option<VerifiedTxMsg<'a>> {
         self.state = State::Read(ReadState::WaitingForRequest);
         self.zero_tx_buf();
         loop {
@@ -563,7 +553,7 @@ impl Io {
     // and resetting the SP if it is exceeded.
     // But, the management plane is going to notice that
     // the RoT is not available. So, does it matter?
-    fn read_until_csn_deasserted<'a>(&mut self, rx_msg: &mut RxMsg2<'a>) {
+    fn read_until_csn_deasserted<'a>(&mut self, rx_msg: &mut RxMsg<'a>) {
         let mut num_unexpected_csn_asserts_in_this_loop: u32 = 0;
         let mut overrun_seen = false;
         let mut state = self.state.read();
