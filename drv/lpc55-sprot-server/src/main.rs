@@ -132,12 +132,6 @@ fn configure_spi() -> Io {
     // unneccessarily causes spurious interrupts. We really only need to to
     // respond to CSn asserted interrupts, because after that we always enter a
     // tight loop.
-    //
-    // In the `spi_write` path we noticed that we were getting   a spurious
-    // interrupt which could cause us to sometimes wait longer to see the
-    // actual CSn assert intterupt. This periodically caused tx_underrun errors
-    // for replies larger than the TX FIFO unless we bumped the PART1 or PART2
-    // timeout, which is unnnecessarily inefficient.
     spi.disable_tx();
     spi.disable_rx();
 
