@@ -596,11 +596,7 @@ impl Io {
             let fifostat = self.spi.fifostat();
             let mut csn_deasserted = self.spi.ssd();
 
-            ringbuf_entry!(Trace::Intstat(intstat.bits()));
-            ringbuf_entry!(Trace::Stat(self.spi.stat().bits()));
-
             if csn_deasserted {
-                ringbuf_entry!(Trace::CsnDeasserted);
                 // Cool, we have a complete frame.
                 self.spi.ssd_clear();
 

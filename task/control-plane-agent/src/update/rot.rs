@@ -25,6 +25,7 @@ enum Trace {
     None,
     IngestChunkInput { offset: u32, len: usize },
     IngestChunkState { offset: u32, len: usize },
+    WriteOneBlock(u32, usize, usize),
 }
 
 pub(crate) struct RotUpdate {
@@ -194,6 +195,11 @@ impl ComponentUpdater for RotUpdate {
                 || *next_write_offset + buffer.len() as u32 == total_size
             {
                 let block_num = *next_write_offset / Self::BLOCK_SIZE as u32;
+                ringbuf_entry!(Trace::WriteOneBlock(
+                    block_num,
+                    buffer.len(),
+                    buffer.capacity()
+                ));
                 if let Err(err) = self.task.write_one_block(block_num, buffer) {
                     *current.state_mut() = State::Failed(err);
                     return Err(SpError::UpdateFailed(err as u32));

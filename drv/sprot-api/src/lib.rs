@@ -672,6 +672,13 @@ impl<'a> RxMsg<'a> {
         RxMsg { buf, len: 0 }
     }
 
+    // Necessary for retries on the SP, since `do_send_recv_retries`
+    // does not take ownership of the `RxMsg`.
+    pub fn clear(&mut self) {
+        self.buf.fill(0);
+        self.len = 0;
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -701,7 +708,7 @@ impl<'a> RxMsg<'a> {
     /// This should only be used after a successful non-consuming parse, or
     /// else the data will be meaningless.
     pub fn payload_error_byte(&self) -> u8 {
-        assert!(self.len > MIN_MSG_SIZE + 1);
+        assert!(self.len >= MIN_MSG_SIZE + 1);
         self.buf[HEADER_SIZE]
     }
 

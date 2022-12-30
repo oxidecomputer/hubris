@@ -333,6 +333,9 @@ impl Io {
             }
             attempts_left -= 1;
 
+            if attempts_left != retries {
+                rxmsg.clear();
+            }
             match self.do_send_recv(txmsg, rxmsg, timeout) {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
@@ -594,7 +597,7 @@ impl idl::InOrderSpRotImpl for ServerImpl {
     // most of the received bytes match their buffer index modulo
     // 0x100.
     //
-    //    #[cfg(feature = "sink_test")]
+    #[cfg(feature = "sink_test")]
     fn rot_sink(
         &mut self,
         _: &RecvMessage,
@@ -732,7 +735,6 @@ impl idl::InOrderSpRotImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<usize, RequestError<SprotError>> {
-        let tx_buf = &mut self.tx_buf;
         let txmsg = TxMsg::new(&mut self.tx_buf[..])
             .no_payload(MsgType::UpdBlockSizeReq);
         let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
