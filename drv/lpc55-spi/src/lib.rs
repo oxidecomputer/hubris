@@ -140,6 +140,15 @@ impl Spi {
         self.reg.stat.read().mstidle().bit_is_set()
     }
 
+    // This should really be upstreamed into the lpc55-pac crate For some
+    // reason the SSD and SSA flags are not supported as readable However,
+    // this is useful in polling mode when we don't want to rely on interrupts
+    // necessarily, or don't want to worry about the flags automatically being
+    // cleared in `intstat` if we only care about one interrupt type.
+    pub fn ssd(&self) -> bool {
+        (self.reg.stat.read().bits() >> 5) & 0x01 != 0
+    }
+
     pub fn can_tx(&self) -> bool {
         self.reg.fifostat.read().txnotfull().bit_is_set()
     }
@@ -268,6 +277,10 @@ impl Spi {
     // NXP Document UM11126 35.6.8 SPI interrupt status register
     pub fn intstat(&self) -> device::spi0::intstat::R {
         self.reg.intstat.read()
+    }
+
+    pub fn stat(&self) -> device::spi0::stat::R {
+        self.reg.stat.read()
     }
 
     pub fn fifostat(&mut self) -> device::spi0::fifostat::R {

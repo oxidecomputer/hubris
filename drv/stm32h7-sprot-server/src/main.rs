@@ -80,7 +80,7 @@ const PART1_DELAY: u64 = 0;
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
-const PART2_DELAY: u64 = 3; // Observed to be at least 2ms on gimletlet
+const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
 
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
 cfg_if::cfg_if! {
@@ -266,7 +266,23 @@ impl Io {
             hl::sleep_for(PART1_DELAY);
         }
 
-        let part1_len = ROT_FIFO_SIZE;
+        // If we read out the full fifo, we end up with an underrun situation
+        // periodically. This happens after the part2 delay, and the length of
+        // that delay doesn't matter. The interrupt fires quickly and we keep
+        // looping waiting to read bytes. I noticed hundreds of iterations
+        // without any data transferred with a ringbuf message inside the
+        // tightloop in `Io::write_respsonse` on the RoT. Then all of a
+        // sudden, the first data transfer occurs (~1 byte read/written) and
+        // an underrun occurs. We seem to be able to prevent this leaving a
+        // partially full TxBuf on the receiver. We want to retrieve a full
+        // header, but other than that, we don't need to retrieve the full fifo
+        // at once.
+        //
+        // In short, we set `part1_len = MIN_MSG_SIZE` instead of
+        // `part1_len = ROT_FIFO_SIZE`.
+        //
+        // In the case that there is no payload, this still reads in one round.
+        let part1_len = MIN_MSG_SIZE;
         ringbuf_entry!(Trace::RxPart1(part1_len));
 
         // Read part one

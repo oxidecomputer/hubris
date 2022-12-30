@@ -62,7 +62,11 @@ pub(crate) enum Trace {
     State(State),
     Stats(IoStats),
     PrimingWithZero,
+    Intstat(u32),
+    Stat(u32),
     FifoStat(u8, u8, bool, bool),
+    CsnDeasserted,
+    Bytes(usize, usize, usize),
 }
 ringbuf!(Trace, 128, Trace::None);
 
@@ -112,10 +116,30 @@ fn configure_spi() -> Io {
     );
     // Set SPI mode for Flexcomm
     flexcomm.pselid.write(|w| w.persel().spi());
-    spi.enable(); // Drain and configure FIFOs
-    spi.ssa_enable(); // Interrupt on CSn changing to asserted.
-    spi.ssd_enable(); // Interrupt on CSn changing to deasserted.
-    spi.drain(); // Probably not necessary, drain Rx and Tx after config.
+
+    // Drain and configure FIFOs
+    spi.enable();
+
+    // We only want interrupts on CSn assert
+    // Once we see that interrupt we enter polling mode
+    // and check the registers manually.
+    spi.ssa_enable();
+
+    // Probably not necessary, drain Rx and Tx after config.
+    spi.drain();
+
+    // Disable the interrupts triggered by the `self.spi.drain_tx()`, which
+    // unneccessarily causes spurious interrupts. We really only need to to
+    // respond to CSn asserted interrupts, because after that we always enter a
+    // tight loop.
+    //
+    // In the `spi_write` path we noticed that we were getting   a spurious
+    // interrupt which could cause us to sometimes wait longer to see the
+    // actual CSn assert intterupt. This periodically caused tx_underrun errors
+    // for replies larger than the TX FIFO unless we bumped the PART1 or PART2
+    // timeout, which is unnnecessarily inefficient.
+    spi.disable_tx();
+    spi.disable_rx();
 
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
@@ -338,6 +362,14 @@ impl Io {
                 self.spi.send_u8(0);
             }
         }
+        let fifostat = self.spi.fifostat();
+        ringbuf_entry!(Trace::FifoStat(
+            fifostat.txlvl().bits(),
+            fifostat.rxlvl().bits(),
+            fifostat.txerr().bits(),
+            fifostat.rxerr().bits()
+        ));
+
         self.assert_rot_irq();
         loop {
             sys_irq_control(SPI_IRQ, true);
@@ -418,6 +450,7 @@ impl Io {
     fn write_wait_for_csn_asserted(&mut self) {
         // Get frame start/end interrupt from intstat (SSA/SSD).
         let intstat = self.spi.intstat();
+        ringbuf_entry!(Trace::Intstat(intstat.bits()));
 
         // CSn asserted by the SP.
         if intstat.ssa().bit() {
@@ -428,6 +461,8 @@ impl Io {
 
     fn write_response(&mut self, tx_iter: &mut dyn Iterator<Item = u8>) {
         let mut bytes_read: usize = 0;
+        let mut data_bytes_written: usize = 0;
+        let mut zeros_written: usize = 0;
         let mut state = self.state.write();
         let mut overrun_seen = false;
 
@@ -440,6 +475,10 @@ impl Io {
             let intstat = self.spi.intstat();
             let fifostat = self.spi.fifostat();
 
+            // We check for CSn deasserted at the beginning of the loop because
+            // we always want an opportunity drain our fifos after we see the bit set.
+            let csn_deasserted = self.spi.ssd();
+
             if fifostat.txerr().bit() {
                 // We missed our window to send :(
                 self.spi.txerr_clear();
@@ -449,7 +488,6 @@ impl Io {
                 // for a CSn de-assert.
                 if state != WriteState::ResponseWritten {
                     state = WriteState::Underrun;
-                    self.deassert_rot_irq();
                 }
             }
 
@@ -468,11 +506,13 @@ impl Io {
                 if self.spi.can_tx() {
                     io = true;
                     if let Some(b) = tx_iter.next() {
+                        data_bytes_written += 1;
                         self.spi.send_u8(b);
                     } else {
                         response_sent = true;
                         // Just clock out zeros and prevent an unnecessary underrun
                         self.spi.send_u8(0);
+                        zeros_written += 1;
                     }
                 }
 
@@ -492,12 +532,12 @@ impl Io {
 
             // Are we done sending our response?
             if response_sent && state == WriteState::Writing {
-                self.deassert_rot_irq();
                 state = WriteState::ResponseWritten;
             }
 
-            // Check for an unexpected CSn de-assert
-            if intstat.ssd().bit() {
+            // Check for a CSn de-assert
+            if csn_deasserted {
+                ringbuf_entry!(Trace::CsnDeasserted);
                 self.spi.ssd_clear();
 
                 // Is this a CSn pulse?
@@ -508,7 +548,6 @@ impl Io {
                     self.stats.csn_pulses =
                         self.stats.csn_pulses.wrapping_add(1);
                     state = WriteState::Flush;
-                    self.deassert_rot_irq();
                     break;
                 }
 
@@ -525,12 +564,12 @@ impl Io {
                         .unexpected_csn_deassert_while_replying
                         .wrapping_add(1);
                     state = WriteState::Flush;
-                    self.deassert_rot_irq();
                 }
                 break;
             }
         }
 
+        self.deassert_rot_irq();
         self.state = State::Write(state);
     }
 
@@ -538,6 +577,7 @@ impl Io {
     fn read_wait_for_csn_asserted(&mut self) {
         // Get frame start/end interrupt from intstat (SSA/SSD).
         let intstat = self.spi.intstat();
+        ringbuf_entry!(Trace::Intstat(intstat.bits()));
 
         // CSn asserted by the SP.
         if intstat.ssa().bit() {
@@ -560,9 +600,13 @@ impl Io {
         loop {
             let intstat = self.spi.intstat();
             let fifostat = self.spi.fifostat();
-            let mut csn_deasserted = intstat.ssd().bit();
+            let mut csn_deasserted = self.spi.ssd();
+
+            ringbuf_entry!(Trace::Intstat(intstat.bits()));
+            ringbuf_entry!(Trace::Stat(self.spi.stat().bits()));
 
             if csn_deasserted {
+                ringbuf_entry!(Trace::CsnDeasserted);
                 // Cool, we have a complete frame.
                 self.spi.ssd_clear();
 
@@ -655,7 +699,7 @@ impl Io {
                 // We need to break out of this loop at some point!
                 //
                 // We could check again to see if CSn is asserted, but
-                // logically we know that we this  CSn deassert *happened
+                // logically we know that this CSn deassert *happened
                 // before* any new CSn asserts. So we should move on as normal
                 // and let the next read handle the CSn assert. Seeing another
                 // CSn assert so quickly, while in our tight loop would mean
