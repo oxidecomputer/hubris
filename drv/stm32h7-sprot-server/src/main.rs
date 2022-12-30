@@ -201,6 +201,12 @@ impl Io {
     ) -> Result<MsgHeader, SprotError> {
         ringbuf_entry!(Trace::SendRecv(txmsg.len()));
 
+        // TODO(AJS): This is not necessarily an unexpected RoT IRQ. During
+        // fast send iterations, particularly sink tests, the prior RoT IRQ has
+        // simply not been de-asserted yet. We don't wait for ROT_IRQ to be de-
+        // asserted at the end of `do_read_response`, but it would make the
+        // state-machine cleaner if we did. We'd be able to clearly delineate
+        // the end of a response and this check would no longer be ambiguous.
         self.handle_unexpected_rot_irq()?;
         self.do_send_request(txmsg)?;
 
