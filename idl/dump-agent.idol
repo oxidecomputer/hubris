@@ -1,0 +1,50 @@
+// Dump Agent API
+
+Interface(
+    name: "DumpAgent",
+    ops: {
+        "read_dump": (
+            doc: "Fetch the 256 bytes in the specified dump area at the specified offset",
+            args: {
+                "index": "u8",
+                "offset": "u32",
+            },
+            reply: Result(
+                ok: "[u8; 256]",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "get_dump_areas": (
+            doc: "Return the number of dump areas",
+            reply: Result(
+                ok: "usize",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "get_dump_area": (
+            doc: "Return information associated with the specified dump area",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "initialize_dump": (
+            doc: "Initialize dump context",
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "take_dump": (
+            doc: "Take dump",
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+    },
+)

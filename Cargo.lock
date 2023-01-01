@@ -1793,6 +1793,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dump-agent-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "hubpack",
+ "idol",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3683,6 +3696,24 @@ dependencies = [
  "serde",
  "ssmarshal",
  "static_assertions",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-dump-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "cortex-m",
+ "dump-agent-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]
