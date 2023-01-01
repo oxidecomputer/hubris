@@ -7,10 +7,10 @@
 #![no_std]
 #![no_main]
 
-use idol_runtime::RequestError;
 use dump_agent_api::*;
-use userlib::*;
+use idol_runtime::RequestError;
 use ringbuf::*;
+use userlib::*;
 
 struct ServerImpl {
     areas: [DumpArea; 3],
@@ -24,8 +24,6 @@ enum Trace {
 }
 
 ringbuf!(Trace, 32, Trace::None);
-
-// task_slot!(I2C, i2c_driver);
 
 impl idl::InOrderDumpAgentImpl for ServerImpl {
     fn read_dump(
@@ -45,8 +43,10 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             ringbuf_entry!(Trace::Address(area.address));
 
             let slice = unsafe {
-                core::slice::from_raw_parts(area.address as *const u8,
-                area.length as usize)
+                core::slice::from_raw_parts(
+                    area.address as *const _,
+                    area.length as usize,
+                )
             };
 
             ringbuf_entry!(Trace::Value(slice[0]));
@@ -57,14 +57,20 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 
             let len = rval.len();
 
-            for ndx in offset..offset + len {
-                ringbuf_entry!(Trace::Value(slice[ndx]));
-                rval[ndx - offset] = slice[ndx];
-            }
-
-            /*
+            //
+            // For unclear reasons, the compiler (apprently?) gets confused
+            // about the alignment of `slice` -- and it ends up trying to
+            // do a load from an unaligned address.  So this will fail:
+            //
             rval.copy_from_slice(&slice[offset..offset + len]);
-            */
+
+            //
+            // By contast, this will work:
+            //
+            // for ndx in offset..offset + len {
+            //    ringbuf_entry!(Trace::Value(slice[ndx]));
+            //    rval[ndx - offset] = slice[ndx];
+            // }
 
             Ok(rval)
         }
@@ -120,7 +126,7 @@ fn main() -> ! {
                 address: 0x38000000,
                 length: 0x10000,
             },
-        ]
+        ],
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];

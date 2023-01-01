@@ -5,7 +5,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     idol::client::build_client_stub(
         "../../idl/dump-agent.idol",
-        "client_stub.rs"
+        "client_stub.rs",
     )?;
     Ok(())
 }
