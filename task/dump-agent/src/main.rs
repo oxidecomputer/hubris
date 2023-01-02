@@ -7,12 +7,12 @@
 #![no_std]
 #![no_main]
 
+use core::mem::size_of;
 use dump_agent_api::*;
 use idol_runtime::RequestError;
 use ringbuf::*;
-use userlib::*;
-use core::mem::size_of;
 use static_assertions::const_assert;
+use userlib::*;
 
 //
 // Our DUMP_READ_SIZE must be an even power of 2 -- and practically speaking
@@ -37,19 +37,39 @@ impl ServerImpl {
 
             offset -= area.length;
         }
- 
+
         Err(DumpAgentError::BadOffset)
     }
 
     fn initialize(&self) {
-        for area in &self.areas {
+        let mut next = 0;
+
+        for area in self.areas.iter().rev() {
             unsafe {
                 let header = area.address as *mut DumpAreaHeader;
 
-                (*header).nsegments = 0;
-                (*header).written = size_of::<DumpAreaHeader>() as u32;
-                (*header).length = area.length;
-                (*header).agent_version = DUMP_AGENT_VERSION;
+                //
+                // We initialize our dump header with deliberately bad magic
+                // to prevent any dumps until we have everything initialized
+                //
+                (*header) = DumpAreaHeader {
+                    magic: DUMP_UNINITIALIZED,
+                    address: area.address,
+                    nsegments: 0,
+                    written: size_of::<DumpAreaHeader>() as u32,
+                    length: area.length,
+                    agent_version: DUMP_AGENT_VERSION,
+                    dumper_version: DUMPER_NONE,
+                    next,
+                }
+            }
+
+            next = area.address;
+        }
+
+        for area in &self.areas {
+            unsafe {
+                let header = area.address as *mut DumpAreaHeader;
                 (*header).magic = DUMP_MAGIC;
             }
         }
@@ -67,17 +87,18 @@ impl ServerImpl {
 
             let nsegments = (*header).nsegments;
 
-            let offset = size_of::<DumpAreaHeader>() +
-               (nsegments as usize) * size_of::<DumpSegmentHeader>();
+            let offset = size_of::<DumpAreaHeader>()
+                + (nsegments as usize) * size_of::<DumpSegmentHeader>();
 
             let saddr = area.address as usize + offset;
             let segment = saddr as *mut DumpSegmentHeader;
- 
+
             (*segment).address = addr;
             (*segment).length = length;
 
             (*header).nsegments = nsegments + 1;
-            (*header).written = (offset + size_of::<DumpSegmentHeader>()) as u32;
+            (*header).written =
+                (offset + size_of::<DumpSegmentHeader>()) as u32;
         }
     }
 }
@@ -118,12 +139,11 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         address: u32,
         length: u32,
     ) -> Result<(), RequestError<DumpAgentError>> {
-
-        if address & 0b111 != 0 {
+        if address & 0b11 != 0 {
             return Err(DumpAgentError::UnalignedSegmentAddress.into());
         }
 
-        if (length as usize) & (DUMP_READ_SIZE - 1) != 0 {
+        if (length as usize) & 0b11 != 0 {
             return Err(DumpAgentError::UnalignedSegmentLength.into());
         }
 
@@ -157,7 +177,6 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 
         Ok(rval)
     }
-
 }
 
 #[export_name = "main"]
