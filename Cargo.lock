@@ -3714,6 +3714,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]

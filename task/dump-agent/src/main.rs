@@ -11,9 +11,75 @@ use dump_agent_api::*;
 use idol_runtime::RequestError;
 use ringbuf::*;
 use userlib::*;
+use core::mem::size_of;
+use static_assertions::const_assert;
+
+//
+// Our DUMP_READ_SIZE must be an even power of 2 -- and practically speaking
+// cannot be more than 1K
+//
+const_assert!(DUMP_READ_SIZE & (DUMP_READ_SIZE - 1) == 0);
+const_assert!(DUMP_READ_SIZE <= 1024);
 
 struct ServerImpl {
     areas: [DumpArea; 3],
+}
+
+impl ServerImpl {
+    fn area(&self, mut offset: u32) -> Result<&[u8], DumpAgentError> {
+        for area in &self.areas {
+            if offset < area.length {
+                let addr = (area.address + offset) as *const u8;
+                let len = (area.length - offset) as usize;
+
+                return Ok(unsafe { core::slice::from_raw_parts(addr, len) });
+            }
+
+            offset -= area.length;
+        }
+ 
+        Err(DumpAgentError::BadOffset)
+    }
+
+    fn initialize(&self) {
+        for area in &self.areas {
+            unsafe {
+                let header = area.address as *mut DumpAreaHeader;
+
+                (*header).nsegments = 0;
+                (*header).written = size_of::<DumpAreaHeader>() as u32;
+                (*header).length = area.length;
+                (*header).agent_version = DUMP_AGENT_VERSION;
+                (*header).magic = DUMP_MAGIC;
+            }
+        }
+    }
+
+    fn add_dump_segment(&mut self, addr: u32, length: u32) {
+        let area = self.areas[0];
+
+        unsafe {
+            let header = area.address as *mut DumpAreaHeader;
+
+            if (*header).magic != DUMP_MAGIC {
+                panic!("bad dump magic!");
+            }
+
+            let nsegments = (*header).nsegments;
+
+            let offset = size_of::<DumpAreaHeader>() +
+               (nsegments as usize) * size_of::<DumpSegmentHeader>();
+
+            let saddr = area.address as usize + offset;
+            let segment = saddr as *mut DumpSegmentHeader;
+ 
+            (*segment).address = addr;
+            (*segment).length = length;
+
+            (*header).nsegments = nsegments + 1;
+            (*header).written = (offset + size_of::<DumpSegmentHeader>()) as u32;
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -26,63 +92,6 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 impl idl::InOrderDumpAgentImpl for ServerImpl {
-    fn read_dump(
-        &mut self,
-        _msg: &RecvMessage,
-        index: u8,
-        offset: u32,
-    ) -> Result<[u8; 256], RequestError<DumpAgentError>> {
-        let mut rval = [0u8; 256];
-        let offset = offset as usize;
-
-        if index as usize >= self.areas.len() {
-            Err(DumpAgentError::InvalidArea.into())
-        } else {
-            let area = &self.areas[index as usize];
-
-            ringbuf_entry!(Trace::Address(area.address));
-
-            let slice = unsafe {
-                core::slice::from_raw_parts(
-                    area.address as *const _,
-                    area.length as usize,
-                )
-            };
-
-            ringbuf_entry!(Trace::Value(slice[0]));
-
-            if offset + rval.len() > slice.len() {
-                return Err(DumpAgentError::BadOffset.into());
-            }
-
-            let len = rval.len();
-
-            //
-            // For unclear reasons, the compiler (apprently?) gets confused
-            // about the alignment of `slice` -- and it ends up trying to
-            // do a load from an unaligned address.  So this will fail:
-            //
-            rval.copy_from_slice(&slice[offset..offset + len]);
-
-            //
-            // By contast, this will work:
-            //
-            // for ndx in offset..offset + len {
-            //    ringbuf_entry!(Trace::Value(slice[ndx]));
-            //    rval[ndx - offset] = slice[ndx];
-            // }
-
-            Ok(rval)
-        }
-    }
-
-    fn get_dump_areas(
-        &mut self,
-        _msg: &RecvMessage,
-    ) -> Result<usize, RequestError<DumpAgentError>> {
-        Ok(self.areas.len())
-    }
-
     fn get_dump_area(
         &mut self,
         _msg: &RecvMessage,
@@ -99,7 +108,27 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
-        Err(DumpAgentError::InvalidArea.into())
+        self.initialize();
+        Ok(())
+    }
+
+    fn add_dump_segment(
+        &mut self,
+        _msg: &RecvMessage,
+        address: u32,
+        length: u32,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+
+        if address & 0b111 != 0 {
+            return Err(DumpAgentError::UnalignedSegmentAddress.into());
+        }
+
+        if (length as usize) & (DUMP_READ_SIZE - 1) != 0 {
+            return Err(DumpAgentError::UnalignedSegmentLength.into());
+        }
+
+        self.add_dump_segment(address, length);
+        Ok(())
     }
 
     fn take_dump(
@@ -108,6 +137,27 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     ) -> Result<(), RequestError<DumpAgentError>> {
         Err(DumpAgentError::InvalidArea.into())
     }
+
+    fn read_dump(
+        &mut self,
+        _msg: &RecvMessage,
+        offset: u32,
+    ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
+        let mut rval = [0u8; DUMP_READ_SIZE];
+
+        if offset & ((rval.len() as u32) - 1) != 0 {
+            return Err(DumpAgentError::UnalignedOffset.into());
+        }
+
+        let area = self.area(offset)?;
+
+        for ndx in 0..rval.len() {
+            rval[ndx] = area[ndx];
+        }
+
+        Ok(rval)
+    }
+
 }
 
 #[export_name = "main"]
@@ -129,6 +179,8 @@ fn main() -> ! {
         ],
     };
 
+    server.initialize();
+
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     loop {
@@ -137,8 +189,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::DumpAgentError;
-    use super::DumpArea;
+    use super::*;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

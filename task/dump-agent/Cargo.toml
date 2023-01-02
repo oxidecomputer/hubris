@@ -14,10 +14,10 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 hubpack = { workspace = true }
 serde = { workspace = true }
-
 ringbuf = { path = "../../lib/ringbuf"  }
 dump-agent-api = { path = "../dump-agent-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+static_assertions = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
