@@ -2201,7 +2201,10 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/humpty#df35f386dabfad09934915af9051c83a11614991"
 dependencies = [
+ "lzss",
+ "static_assertions",
  "zerocopy",
 ]
 
@@ -2475,6 +2478,15 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
+]
+
+[[package]]
+name = "lzss"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39e2b9a6124e5200c13bb5c5d1124bf93b451bff69b651912810039e36ca97eb"
+dependencies = [
+ "void",
 ]
 
 [[package]]

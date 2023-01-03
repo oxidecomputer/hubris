@@ -10,7 +10,6 @@
 use core::mem::size_of;
 use dump_agent_api::*;
 use idol_runtime::RequestError;
-use ringbuf::*;
 use static_assertions::const_assert;
 use userlib::*;
 
@@ -26,19 +25,21 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn area(&self, mut offset: u32) -> Result<&[u8], DumpAgentError> {
-        for area in &self.areas {
+    fn area(&self, index: usize, offset: u32) -> Result<&[u8], DumpAgentError> {
+        if index >= self.areas.len() {
+            Err(DumpAgentError::InvalidArea)
+        } else {
+            let area = self.areas[index];
+
             if offset < area.length {
                 let addr = (area.address + offset) as *const u8;
                 let len = (area.length - offset) as usize;
 
-                return Ok(unsafe { core::slice::from_raw_parts(addr, len) });
+                Ok(unsafe { core::slice::from_raw_parts(addr, len) })
+            } else {
+                Err(DumpAgentError::BadOffset)
             }
-
-            offset -= area.length;
         }
-
-        Err(DumpAgentError::BadOffset)
     }
 
     fn initialize(&self) {
@@ -103,15 +104,6 @@ impl ServerImpl {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    Address(u32),
-    Value(u8),
-    None,
-}
-
-ringbuf!(Trace, 32, Trace::None);
-
 impl idl::InOrderDumpAgentImpl for ServerImpl {
     fn get_dump_area(
         &mut self,
@@ -161,6 +153,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     fn read_dump(
         &mut self,
         _msg: &RecvMessage,
+        index: u8,
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
         let mut rval = [0u8; DUMP_READ_SIZE];
@@ -169,7 +162,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnalignedOffset.into());
         }
 
-        let area = self.area(offset)?;
+        let area = self.area(index as usize, offset)?;
 
         for ndx in 0..rval.len() {
             rval[ndx] = area[ndx];

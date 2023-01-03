@@ -4,8 +4,9 @@ Interface(
     name: "DumpAgent",
     ops: {
         "read_dump": (
-            doc: "Fetch the 256 bytes from the dump at the specified offset",
+            doc: "Fetch the 256 bytes from the dump at the specified offset from the specified area",
             args: {
+                "index": "u8",
                 "offset": "u32",
             },
             reply: Result(
