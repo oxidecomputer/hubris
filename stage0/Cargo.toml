@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-dice-mfg = [ "salty", 
-            "static_assertions",  "lib-lpc55-usart"]
-dice-self = ["salty" ]
+dice-mfg = ["salty", "static_assertions",  "lib-lpc55-usart"]
+dice-self = ["salty"]
 tz_support = []
 
 [dependencies]
