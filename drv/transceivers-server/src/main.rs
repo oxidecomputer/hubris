@@ -87,7 +87,7 @@ struct ServerImpl {
     sensor_api: Sensor,
 
     /// Thermal models are populated by the host
-    thermal_models: [Option<ThermalModel>; NUM_PORTS],
+    thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
 
 #[derive(Copy, Clone)]
@@ -343,7 +343,7 @@ impl ServerImpl {
 
 // This must be in the same order as the `DYNAMIC_INPUTS` array in
 // `thermal/src/bsp/sidecar_ab.rs`
-const SENSOR_IDS: [SensorId; NUM_PORTS] = [
+const SENSOR_IDS: [SensorId; NUM_PORTS as usize] = [
     other_sensors::QSFP_XCVR0_TEMPERATURE_SENSOR,
     other_sensors::QSFP_XCVR1_TEMPERATURE_SENSOR,
     other_sensors::QSFP_XCVR2_TEMPERATURE_SENSOR,
@@ -607,7 +607,7 @@ fn main() -> ! {
             leds_initialized: false,
             thermal_api,
             sensor_api,
-            thermal_models: [None; NUM_PORTS],
+            thermal_models: [None; NUM_PORTS as usize],
         };
 
         ringbuf_entry!(Trace::LEDInit);
