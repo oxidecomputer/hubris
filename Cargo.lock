@@ -1146,7 +1146,6 @@ dependencies = [
  "serde",
  "sprockets-common",
  "sprockets-rot",
- "static_assertions",
  "userlib",
  "zerocopy",
 ]
@@ -1436,6 +1435,7 @@ version = "0.1.0"
 dependencies = [
  "crc",
  "derive-idol-err",
+ "drv-spi-api",
  "drv-update-api",
  "hubpack",
  "idol",
