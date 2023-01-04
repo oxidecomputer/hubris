@@ -10,7 +10,6 @@ version = 0
 [kernel]
 name = "gimletlet"
 requires = {flash = 32768, ram = 8192}
-features = []
 
 [tasks.jefe]
 name = "task-jefe"
