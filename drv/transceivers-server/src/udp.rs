@@ -92,9 +92,9 @@ impl ServerImpl {
             rx_data_buf,
         ) {
             Ok(meta) => self.handle_packet(meta, rx_data_buf, tx_data_buf),
-            Err(RecvError::QueueEmpty) => {
-                // Our incoming queue is empty. Wait for more packets
-                // in dispatch_n, back in the main loop.
+            Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                // Our incoming queue is empty or `net` restarted. Wait for more
+                // packets in dispatch_n, back in the main loop.
             }
             Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
