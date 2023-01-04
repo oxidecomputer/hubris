@@ -84,7 +84,7 @@ struct ServerImpl {
     thermal_api: Thermal,
 
     /// Handle to write temperatures to the `sensors` task
-    sensor_api: task_sensor_api::Sensor,
+    sensor_api: Sensor,
 
     /// Thermal models are populated by the host
     thermal_models: [Option<ThermalModel>; NUM_PORTS],
