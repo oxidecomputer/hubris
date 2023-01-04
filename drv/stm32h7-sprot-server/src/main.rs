@@ -60,11 +60,11 @@ const SP_TO_ROT_SPI_DEVICE: u8 = 0;
 // TODO: These timeouts are somewhat arbitrary.
 
 /// Timeout for status message
-const TIMEOUT_QUICK: u32 = 1000;
+const TIMEOUT_QUICK: u32 = 250;
 /// Maximum timeout for an arbitrary message
-const TIMEOUT_MAX: u32 = 2_000;
+const TIMEOUT_MAX: u32 = 1_000;
 // XXX tune the RoT flash write timeout
-const TIMEOUT_WRITE_ONE_BLOCK: u32 = 2_000;
+const TIMEOUT_WRITE_ONE_BLOCK: u32 = 800;
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
