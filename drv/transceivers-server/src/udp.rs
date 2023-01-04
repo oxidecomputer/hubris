@@ -128,9 +128,10 @@ impl ServerImpl {
                 //
                 // Other errors are unexpected and panic.
                 //
-                // This includes ServerRestarted; the server should only
-                // restart due to the watchdog, and the watchdog should fire
-                // because we're literally replying to a packet here.
+                // This includes ServerRestarted, because the server should only
+                // restart if the watchdog times out, and the watchdog should
+                // not be timing out, because we're literally replying to a
+                // packet here.
                 ringbuf_entry!(Trace::SendError(e));
                 match e {
                     SendError::QueueFull => (),
