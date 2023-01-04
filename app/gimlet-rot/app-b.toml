@@ -133,6 +133,14 @@ pins = [
 ]
 spi_num = 5
 
+[tasks.dumper]
+name = "task-dumper"
+priority = 6
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 2600
+task-slots = ["swd"]
+
 # We intentionally do not start this task to avoid conflicts with the SP
 # debug connection.
 [tasks.sp_measure]

@@ -1,0 +1,16 @@
+// Dumper API
+
+Interface(
+    name: "Dumper",
+    ops: {
+        "dump": (
+            args: {
+                "address": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DumperError"),
+            ),
+        )
+    }
+)

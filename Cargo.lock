@@ -1807,6 +1807,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dumper-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "hubpack",
+ "humpty",
+ "idol",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2201,7 +2215,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#df35f386dabfad09934915af9051c83a11614991"
+source = "git+https://github.com/oxidecomputer/humpty#60d79f83e9467d96a9a163a6d33642d82e675fa2"
 dependencies = [
  "lzss",
  "static_assertions",
@@ -3735,6 +3749,25 @@ dependencies = [
  "ringbuf",
  "serde",
  "static_assertions",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-dumper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "drv-sp-ctrl-api",
+ "dumper-api",
+ "humpty",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "quote",
+ "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]
