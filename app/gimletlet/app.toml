@@ -161,7 +161,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3800
+stacksize = 6040
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
@@ -171,10 +171,28 @@ start = true
 interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys", "spi_driver" ]
 
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 4
 max-sizes = {flash = 8192, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -324,10 +342,24 @@ cs = [{port = "E", pin = 11}]
 [config.net]
 vlan = { start = 0x301, count = 2 }
 
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
