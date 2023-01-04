@@ -1,0 +1,8 @@
+[package]
+name = "armv8-m-mpu"
+version = "0.1.0"
+edition = "2021"
+description = "ARMv8-m MPU config helpers"
+
+[dependencies]
+cortex-m = { workspace = true }

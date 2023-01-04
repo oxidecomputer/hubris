@@ -6,9 +6,14 @@
 
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
-use serde::{/*de::DeserializeOwned,*/ Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::AsBytes;
+
+// Re-export
+pub use stage0_handoff::{
+    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
+};
 
 #[repr(u8)]
 #[derive(
@@ -37,20 +42,13 @@ pub enum UpdateTarget {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    FromBytes,
-    AsBytes,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    SerializedSize,
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-#[repr(C)]
-pub struct ImageVersion {
-    pub epoch: u32,
-    pub version: u32,
+pub enum UpdateStatus {
+    LoadError(HandoffDataLoadError),
+    Rot(RotBootState),
+    // TODO(AJS): Fill in details for the SP
+    Sp,
 }
 
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]

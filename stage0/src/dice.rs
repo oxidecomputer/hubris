@@ -3,12 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::image_header::Image;
+use crate::Handoff;
 use core::convert::TryInto;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
-    DeviceIdOkm, Handoff, RngData, RngSeed, SeedBuf, SerialNumber,
-    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
-    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
+    SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -112,13 +112,9 @@ fn gen_fwid(image: &Image) -> [u8; 32] {
     fwid.finalize().try_into().expect("fwid")
 }
 
-pub fn run(image: &Image) {
-    // Turn on the memory we're using to handoff DICE artifacts and create
-    // type to interact with said memory. We turn this on unconditionally
-    // if DICE is enabled so that hubris tasks will always get valid memory
-    // even if it's all 0's.
-    let peripherals = Peripherals::take().unwrap_lite();
-    let handoff = Handoff::turn_on(&peripherals.SYSCON);
+pub fn run(image: &Image, handoff: &Handoff) {
+    // The memory we use to handoff DICE artifacts is already enabled
+    // in `main()`;
 
     let cdi = match Cdi::from_reg() {
         Some(cdi) => cdi,
@@ -127,8 +123,9 @@ pub fn run(image: &Image) {
 
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
 
+    let peripherals = Peripherals::take().unwrap_lite();
     let mut serial_numbers =
-        gen_mfg_artifacts(&deviceid_keypair, &peripherals, &handoff);
+        gen_mfg_artifacts(&deviceid_keypair, &peripherals, handoff);
 
     let fwid = gen_fwid(image);
 
@@ -141,7 +138,7 @@ pub fn run(image: &Image) {
         &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
-        &handoff,
+        handoff,
     );
 
     gen_spmeasure_artifacts(
@@ -150,8 +147,8 @@ pub fn run(image: &Image) {
         &serial_numbers.serial_number,
         &deviceid_keypair,
         &fwid,
-        &handoff,
+        handoff,
     );
 
-    gen_rng_artifacts(&cdi_l1, &handoff);
+    gen_rng_artifacts(&cdi_l1, handoff);
 }

@@ -3,13 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dice::SerialNumbers;
-use dice_crate::{CertData, DeviceIdSelfMfg, DiceMfg, Handoff};
+use crate::Handoff;
+use dice_crate::{CertData, DeviceIdSelfMfg, DiceMfg};
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
 
 pub fn gen_mfg_artifacts(
     deviceid_keypair: &Keypair,
-    _peripherals: &Peripherals,
+    _: &Peripherals,
     handoff: &Handoff,
 ) -> SerialNumbers {
     let mfg_state = DeviceIdSelfMfg::new(&deviceid_keypair).run();

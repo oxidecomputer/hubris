@@ -5,6 +5,12 @@
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
 
+use crate::Handoff;
+use sha3::{Digest, Sha3_256};
+use stage0_handoff::{ImageVersion, RotBootState, RotImageDetails, RotSlot};
+
+use unwrap_lite::UnwrapLite;
+
 extern "C" {
     static __IMAGE_A_BASE: abi::ImageVectors;
     static __IMAGE_B_BASE: abi::ImageVectors;
@@ -71,15 +77,11 @@ impl Image {
         self.0 as *const ImageVectors as u32
     }
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     fn get_img_size(&self) -> Option<usize> {
         usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
     }
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     pub fn as_bytes(&self) -> &[u8] {
-        use unwrap_lite::UnwrapLite;
-
         let img_ptr = self.get_img_start() as *const u8;
         let img_size = self.get_img_size().unwrap_lite();
         unsafe { core::slice::from_raw_parts(img_ptr, img_size) }
@@ -157,11 +159,60 @@ impl Image {
         header.version
     }
 
+    // TODO(AJS): Replace get_version with this?
+    pub fn get_image_version(&self) -> ImageVersion {
+        // SAFETY: We checked this previously
+        let header = unsafe { &*self.get_header() };
+
+        ImageVersion {
+            epoch: header.epoch,
+            version: header.version,
+        }
+    }
+
     #[cfg(feature = "tz_support")]
     pub fn get_sau_entry<'a>(&self, i: usize) -> Option<&'a abi::SAUEntry> {
         // SAFETY: We checked this previously
         let header = unsafe { &*self.get_header() };
 
         header.sau_entries.get(i)
+    }
+}
+
+pub fn select_image_to_boot() -> (Image, RotSlot) {
+    let (imagea, imageb) = (get_image_a(), get_image_b());
+
+    // Image selection is very simple at the moment
+    // Future work: check persistent state and epochs
+    match (imagea, imageb) {
+        (None, None) => panic!(),
+        (Some(a), None) => (a, RotSlot::A),
+        (None, Some(b)) => (b, RotSlot::B),
+        (Some(a), Some(b)) => {
+            if a.get_version() > b.get_version() {
+                (a, RotSlot::A)
+            } else {
+                (b, RotSlot::B)
+            }
+        }
+    }
+}
+
+/// Handoff Image metadata to USB SRAM
+pub fn dump_image_details_to_ram(handoff: &Handoff) {
+    let a = get_image_a().map(image_details);
+    let b = get_image_b().map(image_details);
+    let (_, active) = select_image_to_boot();
+
+    let details = RotBootState { active, a, b };
+
+    handoff.store(&details);
+}
+
+fn image_details(img: Image) -> RotImageDetails {
+    let digest = Sha3_256::digest(img.as_bytes()).try_into().unwrap_lite();
+    RotImageDetails {
+        digest,
+        version: img.get_image_version(),
     }
 }

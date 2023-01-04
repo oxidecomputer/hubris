@@ -35,9 +35,7 @@ pub use crate::mfg::{
 };
 mod spmeasure_cert_tmpl;
 mod trust_quorum_dhe_cert_tmpl;
-pub use crate::handoff::{
-    AliasData, CertData, Handoff, HandoffData, RngData, SpMeasureData,
-};
+pub use crate::handoff::{AliasData, CertData, RngData, SpMeasureData};
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
 const REG_ADDR_NONSEC: u32 = 0x40000900;

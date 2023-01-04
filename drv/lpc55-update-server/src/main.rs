@@ -10,10 +10,16 @@
 #![no_main]
 
 use core::convert::Infallible;
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use core::mem::MaybeUninit;
+use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
+
+#[used]
+#[link_section = ".bootstate"]
+static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "lpcxpresso55s69")] {
@@ -160,6 +166,8 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         Ok(BLOCK_SIZE_BYTES)
     }
 
+    // TODO(AJS): Remove this in favor of `status`, once SP code is updated.
+    // This has ripple effects up thorugh control-plane-agent.
     fn current_version(
         &mut self,
         _: &RecvMessage,
@@ -168,6 +176,19 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             epoch: HUBRIS_BUILD_EPOCH,
             version: HUBRIS_BUILD_VERSION,
         })
+    }
+
+    fn status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<UpdateStatus, RequestError<Infallible>> {
+        // Safety: Data is published by stage0
+        let addr: &[u8] = unsafe { BOOTSTATE.assume_init_ref() };
+        let status = match RotBootState::load_from_addr(&addr) {
+            Ok(details) => UpdateStatus::Rot(details),
+            Err(e) => UpdateStatus::LoadError(e),
+        };
+        Ok(status)
     }
 }
 
@@ -186,7 +207,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateTarget};
+    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

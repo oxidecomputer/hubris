@@ -40,14 +40,22 @@ Interface(
                 err: CLike("SprotError"),
             ),
         ),
-    "status": (
-        doc: "Return untrusted status from RoT",
-        reply: Result(
-            ok: "Status",
-            err: CLike("SprotError"),
+        "status": (
+            doc: "Return untrusted status from RoT",
+            reply : Result(
+              ok: "SprotStatus",
+              err: CLike("SprotError"),
+            ),
+            encoding: Hubpack
         ),
-        encoding: Ssmarshal,
-    ),
+        "io_stats": (
+            doc: "Return IO stats from RoT",
+            reply: Result(
+                ok: "IoStats",
+                err: CLike("SprotError"),
+            ),
+            encoding: Hubpack, 
+        ),
         "pulse_cs": (
             doc: "SPI Chip Select assert, delay, deassert",
             args: {
@@ -120,14 +128,6 @@ Interface(
                 ok: "()",
                 err: CLike("SprotError"),
             ),
-        ),
-        "current_version": (
-          doc: "Get the current image version",
-          args : { },
-          reply : Result(
-            ok: "ImageVersion",
-            err: CLike("SprotError"),
-          ),
         ),
     }
 )

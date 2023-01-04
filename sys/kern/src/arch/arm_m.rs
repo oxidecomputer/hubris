@@ -84,6 +84,8 @@ use crate::umem::USlice;
 use abi::FaultInfo;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
+#[cfg(armv8m)]
+use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
 
 macro_rules! uassert {
@@ -425,15 +427,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         &*cortex_m::peripheral::MPU::PTR
     };
     unsafe {
-        const DISABLE: u32 = 0b000;
-        const PRIVDEFENA: u32 = 0b100;
-        // From the ARMv8m MPU manual
-        //
-        // Any outstanding memory transactions must be forced to complete by
-        // executing a DMB instruction and the MPU disabled before it can be
-        // configured
-        cortex_m::asm::dmb();
-        mpu.ctrl.write(DISABLE | PRIVDEFENA);
+        disable_mpu(mpu);
     }
 
     for (i, region) in task.region_table().iter().enumerate() {
@@ -498,18 +492,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 
     unsafe {
-        const ENABLE: u32 = 0b001;
-        const PRIVDEFENA: u32 = 0b100;
-        mpu.ctrl.write(ENABLE | PRIVDEFENA);
-        // From the ARMv8m MPU manual
-        //
-        // The final step is to enable the MPU by writing to MPU_CTRL. Code
-        // should then execute a memory barrier to ensure that the register
-        // updates are seen by any subsequent memory accesses. An Instruction
-        // Synchronization Barrier (ISB) ensures the updated configuration
-        // [is] used by any subsequent instructions.
-        cortex_m::asm::dmb();
-        cortex_m::asm::isb();
+        enable_mpu(mpu, true);
     }
 }
 

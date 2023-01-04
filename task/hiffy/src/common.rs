@@ -627,25 +627,6 @@ pub(crate) fn sprot_rot_sink(
 }
 
 #[cfg(feature = "sprot")]
-pub(crate) fn sprot_status(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    // send_recv( msgtype, len ) leases{message[u8; 256], response[u8; 256]
-    // returns [u32; 2] a type and a length or an error. data in response lease
-    if rval.len() < core::mem::size_of::<drv_sprot_api::Status>() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    let server = drv_sprot_api::SpRot::from(SPROT.get_task_id());
-    let result = func_err(server.status())?;
-    let len = core::mem::size_of::<drv_sprot_api::Status>();
-    rval[..len].copy_from_slice(&result.as_bytes()[0..len]);
-    Ok(len)
-}
-
-#[cfg(feature = "sprot")]
 pub(crate) fn sprot_pulse_cs(
     stack: &[Option<u32>],
     _data: &[u8],

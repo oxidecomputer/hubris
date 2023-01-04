@@ -504,6 +504,8 @@ pub struct SAUEntry {
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
 
+/// TODO: Add hash for integrity check
+/// Later this will also be a signature block
 #[repr(C)]
 #[derive(Default, AsBytes, FromBytes)]
 pub struct ImageHeader {
