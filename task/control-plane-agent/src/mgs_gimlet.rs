@@ -4,8 +4,8 @@
 
 use crate::{
     mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
-    update::sp::SpUpdate, update::ComponentUpdater, usize_max,
-    vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
+    update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
+    usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -39,8 +39,10 @@ use host_phase2::HostPhase2Requester;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks or host flash pages.
-const UPDATE_BUFFER_SIZE: usize =
-    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE);
+const UPDATE_BUFFER_SIZE: usize = usize_max(
+    usize_max(SpUpdate::BLOCK_SIZE, HostFlashUpdate::BLOCK_SIZE),
+    RotUpdate::BLOCK_SIZE,
+);
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).
@@ -79,6 +81,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
     sp_update: SpUpdate,
+    rot_update: RotUpdate,
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
@@ -92,7 +95,7 @@ impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
-        let usart = UsartHandler::claim_static_resources();
+        let usart = UsartHandler::claim_static_resources(base_mac_address);
 
         // XXX For now, we want to default to these options.
         let startup_options = HostStartupOptions::STARTUP_KMDB
@@ -104,6 +107,7 @@ impl MgsHandler {
             host_flash_update: HostFlashUpdate::new(),
             host_phase2: HostPhase2Requester::claim_static_resources(),
             sp_update: SpUpdate::new(),
+            rot_update: RotUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
             startup_options,
@@ -515,6 +519,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
+            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -538,6 +543,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
+            SpComponent::ROT => {
+                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -560,6 +568,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
+            SpComponent::ROT => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -587,6 +596,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
+            SpComponent::ROT => self.rot_update.abort(&id),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -871,7 +881,7 @@ struct UsartHandler {
 }
 
 impl UsartHandler {
-    fn claim_static_resources() -> Self {
+    fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         let usart = configure_usart();
         let to_tx = claim_mgs_to_sp_usart_buf_static();
         let from_rx = claim_sp_to_mgs_usart_buf_static();
