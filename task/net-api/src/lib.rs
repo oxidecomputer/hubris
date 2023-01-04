@@ -24,6 +24,9 @@ pub enum SendError {
     QueueFull = 3,
 
     Other = 4,
+
+    #[idol(server_death)]
+    ServerRestarted = 5,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
