@@ -127,10 +127,16 @@ impl ServerImpl {
                 // the host is responsible for retrying.
                 //
                 // Other errors are unexpected and panic.
+                //
+                // This includes ServerRestarted, because the server should only
+                // restart if the watchdog times out, and the watchdog should
+                // not be timing out, because we're literally replying to a
+                // packet here.
                 ringbuf_entry!(Trace::SendError(e));
                 match e {
                     SendError::QueueFull => (),
                     SendError::Other
+                    | SendError::ServerRestarted
                     | SendError::NotYours
                     | SendError::InvalidVLan => panic!(),
                 }

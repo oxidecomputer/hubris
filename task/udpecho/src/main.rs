@@ -41,9 +41,12 @@ fn main() -> ! {
                             sys_recv_closed(&mut [], 1, TaskId::KERNEL)
                                 .unwrap();
                         }
-                        Err(SendError::NotYours) => panic!(),
-                        Err(SendError::InvalidVLan) => panic!(),
-                        Err(SendError::Other) => panic!(),
+                        Err(
+                            SendError::ServerRestarted
+                            | SendError::NotYours
+                            | SendError::InvalidVLan
+                            | SendError::Other,
+                        ) => panic!(),
                     }
                 }
             }
