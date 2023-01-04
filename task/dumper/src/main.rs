@@ -26,6 +26,7 @@ enum Trace {
     DataReadFailed,
     Halted,
     Resumed,
+    ResumeFailed,
     None,
 }
 
@@ -73,14 +74,7 @@ impl idl::InOrderDumperImpl for ServerImpl {
         //
         // Good night, sweet prince.
         //
-        const DHCSR: u32 = 0xE000EDF0;
-        const DHCSR_HALT_MAGIC: u32 = 0xa05f_0003;
-        const DHCSR_RESUME_MAGIC: u32 = 0xa05f_0000;
-
-        if sp_ctrl
-            .write(DHCSR, &DHCSR_HALT_MAGIC.to_le_bytes())
-            .is_err()
-        {
+        if sp_ctrl.halt().is_err() {
             return Err(DumperError::FailedToHalt.into());
         }
 
@@ -88,9 +82,23 @@ impl idl::InOrderDumperImpl for ServerImpl {
 
         let mut nread = 0;
         let mut nwritten = 0;
+        let mut reg = 0;
 
         let r = humpty::dump::<DumperError, 512>(
             header.address,
+            || {
+                for r in reg..=31 {
+                    match sp_ctrl.read_core_register(r) {
+                        Ok(val) => {
+                            reg = r + 1;
+                            return Ok(Some(humpty::RegisterRead(r, val)));
+                        }
+                        Err(SpCtrlError::InvalidCoreRegister) => {}
+                        Err(_) => return Err(DumperError::RegisterReadFailed),
+                    }
+                }
+                Ok(None)
+            },
             |addr, buf| {
                 ringbuf_entry!(Trace::Reading(addr, buf.len(), nread));
                 nread += buf.len();
@@ -118,11 +126,14 @@ impl idl::InOrderDumperImpl for ServerImpl {
 
         ringbuf_entry!(Trace::Done(r));
 
-        if sp_ctrl
-            .write(DHCSR, &DHCSR_RESUME_MAGIC.to_le_bytes())
-            .is_err()
-        {
-            return Err(DumperError::FailedToResume.into());
+        if sp_ctrl.resume().is_err() {
+            ringbuf_entry!(Trace::ResumeFailed);
+
+            if r.is_err() {
+                return Err(DumperError::FailedToResumeAfterFailure.into());
+            } else {
+                return Err(DumperError::FailedToResume.into());
+            }
         }
 
         ringbuf_entry!(Trace::Resumed);

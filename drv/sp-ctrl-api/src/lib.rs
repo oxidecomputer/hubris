@@ -15,6 +15,7 @@ pub enum SpCtrlError {
     BadLen = 1,
     NeedInit = 2,
     Fault = 3,
+    InvalidCoreRegister = 4,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

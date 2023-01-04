@@ -61,5 +61,33 @@ Interface(
                 err: CLike("SpCtrlError"),
             ),
         ),
+        "halt": (
+            doc: "Halts the target",
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "resume": (
+            doc: "Resumes the target",
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "read_core_register": (
+            doc: "Reads a core register",
+            args: {
+                "register": "u16",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("SpCtrlError"),
+            )
+        ),
     }
 )

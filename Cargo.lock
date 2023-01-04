@@ -2215,7 +2215,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#60d79f83e9467d96a9a163a6d33642d82e675fa2"
+source = "git+https://github.com/oxidecomputer/humpty#f15f935b7e8cd8793c45dc462c22adb596cecac2"
 dependencies = [
  "lzss",
  "static_assertions",

@@ -20,6 +20,8 @@ pub enum DumperError {
     HeaderReadFailed = 7,
     FailedToHalt = 8,
     FailedToResume = 9,
+    FailedToResumeAfterFailure = 10,
+    RegisterReadFailed = 11,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
