@@ -11,7 +11,7 @@
 
 use core::convert::Infallible;
 use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
-use drv_update_api::{ImageVersion, UpdateError, UpdateTarget};
+use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -389,6 +389,17 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             version: HUBRIS_BUILD_VERSION,
         })
     }
+
+    fn status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<
+        UpdateStatus,
+        idol_runtime::RequestError<core::convert::Infallible>,
+    > {
+        // TODO(AJS): Return actual info about loaded images for the SP
+        Ok(UpdateStatus::Sp)
+    }
 }
 
 #[export_name = "main"]
@@ -408,7 +419,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateTarget};
+    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

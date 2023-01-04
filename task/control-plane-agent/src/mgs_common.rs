@@ -6,8 +6,9 @@ use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use core::{cell::RefCell, convert::Infallible};
 use drv_sprot_api::SpRot;
 use gateway_messages::{
-    DiscoverResponse, ImageVersion, PowerState, RotError, RotState, SpError,
-    SpPort, SpState,
+    DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
+    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpError, SpPort,
+    SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -121,18 +122,25 @@ impl MgsCommon {
     }
 }
 
+// conversion between gateway_messages types and hubris types is quite tedious.
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let status = sprot.status().map_err(SprotErrorConvert)?;
+    let boot_state = sprot.status().map_err(SprotErrorConvert)?.rot_updates;
+    let active = match boot_state.active {
+        drv_update_api::RotSlot::A => RotSlot::A,
+        drv_update_api::RotSlot::B => RotSlot::B,
+    };
+
+    let slot_a = boot_state.a.map(|a| RotImageDetailsConvert(a).into());
+    let slot_b = boot_state.b.map(|b| RotImageDetailsConvert(b).into());
+
     Ok(RotState {
-        version: ImageVersion {
-            version: status.version,
-            epoch: status.epoch,
+        rot_updates: RotUpdateDetails {
+            boot_state: RotBootState {
+                active,
+                slot_a,
+                slot_b,
+            },
         },
-        messages_received: status.rx_received,
-        invalid_messages_received: status.rx_invalid,
-        incomplete_transmissions: status.tx_incomplete,
-        rx_fifo_overrun: status.rx_overrun,
-        tx_fifo_underrun: status.tx_underrun,
     })
 }
 
@@ -141,6 +149,20 @@ pub(crate) struct SprotErrorConvert(pub drv_sprot_api::SprotError);
 impl From<SprotErrorConvert> for RotError {
     fn from(err: SprotErrorConvert) -> Self {
         RotError::MessageError { code: err.0 as u32 }
+    }
+}
+
+pub(crate) struct RotImageDetailsConvert(pub drv_update_api::RotImageDetails);
+
+impl From<RotImageDetailsConvert> for RotImageDetails {
+    fn from(value: RotImageDetailsConvert) -> Self {
+        RotImageDetails {
+            digest: value.0.digest,
+            version: ImageVersion {
+                epoch: value.0.version.epoch,
+                version: value.0.version.version,
+            },
+        }
     }
 }
 

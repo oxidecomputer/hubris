@@ -682,8 +682,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     #[cfg(feature = "sprot")]
     crate::common::sprot_rot_sink,
     #[cfg(feature = "sprot")]
-    crate::common::sprot_status,
-    #[cfg(feature = "sprot")]
     crate::common::sprot_start_update,
     #[cfg(feature = "sprot")]
     crate::common::sprot_write_block,

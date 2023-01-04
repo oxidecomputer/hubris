@@ -58,7 +58,15 @@ Interface(
 			args : { },
 			reply : Simple("ImageVersion"),
 			idempotent: true,
+			encoding: Hubpack
 		),
+		"status": (
+			doc: "Get info about installed images",
+			args: { },
+			reply : Simple("UpdateStatus"),
+			idempotent: true,
+			encoding: Hubpack
+		)
 	}
 
 )

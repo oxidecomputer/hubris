@@ -54,6 +54,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "armv8-m-mpu"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -703,6 +710,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "sha3",
+ "stage0-handoff",
  "static_assertions",
  "unwrap-lite",
  "zerocopy",
@@ -1138,6 +1146,7 @@ dependencies = [
  "serde",
  "sprockets-common",
  "sprockets-rot",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]
@@ -1758,6 +1767,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_repr",
+ "stage0-handoff",
  "userlib",
  "zerocopy",
 ]
@@ -1970,7 +1980,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c573009958cc6f7366ef98087e9fad9b5b63abb8"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#fb739009e0584e6185b352c3cf4390968e112f8f"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2186,9 +2196,9 @@ dependencies = [
 
 [[package]]
 name = "hubpack"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70e0e5e2a94d97b34fa215ea1311937ab0880f86ee575ca4acd2ff66fa22b88c"
+checksum = "bf8f3c0e51b49dd73e277f8d157f7248e91b3597e3487884181b259682b715d3"
 dependencies = [
  "hubpack_derive",
  "serde",
@@ -2196,9 +2206,9 @@ dependencies = [
 
 [[package]]
 name = "hubpack_derive"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35bd74819b334bf50982a40ec2a44cdf4e197ebbc74c02624897ecb66dbf828c"
+checksum = "0f928320aff16ee8818ef7309180f8b5897057fd79d9dcb8de3ed1ba6dcc125a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2306,6 +2316,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "anyhow",
+ "armv8-m-mpu",
  "bitflags",
  "build-kconfig",
  "build-util",
@@ -2414,11 +2425,14 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-update-api",
+ "hubpack",
  "hypocalls",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
+ "stage0-handoff",
  "userlib",
  "zerocopy",
 ]
@@ -3537,6 +3551,7 @@ name = "stage0"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "armv8-m-mpu",
  "build-util",
  "cfg-if",
  "cortex-m",
@@ -3555,10 +3570,20 @@ dependencies = [
  "salty",
  "serde",
  "sha3",
+ "stage0-handoff",
  "static_assertions",
  "toml",
  "unwrap-lite",
  "zerocopy",
+]
+
+[[package]]
+name = "stage0-handoff"
+version = "0.1.0"
+dependencies = [
+ "hubpack",
+ "serde",
+ "static_assertions",
 ]
 
 [[package]]
@@ -3621,10 +3646,12 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "drv-update-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
  "stm32h7",
  "userlib",
  "zerocopy",

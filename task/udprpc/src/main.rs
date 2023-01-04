@@ -102,8 +102,11 @@ fn main() -> ! {
                         // u32 return code from the `sys_send` call.
                         let tx_data =
                             &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
+
+                        let task_id =
+                            sys_refresh_task_id(TaskId(header.task.get()));
                         let (rc, len) = sys_send(
-                            TaskId(header.task.get()),
+                            task_id,
                             header.op.get(),
                             rx_data,
                             tx_data,

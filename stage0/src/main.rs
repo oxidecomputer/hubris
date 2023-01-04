@@ -12,8 +12,12 @@ use core::arch;
 
 extern crate lpc55_pac;
 extern crate panic_halt;
-use cortex_m::peripheral::Peripherals;
+use armv8_m_mpu::{disable_mpu, enable_mpu};
+use cortex_m::peripheral::Peripherals as CorePeripherals;
+use cortex_m::peripheral::MPU;
 use cortex_m_rt::entry;
+use lpc55_pac::Peripherals;
+use unwrap_lite::UnwrapLite;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "dice-mfg")] {
@@ -27,7 +31,9 @@ cfg_if::cfg_if! {
 
 // FIXME Need to fixup the secure interface calls
 //mod hypo;
+mod handoff;
 mod image_header;
+use handoff::Handoff;
 
 use crate::image_header::Image;
 
@@ -77,7 +83,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 
     core::ptr::write_volatile(sau_ctrl, 1);
 
-    let mut peripherals = Peripherals::steal();
+    let mut peripherals = CorePeripherals::steal();
 
     // let co processor be non-secure
     core::ptr::write_volatile(0xE000ED8C as *mut u32, 0xc00);
@@ -120,7 +126,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 
 #[cfg(not(feature = "tz_support"))]
 unsafe fn branch_to_image(image: Image) -> ! {
-    let mut peripherals = Peripherals::steal();
+    let mut peripherals = CorePeripherals::steal();
 
     peripherals
         .SCB
@@ -145,6 +151,43 @@ unsafe fn branch_to_image(image: Image) -> ! {
     );
 }
 
+// Setup the MPU so that we can treat the USB RAM as normal RAM, and not as a
+// peripheral. Specifically we want to clear the `DEVICE` attributes, so that
+// we can allow unaligned access.
+fn apply_memory_protection(mpu: MPU) {
+    unsafe {
+        disable_mpu(&mpu);
+    }
+
+    const USB_RAM_BASE: u32 = 0x4010_0000;
+    const USB_RAM_SIZE: u32 = 0x4000;
+    const USB_RAM_REGION_NUMBER: u32 = 0;
+
+    // Subtract 32 because the `LIMIT` field in the `rlar` register range is inclusive
+    // and then enable the region (bit 0).
+    let rlar = (USB_RAM_BASE + USB_RAM_SIZE - 32) | (1 << 0);
+
+    let ap = 0b01; // read-write by any privilege level
+    let sh = 0b00; // non-shareable - we only use one core with no DMA here
+    let xn = 1; // Don't execute out of this region
+    let rbar = USB_RAM_BASE | (sh as u32) << 3 | ap << 1 | xn;
+
+    // region 0: write-back transient, not shared, with read/write supported
+    let mair0 = 0b0111_0100;
+
+    unsafe {
+        mpu.rnr.write(USB_RAM_REGION_NUMBER);
+        // We only have one region (0), so no need for a RMW cycle
+        mpu.mair[0].write(mair0);
+        mpu.rbar.write(rbar);
+        mpu.rlar.write(rlar);
+    }
+
+    unsafe {
+        enable_mpu(&mpu, true);
+    }
+}
+
 #[entry]
 fn main() -> ! {
     // This is the SYSCON_DIEID register on LPC55 which contains the ROM
@@ -155,26 +198,23 @@ fn main() -> ! {
         panic!()
     }
 
-    let (imagea, imageb) =
-        (image_header::get_image_a(), image_header::get_image_b());
+    let mpu = CorePeripherals::take().unwrap_lite().MPU;
 
-    // Image selection is very simple at the moment
-    // Future work: check persistent state and epochs
-    let image = match (imagea, imageb) {
-        (None, None) => panic!(),
-        (Some(a), None) => a,
-        (None, Some(b)) => b,
-        (Some(a), Some(b)) => {
-            if a.get_version() > b.get_version() {
-                a
-            } else {
-                b
-            }
-        }
-    };
+    // Turn on the memory used by the handoff subsystem to dump
+    // `RotUpdateDetails` and DICE information required by hubris.
+    //
+    // This allows hubris tasks to always get valid memory, even if it is all
+    // 0's.
+    let peripherals = Peripherals::take().unwrap_lite();
+    let handoff = Handoff::turn_on(&peripherals.SYSCON);
+
+    apply_memory_protection(mpu);
+
+    let (image, _) = image_header::select_image_to_boot();
+    image_header::dump_image_details_to_ram(&handoff);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&image);
+    dice::run(&image, &handoff);
 
     unsafe {
         branch_to_image(image);

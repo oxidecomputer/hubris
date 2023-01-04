@@ -9,8 +9,6 @@
 use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes};
 
-pub const TASK_ID_INDEX_BITS: usize = 10;
-
 /// Names a particular incarnation of a task.
 ///
 /// A `TaskId` combines two fields, a task index (which can be predicted at
@@ -506,6 +504,8 @@ pub struct SAUEntry {
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
 
+/// TODO: Add hash for integrity check
+/// Later this will also be a signature block
 #[repr(C)]
 #[derive(Default, AsBytes, FromBytes)]
 pub struct ImageHeader {

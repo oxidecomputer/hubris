@@ -13,6 +13,7 @@ ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
 abi = { path = "../abi" }
+armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 
