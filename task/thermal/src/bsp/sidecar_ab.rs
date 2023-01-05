@@ -19,7 +19,6 @@ use userlib::{task_slot, units::Celsius, TaskId};
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
-use task_sensor_api::config::other_sensors;
 
 task_slot!(SEQUENCER, sequencer);
 

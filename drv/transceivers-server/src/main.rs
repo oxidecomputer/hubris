@@ -23,9 +23,7 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
-use task_sensor_api::{
-    config::other_sensors, NoData, Sensor, SensorError, SensorId,
-};
+use task_sensor_api::{NoData, Sensor, SensorError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::mgmt::ManagementInterface;
 use userlib::{units::Celsius, *};
