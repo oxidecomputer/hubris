@@ -162,6 +162,11 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         }
     }
 
+    //
+    // We return a buffer of fixed size here instead of taking a lease
+    // because we want/need this to work with consumers who are not
+    // lease aware (specifically, udprpc and hiffy).
+    //
     fn read_dump(
         &mut self,
         _msg: &RecvMessage,
