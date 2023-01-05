@@ -18,7 +18,7 @@ use drv_i2c_devices::{
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::{Reading, Sensor as SensorApi, SensorId};
+use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{ThermalAutoState, ThermalProperties};
 use userlib::{
     sys_get_timer,
@@ -603,10 +603,10 @@ impl<'a> ThermalControl<'a> {
                     Err(e) => {
                         // Record an error errors if the sensor is not removable
                         // or we get a unexpected error from a removable sensor
-                        if !s.removable
-                            || e == SensorReadError::I2cError(
+                        if !(s.removable
+                            && e == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
-                            )
+                            ))
                         {
                             ringbuf_entry!(Trace::SensorReadFailed(
                                 s.sensor.sensor_id,
@@ -688,8 +688,17 @@ impl<'a> ThermalControl<'a> {
         for (i, s) in self.bsp.inputs.iter().enumerate() {
             if self.power_mode.intersects(s.power_mode_mask) {
                 let sensor_id = s.sensor.sensor_id;
-                if let Ok(r) = self.sensor_api.get_reading(sensor_id) {
-                    self.state.write_temperature(i, r);
+                let r = self.sensor_api.get_reading(sensor_id);
+                match r {
+                    Ok(r) => {
+                        self.state.write_temperature(i, r);
+                    }
+                    Err(SensorError::NotPresent) if s.removable => {
+                        // Ignore errors if the sensor is removable and the
+                        // error indicates that it's not present.
+                        self.state.write_temperature_inactive(i);
+                    }
+                    Err(_) => (),
                 }
             } else {
                 self.state.write_temperature_inactive(i);
