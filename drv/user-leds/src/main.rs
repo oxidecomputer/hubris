@@ -59,7 +59,15 @@ cfg_if::cfg_if! {
         }
     }
     // Target boards with 1 led
-    else if #[cfg(any(target_board = "stm32g031-nucleo", target_board = "stm32g070", target_board = "stm32g0b1", target_board = "donglet-g030", target_board = "donglet-g031"))] {
+    else if #[cfg(any(
+        target_board = "stm32g031-nucleo",
+        target_board = "stm32g070",
+        target_board = "stm32g0b1",
+        target_board = "donglet-g030",
+        target_board = "donglet-g031",
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+    ))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -394,6 +402,12 @@ cfg_if::cfg_if! {
                     (drv_stm32xx_sys_api::Port::G.pin(4), false),
                     (drv_stm32xx_sys_api::Port::G.pin(5), false),
                 ];
+            } else if #[cfg(any(target_board = "gimlet-b",
+                                target_board = "gimlet-c",
+            ))] {
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::A.pin(3), false),
+                ];
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -426,6 +440,16 @@ fn enable_led_pins() {
 fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
+        #[cfg(any(
+            target_board = "gemini-bu-1",
+            target_board = "gimletlet-1",
+            target_board = "gimletlet-2",
+            target_board = "nucleo-h753zi",
+            target_board = "nucleo-h743zi2",
+            target_board = "gemini-bu-1",
+            target_board = "gimletlet-1",
+            target_board = "gimletlet-2",
+        ))]
         Led::One => LEDS[1],
         #[cfg(any(
             target_board = "gemini-bu-1",
