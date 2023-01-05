@@ -16,10 +16,11 @@ pub use humpty::*;
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum DumpAgentError {
     InvalidArea = 1,
-    BadOffset = 2,
-    UnalignedOffset = 3,
-    UnalignedSegmentAddress = 4,
-    UnalignedSegmentLength = 5,
+    BadOffset,
+    UnalignedOffset,
+    UnalignedSegmentAddress,
+    UnalignedSegmentLength,
+    DumpFailed,
 }
 
 #[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]

@@ -36,7 +36,7 @@ enum Trace {
     RotNotReady,
     RotReadyTimeout,
     RxParseError(u8, u8, u8, u8),
-    RxSpiError,
+    RxSpiError(drv_spi_api::SpiError),
     RxPart1(usize),
     RxPart2(usize),
     SendRecv(usize),
@@ -235,7 +235,7 @@ impl ServerImpl {
             ringbuf_entry!(Trace::CSnAssert);
             self.spi
                 .lock(CsState::Asserted)
-                .map_err(|_| SprotError::SpiServerError)?;
+                .map_err(|_| SprotError::SpiServerLockError)?;
             if PART1_DELAY != 0 {
                 hl::sleep_for(PART1_DELAY);
             }
@@ -245,20 +245,20 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::CSnDeassert);
                 _ = self.spi.release();
             }
-            return Err(SprotError::SpiServerError);
+            return Err(SprotError::SpiServerWritePart1Error);
         }
         if !part2.is_empty() {
             hl::sleep_for(PART2_DELAY); // TODO: configurable
             ringbuf_entry!(Trace::CSnDeassert);
             if self.spi.write(part2).is_err() {
                 _ = self.spi.release();
-                return Err(SprotError::SpiServerError);
+                return Err(SprotError::SpiServerWritePart2Error);
             }
         }
         if ((PART1_DELAY != 0) || !part2.is_empty())
             && self.spi.release().is_err()
         {
-            return Err(SprotError::SpiServerError);
+            return Err(SprotError::SpiServerReleaseError);
         }
 
         /*
@@ -294,7 +294,7 @@ impl ServerImpl {
         ringbuf_entry!(Trace::CSnAssert);
         self.spi
             .lock(CsState::Asserted)
-            .map_err(|_| SprotError::SpiServerError)?;
+            .map_err(|_| SprotError::SpiServerLockError)?;
         if PART1_DELAY != 0 {
             hl::sleep_for(PART1_DELAY);
         }
@@ -304,7 +304,9 @@ impl ServerImpl {
 
         // We must release the SPI bus before we return
         ringbuf_entry!(Trace::CSnDeassert);
-        self.spi.release().map_err(|_| SprotError::SpiServerError)?;
+        self.spi
+            .release()
+            .map_err(|_| SprotError::SpiServerReleaseError)?;
 
         res
     }
@@ -331,9 +333,9 @@ impl ServerImpl {
 
         // We fill in all of buf or we fail
         let buf = &mut self.rx_buf.as_mut()[..part1_len];
-        self.spi.read(buf).map_err(|_| {
-            ringbuf_entry!(Trace::RxSpiError);
-            SprotError::SpiServerError
+        self.spi.read(buf).map_err(|e| {
+            ringbuf_entry!(Trace::RxSpiError(e));
+            SprotError::SpiServerReadPart1Error
         })?;
 
         let header = self.rx_buf.parse_header(part1_len).map_err(|e| {
@@ -350,7 +352,10 @@ impl ServerImpl {
 
         // Read part two
         let buf = &mut self.rx_buf.as_mut()[part1_len..][..part2_len];
-        self.spi.read(buf).map_err(|_| SprotError::SpiServerError)?;
+        self.spi.read(buf).map_err(|e| {
+            ringbuf_entry!(Trace::RxSpiError(e));
+            SprotError::SpiServerReadPart2Error
+        })?;
 
         self.rx_buf.validate_crc(&header)?;
 

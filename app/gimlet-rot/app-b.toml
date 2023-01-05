@@ -85,7 +85,7 @@ features = ["spi0"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver", "update_server"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper"]
 
 [tasks.sprot.config]
 pins = [
@@ -105,7 +105,7 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-priority = 5
+priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
 start = true
@@ -136,7 +136,7 @@ spi_num = 5
 
 [tasks.dumper]
 name = "task-dumper"
-priority = 6
+priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600

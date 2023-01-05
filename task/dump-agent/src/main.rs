@@ -24,6 +24,8 @@ struct ServerImpl {
     areas: [DumpArea; 3],
 }
 
+task_slot!(SPROT, sprot);
+
 impl ServerImpl {
     fn area(&self, index: usize, offset: u32) -> Result<&[u8], DumpAgentError> {
         if index >= self.areas.len() {
@@ -147,7 +149,17 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
-        Err(DumpAgentError::InvalidArea.into())
+        let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
+        let mut buf = [0u8; 4];
+
+        match sprot.send_recv(
+            drv_sprot_api::MsgType::DumpReq,
+            &self.areas[0].address.to_le_bytes(),
+            &mut buf,
+        ) {
+            Err(_) => Err(DumpAgentError::DumpFailed.into()),
+            Ok(_) => Ok(()),
+        }
     }
 
     fn read_dump(

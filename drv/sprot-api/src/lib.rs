@@ -52,71 +52,79 @@ pub enum SprotError {
     /// There is no message
     NoMessage = 1,
     /// Transfer size is outside of maximum and minimum lenghts for message type.
-    BadTransferSize = 2,
+    BadTransferSize,
     /// A task crashed during an operation, commonly a lease read or write
-    TaskRestart = 3,
+    TaskRestart,
     /// CRC check failed.
-    InvalidCrc = 4,
+    InvalidCrc,
     /// FIFO overflow/underflow
-    FlowError = 5,
+    FlowError,
     /// Unsupported protocol version
-    UnsupportedProtocol = 6,
+    UnsupportedProtocol,
     /// Unknown message
-    BadMessageType = 7,
+    BadMessageType,
     /// Transfer size is outside of maximum and minimum lenghts for message type.
-    BadMessageLength = 8,
+    BadMessageLength,
     /// Error from Spi
-    SpiServerError = 9,
+    SpiServerError,
     /// Message is too large
-    Oversize = 10,
+    Oversize,
     /// Tx buffer is unexpectedly not Idle.
-    TxNotIdle = 11,
+    TxNotIdle,
 
-    CannotAssertCSn = 12,
-    RotNotReady = 13,
-    RspTimeout = 14,
-    BadResponse = 15,
-    RotBusy = 16,
+    // SPI-related errors
+    SpiServerLockError,
+    SpiServerWritePart1Error,
+    SpiServerWritePart2Error,
+    SpiServerReleaseError,
+    SpiServerReadPart1Error,
+    SpiServerReadPart2Error,
+    CannotAssertCSn,
+    RotNotReady,
+    RspTimeout,
+    BadResponse,
+    RotBusy,
+
     /// Feature is not implemented
-    NotImplemented = 17,
+    NotImplemented,
     /// An error code reserved for the SP was used by the Rot
-    NonRotError = 18,
+    NonRotError,
     /// A message with version = 0 was received unexpectedly.
-    EmptyMessage = 19,
+    EmptyMessage,
 
     /// Insufficient bytes received
-    Incomplete = 20,
+    Incomplete,
     /// Hubpack error
-    Serialization = 21,
+    Serialization,
     /// Sequence number mismatch in Sink test
-    Sequence = 22,
+    Sequence,
 
     //
     // Update Related Errors
     //
-    UpdateBadLength = 23,
-    UpdateInProgress = 24,
-    UpdateOutOfBounds = 25,
-    UpdateTimeout = 26,
-    UpdateEccDoubleErr = 27,
-    UpdateEccSingleErr = 28,
-    UpdateSecureErr = 29,
-    UpdateReadProtErr = 30,
-    UpdateWriteEraseErr = 31,
-    UpdateInconsistencyErr = 32,
-    UpdateStrobeErr = 33,
-    UpdateProgSeqErr = 34,
-    UpdateWriteProtErr = 35,
-    UpdateBadImageType = 36,
-    UpdateAlreadyFinished = 37,
-    UpdateNotStarted = 38,
-    UpdateRunningImage = 39,
-    UpdateFlashError = 40,
-    UpdateSpRotError = 41,
-    UpdateUnknown = 42,
+    UpdateBadLength,
+    UpdateInProgress,
+    UpdateOutOfBounds,
+    UpdateTimeout,
+    UpdateEccDoubleErr,
+    UpdateEccSingleErr,
+    UpdateSecureErr,
+    UpdateReadProtErr,
+    UpdateWriteEraseErr,
+    UpdateInconsistencyErr,
+    UpdateStrobeErr,
+    UpdateProgSeqErr,
+    UpdateWriteProtErr,
+    UpdateBadImageType,
+    UpdateAlreadyFinished,
+    UpdateNotStarted,
+    UpdateRunningImage,
+    UpdateFlashError,
+    UpdateSpRotError,
+    UpdateUnknown,
 
     // An error relating to Stage0 handoff of image data
-    Stage0HandoffError = 43,
+    Stage0HandoffError,
 
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
@@ -355,7 +363,11 @@ pub enum MsgType {
     IoStatsReq = 20,
     IoStatsRsp = 21,
 
-    /// Reserved value.
+    // Dump
+    DumpReq = 22,
+    DumpRsp = 23,
+
+    // Reserved value.
     Unknown = 0xff,
 }
 

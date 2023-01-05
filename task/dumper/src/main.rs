@@ -24,6 +24,8 @@ enum Trace {
     SetupDone,
     DataWriteFailed(SpCtrlError),
     DataReadFailed,
+    ReadingRegister(u16),
+    RegisterReadFailed(SpCtrlError),
     Halted,
     Resumed,
     ResumeFailed,
@@ -31,7 +33,15 @@ enum Trace {
 }
 
 task_slot!(SP_CTRL, swd);
+
 const READ_SIZE: usize = 256;
+
+//
+// This version can be bumped pretty liberally; it is only informative.  (It
+// just can't be humpty::DUMPER_NONE or humpty::DUMPER_EMULATED, both of which
+// must regrettably be enforced at run-time.)
+//
+const DUMPER_VERSION: u8 = 1;
 
 ringbuf!(Trace, 16, Trace::None);
 
@@ -84,17 +94,21 @@ impl idl::InOrderDumperImpl for ServerImpl {
         let mut nwritten = 0;
         let mut reg = 0;
 
-        let r = humpty::dump::<DumperError, 512>(
+        let r = humpty::dump::<DumperError, 512, DUMPER_VERSION>(
             header.address,
             || {
                 for r in reg..=31 {
+                    ringbuf_entry!(Trace::ReadingRegister(r));
                     match sp_ctrl.read_core_register(r) {
                         Ok(val) => {
                             reg = r + 1;
                             return Ok(Some(humpty::RegisterRead(r, val)));
                         }
                         Err(SpCtrlError::InvalidCoreRegister) => {}
-                        Err(_) => return Err(DumperError::RegisterReadFailed),
+                        Err(e) => {
+                            ringbuf_entry!(Trace::RegisterReadFailed(e));
+                            return Err(DumperError::RegisterReadFailed);
+                        }
                     }
                 }
                 Ok(None)

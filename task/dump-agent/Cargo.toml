@@ -18,6 +18,7 @@ ringbuf = { path = "../../lib/ringbuf"  }
 dump-agent-api = { path = "../dump-agent-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static_assertions = { workspace = true }
+drv-sprot-api = { path = "../../drv/sprot-api" }
 
 [build-dependencies]
 anyhow = { workspace = true }
