@@ -214,7 +214,7 @@ fn main() -> ! {
     image_header::dump_image_details_to_ram(&handoff);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&image, &handoff);
+    dice::run(&image, &handoff, &peripherals);
 
     unsafe {
         branch_to_image(image);
