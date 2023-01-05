@@ -187,6 +187,7 @@ impl NotificationHandler for ServerImpl {
         }
 
         if (bits & NET_IRQ) != 0
+            || self.net_handler.packet_to_send.is_some()
             || self.mgs_handler.wants_to_send_packet_to_mgs()
         {
             self.net_handler.run_until_blocked(&mut self.mgs_handler);
@@ -355,6 +356,17 @@ impl NetHandler {
     }
 
     fn run_until_blocked(&mut self, mgs_handler: &mut MgsHandler) {
+        // If we get `ServerRestarted` from the net task when attempting to
+        // send, we'll immediately retry. However, we still want to put a limit
+        // on this in case `net` is in a crash loop - we won't be able to do
+        // much, but we can be nicer than busy waiting for it to come back (and
+        // handle any IPC requests made of us in the meantime). If we hit this
+        // max retry count, we'll consider ourselves blocked and return. We'll
+        // get to try again the next time we're interrupted (hopefully by `net`
+        // coming back).
+        const MAX_NET_RESTART_RETRIES: usize = 3;
+        let mut net_restart_retries = 0;
+
         loop {
             // Try to send first.
             if let Some(meta) = self.packet_to_send.take() {
@@ -364,6 +376,21 @@ impl NetHandler {
                     &self.tx_buf[..meta.size as usize],
                 ) {
                     Ok(()) => (),
+                    Err(err @ SendError::ServerRestarted) => {
+                        ringbuf_entry!(Log::SendError(err));
+
+                        // `net` died; re-enqueue this packet.
+                        self.packet_to_send = Some(meta);
+
+                        // Either immediately retry or give up until the next
+                        // time we get a notification.
+                        if net_restart_retries < MAX_NET_RESTART_RETRIES {
+                            net_restart_retries += 1;
+                            continue;
+                        } else {
+                            return;
+                        }
+                    }
                     Err(err @ SendError::QueueFull) => {
                         ringbuf_entry!(Log::SendError(err));
 
@@ -372,7 +399,11 @@ impl NetHandler {
                         self.packet_to_send = Some(meta);
                         return;
                     }
-                    Err(err) => {
+                    Err(
+                        err @ (SendError::InvalidVLan
+                        | SendError::Other
+                        | SendError::NotYours),
+                    ) => {
                         // Some other (fatal?) error occurred; should we panic?
                         // For now, just discard the packet we wanted to send.
                         ringbuf_entry!(Log::SendError(err));
@@ -397,7 +428,7 @@ impl NetHandler {
                 Ok(meta) => {
                     self.handle_received_packet(meta, mgs_handler);
                 }
-                Err(RecvError::QueueEmpty) => {
+                Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
                     return;
                 }
                 Err(RecvError::NotYours | RecvError::Other) => panic!(),

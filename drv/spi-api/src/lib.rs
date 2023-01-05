@@ -16,6 +16,7 @@ pub enum SpiError {
     BadTransferSize = 1,
 
     /// Server restarted
+    #[idol(server_death)]
     ServerRestarted = 2,
 
     /// Release without successful Lock
@@ -26,9 +27,6 @@ pub enum SpiError {
     ///
     /// This is almost certainly a programming error on the client side.
     BadDevice = 4,
-
-    /// Receive FIFO overflow
-    DataOverrun = 5,
 }
 
 #[derive(
