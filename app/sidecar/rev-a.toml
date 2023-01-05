@@ -267,9 +267,10 @@ max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
 task-slots = [
-    "sys",
     "i2c_driver",
     "net",
+    "sensor",
+    "sys",
     "thermal",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]

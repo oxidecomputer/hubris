@@ -88,12 +88,10 @@ Interface(
             ),
         ),
         "update_dynamic_input": (
-            doc: "Provides a reading and thermal model for a dynamic sensor",
+            doc: "Provides a thermal model for a dynamic sensor",
             args: {
                 "index": "usize",
-                "time": "u64",
                 "model": "ThermalProperties",
-                "temperature": "Celsius",
             },
             reply: Result(
                 ok: "()",
