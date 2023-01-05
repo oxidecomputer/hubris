@@ -284,14 +284,44 @@ pub(crate) struct ThermalControl<'a> {
         [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
 }
 
-/// Represents a temperature reading at the time at which it was taken
+/// Represents the state of a temperature sensor, which either has a valid
+/// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
 enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
-    Valid { time_ms: u64, value: Celsius },
+    Valid(TimestampedTemperatureReading),
 
     /// This sensor is not used in the current power state
     Inactive,
+}
+
+/// Represents a temperature reading at the time at which it was taken
+#[derive(Copy, Clone, Debug)]
+struct TimestampedTemperatureReading {
+    time_ms: u64,
+    value: Celsius,
+}
+
+impl TimestampedTemperatureReading {
+    /// Returns the worst-case temperature, given a current time and thermal
+    /// model for this part.
+    ///
+    /// This only matters when samples are dropped or if there is significant
+    /// lag in the sensors system; if we received a reading on this control
+    /// cycle, then time_ms ≈ now_ms, so this is close to v.value (i.e. the most
+    /// recent reading).
+    ///
+    /// Typically, time_ms is earlier (less) than now_ms, so this subtraction is
+    /// safe.  If there's invalid data in the sensors task (i.e. readings
+    /// claiming to be from the future), then this will saturate instead of
+    /// underflowing.
+    fn worst_case(&self, now_ms: u64, model: &ThermalProperties) -> Celsius {
+        Celsius(
+            self.value.0
+                + now_ms.saturating_sub(self.time_ms) as f32 / 1000.0
+                    * model.temperature_slew_deg_per_sec,
+        )
+    }
 }
 
 /// Configuration for a PID controller
@@ -407,10 +437,10 @@ enum ControlResult {
 
 impl ThermalControlState {
     fn write_temperature(&mut self, index: usize, reading: Reading) {
-        let r = TemperatureReading::Valid {
+        let r = TemperatureReading::Valid(TimestampedTemperatureReading {
             time_ms: reading.timestamp,
             value: Celsius(reading.value),
-        };
+        });
         match self {
             ThermalControlState::Boot { values } => {
                 values[index] = Some(r);
@@ -665,15 +695,20 @@ impl<'a> ThermalControl<'a> {
                 self.state.write_temperature_inactive(i);
             }
         }
-        for (i, sensor_id) in self
-            .bsp
-            .dynamic_inputs
-            .iter()
-            .enumerate()
-            .filter(|(i, _s)| self.dynamic_inputs[*i].is_some())
-        {
-            if let Ok(r) = self.sensor_api.get_reading(*sensor_id) {
-                self.state.write_temperature(i + self.bsp.inputs.len(), r);
+
+        // The dynamic inputs don't depend on power mode; instead, they are
+        // assumed to be present when a model exists in `self.dynamic_inputs`;
+        // this model is set by external callers using
+        // `update_dynamic_input` and `remove_dynamic_input`.
+        for (i, sensor_id) in self.bsp.dynamic_inputs.iter().enumerate() {
+            let index = i + self.bsp.inputs.len();
+            match self.dynamic_inputs[i] {
+                Some(..) => {
+                    if let Ok(r) = self.sensor_api.get_reading(*sensor_id) {
+                        self.state.write_temperature(index, r);
+                    }
+                }
+                None => self.state.write_temperature_inactive(index),
             }
         }
 
@@ -689,28 +724,12 @@ impl<'a> ThermalControl<'a> {
                 let mut worst_margin = f32::MAX;
                 for (v, model) in Self::zip_temperatures(values, inputs) {
                     match v {
-                        Some(TemperatureReading::Valid { value, time_ms }) => {
-                            // Model the current temperature based on the last
-                            // reading and the worst-case slew rate.  This only
-                            // matters when samples are dropped or if there is
-                            // significant lag in the sensors system; if we
-                            // received a reading on this control cycle, then
-                            // time_ms ≈ now_ms, so this is close to v.value
-                            // (i.e. the most recent reading).
-                            //
-                            // Typically, time_ms is earlier (less) than now_ms,
-                            // so this subtraction is safe.  If there's invalid
-                            // data in the sensors task (i.e. readings claiming
-                            // to be from the future), then this will saturate
-                            // instead of underflowing.
-                            let temperature = value.0
-                                + now_ms.saturating_sub(*time_ms) as f32
-                                    / 1000.0
-                                    * model.temperature_slew_deg_per_sec;
+                        Some(TemperatureReading::Valid(v)) => {
+                            let temperature = v.worst_case(now_ms, &model);
                             any_power_down |=
-                                temperature >= model.power_down_temperature.0;
-                            worst_margin = worst_margin
-                                .min(model.target_temperature.0 - temperature);
+                                model.should_power_down(temperature);
+                            worst_margin =
+                                worst_margin.min(model.margin(temperature).0);
                         }
                         Some(TemperatureReading::Inactive) => {
                             // Inactive sensors are ignored, but do not gate us
@@ -735,13 +754,8 @@ impl<'a> ThermalControl<'a> {
                         self.target_margin.0 - worst_margin,
                         100.0,
                     );
-                    // It's possible to enter `Running` with `None` values for
-                    // **inactive dynamic** sensors, since inactive dynamic
-                    // sensors are skipped in `zip_temperatures`; we convert
-                    // them to `Inactive` here.
                     self.state = ThermalControlState::Running {
-                        values: values
-                            .map(|i| i.unwrap_or(TemperatureReading::Inactive)),
+                        values: values.map(Option::unwrap),
                         pid,
                     };
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
@@ -761,17 +775,13 @@ impl<'a> ThermalControl<'a> {
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
                 for (v, model) in Self::zip_temperatures(values, inputs) {
-                    if let TemperatureReading::Valid { value, time_ms } = v {
-                        let temperature = value.0
-                            + now_ms.saturating_sub(*time_ms) as f32 / 1000.0
-                                * model.temperature_slew_deg_per_sec;
-                        any_power_down |=
-                            temperature >= model.power_down_temperature.0;
-                        any_critical |=
-                            temperature >= model.critical_temperature.0;
+                    if let TemperatureReading::Valid(v) = v {
+                        let temperature = v.worst_case(now_ms, &model);
+                        any_power_down |= model.should_power_down(temperature);
+                        any_critical |= model.is_critical(temperature);
 
-                        worst_margin = worst_margin
-                            .min(model.target_temperature.0 - temperature);
+                        worst_margin =
+                            worst_margin.min(model.margin(temperature).0);
                     }
                 }
 
@@ -812,18 +822,15 @@ impl<'a> ThermalControl<'a> {
                 let mut worst_margin = f32::MAX;
 
                 for (v, model) in Self::zip_temperatures(values, inputs) {
-                    if let TemperatureReading::Valid { value, time_ms } = v {
-                        let temperature = value.0
-                            + now_ms.saturating_sub(*time_ms) as f32 / 1000.0
-                                * model.temperature_slew_deg_per_sec;
-
-                        all_subcritical &= temperature
-                            < model.critical_temperature.0
-                                - self.overheat_hysteresis.0;
-                        any_power_down |=
-                            temperature >= model.power_down_temperature.0;
-                        worst_margin = worst_margin
-                            .min(model.target_temperature.0 - temperature);
+                    if let TemperatureReading::Valid(v) = v {
+                        let temperature = v.worst_case(now_ms, &model);
+                        all_subcritical &= model.is_sub_critical(
+                            temperature,
+                            self.overheat_hysteresis,
+                        );
+                        any_power_down |= model.should_power_down(temperature);
+                        worst_margin =
+                            worst_margin.min(model.margin(temperature).0);
                     }
                 }
 

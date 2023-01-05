@@ -78,4 +78,33 @@ pub struct ThermalProperties {
     pub temperature_slew_deg_per_sec: f32,
 }
 
+/// All of these functions take an **instantaneous** temperature; to convert a
+/// timestamped reading into an instantaneous temperature (using a thermal
+/// model), see `TimestampedTemperatureReading::worst_case`.
+impl ThermalProperties {
+    /// Returns whether this part is exceeding its power-down temperature
+    pub fn should_power_down(&self, t: Celsius) -> bool {
+        t.0 >= self.power_down_temperature.0
+    }
+
+    /// Returns whether this part is exceeding its critical temperature
+    pub fn is_critical(&self, t: Celsius) -> bool {
+        t.0 >= self.critical_temperature.0
+    }
+
+    /// Returns whether this part is below its critical temperature, with
+    /// a user-configured hysteresis band.
+    pub fn is_sub_critical(&self, t: Celsius, hysteresis: Celsius) -> bool {
+        t.0 < self.critical_temperature.0 - hysteresis.0
+    }
+
+    /// Returns the margin of this part, given a current temperature reading.
+    ///
+    /// Positive margin means that the part is below its max temperature;
+    /// negative means that it's overheating.
+    pub fn margin(&self, t: Celsius) -> Celsius {
+        Celsius(self.target_temperature.0 - t.0)
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
