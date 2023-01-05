@@ -160,7 +160,7 @@ where
         let ksz8463 = bsp.ksz8463();
         let out = ksz8463
             .read_dynamic_mac_table(0)
-            .map_err(KszError::from)?
+            .unwrap_lite()
             .map(|mac| mac.count as usize)
             .unwrap_or(0);
         Ok(out)
@@ -179,7 +179,7 @@ where
         let ksz8463 = bsp.ksz8463();
         let out = ksz8463
             .read_dynamic_mac_table(i)
-            .map_err(KszError::from)?
+            .unwrap_lite()
             .map(KszMacTableEntry::from)
             .unwrap_or(KszMacTableEntry {
                 mac: [0; 6],
@@ -200,7 +200,7 @@ where
         let ksz8463 = bsp.ksz8463();
         let reg =
             ksz8463::Register::from_u16(i).ok_or(KszError::BadRegister)?;
-        let out = ksz8463.read(reg).map_err(KszError::from)?;
+        let out = ksz8463.read(reg).unwrap_lite();
         Ok(out)
     }
 

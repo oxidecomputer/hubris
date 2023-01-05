@@ -39,6 +39,9 @@ pub enum RecvError {
     QueueEmpty = 2,
 
     Other = 3,
+
+    #[idol(server_death)]
+    ServerRestarted = 4,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
@@ -51,6 +54,9 @@ pub enum PhyError {
     NotImplemented = 2,
 
     Other = 3,
+
+    #[idol(server_death)]
+    ServerRestarted = 4,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
@@ -65,29 +71,8 @@ pub enum KszError {
 
     WrongChipId,
 
-    // Errors copied from SpiError
-    BadTransferSize,
+    #[idol(server_death)]
     ServerRestarted,
-    NothingToRelease,
-    BadDevice,
-    DataOverrun,
-}
-
-#[cfg(feature = "ksz8463")]
-impl From<ksz8463::Error> for KszError {
-    fn from(e: ksz8463::Error) -> Self {
-        use drv_spi_api::SpiError;
-        match e {
-            ksz8463::Error::SpiError(e) => match e {
-                SpiError::BadTransferSize => KszError::BadTransferSize,
-                SpiError::ServerRestarted => KszError::ServerRestarted,
-                SpiError::NothingToRelease => KszError::NothingToRelease,
-                SpiError::BadDevice => KszError::BadDevice,
-                SpiError::DataOverrun => KszError::DataOverrun,
-            },
-            ksz8463::Error::WrongChipId(..) => KszError::WrongChipId,
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, AsBytes, FromBytes)]

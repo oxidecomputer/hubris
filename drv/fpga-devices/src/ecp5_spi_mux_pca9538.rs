@@ -52,7 +52,6 @@ impl From<Error> for u8 {
                 SpiError::ServerRestarted => 4,
                 SpiError::NothingToRelease => 5,
                 SpiError::BadDevice => 6,
-                SpiError::DataOverrun => 7,
             },
             Error::I2cError(e) => 8 + (e as u8),
         }

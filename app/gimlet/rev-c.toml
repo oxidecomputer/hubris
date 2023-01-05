@@ -111,7 +111,7 @@ name = "task-thermal"
 features = ["itm", "gimlet"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 4504
+stacksize = 6000
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
@@ -278,6 +278,14 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"

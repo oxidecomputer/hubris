@@ -115,6 +115,9 @@ pub enum SensorError {
     DeviceUnavailable = 5,
     DeviceTimeout = 6,
     DeviceOff = 7,
+
+    #[idol(server_death)]
+    ServerDied,
 }
 
 impl From<NoData> for SensorError {
@@ -126,6 +129,28 @@ impl From<NoData> for SensorError {
             NoData::DeviceUnavailable => SensorError::DeviceUnavailable,
             NoData::DeviceTimeout => SensorError::DeviceTimeout,
         }
+    }
+}
+
+impl Sensor {
+    /// Post the given data with a timestamp of now
+    #[inline]
+    pub fn post_now(
+        &self,
+        id: SensorId,
+        value: f32,
+    ) -> Result<(), SensorError> {
+        self.post(id, value, sys_get_timer().now)
+    }
+
+    /// Post the given `NoData` error with a timestamp of now
+    #[inline]
+    pub fn nodata_now(
+        &self,
+        id: SensorId,
+        nodata: NoData,
+    ) -> Result<(), SensorError> {
+        self.nodata(id, nodata, sys_get_timer().now)
     }
 }
 

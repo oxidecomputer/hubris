@@ -53,7 +53,6 @@ impl From<Ecp5UsingSpiError> for u8 {
                 SpiError::ServerRestarted => 4,
                 SpiError::NothingToRelease => 5,
                 SpiError::BadDevice => 6,
-                SpiError::DataOverrun => 7,
             },
         }
     }

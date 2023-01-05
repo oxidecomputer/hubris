@@ -16,13 +16,15 @@ use drv_sidecar_front_io::{
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
     ModulesStatus, PowerState, PowerStatesAll, TransceiversError, NUM_PORTS,
-    PAGE_SIZE_BYTES,
+    PAGE_SIZE_BYTES, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
+use task_sensor_api::{NoData, Sensor, SensorError};
+use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::mgmt::ManagementInterface;
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
@@ -34,6 +36,7 @@ task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
 task_slot!(THERMAL, thermal);
+task_slot!(SENSOR, sensor);
 
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
@@ -60,7 +63,8 @@ enum Trace {
     GotInterface(usize, ManagementInterface),
     UnpluggedModule(usize),
     TemperatureReadError(usize, FpgaError),
-    ThermalError(usize, task_thermal_api::ThermalError),
+    SensorError(usize, SensorError),
+    ThermalError(usize, ThermalError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -74,11 +78,14 @@ struct ServerImpl {
     led_error: FullErrorSummary,
     leds_initialized: bool,
 
-    /// Handle to write temperatures to the thermal API
-    thermal_api: task_thermal_api::Thermal,
+    /// Handle to write thermal models and presence to the `thermal` task
+    thermal_api: Thermal,
+
+    /// Handle to write temperatures to the `sensors` task
+    sensor_api: Sensor,
 
     /// Thermal models are populated by the host
-    thermal_models: [Option<ThermalModel>; 32],
+    thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
 
 #[derive(Copy, Clone)]
@@ -87,7 +94,7 @@ struct ThermalModel {
     interface: ManagementInterface,
 
     /// What are its thermal properties, e.g. critical temperature?
-    model: task_thermal_api::ThermalProperties,
+    model: ThermalProperties,
 }
 
 const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
@@ -237,8 +244,6 @@ impl ServerImpl {
     }
 
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
-        let now = sys_get_timer().now;
-
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
@@ -254,7 +259,7 @@ impl ServerImpl {
                         // TODO: this is made up
                         self.thermal_models[i] = Some(ThermalModel {
                             interface,
-                            model: task_thermal_api::ThermalProperties {
+                            model: ThermalProperties {
                                 target_temperature: Celsius(65.0),
                                 critical_temperature: Celsius(70.0),
                                 power_down_temperature: Celsius(80.0),
@@ -273,6 +278,14 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::ThermalError(i, e));
                 }
 
+                // Tell the `sensor` task that this device is no longer present
+                if let Err(e) = self.sensor_api.nodata_now(
+                    TRANSCEIVER_TEMPERATURE_SENSORS[i],
+                    NoData::DeviceNotPresent,
+                ) {
+                    ringbuf_entry!(Trace::SensorError(i, e));
+                }
+
                 ringbuf_entry!(Trace::UnpluggedModule(i));
                 self.thermal_models[i] = None;
             }
@@ -284,6 +297,12 @@ impl ServerImpl {
                 Some(m) => m,
                 None => continue,
             };
+
+            // *Always* post the thermal model over to the thermal task, so that
+            // the thermal task still has it in case of restart.
+            if let Err(e) = self.thermal_api.update_dynamic_input(i, m.model) {
+                ringbuf_entry!(Trace::ThermalError(i, e));
+            }
 
             let temperature = match m.interface {
                 ManagementInterface::Cmis => self.read_cmis_temperature(port),
@@ -299,10 +318,10 @@ impl ServerImpl {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
                     if let Err(e) = self
-                        .thermal_api
-                        .update_dynamic_input(i, now, m.model, t)
+                        .sensor_api
+                        .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0)
                     {
-                        ringbuf_entry!(Trace::ThermalError(i, e));
+                        ringbuf_entry!(Trace::SensorError(i, e));
                     }
                 }
                 Err(e) => {
@@ -536,8 +555,8 @@ fn main() -> ! {
         );
 
         let net = task_net_api::Net::from(NET.get_task_id());
-        let thermal_api =
-            task_thermal_api::Thermal::from(THERMAL.get_task_id());
+        let thermal_api = Thermal::from(THERMAL.get_task_id());
+        let sensor_api = Sensor::from(SENSOR.get_task_id());
         let (tx_data_buf, rx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             transceivers,
@@ -547,7 +566,8 @@ fn main() -> ! {
             led_error: Default::default(),
             leds_initialized: false,
             thermal_api,
-            thermal_models: [None; 32],
+            sensor_api,
+            thermal_models: [None; NUM_PORTS as usize],
         };
 
         ringbuf_entry!(Trace::LEDInit);

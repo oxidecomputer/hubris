@@ -14,6 +14,7 @@ Interface(
                 ok: "f32",
                 err: CLike("SensorError"),
             ),
+            idempotent: true,
         ),
         "get_reading": (
             args: {
@@ -27,6 +28,7 @@ Interface(
                 err: CLike("SensorError"),
             ),
             encoding: Hubpack,
+            idempotent: true,
         ),
         "post": (
             args: {
@@ -41,6 +43,7 @@ Interface(
                 ok: "()",
                 err: CLike("SensorError"),
             ),
+            idempotent: true,
         ),
         "nodata": (
             args: {
@@ -58,6 +61,7 @@ Interface(
                 ok: "()",
                 err: CLike("SensorError"),
             ),
+            idempotent: true,
         ),
         "get_nerrors": (
             args: {

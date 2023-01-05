@@ -7,5 +7,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "../../idl/transceivers.idol",
         "client_stub.rs",
     )?;
+
+    let disposition = build_i2c::Disposition::Sensors;
+    if let Err(e) = build_i2c::codegen(disposition) {
+        println!("code generation failed: {}", e);
+        std::process::exit(1);
+    }
+
     Ok(())
 }

@@ -13,7 +13,9 @@ zerocopy = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
+task-sensor-api = { path = "../../task/sensor-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 idol = { workspace = true }
+build-i2c = { path = "../../build/i2c" }

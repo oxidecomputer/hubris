@@ -946,7 +946,7 @@ impl ConfigGenerator {
         for (index, d) in self.devices.iter().enumerate() {
             by_device.insert(&d.device, d);
 
-            let (controller, port) = self.lookup_controller_port(&d);
+            let (controller, port) = self.lookup_controller_port(d);
 
             by_port.insert(port, index);
             by_controller.insert(controller, index);
