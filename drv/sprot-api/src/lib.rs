@@ -121,7 +121,10 @@ pub enum SprotError {
     UpdateRunningImage,
     UpdateFlashError,
     UpdateSpRotError,
+    UpdateMissingHeaderBlock,
     UpdateUnknown,
+    // The status was returned for the SP, which is not what we asked about
+    UpdateBadStatus,
 
     // An error relating to Stage0 handoff of image data
     Stage0HandoffError,
@@ -154,6 +157,9 @@ impl From<UpdateError> for SprotError {
             UpdateError::RunningImage => SprotError::UpdateRunningImage,
             UpdateError::FlashError => SprotError::UpdateFlashError,
             UpdateError::SpRotError => SprotError::UpdateSpRotError,
+            UpdateError::MissingHeaderBlock => {
+                SprotError::UpdateMissingHeaderBlock
+            }
             UpdateError::Unknown => SprotError::UpdateUnknown,
         }
     }
