@@ -88,7 +88,6 @@ impl TemperatureSensor {
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    let r = m.read_speed();
                     let post_result = match m.read_speed() {
                         Ok(v) => sensor_api.post_now(s, v.0),
                         Err(e) => {
