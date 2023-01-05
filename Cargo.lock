@@ -1716,6 +1716,7 @@ dependencies = [
 name = "drv-transceivers-api"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "derive-idol-err",
  "drv-fpga-api",
  "idol",
@@ -1723,6 +1724,7 @@ dependencies = [
  "num-traits",
  "serde",
  "ssmarshal",
+ "task-sensor-api",
  "transceiver-messages",
  "userlib",
  "zerocopy",
