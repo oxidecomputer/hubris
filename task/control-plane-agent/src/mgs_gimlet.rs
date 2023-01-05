@@ -62,11 +62,18 @@ static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 /// packets.
 ///
 /// SP -> MGS can be whatever size we want, but the larger it is the less likely
-/// we are to lose data while waiting to flush from our buffer out to UDP.
+/// we are to lose data while waiting to flush from our buffer out to UDP. We'll
+/// start flushing once we cross SP_TO_MGS_SERIAL_CONSOLE_FLUSH_WATERMARK.
 const MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE: usize =
     gateway_messages::MAX_SERIALIZED_SIZE;
-const SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE: usize =
+const SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE: usize = 4096;
+const SP_TO_MGS_SERIAL_CONSOLE_FLUSH_WATERMARK: usize =
     gateway_messages::MAX_SERIALIZED_SIZE;
+
+static_assertions::const_assert!(
+    SP_TO_MGS_SERIAL_CONSOLE_FLUSH_WATERMARK
+        <= SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE
+);
 
 /// Send any buffered serial console data to MGS when our oldest buffered byte
 /// is this old, even if our buffer isn't full yet.
@@ -925,11 +932,12 @@ impl UsartHandler {
             return false;
         }
 
-        // Bail out early if our buffer is empty or full.
+        // Bail out early if our buffer is empty or past the "we should flush"
+        // watermark.
         let len = self.from_rx.len();
         if len == 0 {
             return false;
-        } else if len == self.from_rx.capacity() {
+        } else if len >= SP_TO_MGS_SERIAL_CONSOLE_FLUSH_WATERMARK {
             return true;
         }
 
