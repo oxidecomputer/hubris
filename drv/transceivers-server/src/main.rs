@@ -244,8 +244,6 @@ impl ServerImpl {
     }
 
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
-        let now = sys_get_timer().now;
-
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
@@ -319,11 +317,10 @@ impl ServerImpl {
             match temperature {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
-                    if let Err(e) = self.sensor_api.post(
-                        TRANSCEIVER_TEMPERATURE_SENSORS[i],
-                        t.0,
-                        now,
-                    ) {
+                    if let Err(e) = self
+                        .sensor_api
+                        .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0)
+                    {
                         ringbuf_entry!(Trace::SensorError(i, e));
                     }
                 }
