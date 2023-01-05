@@ -21,51 +21,6 @@ pub enum Cmd {
 
 include!(env!("GIMLET_FPGA_REGS"));
 
-#[derive(AsBytes, Unaligned)]
-#[repr(u8)]
-#[allow(dead_code)]
-#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-pub enum A0StateMachine {
-    IDLE = 0x00,
-    PBTN = 0x01,
-    WAITSLP = 0x02,
-    GROUPB1_EN = 0x03,
-    GROUPB1_PG = 0x04,
-    GROUPB2_EN = 0x05,
-    GROUPB2_PG = 0x06,
-    GROUPC_PG = 0x07,
-    DELAY_1MS = 0x08,
-    ASSERT_PG = 0x09,
-    WAIT_PWROK = 0x0a,
-    WAIT_RESET_L = 0x0b,
-    DONE = 0x0c,
-    SAFE_DISABLE = 0x0d,
-}
-
-impl From<A0StateMachine> for u8 {
-    fn from(m: A0StateMachine) -> Self {
-        m as u8
-    }
-}
-
-#[derive(AsBytes, Unaligned)]
-#[repr(u8)]
-#[allow(dead_code)]
-#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-pub enum A1StateMachine {
-    IDLE = 0x00,
-    ENABLE = 0x01,
-    WAITPG = 0x02,
-    DELAY = 0x03,
-    DONE = 0x05,
-}
-
-impl From<A1StateMachine> for u8 {
-    fn from(m: A1StateMachine) -> Self {
-        m as u8
-    }
-}
-
 pub const EXPECTED_IDENT: u16 = 0x1DE;
 
 pub struct SequencerFpga {

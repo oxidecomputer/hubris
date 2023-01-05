@@ -915,6 +915,7 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
+ "num-derive",
  "num-traits",
  "ringbuf",
  "serde",
