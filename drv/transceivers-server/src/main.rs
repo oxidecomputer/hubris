@@ -15,8 +15,8 @@ use drv_sidecar_front_io::{
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
-    ModulesStatus, PowerState, PowerStatesAll, TransceiversError, NUM_PORTS,
-    PAGE_SIZE_BYTES, TRANSCEIVER_TEMPERATURE_SENSORS,
+    ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
+    TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{
@@ -244,8 +244,8 @@ impl ServerImpl {
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
-            let powered =
-                (status.present & mask) != 0 && (status.power_good & mask) != 0;
+            let powered = (!status.modprsl & mask) != 0
+                && (status.power_good & mask) != 0;
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
@@ -349,36 +349,68 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             .map_err(TransceiversError::from)?)
     }
 
-    fn all_power_states(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<PowerStatesAll, idol_runtime::RequestError<TransceiversError>>
-    {
-        Ok(self
-            .transceivers
-            .all_power_states()
-            .map_err(TransceiversError::from)?)
-    }
-
-    fn set_power_state(
+    fn port_enable_power(
         &mut self,
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
-        state: PowerState,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .set_power_state(state, LogicalPortMask(logical_port_mask))
+            .enable_power(LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
 
-    fn port_reset(
+    fn port_disable_power(
         &mut self,
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         self.transceivers
-            .port_reset(LogicalPortMask(logical_port_mask))
+            .disable_power(LogicalPortMask(logical_port_mask))
+            .map_err(TransceiversError::from)?;
+        Ok(())
+    }
+
+    fn port_assert_reset(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.transceivers
+            .assert_reset(LogicalPortMask(logical_port_mask))
+            .map_err(TransceiversError::from)?;
+        Ok(())
+    }
+
+    fn port_deassert_reset(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.transceivers
+            .deassert_reset(LogicalPortMask(logical_port_mask))
+            .map_err(TransceiversError::from)?;
+        Ok(())
+    }
+
+    fn port_assert_lpmode(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.transceivers
+            .assert_lpmode(LogicalPortMask(logical_port_mask))
+            .map_err(TransceiversError::from)?;
+        Ok(())
+    }
+
+    fn port_deassert_lpmode(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.transceivers
+            .deassert_lpmode(LogicalPortMask(logical_port_mask))
             .map_err(TransceiversError::from)?;
         Ok(())
     }
@@ -503,11 +535,11 @@ impl NotificationHandler for ServerImpl {
                 Err(_) => ModulesStatus::new_zeroed(),
             };
 
-            if status.present != self.modules_present {
-                self.led_update(status.present);
+            if !status.modprsl != self.modules_present {
+                self.led_update(!status.modprsl);
 
-                self.modules_present = status.present;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(status.present));
+                self.modules_present = !status.modprsl;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(!status.modprsl));
             }
 
             self.update_thermal_loop(status);
@@ -603,7 +635,7 @@ pub fn claim_statics() -> (
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ModulesStatus, PowerState, PowerStatesAll, TransceiversError};
+    use super::{ModulesStatus, TransceiversError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

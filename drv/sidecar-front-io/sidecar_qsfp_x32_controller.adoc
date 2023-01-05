@@ -238,25 +238,9 @@ I2C_NUM_BYTES
 |[7:0] | rw | COUNT | Number of bytes to read/write in the I2C transaction. up to 128 bytes.
 |===
 
-Ports 8 -> 15 Broadcast Control
-[caption="Address: "]
-.0x2003 - QSFP_I2C_BCAST_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | rw | PORT15 | None
-|[6] | rw | PORT14 | None
-|[5] | rw | PORT13 | None
-|[4] | rw | PORT12 | None
-|[3] | rw | PORT11 | None
-|[2] | rw | PORT10 | None
-|[1] | rw | PORT9 | None
-|[0] | rw | PORT8 | None
-|===
-
 Ports 0 -> 7 Broadcast Control
 [caption="Address: "]
-.0x2004 - QSFP_I2C_BCAST_L Register
+.0x2003 - QSFP_I2C_BCAST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -270,6 +254,22 @@ Ports 0 -> 7 Broadcast Control
 |[0] | rw | PORT0 | None
 |===
 
+Ports 8 -> 15 Broadcast Control
+[caption="Address: "]
+.0x2004 - QSFP_I2C_BCAST1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
 Control bits for I2C communication.
 [caption="Address: "]
 .0x2005 - QSFP_I2C_CTRL Register
@@ -281,25 +281,9 @@ Control bits for I2C communication.
 |[0] | rw | START | '1' to start next transaction.
 |===
 
-Ports 8 -> 15 I2C core status. '1' is busy.
-[caption="Address: "]
-.0x2006 - QSFP_I2C_BUSY_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
 Ports 0 -> 7 I2C core status. '1' is busy.
 [caption="Address: "]
-.0x2007 - QSFP_I2C_BUSY_L Register
+.0x2006 - QSFP_I2C_BUSY0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -313,13 +297,29 @@ Ports 0 -> 7 I2C core status. '1' is busy.
 |[0] | r | PORT0 | None
 |===
 
+Ports 8 -> 15 I2C core status. '1' is busy.
+[caption="Address: "]
+.0x2007 - QSFP_I2C_BUSY1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
 STATUS_PORT0
 [caption="Address: "]
 .0x2008 - QSFP_STATUS_PORT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -330,7 +330,7 @@ STATUS_PORT1
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -341,7 +341,7 @@ STATUS_PORT2
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -352,7 +352,7 @@ STATUS_PORT3
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -363,7 +363,7 @@ STATUS_PORT4
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -374,7 +374,7 @@ STATUS_PORT5
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -385,7 +385,7 @@ STATUS_PORT6
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -396,7 +396,7 @@ STATUS_PORT7
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -407,7 +407,7 @@ STATUS_PORT8
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -418,7 +418,7 @@ STATUS_PORT9
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -429,7 +429,7 @@ STATUS_PORT10
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -440,7 +440,7 @@ STATUS_PORT11
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -451,7 +451,7 @@ STATUS_PORT12
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -462,7 +462,7 @@ STATUS_PORT13
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -473,7 +473,7 @@ STATUS_PORT14
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -484,7 +484,7 @@ STATUS_PORT15
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -495,9 +495,7 @@ CONTROL_PORT0
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -507,9 +505,7 @@ CONTROL_PORT1
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -519,9 +515,7 @@ CONTROL_PORT2
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -531,9 +525,7 @@ CONTROL_PORT3
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -543,9 +535,7 @@ CONTROL_PORT4
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -555,9 +545,7 @@ CONTROL_PORT5
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -567,9 +555,7 @@ CONTROL_PORT6
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -579,9 +565,7 @@ CONTROL_PORT7
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -591,9 +575,7 @@ CONTROL_PORT8
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -603,9 +585,7 @@ CONTROL_PORT9
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -615,9 +595,7 @@ CONTROL_PORT10
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -627,9 +605,7 @@ CONTROL_PORT11
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -639,9 +615,7 @@ CONTROL_PORT12
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -651,9 +625,7 @@ CONTROL_PORT13
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -663,9 +635,7 @@ CONTROL_PORT14
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
@@ -675,31 +645,13 @@ CONTROL_PORT15
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | rw | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0
-|[4:2] |  | - | Reserved
-|[1] | rw | RESET | Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears.
+|[7:1] |  | - | Reserved
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
 |===
 
-Ports 8 -> 15 HSC Enable Control
+Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
 [caption="Address: "]
-.0x2028 - QSFP_CTRL_EN_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC Enable Control
-[caption="Address: "]
-.0x2029 - QSFP_CTRL_EN_L Register
+.0x2028 - QSFP_POWER_EN0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -713,73 +665,9 @@ Ports 0 -> 7 HSC Enable Control
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 ResetL Control (logic inverted at the pin)
+Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
 [caption="Address: "]
-.0x202a - QSFP_CTRL_RESET_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 ResetL Control (logic inverted at the pin)
-[caption="Address: "]
-.0x202b - QSFP_CTRL_RESET_L Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 LPMode/TxDis Control
-[caption="Address: "]
-.0x202c - QSFP_CTRL_LPMODE_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 LPMode/TxDis Control
-[caption="Address: "]
-.0x202d - QSFP_CTRL_LPMODE_L Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good
-[caption="Address: "]
-.0x202e - QSFP_STATUS_PG_H Register
+.0x2029 - QSFP_POWER_EN1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -795,7 +683,7 @@ Ports 8 -> 15 HSC power good
 
 Ports 0 -> 7 HSC power good
 [caption="Address: "]
-.0x202f - QSFP_STATUS_PG_L Register
+.0x202a - QSFP_POWER_GOOD0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -809,9 +697,9 @@ Ports 0 -> 7 HSC power good
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)
+Ports 8 -> 15 HSC power good
 [caption="Address: "]
-.0x2030 - QSFP_STATUS_PRESENT_H Register
+.0x202b - QSFP_POWER_GOOD1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -825,9 +713,9 @@ Ports 8 -> 15 ModPrsL signal for the module (logic inverted at the pin)
 |[0] | r | PORT8 | None
 |===
 
-Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)
+Ports 0 -> 7 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x2031 - QSFP_STATUS_PRESENT_L Register
+.0x202c - QSFP_POWER_GOOD_TIMEOUT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -841,73 +729,9 @@ Ports 0 -> 7 ModPrsL signal for the module (logic inverted at the pin)
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 IntL/RxLOS signal for the module (logic inverted at the pin)
+Ports 8 -> 15 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x2032 - QSFP_STATUS_IRQ_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 IntL/RxLOS signal for the module (logic inverted at the pin)
-[caption="Address: "]
-.0x2033 - QSFP_STATUS_IRQ_L Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good timeout
-[caption="Address: "]
-.0x2034 - QSFP_STATUS_PG_TIMEOUT_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good timeout
-[caption="Address: "]
-.0x2035 - QSFP_STATUS_PG_TIMEOUT_L Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good lost after successful enable
-[caption="Address: "]
-.0x2036 - QSFP_STATUS_PG_LOST_H Register
+.0x202d - QSFP_POWER_GOOD_TIMEOUT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -923,7 +747,7 @@ Ports 8 -> 15 HSC power good lost after successful enable
 
 Ports 0 -> 7 HSC power good lost after successful enable
 [caption="Address: "]
-.0x2037 - QSFP_STATUS_PG_LOST_L Register
+.0x202e - QSFP_POWER_GOOD_LOST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -937,13 +761,157 @@ Ports 0 -> 7 HSC power good lost after successful enable
 |[0] | r | PORT0 | None
 |===
 
+Ports 8 -> 15 HSC power good lost after successful enable
+[caption="Address: "]
+.0x202f - QSFP_POWER_GOOD_LOST1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 Module ResetL
+[caption="Address: "]
+.0x2030 - QSFP_MOD_RESETL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Ports 8 -> 15 Module ResetL
+[caption="Address: "]
+.0x2031 - QSFP_MOD_RESETL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Ports 0 -> 7 Module LPMode/TxDis
+[caption="Address: "]
+.0x2032 - QSFP_MOD_LPMODE0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Ports 8 -> 15 Module LPMode/TxDis
+[caption="Address: "]
+.0x2033 - QSFP_MOD_LPMODE1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Ports 0 -> 7 Module ModPrsL
+[caption="Address: "]
+.0x2034 - QSFP_MOD_MODPRSL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 Module ModPrsL
+[caption="Address: "]
+.0x2035 - QSFP_MOD_MODPRSL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 Module IntL/RxLOS
+[caption="Address: "]
+.0x2036 - QSFP_MOD_INTL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 Module IntL/RxLOS
+[caption="Address: "]
+.0x2037 - QSFP_MOD_INTL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
 PORT0_STATUS
 [caption="Address: "]
 .0x207f - QSFP_PORT0_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -962,7 +930,7 @@ PORT1_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -981,7 +949,7 @@ PORT2_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1000,7 +968,7 @@ PORT3_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1019,7 +987,7 @@ PORT4_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1038,7 +1006,7 @@ PORT5_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1057,7 +1025,7 @@ PORT6_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1076,7 +1044,7 @@ PORT7_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1095,7 +1063,7 @@ PORT8_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1114,7 +1082,7 @@ PORT9_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1133,7 +1101,7 @@ PORT10_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1152,7 +1120,7 @@ PORT11_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1171,7 +1139,7 @@ PORT12_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1190,7 +1158,7 @@ PORT13_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1209,7 +1177,7 @@ PORT14_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===
@@ -1228,7 +1196,7 @@ PORT15_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] | r | POWER_STATE | 0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault
+|[7:5] |  | - | Reserved
 |[4] | r | BUSY | '1' if the bus is busy.
 |[3:0] | r | ERROR | 0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack
 |===

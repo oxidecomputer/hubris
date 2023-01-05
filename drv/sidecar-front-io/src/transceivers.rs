@@ -4,7 +4,7 @@
 
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use drv_transceivers_api::{ModulesStatus, PowerState, PowerStatesAll};
+use drv_transceivers_api::ModulesStatus;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 pub struct Transceivers {
@@ -39,6 +39,9 @@ impl PhysicalPort {
 #[derive(Copy, Clone, Default)]
 pub struct PhysicalPortMask(pub u16);
 impl PhysicalPortMask {
+    pub fn get(&self) -> u16 {
+        self.0
+    }
     pub fn set(&mut self, i: PhysicalPort) {
         self.0 |= i.as_mask().0
     }
@@ -260,7 +263,6 @@ impl LogicalPort {
 impl From<LogicalPortMask> for FpgaPortMasks {
     fn from(mask: LogicalPortMask) -> FpgaPortMasks {
         let mut fpga_port_masks = FpgaPortMasks::default();
-
         for (i, port_loc) in PORT_MAP.iter().enumerate() {
             let port_mask: u32 = 1 << i;
             if (mask.0 & port_mask) != 0 {
@@ -274,7 +276,6 @@ impl From<LogicalPortMask> for FpgaPortMasks {
                 }
             }
         }
-
         fpga_port_masks
     }
 }
@@ -300,11 +301,13 @@ impl Transceivers {
         &self.fpgas[c as usize]
     }
 
-    // helper to write a value to CONTROL_PORTx registers given a mask
-    fn write_control_port<M: Into<FpgaPortMasks>>(
+    /// Executes a specified WriteOp (`op`) at `addr` for all ports specified by
+    /// the `mask`.
+    pub fn masked_port_op<M: Into<FpgaPortMasks>>(
         &self,
+        op: WriteOp,
         mask: M,
-        value: u8,
+        addr: Addr,
     ) -> Result<(), FpgaError> {
         let fpga_masks: FpgaPortMasks = mask.into();
         for fpga_index in fpga_masks.iter_fpgas() {
@@ -312,20 +315,122 @@ impl Transceivers {
                 FpgaController::Left => fpga_masks.left,
                 FpgaController::Right => fpga_masks.right,
             };
-
             if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
-                for port in 0..16 {
-                    if mask.is_set(PhysicalPort(port)) {
-                        fpga.write(
-                            WriteOp::Write,
-                            Addr::QSFP_CONTROL_PORT0 as u16 + u16::from(port),
-                            value,
-                        )?;
-                    }
-                }
+                let wdata: U16<byteorder::BigEndian> = U16::new(mask.get());
+                fpga.write(op, addr, wdata)?;
             }
         }
+        Ok(())
+    }
+
+    /// Set power enable bits per the specified `mask`. Controls whether or not
+    /// a module's hot swap control will be turned on by the FPGA upon module
+    /// insertion.
+    pub fn enable_power<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN0)
+    }
+
+    /// Clear power enable bits per the specified `mask`. Controls whether or
+    /// not a module's hot swap control will be turned on by the FPGA upon
+    /// module insertion.
+    pub fn disable_power<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN0)
+    }
+
+    /// Set ResetL bits per the specified `mask`. This directly controls the
+    /// ResetL signal to the module.
+    pub fn deassert_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_RESETL0)
+    }
+
+    /// Clear ResetL bits per the specified `mask`. This directly controls the
+    /// ResetL signal to the module.
+    pub fn assert_reset<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL0)
+    }
+
+    /// Set LpMode bits per the specified `mask`. This directly controls the
+    /// LpMode signal to the module.
+    pub fn assert_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_LPMODE0)
+    }
+
+    /// Clear LpMode bits per the specified `mask`. This directly controls the
+    /// LpMode signal to the module.
+    pub fn deassert_lpmode<M: Into<FpgaPortMasks>>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE0)
+    }
+
+    /// Have the SP execute a reset by manually writing the ResetL bits in the
+    /// FPGA. SFF-8679 states that the reset pulse needs to be 10 microseconds
+    /// (t_reset_init), but the module will not be ready for normal operation
+    /// until 2 seconds (t_reset) after reset is released.
+    pub fn module_reset<M: Into<FpgaPortMasks> + Copy>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.assert_reset(mask)?;
+        userlib::hl::sleep_for(1);
+        self.deassert_reset(mask)?;
+        userlib::hl::sleep_for(2000);
+        Ok(())
+    }
+
+    /// Sequence of actions to turn off modules per the specified `mask
+    pub fn power_mode_off<M: Into<FpgaPortMasks> + Copy>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.disable_power(mask)?;
+        // lpmode is being deasserted while the module is off to
+        // because it will leak into the main power rail if
+        // actively driven in the absence of power for at least
+        // some modules.
+        self.deassert_lpmode(mask)?;
+        self.assert_reset(mask)?;
+        Ok(())
+    }
+
+    /// Sequence of actions to have modules enter low power mode per the
+    /// specified `mask
+    pub fn power_mode_low<M: Into<FpgaPortMasks> + Copy>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.enable_power(mask)?;
+        self.assert_lpmode(mask)?;
+        self.assert_reset(mask)?;
+        Ok(())
+    }
+
+    /// Sequence of actions to have modules enter high power mode per the
+    /// specified `mask
+    pub fn power_mode_high<M: Into<FpgaPortMasks> + Copy>(
+        &self,
+        mask: M,
+    ) -> Result<(), FpgaError> {
+        self.enable_power(mask)?;
+        self.deassert_reset(mask)?;
+        self.deassert_lpmode(mask)?;
         Ok(())
     }
 
@@ -334,10 +439,10 @@ impl Transceivers {
     /// and IRQ/RxLos.
     pub fn get_modules_status(&self) -> Result<ModulesStatus, FpgaError> {
         let f0: [U16<byteorder::BigEndian>; 8] =
-            self.fpga(FpgaController::Left).read(Addr::QSFP_CTRL_EN_H)?;
+            self.fpga(FpgaController::Left).read(Addr::QSFP_POWER_EN0)?;
         let f1: [U16<byteorder::BigEndian>; 8] = self
             .fpga(FpgaController::Right)
-            .read(Addr::QSFP_CTRL_EN_H)?;
+            .read(Addr::QSFP_POWER_EN0)?;
 
         // Philosophically, this should be a [LogicalPort; 8], but we don't expose
         // that type in the transceivers API.
@@ -368,92 +473,31 @@ impl Transceivers {
         Ok(ModulesStatus::read_from(status_masks.as_bytes()).unwrap())
     }
 
-    /// Get the power state of all modules
-    pub fn all_power_states(&self) -> Result<PowerStatesAll, FpgaError> {
-        let f0: [u8; 16] = self
-            .fpga(FpgaController::Left)
-            .read(Addr::QSFP_STATUS_PORT0)?;
-        let f1: [u8; 16] = self
-            .fpga(FpgaController::Right)
-            .read(Addr::QSFP_STATUS_PORT0)?;
-
-        let mut data: [PowerState; 32] = [PowerState::A4; 32];
-
-        // loop through each port
-        for (port, port_loc) in PORT_MAP.iter().enumerate() {
-            // get the relevant data from the correct FPGA
-            let local_data = match port_loc.controller {
-                FpgaController::Left => &f0,
-                FpgaController::Right => &f1,
-            };
-            let power_status_field = (local_data[port_loc.port.0 as usize]
-                & Reg::QSFP::CONTROL_PORT0::POWER_STATE)
-                >> 5;
-            data[port] = power_status_field
-                .try_into()
-                .map_err(|_| FpgaError::InvalidValue)?;
-        }
-
-        Ok(PowerStatesAll::new(data))
-    }
-
-    /// Set the power state to `state` for all ports per the specified `mask`.
-    pub fn set_power_state<M: Into<FpgaPortMasks>>(
-        &self,
-        state: PowerState,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        // POWER_STATE field in CONTROL_PORTx register is bits 7..5
-        let new_state = (state as u8) << 5;
-        self.write_control_port(mask, new_state)
-    }
-
-    // Set the power state to A3 for all ports per the specified `mask`
-    pub fn port_off<M: Into<FpgaPortMasks>>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.set_power_state(PowerState::A3, mask)
-    }
-
-    // Set the power state to A2 for all ports per the specified `mask`
-    pub fn port_low_power<M: Into<FpgaPortMasks>>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.set_power_state(PowerState::A2, mask)
-    }
-
-    // Set the power state to A0 for all ports per the specified `mask`
-    pub fn port_high_power<M: Into<FpgaPortMasks>>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.set_power_state(PowerState::A0, mask)
-    }
-
-    /// Request a reset for each port per the specified `mask` and leave that
-    /// port in A2 (LowPower).
-    pub fn port_reset<M: Into<FpgaPortMasks>>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        // POWER_STATE field in CONTROL_PORTx register is bits 7..5
-        let new_state =
-            (PowerState::A2 as u8) << 5 | Reg::QSFP::CONTROL_PORT0::RESET;
-        self.write_control_port(mask, new_state)
-    }
-
-    /// Clear a fault for each port per the specified `mask` and leave that port
-    /// in A3 (Off).
+    /// Clear a fault for each port per the specified `mask`
     pub fn port_clear_fault<M: Into<FpgaPortMasks>>(
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        // POWER_STATE field in CONTROL_PORTx register is bits 7..5
-        let new_state =
-            (PowerState::A3 as u8) << 5 | Reg::QSFP::CONTROL_PORT0::CLEAR_FAULT;
-        self.write_control_port(mask, new_state)
+        let fpga_masks: FpgaPortMasks = mask.into();
+        for fpga_index in fpga_masks.iter_fpgas() {
+            let mask = match fpga_index {
+                FpgaController::Left => fpga_masks.left,
+                FpgaController::Right => fpga_masks.right,
+            };
+            if !mask.is_empty() {
+                let fpga = self.fpga(fpga_index);
+                for port in 0..16 {
+                    if mask.is_set(PhysicalPort(port)) {
+                        fpga.write(
+                            WriteOp::Write,
+                            Addr::QSFP_CONTROL_PORT0 as u16 + u16::from(port),
+                            Reg::QSFP::CONTROL_PORT0::CLEAR_FAULT,
+                        )?;
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
@@ -664,7 +708,7 @@ impl Transceivers {
             // This loop should break immediately, because I2C is fast
             let status = loop {
                 // Two bytes of BUSY, followed by 8 bytes of error status
-                let status: StatusAndErr = fpga.read(Addr::QSFP_I2C_BUSY_H)?;
+                let status: StatusAndErr = fpga.read(Addr::QSFP_I2C_BUSY0)?;
                 if status.busy == 0 {
                     break status;
                 }

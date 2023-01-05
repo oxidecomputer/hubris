@@ -8,7 +8,6 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
-use serde::{Deserialize, Serialize};
 use task_sensor_api::{config::other_sensors, SensorId};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
@@ -35,58 +34,14 @@ impl From<FpgaError> for TransceiversError {
 #[derive(Copy, Clone, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct ModulesStatus {
-    pub enable: u32,
-    pub reset: u32,
-    pub lpmode_txdis: u32,
+    pub power_enable: u32,
     pub power_good: u32,
-    pub present: u32,
-    pub irq_rxlos: u32,
     pub power_good_timeout: u32,
     pub power_good_fault: u32,
-}
-
-/// The power states we use to model transceiver state
-/// A4 - Module not present.
-/// A3 - Module present and powered off.
-/// A2 - Module powered, out of reset, and in low-power mode
-/// A0 - Module is in high-power mode.
-/// Fault - A power fault has ocurred and must be cleared.
-#[derive(
-    Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes, Serialize, Deserialize,
-)]
-#[repr(u8)]
-pub enum PowerState {
-    A4 = 0,
-    A3 = 1,
-    A2 = 2,
-    A0 = 3,
-    Fault = 4,
-}
-
-impl TryFrom<u8> for PowerState {
-    type Error = ();
-    fn try_from(v: u8) -> Result<PowerState, Self::Error> {
-        match v {
-            0 => Ok(PowerState::A4),
-            1 => Ok(PowerState::A3),
-            2 => Ok(PowerState::A2),
-            3 => Ok(PowerState::A0),
-            4 => Ok(PowerState::Fault),
-            _ => Err(()),
-        }
-    }
-}
-
-/// Struct to wrap array of PowerState because humility currently does not
-/// handle arrays.
-#[derive(Copy, Clone, PartialEq, Eq, AsBytes, Serialize, Deserialize)]
-#[repr(C)]
-pub struct PowerStatesAll([PowerState; 32]);
-
-impl PowerStatesAll {
-    pub fn new(states: [PowerState; 32]) -> Self {
-        Self(states)
-    }
+    pub resetl: u32,
+    pub lpmode_txdis: u32,
+    pub modprsl: u32,
+    pub intl_rxlosl: u32,
 }
 
 /// Size in bytes of a page section we will read or write
