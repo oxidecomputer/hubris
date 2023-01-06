@@ -1,0 +1,29 @@
+[package]
+name = "task-dumper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }
+dumper-api = { path = "../dumper-api" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+humpty = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+idol = { workspace = true }
+quote = { workspace = true }
+serde = { workspace = true }
+
+build-util = { path = "../../build/util" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-dumper"
+test = false
+bench = false

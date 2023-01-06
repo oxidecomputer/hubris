@@ -287,6 +287,15 @@ max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["sprot"]
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
+
 [tasks.idle]
 name = "task-idle"
 priority = 8

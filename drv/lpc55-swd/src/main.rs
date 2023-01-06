@@ -119,6 +119,13 @@ const PARK_BIT: u8 = 0;
 const START_VAL: u8 = 1 << START_BIT;
 const PARK_VAL: u8 = 1 << PARK_BIT;
 
+const DHCSR: u32 = 0xE000EDF0;
+const DHCSR_HALT_MAGIC: u32 = 0xa05f_0003;
+const DHCSR_RESUME_MAGIC: u32 = 0xa05f_0000;
+
+const DCRSR: u32 = 0xE000EDF4;
+const DCRDR: u32 = 0xE000EDF8;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Port {
     DP = 0,
@@ -371,6 +378,60 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                 self.init = true;
                 Ok(())
             }
+            Err(_) => Err(SpCtrlError::Fault.into()),
+        }
+    }
+
+    fn halt(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        match self.write_single_target_addr(DHCSR, DHCSR_HALT_MAGIC) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(SpCtrlError::Fault.into()),
+        }
+    }
+
+    fn resume(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        match self.write_single_target_addr(DHCSR, DHCSR_RESUME_MAGIC) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(SpCtrlError::Fault.into()),
+        }
+    }
+
+    fn read_core_register(
+        &mut self,
+        _: &RecvMessage,
+        register: u16,
+    ) -> Result<u32, RequestError<SpCtrlError>> {
+        // C1.6 Debug system registers
+        let r = match register {
+            // R0-R12
+            0b0000000..=0b0001100
+
+            // LR - PSP
+            | 0b0001101..=0b0010010
+
+            // CONTROL/FAULTMASK/BASEPRI/PRIMASK
+            | 0b0010100
+
+            // FPCSR
+            | 0b0100001
+
+            // S0-S31
+            | 0b1000000..=0b1011111 => Ok::<u16, SpCtrlError>(register),
+            _ => Err(SpCtrlError::InvalidCoreRegister.into())
+        }?;
+
+        if let Err(_) = self.write_single_target_addr(DCRSR, r as u32) {
+            return Err(SpCtrlError::Fault.into());
+        }
+
+        match self.read_single_target_addr(DCRDR) {
+            Ok(val) => Ok(val),
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
     }

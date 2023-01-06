@@ -126,6 +126,15 @@ start = true
 task-slots = ["sys", "user_leds"]
 uses = ["rng"]
 
+[tasks.dump_agent]
+name = "task-dump-agent"
+features = ["no-rot"]
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
+
 [config]
 
 [[config.i2c.controllers]]

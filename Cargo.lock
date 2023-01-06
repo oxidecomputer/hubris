@@ -1135,6 +1135,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-sprot-api",
  "drv-update-api",
+ "dumper-api",
  "hubpack",
  "idol-runtime",
  "if_chain",
@@ -1807,6 +1808,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "dump-agent-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "hubpack",
+ "humpty",
+ "idol",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "dumper-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "hubpack",
+ "humpty",
+ "idol",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2199,6 +2228,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "humpty"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/humpty#bcb02bd530beadd296a3a80b0ec2c4dbc00403c1"
+dependencies = [
+ "lzss",
+ "static_assertions",
+ "zerocopy",
+]
+
+[[package]]
 name = "hypocalls"
 version = "0.1.0"
 dependencies = [
@@ -2472,6 +2511,15 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
+]
+
+[[package]]
+name = "lzss"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39e2b9a6124e5200c13bb5c5d1124bf93b451bff69b651912810039e36ca97eb"
+dependencies = [
+ "void",
 ]
 
 [[package]]
@@ -3714,6 +3762,45 @@ dependencies = [
  "serde",
  "ssmarshal",
  "static_assertions",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-dump-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "cortex-m",
+ "drv-sprot-api",
+ "dump-agent-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "static_assertions",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-dumper"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "drv-sp-ctrl-api",
+ "dumper-api",
+ "humpty",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "quote",
+ "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]

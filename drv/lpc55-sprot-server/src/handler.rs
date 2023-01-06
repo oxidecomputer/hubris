@@ -7,10 +7,12 @@ mod sprockets;
 use crate::{IoStatus, LocalState};
 use drv_sprot_api::*;
 use drv_update_api::*;
+use dumper_api::Dumper;
 use ringbuf::*;
 use userlib::*;
 
 task_slot!(UPDATE_SERVER, update_server);
+task_slot!(DUMPER, dumper);
 
 #[derive(Copy, Clone, PartialEq)]
 enum PrevMsg {
@@ -42,6 +44,7 @@ enum Trace {
     HeaderSizeMismatch(MsgType, u16, usize),
     Prev(usize, PrevMsg),
     ErrHeader(usize, PrevMsg, u8, u8, u8, u8),
+    Dump(u32),
     Overrun(usize),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -127,8 +130,8 @@ impl Handler {
         // Parse the header which also checks the CRC.
         let rxmsg = match rx_buf.parse_header(rx_bytes) {
             Ok(header) => {
-                // We want to ensure the number of bytes received matches the header's
-                // expected payload size.
+                // We want to ensure the number of bytes received matches the
+                // header's expected payload size.
                 let expected_payload = rx_bytes - MIN_MSG_SIZE;
                 if header.payload_len as usize != expected_payload {
                     ringbuf_entry!(Trace::HeaderSizeMismatch(
@@ -171,8 +174,9 @@ impl Handler {
         }
     }
 
-    // Run the command for the given MsgType, serialize the reply into `tx_output` and return the response MsgType
-    // and payload size or return an error.
+    // Run the command for the given MsgType, serialize the reply into
+    // `tx_output` and return the response MsgType and payload size or return
+    // an error.
     fn run(
         &mut self,
         rxbuf: &RxMsg,
@@ -272,6 +276,23 @@ impl Handler {
                 tx_payload[0..2].copy_from_slice(&rx_payload[0..2]);
                 2
             }
+            MsgType::DumpReq => {
+                let addr =
+                    u32::from_le_bytes(rx_payload[0..4].try_into().unwrap());
+                ringbuf_entry!(Trace::Dump(addr));
+
+                let dumper = Dumper::from(DUMPER.get_task_id());
+
+                let rval: u32 = if let Err(e) = dumper.dump(addr) {
+                    e.into()
+                } else {
+                    0
+                };
+
+                tx_payload[0..4].copy_from_slice(&rval.to_le_bytes());
+                4
+            }
+
             // All of the unexpected messages
             MsgType::Invalid
             | MsgType::EchoRsp
@@ -285,6 +306,7 @@ impl Handler {
             | MsgType::UpdAbortUpdateRsp
             | MsgType::UpdFinishImageUpdateRsp
             | MsgType::IoStatsRsp
+            | MsgType::DumpRsp
             | MsgType::Unknown => {
                 state.rx_invalid = state.rx_invalid.wrapping_add(1);
                 return Err(SprotError::BadMessageType);
@@ -308,6 +330,7 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         MsgType::UpdFinishImageUpdateReq => MsgType::UpdFinishImageUpdateRsp,
         MsgType::SinkReq => MsgType::SinkRsp,
         MsgType::IoStatsReq => MsgType::IoStatsRsp,
+        MsgType::DumpReq => MsgType::DumpRsp,
 
         // All of the unexpected messages
         MsgType::Invalid
@@ -322,6 +345,7 @@ fn req_msgtype_to_rsp_msgtype(msgtype: MsgType) -> MsgType {
         | MsgType::UpdAbortUpdateRsp
         | MsgType::UpdFinishImageUpdateRsp
         | MsgType::IoStatsRsp
+        | MsgType::DumpRsp
         | MsgType::Unknown => {
             panic!("MsgType is not a request: {}", msgtype as u8)
         }

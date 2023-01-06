@@ -1,0 +1,54 @@
+// Dump Agent API
+
+Interface(
+    name: "DumpAgent",
+    ops: {
+        "read_dump": (
+            doc: "Fetch the 256 bytes from the dump at the specified offset from the specified area",
+            args: {
+                "index": "u8",
+                "offset": "u32",
+            },
+            reply: Result(
+                ok: "[u8; DUMP_READ_SIZE]",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "get_dump_area": (
+            doc: "Return information associated with the specified dump area. This only exists to support Humility dumper emulation.",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "initialize_dump": (
+            doc: "Initialize dump context, overwriting any taken dump",
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "add_dump_segment": (
+            doc: "Add a segment to dump",
+            args: {
+                "address": "u32",
+                "length": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "take_dump": (
+            doc: "Take dump",
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+    },
+)
