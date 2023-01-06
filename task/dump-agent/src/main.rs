@@ -78,7 +78,11 @@ impl ServerImpl {
         }
     }
 
-    fn add_dump_segment(&mut self, addr: u32, length: u32) {
+    fn add_dump_segment(
+        &mut self,
+        addr: u32,
+        length: u32,
+    ) -> Result<(), DumpAgentError> {
         let area = self.areas[0];
 
         unsafe {
@@ -92,6 +96,11 @@ impl ServerImpl {
 
             let offset = size_of::<DumpAreaHeader>()
                 + (nsegments as usize) * size_of::<DumpSegmentHeader>();
+            let need = (offset + size_of::<DumpSegmentHeader>()) as u32;
+
+            if need > (*header).length {
+                return Err(DumpAgentError::OutOfSpaceForSegments);
+            }
 
             let saddr = area.address as usize + offset;
             let segment = saddr as *mut DumpSegmentHeader;
@@ -100,9 +109,10 @@ impl ServerImpl {
             (*segment).length = length;
 
             (*header).nsegments = nsegments + 1;
-            (*header).written =
-                (offset + size_of::<DumpSegmentHeader>()) as u32;
+            (*header).written = need;
         }
+
+        Ok(())
     }
 }
 
@@ -141,7 +151,8 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnalignedSegmentLength.into());
         }
 
-        self.add_dump_segment(address, length);
+        self.add_dump_segment(address, length)?;
+
         Ok(())
     }
 

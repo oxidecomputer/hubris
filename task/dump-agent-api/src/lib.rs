@@ -20,6 +20,7 @@ pub enum DumpAgentError {
     UnalignedOffset,
     UnalignedSegmentAddress,
     UnalignedSegmentLength,
+    OutOfSpaceForSegments,
     DumpFailed,
 }
 
