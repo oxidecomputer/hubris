@@ -24,6 +24,7 @@ struct ServerImpl {
     areas: [DumpArea; 3],
 }
 
+#[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
 
 impl ServerImpl {
@@ -156,6 +157,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         Ok(())
     }
 
+    #[cfg(not(feature = "no-rot"))]
     fn take_dump(
         &mut self,
         _msg: &RecvMessage,
@@ -171,6 +173,14 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             Err(_) => Err(DumpAgentError::DumpFailed.into()),
             Ok(_) => Ok(()),
         }
+    }
+
+    #[cfg(feature = "no-rot")]
+    fn take_dump(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+        Err(DumpAgentError::NotSupported.into())
     }
 
     //

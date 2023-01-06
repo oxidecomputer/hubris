@@ -22,6 +22,7 @@ pub enum DumpAgentError {
     UnalignedSegmentLength,
     OutOfSpaceForSegments,
     DumpFailed,
+    NotSupported,
 }
 
 #[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]

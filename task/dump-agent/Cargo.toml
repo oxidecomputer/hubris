@@ -20,6 +20,10 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static_assertions = { workspace = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 
+[features]
+# Disable the SP-ROT communication, e.g. to run dump-agent on a Gimletlet
+no-rot = []
+
 [build-dependencies]
 anyhow = { workspace = true }
 cfg-if = { workspace = true }
