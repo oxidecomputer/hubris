@@ -52,6 +52,8 @@ pub enum IgnitionError {
     /// Indicates the given request conflicts with the Target system power
     /// state. Poll the Target state and retry if desired.
     RequestDiscarded,
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 impl From<ServerDeath> for IgnitionError {

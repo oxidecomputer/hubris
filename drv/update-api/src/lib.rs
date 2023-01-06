@@ -77,6 +77,10 @@ pub enum UpdateError {
     InvalidHeaderBlock = 20,
     // Specific to RoT (LPC55)
     SpRotError = 21,
+
+    #[idol(server_death)]
+    ServerRestarted = 22,
+
     Unknown = 0xff,
 }
 

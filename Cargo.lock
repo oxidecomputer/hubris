@@ -757,6 +757,7 @@ dependencies = [
  "derive-idol-err",
  "drv-qspi-api",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "sha3",
@@ -860,6 +861,7 @@ dependencies = [
  "drv-hash-api",
  "drv-qspi-api",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -889,6 +891,7 @@ dependencies = [
  "derive-idol-err",
  "drv-gimlet-state",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -941,6 +944,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1280,6 +1284,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -1317,8 +1322,10 @@ name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "derive-idol-err",
  "getrandom",
  "idol",
+ "idol-runtime",
  "num",
  "num-traits",
  "rand_core",
@@ -1382,6 +1389,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-sidecar-mainboard-controller",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1427,6 +1435,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1702,6 +1711,7 @@ dependencies = [
  "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1769,6 +1779,7 @@ dependencies = [
  "derive-idol-err",
  "hubpack",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "serde_repr",
@@ -1815,6 +1826,7 @@ dependencies = [
  "hubpack",
  "humpty",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "userlib",
@@ -2259,7 +2271,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
+source = "git+https://github.com/oxidecomputer/idolatry.git#adcd5e1c2b9c1d40997f278ad81660711d3347ef"
 dependencies = [
  "indexmap",
  "quote",
@@ -2271,7 +2283,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#b2f4c9e48fdba85ce3306e4d9dca7a18f4660759"
+source = "git+https://github.com/oxidecomputer/idolatry.git#adcd5e1c2b9c1d40997f278ad81660711d3347ef"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -3765,6 +3777,7 @@ dependencies = [
  "derive-idol-err",
  "host-sp-messages",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -3878,6 +3891,7 @@ dependencies = [
  "derive-idol-err",
  "host-sp-messages",
  "idol",
+ "idol-runtime",
  "num-traits",
  "ssmarshal",
  "userlib",
@@ -4118,6 +4132,7 @@ dependencies = [
  "drv-i2c-api",
  "hubpack",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "userlib",
@@ -4217,6 +4232,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4300,6 +4316,7 @@ dependencies = [
  "drv-i2c-api",
  "hubpack",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "task-sensor-api",
@@ -4334,6 +4351,7 @@ dependencies = [
  "derive-idol-err",
  "drv-i2c-api",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",

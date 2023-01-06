@@ -17,6 +17,7 @@ pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum AuxFlashError {
     WriteEnableFailed = 1,
+    #[idol(server_death)]
     ServerRestarted,
     TlvcReaderBeginFailed,
 

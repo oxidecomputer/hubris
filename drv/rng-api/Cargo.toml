@@ -5,19 +5,21 @@ edition = "2021"
 
 [dependencies]
 getrandom = { workspace = true, optional = true }
-num = { workspace = true }
-num-traits = { workspace = true }
-rand_core = { workspace = true }
-zerocopy = { workspace = true }
+idol-runtime.workspace = true
+num.workspace = true
+num-traits.workspace = true
+rand_core.workspace = true
+zerocopy.workspace = true
 
 abi = {  path = "../../sys/abi"  }
 userlib = {  path = "../../sys/userlib", features = ["panic-messages"]  }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
 
 [features]
 custom-getrandom = ["getrandom/custom"]
 
 [build-dependencies]
-idol = { workspace = true }
+idol.workspace = true
 
 [lib]
 name = "drv_rng_api"

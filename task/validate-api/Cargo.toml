@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
-hubpack = { workspace = true }
-serde = { workspace = true }
+idol-runtime.workspace = true
+num-traits.workspace = true
+zerocopy.workspace = true
+hubpack.workspace = true
+serde.workspace = true
 
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-i2c-api = { path = "../../drv/i2c-api" }
@@ -22,4 +23,4 @@ bench = false
 
 [build-dependencies]
 build-i2c = { path = "../../build/i2c" }
-idol = { workspace = true }
+idol.workspace = true

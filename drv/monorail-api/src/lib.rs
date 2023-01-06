@@ -67,6 +67,7 @@ pub struct PortCounters {
 #[repr(C)]
 pub enum MonorailError {
     SpiError = 1,
+    #[idol(server_death)]
     ServerDied,
     ProxyError,
     BadChipId,

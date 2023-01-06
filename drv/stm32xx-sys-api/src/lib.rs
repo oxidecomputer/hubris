@@ -128,6 +128,12 @@ pub enum GpioError {
     BadArg = 2,
 }
 
+// We _do not_ have a "server death" variant in `GpioError`, but it's used in a
+// non-idempotent idol operation (`gpio_toggle()`). We manually implement
+// this marker trait here knowing that death of our server will cause clients to
+// panic.
+impl idol_runtime::IHaveConsideredServerDeathWithThisErrorType for GpioError {}
+
 impl Sys {
     /// Configures a subset of pins in a GPIO port.
     ///

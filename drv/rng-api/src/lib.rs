@@ -6,40 +6,21 @@
 
 #![no_std]
 
-use core::convert::TryFrom;
 use core::num::NonZeroU32;
+use derive_idol_err::IdolError;
 use rand_core::impls;
 pub use rand_core::{Error, RngCore};
 use userlib::{sys_send, FromPrimitive};
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum RngError {
-    PoweredOff,
+    PoweredOff = 1,
     NoData,
     ClockError,
     SeedError,
-}
-
-impl From<RngError> for u16 {
-    fn from(rc: RngError) -> Self {
-        u16::try_from(rc).expect("Overflow converting from RngError to u16.")
-    }
-}
-
-impl From<RngError> for u32 {
-    fn from(rc: RngError) -> Self {
-        rc as Self
-    }
-}
-
-impl From<u32> for RngError {
-    fn from(u: u32) -> Self {
-        match FromPrimitive::from_u32(u) {
-            Some(err) => err,
-            None => panic!("Invalid u32 for conversion to RngError."),
-        }
-    }
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 // This function transforms an RngError to an error code appropriate for
@@ -57,15 +38,16 @@ impl From<RngError> for Error {
     }
 }
 
-impl From<Error> for RngError {
-    fn from(e: Error) -> Self {
+impl TryFrom<Error> for RngError {
+    type Error = ();
+    fn try_from(e: Error) -> Result<Self, Self::Error> {
         // in no_std 'code' always returns a NonZeroU32
         // https://docs.rs/rand_core/latest/rand_core/struct.Error.html#method.code
         let code = e.code().unwrap().get();
         if code < Error::CUSTOM_START {
             panic!("Invalid rand_core::Error for conversion to RngError.");
         }
-        RngError::from(code - Error::CUSTOM_START)
+        RngError::try_from(code - Error::CUSTOM_START)
     }
 }
 
