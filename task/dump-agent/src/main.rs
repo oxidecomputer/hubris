@@ -28,23 +28,6 @@ struct ServerImpl {
 task_slot!(SPROT, sprot);
 
 impl ServerImpl {
-    fn area(&self, index: usize, offset: u32) -> Result<&[u8], DumpAgentError> {
-        if index >= self.areas.len() {
-            Err(DumpAgentError::InvalidArea)
-        } else {
-            let area = self.areas[index];
-
-            if offset < area.length {
-                let addr = (area.address + offset) as *const u8;
-                let len = (area.length - offset) as usize;
-
-                Ok(unsafe { core::slice::from_raw_parts(addr, len) })
-            } else {
-                Err(DumpAgentError::BadOffset)
-            }
-        }
-    }
-
     fn initialize(&self) {
         let mut next = 0;
 
@@ -200,13 +183,29 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnalignedOffset.into());
         }
 
-        let area = self.area(index as usize, offset)?;
+        let area = self
+            .areas
+            .get(index as usize)
+            .ok_or(DumpAgentError::InvalidArea)?;
 
-        for ndx in 0..rval.len() {
-            rval[ndx] = area[ndx];
+        let written = unsafe {
+            let header = area.address as *mut DumpAreaHeader;
+            core::ptr::read_volatile(header).written
+        };
+
+        if written > offset {
+            let to_read = written - offset;
+            let base = area.address as *const u8;
+            let base = unsafe { base.add(offset as usize) };
+
+            for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
+                rval[i] = unsafe { core::ptr::read_volatile(base.add(i)) };
+            }
+
+            Ok(rval)
+        } else {
+            Err(DumpAgentError::BadOffset.into())
         }
-
-        Ok(rval)
     }
 }
 
