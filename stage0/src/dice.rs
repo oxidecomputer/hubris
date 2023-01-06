@@ -11,7 +11,6 @@ use dice_crate::{
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
-use unwrap_lite::UnwrapLite;
 
 #[cfg(feature = "dice-self")]
 use crate::dice_mfg_self::gen_mfg_artifacts;
@@ -105,7 +104,7 @@ fn gen_fwid(image: &Image) -> [u8; 32] {
     image.get_hash()
 }
 
-pub fn run(image: &Image, handoff: &Handoff) {
+pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -116,7 +115,6 @@ pub fn run(image: &Image, handoff: &Handoff) {
 
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
 
-    let peripherals = Peripherals::take().unwrap_lite();
     let mut serial_numbers =
         gen_mfg_artifacts(&deviceid_keypair, &peripherals, handoff);
 
