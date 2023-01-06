@@ -691,8 +691,23 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
-    /// Implements the VLAN scheme described in RFD 250.
-    pub fn configure_vlan_strict(&self) -> Result<(), VscError> {
+    /// Configures VLANs for a production-style system.
+    ///
+    /// For details, see RFD 250, but in brief:
+    ///
+    /// - VLANs in the form 0x1YY are configured for each downstream port.
+    ///   Ports active on a given VLAN are selected by the given function `f`;
+    ///   typically, each VLAN will contain a downstream port and the uplink
+    ///   port.
+    /// - Downstream ports send and receive untagged frames, and apply their
+    ///   VLAN tag on packet ingress.
+    /// - The uplink port (49) sends and receives packets with one VLAN tag, and
+    ///   uses that packet to select which VLAN (i.e. which downstream port)
+    ///   should receive that packet.  The VLAN tag is stripped on egress.
+    fn configure_vlan_with_mask(
+        &self,
+        f: fn(u8) -> u64,
+    ) -> Result<(), VscError> {
         const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
 
         // Enable the VLAN
@@ -709,10 +724,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         for p in (0..=52).filter(|p| *p != UPLINK) {
             let port = ANA_CL().PORT(p);
 
-            // Configure the 0x1YY VLAN for this port
+            // Configure the 0x1YY VLAN for this port, using our closure to
+            // decide what mask to apply
             self.write_port_mask(
                 ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
-                (1 << p) | (1 << UPLINK),
+                f(p),
             )?;
 
             // The downstream ports expect untagged frames, and classify
@@ -737,10 +753,14 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             r.set_vlan_pop_cnt(1);
             r.set_vlan_aware_ena(1);
         })?;
-        // Only accept 0x8100 as a valid TPID, to keep things simple,
-        // and only route frames with one accepted tag
         self.modify(port.VLAN_TPID_CTRL(), |r| {
+            // Only accept 0x8100 as a valid TPID, to keep things simple. This
+            // is the designated EtherType for "Customer VLAN tag" in IEEE
+            // 802.1Q; the register's polarity requires us to **clear** bit 0 to
+            // accept this TPID.
             r.set_basic_tpid_aware_dis(0b1110);
+
+            // Only route frames with one accepted tag
             r.set_rt_tag_ctrl(0b0010);
         })?;
         // Discard frames with < 1 tag
@@ -764,6 +784,33 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         )?;
 
         Ok(())
+    }
+
+    /// Implements the VLAN scheme described in RFD 250.
+    pub fn configure_vlan_strict(&self) -> Result<(), VscError> {
+        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
+        self.configure_vlan_with_mask(|p| (1 << p) | (1 << UPLINK))
+    }
+
+    /// Implements the VLAN scheme described in RFD 250, with one exception:
+    /// the technician ports are on **every VLAN**, so they can talk to any SP
+    /// without having to go through the CPU port to the Tofino.
+    pub fn configure_vlan_semistrict(&self) -> Result<(), VscError> {
+        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
+        const TECHNICIAN_1: u8 = 44;
+        const TECHNICIAN_2: u8 = 45;
+        self.configure_vlan_with_mask(|p| {
+            if p == TECHNICIAN_1 || p == TECHNICIAN_2 {
+                // Technician ports are connected to every port!
+                (1 << 53) - 1
+            } else {
+                // SPs are only connected to the Tofino and technician ports
+                (1 << p)
+                    | (1 << UPLINK)
+                    | (1 << TECHNICIAN_1)
+                    | (1 << TECHNICIAN_2)
+            }
+        })
     }
 
     /// Checks the 10GBASE-KR autonegotiation state machine for the given dev.
