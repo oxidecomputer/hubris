@@ -2427,6 +2427,7 @@ dependencies = [
 name = "lpc55-update-server"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "build-util",
  "cfg-if",
  "drv-update-api",

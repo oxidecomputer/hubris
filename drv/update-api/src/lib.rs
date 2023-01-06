@@ -74,8 +74,9 @@ pub enum UpdateError {
     RunningImage = 17,
     FlashError = 18,
     MissingHeaderBlock = 19,
+    InvalidHeaderBlock = 20,
     // Specific to RoT (LPC55)
-    SpRotError = 20,
+    SpRotError = 21,
     Unknown = 0xff,
 }
 
