@@ -23,11 +23,18 @@ enum Node {
         inst_name: String,
         lsb: usize,
         msb: usize,
+        encode: Option<Vec<EnumEncode>>,
     },
     Mem {
         inst_name: String,
         addr_offset: usize,
     },
+}
+
+#[derive(Debug, Deserialize)]
+struct EnumEncode {
+    name: String,
+    value: u8,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -121,6 +128,7 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
             inst_name,
             lsb,
             msb,
+            encode,
         } = child
         {
             let nbits = *msb - *lsb + 1;
@@ -133,6 +141,31 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
 {prefix}        pub const {inst_name}: u8 = 0b{mask:08b};",
             )
             .unwrap();
+            // Deal with optional encoded Enums on this field
+            match encode {
+                Some(x) => {
+                    writeln!(
+                        output,
+                        "
+{prefix}        use num_derive::{{ToPrimitive, FromPrimitive}};
+{prefix}        #[derive(FromPrimitive, ToPrimitive)]
+{prefix}        #[allow(dead_code)]
+{prefix}        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+{prefix}        pub enum Encoded {{"
+                    )
+                    .unwrap();
+                    for item in x {
+                        writeln!(
+                            output,
+                            "{prefix}            {0} = {1:#04x},",
+                            item.name, item.value
+                        )
+                        .unwrap();
+                    }
+                    writeln!(output, "{prefix}        }}").unwrap();
+                }
+                None => {}
+            }
         } else {
             panic!("unexpected non-Field: {child:?}");
         }

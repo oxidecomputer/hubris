@@ -4,7 +4,6 @@
 
 use crate::image_header::Image;
 use crate::Handoff;
-use core::convert::TryInto;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
     DeviceIdOkm, RngData, RngSeed, SeedBuf, SerialNumber, SpMeasureCertBuilder,
@@ -12,8 +11,6 @@ use dice_crate::{
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
-use sha3::{Digest, Sha3_256};
-use unwrap_lite::UnwrapLite;
 
 #[cfg(feature = "dice-self")]
 use crate::dice_mfg_self::gen_mfg_artifacts;
@@ -101,18 +98,13 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
 fn gen_fwid(image: &Image) -> [u8; 32] {
     // Collect hash(es) of TCB. The first TCB Component Identifier (TCI)
     // calculated is the Hubris image. The DICE specs call this collection
-    // of TCIs the FWID. This hash is stored in keeys certified by the
+    // of TCIs the FWID. This hash is stored in keys certified by the
     // DeviceId. This hash should be 'updated' with relevant configuration
     // and code as FWID for Hubris becomes known.
-    // TODO: This is a particularly naive way to calculate the FWID:
-    // https://github.com/oxidecomputer/hubris/issues/736
-    let mut fwid = Sha3_256::new();
-    fwid.update(image.as_bytes());
-
-    fwid.finalize().try_into().expect("fwid")
+    image.get_hash()
 }
 
-pub fn run(image: &Image, handoff: &Handoff) {
+pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -123,7 +115,6 @@ pub fn run(image: &Image, handoff: &Handoff) {
 
     let deviceid_keypair = gen_deviceid_keypair(&cdi);
 
-    let peripherals = Peripherals::take().unwrap_lite();
     let mut serial_numbers =
         gen_mfg_artifacts(&deviceid_keypair, &peripherals, handoff);
 
