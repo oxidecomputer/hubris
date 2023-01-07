@@ -179,6 +179,10 @@ enum Xtask {
         /// If there are multiple possible images, print this one
         #[clap(long)]
         image_name: Option<String>,
+
+        /// Print the expanded configuration
+        #[clap(long)]
+        expanded_config: bool,
     },
 }
 
@@ -341,8 +345,9 @@ fn run(xtask: Xtask) -> Result<()> {
             cfg,
             archive,
             image_name,
+            expanded_config,
         } => {
-            print::run(&cfg, archive, image_name)
+            print::run(&cfg, archive, image_name, expanded_config)
                 .context("could not print information about the build")?;
         }
     }

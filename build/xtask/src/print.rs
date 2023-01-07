@@ -6,12 +6,13 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Error, Result};
 
-use crate::dist::PackageConfig;
+use crate::{config::Config, dist::PackageConfig};
 
 pub fn run(
     cfg: &Path,
     archive: bool,
     image_name: Option<String>,
+    expanded_config: bool,
 ) -> Result<()> {
     if archive {
         let config = PackageConfig::new(cfg, false, false)
@@ -30,6 +31,10 @@ pub fn run(
             .img_file(format!("build-{}.zip", config.toml.name), image_name);
 
         println!("{}", final_path.display());
+    } else if expanded_config {
+        let config = Config::from_file(cfg)
+            .context("could not load build configuration")?;
+        println!("{:#?}", config);
     } else {
         bail!("I'm not sure what to print. Currently supported: --archive");
     }
