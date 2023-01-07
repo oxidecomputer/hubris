@@ -183,8 +183,8 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<UpdateStatus, RequestError<Infallible>> {
         // Safety: Data is published by stage0
-        let addr: &[u8] = unsafe { BOOTSTATE.assume_init_ref() };
-        let status = match RotBootState::load_from_addr(&addr) {
+        let addr = unsafe { BOOTSTATE.assume_init_ref() };
+        let status = match RotBootState::load_from_addr(addr) {
             Ok(details) => UpdateStatus::Rot(details),
             Err(e) => UpdateStatus::LoadError(e),
         };
