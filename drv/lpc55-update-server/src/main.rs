@@ -22,7 +22,7 @@ use userlib::*;
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "lpcxpresso55s69")] {
+    if #[cfg(any(target_board = "lpcxpresso55s69", target_board = "gimlet-c"))]{
         declare_tz_table!();
     } else {
         declare_not_tz_table!();
