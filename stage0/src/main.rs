@@ -67,7 +67,7 @@ pub unsafe extern "C" fn SecureFault() {
 const ROM_VER: u32 = 1;
 
 #[cfg(feature = "tz_support")]
-unsafe fn branch_to_image(image: Image) -> ! {
+unsafe fn config_platform(image: &Image) {
     let sau_ctrl: *mut u32 = 0xe000edd0 as *mut u32;
     let sau_rbar: *mut u32 = 0xe000eddc as *mut u32;
     let sau_rlar: *mut u32 = 0xe000ede0 as *mut u32;
@@ -109,7 +109,10 @@ unsafe fn branch_to_image(image: Image) -> ! {
     // TODO use only the interrupts we've enabled
     core::ptr::write_volatile(0xe000e380 as *mut u32, 0xffffffff);
     core::ptr::write_volatile(0xe000e384 as *mut u32, 0xffffffff);
+}
 
+#[cfg(feature = "tz_support")]
+unsafe fn branch_to_image(image: Image) -> ! {
     // For secure we do not set the thumb bit!
     let entry_pt = image.get_pc() & !1u32;
     let stack = image.get_sp();
@@ -125,7 +128,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
 }
 
 #[cfg(not(feature = "tz_support"))]
-unsafe fn branch_to_image(image: Image) -> ! {
+unsafe fn config_platform(image: &Image) {
     let mut peripherals = CorePeripherals::steal();
 
     peripherals
@@ -137,7 +140,10 @@ unsafe fn branch_to_image(image: Image) -> ! {
 
     // Write the VTOR
     core::ptr::write_volatile(0xE000ED08 as *mut u32, image.get_vectors());
+}
 
+#[cfg(not(feature = "tz_support"))]
+unsafe fn branch_to_image(image: Image) -> ! {
     let entry_pt = image.get_pc();
     let stack = image.get_sp();
 
@@ -211,6 +217,9 @@ fn main() -> ! {
     apply_memory_protection(mpu);
 
     let (image, _) = image_header::select_image_to_boot();
+    unsafe {
+        config_platform(&image);
+    }
     image_header::dump_image_details_to_ram(&handoff);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
