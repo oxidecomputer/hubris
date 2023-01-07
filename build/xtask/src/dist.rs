@@ -1043,96 +1043,89 @@ fn update_image_header(
                     ..Default::default()
                 };
 
-                let last = if let Some(s) = secure {
-                    let mut i = 0;
+                let mut sau_ranges = rangemap::RangeInclusiveMap::new();
 
-                    // Our memory layout with a secure task looks like the
-                    // following:
-                    // +---------------+
-                    // |               |
-                    // |   Task        |
-                    // | (Non-secure)  |
-                    // |               |
-                    // |               |
-                    // +---------------+
-                    // |               |
-                    // |   Task        |
-                    // | (Non-secure)  |
-                    // |               |
-                    // |               |
-                    // +---------------+
-                    // |               |
-                    // |   Task        |
-                    // | (Secure)      |
-                    // +---------------+
-                    // |    NSC        |
-                    // +---------------+
-                    // |               |
-                    // |   Task        |
-                    // | (Non-secure)  |
-                    // |               |
-                    // |               |
-                    // +---------------+
-                    //
-                    // The entries in the SAU specify regions that are
-                    // non-secure OR non-secure callable (NSC).
-                    // This means the entry for our flash gets broken
-                    // down into three entries:
-                    // 1) Non-secure range before the secure task
-                    // 2) non-secure range after the secure task
-                    // 3) NSC region in the secure task
-                    for (_, range) in map.iter() {
-                        if range.contains(&s.secure.start) {
-                            // These values correspond to SAU_RBAR and
-                            // SAU_RLAR which are defined in D1.2.221 and
-                            // D1.2.222 of the ARMv8m manual
-                            //
-                            // Bit0 of RLAR indicates a region is valid,
-                            // Bit1 indicates that the region is NSC
-                            // All entries much be 32-byte aligned
-                            header.sau_entries[i].rbar = range.start;
-                            header.sau_entries[i].rlar =
-                                (s.secure.start - 1) & !0x1f | 1;
-
-                            i += 1;
-
-                            header.sau_entries[i].rbar = s.secure.end;
-                            header.sau_entries[i].rlar =
-                                (range.end - 1) & !0x1f | 1;
-
-                            i += 1;
-
-                            header.sau_entries[i].rbar = s.nsc.start;
-                            header.sau_entries[i].rlar =
-                                (s.nsc.end - 1) & !0x1f | 3;
-
-                            i += 1;
-                        } else {
-                            header.sau_entries[i].rbar = range.start;
-                            header.sau_entries[i].rlar =
-                                (range.end - 1) & !0x1f | 1;
-                            i += 1;
-                        }
-                    }
-                    i
-                } else {
-                    for (i, (_, range)) in map.iter().enumerate() {
-                        header.sau_entries[i].rbar = range.start;
-                        header.sau_entries[i].rlar =
-                            (range.end - 1) & !0x1f | 1;
-                    }
-
-                    map.len()
-                };
-
-                // TODO need a better place to put this...
                 // Alias for the NS peripherals
-                header.sau_entries[last].rbar = 0x4000_0000;
-                header.sau_entries[last].rlar = 0x4fff_ffe0 | 1;
+                sau_ranges.insert(0x4000_0000..=0x4fff_ffff, false);
 
                 // Alias for the BootRom
-                header.sau_entries[last + 1].rbar = 0x0300_0000;
-                header.sau_entries[last + 1].rlar = 0x03ff_ffe0 | 1;
+                sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);
+
+                for (_, range) in map.iter() {
+                    match secure {
+                        Some(s) if range.contains(&s.secure.start) => {
+                            // Our memory layout with a secure task looks like the
+                            // following:
+                            // +---------------+
+                            // |               |
+                            // |   Task        |
+                            // | (Non-secure)  |
+                            // |               |
+                            // |               |
+                            // +---------------+
+                            // |               |
+                            // |   Task        |
+                            // | (Non-secure)  |
+                            // |               |
+                            // |               |
+                            // +---------------+
+                            // |               |
+                            // |   Task        |
+                            // | (Secure)      |
+                            // +---------------+
+                            // |    NSC        |
+                            // +---------------+
+                            // |               |
+                            // |   Task        |
+                            // | (Non-secure)  |
+                            // |               |
+                            // |               |
+                            // +---------------+
+                            //
+                            // The entries in the SAU specify regions that are
+                            // non-secure OR non-secure callable (NSC).
+                            // This means the entry for our flash gets broken
+                            // down into three entries:
+                            // 1) Non-secure range before the secure task
+                            // 2) non-secure range after the secure task
+                            // 3) NSC region in the secure task
+                            sau_ranges.insert(
+                                range.start..=s.secure.start - 1,
+                                false,
+                            );
+                            sau_ranges
+                                .insert(s.secure.end..=range.end - 1, false);
+
+                            sau_ranges
+                                .insert(s.nsc.start..=s.nsc.end - 1, true);
+                        }
+                        _ => {
+                            sau_ranges
+                                .insert(range.start..=range.end - 1, false);
+                        }
+                    }
+                }
+
+                // These values correspond to SAU_RBAR and
+                // SAU_RLAR which are defined in D1.2.221 and
+                // D1.2.222 of the ARMv8m manual
+                //
+                // Bit0 of RLAR indicates a region is valid,
+                // Bit1 indicates that the region is NSC
+                // All entries much be 32-byte aligned
+                println!("SAU:");
+                for (i, (range, &nsc)) in sau_ranges.iter().enumerate() {
+                    println!(
+                        "  0x{:x}..=0x{:x} {}",
+                        range.start(),
+                        range.end(),
+                        if nsc { "(NSC)" } else { "" }
+                    );
+
+                    let nsc = if nsc { 1 << 1 } else { 0 };
+                    header.sau_entries[i].rbar = *range.start();
+                    header.sau_entries[i].rlar = *range.end() & !0x1f | nsc | 1;
+                }
 
                 header
                     .write_to_prefix(
