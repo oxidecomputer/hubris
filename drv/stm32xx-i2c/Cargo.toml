@@ -18,6 +18,7 @@ userlib = { path = "../../sys/userlib" }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
+h747cm7 = ["stm32h7/stm32h747cm7", "drv-stm32xx-sys-api/h747cm7"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]
 amd_erratum_1394 = []

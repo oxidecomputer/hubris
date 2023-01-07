@@ -25,6 +25,9 @@ use ringbuf::*;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 

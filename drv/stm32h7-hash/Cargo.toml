@@ -12,4 +12,5 @@ drv-hash-api = { path = "../hash-api" }
 userlib = { path = "../../sys/userlib" }
 
 [features]
+h747cm7 = ["stm32h7/stm32h747cm7"]
 h753 = ["stm32h7/stm32h753"]

@@ -14,7 +14,7 @@ mod server;
 
 // Select the BSP based on the target board
 #[cfg_attr(
-    any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
+    any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi", target_board = "nucleo-h755ziq"),
     path = "bsp/nucleo_h7.rs"
 )]
 #[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
@@ -54,6 +54,8 @@ use zerocopy::{AsBytes, U16};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 

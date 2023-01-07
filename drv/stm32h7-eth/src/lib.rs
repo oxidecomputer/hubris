@@ -17,6 +17,9 @@ use core::convert::TryFrom;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
@@ -177,7 +180,10 @@ impl Ethernet {
         // - Use all 2048 bytes of queue RAM; this is communicated in units of
         //   256 bytes minus 1.
         // - Transmit Store n' Forward so we can do checksum generation
+        #[cfg(any(feature = "h743", feature = "h753"))]
         const QOMR_TQS_8_BLOCKS_OF_256: u8 = 0b111;
+        #[cfg(feature = "h747cm7")]
+        const QOMR_TQS_8_BLOCKS_OF_256: u16 = 0b111;
         mtl.mtltx_qomr.write(|w| unsafe {
             w.tqs().bits(QOMR_TQS_8_BLOCKS_OF_256).tsf().set_bit()
         });

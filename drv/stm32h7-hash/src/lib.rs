@@ -26,6 +26,9 @@ use drv_hash_api::HashError;
 
 // Other SKUs in the STM32 line having the HASH block:
 // stm32{f21[57],f4{05,07,27,29,69},f7{45,65,x6,x7,x9},h7{47cm[47],53{,v},b3},l4x6}
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 

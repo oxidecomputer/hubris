@@ -59,7 +59,7 @@ pub enum Peripheral {
 
     #[cfg(feature = "h7b3")]
     OctoSpi1 = periph(Group::Ahb3, 14), // B3 only
-    #[cfg(any(feature = "h743", feature = "h747", feature = "h753"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h747cm7", feature = "h753"))]
     QuadSpi = periph(Group::Ahb3, 14), // 43/47 only
 
     Fmc = periph(Group::Ahb3, 12),
@@ -87,11 +87,11 @@ pub enum Peripheral {
     DfsdmDma = periph(Group::Ahb2, 11), // B3 only
     Sdmmc2 = periph(Group::Ahb2, 9),
 
-    #[cfg(any(feature = "h753", feature = "h743"))]
+    #[cfg(any(feature = "h753", feature = "h743", feature = "h747cm7"))]
     Rng = periph(Group::Ahb2, 6),
-    #[cfg(any(feature = "h753"))]
+    #[cfg(any(feature = "h753", feature = "h747cm7"))]
     Hash = periph(Group::Ahb2, 5),
-    #[cfg(any(feature = "h753"))]
+    #[cfg(any(feature = "h753", feature = "h747cm7"))]
     Crypt = periph(Group::Ahb2, 4),
 
     #[cfg(feature = "h7b3")]
@@ -102,12 +102,12 @@ pub enum Peripheral {
     SmartRunSram = periph(Group::Ahb4, 29), // B3 only
     BackupRam = periph(Group::Ahb4, 28),
 
-    #[cfg(any(feature = "h743", feature = "h747", feature = "h753"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h747cm7", feature = "h753"))]
     Hsem = periph(Group::Ahb4, 25), // 43/47: differs from B3
 
     #[cfg(feature = "h7b3")]
     Bdma2 = periph(Group::Ahb4, 21),
-    #[cfg(any(feature = "h743", feature = "h747", feature = "h757"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h7cm7", feature = "h757"))]
     Bdma = periph(Group::Ahb4, 21),
 
     GpioK = periph(Group::Ahb4, 10),
@@ -163,7 +163,7 @@ pub enum Peripheral {
 
     Hrtim = periph(Group::Apb2, 29), // 43/47 only
 
-    #[cfg(any(feature = "h743", feature = "h747", feature = "h757"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h747cm7", feature = "h757"))]
     Dfsdm1 = periph(Group::Apb2, 28), // 43/47 differ from B3
 
     Sai3 = periph(Group::Apb2, 24), // 43/47 only

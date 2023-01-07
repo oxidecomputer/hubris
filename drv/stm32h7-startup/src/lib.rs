@@ -9,10 +9,13 @@ use cortex_m_rt::pre_init;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-#[cfg(any(feature = "h743", feature = "h753"))]
+#[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753"))]
 #[pre_init]
 unsafe fn system_pre_init() {
     // Configure the power supply to latch the LDO on and prevent further
@@ -31,7 +34,12 @@ unsafe fn system_pre_init() {
     // convert it to a reference. We can have a reference to PWR because it's
     // hardware, and is thus not uninitialized.
     let pwr = &*device::PWR::ptr();
+
+    #[cfg(feature = "h747cm7")]
+    pwr.cr3.modify(|_, w| w.sden().set_bit());
+
     // Poke CR3 to enable the LDO and prevent further writes.
+    #[cfg(any(feature = "h743", feature = "h753"))]
     pwr.cr3.modify(|_, w| w.ldoen().set_bit());
 
     // Busy-wait until the ACTVOSRDY bit says that we've stabilized at VOS3.
@@ -97,7 +105,7 @@ pub fn system_init_custom(
     //
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
 
-    #[cfg(any(feature = "h743", feature = "h753"))]
+    #[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753"))]
     {
         // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
         // read corruption" - limits AXI SRAM read concurrency.
@@ -120,6 +128,7 @@ pub fn system_init_custom(
     cp.DCB.enable_trace();
 
     // Make sure debugging works in standby.
+    #[cfg(any(feature = "h743", feature = "h753"))]
     p.DBGMCU.cr.modify(|_, w| {
         w.d3dbgcken()
             .set_bit()
@@ -130,6 +139,20 @@ pub fn system_init_custom(
             .dbgstop_d1()
             .set_bit()
             .dbgsleep_d1()
+            .set_bit()
+    });
+
+    #[cfg(feature = "h747cm7")]
+    p.DBGMCU.cr.modify(|_, w| {
+        w.d3dbgcken()
+            .set_bit()
+            .d1dbgcken()
+            .set_bit()
+            .dbgstbd1()
+            .set_bit()
+            .dbgstpd1()
+            .set_bit()
+            .dbgslpd1()
             .set_bit()
     });
 
@@ -314,7 +337,7 @@ pub fn system_init_custom(
     }
 
     // set RNG clock to PLL1 clock
-    #[cfg(any(feature = "h743", feature = "h753"))]
+    #[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753"))]
     p.RCC.d2ccip2r.modify(|_, w| w.rngsel().pll1_q());
 
     // Hello from target speed!

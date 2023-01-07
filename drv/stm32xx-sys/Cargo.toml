@@ -23,6 +23,7 @@ idol = { workspace = true }
 [features]
 family-stm32h7 = ["stm32h7"]
 h743 = ["family-stm32h7", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32xx-gpio-common/model-stm32h743"]
+h747cm7 = ["family-stm32h7", "stm32h7/stm32h747cm7", "drv-stm32xx-sys-api/h747cm7", "drv-stm32xx-gpio-common/model-stm32h747cm7"]
 h753 = ["family-stm32h7", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32xx-gpio-common/model-stm32h753"]
 
 family-stm32g0 = ["stm32g0"]

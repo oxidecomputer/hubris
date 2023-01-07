@@ -10,4 +10,5 @@ stm32h7 = { workspace = true }
 
 [features]
 h743 = ["stm32h7/stm32h743"]
+h747cm7 = ["stm32h7/stm32h747cm7"]
 h753 = ["stm32h7/stm32h753"]

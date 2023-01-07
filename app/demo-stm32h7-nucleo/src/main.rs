@@ -14,6 +14,8 @@ cfg_if::cfg_if! {
         use stm32h7::stm32h743 as device;
     } else if #[cfg(target_board = "nucleo-h753zi")] {
         use stm32h7::stm32h753 as device;
+    } else if #[cfg(target_board = "nucleo-h755ziq")] {
+        use stm32h7::stm32h747cm7 as device;
     } else {
         compile_error!("target_board unknown or missing");
     }
@@ -25,7 +27,7 @@ use drv_stm32h7_startup::{system_init, ClockConfig};
 #[entry]
 fn main() -> ! {
     cfg_if::cfg_if! {
-        if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+        if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi", target_board = "nucleo-h755ziq"))] {
             const CYCLES_PER_MS: u32 = 400_000;
             const CLOCKS: ClockConfig = ClockConfig {
                 // The Nucleo board doesn't include an external crystal, so we

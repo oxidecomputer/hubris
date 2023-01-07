@@ -18,6 +18,7 @@ idol = { workspace = true }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
+h747cm7 = ["stm32h7/stm32h747cm7", "drv-stm32xx-sys-api/h747cm7"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
