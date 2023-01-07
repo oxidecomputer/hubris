@@ -3073,6 +3073,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rangemap"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b9283c6b06096b47afc7109834fdedab891175bb5241ee5d4f7d2546549f263"
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4814,6 +4820,7 @@ dependencies = [
  "memchr",
  "ordered-toml",
  "path-slash",
+ "rangemap",
  "ron 0.7.0",
  "scroll",
  "serde",

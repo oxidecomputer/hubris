@@ -33,6 +33,7 @@ scroll = { workspace = true }
 walkdir = { workspace = true }
 fnv = { workspace = true }
 zerocopy = { workspace = true }
+rangemap = { workspace = true }
 
 # a feature of zip we use is deprecated in 0.5.7, so let's make sure we stay
 # on the version that works for us
