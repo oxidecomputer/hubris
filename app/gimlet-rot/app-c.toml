@@ -46,7 +46,7 @@ stacksize = 256
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096, sram3 = 4096}
+max-sizes = {flash = 16384, ram = 4096, sram3 = 16384}
 stacksize = 2048
 start = true
 uses = ["rom", "secure_syscon", "syscon", "flash"]

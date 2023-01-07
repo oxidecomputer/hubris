@@ -19,7 +19,7 @@ use userlib::*;
 
 #[used]
 #[link_section = ".bootstate"]
-static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
+static BOOTSTATE: MaybeUninit<[u8; 0x4000]> = MaybeUninit::uninit();
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "lpcxpresso55s69")] {
@@ -184,7 +184,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
     ) -> Result<UpdateStatus, RequestError<Infallible>> {
         // Safety: Data is published by stage0
         let addr: &[u8] = unsafe { BOOTSTATE.assume_init_ref() };
-        let status = match RotBootState::load_from_addr(&addr) {
+        let status = match RotBootState::load_from_addr(&addr[0x2000..]) {
             Ok(details) => UpdateStatus::Rot(details),
             Err(e) => UpdateStatus::LoadError(e),
         };

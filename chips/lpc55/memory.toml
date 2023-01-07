@@ -55,24 +55,24 @@ execute = false
 # for hubris use.
 [[sram3]]
 name = "a"
-address = 0x40102000
-size = 0x1000
+address = 0x40100000
+size = 0x4000
 read = true
-write = false
+write = true
 execute = false
 
 [[sram3]]
 name = "b"
-address = 0x40102000
-size = 0x1000
+address = 0x40100000
+size = 0x4000
 read = true
-write = false
+write = true
 execute = false
 
 [[sram3]]
 name = "stage0"
-address = 0x40102000
-size = 0x1000
+address = 0x40100000
+size = 0x4000
 read = true
-write = false
+write = true
 execute = false
