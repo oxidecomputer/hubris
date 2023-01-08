@@ -29,6 +29,9 @@ enum Trace {
     Halted,
     Resumed,
     ResumeFailed,
+    ReinitFailed,
+    ReinitSucceededButResumeFailed,
+    ReinitResumed,
     None,
 }
 
@@ -142,6 +145,24 @@ impl idl::InOrderDumperImpl for ServerImpl {
 
         if sp_ctrl.resume().is_err() {
             ringbuf_entry!(Trace::ResumeFailed);
+
+            //
+            // This is bad: we have failed to resume a stopped SP.  We really
+            // (really!) don't want to leave the SP stopped, so we'll attempt
+            // to reinitialize and re-resume.  (Experience has indicated that
+            // when this occurs -- and it has been seen to occur as ~15%
+            // of the time on the bench! -- reinitialization is always
+            // sufficient to allow for us to resume the SP.)
+            //
+            if sp_ctrl.setup().is_err() {
+                ringbuf_entry!(Trace::ReinitFailed);
+            } else {
+                if sp_ctrl.resume().is_err() {
+                    ringbuf_entry!(Trace::ReinitSucceededButResumeFailed);
+                } else {
+                    ringbuf_entry!(Trace::ReinitResumed);
+                }
+            }
 
             if r.is_err() {
                 return Err(DumperError::FailedToResumeAfterFailure.into());
