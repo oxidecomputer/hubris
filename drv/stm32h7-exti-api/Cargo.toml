@@ -1,0 +1,28 @@
+[package]
+name = "drv-stm32h7-exti-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitflags = {workspace = true}
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+derive-idol-err = {path = "../../lib/derive-idol-err" }
+drv-stm32xx-gpio-common = {path = "../stm32xx-gpio-common"}
+userlib = {path = "../../sys/userlib"}
+
+[features]
+family-stm32h7 = ["drv-stm32xx-gpio-common/family-stm32h7"]
+h743 = ["drv-stm32xx-gpio-common/model-stm32h743"]
+#h747cm7 = ["drv-stm32xx-gpio-common/model-stm32h747cm7"]
+h753 = ["drv-stm32xx-gpio-common/model-stm32h753"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false
+
+[build-dependencies]
+idol = { workspace = true }

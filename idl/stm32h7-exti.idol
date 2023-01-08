@@ -1,0 +1,33 @@
+// STM32H7 EXTI IPC API
+
+Interface(
+    name: "Exti",
+    ops: {
+        "enable_gpio_raw": (
+            args: {
+                "port": (
+                    type: "Port",
+                    recv: FromPrimitive("u8"),
+                ),
+                "index": "usize",
+                "edges": "u8",
+                "notification": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ExtiError"),
+            ),
+            idempotent: true,
+        ),
+        "disable_gpio": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ExtiError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)
