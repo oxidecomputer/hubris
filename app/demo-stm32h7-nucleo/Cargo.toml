@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-startup/h743"]
+h747cm7 = ["stm32h7/stm32h747cm7", "drv-stm32h7-startup/h747cm7"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-startup/h753"]
 
 [dependencies]

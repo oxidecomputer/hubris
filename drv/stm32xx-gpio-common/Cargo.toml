@@ -56,6 +56,7 @@ family-stm32h7 = [
 ]
 model-stm32h743 = ["family-stm32h7"]
 model-stm32h753 = ["family-stm32h7"]
+model-stm32h747cm7 = ["family-stm32h7"]
 
 # The has-gpioX-type features indicates that the PAC for the chosen model calls
 # at least some of the GPIO ports `gpioX`. Note that this has nothing to do

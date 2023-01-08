@@ -13,6 +13,9 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h747cm7")]
+use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
@@ -25,10 +28,10 @@ pub type Isr = device::i2c3::isr::R;
 #[cfg(feature = "g031")]
 use stm32g0::stm32g031 as device;
 
-#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
+#[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753", feature = "g031"))]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
-#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
+#[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753", feature = "g031"))]
 pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
@@ -238,7 +241,7 @@ impl I2cController<'_> {
 
                 #[cfg(feature = "amd_erratum_1394")]
                 compile_error!("no support for amd_erratum_1394 on h7b3");
-            } else if #[cfg(any(feature = "h743", feature = "h753"))] {
+            } else if #[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753"))] {
                 cfg_if::cfg_if! {
                     // Due to AMD Milan erratum 1394, the processor needs an
                     // abnormally long data setup time from an I2C target
@@ -316,7 +319,7 @@ impl I2cController<'_> {
             // t_i2cclk this yields 1219.7 (1220); on h7b3, this is 3416.9
             // (3417); on g031, this is 195.88 (196).
             //
-            if #[cfg(any(feature = "h743", feature = "h753"))] {
+            if #[cfg(any(feature = "h743", feature = "h747cm7", feature = "h753"))] {
                 i2c.timeoutr.write(|w| { w
                     .timouten().set_bit()           // Enable SCL timeout
                     .timeouta().bits(1220)          // Timeout value

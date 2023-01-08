@@ -1,0 +1,228 @@
+name = "demo-stm32h755-nucleo"
+target = "thumbv7em-none-eabihf"
+board = "nucleo-h755ziq"
+chip = "../../chips/stm32h7"
+stacksize = 896
+
+[kernel]
+name = "demo-stm32h7-nucleo"
+requires = {flash = 22000, ram = 5120}
+features = ["h747cm7"]
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h747cm7"]
+priority = 1
+max-sizes = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
+start = true
+task-slots = ["jefe"]
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+features = ["h747cm7"]
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+start = true
+task-slots = ["sys"]
+
+[tasks.i2c_driver.interrupts]
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
+
+[tasks.spi_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+features = ["spi1", "h747cm7"]
+uses = ["spi1"]
+start = true
+interrupts = {"spi1.irq" = 1}
+stacksize = 880
+task-slots = ["sys"]
+
+[tasks.spi_driver.config.spi]
+global_config = "spi1"
+
+[tasks.net]
+name = "task-net"
+stacksize = 3000
+priority = 2
+max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
+features = ["h747cm7"]
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "system_flash", "tim16"]
+start = true
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
+task-slots = ["sys"]
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+
+[tasks.ping]
+name = "task-ping"
+features = []
+priority = 5
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = [{peer = "pong"}]
+
+[tasks.pong]
+name = "task-pong"
+priority = 3
+max-sizes = {flash = 1024, ram = 1024}
+start = true
+task-slots = ["user_leds"]
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 3
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h747cm7", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash"]
+priority = 5
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 2048
+start = true
+task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
+
+[tasks.hf]
+name = "drv-gimlet-hf-server"
+features = ["h747cm7", "hash"]
+priority = 4
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 2048
+start = true
+uses = ["quadspi"]
+interrupts = {"quadspi.irq" = 1}
+task-slots = ["sys", "hash_driver"]
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h747cm7"]
+priority = 3
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = 1}
+task-slots = ["sys"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 7
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.rng_driver]
+features = ["h747cm7"]
+priority = 3
+name = "drv-stm32h7-rng"
+max-sizes = {flash = 8192, ram = 512}
+stacksize = 256
+start = true
+task-slots = ["sys", "user_leds"]
+uses = ["rng"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+features = ["no-rot"]
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
+
+[config]
+[[config.i2c.controllers]]
+controller = 2
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+#
+# To use the Nucleo board as an SPD initiator, uncomment the following:
+#
+# [[config.i2c.controllers.ports.F.muxes]]
+# driver = "ltc4306"
+# address = 0b1001_010
+
+
+[config.spi.spi1]
+controller = 1
+
+[config.spi.spi1.mux_options.cn7_arduino]
+outputs = [
+    {port = "A", pins = [3], af = 5},
+    {port = "B", pins = [5], af = 5},
+]
+input = {port = "A", pin = 6, af = 5}
+
+[config.spi.spi1.devices.pins]
+mux = "cn7_arduino"
+cs = [{port = "D", pin = 14}]
+clock_divider = "DIV32"
+
+[config.net]
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

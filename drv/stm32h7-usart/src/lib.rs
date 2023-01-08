@@ -17,6 +17,9 @@ pub use drv_stm32xx_sys_api;
 #[cfg(feature = "h743")]
 pub use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h747cm7")]
+pub use stm32h7::stm32h747cm7 as device;
+
 #[cfg(feature = "h753")]
 pub use stm32h7::stm32h753 as device;
 

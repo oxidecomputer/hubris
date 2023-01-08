@@ -15,6 +15,7 @@ serde = { workspace = true }
 
 [features]
 h743 = []
+h747cm7 = []
 h753 = []
 h7b3 = []
 g031 = []
