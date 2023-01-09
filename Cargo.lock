@@ -1065,6 +1065,7 @@ dependencies = [
  "cfg-if",
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1200,7 +1201,6 @@ name = "drv-lpc55-syscon-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",

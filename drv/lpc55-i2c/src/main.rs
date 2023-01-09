@@ -135,13 +135,13 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {
-    syscon.enable_clock(Peripheral::Fc4).unwrap_lite();
-    syscon.leave_reset(Peripheral::Fc4).unwrap_lite();
+    syscon.enable_clock(Peripheral::Fc4);
+    syscon.leave_reset(Peripheral::Fc4);
 }
 
 fn muck_with_gpios(syscon: &Syscon) {
-    syscon.enable_clock(Peripheral::Iocon).unwrap_lite();
-    syscon.leave_reset(Peripheral::Iocon).unwrap_lite();
+    syscon.enable_clock(Peripheral::Iocon);
+    syscon.leave_reset(Peripheral::Iocon);
 
     // Our GPIOs are P1_21 and P1_21 and need to be set to AF5
     // (see table 320)

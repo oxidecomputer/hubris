@@ -169,14 +169,14 @@ fn gpio_port_pin_validate(pin: Pin) -> (usize, usize) {
 fn turn_on_gpio_clocks() {
     let syscon = Syscon::from(SYSCON.get_task_id());
 
-    syscon.enable_clock(Peripheral::Iocon).unwrap_lite();
-    syscon.leave_reset(Peripheral::Iocon).unwrap_lite();
+    syscon.enable_clock(Peripheral::Iocon);
+    syscon.leave_reset(Peripheral::Iocon);
 
-    syscon.enable_clock(Peripheral::Gpio0).unwrap_lite();
-    syscon.leave_reset(Peripheral::Gpio0).unwrap_lite();
+    syscon.enable_clock(Peripheral::Gpio0);
+    syscon.leave_reset(Peripheral::Gpio0);
 
-    syscon.enable_clock(Peripheral::Gpio1).unwrap_lite();
-    syscon.leave_reset(Peripheral::Gpio1).unwrap_lite();
+    syscon.enable_clock(Peripheral::Gpio1);
+    syscon.leave_reset(Peripheral::Gpio1);
 }
 
 mod idl {

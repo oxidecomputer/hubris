@@ -157,8 +157,8 @@ fn main() -> ! {
 fn turn_on_flexcomm() {
     let syscon = Syscon::from(SYSCON.get_task_id());
 
-    syscon.enable_clock(Peripheral::Fc0).unwrap_lite();
-    syscon.leave_reset(Peripheral::Fc0).unwrap_lite();
+    syscon.enable_clock(Peripheral::Fc0);
+    syscon.leave_reset(Peripheral::Fc0);
 }
 
 fn step_transmit(usart: &mut Usart<'_>, txs: &mut Transmit) -> bool {

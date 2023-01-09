@@ -454,8 +454,8 @@ impl IO {
 fn turn_on_flexcomm(syscon: &Syscon) {
     // HSLSPI = High Speed Spi = Flexcomm 8
     // The L stands for Let this just be named consistently for once
-    syscon.enable_clock(Peripheral::HsLspi).unwrap_lite();
-    syscon.leave_reset(Peripheral::HsLspi).unwrap_lite();
+    syscon.enable_clock(Peripheral::HsLspi);
+    syscon.leave_reset(Peripheral::HsLspi);
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));

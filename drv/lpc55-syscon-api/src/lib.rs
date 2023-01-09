@@ -10,15 +10,8 @@
 
 #![no_std]
 
-use derive_idol_err::IdolError;
 use userlib::*;
 use zerocopy::AsBytes;
-
-#[derive(Debug, FromPrimitive, IdolError)]
-#[repr(u32)]
-pub enum SysconError {
-    BadArg = 1,
-}
 
 /// Peripheral numbering.
 ///

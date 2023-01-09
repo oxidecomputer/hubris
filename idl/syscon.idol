@@ -5,40 +5,29 @@ Interface(
 		args : {
 			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("SysconError")
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"disable_clock": (
 		args: {
 			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("SysconError"),
-
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"enter_reset": (
 		args: {
 			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("SysconError")
-
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"leave_reset": (
 		args: {
 			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("SysconError"),
-
-		)
+		reply: Simple("()"),
+		idempotent: true,
 	),
    }
 )

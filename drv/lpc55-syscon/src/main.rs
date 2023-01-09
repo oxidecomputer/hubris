@@ -139,7 +139,7 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         peripheral: Peripheral,
-    ) -> Result<(), RequestError<SysconError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let pmask = peripheral.pmask();
 
         match peripheral.reg_num() {
@@ -155,7 +155,7 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         peripheral: Peripheral,
-    ) -> Result<(), RequestError<SysconError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let pmask = peripheral.pmask();
         match peripheral.reg_num() {
             Reg::R0 => clear_bit!(self.syscon.ahbclkctrl0, pmask),
@@ -170,7 +170,7 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         peripheral: Peripheral,
-    ) -> Result<(), RequestError<SysconError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let pmask = peripheral.pmask();
         match peripheral.reg_num() {
             Reg::R0 => set_bit!(self.syscon.presetctrl0, pmask),
@@ -185,7 +185,7 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         peripheral: Peripheral,
-    ) -> Result<(), RequestError<SysconError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let pmask = peripheral.pmask();
         match peripheral.reg_num() {
             Reg::R0 => clear_bit!(self.syscon.presetctrl0, pmask),
@@ -259,7 +259,6 @@ fn set_reset_reason() {
 }
 
 mod idl {
-    use super::SysconError;
     use drv_lpc55_syscon_api::Peripheral;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

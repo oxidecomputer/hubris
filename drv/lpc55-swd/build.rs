@@ -75,8 +75,8 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
         }
         fn setup_spi(task : TaskId) -> spi_core::Spi {
             let syscon = Syscon::from(task);
-                syscon.enable_clock(Peripheral::#spi_periph).unwrap_lite();
-            syscon.leave_reset(Peripheral::#spi_periph).unwrap_lite();
+            syscon.enable_clock(Peripheral::#spi_periph);
+            syscon.leave_reset(Peripheral::#spi_periph);
             let flexcomm = unsafe { &*device::#flexcomm::ptr() };
             flexcomm.pselid.write(|w| w.persel().spi());
             let registers = unsafe { &*device::#spi_regs::ptr() };

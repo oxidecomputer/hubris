@@ -65,19 +65,16 @@ impl Lpc55Rng {
         self.0
             .core
             .syscon
-            .enable_clock(Peripheral::Rng)
-            .unwrap_lite();
+            .enable_clock(Peripheral::Rng);
 
         self.0
             .core
             .syscon
-            .enter_reset(Peripheral::Rng)
-            .unwrap_lite();
+            .enter_reset(Peripheral::Rng);
         self.0
             .core
             .syscon
-            .leave_reset(Peripheral::Rng)
-            .unwrap_lite();
+            .leave_reset(Peripheral::Rng);
     }
 }
 

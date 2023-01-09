@@ -205,6 +205,9 @@ pub enum Value {
 #[repr(u32)]
 pub enum GpioError {
     BadArg = 2,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 impl Pins {
