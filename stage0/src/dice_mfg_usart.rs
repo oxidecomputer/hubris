@@ -37,10 +37,30 @@ sa::const_assert!(
 sa::const_assert!(DICE_FLASH.end % lpc55_romapi::FLASH_PAGE_SIZE == 0);
 sa::const_assert!(DICE_FLASH.start % lpc55_romapi::FLASH_PAGE_SIZE == 0);
 
+const VERSION: u32 = 0;
+const MAGIC: [u8; 12] = [
+    0x9e, 0xc8, 0x93, 0x2a, 0xb5, 0x51, 0x4a, 0x04, 0xd4, 0x43, 0x2c, 0x52,
+];
+
 #[derive(Debug, PartialEq)]
 pub enum DiceStateError {
     Deserialize,
     Serialize,
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+struct Header {
+    pub version: u32,
+    pub magic: [u8; 12],
+}
+
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            version: VERSION,
+            magic: MAGIC,
+        }
+    }
 }
 
 /// data received from manufacturing process
@@ -54,6 +74,9 @@ struct DiceState {
 }
 
 impl DiceState {
+    const ALIGNED_MAX_SIZE: usize =
+        flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE);
+
     fn from_flash() -> Result<Self, DiceStateError> {
         // SAFETY: This unsafe block relies on the caller verifying that the
         // flash region being read has been programmed. We verify this in the
@@ -61,20 +84,34 @@ impl DiceState {
         let src = unsafe {
             core::slice::from_raw_parts(
                 DICE_FLASH.start as *const u8,
-                DiceState::MAX_SIZE,
+                Self::ALIGNED_MAX_SIZE,
             )
         };
 
-        let (state, _) = hubpack::deserialize::<Self>(src)
+        let (header, rest) = hubpack::deserialize::<Header>(src)
+            .map_err(|_| DiceStateError::Deserialize)?;
+
+        if header.magic != MAGIC {
+            panic!("DiceFlash bad magic");
+        }
+        if header.version != VERSION {
+            panic!("DiceFlash bad version");
+        }
+
+        let (state, _) = hubpack::deserialize::<Self>(rest)
             .map_err(|_| DiceStateError::Deserialize)?;
 
         Ok(state)
     }
 
     pub fn to_flash(&self) -> Result<usize, DiceStateError> {
-        let mut buf = [0u8; flash_page_align!(Self::MAX_SIZE)];
+        let mut buf = [0u8; Self::ALIGNED_MAX_SIZE];
 
-        let size = hubpack::serialize(&mut buf, self)
+        let header = Header::default();
+        let offset = hubpack::serialize(&mut buf, &header)
+            .map_err(|_| DiceStateError::Serialize)?;
+
+        let offset = hubpack::serialize(&mut buf[offset..], self)
             .map_err(|_| DiceStateError::Serialize)?;
 
         // SAFETY: This unsafe block relies on the caller verifying that the
@@ -84,24 +121,24 @@ impl DiceState {
         unsafe {
             lpc55_romapi::flash_erase(
                 DICE_FLASH.start as *const u32 as u32,
-                flash_page_align!(Self::MAX_SIZE) as u32,
+                Self::ALIGNED_MAX_SIZE as u32,
             )
             .expect("flash_erase");
             lpc55_romapi::flash_write(
                 DICE_FLASH.start as *const u32 as u32,
                 &mut buf as *mut u8,
-                flash_page_align!(Self::MAX_SIZE) as u32,
+                Self::ALIGNED_MAX_SIZE as u32,
             )
             .expect("flash_write");
         }
 
-        Ok(size)
+        Ok(offset)
     }
 
     pub fn is_programmed() -> bool {
         lpc55_romapi::validate_programmed(
             DICE_FLASH.start as u32,
-            flash_page_align!(Self::MAX_SIZE) as u32,
+            flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE) as u32,
         )
     }
 }
