@@ -17,6 +17,18 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
 
+// We shouldn't actually dereference these. The types are not correct.
+// They are just here to allow a mechanism for getting the addresses.
+extern "C" {
+    static __IMAGE_A_BASE: u32;
+    static __IMAGE_B_BASE: u32;
+    static __IMAGE_STAGE0_BASE: u32;
+    static __IMAGE_A_END: u32;
+    static __IMAGE_B_END: u32;
+    static __IMAGE_STAGE0_END: u32;
+
+}
+
 #[used]
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
@@ -36,13 +48,20 @@ enum UpdateState {
 }
 
 struct ServerImpl {
+    header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
     image: Option<UpdateTarget>,
 }
 
+// TODO: This is the size of the vector table on the LPC55. We should
+// probably  get it from somewhere else directly.
+const MAGIC_OFFSET: usize = 0x130;
+const RESET_VECTOR_OFFSET: usize = 4;
+
 const BLOCK_SIZE_BYTES: usize = FLASH_PAGE_SIZE;
 
 const MAX_LEASE: usize = 1024;
+const HEADER_BLOCK: usize = 0;
 
 impl idl::InOrderUpdateImpl for ServerImpl {
     fn prep_image_update(
@@ -110,34 +129,38 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             return Err(UpdateError::BadLength.into());
         }
 
-        let mut flash_page: [u8; BLOCK_SIZE_BYTES] = [0; BLOCK_SIZE_BYTES];
+        let mut flash_page = [0u8; BLOCK_SIZE_BYTES];
+        let target = self.image.unwrap_lite();
 
-        block
-            .read_range(0..len as usize, &mut flash_page)
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        if block_num == HEADER_BLOCK {
+            let header_block =
+                self.header_block.get_or_insert([0u8; BLOCK_SIZE_BYTES]);
+            block
+                .read_range(0..len as usize, &mut header_block[..])
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            header_block[len..].fill(0);
+            if let Err(e) = validate_header_block(target, &header_block) {
+                self.header_block = None;
+                return Err(e.into());
+            }
+        } else {
+            // The header block is currently block 0. We should ensure
+            // we've seen and cached it before proceeding with other
+            // blocks. Otherwise, we won't be able to complete the update in
+            // `finish_image_update`.
+            if self.header_block.is_none() {
+                return Err(UpdateError::MissingHeaderBlock.into());
+            }
+            block
+                .read_range(0..len as usize, &mut flash_page)
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        flash_page[len..].fill(0);
-
-        let img = self.image.unwrap_lite();
-
-        let result = unsafe {
-            // The write_to_flash API takes raw pointers due to TrustZone
-            // ABI requirements which makes this function unsafe.
-            tz_table!().write_to_flash(
-                img,
-                block_num as u32,
-                flash_page.as_mut_ptr(),
-            )
-        };
-
-        match result {
-            HypoStatus::Success => Ok(()),
-            HypoStatus::OutOfBounds => Err(UpdateError::OutOfBounds.into()),
-            HypoStatus::RunningImage => Err(UpdateError::RunningImage.into()),
-            // Should probably encode the LPC55 flash status into the update
-            // error for good measure but that takes effort...
-            HypoStatus::FlashError(_) => Err(UpdateError::FlashError.into()),
+            flash_page[len..].fill(0);
         }
+
+        do_block_write(target, block_num, &mut flash_page)?;
+
+        Ok(())
     }
 
     fn finish_image_update(
@@ -153,6 +176,16 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             }
             UpdateState::InProgress => (),
         }
+
+        if self.header_block.is_none() {
+            return Err(UpdateError::MissingHeaderBlock.into());
+        }
+
+        do_block_write(
+            self.image.unwrap_lite(),
+            HEADER_BLOCK,
+            self.header_block.as_mut().unwrap_lite(),
+        )?;
 
         self.state = UpdateState::Finished;
         self.image = None;
@@ -192,9 +225,73 @@ impl idl::InOrderUpdateImpl for ServerImpl {
     }
 }
 
+// Perform some sanity checking on the header block.
+fn validate_header_block(
+    target: UpdateTarget,
+    block: &[u8; BLOCK_SIZE_BYTES],
+) -> Result<(), UpdateError> {
+    let reset_vector = u32::from_le_bytes(
+        block[RESET_VECTOR_OFFSET..][..4].try_into().unwrap_lite(),
+    );
+    let a_base = unsafe { &__IMAGE_A_BASE } as *const u32 as u32;
+    let b_base = unsafe { &__IMAGE_B_BASE } as *const u32 as u32;
+    let stage0_base = unsafe { &__IMAGE_STAGE0_BASE } as *const u32 as u32;
+    let a_end = unsafe { &__IMAGE_A_END } as *const u32 as u32;
+    let b_end = unsafe { &__IMAGE_B_END } as *const u32 as u32;
+    let stage0_end = unsafe { &__IMAGE_STAGE0_END } as *const u32 as u32;
+
+    // Ensure the image is destined for the right target
+    let valid = match target {
+        UpdateTarget::ImageA => (a_base..a_end).contains(&reset_vector),
+        UpdateTarget::ImageB => (b_base..b_end).contains(&reset_vector),
+        UpdateTarget::Bootloader => {
+            (stage0_base..stage0_end).contains(&reset_vector)
+        }
+        _ => false,
+    };
+    if !valid {
+        return Err(UpdateError::InvalidHeaderBlock);
+    }
+
+    // Ensure the MAGIC is correct
+    let magic =
+        u32::from_le_bytes(block[MAGIC_OFFSET..][..4].try_into().unwrap_lite());
+    if magic != abi::HEADER_MAGIC {
+        return Err(UpdateError::InvalidHeaderBlock);
+    }
+
+    Ok(())
+}
+
+fn do_block_write(
+    img: UpdateTarget,
+    block_num: usize,
+    flash_page: &mut [u8; BLOCK_SIZE_BYTES],
+) -> Result<(), UpdateError> {
+    let result = unsafe {
+        // The write_to_flash API takes raw pointers due to TrustZone
+        // ABI requirements which makes this function unsafe.
+        tz_table!().write_to_flash(
+            img,
+            block_num as u32,
+            flash_page.as_mut_ptr(),
+        )
+    };
+
+    match result {
+        HypoStatus::Success => Ok(()),
+        HypoStatus::OutOfBounds => Err(UpdateError::OutOfBounds),
+        HypoStatus::RunningImage => Err(UpdateError::RunningImage),
+        // Should probably encode the LPC55 flash status into the update
+        // error for good measure but that takes effort...
+        HypoStatus::FlashError(_) => Err(UpdateError::FlashError),
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl {
+        header_block: None,
         state: UpdateState::NoUpdate,
         image: None,
     };
