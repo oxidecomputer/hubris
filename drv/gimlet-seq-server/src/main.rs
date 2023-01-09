@@ -633,6 +633,39 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .unwrap();
         Ok(())
     }
+
+    fn read_idt_reg(
+        &mut self,
+        _: &RecvMessage,
+        reg: u8,
+    ) -> Result<u8, RequestError<SeqError>> {
+        let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+        let out = clockgen.read_reg(reg).map_err(|_| SeqError::I2cError)?;
+        Ok(out)
+    }
+
+    fn set_idt_page(
+        &mut self,
+        _: &RecvMessage,
+        page: u8,
+    ) -> Result<(), RequestError<SeqError>> {
+        let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+        let data = [0xfd, page]; // PAGE_ADDR_15_8
+        clockgen.write(&data).map_err(|_| SeqError::I2cError)?;
+        Ok(())
+    }
+
+    fn write_idt_reg(
+        &mut self,
+        _: &RecvMessage,
+        reg: u8,
+        value: u8,
+    ) -> Result<(), RequestError<SeqError>> {
+        let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+        let data = [reg, value];
+        clockgen.write(&data).map_err(|_| SeqError::I2cError)?;
+        Ok(())
+    }
 }
 
 fn reprogram_fpga(

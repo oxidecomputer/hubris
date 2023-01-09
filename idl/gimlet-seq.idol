@@ -40,5 +40,33 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "read_idt_reg": (
+            args: {
+                "reg": "u8",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "set_idt_page": (
+            args: {
+                "page": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "write_idt_reg": (
+            args: {
+                "reg": "u8",
+                "value": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

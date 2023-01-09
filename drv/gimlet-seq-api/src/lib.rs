@@ -18,6 +18,7 @@ pub enum SeqError {
     MuxToHostCPUFailed = 2,
     MuxToSPFailed = 3,
     ClockConfigFailed = 4,
+    I2cError = 5,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
