@@ -145,12 +145,43 @@ pub unsafe extern "C" fn __write_block(
     // are mostly useless for doing any kind of checking on the buffer
     // address passed in. The failure mode is going to be a fault.
 
+    // TODO: Is there a cost (flash wear) to erasing an already erased
+    // block or is the cost only incurred on the subsequent write?
     if let Err(result) = flash_erase(write_addr, FLASH_PAGE_SIZE as u32) {
         return HypoStatus::FlashError(result);
     }
 
     if let Err(result) = flash_write(write_addr, buffer, FLASH_PAGE_SIZE as u32)
     {
+        return HypoStatus::FlashError(result);
+    }
+
+    HypoStatus::Success
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn __erase_block(
+    image_num: UpdateTarget,
+    page_num: u32,
+) -> HypoStatus {
+    // Can only update opposite image
+    if same_image(image_num) {
+        return HypoStatus::RunningImage;
+    }
+
+    // TODO: Is there a cost (flash wear) to erasing an already erased
+    // block or is the cost only incurred on the subsequent write?
+    let erase_addr = match target_addr(image_num, page_num) {
+        Ok(addr) => addr,
+        Err(e) => return e,
+    };
+
+    // We expect this to be called from non-secure (running on 28) and
+    // non-privileged mode (called from hubris task). The tt instructions
+    // are mostly useless for doing any kind of checking on the buffer
+    // address passed in. The failure mode is going to be a fault.
+
+    if let Err(result) = flash_erase(erase_addr, FLASH_PAGE_SIZE as u32) {
         return HypoStatus::FlashError(result);
     }
 

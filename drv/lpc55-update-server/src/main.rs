@@ -143,6 +143,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
                 self.header_block = None;
                 return Err(e.into());
             }
+            do_block_erase(target, block_num)?;
         } else {
             // The header block is currently block 0. We should ensure
             // we've seen and cached it before proceeding with other
@@ -156,10 +157,8 @@ impl idl::InOrderUpdateImpl for ServerImpl {
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             flash_page[len..].fill(0);
+            do_block_write(target, block_num, &mut flash_page)?;
         }
-
-        do_block_write(target, block_num, &mut flash_page)?;
-
         Ok(())
     }
 
@@ -276,6 +275,26 @@ fn do_block_write(
             block_num as u32,
             flash_page.as_mut_ptr(),
         )
+    };
+
+    match result {
+        HypoStatus::Success => Ok(()),
+        HypoStatus::OutOfBounds => Err(UpdateError::OutOfBounds),
+        HypoStatus::RunningImage => Err(UpdateError::RunningImage),
+        // Should probably encode the LPC55 flash status into the update
+        // error for good measure but that takes effort...
+        HypoStatus::FlashError(_) => Err(UpdateError::FlashError),
+    }
+}
+
+fn do_block_erase(
+    img: UpdateTarget,
+    block_num: usize,
+) -> Result<(), UpdateError> {
+    let result = unsafe {
+        // The write_to_flash API takes raw pointers due to TrustZone
+        // ABI requirements which makes this function unsafe.
+        tz_table!().erase_flash(img, block_num as u32)
     };
 
     match result {
