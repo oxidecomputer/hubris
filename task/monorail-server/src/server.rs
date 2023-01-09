@@ -2,9 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(feature = "ignition")]
-use crate::ignition::IgnitionWatcher;
-
 use crate::bsp::{self, Bsp};
 use drv_monorail_api::{
     LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
@@ -26,9 +23,6 @@ pub struct ServerImpl<'a, R> {
     /// However, the PHY registers typically use self-clearing bits.  We cache
     /// the bit here, so that it can be explicitly cleared.
     phy_link_down_sticky: [bool; PORT_COUNT],
-
-    #[cfg(feature = "ignition")]
-    ignition: IgnitionWatcher,
 }
 
 /// Notification mask for optional periodic logging
@@ -47,9 +41,6 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             wake_target_time,
             vsc7448,
             phy_link_down_sticky: [false; PORT_COUNT],
-
-            #[cfg(feature = "ignition")]
-            ignition: IgnitionWatcher::new(),
         }
     }
 
@@ -57,9 +48,6 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         let now = sys_get_timer().now;
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
-                #[cfg(feature = "ignition")]
-                self.ignition.wake(self.vsc7448, &mut self.bsp);
-
                 let out = self.bsp.wake();
                 self.wake_target_time = now + wake_interval;
                 sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
