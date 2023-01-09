@@ -714,6 +714,32 @@ impl Config {
 
         Ok(())
     }
+
+    /// Check whether the SERDES output is enabled
+    pub fn output_enabled(
+        index: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<bool, VscError> {
+        let value = v.read(XGANA(index).SD10G65_OB().SD10G65_OB_CFG0())?;
+        Ok(value.en_ob() == 1)
+    }
+
+    /// Brings the port down by disabling the output buffer
+    pub fn disable_output(
+        index: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<(), VscError> {
+        let ob = XGANA(index).SD10G65_OB().SD10G65_OB_CFG0();
+
+        let mut value = v.read(ob)?;
+        if value.en_ob() == 0 {
+            return Err(VscError::AlreadyDisabled);
+        }
+        value.set_en_ob(0);
+        v.write(ob, value)?;
+
+        Ok(())
+    }
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`

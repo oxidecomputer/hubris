@@ -4,19 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-drv-monorail-api = { path = "../../drv/monorail-api"  }
+drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
+drv-monorail-api = { path = "../../drv/monorail-api" }
 drv-sidecar-front-io = { path = "../../drv/sidecar-front-io", features = ["phy_smi"], optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
-drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true  }
+drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 idol-runtime = { workspace = true }
-ringbuf = { path = "../../lib/ringbuf"  }
+ringbuf = { path = "../../lib/ringbuf" }
 task-net-api = { path = "../net-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-vsc7448 = { path = "../../drv/vsc7448"  }
+vsc7448 = { path = "../../drv/vsc7448" }
 vsc7448-pac = { workspace = true }
-vsc85xx = { path = "../../drv/vsc85xx"  }
+vsc85xx = { path = "../../drv/vsc85xx" }
 
 cfg-if = { workspace = true }
 num-traits = { workspace = true }
@@ -29,6 +30,7 @@ leds = ["drv-user-leds-api"]
 mgmt = ["task-net-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-sidecar-front-io"]
 vlan = ["task-net-api?/vlan"]
+ignition = ["drv-ignition-api"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

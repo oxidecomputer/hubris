@@ -2,23 +2,22 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#[cfg(feature = "ignition")]
+use crate::ignition::IgnitionWatcher;
+
 use crate::bsp::{self, Bsp};
 use drv_monorail_api::{
     LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
-    PortCounters, PortDev, PortStatus, VscError,
+    PortConfig, PortCounters, PortDev, PortStatus, VscError,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
-use vsc7448::{
-    config::{PortMap, PortMode},
-    DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT,
-};
+use vsc7448::{config::PortMode, DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT};
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
 pub struct ServerImpl<'a, R> {
     bsp: Bsp<'a, R>,
     vsc7448: &'a Vsc7448<'a, R>,
-    map: &'a PortMap,
     wake_target_time: u64,
 
     /// For monitoring purposes, we want a sticky bit that indicates whether a
@@ -27,6 +26,9 @@ pub struct ServerImpl<'a, R> {
     /// However, the PHY registers typically use self-clearing bits.  We cache
     /// the bit here, so that it can be explicitly cleared.
     phy_link_down_sticky: [bool; PORT_COUNT],
+
+    #[cfg(feature = "ignition")]
+    ignition: IgnitionWatcher,
 }
 
 /// Notification mask for optional periodic logging
@@ -34,11 +36,7 @@ pub const WAKE_IRQ: u32 = 1;
 pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
 impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
-    pub fn new(
-        bsp: Bsp<'a, R>,
-        vsc7448: &'a Vsc7448<'a, R>,
-        map: &'a PortMap,
-    ) -> Self {
+    pub fn new(bsp: Bsp<'a, R>, vsc7448: &'a Vsc7448<'a, R>) -> Self {
         // Some of the BSPs include a 'wake' function which allows for periodic
         // logging.  We schedule a wake-up before entering the idol_runtime dispatch
         // loop, to make sure that this gets called periodically.
@@ -47,9 +45,11 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         Self {
             bsp,
             wake_target_time,
-            map,
             vsc7448,
             phy_link_down_sticky: [false; PORT_COUNT],
+
+            #[cfg(feature = "ignition")]
+            ignition: IgnitionWatcher::new(),
         }
     }
 
@@ -57,6 +57,9 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         let now = sys_get_timer().now;
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
+                #[cfg(feature = "ignition")]
+                self.ignition.wake(self.vsc7448, &mut self.bsp);
+
                 let out = self.bsp.wake();
                 self.wake_target_time = now + wake_interval;
                 sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
@@ -64,17 +67,6 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             }
         }
         Ok(())
-    }
-
-    /// Helper function to return an error if a user-specified port is invalid
-    fn check_port(&self, port: u8) -> Result<(), MonorailError> {
-        if usize::from(port) >= self.map.len() {
-            Err(MonorailError::InvalidPort)
-        } else if self.map.port_config(port).is_none() {
-            Err(MonorailError::UnconfiguredPort)
-        } else {
-            Ok(())
-        }
     }
 
     fn decode_phy_id<P: vsc85xx::PhyRw>(
@@ -106,13 +98,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<PortStatus, RequestError<MonorailError>> {
-        if usize::from(port) >= self.map.len() {
-            return Err(MonorailError::InvalidPort.into());
-        }
-        let cfg = match self.map.port_config(port) {
-            None => return Err(MonorailError::UnconfiguredPort.into()),
-            Some(cfg) => cfg,
-        };
+        let cfg = check_port(port)?;
         let mut link_up = match cfg.dev.0 {
             // These devices use the same register layout, so we can
             // consolidate into a single branch ere.
@@ -153,7 +139,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             }
         };
         // If this is a QSGMII port, also check the QSGMII status register
-        if matches!(self.map[port], Some(PortMode::Qsgmii(_))) {
+        if matches!(bsp::PORT_MAP[port], Some(PortMode::Qsgmii(_))) {
             let r = self
                 .vsc7448
                 .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(port / 4))
@@ -171,13 +157,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<PortCounters, RequestError<MonorailError>> {
-        if usize::from(port) >= self.map.len() {
-            return Err(MonorailError::InvalidPort.into());
-        }
-        let cfg = match self.map.port_config(port) {
-            None => return Err(MonorailError::UnconfiguredPort.into()),
-            Some(cfg) => cfg,
-        };
+        let cfg = check_port(port)?;
         let (tx, rx, link_down_sticky, phy_link_down_sticky) = match cfg.dev.0 {
             PortDev::Dev1g | PortDev::Dev2g5 => {
                 let stats = ASM().DEV_STATISTICS(port);
@@ -311,18 +291,30 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         })
     }
 
+    fn disable_port_output(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        disable_port(port, self.vsc7448, &mut self.bsp)
+            .map_err(RequestError::from)
+    }
+
+    fn reenable_port_output(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        reenable_port(port, self.vsc7448, &mut self.bsp)
+            .map_err(RequestError::from)
+    }
+
     fn reset_port_counters(
         &mut self,
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<(), RequestError<MonorailError>> {
-        if usize::from(port) >= self.map.len() {
-            return Err(MonorailError::InvalidPort.into());
-        }
-        let cfg = match self.map.port_config(port) {
-            None => return Err(MonorailError::UnconfiguredPort.into()),
-            Some(cfg) => cfg,
-        };
+        let cfg = check_port(port)?;
         match cfg.dev.0 {
             PortDev::Dev1g | PortDev::Dev2g5 => {
                 let stats = ASM().DEV_STATISTICS(port);
@@ -414,11 +406,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         page: u16,
         reg: u8,
     ) -> Result<u16, RequestError<MonorailError>> {
-        if usize::from(port) >= self.map.len() {
-            return Err(MonorailError::InvalidPort.into());
-        } else if self.map.port_config(port).is_none() {
-            return Err(MonorailError::UnconfiguredPort.into());
-        }
+        check_port(port)?;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         match self.bsp.phy_fn(port, |phy| phy.read(addr)) {
             None => Err(MonorailError::NoPhy.into()),
@@ -436,7 +424,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         reg: u8,
         value: u16,
     ) -> Result<(), RequestError<MonorailError>> {
-        self.check_port(port)?;
+        check_port(port)?;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         match self.bsp.phy_fn(port, |phy| phy.write(addr, value)) {
             None => Err(MonorailError::NoPhy.into()),
@@ -451,7 +439,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _msg: &userlib::RecvMessage,
         port: u8,
     ) -> Result<PhyStatus, RequestError<MonorailError>> {
-        self.check_port(port)?;
+        check_port(port)?;
         match self.bsp.phy_fn(port, |phy| -> Result<PhyStatus, VscError> {
             let (_id, ty) = Self::decode_phy_id(&phy)?;
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
@@ -786,6 +774,72 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
         // Nothing to do here: the wake IRQ is handled in the main `net` loop
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Helper function to return an error if a user-specified port is invalid
+pub fn check_port(port: u8) -> Result<PortConfig, MonorailError> {
+    if usize::from(port) >= bsp::PORT_MAP.len() {
+        Err(MonorailError::InvalidPort)
+    } else {
+        match bsp::PORT_MAP.port_config(port) {
+            None => Err(MonorailError::UnconfiguredPort.into()),
+            Some(cfg) => Ok(cfg),
+        }
+    }
+}
+
+pub fn reenable_port<R: Vsc7448Rw>(
+    port: u8,
+    v: &Vsc7448<R>,
+    bsp: &mut Bsp<R>,
+) -> Result<(), MonorailError> {
+    let cfg = check_port(port)?;
+    match cfg.mode {
+        PortMode::Sgmii(..) => v.reenable_port(cfg.serdes)?,
+        PortMode::Qsgmii(..) => {
+            bsp.phy_fn(port, |phy| -> Result<(), VscError> {
+                let mut v = phy.read(phy::STANDARD::MODE_CONTROL())?;
+                if v.power_down() == 0 {
+                    return Err(VscError::AlreadyEnabled);
+                }
+                v.set_power_down(0);
+                phy.write(phy::STANDARD::MODE_CONTROL(), v)?;
+                Ok(())
+            })
+            .ok_or(MonorailError::NotSgmii)??;
+        }
+        _ => return Err(MonorailError::NotSgmii),
+    }
+    Ok(())
+}
+
+pub fn disable_port<R: Vsc7448Rw>(
+    port: u8,
+    v: &Vsc7448<R>,
+    bsp: &mut Bsp<R>,
+) -> Result<(), MonorailError> {
+    let cfg = check_port(port)?;
+    match cfg.mode {
+        PortMode::Sgmii(..) => v.disable_port(cfg.serdes)?,
+        PortMode::Qsgmii(..) => {
+            bsp.phy_fn(port, |phy| -> Result<(), VscError> {
+                let mut v = phy.read(phy::STANDARD::MODE_CONTROL())?;
+                if v.power_down() == 1 {
+                    return Err(VscError::AlreadyDisabled);
+                }
+                v.set_power_down(1);
+                phy.write(phy::STANDARD::MODE_CONTROL(), v)?;
+                Ok(())
+            })
+            .ok_or(MonorailError::NotSgmii)??;
+        }
+        _ => return Err(MonorailError::NotSgmii),
+    }
+    Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
     use super::{

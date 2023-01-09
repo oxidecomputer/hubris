@@ -12,6 +12,10 @@
     path = "bsp/vsc7448_dev.rs"
 )]
 mod bsp;
+
+#[cfg(feature = "ignition")]
+mod ignition;
+
 mod server;
 
 use crate::{bsp::Bsp, server::ServerImpl};
@@ -68,7 +72,7 @@ fn main() -> ! {
         }
     };
 
-    let mut server = ServerImpl::new(bsp, &vsc7448, &bsp::PORT_MAP);
+    let mut server = ServerImpl::new(bsp, &vsc7448);
     loop {
         if let Err(e) = server.wake() {
             ringbuf_entry!(Trace::WakeErr(e));
