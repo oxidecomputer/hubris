@@ -241,6 +241,13 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
     ) -> Result<u16, RequestError<GpioError>> {
         Ok(unsafe { get_gpio_regs(port) }.read())
     }
+
+    fn read_uid(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u32; 3], RequestError<core::convert::Infallible>> {
+        Ok(drv_stm32xx_uid::read_uid())
+    }
 }
 
 cfg_if::cfg_if! {

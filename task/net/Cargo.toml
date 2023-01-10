@@ -24,7 +24,6 @@ drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api", optional = true }
 drv-stm32h7-eth = { path = "../../drv/stm32h7-eth", features = ["ipv6"] }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
-drv-stm32xx-uid = { path = "../../drv/stm32xx-uid", features = ["family-stm32h7"] }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ksz8463 = {path = "../../drv/ksz8463", optional = true }
