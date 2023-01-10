@@ -50,7 +50,7 @@ name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
 max-sizes = {flash = 2048, ram = 1024}
-uses = ["rcc", "gpios1", "gpios2", "gpios3"]
+uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 
 [tasks.i2c_driver]

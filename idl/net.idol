@@ -45,7 +45,7 @@ Interface(
             ),
         ),
         "smi_write": (
-            doc: "Reads a register from a SMI-attached device.",
+            doc: "Writes a register in a SMI-attached device.",
             args: {
                 "phy": "u8",
                 "register": "u8",

@@ -22,7 +22,7 @@ stacksize = 368
 name = "drv-stm32xx-sys"
 priority = 1
 max-sizes = {flash = 2048, ram = 256}
-uses = ["rcc", "gpio"]
+uses = ["rcc", "gpio", "system_flash"]
 start = true
 features = ["g031"]
 stacksize = 256

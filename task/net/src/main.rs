@@ -80,9 +80,9 @@ task_slot!(I2C, i2c_driver);
 /// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
 /// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
 /// VLANs enabled).
-fn mac_address_from_uid() -> MacAddressBlock {
+fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
     let mut buf = [0u8; 6];
-    let uid = drv_stm32xx_uid::read_uid();
+    let uid = sys.read_uid();
     // Jenkins hash
     let mut hash: u32 = 0;
     for byte in uid.as_bytes() {
@@ -195,10 +195,10 @@ fn main() -> ! {
     // Set up the network stack.
     #[cfg(feature = "vpd-mac")]
     let mac_address =
-        mac_address_from_vpd().unwrap_or_else(mac_address_from_uid);
+        mac_address_from_vpd().unwrap_or_else(|| mac_address_from_uid(&sys));
 
     #[cfg(not(feature = "vpd-mac"))]
-    let mac_address = mac_address_from_uid();
+    let mac_address = mac_address_from_uid(&sys);
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = BspImpl::new(&eth, &sys);
