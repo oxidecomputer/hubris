@@ -62,19 +62,10 @@ impl Lpc55Rng {
             .pdruncfg0
             .modify(|_, w| w.pden_rng().poweredon());
 
-        self.0
-            .core
-            .syscon
-            .enable_clock(Peripheral::Rng);
+        self.0.core.syscon.enable_clock(Peripheral::Rng);
 
-        self.0
-            .core
-            .syscon
-            .enter_reset(Peripheral::Rng);
-        self.0
-            .core
-            .syscon
-            .leave_reset(Peripheral::Rng);
+        self.0.core.syscon.enter_reset(Peripheral::Rng);
+        self.0.core.syscon.leave_reset(Peripheral::Rng);
     }
 }
 
