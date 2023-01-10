@@ -36,6 +36,8 @@ pub enum EepromError {
     InvalidPageSize,
     InvalidSecurityRegisterReadByte,
     InvalidSecurityRegisterWriteByte,
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 impl From<Error> for EepromError {
