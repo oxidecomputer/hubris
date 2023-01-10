@@ -19,6 +19,7 @@ pub enum RngError {
     NoData,
     ClockError,
     SeedError,
+    UnknownRngError,
     #[idol(server_death)]
     ServerRestarted,
 }
@@ -31,23 +32,24 @@ impl From<RngError> for Error {
         let code = u32::from(e) + Error::CUSTOM_START;
         match NonZeroU32::new(code) {
             Some(rc) => Error::from(rc),
-            None => {
-                panic!("Invalid RngError for conversion to rand_core::Error.")
-            }
+            // Code is at least `Error::CUSTOM_START`, so guaranteed to be
+            // nonzero.
+            None => unreachable!(),
         }
     }
 }
 
-impl TryFrom<Error> for RngError {
-    type Error = ();
-    fn try_from(e: Error) -> Result<Self, Self::Error> {
+impl From<Error> for RngError {
+    fn from(e: Error) -> Self {
         // in no_std 'code' always returns a NonZeroU32
         // https://docs.rs/rand_core/latest/rand_core/struct.Error.html#method.code
         let code = e.code().unwrap().get();
         if code < Error::CUSTOM_START {
-            panic!("Invalid rand_core::Error for conversion to RngError.");
+            Self::UnknownRngError
+        } else {
+            RngError::try_from(code - Error::CUSTOM_START)
+                .unwrap_or(Self::UnknownRngError)
         }
-        RngError::try_from(code - Error::CUSTOM_START)
     }
 }
 

@@ -1424,6 +1424,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1841,6 +1842,7 @@ dependencies = [
  "hubpack",
  "humpty",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "userlib",

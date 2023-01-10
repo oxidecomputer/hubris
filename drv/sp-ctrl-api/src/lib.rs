@@ -13,9 +13,11 @@ use userlib::*;
 #[repr(u32)]
 pub enum SpCtrlError {
     BadLen = 1,
-    NeedInit = 2,
-    Fault = 3,
-    InvalidCoreRegister = 4,
+    NeedInit,
+    Fault,
+    InvalidCoreRegister,
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

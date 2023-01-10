@@ -22,6 +22,8 @@ pub enum DumperError {
     FailedToResume,
     FailedToResumeAfterFailure,
     RegisterReadFailed,
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
