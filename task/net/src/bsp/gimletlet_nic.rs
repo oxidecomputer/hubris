@@ -6,7 +6,7 @@
 compile_error!("this BSP requires the ksz8463 feature");
 
 use crate::{bsp_support, pins};
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use ksz8463::{

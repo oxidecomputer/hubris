@@ -15,7 +15,7 @@ mod bsp;
 mod server;
 
 use crate::{bsp::Bsp, server::ServerImpl};
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiServer};
 use ringbuf::*;
 use userlib::*;
 use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};

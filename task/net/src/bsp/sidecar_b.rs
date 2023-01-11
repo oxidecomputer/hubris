@@ -12,7 +12,7 @@ compile_error!("this BSP requires the ksz8463 and mgmt features");
 
 use crate::{bsp_support, mgmt, miim_bridge::MiimBridge, pins};
 use drv_sidecar_seq_api::Sequencer;
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::{

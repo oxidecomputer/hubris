@@ -13,7 +13,7 @@ use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, WriteOp};
 use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{ClientError, Leased, LenLimit, R, W};
 

@@ -38,17 +38,45 @@ pub enum CsState {
     Asserted = 1,
 }
 
-impl Spi {
+////////////////////////////////////////////////////////////////////////////////
+
+pub struct ControllerLock<'a, S: SpiServer>(&'a S);
+
+impl<S: SpiServer> Drop for ControllerLock<'_, S> {
+    fn drop(&mut self) {
+        // We ignore the result of release because, if the server has restarted,
+        // we don't need to do anything.
+        self.0.release().ok();
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub trait SpiServer {
+    fn exchange(
+        &self,
+        device_index: u8,
+        src: &[u8],
+        dest: &mut [u8],
+    ) -> Result<(), SpiError>;
+
+    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError>;
+
+    fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError>;
+
     /// Variant of `lock` that returns a resource management object that, when
     /// dropped, will issue `release`. This makes it much easier to do fallible
     /// operations while locked.
     ///
     /// Otherwise, the rules are the same as for `lock`.
-    pub fn lock_auto(
+    fn lock_auto(
         &self,
         device_index: u8,
         assert_cs: CsState,
-    ) -> Result<ControllerLock<'_>, SpiError> {
+    ) -> Result<ControllerLock<'_, Self>, SpiError>
+    where
+        Self: Sized,
+    {
         self.lock(device_index, assert_cs)?;
         Ok(ControllerLock(self))
     }
@@ -57,33 +85,63 @@ impl Spi {
     /// `device_index` for your convenience.
     ///
     /// This does _not_ check that `device_index` is valid!
-    pub fn device(&self, device_index: u8) -> SpiDevice {
+    fn device(&self, device_index: u8) -> SpiDevice<Self>
+    where
+        Self: Sized + Clone,
+    {
         SpiDevice::new(self.clone(), device_index)
     }
+
+    fn lock(&self, device_index: u8, cs_state: CsState)
+        -> Result<(), SpiError>;
+
+    fn release(&self) -> Result<(), SpiError>;
 }
 
-pub struct ControllerLock<'a>(&'a Spi);
+impl SpiServer for Spi {
+    fn exchange(
+        &self,
+        device_index: u8,
+        src: &[u8],
+        dest: &mut [u8],
+    ) -> Result<(), SpiError> {
+        Spi::exchange(self, device_index, src, dest)
+    }
+    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError> {
+        Spi::write(self, device_index, src)
+    }
 
-impl Drop for ControllerLock<'_> {
-    fn drop(&mut self) {
-        // We ignore the result of release because, if the server has restarted,
-        // we don't need to do anything.
-        self.0.release().ok();
+    fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
+        Spi::write(self, device_index, dest)
+    }
+
+    fn lock(
+        &self,
+        device_index: u8,
+        cs_state: CsState,
+    ) -> Result<(), SpiError> {
+        Spi::lock(self, device_index, cs_state)
+    }
+
+    fn release(&self) -> Result<(), SpiError> {
+        Spi::release(self)
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Wraps a `Spi`, pairing it with a `device_index` that will automatically be
 /// sent with all operations.
-pub struct SpiDevice {
-    server: Spi,
+pub struct SpiDevice<S = Spi> {
+    server: S,
     device_index: u8,
 }
 
-impl SpiDevice {
+impl<S: SpiServer> SpiDevice<S> {
     /// Creates a wrapper for `(server, device_index)`. Note that this does
     /// _not_ check that `device_index` is valid for `server`. If it isn't, all
     /// operations on this `SpiDevice` are going to give you `BadDevice`.
-    pub fn new(server: Spi, device_index: u8) -> Self {
+    pub fn new(server: S, device_index: u8) -> Self {
         Self {
             server,
             device_index,
@@ -141,18 +199,6 @@ impl SpiDevice {
     /// second one to attempt will get `BadDevice`.
     pub fn lock(&self, assert_cs: CsState) -> Result<(), SpiError> {
         self.server.lock(self.device_index, assert_cs)
-    }
-
-    /// Variant of `lock` that returns a resource management object that, when
-    /// dropped, will issue `release`. This makes it much easier to do fallible
-    /// operations while locked.
-    ///
-    /// Otherwise, the rules are the same as for `lock`.
-    pub fn lock_auto(
-        &self,
-        assert_cs: CsState,
-    ) -> Result<ControllerLock<'_>, SpiError> {
-        self.server.lock_auto(self.device_index, assert_cs)
     }
 
     /// Releases a previous lock on the SPI controller (by your task).

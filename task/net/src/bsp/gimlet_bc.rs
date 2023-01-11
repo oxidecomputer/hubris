@@ -7,7 +7,7 @@ compile_error!("this BSP requires the ksz8463 and mgmt features");
 
 use crate::{mgmt, pins};
 use drv_gimlet_seq_api::PowerState;
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_jefe_api::Jefe;
