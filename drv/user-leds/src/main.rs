@@ -555,8 +555,7 @@ fn enable_led_pins() {
             Invert::Disable,
             Digimode::Digital,
             Opendrain::Normal,
-        )
-        .unwrap();
+        );
 
     gpio_driver
         .iocon_configure(
@@ -567,8 +566,7 @@ fn enable_led_pins() {
             Invert::Disable,
             Digimode::Digital,
             Opendrain::Normal,
-        )
-        .unwrap();
+        );
 
     // Both LEDs are active low -- so they will light when we set the
     // direction of the pin if we don't explicitly turn them off first
@@ -576,9 +574,8 @@ fn enable_led_pins() {
     led_off(Led::One);
 
     gpio_driver
-        .set_dir(LED_ZERO_PIN, Direction::Output)
-        .unwrap();
-    gpio_driver.set_dir(LED_ONE_PIN, Direction::Output).unwrap();
+        .set_dir(LED_ZERO_PIN, Direction::Output);
+    gpio_driver.set_dir(LED_ONE_PIN, Direction::Output);
 }
 
 #[cfg(feature = "lpc55")]
@@ -587,7 +584,7 @@ fn led_on(led: Led) {
     let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
-    gpio_driver.set_val(pin, LED_ON_VAL).unwrap();
+    gpio_driver.set_val(pin, LED_ON_VAL);
 }
 
 #[cfg(feature = "lpc55")]
@@ -596,7 +593,7 @@ fn led_off(led: Led) {
     let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
-    gpio_driver.set_val(pin, LED_OFF_VAL).unwrap();
+    gpio_driver.set_val(pin, LED_OFF_VAL);
 }
 
 #[cfg(feature = "lpc55")]
@@ -605,7 +602,7 @@ fn led_toggle(led: Led) {
     let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
-    gpio_driver.toggle(pin).unwrap();
+    gpio_driver.toggle(pin).unwrap_lite();
 }
 
 mod idl {

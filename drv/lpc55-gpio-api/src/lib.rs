@@ -4,7 +4,6 @@
 
 #![no_std]
 
-use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
@@ -201,15 +200,6 @@ pub enum Value {
     One = 1,
 }
 
-#[derive(Debug, FromPrimitive, IdolError)]
-#[repr(u32)]
-pub enum GpioError {
-    BadArg = 2,
-
-    #[idol(server_death)]
-    ServerRestarted,
-}
-
 impl Pins {
     // Calling into the GPIO task each time can be slow, this function
     // allows tasks to get the appropriate values to write manually.
@@ -243,11 +233,11 @@ impl Pins {
         invert: Invert,
         digimode: Digimode,
         od: Opendrain,
-    ) -> Result<(), GpioError> {
+    ) {
         let (_, conf) =
             Pins::iocon_conf_val(pin, alt, mode, slew, invert, digimode, od);
 
-        self.iocon_configure_raw(pin, conf)
+        self.iocon_configure_raw(pin, conf);
     }
 }
 

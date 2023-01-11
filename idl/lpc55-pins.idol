@@ -6,39 +6,31 @@ Interface(
 			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
 			"conf": "u32",
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("GpioError")
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"set_dir": (
 		args: {
 			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
 			"dir": ( type: "Direction", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("GpioError"),
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"set_val": (
 		args: {
 			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
 			"val": ( type : "Value", recv: FromPrimitive("u8")),
 		},
-		reply: Result(
-			ok: "()",
-			err: CLike("GpioError"),
-		),
+		reply: Simple("()"),
+		idempotent: true,
 	),
 	"read_val": (
 		args: {
 			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
 		},
-		reply: Result(
-			ok: (type : "Value", recv: FromPrimitive("u8")),
-			err: CLike("GpioError")
-		)
+		reply: Simple((type : "Value", recv: FromPrimitive("u8"))),
+		idempotent: true,
 	),
 	"toggle": (
 		args: {
@@ -46,7 +38,7 @@ Interface(
 		},
 		reply: Result(
 			ok: "()",
-			err: CLike("GpioError"),
+			err: ServerDeath,
 		)
 	),
 

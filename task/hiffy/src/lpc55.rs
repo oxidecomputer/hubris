@@ -38,13 +38,13 @@ pub enum Functions {
     SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "gpio")]
-    GpioInput(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
+    GpioInput(drv_lpc55_gpio_api::Pin, u32),
     #[cfg(feature = "gpio")]
-    GpioToggle(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
+    GpioToggle(drv_lpc55_gpio_api::Pin, u32),
     #[cfg(feature = "gpio")]
-    GpioSet(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
+    GpioSet(drv_lpc55_gpio_api::Pin, u32),
     #[cfg(feature = "gpio")]
-    GpioReset(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
+    GpioReset(drv_lpc55_gpio_api::Pin, u32),
     #[cfg(feature = "gpio")]
     GpioConfigure(
         (
@@ -56,12 +56,12 @@ pub enum Functions {
             drv_lpc55_gpio_api::Digimode,
             drv_lpc55_gpio_api::Opendrain,
         ),
-        drv_lpc55_gpio_api::GpioError,
+        u32,
     ),
     #[cfg(feature = "gpio")]
     GpioDirection(
         (drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::Direction),
-        drv_lpc55_gpio_api::GpioError,
+        u32,
     ),
     #[cfg(feature = "rng")]
     Rng(usize, drv_rng_api::RngError),
@@ -252,12 +252,9 @@ fn gpio_configure(
     let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
-    match gpio
-        .iocon_configure(pin, alt, mode, slew, invert, digimode, opendrain)
-    {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.iocon_configure(pin, alt, mode, slew, invert, digimode, opendrain);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -273,7 +270,7 @@ fn gpio_toggle(
 
     match gpio.toggle(pin) {
         Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
+        Err(idol_runtime::ServerDeath) => panic!(),
     }
 }
 
@@ -301,10 +298,9 @@ fn gpio_direction(
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
 
-    match gpio.set_dir(pin, dir) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.set_dir(pin, dir);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -318,13 +314,10 @@ fn gpio_input(
 
     let pin = gpio_args(stack)?;
 
-    match gpio.read_val(pin) {
-        Ok(input) => {
-            byteorder::LittleEndian::write_u16(rval, input as u16);
-            Ok(core::mem::size_of::<u16>())
-        }
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    let input = gpio.read_val(pin);
+
+    byteorder::LittleEndian::write_u16(rval, input as u16);
+    Ok(core::mem::size_of::<u16>())
 }
 
 #[cfg(feature = "gpio")]
@@ -338,10 +331,9 @@ fn gpio_set(
 
     let pin = gpio_args(stack)?;
 
-    match gpio.set_val(pin, drv_lpc55_gpio_api::Value::One) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.set_val(pin, drv_lpc55_gpio_api::Value::One);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -355,10 +347,9 @@ fn gpio_reset(
 
     let pin = gpio_args(stack)?;
 
-    match gpio.set_val(pin, drv_lpc55_gpio_api::Value::Zero) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.set_val(pin, drv_lpc55_gpio_api::Value::Zero);
+
+    Ok(0)
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[

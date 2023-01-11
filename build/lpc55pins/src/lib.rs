@@ -134,7 +134,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     for p in pins {
         writeln!(&mut file, "iocon.iocon_configure(")?;
         writeln!(&mut file, "{}", p.to_token_stream())?;
-        writeln!(&mut file, ").unwrap_lite();")?;
+        writeln!(&mut file, ");")?;
         match p.direction {
             None => (),
             Some(d) => {
@@ -145,7 +145,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
                 } else {
                     writeln!(&mut file, "Direction::Input")?;
                 }
-                writeln!(&mut file, ").unwrap_lite();")?;
+                writeln!(&mut file, ");")?;
             }
         }
         match p.name {

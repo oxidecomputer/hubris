@@ -149,8 +149,8 @@ fn main() -> ! {
 
     // Configure ROT_IRQ
     // Ensure that ROT_IRQ is not asserted
-    gpio.set_dir(ROT_IRQ, Direction::Output).unwrap_lite();
-    gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+    gpio.set_dir(ROT_IRQ, Direction::Output);
+    gpio.set_val(ROT_IRQ, Value::One);
     ringbuf_entry!(Trace::RotIrqDeassert);
 
     // We have two blocks to worry about: the FLEXCOMM for switching
@@ -296,7 +296,7 @@ impl IO {
         if transmit {
             ringbuf_entry!(Trace::Transmit(self.txcount, tx_end));
             ringbuf_entry!(Trace::RotIrqAssert);
-            self.gpio.set_val(ROT_IRQ, Value::Zero).unwrap_lite();
+            self.gpio.set_val(ROT_IRQ, Value::Zero);
         }
 
         // TODO: SP RESET needs to be monitored, otherwise, any
@@ -348,7 +348,7 @@ impl IO {
                 if intstat.ssd().bit() {
                     self.spi.ssd_clear();
                     if transmit {
-                        self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+                        self.gpio.set_val(ROT_IRQ, Value::One);
                     }
                     inframe = false;
                 }
@@ -445,7 +445,7 @@ impl IO {
         // Put a Protocol::Busy value in FIFOWR so that SP/logic analyzer knows we're away.
         self.spi.send_u8(Protocol::Busy as u8);
         if transmit {
-            self.gpio.set_val(ROT_IRQ, Value::One).unwrap_lite();
+            self.gpio.set_val(ROT_IRQ, Value::One);
             ringbuf_entry!(Trace::RotIrqDeassert);
         }
     }

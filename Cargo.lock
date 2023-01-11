@@ -3851,6 +3851,7 @@ dependencies = [
  "drv-update-api",
  "hif",
  "hubris-num-tasks",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "serde",

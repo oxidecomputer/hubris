@@ -151,29 +151,25 @@ fn muck_with_gpios(syscon: &Syscon) {
     let gpio_driver = GPIO.get_task_id();
     let iocon = Pins::from(gpio_driver);
 
-    iocon
-        .iocon_configure(
-            Pin::PIO1_21,
-            AltFn::Alt5,
-            Mode::NoPull,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        )
-        .unwrap();
+    iocon.iocon_configure(
+        Pin::PIO1_21,
+        AltFn::Alt5,
+        Mode::NoPull,
+        Slew::Standard,
+        Invert::Disable,
+        Digimode::Digital,
+        Opendrain::Normal,
+    );
 
-    iocon
-        .iocon_configure(
-            Pin::PIO1_20,
-            AltFn::Alt5,
-            Mode::NoPull,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        )
-        .unwrap();
+    iocon.iocon_configure(
+        Pin::PIO1_20,
+        AltFn::Alt5,
+        Mode::NoPull,
+        Slew::Standard,
+        Invert::Disable,
+        Digimode::Digital,
+        Opendrain::Normal,
+    );
 }
 
 fn write_a_buffer(
