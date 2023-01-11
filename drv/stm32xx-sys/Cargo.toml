@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 drv-stm32xx-gpio-common = { path = "../stm32xx-gpio-common", features = ["server-support"] }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+drv-stm32xx-uid = { path = "../../drv/stm32xx-uid" }
 task-jefe-api = { path="../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
 
@@ -21,11 +22,11 @@ zerocopy = { workspace = true }
 idol = { workspace = true }
 
 [features]
-family-stm32h7 = ["stm32h7"]
+family-stm32h7 = ["stm32h7", "drv-stm32xx-uid/family-stm32h7"]
 h743 = ["family-stm32h7", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32xx-gpio-common/model-stm32h743"]
 h753 = ["family-stm32h7", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32xx-gpio-common/model-stm32h753"]
 
-family-stm32g0 = ["stm32g0"]
+family-stm32g0 = ["stm32g0", "drv-stm32xx-uid/family-stm32g0"]
 g030 = ["family-stm32g0", "stm32g0/stm32g030", "drv-stm32xx-sys-api/g030", "drv-stm32xx-gpio-common/model-stm32g030"]
 g031 = ["family-stm32g0", "stm32g0/stm32g031", "drv-stm32xx-sys-api/g031", "drv-stm32xx-gpio-common/model-stm32g031"]
 g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-stm32xx-gpio-common/model-stm32g070"]

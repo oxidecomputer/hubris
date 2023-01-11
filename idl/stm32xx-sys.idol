@@ -90,5 +90,10 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+        "read_uid": (
+            args: {},
+            reply: Simple("[u32; 3]"),
+            idempotent: true,
+        ),
     },
 )

@@ -41,3 +41,6 @@ address = 0x40003c00
 size = 1024
 interrupts = { irq = 26 }
 
+[system_flash]
+address = 0x1fff0000
+size = 0x10000

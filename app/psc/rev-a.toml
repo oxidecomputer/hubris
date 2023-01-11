@@ -26,7 +26,7 @@ name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
 max-sizes = {flash = 2048, ram = 1024}
-uses = ["rcc", "gpios1", "gpios2", "gpios3"]
+uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
@@ -108,7 +108,7 @@ priority = 3
 features = ["mgmt", "h753", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "system_flash", "tim16"]
+uses = ["eth", "eth_dma", "tim16"]
 start = true
 interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys", "i2c_driver", { spi_driver = "spi2_driver" }]
@@ -119,9 +119,7 @@ priority = 4
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
-uses = [
-    "system_flash", # TODO also used by `net`, both to read the stm32 uid
-]
+uses = []
 task-slots = [
     "jefe",
     "net",
