@@ -52,10 +52,7 @@ Interface(
                 "pins": "u16",
                 "packed_attributes": "u16",
             },
-            reply: Result(
-                ok: "()",
-                err: CLike("GpioError"),
-            ),
+            reply: Simple("()"),
             idempotent: true,
         ),
         "gpio_set_reset": (
@@ -67,10 +64,7 @@ Interface(
                 "set_pins": "u16",
                 "reset_pins": "u16",
             },
-            reply: Result(
-                ok: "()",
-                err: CLike("GpioError"),
-            ),
+            reply: Simple("()"),
             idempotent: true,
         ),
         "gpio_read_input": (
@@ -80,10 +74,7 @@ Interface(
                     recv: FromPrimitive("u8"),
                 ),
             },
-            reply: Result(
-                ok: "u16",
-                err: CLike("GpioError"),
-            ),
+            reply: Simple("u16"),
             idempotent: true,
         ),
         "gpio_toggle": (
@@ -96,7 +87,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("GpioError"),
+                err: ServerDeath,
             ),
         ),
     },

@@ -83,14 +83,13 @@ fn main() -> ! {
     // We leave them in GPIO output mode from this point forward.
     for device in CONFIG.devices {
         for pin in device.cs {
-            sys.gpio_set(*pin).unwrap();
+            sys.gpio_set(*pin);
             sys.gpio_configure_output(
                 *pin,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::Low,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
         }
     }
 
@@ -200,9 +199,9 @@ impl InOrderSpiImpl for ServerImpl {
             // If we're asserting CS, we want to *reset* the pin. If
             // we're not, we want to *set* it. Because CS is active low.
             if cs_asserted {
-                self.sys.gpio_reset(*pin).unwrap();
+                self.sys.gpio_reset(*pin);
             } else {
-                self.sys.gpio_set(*pin).unwrap();
+                self.sys.gpio_set(*pin);
             }
         }
 
@@ -227,7 +226,7 @@ impl InOrderSpiImpl for ServerImpl {
             for pin in device.cs {
                 // Deassert CS. If it wasn't asserted, this is a no-op.
                 // If it was, this fixes that.
-                self.sys.gpio_set(*pin).unwrap();
+                self.sys.gpio_set(*pin);
             }
 
             self.lock_holder = None;
@@ -347,7 +346,7 @@ impl ServerImpl {
         let cs_override = self.lock_holder.is_some();
         if !cs_override {
             for pin in device.cs {
-                self.sys.gpio_reset(*pin).unwrap();
+                self.sys.gpio_reset(*pin);
             }
         }
 
@@ -495,7 +494,7 @@ impl ServerImpl {
         // Deassert (set) CS, if we asserted it in the first place.
         if !cs_override {
             for pin in device.cs {
-                self.sys.gpio_set(*pin).unwrap();
+                self.sys.gpio_set(*pin);
             }
         }
 
@@ -506,19 +505,17 @@ impl ServerImpl {
 fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &sys_api::Sys) {
     // Drive all output pins low.
     for &(pins, _af) in opt.outputs {
-        gpio.gpio_reset(pins).unwrap();
+        gpio.gpio_reset(pins);
         gpio.gpio_configure_output(
             pins,
             sys_api::OutputType::PushPull,
             sys_api::Speed::Low,
             sys_api::Pull::None,
-        )
-        .unwrap();
+        );
     }
     // Switch input pin away from SPI peripheral to a GPIO input, which makes it
     // Hi-Z.
-    gpio.gpio_configure_input(opt.input.0, sys_api::Pull::None)
-        .unwrap();
+    gpio.gpio_configure_input(opt.input.0, sys_api::Pull::None);
 }
 
 fn activate_mux_option(
@@ -538,8 +535,7 @@ fn activate_mux_option(
             sys_api::Speed::Low,
             sys_api::Pull::None,
             af,
-        )
-        .unwrap();
+        );
     }
     // And the input too.
     gpio.gpio_configure(
@@ -550,8 +546,7 @@ fn activate_mux_option(
         sys_api::Speed::High,          // doesn't matter
         sys_api::Pull::None,
         opt.input.1,
-    )
-    .unwrap();
+    );
 }
 
 //////////////////////////////////////////////////////////////////////////////

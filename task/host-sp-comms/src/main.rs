@@ -220,9 +220,9 @@ impl ServerImpl {
             // SP_TO_SP3_INT_L: `INT_L` is "interrupt low", so we assert the pin
             // when we do not have status and deassert it when we do.
             if self.status.is_empty() {
-                self.sys.gpio_set(SP_TO_SP3_INT_L).unwrap_lite();
+                self.sys.gpio_set(SP_TO_SP3_INT_L);
             } else {
-                self.sys.gpio_reset(SP_TO_SP3_INT_L).unwrap_lite();
+                self.sys.gpio_reset(SP_TO_SP3_INT_L);
             }
         }
     }
@@ -999,15 +999,14 @@ cfg_if::cfg_if! {
 }
 
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
-    sys.gpio_set(SP_TO_SP3_INT_L).unwrap();
+    sys.gpio_set(SP_TO_SP3_INT_L);
 
     sys.gpio_configure_output(
         SP_TO_SP3_INT_L,
         sys_api::OutputType::OpenDrain,
         sys_api::Speed::Low,
         sys_api::Pull::None,
-    )
-    .unwrap();
+    );
 }
 
 fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {

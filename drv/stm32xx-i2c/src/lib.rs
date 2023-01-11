@@ -179,15 +179,14 @@ impl I2cMux<'_> {
         if let Some(pin) = &self.enable {
             // Set the pins to high _before_ switching to output to avoid
             // glitching.
-            sys.gpio_set(pin.gpio_pins).unwrap();
+            sys.gpio_set(pin.gpio_pins);
             // Now, expose them as outputs.
             sys.gpio_configure_output(
                 pin.gpio_pins,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
         }
 
         Ok(())
@@ -198,8 +197,8 @@ impl I2cMux<'_> {
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         if let Some(pin) = &self.enable {
-            sys.gpio_reset(pin.gpio_pins).unwrap();
-            sys.gpio_set(pin.gpio_pins).unwrap();
+            sys.gpio_reset(pin.gpio_pins);
+            sys.gpio_set(pin.gpio_pins);
         }
 
         Ok(())

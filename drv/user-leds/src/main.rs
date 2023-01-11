@@ -303,15 +303,14 @@ fn enable_led_pins() {
 
     for &(pinset, active_low) in LEDS {
         // Make sure LEDs are initially off.
-        sys.gpio_set_to(pinset, active_low).unwrap();
+        sys.gpio_set_to(pinset, active_low);
         // Make them outputs.
         sys.gpio_configure_output(
             pinset,
             OutputType::PushPull,
             Speed::High,
             Pull::None,
-        )
-        .unwrap();
+        );
     }
 }
 
@@ -330,7 +329,7 @@ fn led_on(led: Led) {
     let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
-    sys.gpio_set_to(pinset, !active_low).unwrap();
+    sys.gpio_set_to(pinset, !active_low);
 }
 
 #[cfg(feature = "stm32g0")]
@@ -342,7 +341,7 @@ fn led_off(led: Led) {
 
     let (pinset, active_low) = led_info(led);
 
-    sys.gpio_set_to(pinset, active_low).unwrap();
+    sys.gpio_set_to(pinset, active_low);
 }
 
 #[cfg(feature = "stm32g0")]
@@ -353,7 +352,7 @@ fn led_toggle(led: Led) {
     let sys = Sys::from(sys);
 
     let pinset = led_info(led).0;
-    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap();
+    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap_lite();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -424,15 +423,14 @@ fn enable_led_pins() {
 
     for &(pinset, active_low) in LEDS {
         // Make sure LEDs are initially off.
-        sys.gpio_set_to(pinset, active_low).unwrap();
+        sys.gpio_set_to(pinset, active_low);
         // Make them outputs.
         sys.gpio_configure_output(
             pinset,
             OutputType::PushPull,
             Speed::High,
             Pull::None,
-        )
-        .unwrap();
+        );
     }
 }
 
@@ -476,7 +474,7 @@ fn led_on(led: Led) {
     let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
-    sys.gpio_set_to(pinset, !active_low).unwrap();
+    sys.gpio_set_to(pinset, !active_low);
 }
 
 #[cfg(feature = "stm32h7")]
@@ -488,7 +486,7 @@ fn led_off(led: Led) {
 
     let (pinset, active_low) = led_info(led);
 
-    sys.gpio_set_to(pinset, active_low).unwrap();
+    sys.gpio_set_to(pinset, active_low);
 }
 
 #[cfg(feature = "stm32h7")]
@@ -499,7 +497,7 @@ fn led_toggle(led: Led) {
     let sys = Sys::from(sys);
 
     let pinset = led_info(led).0;
-    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap();
+    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap_lite();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

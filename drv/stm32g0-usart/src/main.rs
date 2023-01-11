@@ -189,15 +189,13 @@ fn configure_pins() {
     // TODO these are really board configs, not SoC configs!
     const TX_RX_MASK: PinSet = Port::C.pin(4).and_pin(5);
 
-    gpio_driver
-        .gpio_configure_alternate(
-            TX_RX_MASK,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-            Alternate::AF1,
-        )
-        .unwrap();
+    gpio_driver.gpio_configure_alternate(
+        TX_RX_MASK,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+        Alternate::AF1,
+    );
 }
 
 fn step_transmit(
