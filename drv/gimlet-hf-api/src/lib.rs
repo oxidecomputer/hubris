@@ -20,12 +20,10 @@ pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HfError {
     WriteEnableFailed = 1,
-    MuxFailed,
     HashBadRange,
     HashError,
     HashNotConfigured,
     NoDevSelect,
-    DevSelectFailed,
     NotMuxedToSP,
 
     #[idol(server_death)]
