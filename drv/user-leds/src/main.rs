@@ -544,35 +544,32 @@ fn enable_led_pins() {
     let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Pins::from(gpio_driver);
 
-    gpio_driver
-        .iocon_configure(
-            LED_ZERO_PIN,
-            AltFn::Alt0,
-            Mode::NoPull,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        );
+    gpio_driver.iocon_configure(
+        LED_ZERO_PIN,
+        AltFn::Alt0,
+        Mode::NoPull,
+        Slew::Standard,
+        Invert::Disable,
+        Digimode::Digital,
+        Opendrain::Normal,
+    );
 
-    gpio_driver
-        .iocon_configure(
-            LED_ONE_PIN,
-            AltFn::Alt0,
-            Mode::NoPull,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        );
+    gpio_driver.iocon_configure(
+        LED_ONE_PIN,
+        AltFn::Alt0,
+        Mode::NoPull,
+        Slew::Standard,
+        Invert::Disable,
+        Digimode::Digital,
+        Opendrain::Normal,
+    );
 
     // Both LEDs are active low -- so they will light when we set the
     // direction of the pin if we don't explicitly turn them off first
     led_off(Led::Zero);
     led_off(Led::One);
 
-    gpio_driver
-        .set_dir(LED_ZERO_PIN, Direction::Output);
+    gpio_driver.set_dir(LED_ZERO_PIN, Direction::Output);
     gpio_driver.set_dir(LED_ONE_PIN, Direction::Output);
 }
 

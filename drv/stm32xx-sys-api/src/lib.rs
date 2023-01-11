@@ -149,11 +149,7 @@ impl Sys {
 
     /// Configures the pins in `PinSet` as high-impedance digital inputs, with
     /// optional pull resistors.
-    pub fn gpio_configure_input(
-        &self,
-        pinset: PinSet,
-        pull: Pull,
-    ) {
+    pub fn gpio_configure_input(&self, pinset: PinSet, pull: Pull) {
         self.gpio_configure(
             pinset.port,
             pinset.pin_mask,
@@ -243,11 +239,7 @@ impl Sys {
 
     /// Sets some pins based on `flag` -- high if `true`, low if `false`.
     #[inline]
-    pub fn gpio_set_to(
-        &self,
-        pinset: PinSet,
-        flag: bool,
-    ) {
+    pub fn gpio_set_to(&self, pinset: PinSet, flag: bool) {
         self.gpio_set_reset(
             pinset.port,
             if flag { pinset.pin_mask } else { 0 },
