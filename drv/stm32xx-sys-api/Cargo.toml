@@ -4,18 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-byteorder = { workspace = true }
-cfg-if = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
+byteorder.workspace = true
+cfg-if.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+zerocopy.workspace = true
 
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-stm32xx-gpio-common = { path = "../stm32xx-gpio-common" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-idol = { workspace = true }
+idol.workspace = true
 
 [features]
 family-stm32h7 = ["drv-stm32xx-gpio-common/family-stm32h7"]

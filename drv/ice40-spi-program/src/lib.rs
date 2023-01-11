@@ -65,7 +65,7 @@ pub fn configure_pins(sys: &Sys, config: &Config) {
     // Note that the SPI server manages CS for us. We want RESET to be
     // not-asserted but ready to assert. This ensures that we don't glitch RESET
     // low (active!) when we make it an output below.
-    sys.gpio_set(config.creset).unwrap();
+    sys.gpio_set(config.creset);
 
     // Make RESET an output.
     sys.gpio_configure_output(
@@ -73,15 +73,13 @@ pub fn configure_pins(sys: &Sys, config: &Config) {
         sys_api::OutputType::PushPull,
         sys_api::Speed::High,
         sys_api::Pull::None, // external resistor on net
-    )
-    .unwrap();
+    );
 
     // And finally we need CDONE to be an input.
     sys.gpio_configure_input(
         config.cdone,
         sys_api::Pull::None, // don't care
-    )
-    .unwrap();
+    );
 }
 
 /// Runs the iCE40 through its programming reset sequence and puts it into SPI
@@ -104,7 +102,7 @@ pub fn begin_bitstream_load(
     // and CDONE. This requires us to have exclusive control over the SPI bus.
 
     // Assert reset (active low).
-    sys.gpio_reset(config.creset).unwrap();
+    sys.gpio_reset(config.creset);
 
     // Lock SPI controller and assert CS.
     spi.lock(spi_api::CsState::Asserted)?;
@@ -114,7 +112,7 @@ pub fn begin_bitstream_load(
     hl::sleep_for(1);
 
     // Deassert reset (active low).
-    sys.gpio_set(config.creset).unwrap();
+    sys.gpio_set(config.creset);
 
     // Minimum time to stabilize here is either 300us or 800us, depending on
     // which Lattice doc you're reading. Give it 2ms to be sure.
@@ -123,7 +121,7 @@ pub fn begin_bitstream_load(
     // At this point, the iCE40 is _supposed_ to be chilling in programming mode
     // listening for a bitstream. If this is the case it will be asserting
     // (holding low) CDONE. Let's check!
-    if sys.gpio_read(config.cdone).unwrap() != 0 {
+    if sys.gpio_read(config.cdone) != 0 {
         // Welp, that sure didn't work.
         return Err(Ice40Error::ChipNotListening);
     }
@@ -166,7 +164,7 @@ pub fn finish_bitstream_load(
     // If we've sent the bitstream successfully, we expect the iCE40 to release
     // CDONE. This is supposed to happen fairly quickly. Give it a bit and
     // check.
-    if sys.gpio_read(config.cdone).unwrap() == 0 {
+    if sys.gpio_read(config.cdone) == 0 {
         // aw shucks
         return Err(Ice40Error::ConfigDidNotComplete);
     }

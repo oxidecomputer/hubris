@@ -61,15 +61,14 @@ impl Config {
             .iter()
             .chain(self.flash_dev_select.as_ref().into_iter())
         {
-            sys.gpio_reset(p).unwrap();
+            sys.gpio_reset(p);
 
             sys.gpio_configure_output(
                 p,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
         }
     }
 }
@@ -96,7 +95,7 @@ fn main() -> ! {
     hl::sleep_for(1);
 
     // Release reset and let it stabilize.
-    sys.gpio_set(cfg.reset).unwrap();
+    sys.gpio_set(cfg.reset);
     hl::sleep_for(10);
 
     // Check the ID.
@@ -283,18 +282,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
-        let rv = match state {
+        match state {
             HfMuxState::SP => sys.gpio_reset(self.mux_select_pin),
             HfMuxState::HostCPU => sys.gpio_set(self.mux_select_pin),
-        };
-
-        match rv {
-            Err(_) => Err(HfError::MuxFailed.into()),
-            Ok(_) => {
-                self.mux_state = state;
-                Ok(())
-            }
         }
+
+        self.mux_state = state;
+        Ok(())
     }
 
     fn get_dev(
@@ -315,18 +309,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_muxed_to_sp()?;
 
         let sys = sys_api::Sys::from(SYS.get_task_id());
-        let rv = match state {
+        match state {
             HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
             HfDevSelect::Flash1 => sys.gpio_set(dev_select_pin),
-        };
-
-        match rv {
-            Err(_) => Err(HfError::DevSelectFailed.into()),
-            Ok(_) => {
-                self.dev_state = state;
-                Ok(())
-            }
         }
+
+        self.dev_state = state;
+        Ok(())
     }
 
     #[cfg(feature = "hash")]

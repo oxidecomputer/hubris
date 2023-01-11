@@ -27,24 +27,21 @@ pub(crate) fn init(qspi: &Qspi, sys: &sys_api::Sys) -> Config {
         sys_api::Speed::Low,
         sys_api::Pull::None,
         sys_api::Alternate::AF9,
-    )
-    .unwrap();
+    );
     sys.gpio_configure_alternate(
         sys_api::Port::F.pin(8).and_pin(9),
         sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
         sys_api::Alternate::AF10,
-    )
-    .unwrap();
+    );
     sys.gpio_configure_alternate(
         sys_api::Port::B.pin(6),
         sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
         sys_api::Alternate::AF10,
-    )
-    .unwrap();
+    );
 
     Config {
         sp_host_mux_select: sys_api::Port::F.pin(4),

@@ -37,8 +37,7 @@ impl RmiiPins {
                 Speed::VeryHigh,
                 Pull::None,
                 self.af,
-            )
-            .unwrap();
+            );
         }
     }
 }
@@ -62,8 +61,7 @@ impl MdioPins {
                 Speed::Low,
                 Pull::None,
                 self.af,
-            )
-            .unwrap();
+            );
         }
     }
 }

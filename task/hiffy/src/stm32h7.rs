@@ -75,22 +75,13 @@ pub enum Functions {
     #[cfg(feature = "i2c")]
     I2cSelectedMuxSegment((Controller, PortIndex), ResponseCode),
     #[cfg(feature = "gpio")]
-    GpioInput(drv_stm32xx_sys_api::Port, drv_stm32xx_sys_api::GpioError),
+    GpioInput(drv_stm32xx_sys_api::Port, u32),
     #[cfg(feature = "gpio")]
-    GpioToggle(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioToggle((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
-    GpioSet(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioSet((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
-    GpioReset(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioReset((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
     GpioConfigure(
         (
@@ -102,7 +93,7 @@ pub enum Functions {
             drv_stm32xx_sys_api::Pull,
             drv_stm32xx_sys_api::Alternate,
         ),
-        drv_stm32xx_sys_api::GpioError,
+        u32,
     ),
     #[cfg(feature = "spi")]
     SpiRead((Task, u8, usize, usize), drv_spi_api::SpiError),
@@ -483,13 +474,10 @@ fn gpio_input(
 
     ringbuf_entry!(Trace::GpioInput(port));
 
-    match gpio.gpio_read_input(port) {
-        Ok(input) => {
-            byteorder::LittleEndian::write_u16(rval, input);
-            Ok(core::mem::size_of::<u16>())
-        }
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    let input = gpio.gpio_read_input(port);
+
+    byteorder::LittleEndian::write_u16(rval, input);
+    Ok(core::mem::size_of::<u16>())
 }
 
 #[cfg(feature = "gpio")]
@@ -505,7 +493,7 @@ fn gpio_toggle(
 
     match gpio.gpio_toggle(port, mask) {
         Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
+        Err(idol_runtime::ServerDeath) => panic!(),
     }
 }
 
@@ -520,10 +508,9 @@ fn gpio_set(
 
     let (port, mask) = gpio_args(stack)?;
 
-    match gpio.gpio_set_reset(port, mask, 0) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.gpio_set_reset(port, mask, 0);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -537,10 +524,9 @@ fn gpio_reset(
 
     let (port, mask) = gpio_args(stack)?;
 
-    match gpio.gpio_set_reset(port, 0, mask) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.gpio_set_reset(port, 0, mask);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -606,10 +592,9 @@ fn gpio_configure(
         Trace::GpioConfigure(port, mask, mode, output_type, speed, pull, af)
     );
 
-    match gpio.gpio_configure(port, mask, mode, output_type, speed, pull, af) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    gpio.gpio_configure(port, mask, mode, output_type, speed, pull, af);
+
+    Ok(0)
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[

@@ -18,10 +18,12 @@ pub const SHA256_SZ: usize = 32;
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HashError {
     NotInitialized = 1,
-    InvalidState = 2,
-    Busy = 3, // Some other owner is using the Hash block
-    ServerRestarted = 4,
-    NoData = 5,
+    InvalidState,
+    Busy, // Some other owner is using the Hash block
+    NoData,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

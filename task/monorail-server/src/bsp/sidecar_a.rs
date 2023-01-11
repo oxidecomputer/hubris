@@ -332,34 +332,32 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         use sys_api::*;
 
         let coma_mode = Port::I.pin(10);
-        sys.gpio_set(coma_mode).unwrap();
+        sys.gpio_set(coma_mode);
         sys.gpio_configure_output(
             coma_mode,
             OutputType::PushPull,
             Speed::Low,
             Pull::None,
-        )
-        .unwrap();
-        sys.gpio_reset(coma_mode).unwrap();
+        );
+        sys.gpio_reset(coma_mode);
 
         // Make NRST low then switch it to output mode, before resetting
         // power to the chip.
         let nrst = Port::I.pin(9);
-        sys.gpio_reset(nrst).unwrap();
+        sys.gpio_reset(nrst);
         sys.gpio_configure_output(
             nrst,
             OutputType::PushPull,
             Speed::Low,
             Pull::None,
-        )
-        .unwrap();
+        );
 
         // SP_TO_LDO_PHY4_EN (PI6)
-        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4).unwrap();
+        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4);
         // TODO: sleep for PG lines going high here
 
         // Deassert reset line, then wait 120 ms
-        sys.gpio_set(nrst).unwrap();
+        sys.gpio_set(nrst);
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
@@ -373,7 +371,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // for some reason.
         self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
 
-        sys.gpio_reset(coma_mode).unwrap();
+        sys.gpio_reset(coma_mode);
 
         Ok(())
     }

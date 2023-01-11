@@ -59,7 +59,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         _: &RecvMessage,
         pin: Pin,
         dir: Direction,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let (port, pin) = gpio_port_pin_validate(pin);
 
         match dir {
@@ -76,7 +76,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         _: &RecvMessage,
         pin: Pin,
         val: Value,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let (port, pin) = gpio_port_pin_validate(pin);
 
         match val {
@@ -93,7 +93,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         pin: Pin,
-    ) -> Result<Value, RequestError<GpioError>> {
+    ) -> Result<Value, RequestError<core::convert::Infallible>> {
         let (port, pin) = gpio_port_pin_validate(pin);
 
         let mask = 1 << pin;
@@ -111,7 +111,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         pin: Pin,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let (port, pin) = gpio_port_pin_validate(pin);
 
         self.gpio.not[port].write(|w| unsafe { w.notp().bits(1 << pin) });
@@ -123,7 +123,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         _: &RecvMessage,
         pin: Pin,
         conf: u32,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         // The LPC55 IOCON Rust API has individual functions for each pin.
         // This is not easily compatible with our API that involves passing
         // around a representation of each pin. Given we have to pack the
@@ -169,18 +169,17 @@ fn gpio_port_pin_validate(pin: Pin) -> (usize, usize) {
 fn turn_on_gpio_clocks() {
     let syscon = Syscon::from(SYSCON.get_task_id());
 
-    syscon.enable_clock(Peripheral::Iocon).unwrap_lite();
-    syscon.leave_reset(Peripheral::Iocon).unwrap_lite();
+    syscon.enable_clock(Peripheral::Iocon);
+    syscon.leave_reset(Peripheral::Iocon);
 
-    syscon.enable_clock(Peripheral::Gpio0).unwrap_lite();
-    syscon.leave_reset(Peripheral::Gpio0).unwrap_lite();
+    syscon.enable_clock(Peripheral::Gpio0);
+    syscon.leave_reset(Peripheral::Gpio0);
 
-    syscon.enable_clock(Peripheral::Gpio1).unwrap_lite();
-    syscon.leave_reset(Peripheral::Gpio1).unwrap_lite();
+    syscon.enable_clock(Peripheral::Gpio1);
+    syscon.leave_reset(Peripheral::Gpio1);
 }
 
 mod idl {
-    use super::GpioError;
     use drv_lpc55_gpio_api::{Direction, Pin, Value};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

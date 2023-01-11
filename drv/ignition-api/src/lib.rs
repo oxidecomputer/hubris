@@ -36,10 +36,9 @@ pub const PORT_MAX: u8 = 40;
     IdolError,
 )]
 pub enum IgnitionError {
-    ServerDied = 1,
     /// Indicates an error communicating with the FPGA implementing the
     /// Controller.
-    FpgaError,
+    FpgaError = 1,
     /// Indicates the given port number is larger than the `port_count`.
     InvalidPort,
     /// Indicates an invalid value was provided.
@@ -52,6 +51,9 @@ pub enum IgnitionError {
     /// Indicates the given request conflicts with the Target system power
     /// state. Poll the Target state and retry if desired.
     RequestDiscarded,
+
+    #[idol(server_death)]
+    ServerDied,
 }
 
 impl From<ServerDeath> for IgnitionError {

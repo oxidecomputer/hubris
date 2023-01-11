@@ -21,7 +21,6 @@ pub use stm32h7::stm32h743 as device;
 pub use stm32h7::stm32h753 as device;
 
 use drv_stm32xx_sys_api::{Alternate, Peripheral, PinSet, Sys};
-use userlib::UnwrapLite;
 
 /// Handle to an enabled USART device.
 pub struct Usart {
@@ -86,8 +85,7 @@ impl Usart {
                 drv_stm32xx_sys_api::Speed::Low,
                 drv_stm32xx_sys_api::Pull::None,
                 alternate,
-            )
-            .unwrap_lite();
+            );
         }
 
         // Enable RX interrupts from the USART side.

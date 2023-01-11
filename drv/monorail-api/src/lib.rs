@@ -67,7 +67,6 @@ pub struct PortCounters {
 #[repr(C)]
 pub enum MonorailError {
     SpiError = 1,
-    ServerDied,
     ProxyError,
     BadChipId,
     Serdes1gReadTimeout,
@@ -121,6 +120,9 @@ pub enum MonorailError {
     UnconfiguredPort,
     /// The given port does not have a PHY associated with it
     NoPhy,
+
+    #[idol(server_death)]
+    ServerDied,
 }
 
 impl From<VscError> for MonorailError {

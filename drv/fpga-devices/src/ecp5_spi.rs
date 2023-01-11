@@ -6,7 +6,7 @@ use crate::ecp5::{Command, Ecp5Driver};
 use crate::FpgaUserDesign;
 use drv_fpga_api::FpgaError;
 use drv_spi_api::{self as spi_api, SpiDevice, SpiError};
-use drv_stm32xx_sys_api::{self as sys_api, GpioError, Sys};
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 
 /// `Ecp5UsingSpi` is the simplest implementation of the Ecp5Impl interface using
 /// the SPI and Sys APIs. It assumes the PROGRAM_N, INIT_N and DONE signals are
@@ -23,17 +23,10 @@ pub struct Ecp5UsingSpi {
     pub user_design_reset_duration: u64,
 }
 
-/// Impl Error type, with conversion from GpioError and SpiError.
+/// Impl Error type, with conversion from SpiError.
 #[derive(Copy, Clone, Debug)]
 pub enum Ecp5UsingSpiError {
-    GpioError(GpioError),
     SpiError(SpiError),
-}
-
-impl From<GpioError> for Ecp5UsingSpiError {
-    fn from(e: GpioError) -> Self {
-        Self::GpioError(e)
-    }
 }
 
 impl From<SpiError> for Ecp5UsingSpiError {
@@ -45,9 +38,6 @@ impl From<SpiError> for Ecp5UsingSpiError {
 impl From<Ecp5UsingSpiError> for u8 {
     fn from(e: Ecp5UsingSpiError) -> Self {
         match e {
-            Ecp5UsingSpiError::GpioError(e) => match e {
-                GpioError::BadArg => 2,
-            },
             Ecp5UsingSpiError::SpiError(e) => match e {
                 SpiError::BadTransferSize => 3,
                 SpiError::ServerRestarted => 4,
@@ -68,38 +58,38 @@ impl Ecp5Driver for Ecp5UsingSpi {
     type Error = Ecp5UsingSpiError;
 
     fn program_n(&self) -> Result<bool, Self::Error> {
-        Ok(self.sys.gpio_read(self.program_n)? != 0)
+        Ok(self.sys.gpio_read(self.program_n) != 0)
     }
 
     fn set_program_n(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.program_n, asserted)?)
+        Ok(self.sys.gpio_set_to(self.program_n, asserted))
     }
 
     fn init_n(&self) -> Result<bool, Self::Error> {
-        Ok(self.sys.gpio_read(self.init_n)? != 0)
+        Ok(self.sys.gpio_read(self.init_n) != 0)
     }
 
     fn set_init_n(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.init_n, !asserted)?)
+        Ok(self.sys.gpio_set_to(self.init_n, !asserted))
     }
 
     fn done(&self) -> Result<bool, Self::Error> {
-        Ok(self.sys.gpio_read(self.done)? != 0)
+        Ok(self.sys.gpio_read(self.done) != 0)
     }
 
     fn set_done(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.done, asserted)?)
+        Ok(self.sys.gpio_set_to(self.done, asserted))
     }
 
     fn user_design_reset_n(&self) -> Result<bool, Self::Error> {
-        Ok(self.sys.gpio_read(self.user_design_reset_n)? != 0)
+        Ok(self.sys.gpio_read(self.user_design_reset_n) != 0)
     }
 
     fn set_user_design_reset_n(
         &self,
         asserted: bool,
     ) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.user_design_reset_n, asserted)?)
+        Ok(self.sys.gpio_set_to(self.user_design_reset_n, asserted))
     }
 
     fn user_design_reset_duration(&self) -> u64 {
@@ -178,44 +168,36 @@ impl Ecp5UsingSpi {
     pub fn configure_gpio(&self) {
         use sys_api::*;
 
-        self.sys.gpio_set(self.done).unwrap();
-        self.sys
-            .gpio_configure_output(
-                self.done,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::Up,
-            )
-            .unwrap();
+        self.sys.gpio_set(self.done);
+        self.sys.gpio_configure_output(
+            self.done,
+            OutputType::OpenDrain,
+            Speed::Low,
+            Pull::Up,
+        );
 
-        self.sys.gpio_set(self.init_n).unwrap();
-        self.sys
-            .gpio_configure_output(
-                self.init_n,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::Up,
-            )
-            .unwrap();
+        self.sys.gpio_set(self.init_n);
+        self.sys.gpio_configure_output(
+            self.init_n,
+            OutputType::OpenDrain,
+            Speed::Low,
+            Pull::Up,
+        );
 
-        self.sys.gpio_set(self.program_n).unwrap();
-        self.sys
-            .gpio_configure_output(
-                self.program_n,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-            )
-            .unwrap();
+        self.sys.gpio_set(self.program_n);
+        self.sys.gpio_configure_output(
+            self.program_n,
+            OutputType::OpenDrain,
+            Speed::Low,
+            Pull::None,
+        );
 
-        self.sys.gpio_set(self.user_design_reset_n).unwrap();
-        self.sys
-            .gpio_configure_output(
-                self.user_design_reset_n,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-            )
-            .unwrap();
+        self.sys.gpio_set(self.user_design_reset_n);
+        self.sys.gpio_configure_output(
+            self.user_design_reset_n,
+            OutputType::OpenDrain,
+            Speed::Low,
+            Pull::None,
+        );
     }
 }

@@ -6,40 +6,23 @@
 
 #![no_std]
 
-use core::convert::TryFrom;
 use core::num::NonZeroU32;
+use derive_idol_err::IdolError;
 use rand_core::impls;
 pub use rand_core::{Error, RngCore};
 use userlib::{sys_send, FromPrimitive};
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum RngError {
-    PoweredOff,
+    PoweredOff = 1,
     NoData,
     ClockError,
     SeedError,
-}
+    UnknownRngError,
 
-impl From<RngError> for u16 {
-    fn from(rc: RngError) -> Self {
-        u16::try_from(rc).expect("Overflow converting from RngError to u16.")
-    }
-}
-
-impl From<RngError> for u32 {
-    fn from(rc: RngError) -> Self {
-        rc as Self
-    }
-}
-
-impl From<u32> for RngError {
-    fn from(u: u32) -> Self {
-        match FromPrimitive::from_u32(u) {
-            Some(err) => err,
-            None => panic!("Invalid u32 for conversion to RngError."),
-        }
-    }
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 // This function transforms an RngError to an error code appropriate for
@@ -50,9 +33,9 @@ impl From<RngError> for Error {
         let code = u32::from(e) + Error::CUSTOM_START;
         match NonZeroU32::new(code) {
             Some(rc) => Error::from(rc),
-            None => {
-                panic!("Invalid RngError for conversion to rand_core::Error.")
-            }
+            // Code is at least `Error::CUSTOM_START`, so guaranteed to be
+            // nonzero.
+            None => unreachable!(),
         }
     }
 }
@@ -63,9 +46,11 @@ impl From<Error> for RngError {
         // https://docs.rs/rand_core/latest/rand_core/struct.Error.html#method.code
         let code = e.code().unwrap().get();
         if code < Error::CUSTOM_START {
-            panic!("Invalid rand_core::Error for conversion to RngError.");
+            Self::UnknownRngError
+        } else {
+            RngError::try_from(code - Error::CUSTOM_START)
+                .unwrap_or(Self::UnknownRngError)
         }
-        RngError::from(code - Error::CUSTOM_START)
     }
 }
 

@@ -20,19 +20,20 @@ hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 userlib = { path = "../../sys/userlib" }
 
-byteorder = { workspace = true }
-cfg-if = { workspace = true }
-cortex-m = { workspace = true }
-hif = { workspace = true }
-num-traits = { workspace = true }
-serde = { workspace = true }
-zerocopy = { workspace = true }
+byteorder.workspace = true
+cfg-if.workspace = true
+cortex-m.workspace = true
+hif.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+zerocopy.workspace = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c" }
-anyhow = { workspace = true }
-cfg-if = { workspace = true }
+anyhow.workspace = true
+cfg-if.workspace = true
 
 [features]
 itm = [ "userlib/log-itm" ]

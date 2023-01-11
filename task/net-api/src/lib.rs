@@ -156,6 +156,9 @@ pub enum MgmtError {
     NotAvailable = 1,
     VscError,
     KszError,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 ////////////////////////////////////////////////////////////////////////////////

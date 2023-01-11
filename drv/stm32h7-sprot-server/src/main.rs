@@ -117,13 +117,13 @@ cfg_if::cfg_if! {
                 sys_api::OutputType::OpenDrain,
                 sys_api::Speed::High,
                 sys_api::Pull::Up
-            ).unwrap_lite();
+            );
             debug_set(sys, true);
         }
 
         fn debug_set(sys: &sys_api::Sys, asserted: bool) {
             ringbuf_entry!(Trace::Debug(asserted));
-            sys.gpio_set_to(DEBUG_PIN, asserted).unwrap_lite();
+            sys.gpio_set_to(DEBUG_PIN, asserted);
         }
     } else {
         compile_error!("No configuration for ROT_IRQ");
@@ -153,8 +153,7 @@ fn main() -> ! {
     let spi = Spi::from(SPI.get_task_id()).device(SP_TO_ROT_SPI_DEVICE);
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
-    sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None)
-        .unwrap_lite();
+    sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
     debug_config(&sys);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -469,7 +468,7 @@ impl ServerImpl {
     }
 
     fn is_rot_irq_asserted(&mut self) -> bool {
-        self.sys.gpio_read(ROT_IRQ).unwrap_lite() == 0
+        self.sys.gpio_read(ROT_IRQ) == 0
     }
 
     // Poll ROT_IRQ until asserted (true) or deasserted (false).

@@ -20,12 +20,12 @@ pub use task_sensor_api::SensorId;
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ValidateError {
     InvalidDevice = 1,
-    BadValidation = 2,
-    NotPresent = 3,
-    DeviceError = 4,
-    Unavailable = 5,
-    DeviceTimeout = 6,
-    DeviceOff = 7,
+    BadValidation,
+    NotPresent,
+    DeviceError,
+    Unavailable,
+    DeviceTimeout,
+    DeviceOff,
 }
 
 impl From<ResponseCode> for ValidateError {

@@ -150,6 +150,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }
 
+    let handles_server_death_marker = dead_code.as_ref().map(|_| {
+        quote! {
+            impl idol_runtime::IHaveConsideredServerDeathWithThisErrorType for #ident {}
+        }
+    });
     let first_dead_code = abi::FIRST_DEAD_CODE;
     let dead_code_handler = dead_code.map(|dead| {
         quote! {
@@ -180,6 +185,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 Self::from_u32(v).ok_or(())
             }
         }
+        #handles_server_death_marker
     };
     output.into()
 }

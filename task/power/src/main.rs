@@ -428,14 +428,13 @@ fn preinit() {
     let sys = Sys::from(sys_task);
 
     let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
-    sys.gpio_set(i2c_en).unwrap();
+    sys.gpio_set(i2c_en);
     sys.gpio_configure_output(
         i2c_en,
         OutputType::PushPull,
         Speed::Low,
         Pull::None,
-    )
-    .unwrap();
+    );
 }
 
 #[export_name = "main"]

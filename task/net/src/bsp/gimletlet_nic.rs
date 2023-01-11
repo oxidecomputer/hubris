@@ -62,7 +62,7 @@ impl bsp_support::Bsp for BspImpl {
             let ksz8463_spi = Spi::from(SPI.get_task_id()).device(0);
 
             // Initialize the KSZ8463 (using SPI4_RESET, PB10)
-            sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1).unwrap();
+            sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1);
             let ksz8463 = Ksz8463::new(ksz8463_spi);
 
             #[cfg(feature = "vlan")]

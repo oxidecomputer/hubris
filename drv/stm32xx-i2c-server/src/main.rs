@@ -385,7 +385,7 @@ fn configure_port(
             // `Mode::input`, which will assure that we don't leave SCL and
             // SDA pulled high.
             //
-            sys.gpio_configure_input(pin.gpio_pins, Pull::None).unwrap();
+            sys.gpio_configure_input(pin.gpio_pins, Pull::None);
         } else if pin.port == port {
             // Configure our new port!
             sys.gpio_configure_alternate(
@@ -394,8 +394,7 @@ fn configure_port(
                 Speed::High,
                 Pull::None,
                 pin.function,
-            )
-            .unwrap();
+            );
         }
     }
 
@@ -431,8 +430,7 @@ fn configure_pins(
             Speed::High,
             Pull::None,
             pin.function,
-        )
-        .unwrap();
+        );
 
         map.insert(controller.controller, pin.port);
     }

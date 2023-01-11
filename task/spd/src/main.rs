@@ -52,8 +52,7 @@ fn configure_pins(pins: &[I2cPin]) {
             Speed::High,
             Pull::None,
             pin.function,
-        )
-        .unwrap();
+        );
     }
 }
 

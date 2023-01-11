@@ -36,7 +36,7 @@ cfg_if::cfg_if! {
 }
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
-use drv_stm32xx_sys_api::{GpioError, Group, RccError};
+use drv_stm32xx_sys_api::{Group, RccError};
 use idol_runtime::RequestError;
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
@@ -208,7 +208,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         port: Port,
         pins: u16,
         packed_attributes: u16,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         unsafe { get_gpio_regs(port) }.configure(pins, packed_attributes);
         Ok(())
     }
@@ -219,7 +219,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         port: Port,
         set_pins: u16,
         reset_pins: u16,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         unsafe { get_gpio_regs(port) }.set_reset(set_pins, reset_pins);
         Ok(())
     }
@@ -229,7 +229,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
         port: Port,
         pins: u16,
-    ) -> Result<(), RequestError<GpioError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         unsafe { get_gpio_regs(port) }.toggle(pins);
         Ok(())
     }
@@ -238,7 +238,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         port: Port,
-    ) -> Result<u16, RequestError<GpioError>> {
+    ) -> Result<u16, RequestError<core::convert::Infallible>> {
         Ok(unsafe { get_gpio_regs(port) }.read())
     }
 
@@ -477,7 +477,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::{GpioError, Port, RccError};
+    use super::{Port, RccError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

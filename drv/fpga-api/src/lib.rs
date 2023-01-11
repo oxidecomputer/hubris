@@ -30,6 +30,10 @@ pub enum FpgaError {
     AuxMissingBlob,
 }
 
+// TODO is this right? We cause clients to panic if we die; should we have a
+// `ServerRestarted` variant instead?
+impl idol_runtime::IHaveConsideredServerDeathWithThisErrorType for FpgaError {}
+
 impl From<FpgaError> for u16 {
     fn from(e: FpgaError) -> Self {
         match e {

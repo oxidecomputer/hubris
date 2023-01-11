@@ -15,9 +15,12 @@ pub use drv_gimlet_state::PowerState;
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SeqError {
     IllegalTransition = 1,
-    MuxToHostCPUFailed = 2,
-    MuxToSPFailed = 3,
-    ClockConfigFailed = 4,
+    MuxToHostCPUFailed,
+    MuxToSPFailed,
+    ClockConfigFailed,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

@@ -46,22 +46,13 @@ pub enum Functions {
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
-    GpioInput(drv_stm32xx_sys_api::Port, drv_stm32xx_sys_api::GpioError),
+    GpioInput(drv_stm32xx_sys_api::Port, u32),
     #[cfg(feature = "gpio")]
-    GpioToggle(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioToggle((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
-    GpioSet(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioSet((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
-    GpioReset(
-        (drv_stm32xx_sys_api::Port, u8),
-        drv_stm32xx_sys_api::GpioError,
-    ),
+    GpioReset((drv_stm32xx_sys_api::Port, u8), u32),
     #[cfg(feature = "gpio")]
     GpioConfigure(
         (
@@ -73,7 +64,7 @@ pub enum Functions {
             drv_stm32xx_sys_api::Pull,
             drv_stm32xx_sys_api::Alternate,
         ),
-        drv_stm32xx_sys_api::GpioError,
+        u32,
     ),
 }
 
@@ -344,13 +335,10 @@ fn gpio_input(
         None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
     };
 
-    match sys.gpio_read_input(port) {
-        Ok(input) => {
-            byteorder::LittleEndian::write_u16(rval, input);
-            Ok(core::mem::size_of::<u16>())
-        }
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    let input = sys.gpio_read_input(port);
+
+    byteorder::LittleEndian::write_u16(rval, input);
+    Ok(core::mem::size_of::<u16>())
 }
 
 #[cfg(feature = "gpio")]
@@ -366,7 +354,7 @@ fn gpio_toggle(
 
     match sys.gpio_toggle(port, mask) {
         Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
+        Err(idol_runtime::ServerDeath) => panic!(),
     }
 }
 
@@ -381,10 +369,9 @@ fn gpio_set(
 
     let (port, mask) = gpio_args(stack)?;
 
-    match sys.gpio_set_reset(port, mask, 0) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    sys.gpio_set_reset(port, mask, 0);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -398,10 +385,9 @@ fn gpio_reset(
 
     let (port, mask) = gpio_args(stack)?;
 
-    match sys.gpio_set_reset(port, 0, mask) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    sys.gpio_set_reset(port, 0, mask);
+
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -462,10 +448,9 @@ fn gpio_configure(
     let task = SYS.get_task_id();
     let sys = drv_stm32xx_sys_api::Sys::from(task);
 
-    match sys.gpio_configure(port, mask, mode, output_type, speed, pull, af) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    sys.gpio_configure(port, mask, mode, output_type, speed, pull, af);
+
+    Ok(0)
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[

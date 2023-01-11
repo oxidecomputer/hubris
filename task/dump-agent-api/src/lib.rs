@@ -23,6 +23,9 @@ pub enum DumpAgentError {
     OutOfSpaceForSegments,
     DumpFailed,
     NotSupported,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 #[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]

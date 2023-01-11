@@ -16,6 +16,7 @@ Interface(
                 ok: "PmbusValue",
                 err: CLike("ResponseCode"),
             ),
+            idempotent: true,
         ),
     },
 )

@@ -123,12 +123,16 @@ pub enum SprotError {
     UpdateSpRotError,
     UpdateMissingHeaderBlock,
     UpdateInvalidHeaderBlock,
+    UpdateServerRestarted,
     UpdateUnknown,
     // The status was returned for the SP, which is not what we asked about
     UpdateBadStatus,
 
     // An error relating to Stage0 handoff of image data
     Stage0HandoffError,
+
+    #[idol(server_death)]
+    ServerRestarted,
 
     /// Unknown Errors are mapped to 0xff
     Unknown = 0xff,
@@ -164,6 +168,7 @@ impl From<UpdateError> for SprotError {
             UpdateError::InvalidHeaderBlock => {
                 SprotError::UpdateInvalidHeaderBlock
             }
+            UpdateError::ServerRestarted => SprotError::UpdateServerRestarted,
             UpdateError::Unknown => SprotError::UpdateUnknown,
         }
     }

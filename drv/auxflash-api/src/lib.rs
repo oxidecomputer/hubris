@@ -17,7 +17,6 @@ pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum AuxFlashError {
     WriteEnableFailed = 1,
-    ServerRestarted,
     TlvcReaderBeginFailed,
 
     /// The requested slot exceeds the slot count
@@ -46,6 +45,9 @@ pub enum AuxFlashError {
     NoSuchBlob,
     /// Writes to the currently-active slot are not allowed
     SlotActive,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 #[derive(Copy, Clone, FromBytes, AsBytes)]

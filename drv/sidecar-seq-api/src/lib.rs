@@ -18,13 +18,16 @@ use zerocopy::AsBytes;
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SeqError {
     FpgaError = 1,
-    IllegalTransition = 2,
-    ClockConfigurationFailed = 3,
-    SequencerError = 4,
-    SequencerTimeout = 5,
-    InvalidTofinoVid = 6,
-    SetVddCoreVoutFailed = 7,
-    NoFrontIOBoard = 8,
+    IllegalTransition,
+    ClockConfigurationFailed,
+    SequencerError,
+    SequencerTimeout,
+    InvalidTofinoVid,
+    SetVddCoreVoutFailed,
+    NoFrontIOBoard,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 impl From<FpgaError> for SeqError {

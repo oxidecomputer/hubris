@@ -80,9 +80,8 @@ fn main() -> ! {
         sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
-    )
-    .unwrap();
-    sys.gpio_reset(CHASSIS_LED).unwrap();
+    );
+    sys.gpio_reset(CHASSIS_LED);
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -92,11 +91,10 @@ fn main() -> ! {
     // Unconditionally set our power-good detects as inputs.
     //
     // This is the expected reset state, but, good to be sure.
-    sys.gpio_configure_input(PGS_PINS, PGS_PULL).unwrap();
+    sys.gpio_configure_input(PGS_PINS, PGS_PULL);
 
     // Set SP3_TO_SP_NIC_PWREN_L to be an input
-    sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL)
-        .unwrap();
+    sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL);
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -112,8 +110,7 @@ fn main() -> ! {
         sys_api::OutputType::PushPull,
         sys_api::Speed::High,
         sys_api::Pull::None,
-    )
-    .unwrap();
+    );
 
     // To talk to the sequencer we need to configure its pins, obvs. Note that
     // the SPI and CS lines are separately managed by the SPI server; the ice40
@@ -121,7 +118,7 @@ fn main() -> ! {
     // generate surprise resets.
     ice40::configure_pins(&sys, &ICE40_CONFIG);
 
-    let pg = sys.gpio_read_input(PGS_PORT).unwrap();
+    let pg = sys.gpio_read_input(PGS_PORT);
     let v1p2 = pg & PG_V1P2_MASK != 0;
     let v3p3 = pg & PG_V3P3_MASK != 0;
 
@@ -130,7 +127,7 @@ fn main() -> ! {
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
     // Flash. TODO: this may cause trouble with hot restarts, test.
-    sys.gpio_reset(ICE40_CONFIG.creset).unwrap();
+    sys.gpio_reset(ICE40_CONFIG.creset);
 
     // Begin, or resume, the power supply sequencing process for the FPGA. We're
     // going to be reading back our enable line states to get the real state
@@ -140,7 +137,7 @@ fn main() -> ! {
     // of ours. Ensuring that it's on by writing the pin is just as cheap as
     // sensing its current state, and less code than _conditionally_ writing the
     // pin, so:
-    sys.gpio_set(ENABLE_V1P2).unwrap();
+    sys.gpio_set(ENABLE_V1P2);
 
     // We don't actually know how long ago the regulator turned on. Could have
     // been _just now_ (above) or may have already been on. We'll use the PG pin
@@ -153,7 +150,7 @@ fn main() -> ! {
     // Now, monitor the PG pin.
     loop {
         // active high
-        let pg = sys.gpio_read_input(PGS_PORT).unwrap() & PG_V1P2_MASK != 0;
+        let pg = sys.gpio_read_input(PGS_PORT) & PG_V1P2_MASK != 0;
         ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
         if pg {
             break;
@@ -166,7 +163,7 @@ fn main() -> ! {
     }
 
     // We believe V1P2 is good. Now, for V3P3! Set it active (high).
-    sys.gpio_set(ENABLE_V3P3).unwrap();
+    sys.gpio_set(ENABLE_V3P3);
 
     // Delay to be sure.
     hl::sleep_for(2);
@@ -174,7 +171,7 @@ fn main() -> ! {
     // Now, monitor the PG pin.
     loop {
         // active high
-        let pg = sys.gpio_read_input(PGS_PORT).unwrap() & PG_V3P3_MASK != 0;
+        let pg = sys.gpio_read_input(PGS_PORT) & PG_V3P3_MASK != 0;
         ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
         if pg {
             break;
@@ -199,9 +196,9 @@ fn main() -> ! {
         // programming port). If this is such a board, apply those changes:
         for &(pin, is_high) in hacks {
             if is_high {
-                sys.gpio_set(pin).unwrap();
+                sys.gpio_set(pin);
             } else {
-                sys.gpio_reset(pin).unwrap();
+                sys.gpio_reset(pin);
             }
 
             sys.gpio_configure_output(
@@ -209,8 +206,7 @@ fn main() -> ! {
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
         }
     }
 
@@ -220,14 +216,13 @@ fn main() -> ! {
         // push-pull because all our boards with reset nets are lacking pullups
         // right now. It's active low, so, set up the pin before exposing the
         // output to ensure we don't glitch.
-        sys.gpio_set(pin).unwrap();
+        sys.gpio_set(pin);
         sys.gpio_configure_output(
             pin,
             sys_api::OutputType::PushPull,
             sys_api::Speed::High,
             sys_api::Pull::None,
-        )
-        .unwrap();
+        );
     }
 
     // If the sequencer is already loaded and operational, the design loaded
@@ -252,7 +247,7 @@ fn main() -> ! {
             // Assert the design reset signal (not the same as the FPGA
             // programming logic reset signal). We do this during reprogramming
             // to avoid weird races that make our brains hurt.
-            sys.gpio_reset(pin).unwrap();
+            sys.gpio_reset(pin);
         }
 
         // Reprogramming will continue until morale improves -- to a point.
@@ -276,7 +271,7 @@ fn main() -> ! {
         if let Some(pin) = GLOBAL_RESET {
             // Deassert design reset signal. We set the pin, as it's
             // active low.
-            sys.gpio_set(pin).unwrap();
+            sys.gpio_set(pin);
         }
 
         // Store our bitstream checksum in the FPGA's checksum registers
@@ -334,7 +329,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::A2);
 
     // Turn on the chassis LED once we reach A2
-    sys.gpio_set(CHASSIS_LED).unwrap();
+    sys.gpio_set(CHASSIS_LED);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -398,7 +393,7 @@ impl NotificationHandler for ServerImpl {
             // needed.
             //
             let sys = sys_api::Sys::from(SYS.get_task_id());
-            let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS).unwrap() != 0;
+            let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS) != 0;
 
             ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
 
@@ -709,10 +704,9 @@ cfg_if::cfg_if! {
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::Low,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
 
-            sys.gpio_reset(UART_TX_ENABLE).unwrap();
+            sys.gpio_reset(UART_TX_ENABLE);
         }
 
         fn uart_sp_to_sp3_disable() {
@@ -723,10 +717,9 @@ cfg_if::cfg_if! {
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::Low,
                 sys_api::Pull::None,
-            )
-            .unwrap();
+            );
 
-            sys.gpio_set(UART_TX_ENABLE).unwrap();
+            sys.gpio_set(UART_TX_ENABLE);
         }
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;

@@ -91,8 +91,7 @@ impl Config {
                 Ksz8463ResetSpeed::Slow => 150,
                 Ksz8463ResetSpeed::Normal => 1,
             },
-        )
-        .unwrap();
+        );
 
         let ksz8463 = Ksz8463::new(self.ksz8463_spi);
 
@@ -108,24 +107,22 @@ impl Config {
         // TODO: wait for PLL lock to happen here
 
         // Start with reset low and COMA_MODE high
-        sys.gpio_reset(self.vsc85x2_nrst).unwrap();
+        sys.gpio_reset(self.vsc85x2_nrst);
         sys.gpio_configure_output(
             self.vsc85x2_nrst,
             OutputType::PushPull,
             Speed::Low,
             Pull::None,
-        )
-        .unwrap();
+        );
 
         if let Some(coma_mode) = self.vsc85x2_coma_mode {
-            sys.gpio_set(coma_mode).unwrap();
+            sys.gpio_set(coma_mode);
             sys.gpio_configure_output(
                 coma_mode,
                 OutputType::PushPull,
                 Speed::Low,
                 Pull::None,
-            )
-            .unwrap();
+            );
         }
 
         // Do a hard reset of power, if that's present on this board
@@ -138,13 +135,12 @@ impl Config {
                 // See hardware-psc/issues/48 for analysis; it appears to
                 // be an issue with the level shifter rise times.
                 if self.slow_power_en { 200 } else { 4 },
-            )
-            .unwrap();
+            );
         }
 
         // TODO: sleep for PG lines going high here
 
-        sys.gpio_set(self.vsc85x2_nrst).unwrap();
+        sys.gpio_set(self.vsc85x2_nrst);
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Build handle for the VSC85x2 PHY, then initialize it
@@ -153,7 +149,7 @@ impl Config {
 
         // Disable COMA_MODE
         if let Some(coma_mode) = self.vsc85x2_coma_mode {
-            sys.gpio_reset(coma_mode).unwrap();
+            sys.gpio_reset(coma_mode);
         }
 
         vsc85x2.unwrap() // TODO

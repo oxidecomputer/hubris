@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-derive-idol-err = { path = "../../lib/derive-idol-err"  }
 userlib = { path = "../../sys/userlib" }
 
 num-traits = { workspace = true }
