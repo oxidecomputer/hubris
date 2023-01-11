@@ -43,6 +43,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
+#[derive(Clone)]
 pub struct Spi {
     /// Pointer to our register block.
     ///
@@ -107,13 +108,13 @@ impl Spi {
         self.reg.i2scfgr.write(|w| w.i2smod().clear_bit());
     }
 
-    pub fn enable(&mut self, tsize: u16, div: device::spi1::cfg1::MBR_A) {
+    pub fn enable(&self, tsize: u16, div: device::spi1::cfg1::MBR_A) {
         self.reg.cfg1.modify(|_, w| w.mbr().variant(div));
         self.reg.cr2.modify(|_, w| w.tsize().bits(tsize));
         self.reg.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&self) {
         self.reg.cr1.modify(|_, w| w.cstart().set_bit());
         // Clear EOT flag
         self.reg.ifcr.write(|w| w.eotc().set_bit());
@@ -134,7 +135,7 @@ impl Spi {
         sr.txp().bit()
     }
 
-    pub fn send32(&mut self, bytes: u32) {
+    pub fn send32(&self, bytes: u32) {
         self.reg.txdr.write(|w| w.txdr().bits(bytes));
     }
 
@@ -153,7 +154,7 @@ impl Spi {
     ///
     /// - There must be room for a byte in the TX FIFO (call `can_tx_frame` to
     ///   check, or call this in response to a TXP interrupt).
-    pub fn send8(&mut self, byte: u8) {
+    pub fn send8(&self, byte: u8) {
         // The TXDR register can be accessed as a byte, halfword, or word. This
         // determines how many bytes are pushed in. stm32h7/svd2rust don't
         // understand this, and so we have to get a pointer to the byte portion
@@ -184,7 +185,7 @@ impl Spi {
         }
     }
 
-    pub fn recv32(&mut self) -> u32 {
+    pub fn recv32(&self) -> u32 {
         self.reg.rxdr.read().rxdr().bits()
     }
 
@@ -198,7 +199,7 @@ impl Spi {
     /// - Frame size must be set to 8 bits or smaller. (Behavior if you write a
     ///   partial frame to the FIFO is not immediately clear from the
     ///   datasheet.)
-    pub fn recv8(&mut self) -> u8 {
+    pub fn recv8(&self) -> u8 {
         // The RXDR register can be accessed as a byte, halfword, or word. This
         // determines how many bytes are pushed in. stm32h7/svd2rust don't
         // understand this, and so we have to get a pointer to the byte portion
@@ -221,7 +222,7 @@ impl Spi {
         unsafe { rxdr8.read_volatile() }
     }
 
-    pub fn end(&mut self) {
+    pub fn end(&self) {
         // Clear flags that tend to get set during transactions.
         self.reg.ifcr.write(|w| w.txtfc().set_bit());
         // Disable the transfer state machine.
@@ -243,17 +244,17 @@ impl Spi {
         });
     }
 
-    pub fn enable_transfer_interrupts(&mut self) {
+    pub fn enable_transfer_interrupts(&self) {
         self.reg
             .ier
             .write(|w| w.txpie().set_bit().rxpie().set_bit().eotie().set_bit());
     }
 
-    pub fn disable_can_tx_interrupt(&mut self) {
+    pub fn disable_can_tx_interrupt(&self) {
         self.reg.ier.modify(|_, w| w.txpie().clear_bit());
     }
 
-    pub fn enable_can_tx_interrupt(&mut self) {
+    pub fn enable_can_tx_interrupt(&self) {
         self.reg.ier.modify(|_, w| w.txpie().set_bit());
     }
 
@@ -261,7 +262,7 @@ impl Spi {
         self.reg.sr.read().eot().is_completed()
     }
 
-    pub fn clear_eot(&mut self) {
+    pub fn clear_eot(&self) {
         self.reg.ifcr.write(|w| w.eotc().set_bit());
     }
 
