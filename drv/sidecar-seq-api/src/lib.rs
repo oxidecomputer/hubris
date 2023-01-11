@@ -25,6 +25,7 @@ pub enum SeqError {
     InvalidTofinoVid,
     SetVddCoreVoutFailed,
     NoFrontIOBoard,
+
     #[idol(server_death)]
     ServerRestarted,
 }

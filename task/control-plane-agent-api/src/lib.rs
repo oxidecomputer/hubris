@@ -19,6 +19,7 @@ pub enum ControlPlaneAgentError {
     InvalidStartupOptions,
     OperationUnsupported,
     MgsAttachedToUart,
+
     #[idol(server_death)]
     ServerRestarted,
 }

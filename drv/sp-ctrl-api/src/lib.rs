@@ -16,6 +16,7 @@ pub enum SpCtrlError {
     NeedInit,
     Fault,
     InvalidCoreRegister,
+
     #[idol(server_death)]
     ServerRestarted,
 }

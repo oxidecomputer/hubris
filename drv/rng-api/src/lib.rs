@@ -20,6 +20,7 @@ pub enum RngError {
     ClockError,
     SeedError,
     UnknownRngError,
+
     #[idol(server_death)]
     ServerRestarted,
 }

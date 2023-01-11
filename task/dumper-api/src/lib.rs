@@ -22,6 +22,7 @@ pub enum DumperError {
     FailedToResume,
     FailedToResumeAfterFailure,
     RegisterReadFailed,
+
     #[idol(server_death)]
     ServerRestarted,
 }

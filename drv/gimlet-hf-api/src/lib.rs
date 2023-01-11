@@ -20,8 +20,6 @@ pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HfError {
     WriteEnableFailed = 1,
-    #[idol(server_death)]
-    ServerRestarted,
     MuxFailed,
     HashBadRange,
     HashError,
@@ -29,6 +27,9 @@ pub enum HfError {
     NoDevSelect,
     DevSelectFailed,
     NotMuxedToSP,
+
+    #[idol(server_death)]
+    ServerRestarted,
 }
 
 /// Controls whether the SP or host CPU has access to flash

@@ -20,9 +20,10 @@ pub enum HashError {
     NotInitialized = 1,
     InvalidState,
     Busy, // Some other owner is using the Hash block
+    NoData,
+
     #[idol(server_death)]
     ServerRestarted,
-    NoData,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

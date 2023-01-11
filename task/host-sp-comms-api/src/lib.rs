@@ -15,6 +15,7 @@ pub use host_sp_messages::{HostStartupOptions, Status};
 pub enum HostSpCommsError {
     InvalidStatus = 1,
     InvalidStartupOptions,
+
     #[idol(server_death)]
     ServerRestarted,
 }
