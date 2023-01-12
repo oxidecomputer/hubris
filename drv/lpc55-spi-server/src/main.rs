@@ -135,11 +135,11 @@ fn main() -> ! {
 fn turn_on_flexcomm(syscon: &Syscon) {
     // HSLSPI = High Speed Spi = Flexcomm 8
     // The L stands for Let this just be named consistently for once
-    syscon.enable_clock(Peripheral::HsLspi).unwrap_lite();
-    syscon.leave_reset(Peripheral::HsLspi).unwrap_lite();
+    syscon.enable_clock(Peripheral::HsLspi);
+    syscon.leave_reset(Peripheral::HsLspi);
 
-    syscon.enable_clock(Peripheral::Fc3).unwrap_lite();
-    syscon.leave_reset(Peripheral::Fc3).unwrap_lite();
+    syscon.enable_clock(Peripheral::Fc3);
+    syscon.leave_reset(Peripheral::Fc3);
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
