@@ -55,10 +55,8 @@ fn set(index: usize, val: bool) -> Result<(), RequestError<MeanwellError>> {
     if index >= MEANWELL_PINS.len() {
         Err(MeanwellError::NotPresent.into())
     } else {
-        match sys.gpio_set_to(MEANWELL_PINS[index], val) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(MeanwellError::GpioError.into()),
-        }
+        sys.gpio_set_to(MEANWELL_PINS[index], val);
+        Ok(())
     }
 }
 
@@ -71,10 +69,8 @@ fn get(index: usize) -> Result<bool, RequestError<MeanwellError>> {
     if index >= MEANWELL_PINS.len() {
         Err(MeanwellError::NotPresent.into())
     } else {
-        match sys.gpio_read(MEANWELL_PINS[index]) {
-            Ok(val) => Ok(val != 0),
-            Err(_) => Err(MeanwellError::GpioError.into()),
-        }
+        let val = sys.gpio_read(MEANWELL_PINS[index]);
+        Ok(val != 0)
     }
 }
 
@@ -164,7 +160,6 @@ fn main() -> ! {
             Speed::Low,
             Pull::None,
         )
-        .unwrap();
     }
 
     let mut incoming = [0u8; idl::INCOMING_SIZE];
