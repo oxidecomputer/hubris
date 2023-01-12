@@ -19,6 +19,7 @@ use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use spi_api::SpiServer;
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
