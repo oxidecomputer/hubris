@@ -49,7 +49,7 @@ task-slots = ["sys"]
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
@@ -63,7 +63,7 @@ global_config = "spi2"
 [tasks.spi4_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi4"]
 uses = ["spi4"]
 start = true

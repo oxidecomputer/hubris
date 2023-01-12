@@ -46,7 +46,7 @@ task-slots = ["sys"]
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["spi1", "h753"]
 uses = ["spi1"]
 start = true
