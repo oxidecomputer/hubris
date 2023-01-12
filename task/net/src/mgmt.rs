@@ -2,13 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::miim_bridge::MiimBridge;
-use drv_spi_api::SpiDevice;
+use crate::{bsp_support::Ksz8463, miim_bridge::MiimBridge};
 use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
-use ksz8463::{
-    Error as KszError, Ksz8463, MIBCounterValue, Register as KszRegister,
-};
+use ksz8463::{Error as KszError, MIBCounterValue, Register as KszRegister};
 use ringbuf::*;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
@@ -55,7 +52,7 @@ pub struct Config {
     /// Goes high once the PLLs are locked
     pub pll_lock: Option<sys_api::PinSet>,
 
-    pub ksz8463_spi: SpiDevice,
+    pub ksz8463: Ksz8463,
     pub ksz8463_nrst: sys_api::PinSet,
     pub ksz8463_rst_type: Ksz8463ResetSpeed,
     pub ksz8463_vlan_mode: ksz8463::VLanMode,
@@ -78,7 +75,7 @@ impl Config {
         Bsp { ksz8463, vsc85x2 }
     }
 
-    fn configure_ksz8463(self, sys: &Sys) -> ksz8463::Ksz8463 {
+    fn configure_ksz8463(self, sys: &Sys) -> Ksz8463 {
         // The datasheet recommends a particular combination of diodes and
         // capacitors which dramatically slow down the rise of the reset
         // line, meaning you have to wait for extra long here.
@@ -93,14 +90,12 @@ impl Config {
             },
         );
 
-        let ksz8463 = Ksz8463::new(self.ksz8463_spi);
-
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
-        ksz8463
+        self.ksz8463
             .configure(ksz8463::Mode::Fiber, self.ksz8463_vlan_mode)
             .unwrap();
-        ksz8463
+        self.ksz8463
     }
 
     fn configure_vsc85x2(&self, sys: &Sys, eth: &Ethernet) -> Vsc85x2 {

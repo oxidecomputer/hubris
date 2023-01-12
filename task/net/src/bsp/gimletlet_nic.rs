@@ -5,13 +5,15 @@
 #[cfg(not(feature = "ksz8463"))]
 compile_error!("this BSP requires the ksz8463 feature");
 
-use crate::{bsp_support, pins};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    pins,
+};
 use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use ksz8463::{
-    Error as RawKszError, Ksz8463, MIBCounter, MIBCounterValue,
-    Register as KszRegister,
+    Error as RawKszError, MIBCounter, MIBCounterValue, Register as KszRegister,
 };
 use ringbuf::*;
 use task_net_api::PhyError;

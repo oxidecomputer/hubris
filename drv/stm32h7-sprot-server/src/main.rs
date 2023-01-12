@@ -21,6 +21,9 @@ use zerocopy::{ByteOrder, LittleEndian};
 task_slot!(SPI, spi_driver);
 task_slot!(SYS, sys);
 
+// Select SPI server type based on crate features
+type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
+
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -142,7 +145,7 @@ fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
 
 pub struct ServerImpl {
     sys: sys_api::Sys,
-    spi: drv_spi_api::SpiDevice,
+    spi: SpiDevice,
     // Use separate buffers so that retries can be generic.
     pub tx_buf: TxMsg,
     pub rx_buf: RxMsg,

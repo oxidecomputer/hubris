@@ -5,7 +5,12 @@
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");
 
-use crate::{bsp_support, mgmt, miim_bridge::MiimBridge, pins};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    mgmt,
+    miim_bridge::MiimBridge,
+    pins,
+};
 use drv_sidecar_seq_api::Sequencer;
 use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
@@ -59,6 +64,8 @@ impl bsp_support::Bsp for BspImpl {
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
+        let spi = Spi::from(SPI.get_task_id());
+        let ksz8463_dev = spi.device(0); // from app.toml
         let bsp = mgmt::Config {
             // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
             power_en: Some(Port::I.pin(11)),
@@ -67,7 +74,7 @@ impl bsp_support::Bsp for BspImpl {
             pll_lock: None,   // TODO?
 
             // Based on ordering in app.toml
-            ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+            ksz8463: Ksz8463::new(ksz8463_dev),
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
@@ -116,7 +123,7 @@ impl bsp_support::Bsp for BspImpl {
         self.0.phy_write(port, reg, value, eth)
     }
 
-    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &Ksz8463 {
         &self.0.ksz8463
     }
 

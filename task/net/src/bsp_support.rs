@@ -19,6 +19,10 @@ use drv_stm32xx_sys_api::Sys;
 use task_net_api::PhyError;
 use vsc7448_pac::types::PhyRegisterAddress;
 
+// Select local vs server SPI communication
+#[cfg(feature = "ksz8463")]
+pub type Ksz8463 = ksz8463::Ksz8463<drv_spi_api::Spi>;
+
 #[cfg(feature = "mgmt")]
 use task_net_api::MgmtError;
 
@@ -69,7 +73,7 @@ pub trait Bsp: Sized {
     ) -> Result<(), PhyError>;
 
     #[cfg(feature = "ksz8463")]
-    fn ksz8463(&self) -> &ksz8463::Ksz8463;
+    fn ksz8463(&self) -> &Ksz8463;
 
     #[cfg(feature = "mgmt")]
     fn management_link_status(

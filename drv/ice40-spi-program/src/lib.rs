@@ -26,7 +26,7 @@
 
 #![no_std]
 
-use drv_spi_api::{self as spi_api, SpiDevice};
+use drv_spi_api::{self as spi_api, SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use userlib::hl;
 
@@ -90,8 +90,8 @@ pub fn configure_pins(sys: &Sys, config: &Config) {
 ///
 /// If programming fails, you can call this again to restart. If you want to
 /// abort programming after a failure, use `spi.release()`.
-pub fn begin_bitstream_load(
-    spi: &SpiDevice,
+pub fn begin_bitstream_load<S: SpiServer>(
+    spi: &SpiDevice<S>,
     sys: &Sys,
     config: &Config,
 ) -> Result<(), Ice40Error> {
@@ -144,8 +144,8 @@ pub fn begin_bitstream_load(
 ///
 /// Note that there is a 64kiB limitation in the current SPI controller, so,
 /// if you hit that you will get a `SpiError` back.
-pub fn continue_bitstream_load(
-    spi: &SpiDevice,
+pub fn continue_bitstream_load<S: SpiServer>(
+    spi: &SpiDevice<S>,
     data: &[u8],
 ) -> Result<(), spi_api::SpiError> {
     // Loading the remainder of the bitstream is a simple matter of...
@@ -156,8 +156,8 @@ pub fn continue_bitstream_load(
 /// Wraps up bitstream loading and checks the CDONE signal to see if it worked.
 ///
 /// This also unlocks the SPI controller.
-pub fn finish_bitstream_load(
-    spi: &SpiDevice,
+pub fn finish_bitstream_load<S: SpiServer>(
+    spi: &SpiDevice<S>,
     sys: &Sys,
     config: &Config,
 ) -> Result<(), Ice40Error> {

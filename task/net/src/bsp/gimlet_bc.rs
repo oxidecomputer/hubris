@@ -5,7 +5,7 @@
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");
 
-use crate::{mgmt, pins};
+use crate::{bsp_support::Ksz8463, mgmt, pins};
 use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::{Spi, SpiServer};
 use drv_stm32h7_eth as eth;
@@ -81,6 +81,8 @@ impl crate::bsp_support::Bsp for BspImpl {
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
+        let spi = Spi::from(SPI.get_task_id());
+        let ksz8463_dev = spi.device(2); // from app.toml
         Self(
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
@@ -90,7 +92,7 @@ impl crate::bsp_support::Bsp for BspImpl {
                 pll_lock: None,   // TODO?
 
                 // Based on ordering in app.toml
-                ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
+                ksz8463: Ksz8463::new(ksz8463_dev),
 
                 // SP_TO_MGMT_MUX_RESET_L
                 ksz8463_nrst: Port::C.pin(2),
@@ -136,7 +138,7 @@ impl crate::bsp_support::Bsp for BspImpl {
         self.0.phy_write(port, reg, value, eth)
     }
 
-    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &Ksz8463 {
         &self.0.ksz8463
     }
 

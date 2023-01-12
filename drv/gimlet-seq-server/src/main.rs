@@ -15,11 +15,10 @@ use userlib::*;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
-use drv_spi_api as spi_api;
+use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
-use spi_api::SpiServer;
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
@@ -33,6 +32,9 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[cfg_attr(target_board = "gimlet-b", path = "payload_b.rs")]
 #[cfg_attr(target_board = "gimlet-c", path = "payload_c.rs")]
 mod payload;
+
+// Select SPI server type based on crate features
+type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -69,7 +71,7 @@ ringbuf!(Trace, 64, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = spi_api::Spi::from(SPI.get_task_id());
+    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
@@ -632,7 +634,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 }
 
 fn reprogram_fpga(
-    spi: &spi_api::SpiDevice,
+    spi: &SpiDevice,
     sys: &sys_api::Sys,
     config: &ice40::Config,
 ) -> Result<(), ice40::Ice40Error> {
