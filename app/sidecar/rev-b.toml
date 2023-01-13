@@ -30,20 +30,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
-[tasks.spi2_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["h753", "spi2"]
-uses = ["spi2"]
-start = true
-interrupts = {"spi2.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
-
-[tasks.spi2_driver.config.spi]
-global_config = "spi2"
-
 [tasks.update_server]
 name = "stm32h7-update-server"
 priority = 3
@@ -143,12 +129,13 @@ features = ["vlan"]
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "sidecar", "vlan"]
+features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io",
-              { spi_driver = "spi2_driver" },
-              { seq = "sequencer" }]
+uses = ["spi2"]
+task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+interrupts = {"spi2.irq" = 1}
+config.spi.global_config = "spi2"
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -195,6 +182,7 @@ stacksize = 2048
 start = true
 uses = ["spi5"]
 task-slots = ["sys"]
+interrupts = {"spi5.irq" = 1}
 config.spi.global_config = "spi5"
 
 [tasks.ecp5_front_io]
@@ -206,6 +194,7 @@ stacksize = 2048
 start = true
 uses = ["spi1"]
 task-slots = ["sys", "i2c_driver"]
+interrupts = {"spi1.irq" = 1}
 config.spi.global_config = "spi1"
 
 [tasks.transceivers]
