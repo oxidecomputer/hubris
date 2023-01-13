@@ -58,20 +58,6 @@ task-slots = ["sys"]
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
 
-[tasks.spi3_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["h753", "spi3"]
-uses = ["spi3"]
-start = true
-interrupts = {"spi3.irq" = 1}
-stacksize = 1000
-task-slots = ["sys"]
-
-[tasks.spi3_driver.config.spi]
-global_config = "spi3"
-
 [tasks.spi4_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
@@ -124,15 +110,15 @@ task-slots = ["sys"]
 name = "task-net"
 stacksize = 6040
 priority = 5
-features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac"]
+features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16"]
+uses = ["eth", "eth_dma", "tim16", "spi3"]
 start = true
-interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10, "spi3.irq" = 0b100}
 task-slots = ["sys", "i2c_driver",
-              { spi_driver = "spi3_driver" },
               { seq = "sequencer" }]
+config.spi.global_config = "spi3"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"

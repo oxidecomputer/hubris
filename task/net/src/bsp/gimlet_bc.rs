@@ -7,7 +7,7 @@ compile_error!("this BSP requires the ksz8463 and mgmt features");
 
 use crate::{bsp_support::Ksz8463, mgmt, pins};
 use drv_gimlet_seq_api::PowerState;
-use drv_spi_api::{Spi, SpiServer};
+use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_jefe_api::Jefe;
@@ -17,7 +17,6 @@ use task_net_api::{
 use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
 use vsc7448_pac::types::PhyRegisterAddress;
 
-task_slot!(SPI, spi_driver);
 task_slot!(JEFE, jefe);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +80,7 @@ impl crate::bsp_support::Bsp for BspImpl {
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
-        let spi = Spi::from(SPI.get_task_id());
+        let spi = bsp_support::claim_spi(sys);
         let ksz8463_dev = spi.device(2); // from app.toml
         Self(
             mgmt::Config {

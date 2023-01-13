@@ -5,6 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2021"
 
 [dependencies]
+cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 enum-map = { workspace = true }
 heapless = { workspace = true }
@@ -24,6 +25,7 @@ drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api", optional = true }
 drv-stm32h7-eth = { path = "../../drv/stm32h7-eth", features = ["ipv6"] }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
+drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ksz8463 = {path = "../../drv/ksz8463", optional = true }
@@ -36,12 +38,13 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 vsc85xx = { path = "../../drv/vsc85xx"}
 
 [features]
+use-spi-core = ["drv-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["drv-local-vpd"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
-h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
-h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-spi-server-core?/h743"]
+h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-spi-server-core?/h753"]
 vlan = ["task-net-api/vlan", "build-net/vlan", "drv-stm32h7-eth/vlan"]
 gimletlet-nic = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/ksz8463"]
 

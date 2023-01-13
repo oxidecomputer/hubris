@@ -19,9 +19,34 @@ use drv_stm32xx_sys_api::Sys;
 use task_net_api::PhyError;
 use vsc7448_pac::types::PhyRegisterAddress;
 
-// Select local vs server SPI communication
-#[cfg(feature = "ksz8463")]
-pub type Ksz8463 = ksz8463::Ksz8463<drv_spi_api::Spi>;
+////////////////////////////////////////////////////////////////////////////////
+
+cfg_if::cfg_if! {
+    // Select local vs server SPI communication
+    if #[cfg(all(feature = "ksz8463", feature = "use-spi-core"))] {
+        // Note that this *always* maps the SPI interrupt to interrupt mask
+        // 0b100, which must match the TOML file.
+        pub type Ksz8463 =
+            ksz8463::Ksz8463<drv_stm32h7_spi_server_core::SpiServerCore<0b100>>;
+
+        /// Claims the SPI core.
+        ///
+        /// This function can only be called once, and will panic otherwise!
+        pub fn claim_spi(sys: &Sys) -> drv_stm32h7_spi_server_core::SpiServerCore<0b100> {
+            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone())
+        }
+    } else if #[cfg(all(feature = "ksz8463", not(feature = "use-spi-core")))] {
+        userlib::task_slot!(SPI, spi_driver);
+        pub type Ksz8463 = ksz8463::Ksz8463<drv_spi_api::Spi>;
+
+        /// Claims the SPI handle
+        pub fn claim_spi(_sys: &Sys) -> drv_spi_api::Spi {
+            drv_spi_api::Spi::from(SPI.get_task_id())
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "mgmt")]
 use task_net_api::MgmtError;

@@ -11,7 +11,7 @@ use crate::{
     miim_bridge::MiimBridge,
     pins,
 };
-use drv_spi_api::{Spi, SpiServer};
+use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use drv_user_leds_api::UserLeds;
@@ -26,7 +26,6 @@ use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
 
-task_slot!(SPI, spi_driver);
 task_slot!(USER_LEDS, user_leds);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -127,7 +126,7 @@ impl bsp_support::Bsp for BspImpl {
         leds.led_off(0).unwrap();
         leds.led_on(3).unwrap();
 
-        let spi = Spi::from(SPI.get_task_id());
+        let spi = bsp_support::claim_spi(sys);
         let ksz8463_dev = spi.device(0); // from app.toml
 
         let mgmt = mgmt::Config {
