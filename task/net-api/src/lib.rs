@@ -7,6 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
@@ -112,7 +113,9 @@ pub struct MacAddressBlock {
     pub stride: u8,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, SerializedSize, Deserialize,
+)]
 #[repr(C)]
 pub struct ManagementLinkStatus {
     pub ksz8463_100base_fx_link_up: [bool; 2],
@@ -120,7 +123,9 @@ pub struct ManagementLinkStatus {
     pub vsc85x2_sgmii_link_up: [bool; 2],
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, SerializedSize, Deserialize,
+)]
 #[repr(C)]
 pub struct ManagementCountersVsc85x2 {
     pub mac_good: u16,
@@ -129,7 +134,9 @@ pub struct ManagementCountersVsc85x2 {
     pub media_bad: u16,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, SerializedSize, Deserialize,
+)]
 #[repr(C)]
 pub struct ManagementCountersKsz8463 {
     pub multicast: u32,
@@ -137,7 +144,9 @@ pub struct ManagementCountersKsz8463 {
     pub broadcast: u32,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, SerializedSize, Deserialize,
+)]
 #[repr(C)]
 pub struct ManagementCounters {
     pub vsc85x2_tx: [ManagementCountersVsc85x2; 2],
@@ -163,7 +172,9 @@ pub enum MgmtError {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
+)]
 #[repr(u32)]
 pub enum LargePayloadBehavior {
     /// If we have a packet with a payload larger than the buffer provided to
@@ -178,7 +189,9 @@ pub enum LargePayloadBehavior {
     // so we omit it for now.
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
+)]
 pub struct UdpMetadata {
     pub addr: Address,
     pub port: u16,
@@ -200,7 +213,9 @@ impl From<UdpMetadata> for smoltcp::wire::IpEndpoint {
 
 // This must be repr(C); otherwise Rust cleverly optimizes out the enum tag,
 // which breaks ssmarshal's assumptions about struct sizes.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
+)]
 #[repr(C)]
 pub enum Address {
     Ipv6(Ipv6Address),
@@ -232,7 +247,9 @@ impl TryFrom<smoltcp::wire::IpAddress> for Address {
 #[cfg(feature = "use-smoltcp")]
 pub struct AddressUnspecified;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
+)]
 #[serde(transparent)]
 pub struct Ipv6Address(pub [u8; 16]);
 

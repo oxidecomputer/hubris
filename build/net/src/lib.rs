@@ -110,7 +110,12 @@ pub fn generate_socket_enum(
         out,
         "#[derive(Copy, Clone, Debug, Eq, PartialEq, userlib::FromPrimitive)]"
     )?;
-    writeln!(out, "#[derive(serde::Serialize, serde::Deserialize)]")?;
+    writeln!(
+        out,
+        "#[derive(serde::Serialize, \
+                  serde::Deserialize, \
+                  hubpack::SerializedSize)]"
+    )?;
     writeln!(out, "pub enum SocketName {{")?;
     for (i, name) in config.sockets.keys().enumerate() {
         writeln!(out, "    {} = {},", name, i)?;

@@ -4,7 +4,7 @@ Interface(
     name: "Net",
     ops: {
         "recv_packet": (
-            encoding: Ssmarshal,
+            encoding: Hubpack,
             doc: "Unqueues an incoming packet from a socket.",
             args: {
                 "socket": "SocketName",
@@ -19,7 +19,7 @@ Interface(
             ),
         ),
         "send_packet": (
-            encoding: Ssmarshal,
+            encoding: Hubpack,
             doc: "Queues an outgoing packet into a socket.",
             args: {
                 "socket": "SocketName",
@@ -124,7 +124,7 @@ Interface(
                 ok: "ManagementLinkStatus",
                 err: CLike("MgmtError")
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
         "management_counters": (
             doc: "Returns management network counters",
@@ -132,7 +132,7 @@ Interface(
                 ok: "ManagementCounters",
                 err: CLike("MgmtError")
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
     },
 )

@@ -182,7 +182,7 @@ features = ["vlan"]
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 4
-max-sizes = {flash = 8192, ram = 8192}
+max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
