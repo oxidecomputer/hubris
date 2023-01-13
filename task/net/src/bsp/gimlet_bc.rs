@@ -5,7 +5,10 @@
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");
 
-use crate::{bsp_support::Ksz8463, mgmt, pins};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    mgmt, pins,
+};
 use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
