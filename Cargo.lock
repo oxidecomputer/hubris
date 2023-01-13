@@ -1577,6 +1577,20 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi-server-core"
+version = "0.1.0"
+dependencies = [
  "build-util",
  "call_rustfmt",
  "cfg-if",
@@ -1587,6 +1601,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "indexmap",
+ "mutable-statics",
  "num-traits",
  "proc-macro2",
  "quote",
@@ -2274,7 +2289,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#adcd5e1c2b9c1d40997f278ad81660711d3347ef"
+source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
 dependencies = [
  "indexmap",
  "quote",
@@ -2286,7 +2301,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#adcd5e1c2b9c1d40997f278ad81660711d3347ef"
+source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
 dependencies = [
  "userlib",
  "zerocopy",

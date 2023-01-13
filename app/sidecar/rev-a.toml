@@ -33,7 +33,7 @@ task-slots = ["jefe"]
 [tasks.spi1_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi1"]
 uses = ["spi1"]
 start = true
@@ -47,7 +47,7 @@ global_config = "spi1"
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
@@ -75,7 +75,7 @@ global_config = "spi3"
 [tasks.spi4_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
@@ -89,7 +89,7 @@ global_config = "spi4"
 [tasks.spi5_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi5"]
 uses = ["spi5"]
 start = true
