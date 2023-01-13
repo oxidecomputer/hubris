@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Server task for the STM32H7 SPI peripheral.
+//! Library that extracts the logic of owning a STM32H7 SPI peripheral.
 //!
 //! Currently this hardcodes the clock rate.
 //!
