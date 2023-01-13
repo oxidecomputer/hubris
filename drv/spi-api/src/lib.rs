@@ -112,7 +112,7 @@ impl SpiServer for Spi {
     }
 
     fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
-        Spi::write(self, device_index, dest)
+        Spi::read(self, device_index, dest)
     }
 
     fn lock(
