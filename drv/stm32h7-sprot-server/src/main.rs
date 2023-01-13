@@ -6,7 +6,7 @@
 #![no_main]
 
 use core::convert::Into;
-use drv_spi_api::{CsState, Spi, SpiServer};
+use drv_spi_api::{CsState, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
 use drv_update_api::{UpdateError, UpdateTarget};
@@ -15,14 +15,36 @@ use ringbuf::*;
 use userlib::*;
 #[cfg(feature = "sink_test")]
 use zerocopy::{ByteOrder, LittleEndian};
-// use serde::{Deserialize, Serialize};
-// use hubpack::SerializedSize;
 
-task_slot!(SPI, spi_driver);
+cfg_if::cfg_if! {
+    // Select local vs server SPI communication
+    if #[cfg(feature = "use-spi-core")] {
+        // The SPI peripheral is owned by this task!
+        type SpiDevice =
+            drv_spi_api::SpiDevice<drv_stm32h7_spi_server_core::SpiServerCore>;
+
+        /// Claims the SPI core.
+        ///
+        /// This function can only be called once, and will panic otherwise!
+        pub fn claim_spi(sys: &sys_api::Sys)
+            -> drv_stm32h7_spi_server_core::SpiServerCore
+        {
+            // Note that this *always* maps the SPI interrupt to interrupt mask
+            // 0b1, which must match the TOML file.
+            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
+        }
+    } else {
+        // The SPI peripheral is owned by a separate `stm32h7-spi-server` task
+        type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
+
+        pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
+            task_slot!(SPI, spi_driver);
+            drv_spi_api::Spi::from(SPI.get_task_id())
+        }
+    }
+}
+
 task_slot!(SYS, sys);
-
-// Select SPI server type based on crate features
-type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
@@ -153,8 +175,8 @@ pub struct ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = Spi::from(SPI.get_task_id()).device(SP_TO_ROT_SPI_DEVICE);
     let sys = sys_api::Sys::from(SYS.get_task_id());
+    let spi = claim_spi(&sys).device(SP_TO_ROT_SPI_DEVICE);
 
     sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
     debug_config(&sys);

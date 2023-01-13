@@ -1622,6 +1622,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "drv-sprot-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-update-api",
  "hubpack",
