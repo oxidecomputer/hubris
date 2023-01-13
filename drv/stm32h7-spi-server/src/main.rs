@@ -59,9 +59,9 @@ impl InOrderSpiImpl for ServerImpl {
         dest: LenLimit<Leased<W, [u8]>, 65535>,
     ) -> Result<(), RequestError<SpiError>> {
         self.core
-            .read::<LeaseBufWriter<_, BUFSIZ>, _>(
+            .read::<LeaseBufWriter<_, BUFSIZ>>(
                 device_index,
-                dest.into_inner(),
+                dest.into_inner().into(),
             )
             .map_err(RequestError::from)
     }
@@ -73,9 +73,9 @@ impl InOrderSpiImpl for ServerImpl {
         src: LenLimit<Leased<R, [u8]>, 65535>,
     ) -> Result<(), RequestError<SpiError>> {
         self.core
-            .write::<LeaseBufReader<_, BUFSIZ>, _>(
+            .write::<LeaseBufReader<_, BUFSIZ>>(
                 device_index,
-                src.into_inner(),
+                src.into_inner().into(),
             )
             .map_err(RequestError::from)
     }
@@ -88,10 +88,11 @@ impl InOrderSpiImpl for ServerImpl {
         dest: LenLimit<Leased<W, [u8]>, 65535>,
     ) -> Result<(), RequestError<SpiError>> {
         self.core
-            .exchange::<
-                    LeaseBufReader<_, BUFSIZ>, _,
-                    LeaseBufWriter<_, BUFSIZ>, _,
-                >(device_index, src.into_inner(), dest.into_inner())
+            .exchange::<LeaseBufReader<_, BUFSIZ>, LeaseBufWriter<_, BUFSIZ>>(
+                device_index,
+                src.into_inner().into(),
+                dest.into_inner().into(),
+            )
             .map_err(RequestError::from)
     }
 

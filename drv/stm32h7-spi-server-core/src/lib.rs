@@ -155,12 +155,12 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         self.lock_holder.set(None);
     }
 
-    pub fn read<'b, BufWrite: BufWriter<'b>, Write: Into<BufWrite> + 'b>(
+    pub fn read<'b, BufWrite: BufWriter<'b>>(
         &self,
         device_index: u8,
-        dest: Write,
+        dest: BufWrite,
     ) -> Result<(), SpiError> {
-        self.ready_writey::<&[u8], &[u8], _, _>(
+        self.ready_writey::<&[u8], _>(
             SpiOperation::read,
             device_index,
             None,
@@ -168,12 +168,12 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         )
     }
 
-    pub fn write<'b, BufRead: BufReader<'b>, Read: Into<BufRead> + 'b>(
+    pub fn write<'b, BufRead: BufReader<'b>>(
         &self,
         device_index: u8,
-        src: Read,
+        src: BufRead,
     ) -> Result<(), SpiError> {
-        self.ready_writey::<_, _, &mut [u8], &mut [u8]>(
+        self.ready_writey::<_, &mut [u8]>(
             SpiOperation::write,
             device_index,
             Some(src),
@@ -181,17 +181,11 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         )
     }
 
-    pub fn exchange<
-        'b,
-        BufRead: BufReader<'b>,
-        Read: Into<BufRead> + 'b,
-        BufWrite: BufWriter<'b>,
-        Write: Into<BufWrite> + 'b,
-    >(
+    pub fn exchange<'b, BufRead: BufReader<'b>, BufWrite: BufWriter<'b>>(
         &self,
         device_index: u8,
-        src: Read,
-        dest: Write,
+        src: BufRead,
+        dest: BufWrite,
     ) -> Result<(), SpiError> {
         self.ready_writey(
             SpiOperation::exchange,
@@ -267,18 +261,12 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         }
     }
 
-    fn ready_writey<
-        'b,
-        BufRead: BufReader<'b>,
-        Read: Into<BufRead> + 'b,
-        BufWrite: BufWriter<'b>,
-        Write: Into<BufWrite> + 'b,
-    >(
+    fn ready_writey<'b, BufRead: BufReader<'b>, BufWrite: BufWriter<'b>>(
         &self,
         op: SpiOperation,
         device_index: u8,
-        data_src: Option<Read>,
-        data_dest: Option<Write>,
+        mut tx: Option<BufRead>,
+        mut rx: Option<BufWrite>,
     ) -> Result<(), SpiError> {
         let device_index = usize::from(device_index);
 
@@ -299,13 +287,9 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         // At least one lease must be provided. A failure here indicates that
         // the server stub calling this common routine is broken, not a client
         // mistake.
-        if data_src.is_none() && data_dest.is_none() {
+        if tx.is_none() && rx.is_none() {
             panic!();
         }
-
-        // Wrap a buffer reader/writer onto whichever borrows actually exist.
-        let mut tx: Option<_> = data_src.map(|b| b.into());
-        let mut rx: Option<_> = data_dest.map(|b| b.into());
 
         // Get the required transfer lengths in the src and dest directions.
         //
@@ -708,20 +692,15 @@ impl<const IRQ: u32> SpiServer for SpiServerCore<IRQ> {
         src: &[u8],
         dest: &mut [u8],
     ) -> Result<(), SpiError> {
-        SpiServerCore::exchange::<&[u8], _, &mut [u8], _>(
-            self,
-            device_index,
-            src,
-            dest,
-        )
+        SpiServerCore::exchange(self, device_index, src, dest)
     }
 
     fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError> {
-        SpiServerCore::write::<&[u8], _>(self, device_index, src)
+        SpiServerCore::write(self, device_index, src)
     }
 
     fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
-        SpiServerCore::read::<&mut [u8], _>(self, device_index, dest)
+        SpiServerCore::read(self, device_index, dest)
     }
 
     fn lock(
