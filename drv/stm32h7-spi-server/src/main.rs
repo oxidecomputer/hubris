@@ -31,7 +31,7 @@ const IRQ_MASK: u32 = 1;
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
-    let core = drv_stm32h7_spi_server_core::declare_spi_core!(sys);
+    let core = drv_stm32h7_spi_server_core::declare_spi_core!(sys, IRQ_MASK);
     let mut server = ServerImpl { core };
     let mut incoming = [0u8; INCOMING_SIZE];
     loop {
@@ -40,7 +40,7 @@ fn main() -> ! {
 }
 
 struct ServerImpl {
-    core: SpiServerCore<IRQ_MASK>,
+    core: SpiServerCore,
 }
 
 impl InOrderSpiImpl for ServerImpl {

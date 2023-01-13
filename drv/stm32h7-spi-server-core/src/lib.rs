@@ -52,9 +52,10 @@ use core::cell::Cell;
 /// You probably want to use `declare_spi_core!`, which creates both the SPI
 /// core and the interior-mutable static storage associated with it.
 #[derive(Clone)]
-pub struct SpiServerCore<const IRQ_MASK: u32> {
+pub struct SpiServerCore {
     spi: spi_core::Spi,
     sys: sys_api::Sys,
+    irq_mask: u32,
     lock_holder: &'static Cell<Option<LockState>>, // used by Idol server
     current_mux_index: &'static Cell<usize>,
 }
@@ -80,9 +81,10 @@ pub struct LockState {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
+impl SpiServerCore {
     pub fn init(
         sys: sys_api::Sys,
+        irq_mask: u32,
         lock_holder: &'static Cell<Option<LockState>>, // used by Idol server
         current_mux_index: &'static Cell<usize>,
     ) -> Self {
@@ -141,6 +143,7 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
         Self {
             spi,
             sys,
+            irq_mask,
             lock_holder,
             current_mux_index,
         }
@@ -496,11 +499,11 @@ impl<const IRQ_MASK: u32> SpiServerCore<IRQ_MASK> {
 
                 // Allow the controller interrupt to post to our
                 // notification set.
-                sys_irq_control(IRQ_MASK, true);
+                sys_irq_control(self.irq_mask, true);
                 // Wait for our notification set to get, well, set. We ignore
                 // the result of this because an error would mean the kernel
                 // violated the ABI, which we can't usefully respond to.
-                let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
+                let _ = sys_recv_closed(&mut [], self.irq_mask, TaskId::KERNEL);
             }
         }
 
@@ -685,7 +688,7 @@ fn check_server_config() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-impl<const IRQ: u32> SpiServer for SpiServerCore<IRQ> {
+impl SpiServer for SpiServerCore {
     fn exchange(
         &self,
         device_index: u8,
@@ -724,7 +727,7 @@ pub use mutable_statics::mutable_statics as __mutable_statics_reexport;
 
 #[macro_export]
 macro_rules! declare_spi_core {
-    ($sys:expr) => {{
+    ($sys:expr, $irq_mask:expr) => {{
         let (lock_holder, current_mux_index) =
             $crate::__mutable_statics_reexport!(
                 static mut LOCK_HOLDER: [core::cell::Cell<
@@ -735,6 +738,7 @@ macro_rules! declare_spi_core {
             );
         $crate::SpiServerCore::init(
             $sys,
+            $irq_mask,
             &lock_holder[0],
             &current_mux_index[0],
         )
