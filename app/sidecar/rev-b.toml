@@ -30,20 +30,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
-[tasks.spi1_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["h753", "spi1"]
-uses = ["spi1"]
-start = true
-interrupts = {"spi1.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
-
-[tasks.spi1_driver.config.spi]
-global_config = "spi1"
-
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -57,20 +43,6 @@ task-slots = ["sys"]
 
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
-
-[tasks.spi5_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["h753", "spi5"]
-uses = ["spi5"]
-start = true
-interrupts = {"spi5.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
-
-[tasks.spi5_driver.config.spi]
-global_config = "spi5"
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -216,21 +188,25 @@ start = true
 
 [tasks.ecp5_mainboard]
 name = "drv-fpga-server"
-features = ["mainboard"]
+features = ["mainboard", "use-spi-core", "h753"]
 priority = 3
-max-sizes = {flash = 32768, ram = 4096}
+max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
 start = true
-task-slots = ["sys", {spi_driver = "spi5_driver"}]
+uses = ["spi5"]
+task-slots = ["sys"]
+config.spi.global_config = "spi5"
 
 [tasks.ecp5_front_io]
 name = "drv-fpga-server"
-features = ["front_io"]
+features = ["front_io", "use-spi-core", "h753"]
 priority = 3
-max-sizes = {flash = 32768, ram = 4096}
+max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
+uses = ["spi1"]
+task-slots = ["sys", "i2c_driver"]
+config.spi.global_config = "spi1"
 
 [tasks.transceivers]
 name = "drv-transceivers-server"

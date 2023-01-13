@@ -844,6 +844,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "gnarle",
  "idol",
