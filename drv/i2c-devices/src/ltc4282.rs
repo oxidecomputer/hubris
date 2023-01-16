@@ -4,10 +4,10 @@
 
 //! Driver for the LTC4282 high current hot swap controller
 
-use bitfield::bitfield;
 use crate::{CurrentSensor, Validate, VoltageSensor};
+use bitfield::bitfield;
+use core::cell::Cell;
 use drv_i2c_api::*;
-use num_traits::float::FloatCore;
 use userlib::units::*;
 use userlib::*;
 
@@ -165,11 +165,8 @@ pub enum Register {
     EE_SCRATCH_PAD = 0x4C,
 }
 
-pub struct Ltc4282 {
-    device: I2cDevice,
-    rsense: i32,
-}
-
+#[derive(Copy, Clone, PartialEq, FromPrimitive)]
+#[repr(u8)]
 pub enum Mode {
     Mode3P3V = 0b00,
     Mode5V = 0b01,
@@ -185,6 +182,7 @@ pub enum Threshold {
 }
 
 bitfield! {
+    #[derive(Copy, Clone)]
     pub struct Control(u16);
     on_fault_mask, set_on_fault_mask: 15;
     on_delay, set_on_delay: 14;
@@ -200,11 +198,18 @@ bitfield! {
     vin_mode, set_vin_mode: 1, 0;
 }
 
+pub struct Ltc4282 {
+    device: I2cDevice,
+    control: Cell<Option<Control>>,
+    rsense: Ohms,
+}
+
 impl Ltc4282 {
     pub fn new(device: &I2cDevice, rsense: Ohms) -> Self {
         Self {
             device: *device,
-            rsense: (rsense.0 * 1000.0).round() as i32,
+            rsense: rsense,
+            control: Cell::new(None),
         }
     }
 
@@ -220,27 +225,72 @@ impl Ltc4282 {
     }
 
     fn read_control(&self) -> Result<Control, ResponseCode> {
+        if let Some(ref control) = self.control.get() {
+            return Ok(*control);
+        }
+
         let control = Control(self.read_reg16(Register::CONTROL)?);
+        self.control.set(Some(control));
+
         Ok(control)
+    }
+
+    //
+    // Returns Vfs(out), the ADC full-scale range (which depends on the mode)
+    //
+    fn vfs_out(&self) -> Result<f32, ResponseCode> {
+        let control = self.read_control()?;
+        Ok(match Mode::from_u16(control.vin_mode()).unwrap() {
+            Mode::Mode3P3V => 5.547,
+            Mode::Mode5V => 8.32,
+            Mode::Mode12V => 16.64,
+            Mode::Mode24V => 33.28,
+        })
     }
 }
 
 impl Validate<ResponseCode> for Ltc4282 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Ltc4282::new(device, Ohms(0.0))
-            .read_reg16(Register::CONTROL)?;
-        Ok(val == 0xbb02)
+        let control = Ltc4282::new(device, Ohms(0.0)).read_control()?;
+
+        //
+        // We don't have any identification bits, so we look at the most
+        // distinctive bits we can depend on:  the default disposition of the
+        // control bits.  (If we change these dynamically, this logic will
+        // naturally need to change.)  We deliberately do not depend on the
+        // mode settings because these can be strapped to different values.
+        //
+        Ok(control.on_fault_mask() == true
+            && control.on_delay() == false
+            && control.on_enb() == true
+            && control.mass_write_enable() == true
+            && control.fet_on() == true
+            && control.oc_autoretry() == false
+            && control.uv_autoretry() == true
+            && control.ov_autoretry() == true)
     }
 }
 
 impl VoltageSensor<ResponseCode> for Ltc4282 {
     fn read_vout(&self) -> Result<Volts, ResponseCode> {
-        Ok(Volts(3.14))
+        let vfs = self.vfs_out()?;
+        let reading = self.read_reg16(Register::VSOURCE)?;
+
+        //
+        // Following the formula under "Data Converters" in the datasheet
+        //
+        Ok(Volts((reading as f32 * vfs) / ((1u32 << 16) - 1) as f32))
     }
 }
 
 impl CurrentSensor<ResponseCode> for Ltc4282 {
     fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        Ok(Amperes(3.14))
+        let reading = self.read_reg16(Register::VSENSE)? as f32;
+        let divisor = ((1u32 << 16) - 1) as f32 * self.rsense.0;
+
+        //
+        // Following the formula under "Data Converters" in the datasheet
+        //
+        Ok(Amperes((reading * 0.040) / divisor))
     }
 }
