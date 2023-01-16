@@ -210,6 +210,18 @@ impl<S: SpiServer> SpiDevice<S> {
     pub fn release(&self) -> Result<(), SpiError> {
         self.server.release()
     }
+
+    /// Variant of `lock` that returns a resource management object that, when
+    /// dropped, will issue `release`. This makes it much easier to do fallible
+    /// operations while locked.
+    ///
+    /// Otherwise, the rules are the same as for `lock`.
+    pub fn lock_auto(
+        &self,
+        assert_cs: CsState,
+    ) -> Result<ControllerLock<'_, S>, SpiError> {
+        self.server.lock_auto(self.device_index, assert_cs)
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

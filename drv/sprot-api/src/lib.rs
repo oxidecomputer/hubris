@@ -18,6 +18,7 @@ extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
+use drv_spi_api::SpiError;
 use drv_update_api::{
     HandoffDataLoadError, RotBootState, UpdateError, UpdateTarget,
 };
@@ -26,6 +27,8 @@ use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
+#[cfg(feature = "sink_test")]
+use zerocopy::{ByteOrder, LittleEndian};
 
 /// The canonical SpRot protocol error returned by this API
 //
@@ -138,6 +141,12 @@ pub enum SprotError {
     Unknown = 0xff,
 }
 
+impl From<SpiError> for SprotError {
+    fn from(_value: SpiError) -> Self {
+        SprotError::SpiServerError
+    }
+}
+
 impl From<UpdateError> for SprotError {
     fn from(value: UpdateError) -> Self {
         match value {
@@ -200,6 +209,10 @@ pub fn is_recoverable_error(err: SprotError) -> bool {
             | SprotError::EmptyMessage
             | SprotError::RotNotReady
             | SprotError::RotBusy
+            | SprotError::FlowError
+            | SprotError::UnsupportedProtocol
+            | SprotError::BadMessageLength
+            | SprotError::Serialization
     )
 }
 
@@ -249,13 +262,23 @@ pub struct SprotStatus {
 /// Stats from the RoT side of sprot
 ///
 /// All of the counters will wrap around.
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
 pub struct IoStats {
     /// Number of messages received
     pub rx_received: u32,
 
     /// Number of messages where the RoT failed to service the Rx FIFO in time.
     pub rx_overrun: u32,
+
+    /// The number of times an SP sent more bytes than expected for one
+    /// message. In otherwords, the number of bytes sent by the SP to the RoT
+    /// between CSn assert and CSn de-assert exceeds `BUF_SIZE`.
+    pub rx_protocol_error_too_many_bytes: u32,
+
+    /// The number of CSn pulses seen by the RoT
+    pub csn_pulses: u32,
 
     /// Number of messages where the RoT failed to service the Tx FIFO in time.
     pub tx_underrun: u32,
@@ -357,7 +380,7 @@ pub enum MsgType {
     SprocketsReq = 6,
     /// Payload contains a sprockets response.
     SprocketsRsp = 7,
-    /// RoT sinks this message sending back a SinkReq with no payload.
+    /// RoT sinks this message sending back a SinkRsp with no payload.
     SinkReq = 8,
     /// Acknowledge recepit of SinkReq
     SinkRsp = 9,
@@ -418,40 +441,22 @@ impl From<u8> for MsgType {
 
 /// A builder/serializer for messages that wraps the transmit buffer
 ///
-/// Each public method returns the serialized buffer that can be sent on the
-/// wire.
-pub struct TxMsg {
-    buf: [u8; BUF_SIZE],
+pub struct TxMsg<'a> {
+    buf: &'a mut [u8],
 }
 
-impl AsMut<[u8]> for TxMsg {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[..]
-    }
-}
-
-impl Default for TxMsg {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TxMsg {
-    pub fn new() -> TxMsg {
-        TxMsg { buf: [0; BUF_SIZE] }
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        &self.buf[..]
-    }
-
-    pub fn payload_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[HEADER_SIZE..BUF_SIZE - CRC_SIZE]
+impl<'a> TxMsg<'a> {
+    /// Wrap `buf`, and zero it.
+    pub fn new(buf: &'a mut [u8]) -> TxMsg<'a> {
+        assert_eq!(buf.len(), BUF_SIZE);
+        // Ensure we start with a zero filled buffer
+        buf.fill(0);
+        TxMsg { buf }
     }
 
     /// Serialize an ErrorRsp with a one byte payload, which is a serialized
     /// `SprotError`
-    pub fn error_rsp(&mut self, err: SprotError) -> VerifiedTxMsg {
+    pub fn error_rsp(self, err: SprotError) -> VerifiedTxMsg<'a> {
         let payload_size = 1;
         self.buf[HEADER_SIZE] = err as u8;
         self.from_existing(MsgType::ErrorRsp, payload_size)
@@ -459,18 +464,103 @@ impl TxMsg {
     }
 
     /// Serialize a request with no payload
-    pub fn no_payload(&mut self, msgtype: MsgType) -> VerifiedTxMsg {
+    pub fn no_payload(mut self, msgtype: MsgType) -> VerifiedTxMsg<'a> {
         let payload_size = 0;
         self.write_header(msgtype, payload_size);
-        self.write_crc(payload_size)
+        self.write_crc(msgtype, payload_size)
+    }
+
+    /// Fill the payload with a known pattern of `size` bytes of data generated
+    /// and include a sequence number as the first 2 bytes of the payload. The
+    /// sequence number requirement necessitates that `size > 2`.
+    ///
+    /// Then serialize the request via `from_existing`, which writes the header
+    /// and trailing CRC.
+    ///
+    /// For the sake of working with a logic analyzer, a known pattern is put
+    /// into the SinkReq messages so that most of the received bytes match
+    /// their buffer index modulo 0x100.
+    #[cfg(feature = "sink_test")]
+    pub fn sink_req(
+        mut self,
+        size: usize,
+        seq_num: u16,
+    ) -> Result<VerifiedTxMsg<'a>, SprotError> {
+        let seq_num_size = core::mem::size_of::<u16>();
+        if size > PAYLOAD_SIZE_MAX || size < seq_num_size {
+            return Err(SprotError::BadMessageLength);
+        }
+        let buf = &mut self.payload_mut()[..size];
+
+        // Fill the payload with a known pattern
+        let mut n: u8 = HEADER_SIZE as u8;
+        buf.fill_with(|| {
+            let seq = n;
+            n = n.wrapping_add(1);
+            seq
+        });
+
+        // Overwrite the first two bytes with a sequence number.
+        let seq_buf = &mut buf[..seq_num_size];
+        LittleEndian::write_u16(seq_buf, seq_num);
+
+        self.from_existing(MsgType::SinkReq, size)
+            .map_err(|(_, e)| e)
+    }
+
+    /// Serialize an arbitrary message, consuming self
+    ///
+    /// If there is an error, return it along with self
+    pub fn serialize<T: Serialize>(
+        mut self,
+        msgtype: MsgType,
+        msg: T,
+    ) -> Result<VerifiedTxMsg<'a>, (Self, SprotError)> {
+        match hubpack::serialize(self.payload_mut(), &msg) {
+            Ok(n) => self.from_existing(msgtype, n),
+            Err(e) => Err((self, e.into())),
+        }
+    }
+
+    /// Return the mutable payload buffer
+    //
+    // TODO(AJS): Make this private if possible
+    // It's currently used publicly on the RoT side for Echo and Sprockets
+    // messages along with `from_existing`, and for update messages on the
+    // SP side.
+    pub fn payload_mut(&mut self) -> &mut [u8] {
+        &mut self.buf[HEADER_SIZE..BUF_SIZE - CRC_SIZE]
+    }
+
+    /// Serialize a block
+    ///
+    /// Each block is prefixed by its block num serialized as a u32
+    pub fn block(
+        mut self,
+        block_num: u32,
+        block: idol_runtime::LenLimit<
+            idol_runtime::Leased<idol_runtime::R, [u8]>,
+            1024,
+        >,
+    ) -> Result<VerifiedTxMsg<'a>, SprotError> {
+        let n = hubpack::serialize(self.payload_mut(), &block_num)?;
+        block
+            .read_range(
+                0..block.len(),
+                &mut self.payload_mut()[n..n + block.len()],
+            )
+            .map_err(|_| SprotError::TaskRestart)?;
+        let payload_len = n + block.len();
+        self.from_existing(MsgType::UpdWriteOneBlockReq, payload_len)
+            .map_err(|(_, e)| e)
     }
 
     /// Serialize a request from a MsgType and Lease
     pub fn from_lease(
-        &mut self,
+        mut self,
         msgtype: MsgType,
         source: Leased<R, [u8]>,
-    ) -> Result<VerifiedTxMsg, SprotError> {
+    ) -> Result<VerifiedTxMsg<'a>, SprotError> {
         if source.len() > PAYLOAD_SIZE_MAX {
             return Err(SprotError::Oversize);
         }
@@ -481,21 +571,25 @@ impl TxMsg {
             .map_err(|_| SprotError::TaskRestart)?;
 
         self.write_header(msgtype, source.len());
-        Ok(self.write_crc(source.len()))
+        Ok(self.write_crc(msgtype, source.len()))
     }
 
     /// Serialize a request into `self.buf` with an already written payload
     /// inside `self.buf`.
+    // TODO(AJS): Make this private if possible
+    // It's currently used publicly for Echo and Sprockets messages along with
+    // `payload_mut`.
+    // Sprockets in particular just wants a buffer to write into.
     pub fn from_existing(
-        &mut self,
+        mut self,
         msgtype: MsgType,
         payload_size: usize,
-    ) -> Result<VerifiedTxMsg, SprotError> {
+    ) -> Result<VerifiedTxMsg<'a>, (Self, SprotError)> {
         if payload_size > PAYLOAD_SIZE_MAX {
-            return Err(SprotError::Oversize);
+            return Err((self, SprotError::Oversize));
         }
         self.write_header(msgtype, payload_size);
-        Ok(self.write_crc(payload_size))
+        Ok(self.write_crc(msgtype, payload_size))
     }
 
     fn write_header(&mut self, msgtype: MsgType, payload_size: usize) {
@@ -505,59 +599,160 @@ impl TxMsg {
             .unwrap_lite();
     }
 
-    fn write_crc(&mut self, payload_size: usize) -> VerifiedTxMsg {
+    fn write_crc(
+        self,
+        msgtype: MsgType,
+        payload_size: usize,
+    ) -> VerifiedTxMsg<'a> {
         let crc_begin = HEADER_SIZE + payload_size;
         let msg_bytes = &self.buf[0..crc_begin];
         let crc = CRC16.checksum(msg_bytes);
         let end = crc_begin + CRC_SIZE;
         let crc_buf = &mut self.buf[crc_begin..end];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        VerifiedTxMsg(end)
+
+        // Include the whole buffer, including trailing zeroes, so we can
+        // convert back into a `TxMsg` backing the full buffer size.
+        VerifiedTxMsg::new(msgtype, self.buf, end)
     }
 }
 
-/// A type indicating that a complete message has been successfully serialized and therefore
-/// fits in the allocated buffer.
-#[derive(Clone, Copy)]
-pub struct VerifiedTxMsg(pub usize);
+pub struct VerifiedTxMsg<'a> {
+    msgtype: Option<MsgType>,
+    data: &'a mut [u8],
 
-/// A parser/deserializer for messages received over SPI
-pub struct RxMsg {
-    buf: [u8; BUF_SIZE],
+    // The amount of data written into the buffer,
+    // Followed by zeroes if `len < data.len()`.
+    len: usize,
 }
 
-impl AsMut<[u8]> for RxMsg {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.buf[..]
+// A fully serialized message
+impl<'a> VerifiedTxMsg<'a> {
+    // A data containing buffer can only be created by a TxMsg.
+    fn new(
+        msgtype: MsgType,
+        data: &'a mut [u8],
+        len: usize,
+    ) -> VerifiedTxMsg<'a> {
+        VerifiedTxMsg {
+            msgtype: Some(msgtype),
+            data,
+            len,
+        }
     }
-}
 
-impl Default for RxMsg {
-    fn default() -> Self {
-        Self::new()
+    pub fn msgtype(&self) -> Option<MsgType> {
+        self.msgtype
     }
-}
 
-impl RxMsg {
-    pub fn new() -> RxMsg {
-        RxMsg { buf: [0; BUF_SIZE] }
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &self.buf[..]
+        &self.data[..self.len]
     }
 
-    pub fn payload(&self, rxmsg: &VerifiedRxMsg) -> &[u8] {
-        &self.buf[HEADER_SIZE..][..rxmsg.0.payload_len as usize]
+    pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
+        self.as_slice().iter().cloned()
     }
 
-    pub fn parse_header(
-        &self,
-        valid_bytes: usize,
-    ) -> Result<MsgHeader, SprotError> {
+    pub fn into_txmsg(self) -> TxMsg<'a> {
+        TxMsg::new(self.data)
+    }
+}
+
+pub struct BufFull;
+
+/// A parser/deserializer for messages received over SPI
+pub struct RxMsg<'a> {
+    buf: &'a mut [u8],
+    len: usize,
+}
+
+impl<'a> RxMsg<'a> {
+    pub fn new(buf: &'a mut [u8]) -> RxMsg<'a> {
+        assert_eq!(buf.len(), BUF_SIZE);
+        buf.fill(0);
+        RxMsg { buf, len: 0 }
+    }
+
+    // Necessary for retries on the SP, since `do_send_recv_retries`
+    // does not take ownership of the `RxMsg`.
+    pub fn clear(&mut self) {
+        self.buf.fill(0);
+        self.len = 0;
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.len == self.buf.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn push(&mut self, b: u8) -> Result<(), BufFull> {
+        if self.is_full() {
+            return Err(BufFull);
+        }
+        self.buf[self.len] = b;
+        self.len += 1;
+        Ok(())
+    }
+
+    pub fn protocol(&self) -> Option<Protocol> {
+        if self.len >= 1 {
+            Some(Protocol::from(self.buf[0]))
+        } else {
+            None
+        }
+    }
+
+    /// Return the first byte of the payload that indicates an error
+    /// This should only be used after a successful non-consuming parse, or
+    /// else the data will be meaningless.
+    pub fn payload_error_byte(&self) -> u8 {
+        assert!(self.len >= MIN_MSG_SIZE + 1);
+        self.buf[HEADER_SIZE]
+    }
+
+    /// Read `len` data into the underlying buffer at the current offset
+    /// given a closure that takes the buffer. This method assumes
+    /// that `len` bytes are  written after the closure returns. If `len` bytes
+    /// are not available in `self.buf`, or `f` fails then an error is returned.
+    pub fn read<F: FnMut(&mut [u8]) -> Result<(), SprotError>>(
+        &mut self,
+        len: usize,
+        mut f: F,
+    ) -> Result<(), SprotError> {
+        if self.buf.len() - self.len < len {
+            return Err(SprotError::BadMessageLength);
+        }
+        let buf = &mut self.buf[self.len..][..len];
+        f(buf)?;
+        self.len += len;
+        Ok(())
+    }
+
+    /// Return an array containing the actual header bytes received so far
+    /// and 0 bytes for any not filled.
+    pub fn header_bytes(&self) -> [u8; HEADER_SIZE] {
+        let mut buf = [0u8; HEADER_SIZE];
+        let end = core::cmp::min(self.len, HEADER_SIZE);
+        buf[..end].copy_from_slice(&self.buf[..end]);
+        buf
+    }
+
+    // Parse just the header and return it, or an error.
+    pub fn parse_header(&self) -> Result<MsgHeader, SprotError> {
         // We want to be able to return `RotBusy` before `Incomplete`.
         self.parse_protocol()?;
-        if valid_bytes < HEADER_SIZE {
+        if self.len < HEADER_SIZE {
             return Err(SprotError::Incomplete);
         }
         let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
@@ -567,6 +762,38 @@ impl RxMsg {
         Ok(header)
     }
 
+    /// Parse the header, validate the CRC, and returned a VerifiedRxMsg.
+    /// Return the header_bytes along with a SprotError on error.
+    pub fn parse(
+        self,
+    ) -> Result<VerifiedRxMsg<'a>, ([u8; HEADER_SIZE], SprotError)> {
+        // We want to be able to return `RotBusy` before `Incomplete`.
+        self.parse_protocol()
+            .map_err(|e| (self.header_bytes(), e))?;
+        if self.len < HEADER_SIZE {
+            return Err((self.header_bytes(), SprotError::Incomplete));
+        }
+
+        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])
+            .map_err(|e| (self.header_bytes(), e.into()))?;
+        if header.payload_len as usize > PAYLOAD_SIZE_MAX {
+            return Err((self.header_bytes(), SprotError::BadMessageLength));
+        }
+
+        self.validate_crc(&header)
+            .map_err(|e| (self.header_bytes(), e))?;
+
+        Ok(VerifiedRxMsg {
+            header,
+            buf: self.buf,
+        })
+    }
+
+    /// On the SP errors can elicit retries, which must reuse the receive
+    /// buffer. Because of this, we make the `validate_crc` method public.
+    /// On the RoT, the `parse` method should be used directly, as it is more
+    /// robust and the conditions that necessitate this method on the SP are
+    /// unnecessary.
     pub fn validate_crc(&self, header: &MsgHeader) -> Result<(), SprotError> {
         // The only way to get a `MsgHeader` is to call parse_header, which
         // already ensured that the payload size fits in the buffer.
@@ -581,18 +808,6 @@ impl RxMsg {
         }
     }
 
-    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
-    pub fn deserialize_hubpack_payload<M>(
-        &self,
-        rxmsg: &VerifiedRxMsg,
-    ) -> Result<M, SprotError>
-    where
-        M: for<'de> Deserialize<'de>,
-    {
-        let (msg, _) = hubpack::deserialize::<M>(self.payload(rxmsg))?;
-        Ok(msg)
-    }
-
     /// Parse the first byte of the protocol, returning an appropriate error
     /// if necessary.
     fn parse_protocol(&self) -> Result<(), SprotError> {
@@ -605,13 +820,43 @@ impl RxMsg {
     }
 }
 
-/// A type indicating that the message header has been parsed and the CRC has
-/// been successfully verified
-pub struct VerifiedRxMsg(pub MsgHeader);
+// A fully parsed message with a validated crc
+pub struct VerifiedRxMsg<'a> {
+    header: MsgHeader,
+
+    // The full BUF_SIZE, so that this can be converted back into an RxMsg
+    buf: &'a mut [u8],
+}
+
+impl<'a> VerifiedRxMsg<'a> {
+    pub fn header(&self) -> MsgHeader {
+        self.header
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        let payload_end = HEADER_SIZE + self.header.payload_len as usize;
+        &self.buf[HEADER_SIZE..payload_end]
+    }
+
+    /// Deserialize a hubpack encoded message, `M`, from the wrapped buffer
+    pub fn deserialize_hubpack_payload<M>(&self) -> Result<M, SprotError>
+    where
+        M: for<'de> Deserialize<'de>,
+    {
+        let (msg, _) = hubpack::deserialize::<M>(self.payload())?;
+        Ok(msg)
+    }
+
+    pub fn into_rxmsg(self) -> RxMsg<'a> {
+        RxMsg::new(self.buf)
+    }
+}
 
 // The SpRot Header prepended to each message traversing the SPI bus
 // between the RoT and SP.
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Copy, Clone, Serialize, Deserialize, SerializedSize, PartialEq, Eq,
+)]
 pub struct MsgHeader {
     pub protocol: Protocol,
     pub msgtype: MsgType,

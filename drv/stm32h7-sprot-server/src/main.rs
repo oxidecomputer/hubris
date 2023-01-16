@@ -45,8 +45,6 @@ enum Trace {
     None,
     BadResponse(MsgType),
     BlockSize(usize),
-    CSnAssert,
-    CSnDeassert,
     Debug(bool),
     Error(SprotError),
     FailedRetries { retries: u16, errcode: SprotError },
@@ -71,23 +69,36 @@ enum Trace {
     UpdatePrep,
     UpdateWriteOneBlock,
     UpdateFinish,
+    ErrRespNoPayload,
+    Recoverable(SprotError),
+    Header(MsgHeader),
+    ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
 }
 ringbuf!(Trace, 64, Trace::None);
 
 const SP_TO_ROT_SPI_DEVICE: u8 = 0;
 
-// TODO: These timeouts are somewhat arbitrary.
+// TODO:These timeouts are somewhat arbitrary.
+// TODO: Make timeouts configurable
+// All timeouts are in 'ticks'
+
+/// Retry timeout for send_recv_retries
+const RETRY_TIMEOUT: u64 = 100;
 
 /// Timeout for status message
-const TIMEOUT_QUICK: u32 = 1000;
+const TIMEOUT_QUICK: u32 = 250;
 /// Maximum timeout for an arbitrary message
-const TIMEOUT_MAX: u32 = 2_000;
+const TIMEOUT_MAX: u32 = 500;
 // XXX tune the RoT flash write timeout
-const TIMEOUT_WRITE_ONE_BLOCK: u32 = 2_000;
+const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
+
+// Delay between asserting CSn and sending the portion of a message
+// that fits entierly in the RoT's FIFO.
+const PART1_DELAY: u64 = 0;
+
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
-const PART1_DELAY: u64 = 0;
 const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
 
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
@@ -158,12 +169,15 @@ fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
     }
 }
 
-pub struct ServerImpl<S: SpiServer> {
+pub struct Io<S: SpiServer> {
     sys: sys_api::Sys,
     spi: SpiDevice<S>,
-    // Use separate buffers so that retries can be generic.
-    pub tx_buf: TxMsg,
-    pub rx_buf: RxMsg,
+}
+
+pub struct ServerImpl<S: SpiServer> {
+    io: Io<S>,
+    tx_buf: [u8; BUF_SIZE],
+    rx_buf: [u8; BUF_SIZE],
 }
 
 #[export_name = "main"]
@@ -176,10 +190,9 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        sys,
-        spi,
-        tx_buf: TxMsg::new(),
-        rx_buf: RxMsg::new(),
+        io: Io { sys, spi },
+        tx_buf: [0u8; BUF_SIZE],
+        rx_buf: [0u8; BUF_SIZE],
     };
 
     loop {
@@ -187,146 +200,65 @@ fn main() -> ! {
     }
 }
 
-impl<S: SpiServer> ServerImpl<S> {
+// We separate out IO so that methods with retry loops don't have borrow checker problems due to
+// tx_buf and rx_buf being borrowed from ServerImpl more than once.
+impl<S: SpiServer> Io<S> {
     /// Handle the mechanics of sending a message and waiting for a response.
-    fn do_send_recv(
+    ///
+    /// We return success when `rxmsg` parses correctly, but we don't convert
+    /// to `VerifiedRxMsg` and return that, because of borrow checker and
+    /// ergonomic issues when this method is called in a loop. If we wanted
+    /// to use a consuming `RxMsg::parse` we'd end up having to return the
+    /// original `RxMsg` on errors so we could retry. This code looks much
+    /// dirtier, as I noticed when I implemented it.
+    pub fn do_send_recv<'a>(
         &mut self,
-        txmsg: VerifiedTxMsg,
+        txmsg: &VerifiedTxMsg<'a>,
+        rxmsg: &mut RxMsg<'a>,
         timeout: u32,
-    ) -> Result<VerifiedRxMsg, SprotError> {
-        let size = txmsg.0;
-        ringbuf_entry!(Trace::SendRecv(size));
-        // Polling and timeout configuration
-        // TODO: Use EXTI interrupt and just a timeout, no polling.
+    ) -> Result<MsgHeader, SprotError> {
+        ringbuf_entry!(Trace::SendRecv(txmsg.len()));
 
-        // Assume that self.tx contains a valid message.
+        self.handle_rot_irq()?;
+        self.do_send_request(txmsg)?;
 
-        if self.is_rot_irq_asserted() {
-            ringbuf_entry!(Trace::UnexpectedRotIrq);
-            // TODO: Move README.md to RFD 317 and discuss:
-            //   - Unsolicited messages from RoT to SP.
-            //   - Ignoring message from RoT to SP.
-            //   - Should we send a message telling RoT that SP has booted?
-            //
-            // For now, we are surprised that ROT_IRQ is asserted
-            // But it would be ok to overlap our new request with receiving
-            // of a previous response.
-            //
-            // The RoT must be able to observe SP resets.
-            // During the normal start-up seqeunce, the RoT is controlling the
-            // SP's boot up sequence. However, the SP can reset itself and
-            // individual Hubris tasks may fail and be restarted.
-            //
-            // If SP and RoT are out of sync, e.g. this task restarts and an old
-            // response is still in the RoT's transmit FIFO, then we can also see
-            // ROT_IRQ asserted when not expected.
-            //
-            // TODO: configuration parameters for delays below
-            if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
-                ringbuf_entry!(Trace::UnexpectedRotIrq);
-                if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
-                    ringbuf_entry!(Trace::PulseFailed);
-                    // Did not clear ROT_IRQ
-                    debug_set(&self.sys, false); // XXX
-                    return Err(SprotError::RotNotReady);
-                }
-            }
-        }
-        let buf = &self.tx_buf.as_slice()[..size];
-
-        // In order to improve reliability, start by sending only the
-        // first ROT_FIFO_SIZE bytes and then delaying a short time.
-        // If the RoT is ready, those first bytes will always fit
-        // in the RoT receive FIFO. Eventually, the RoT FW will respond
-        // to the interrupt and enter a tight loop to receive.
-        // The short delay should cover most of the lag in RoT interrupt
-        // handling.
-        let part1 = if let Some(part1) = buf.get(0..ROT_FIFO_SIZE.min(size)) {
-            part1
-        } else {
-            return Err(SprotError::BadMessageLength);
-        };
-        let part2 = buf.get(part1.len()..).unwrap_lite(); // empty or not
-        ringbuf_entry!(Trace::TxPart1(part1.len()));
-        ringbuf_entry!(Trace::TxPart2(part2.len()));
-        if (PART1_DELAY != 0) || !part2.is_empty() {
-            ringbuf_entry!(Trace::CSnAssert);
-            self.spi
-                .lock(CsState::Asserted)
-                .map_err(|_| SprotError::SpiServerLockError)?;
-            if PART1_DELAY != 0 {
-                hl::sleep_for(PART1_DELAY);
-            }
-        }
-        if self.spi.write(part1).is_err() {
-            if (PART1_DELAY != 0) || !part2.is_empty() {
-                ringbuf_entry!(Trace::CSnDeassert);
-                _ = self.spi.release();
-            }
-            return Err(SprotError::SpiServerWritePart1Error);
-        }
-        if !part2.is_empty() {
-            hl::sleep_for(PART2_DELAY); // TODO: configurable
-            ringbuf_entry!(Trace::CSnDeassert);
-            if self.spi.write(part2).is_err() {
-                _ = self.spi.release();
-                return Err(SprotError::SpiServerWritePart2Error);
-            }
-        }
-        if ((PART1_DELAY != 0) || !part2.is_empty())
-            && self.spi.release().is_err()
-        {
-            return Err(SprotError::SpiServerReleaseError);
-        }
-
-        /*
-        // TODO: Use STM32 EXTI
-        // STM32 EXTI allows for 16 interrupts for GPIOs.
-        // Each of those can represent Pin X from a GPIO bank (A through K)
-        // So, only one bank's Pin 3, for example, can have the #3 interrupt.
-        // For ROT_IRQ, we would configure for the falling edge to trigger
-        // the interrupt. That configuration should be specified in the app.toml
-        // for the board. Work needs to be done to generalize the EXTI facility.
-        // But, hacking in one interrupt as an example should be ok to start things
-        // off.
-
-        sys_irq_control(self.interrupt, true);
-        // And wait for it to arrive.
-        // TODO: There needs to be a timeout in case the RoT is out to lunch.
-        let _rm =
-        sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-        .unwrap_lite();
-        */
-
-        // We sleep and poll for what should be long enough for the RoT
-        // to queue a response.
-        // TODO: For better performance and power efficiency,
-        // take an interrupt on ROT_IRQ falling edge with timeout.
         if !self.wait_rot_irq(true, timeout) {
             ringbuf_entry!(Trace::RotNotReady);
             return Err(SprotError::RotNotReady);
         }
 
-        // Read just the header.
-        // Keep CSn asserted over the two reads.
-        ringbuf_entry!(Trace::CSnAssert);
-        self.spi
-            .lock(CsState::Asserted)
-            .map_err(|_| SprotError::SpiServerLockError)?;
+        // Fill in rx_buf with a complete message and validate its crc
+        self.do_read_response(rxmsg)
+    }
+
+    // Send a request in 2 parts, with optional delays before each part.
+    //
+    // In order to improve reliability, start by sending only the first
+    // ROT_FIFO_SIZE bytes and then delaying a short time. If the RoT is ready,
+    // those first bytes will always fit in the RoT receive FIFO. Eventually,
+    // the RoT FW will respond to the interrupt and enter a tight loop to
+    // receive. The short delay should cover most of the lag in RoT interrupt
+    // handling.
+    fn do_send_request(
+        &mut self,
+        msg: &VerifiedTxMsg,
+    ) -> Result<(), SprotError> {
+        let part1_len = ROT_FIFO_SIZE.min(msg.len());
+        let part1 = &msg.as_slice()[..part1_len];
+        let part2 = &msg.as_slice()[part1_len..];
+        ringbuf_entry!(Trace::TxPart1(part1.len()));
+        ringbuf_entry!(Trace::TxPart2(part2.len()));
+
+        let _lock = self.spi.lock_auto(CsState::Asserted)?;
         if PART1_DELAY != 0 {
             hl::sleep_for(PART1_DELAY);
         }
-
-        // Fill in rx_buf with a complete message and validate its crc
-        let res = self.do_read_response();
-
-        // We must release the SPI bus before we return
-        ringbuf_entry!(Trace::CSnDeassert);
-        self.spi
-            .release()
-            .map_err(|_| SprotError::SpiServerReleaseError)?;
-
-        res
+        self.spi.write(part1)?;
+        if !part2.is_empty() {
+            hl::sleep_for(PART2_DELAY);
+            self.spi.write(part2)?;
+        }
+        Ok(())
     }
 
     // Fetch as many bytes as we can and parse the header.
@@ -337,64 +269,77 @@ impl<S: SpiServer> ServerImpl<S> {
     // a payload.
     // Small messages will fit entirely in the RoT FIFO.
     //
-    // We don't, but we could speculate that some RoT responses will
-    // be longer than ROT_FIFO_SIZE and get ROT_FIFO_SIZE
-    // instead of MIN_MSG_SIZE.
-    //
     // TODO: Use DMA on RoT to avoid this dance.
     //
-    // We know statically that self.rx_buf is large enough to hold
-    // part1_len bytes.
-    fn do_read_response(&mut self) -> Result<VerifiedRxMsg, SprotError> {
-        let part1_len = MIN_MSG_SIZE.min(ROT_FIFO_SIZE);
+    fn do_read_response<'a>(
+        &mut self,
+        rxmsg: &mut RxMsg<'a>,
+    ) -> Result<MsgHeader, SprotError> {
+        // Disjoint borrow nonsense to satisfy the borrow checker
+        let spi = &mut self.spi;
+
+        let _lock = spi.lock_auto(CsState::Asserted)?;
+
+        if PART1_DELAY != 0 {
+            hl::sleep_for(PART1_DELAY);
+        }
+
+        // If we read out the full fifo, we end up with an underrun situation
+        // periodically. This happens after the part2 delay, and the length of
+        // that delay doesn't matter. The interrupt fires quickly and we keep
+        // looping waiting to read bytes. I noticed hundreds of iterations
+        // without any data transferred with a ringbuf message inside the
+        // tightloop in `Io::write_respsonse` on the RoT. Then all of a
+        // sudden, the first data transfer occurs (~1 byte read/written) and
+        // an underrun occurs. We seem to be able to prevent this leaving a
+        // partially full TxBuf on the receiver. We want to retrieve a full
+        // header, but other than that, we don't need to retrieve the full fifo
+        // at once.
+        //
+        // In short, we set `part1_len = MIN_MSG_SIZE` instead of
+        // `part1_len = ROT_FIFO_SIZE`.
+        //
+        // In the case that there is no payload, this still reads in one round.
+        let part1_len = MIN_MSG_SIZE;
         ringbuf_entry!(Trace::RxPart1(part1_len));
 
-        // We fill in all of buf or we fail
-        let buf = &mut self.rx_buf.as_mut()[..part1_len];
-        self.spi.read(buf).map_err(|e| {
-            ringbuf_entry!(Trace::RxSpiError(e));
-            SprotError::SpiServerReadPart1Error
-        })?;
+        // Read part one
+        rxmsg.read(part1_len, |buf| spi.read(buf).map_err(|e| e.into()))?;
 
-        let header = self.rx_buf.parse_header(part1_len).map_err(|e| {
-            self.log_parse_error();
-            e
-        })?;
+        let header = match rxmsg.parse_header() {
+            Ok(header) => header,
+            Err(e) => {
+                ringbuf_entry!(Trace::ErrWithHeader(e, rxmsg.header_bytes()));
+                return Err(e);
+            }
+        };
 
-        let part2_len =
-            MIN_MSG_SIZE + (header.payload_len as usize) - part1_len;
-        ringbuf_entry!(Trace::RxPart2(part2_len));
+        if part1_len < MIN_MSG_SIZE + (header.payload_len as usize) {
+            // We haven't read the complete message yet.
+            let part2_len =
+                MIN_MSG_SIZE + (header.payload_len as usize) - part1_len;
+            ringbuf_entry!(Trace::RxPart2(part2_len));
 
-        // Allow RoT time to rouse itself.
-        hl::sleep_for(PART2_DELAY);
+            // Allow RoT time to rouse itself.
+            hl::sleep_for(PART2_DELAY);
 
-        // Read part two
-        let buf = &mut self.rx_buf.as_mut()[part1_len..][..part2_len];
-        self.spi.read(buf).map_err(|e| {
-            ringbuf_entry!(Trace::RxSpiError(e));
-            SprotError::SpiServerReadPart2Error
-        })?;
+            // Read part two
+            rxmsg.read(part2_len, |buf| spi.read(buf).map_err(|e| e.into()))?;
+        }
 
-        self.rx_buf.validate_crc(&header)?;
+        ringbuf_entry!(Trace::Header(header));
 
-        Ok(VerifiedRxMsg(header))
+        rxmsg.validate_crc(&header)?;
+        Ok(header)
     }
 
-    fn log_parse_error(&self) {
-        ringbuf_entry!(Trace::RxParseError(
-            self.rx_buf.as_slice()[0],
-            self.rx_buf.as_slice()[1],
-            self.rx_buf.as_slice()[2],
-            self.rx_buf.as_slice()[3]
-        ));
-    }
-
-    fn do_send_recv_retries(
+    fn do_send_recv_retries<'a>(
         &mut self,
-        txmsg: VerifiedTxMsg,
+        txmsg: &VerifiedTxMsg<'a>,
+        rxmsg: &mut RxMsg<'a>,
         timeout: u32,
         retries: u16,
-    ) -> Result<VerifiedRxMsg, SprotError> {
+    ) -> Result<MsgHeader, SprotError> {
         let mut attempts_left = retries;
         let mut errcode = SprotError::Unknown;
         loop {
@@ -404,13 +349,17 @@ impl<S: SpiServer> ServerImpl<S> {
             }
             attempts_left -= 1;
 
-            match self.do_send_recv(txmsg, timeout) {
+            if attempts_left != retries {
+                rxmsg.clear();
+            }
+            match self.do_send_recv(txmsg, rxmsg, timeout) {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
                 Err(err) => {
                     ringbuf_entry!(Trace::SprotError(err));
                     if is_recoverable_error(err) {
                         errcode = err;
+                        hl::sleep_for(RETRY_TIMEOUT);
                         continue;
                     } else {
                         return Err(err);
@@ -419,29 +368,28 @@ impl<S: SpiServer> ServerImpl<S> {
 
                 // Intact messages from the RoT may indicate an error on
                 // its side.
-                Ok(rxmsg) => {
-                    match rxmsg.0.msgtype {
+                Ok(header) => {
+                    match header.msgtype {
                         MsgType::ErrorRsp => {
-                            if rxmsg.0.payload_len != 1 {
+                            if header.payload_len != 1 {
                                 ringbuf_entry!(Trace::ErrRspPayloadSize(
-                                    rxmsg.0.payload_len
+                                    header.payload_len
                                 ));
                                 // Treat this as a recoverable error
+                                hl::sleep_for(RETRY_TIMEOUT);
+                                ringbuf_entry!(Trace::ErrRespNoPayload);
                                 continue;
                             }
-                            let payload = &self.rx_buf.payload(&rxmsg);
-                            errcode = SprotError::from(payload[0]);
+                            errcode =
+                                SprotError::from(rxmsg.payload_error_byte());
                             ringbuf_entry!(Trace::SprotError(errcode));
-                            if matches!(
-                                errcode,
-                                SprotError::FlowError
-                                    | SprotError::InvalidCrc
-                                    | SprotError::UnsupportedProtocol
-                            ) {
+                            if is_recoverable_error(errcode) {
                                 // TODO: There are rare cases where
                                 // the RoT dose not receive
                                 // a 0x01 as the first byte in a message.
                                 // See issue #929.
+                                hl::sleep_for(RETRY_TIMEOUT);
+                                ringbuf_entry!(Trace::Recoverable(errcode));
                                 continue;
                             }
                             // Other errors from RoT are not recoverable with
@@ -449,7 +397,7 @@ impl<S: SpiServer> ServerImpl<S> {
                             return Err(errcode);
                         }
                         // All of the non-error message types are ok here.
-                        _ => return Ok(rxmsg),
+                        _ => return Ok(header),
                     }
                 }
             }
@@ -457,23 +405,57 @@ impl<S: SpiServer> ServerImpl<S> {
         Err(errcode)
     }
 
+    // TODO: Move README.md to RFD 317 and discuss:
+    //   - Unsolicited messages from RoT to SP.
+    //   - Ignoring message from RoT to SP.
+    //   - Should we send a message telling RoT that SP has booted?
+    //
+    // For now, we are surprised that ROT_IRQ is asserted.
+    // But it would be ok to overlap our new request with receiving
+    // of a previous response.
+    //
+    // TODO: The RoT must be able to observe SP resets. During the
+    // normal start-up seqeunce, the RoT is controlling the SP's boot
+    // up sequence. However, the SP can reset itself and individual
+    // Hubris tasks may fail and be restarted.
+    //
+    // If SP and RoT are out of sync, e.g. this task restarts and an old
+    // response is still in the RoT's transmit FIFO, then we can also see
+    // ROT_IRQ asserted when not expected.
+    //
+    // TODO: configuration parameters for delays below
+    fn handle_rot_irq(&self) -> Result<(), SprotError> {
+        if self.is_rot_irq_asserted() {
+            // See if the ROT_IRQ completes quickly.
+            if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
+                // Nope, it didn't complete. Pulse CSn.
+                ringbuf_entry!(Trace::UnexpectedRotIrq);
+                if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
+                    // Did not clear ROT_IRQ
+                    ringbuf_entry!(Trace::PulseFailed);
+                    debug_set(&self.sys, false); // XXX
+                    return Err(SprotError::RotNotReady);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Clear the ROT_IRQ and the RoT's Tx buffer by toggling the CSn signal.
     /// ROT_IRQ before and after state is returned for testing.
     fn do_pulse_cs(
-        &mut self,
+        &self,
         delay: u64,
         delay_after: u64,
     ) -> Result<PulseStatus, SprotError> {
         let rot_irq_begin = self.is_rot_irq_asserted();
-        ringbuf_entry!(Trace::CSnAssert);
-        self.spi
-            .lock(CsState::Asserted)
+        let _lock = self
+            .spi
+            .lock_auto(CsState::Asserted)
             .map_err(|_| SprotError::CannotAssertCSn)?;
         if delay != 0 {
             hl::sleep_for(delay);
         }
-        ringbuf_entry!(Trace::CSnDeassert);
-        self.spi.release().unwrap_lite();
         if delay_after != 0 {
             hl::sleep_for(delay_after);
         }
@@ -485,12 +467,27 @@ impl<S: SpiServer> ServerImpl<S> {
         Ok(status)
     }
 
-    fn is_rot_irq_asserted(&mut self) -> bool {
+    fn is_rot_irq_asserted(&self) -> bool {
         self.sys.gpio_read(ROT_IRQ) == 0
     }
 
     // Poll ROT_IRQ until asserted (true) or deasserted (false).
-    fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
+    //
+    // We sleep and poll for what should be long enough for the RoT to queue
+    // a response.
+    //
+    // TODO: Use STM32 EXTI as  an interrupt allows for better performance and
+    // power efficiency.
+    //
+    // STM32 EXTI allows for 16 interrupts for GPIOs.
+    // Each of those can represent Pin X from a GPIO bank (A through K)
+    // So, only one bank's Pin 3, for example, can have the #3 interrupt.
+    // For ROT_IRQ, we would configure for the falling edge to trigger
+    // the interrupt. That configuration should be specified in the app.toml
+    // for the board. Work needs to be done to generalize the EXTI facility.
+    // But, hacking in one interrupt as an example should be ok to start things
+    // off.
+    fn wait_rot_irq(&self, desired: bool, max_sleep: u32) -> bool {
         let mut slept = 0;
         while self.is_rot_irq_asserted() != desired {
             if slept == max_sleep {
@@ -503,38 +500,31 @@ impl<S: SpiServer> ServerImpl<S> {
         true
     }
 
-    fn upd(
+    fn upd<'a>(
         &mut self,
-        req: MsgType,
-        payload_len: usize,
+        txmsg: &VerifiedTxMsg<'a>,
+        mut rxmsg: RxMsg<'a>,
         rsp: MsgType,
         timeout: u32,
         attempts: u16,
     ) -> Result<Option<u32>, SprotError> {
-        let txmsg = self.tx_buf.from_existing(req, payload_len)?;
-        ringbuf_entry!(Trace::TxSize(txmsg.0));
-        let rxmsg = self.do_send_recv_retries(txmsg, timeout, attempts)?;
+        let header =
+            self.do_send_recv_retries(txmsg, &mut rxmsg, timeout, attempts)?;
 
-        if rxmsg.0.msgtype == rsp {
-            let rsp = self
-                .rx_buf
-                .deserialize_hubpack_payload::<UpdateRspHeader>(&rxmsg)?;
-            ringbuf_entry!(Trace::UpdResponse(rsp));
-            rsp.map_err(|e: u32| {
-                UpdateError::try_from(e)
-                    .unwrap_or(UpdateError::Unknown)
-                    .into()
-            })
-        } else {
-            expect_msg(MsgType::ErrorRsp, rxmsg.0.msgtype)?;
-            if rxmsg.0.payload_len != 1 {
-                return Err(SprotError::BadMessageLength);
-            }
-            let payload = self.rx_buf.payload(&rxmsg);
-            let err = SprotError::from(payload[0]);
-            ringbuf_entry!(Trace::Error(err));
-            Err(err)
-        }
+        expect_msg(rsp, header.msgtype)?;
+        // The message must already have parsed successfully once. This
+        // serves as an assertion against programmer error.  We can always
+        // do a cheaper conversion without the redundant checks in the
+        // future, if the cost of this proves prohibitive.
+        let verified_rxmsg = rxmsg.parse().unwrap_lite();
+        let rsp =
+            verified_rxmsg.deserialize_hubpack_payload::<UpdateRspHeader>()?;
+        ringbuf_entry!(Trace::UpdResponse(rsp));
+        rsp.map_err(|e: u32| {
+            UpdateError::try_from(e)
+                .unwrap_or(UpdateError::Unknown)
+                .into()
+        })
     }
 }
 
@@ -559,12 +549,19 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         source: Leased<R, [u8]>,
         sink: Leased<W, [u8]>,
     ) -> Result<Received, RequestError<SprotError>> {
-        let txmsg = self.tx_buf.from_lease(msgtype, source)?;
+        let txmsg = TxMsg::new(&mut self.tx_buf[..]);
+        let verified_txmsg = txmsg.from_lease(msgtype, source)?;
+        let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
 
-        // Send message, then receive response using the same local buffer.
-        match self.do_send_recv_retries(txmsg, TIMEOUT_MAX, attempts) {
-            Ok(rxmsg) => {
-                let payload = self.rx_buf.payload(&rxmsg);
+        match self.io.do_send_recv_retries(
+            &verified_txmsg,
+            &mut rxmsg,
+            TIMEOUT_MAX,
+            attempts,
+        ) {
+            Ok(_) => {
+                let verified_rxmsg = rxmsg.parse().unwrap_lite();
+                let payload = verified_rxmsg.payload();
                 if !payload.is_empty() {
                     sink.write_range(0..payload.len(), payload).map_err(
                         |_| RequestError::Fail(ClientError::WentAway),
@@ -581,126 +578,126 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
     /// Clear the RoT Tx buffer and have the RoT deassert ROT_IRQ.
     /// The status of ROT_IRQ before and after the assert is returned.
+    ///
+    /// If ROT_IRQ is asserted (a response is pending)
+    /// ROT_IRQ should be deasserted in response to CSn pulse.
     fn pulse_cs(
         &mut self,
         _: &RecvMessage,
         delay: u16,
     ) -> Result<PulseStatus, RequestError<SprotError>> {
-        // If ROT_IRQ is asserted (a response is pending)
-        // ROT_IRQ should be deasserted in response to CSn pulse.
-        self.do_pulse_cs(delay.into(), delay.into())
+        self.io
+            .do_pulse_cs(delay.into(), delay.into())
             .map_err(|e| e.into())
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sink_test")] {
-            /// Send `count` buffers of `size` size to simulate a firmare
-            /// update or other bulk data transfer from the SP to the RoT.
-            //
-            // The RoT will read all of the bytes of a MsgType::SinkReq and
-            // include the received sequence number in its SinkRsp message.
-            //
-            // The RoT reports errors in an ErrorRsp message.
-            //
-            // For the sake of working with a logic analyzer,
-            // a known pattern is put into the SinkReq messages so that
-            // most of the received bytes match their buffer index modulo
-            // 0x100.
-            //
-            fn rot_sink(
-                &mut self,
-                _: &RecvMessage,
-                count: u16,
-                size: u16,
-            ) -> Result<SinkStatus, RequestError<SprotError>> {
-                let size = size as usize;
-                debug_set(&self.sys, false);
+    /// Send `count` buffers of `size` size to simulate a firmare
+    /// update or other bulk data transfer from the SP to the RoT.
+    //
+    // The RoT will read all of the bytes of a MsgType::SinkReq and
+    // include the received sequence number in its SinkRsp message.
+    //
+    // The RoT reports errors in an ErrorRsp message.
+    //
+    // For the sake of working with a logic analyzer,
+    // a known pattern is put into the SinkReq messages so that
+    // most of the received bytes match their buffer index modulo
+    // 0x100.
+    //
+    #[cfg(feature = "sink_test")]
+    fn rot_sink(
+        &mut self,
+        _: &RecvMessage,
+        count: u16,
+        size: u16,
+    ) -> Result<SinkStatus, RequestError<SprotError>> {
+        let size = size as usize;
+        debug_set(&self.io.sys, false);
 
-                if size > core::mem::size_of::<u16>() {
-                    // The payload is big enough to contain the sequence number
-                    // and additional bytes.
-                    let mut n: u8 = HEADER_SIZE as u8;
-                    let buf = &mut self.tx_buf.payload_mut()[..size];
-                    buf.fill_with(|| {
-                        let seq = n;
-                        n = n.wrapping_add(1);
-                        seq
-                    });
-                }
+        let mut txmsg = TxMsg::new(&mut self.tx_buf[..]);
+        let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let mut sent = 0u16;
+        let result = loop {
+            if sent == count {
+                break Ok(sent);
+            }
+            ringbuf_entry!(Trace::SinkLoop(sent));
 
-                let mut sent = 0u16;
-                let result = loop {
-                    if sent == count {
-                        break Ok(sent);
-                    }
-                    ringbuf_entry!(Trace::SinkLoop(sent));
-                    // For debugging: Make sure each message is distinct.
-                    // The first two payload bytes are a message
-                    // sequence number if there is space for it.
-                    if core::mem::size_of::<u16>() <= size {
-                        let seq_buf = &mut self.tx_buf.payload_mut()[..core::mem::size_of::<u16>()];
-                        LittleEndian::write_u16(seq_buf, sent);
-                    }
-
-                    match self.tx_buf.from_existing(MsgType::SinkReq, size) {
-                        Err(_err) => break Err(SprotError::Serialization),
-                        Ok(txmsg) => {
-                            match self.do_send_recv_retries(txmsg, TIMEOUT_QUICK, MAX_SINKREQ_ATTEMPTS) {
-                                Err(err) => {
-                                    ringbuf_entry!(Trace::SinkFail(err, sent));
-                                    break Err(err)
-                                },
-                                Ok(rxmsg ) => {
-                                    match rxmsg.0.msgtype {
-                                        MsgType::SinkRsp => {
-                                            // TODO: Check sequence number in response.
-                                            if rxmsg.0.payload_len as usize >= core::mem::size_of::<u16>() {
-                                                let seq_buf = &self.rx_buf.payload(&rxmsg)[..core::mem::size_of::<u16>()];
-                                                let r_seqno = LittleEndian::read_u16(seq_buf);
-                                                if sent != r_seqno {
-                                                    break Err(SprotError::Sequence);
-                                                }
-                                            }
-                                        },
-                                        MsgType::ErrorRsp => {
-                                            let payload = self.rx_buf.payload(&rxmsg);
-                                            if payload.len() != 1 {
-                                                break Err(SprotError::BadMessageLength);
-                                            }
-                                            break Err(SprotError::from(payload[0]));
-                                        },
-                                        _ => {
-                                            // Other non-SinkRsp messages from the RoT
-                                            // are not recoverable with a retry.
-                                            break Err(SprotError::BadMessageType);
-                                        },
+            match txmsg.sink_req(size, sent) {
+                Err(err) => break Err(err),
+                Ok(verified_txmsg) => {
+                    match self.io.do_send_recv_retries(
+                        &verified_txmsg,
+                        &mut rxmsg,
+                        TIMEOUT_QUICK,
+                        MAX_SINKREQ_ATTEMPTS,
+                    ) {
+                        Err(err) => {
+                            ringbuf_entry!(Trace::SinkFail(err, sent));
+                            break Err(err);
+                        }
+                        Ok(header) => {
+                            // A succesful return from `do_send_recv_retries`
+                            // indicates parsing already succeeded once.
+                            let verified_rxmsg = rxmsg.parse().unwrap_lite();
+                            match header.msgtype {
+                                MsgType::SinkRsp => {
+                                    // TODO: Check sequence number in response.
+                                    if verified_rxmsg.payload().len() >= 2 {
+                                        let seq_buf =
+                                            &verified_rxmsg.payload()[..2];
+                                        let r_seqno =
+                                            LittleEndian::read_u16(seq_buf);
+                                        if sent != r_seqno {
+                                            break Err(SprotError::Sequence);
+                                        }
+                                        rxmsg = verified_rxmsg.into_rxmsg();
+                                    } else {
+                                        // We only allow sending payloads of 2 bytes or more.
+                                        break Err(
+                                            SprotError::BadMessageLength,
+                                        );
                                     }
-                                },
+                                }
+                                MsgType::ErrorRsp => {
+                                    if verified_rxmsg.payload().len() != 1 {
+                                        break Err(
+                                            SprotError::BadMessageLength,
+                                        );
+                                    }
+                                    break Err(SprotError::from(
+                                        verified_rxmsg.payload()[0],
+                                    ));
+                                }
+                                _ => {
+                                    // Other non-SinkRsp messages from the RoT
+                                    // are not recoverable with a retry.
+                                    break Err(SprotError::BadMessageType);
+                                }
                             }
-                            sent = sent.wrapping_add(1);
-                        },
+                        }
                     }
-                };
-                debug_set(&self.sys, true);
-                match result {
-                    Ok(sent) => {
-                        Ok(SinkStatus { sent })
-                    },
-                    Err(err) => {
-                        Err(RequestError::Runtime(err))
-                    },
+                    sent = sent.wrapping_add(1);
+                    txmsg = verified_txmsg.into_txmsg();
                 }
             }
-        } else {
-            fn rot_sink(
-                &mut self,
-                _: &RecvMessage,
-                _count: u16,
-                _size: u16,
-            ) -> Result<SinkStatus, RequestError<SprotError>> {
-                Err(RequestError::Runtime(SprotError::NotImplemented))
-            }
+        };
+
+        debug_set(&self.io.sys, true);
+        match result {
+            Ok(sent) => Ok(SinkStatus { sent }),
+            Err(err) => Err(RequestError::Runtime(err)),
         }
+    }
+
+    #[cfg(not(feature = "sink_test"))]
+    fn rot_sink(
+        &mut self,
+        _: &RecvMessage,
+        _count: u16,
+        _size: u16,
+    ) -> Result<SinkStatus, RequestError<SprotError>> {
+        Err(RequestError::Runtime(SprotError::NotImplemented))
     }
 
     /// Retrieve status from the RoT.
@@ -713,12 +710,15 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<SprotStatus, RequestError<SprotError>> {
-        let txmsg = self.tx_buf.no_payload(MsgType::StatusReq);
-        let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
-        expect_msg(MsgType::StatusRsp, rxmsg.0.msgtype)?;
-        let status = self
-            .rx_buf
-            .deserialize_hubpack_payload::<SprotStatus>(&rxmsg)?;
+        let txmsg =
+            TxMsg::new(&mut self.tx_buf[..]).no_payload(MsgType::StatusReq);
+        let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let header = self.io.do_send_recv(&txmsg, &mut rxmsg, TIMEOUT_QUICK)?;
+        expect_msg(MsgType::StatusRsp, header.msgtype)?;
+        let status = rxmsg
+            .parse()
+            .unwrap_lite()
+            .deserialize_hubpack_payload::<SprotStatus>()?;
         Ok(status)
     }
 
@@ -726,11 +726,15 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<IoStats, RequestError<SprotError>> {
-        let txmsg = self.tx_buf.no_payload(MsgType::IoStatsReq);
-        let rxmsg = self.do_send_recv(txmsg, TIMEOUT_QUICK)?;
-        expect_msg(MsgType::IoStatsRsp, rxmsg.0.msgtype)?;
-        let status =
-            self.rx_buf.deserialize_hubpack_payload::<IoStats>(&rxmsg)?;
+        let txmsg =
+            TxMsg::new(&mut self.tx_buf[..]).no_payload(MsgType::IoStatsReq);
+        let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let header = self.io.do_send_recv(&txmsg, &mut rxmsg, TIMEOUT_QUICK)?;
+        expect_msg(MsgType::IoStatsRsp, header.msgtype)?;
+        let status = rxmsg
+            .parse()
+            .unwrap_lite()
+            .deserialize_hubpack_payload::<IoStats>()?;
         Ok(status)
     }
 
@@ -738,9 +742,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<usize, RequestError<SprotError>> {
-        match self.upd(
-            MsgType::UpdBlockSizeReq,
-            0,
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .no_payload(MsgType::UpdBlockSizeReq);
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        match self.io.upd(
+            &txmsg,
+            rxmsg,
             MsgType::UpdBlockSizeRsp,
             TIMEOUT_QUICK,
             1,
@@ -762,12 +769,13 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         image_type: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         ringbuf_entry!(Trace::UpdatePrep);
-        let payload = self.tx_buf.payload_mut();
-        let payload_len = hubpack::serialize(&mut payload[0..], &image_type)
-            .map_err(Into::<SprotError>::into)?;
-        let _ = self.upd(
-            MsgType::UpdPrepImageUpdateReq,
-            payload_len,
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .serialize(MsgType::UpdPrepImageUpdateReq, image_type)
+            .map_err(|(_, e)| SprotError::from(e))?;
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
             MsgType::UpdPrepImageUpdateRsp,
             TIMEOUT_QUICK,
             1,
@@ -787,21 +795,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         >,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         ringbuf_entry!(Trace::UpdateWriteOneBlock);
-
-        let payload = self.tx_buf.payload_mut();
-        let n = hubpack::serialize(payload, &block_num)
-            .map_err(|e| idol_runtime::RequestError::Runtime(e.into()))?;
-        block
-            .read_range(0..block.len(), &mut payload[n..n + block.len()])
-            .map_err(|_| {
-                idol_runtime::RequestError::Runtime(
-                    SprotError::BadMessageLength,
-                )
-            })?;
-        let payload_len = n + block.len();
-        let _ = self.upd(
-            MsgType::UpdWriteOneBlockReq,
-            payload_len,
+        let txmsg = TxMsg::new(&mut self.tx_buf[..]).block(block_num, block)?;
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
             MsgType::UpdWriteOneBlockRsp,
             TIMEOUT_WRITE_ONE_BLOCK,
             MAX_UPDATE_ATTEMPTS,
@@ -813,9 +811,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
-        let _ = self.upd(
-            MsgType::UpdFinishImageUpdateReq,
-            0,
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .no_payload(MsgType::UpdFinishImageUpdateReq);
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
             MsgType::UpdFinishImageUpdateRsp,
             TIMEOUT_QUICK,
             1,
@@ -827,9 +828,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
-        let _ = self.upd(
-            MsgType::UpdAbortUpdateReq,
-            0,
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .no_payload(MsgType::UpdAbortUpdateReq);
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
             MsgType::UpdAbortUpdateRsp,
             TIMEOUT_QUICK,
             1,
