@@ -1,0 +1,383 @@
+name = "gimletlet-dc2024"
+target = "thumbv7em-none-eabihf"
+board = "gimletlet-2"
+chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
+stacksize = 896
+epoch = 0
+version = 0
+
+[kernel]
+name = "gimletlet"
+requires = {flash = 32768, ram = 8192}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.jefe.config.on-state-change]
+host_sp_comms = {bit-number = 1}
+
+[tasks.jefe.config.allowed-callers]
+set_state = ["gimlet_seq"]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy", "control_plane_agent"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753"]
+priority = 1
+max-sizes = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
+start = true
+task-slots = ["jefe"]
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+features = ["h753", "itm"]
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+uses = ["i2c2", "i2c3", "i2c4"]
+start = true
+task-slots = ["sys"]
+
+[tasks.i2c_driver.interrupts]
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
+"i2c3.event" = 0b0000_0100
+"i2c3.error" = 0b0000_0100
+"i2c4.event" = 0b0000_1000
+"i2c4.error" = 0b0000_1000
+
+[tasks.spi3_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+features = ["h753", "spi3"]
+uses = ["spi3"]
+start = true
+interrupts = {"spi3.irq" = 1}
+stacksize = 880
+task-slots = ["sys"]
+
+[tasks.spi3_driver.config.spi]
+global_config = "spi3"
+
+[tasks.spi_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi4", "h753"]
+uses = ["spi4"]
+start = true
+interrupts = {"spi4.irq" = 1}
+stacksize = 880
+task-slots = ["sys"]
+
+[tasks.spi_driver.config.spi]
+global_config = "spi4"
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 5
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+
+[tasks.gimlet_seq]
+name = "drv-mock-gimlet-seq-server"
+priority = 2
+max-sizes = {flash = 2048, ram = 1024 }
+start = true
+task-slots = ["jefe"]
+
+[tasks.pong]
+name = "task-pong"
+priority = 8
+max-sizes = {flash = 1024, ram = 1024}
+start = true
+task-slots = ["user_leds"]
+
+[tasks.uartecho]
+name = "task-uartecho"
+features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
+uses = ["usart2"]
+interrupts = {"usart2.irq" = 0b01}
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = ["sys"]
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
+uses = ["uart7"]
+interrupts = {"uart7.irq" = 0b01}
+priority = 8
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 2048
+start = true
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update", "hash", "sprot"]
+priority = 7
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 2048
+start = true
+task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "update_server", "user_leds"]
+
+[tasks.hf]
+# If you do not have a gimletlet qspi-let adapter but want to test the hf API
+# (e.g., from control-plane-agent / MGS), switch to `drv-mock-gimlet-hf-server`.
+name = "drv-gimlet-hf-server"
+features = ["h753", "hash"]
+priority = 6
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1920
+start = true
+uses = ["quadspi"]
+interrupts = {"quadspi.irq" = 1}
+task-slots = ["sys", "hash_driver"]
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = 1}
+task-slots = ["sys"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 6040
+priority = 3
+features = ["h753", "vlan", "gimletlet-nic"]
+max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "tim16"]
+start = true
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
+task-slots = ["sys", "spi_driver" ]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 4
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+uses = ["usart1"]
+task-slots = [
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "hf",
+    "gimlet_seq",
+    "validate",
+    "sensor",
+    "sprot",
+]
+features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
+interrupts = {"usart1.irq" = 0b10}
+
+[tasks.sensor]
+name = "task-sensor"
+features = ["itm"]
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+stacksize = 1024
+start = true
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys", {spi_driver = "spi3_driver"}]
+features = ["sink_test"]
+
+[tasks.validate]
+name = "task-validate"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+stacksize = 1024
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 9
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 6
+max-sizes = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys", "user_leds"]
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
+[config]
+[[config.i2c.controllers]]
+controller = 2
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# Note that I2C3 on Gimletlet is a bit unusual in that its SCL and SDA are on
+# two different ports (port A and port C, respectively); we therefore have two
+# pin structures for I2C3, but for purposes of the abstraction that i2c
+# exports to consumers, we adhere to the convention outlined in the
+# definition of `PortIndex` and name the logical port C after the GPIO pin that
+# corresponds to SDA.
+#
+[[config.i2c.controllers.ports.C.pins]]
+gpio_port = "A"
+pins = [ 8 ]
+af = 4
+
+[[config.i2c.controllers.ports.C.pins]]
+gpio_port = "C"
+pins = [ 9 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 14, 15 ]
+af = 4
+
+[[config.i2c.devices]]
+device = "ltc4282"
+controller = 4
+port = "F"
+address = 0x55
+description = "Chonky boi"
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    # SPI3_SCK, SPI3_MOSI
+    {port = "C", pins = [10, 12], af = 6},
+]
+# SPI3_MISO
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.spi3_header]
+mux = "port_c"
+cs = [{port = "A", pin = 15}]
+clock_divider = "DIV256" # 774 kHz, works with LPC55 clock at 48MHz
+# clock_divider = "DIV128" # 1.5 MHz, fails unless LPC55 clock is at 96MHz
+
+[config.spi.spi4]
+controller = 4
+
+[config.spi.spi4.mux_options.port_e]
+outputs = [
+    {port = "E", pins = [12, 14], af = 5},
+]
+input = {port = "E", pin = 13, af = 5}
+
+[config.spi.spi4.devices.spi4_header]
+mux = "port_e"
+cs = [{port = "E", pin = 11}]
+
+[config.net]
+vlan = { start = 0x301, count = 2 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = 0b01}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+
+[config.sprot]
+# TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
+pins = [
+# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
+{ name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+# SPI6 CS repurposed for debugging
+{ name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
+]
