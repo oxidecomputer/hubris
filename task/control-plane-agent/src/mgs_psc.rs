@@ -4,7 +4,10 @@
 
 use core::convert::Infallible;
 
-use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
+use crate::{
+    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
+    update::ComponentUpdater, Log, MgsMessage,
+};
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
@@ -40,6 +43,7 @@ static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sp_update: SpUpdate,
+    rot_update: RotUpdate,
 }
 
 impl MgsHandler {
@@ -49,6 +53,7 @@ impl MgsHandler {
         Self {
             common: MgsCommon::claim_static_resources(base_mac_address),
             sp_update: SpUpdate::new(),
+            rot_update: RotUpdate::new(),
         }
     }
 
@@ -252,8 +257,10 @@ impl SpHandler for MgsHandler {
             slot: update.slot,
         }));
 
-        // We currently don't have any updateable components on psc.
-        Err(SpError::RequestUnsupportedForComponent)
+        match update.component {
+            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn update_status(
@@ -266,6 +273,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
+            SpComponent::ROT => Ok(self.rot_update.status()),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -286,6 +294,9 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
+            SpComponent::ROT => {
+                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -301,6 +312,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
+            SpComponent::ROT => self.rot_update.abort(&id),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }

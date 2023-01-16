@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgs_common::MgsCommon, update::sp::SpUpdate, Log, MgsMessage};
+use crate::{
+    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
+    update::ComponentUpdater, Log, MgsMessage,
+};
 use core::convert::Infallible;
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
@@ -56,6 +59,7 @@ pub(crate) struct MgsHandler {
     sequencer: Sequencer,
     monorail: Monorail,
     sp_update: SpUpdate,
+    rot_update: RotUpdate,
     ignition: IgnitionController,
 }
 
@@ -68,6 +72,7 @@ impl MgsHandler {
             sequencer: Sequencer::from(SIDECAR_SEQ.get_task_id()),
             monorail: Monorail::from(MONORAIL.get_task_id()),
             sp_update: SpUpdate::new(),
+            rot_update: RotUpdate::new(),
             ignition: IgnitionController::new(),
         }
     }
@@ -301,8 +306,10 @@ impl SpHandler for MgsHandler {
             slot: update.slot,
         }));
 
-        // We currently don't have any updateable components on sidecar.
-        Err(SpError::RequestUnsupportedForComponent)
+        match update.component {
+            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn update_status(
@@ -315,6 +322,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
+            SpComponent::ROT => Ok(self.rot_update.status()),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -335,6 +343,9 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
+            SpComponent::ROT => {
+                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -350,6 +361,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
+            SpComponent::ROT => self.rot_update.abort(&id),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
