@@ -1452,6 +1452,7 @@ version = "0.1.0"
 dependencies = [
  "crc",
  "derive-idol-err",
+ "drv-spi-api",
  "drv-update-api",
  "hubpack",
  "idol",
