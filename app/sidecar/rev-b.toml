@@ -637,6 +637,15 @@ refdes = "U33"
 
 [[config.i2c.devices]]
 bus = "south0"
+address = 0b1010_100
+device = "ltc4282"
+description = "Front I/O hotswap controller"
+power = { rails = [ "V12P0_FRONT_IO" ], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U647"
+
+[[config.i2c.devices]]
+bus = "south0"
 address = 0b1011_000
 device = "idt8a34001"
 description = "Clock generator"

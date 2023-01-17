@@ -11,6 +11,7 @@
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`isl68224`]: ISL68224 power controller
+//! - [`ltc4282`]: LTC4282 high current hot swap controller
 //! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
 //! - [`m2_hp_only`]: M.2 drive; identical to `nvme_bmc`, with the limitation
 //!   that communication is **only allowed** when the device is known to be
@@ -167,6 +168,7 @@ pub mod at24csw080;
 pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
+pub mod ltc4282;
 pub mod m24c02;
 pub mod m2_hp_only;
 pub mod max31790;
