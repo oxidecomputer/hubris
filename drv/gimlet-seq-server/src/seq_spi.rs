@@ -6,10 +6,10 @@
 //!
 //! This uses external shared SPI and GPIO servers to drive the FPGA.
 
-use crate::SpiDevice;
 use zerocopy::{AsBytes, Unaligned, U16};
 
 use drv_spi_api as spi_api;
+use spi_api::{SpiDevice, SpiServer};
 
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
@@ -24,12 +24,12 @@ include!(env!("GIMLET_FPGA_REGS"));
 
 pub const EXPECTED_IDENT: u16 = 0x1DE;
 
-pub struct SequencerFpga {
-    spi: SpiDevice,
+pub struct SequencerFpga<S: SpiServer> {
+    spi: SpiDevice<S>,
 }
 
-impl SequencerFpga {
-    pub fn new(spi: SpiDevice) -> Self {
+impl<S: SpiServer> SequencerFpga<S> {
+    pub fn new(spi: SpiDevice<S>) -> Self {
         Self { spi }
     }
 
