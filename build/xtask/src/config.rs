@@ -387,11 +387,9 @@ impl Config {
         // via environment variables to build.rs scripts that may choose to
         // incorporate configuration into compilation.
         //
-        if let Some(config) = &task_toml.config {
-            let task_config = toml::to_string(&config).unwrap();
-            out.env
-                .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
-        }
+        let task_config = toml::to_string(&task_toml).unwrap();
+        out.env
+            .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
 
         // Expose the current task's name to allow for better error messages if
         // a required configuration section is missing
@@ -665,32 +663,6 @@ pub struct Output {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Task {
-    pub name: String,
-    #[serde(default)]
-    pub max_sizes: IndexMap<String, u32>,
-    pub priority: u8,
-    pub stacksize: Option<u32>,
-    #[serde(default)]
-    pub uses: Vec<String>,
-    #[serde(default)]
-    pub start: bool,
-    #[serde(default)]
-    pub features: Vec<String>,
-    #[serde(default)]
-    pub interrupts: IndexMap<String, u32>,
-    #[serde(default)]
-    pub sections: IndexMap<String, String>,
-    #[serde(default, deserialize_with = "deserialize_task_slot")]
-    pub task_slots: IndexMap<String, String>,
-    #[serde(default)]
-    pub config: Option<ordered_toml::Value>,
-    #[serde(default)]
-    pub uses_secure_entry: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Peripheral {
     pub address: u32,
     pub size: u32,
@@ -698,54 +670,7 @@ pub struct Peripheral {
     pub interrupts: BTreeMap<String, u32>,
 }
 
-/// In the common case, task slots map back to a task of the same name (e.g.
-/// `gpio_driver`, `rcc_driver`).  However, certain tasks need generic task
-/// slot names, e.g. they'll have a task slot named `spi_driver` which will
-/// be mapped to a specific SPI driver task (`spi2_driver`).
-///
-/// This deserializer lets us handle both cases, while making the common case
-/// easiest to write.  In `app.toml`, you can write something like
-/// ```toml
-/// task-slots = [
-///     "gpio_driver",
-///     "i2c_driver",
-///     "rcc_driver",
-///     {spi_driver: "spi2_driver"},
-/// ]
-/// ```
-fn deserialize_task_slot<'de, D>(
-    deserializer: D,
-) -> Result<IndexMap<String, String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Clone, Debug, Deserialize)]
-    #[serde(untagged)]
-    enum ArrayItem {
-        Identity(String),
-        Remap(IndexMap<String, String>),
-    }
-    let s: Vec<ArrayItem> = serde::Deserialize::deserialize(deserializer)?;
-    let mut out = IndexMap::new();
-    for a in s {
-        match a {
-            ArrayItem::Identity(s) => {
-                out.insert(s.clone(), s.clone());
-            }
-            ArrayItem::Remap(m) => {
-                if m.len() != 1 {
-                    return Err(serde::de::Error::invalid_length(
-                        m.len(),
-                        &"a single key-value pair",
-                    ));
-                }
-                let (k, v) = m.iter().next().unwrap();
-                out.insert(k.to_string(), v.to_string());
-            }
-        }
-    }
-    Ok(out)
-}
+pub use toml_task::Task;
 
 /// Stores arguments and environment variables to run on a particular task.
 pub struct BuildConfig<'a> {
