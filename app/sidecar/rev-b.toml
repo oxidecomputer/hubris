@@ -93,9 +93,10 @@ priority = 4
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
-uses = ["spi4"]
 task-slots = ["sys"]
 features = ["sink_test", "use-spi-core", "h753"]
+uses = ["spi4"]
+interrupts = {"spi4.irq" = 1}
 config.spi.global_config = "spi4"
 
 [tasks.udpecho]
@@ -132,8 +133,8 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753"]
 stacksize = 4096
 start = true
-uses = ["spi2"]
 task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+uses = ["spi2"]
 interrupts = {"spi2.irq" = 1}
 config.spi.global_config = "spi2"
 
@@ -158,7 +159,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "spi", "stm32h7", "itm", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1024
