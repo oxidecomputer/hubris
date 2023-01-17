@@ -33,7 +33,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[cfg_attr(target_board = "gimlet-c", path = "payload_c.rs")]
 mod payload;
 
-// Select SPI server type based on crate features
+// `gimlet-seq` only ever talks to SPI devices through a separate SPI server
 type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
 
 #[derive(Copy, Clone, PartialEq)]
