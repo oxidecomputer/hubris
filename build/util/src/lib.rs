@@ -114,6 +114,15 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
     Ok(t.and_then(|t| t.config))
 }
 
+/// Pulls the full task configuration block
+///
+/// (compare with `task_maybe_config`, which returns the `config` subsection)
+pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
+    let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?
+        .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
+    Ok(t)
+}
+
 /// Returns a map of task names to their IDs.
 pub fn task_ids() -> TaskIds {
     let tasks = crate::env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
