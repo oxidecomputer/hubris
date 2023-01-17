@@ -17,7 +17,7 @@ use ksz8463::{
 };
 use ringbuf::*;
 use task_net_api::PhyError;
-use userlib::{hl::sleep_for, task_slot};
+use userlib::hl::sleep_for;
 use vsc7448_pac::types::PhyRegisterAddress;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
