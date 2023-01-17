@@ -6,7 +6,7 @@
 #![no_main]
 
 use core::convert::Into;
-use drv_spi_api::{CsState, SpiServer};
+use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
 use drv_update_api::{UpdateError, UpdateTarget};
@@ -19,10 +19,6 @@ use zerocopy::{ByteOrder, LittleEndian};
 cfg_if::cfg_if! {
     // Select local vs server SPI communication
     if #[cfg(feature = "use-spi-core")] {
-        // The SPI peripheral is owned by this task!
-        type SpiDevice =
-            drv_spi_api::SpiDevice<drv_stm32h7_spi_server_core::SpiServerCore>;
-
         /// Claims the SPI core.
         ///
         /// This function can only be called once, and will panic otherwise!
@@ -34,9 +30,6 @@ cfg_if::cfg_if! {
             drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
         }
     } else {
-        // The SPI peripheral is owned by a separate `stm32h7-spi-server` task
-        type SpiDevice = drv_spi_api::SpiDevice<drv_spi_api::Spi>;
-
         pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
             task_slot!(SPI, spi_driver);
             drv_spi_api::Spi::from(SPI.get_task_id())
@@ -165,9 +158,9 @@ fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
     }
 }
 
-pub struct ServerImpl {
+pub struct ServerImpl<S: SpiServer> {
     sys: sys_api::Sys,
-    spi: SpiDevice,
+    spi: SpiDevice<S>,
     // Use separate buffers so that retries can be generic.
     pub tx_buf: TxMsg,
     pub rx_buf: RxMsg,
@@ -194,7 +187,7 @@ fn main() -> ! {
     }
 }
 
-impl ServerImpl {
+impl<S: SpiServer> ServerImpl<S> {
     /// Handle the mechanics of sending a message and waiting for a response.
     fn do_send_recv(
         &mut self,
@@ -545,7 +538,7 @@ impl ServerImpl {
     }
 }
 
-impl idl::InOrderSpRotImpl for ServerImpl {
+impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     /// Send a message to the RoT for processing.
     fn send_recv(
         &mut self,
