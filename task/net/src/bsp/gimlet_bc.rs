@@ -93,7 +93,6 @@ impl crate::bsp_support::Bsp for BspImpl {
                 power_good: None, // TODO
                 pll_lock: None,   // TODO?
 
-                // Based on ordering in app.toml
                 ksz8463: Ksz8463::new(ksz8463_dev),
 
                 // SP_TO_MGMT_MUX_RESET_L
