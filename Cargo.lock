@@ -236,6 +236,7 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+ "toml-task",
 ]
 
 [[package]]
@@ -4626,6 +4627,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml-task"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "ordered-toml",
+ "serde",
+]
+
+[[package]]
 name = "transceiver-messages"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
@@ -4867,6 +4877,7 @@ dependencies = [
  "tlvc",
  "tlvc-text",
  "toml",
+ "toml-task",
  "walkdir",
  "zerocopy",
  "zip",

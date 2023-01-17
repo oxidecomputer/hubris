@@ -40,8 +40,9 @@ rangemap = { workspace = true }
 zip = "=0.5.6"
 
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
-build-kconfig = { path = "../kconfig" }
-abi = { path = "../../sys/abi" }
+abi.path = "../../sys/abi"
+build-kconfig.path = "../kconfig"
+toml-task.path = "../../lib/toml-task"
 
 # For NXP signing
 lpc55_sign = { workspace = true }

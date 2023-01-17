@@ -110,7 +110,8 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
 /// Pulls the task configuration, or `None` if the configuration is not
 /// provided.
 pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
-    toml_from_env("HUBRIS_TASK_CONFIG")
+    let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?;
+    Ok(t.and_then(|t| t.config))
 }
 
 /// Returns a map of task names to their IDs.
