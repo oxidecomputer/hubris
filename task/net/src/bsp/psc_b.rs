@@ -15,7 +15,6 @@ use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::task_slot;
 use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////
