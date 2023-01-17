@@ -244,7 +244,7 @@ max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753']
+features = ["sink_test", "use-spi-core", "h753"]
 uses = ["spi4"]
 interrupts = {"spi4.irq" = 1}
 config.spi.global_config = "spi4"
