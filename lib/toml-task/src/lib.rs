@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! `toml-task` allows for `xtask` and `build.rs` scripts to share a common
 //! definition of a `task` within a TOML file.
 use indexmap::IndexMap;
