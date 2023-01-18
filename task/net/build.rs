@@ -6,7 +6,7 @@ use build_net::{BufSize, NetConfig, SocketConfig};
 use proc_macro2::TokenStream;
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::server::build_server_support(
         "../../idl/net.idol",
         "server_stub.rs",
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn generate_net_config(
     config: &NetConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("net_config.rs");
 
@@ -72,7 +72,7 @@ fn generate_net_config(
 
 fn generate_port_table(
     config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
     let consts = config.sockets.values().map(|socket| {
         let port = socket.port;
         quote::quote! { #port }
@@ -89,7 +89,7 @@ fn generate_port_table(
 
 fn generate_owner_info(
     config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
     let consts = config.sockets.values().map(|socket| {
         let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
         let note = socket.owner.notification;
@@ -117,7 +117,7 @@ fn generate_socket_state(
     name: &str,
     config: &SocketConfig,
     vlan_count: usize,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
     if config.kind != "udp" {
         return Err("unsupported socket kind".into());
     }
@@ -160,7 +160,7 @@ fn generate_state_struct(config: &NetConfig) -> TokenStream {
 
 fn generate_constructor(
     config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error>> {
+) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
     let name_to_sockets = |name: &String, i: usize| {
         let upname = name.to_ascii_uppercase();
         let rxhdrs: syn::Ident =

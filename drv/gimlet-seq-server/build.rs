@@ -14,7 +14,7 @@ struct Config {
     register_defs: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
     let config = build_util::task_config::<Config>()?;
