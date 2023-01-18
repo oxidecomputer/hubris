@@ -223,6 +223,7 @@ dependencies = [
 name = "build-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "serde",
 ]
@@ -1580,12 +1581,15 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "drv-spi-api",
  "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "regex",
  "userlib",
  "zerocopy",
 ]
@@ -3996,6 +4000,7 @@ dependencies = [
 name = "task-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-net",
  "build-util",
  "cfg-if",
@@ -4021,6 +4026,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "smoltcp",

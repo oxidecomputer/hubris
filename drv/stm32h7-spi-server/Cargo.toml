@@ -14,7 +14,11 @@ drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
-idol = { workspace = true }
+anyhow.workspace = true
+idol.workspace = true
+regex.workspace = true
+
+build-util.path = "../../build/util"
 
 [features]
 # These features are unused in the app itself, but Humility uses them to decide

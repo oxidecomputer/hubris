@@ -2,16 +2,33 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::{anyhow, bail, Result};
 use build_net::{BufSize, NetConfig, SocketConfig};
 use proc_macro2::TokenStream;
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn main() -> Result<()> {
     idol::server::build_server_support(
         "../../idl/net.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
-    )?;
+    )
+    .map_err(|e| anyhow!(e))?;
+
+    let task_config = build_util::task_full_config_toml()?;
+    if task_config.features.contains(&"use-spi-core".to_owned()) {
+        // The net task hard-codes the SPI IRQ to 4; we check the app.toml here
+        // to make sure that it agrees.
+        let re = regex::Regex::new(r"^spi\d\.irq$").unwrap();
+        const EXPECTED_IRQ: u32 = 0b100;
+        for (k, v) in &task_config.interrupts {
+            if re.is_match(k) {
+                if *v != EXPECTED_IRQ {
+                    bail!("{k} must be {EXPECTED_IRQ:#b}");
+                }
+            }
+        }
+    }
 
     let net_config = build_net::load_net_config()?;
 
@@ -21,9 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
-fn generate_net_config(
-    config: &NetConfig,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn generate_net_config(config: &NetConfig) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("net_config.rs");
 
@@ -70,9 +85,7 @@ fn generate_net_config(
     Ok(())
 }
 
-fn generate_port_table(
-    config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
+fn generate_port_table(config: &NetConfig) -> Result<TokenStream> {
     let consts = config.sockets.values().map(|socket| {
         let port = socket.port;
         quote::quote! { #port }
@@ -87,9 +100,7 @@ fn generate_port_table(
     })
 }
 
-fn generate_owner_info(
-    config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
+fn generate_owner_info(config: &NetConfig) -> Result<TokenStream> {
     let consts = config.sockets.values().map(|socket| {
         let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
         let note = socket.owner.notification;
@@ -117,9 +128,9 @@ fn generate_socket_state(
     name: &str,
     config: &SocketConfig,
     vlan_count: usize,
-) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<TokenStream> {
     if config.kind != "udp" {
-        return Err("unsupported socket kind".into());
+        bail!("unsupported socket kind");
     }
 
     let tx = generate_buffers(name, "TX", &config.tx, vlan_count);
@@ -158,9 +169,7 @@ fn generate_state_struct(config: &NetConfig) -> TokenStream {
     }
 }
 
-fn generate_constructor(
-    config: &NetConfig,
-) -> Result<TokenStream, Box<dyn std::error::Error + Send + Sync>> {
+fn generate_constructor(config: &NetConfig) -> Result<TokenStream> {
     let name_to_sockets = |name: &String, i: usize| {
         let upname = name.to_ascii_uppercase();
         let rxhdrs: syn::Ident =
