@@ -13,17 +13,37 @@ use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, WriteOp};
 use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
-use drv_spi_api::{Spi, SpiServer};
+use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{ClientError, Leased, LenLimit, R, W};
 
 task_slot!(SYS, sys);
-task_slot!(SPI, spi_driver);
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "front_io")] {
         task_slot!(I2C, i2c_driver);
         include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+    }
+}
+
+cfg_if::cfg_if! {
+    // Select local vs server SPI communication
+    if #[cfg(feature = "use-spi-core")] {
+        /// Claims the SPI core.
+        ///
+        /// This function can only be called once, and will panic otherwise!
+        pub fn claim_spi(sys: &sys_api::Sys)
+            -> drv_stm32h7_spi_server_core::SpiServerCore
+        {
+            // Note that this *always* maps the SPI interrupt to interrupt mask
+            // 0b1, which must match the TOML file.
+            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
+        }
+    } else {
+        pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
+            task_slot!(SPI, spi_driver);
+            drv_spi_api::Spi::from(SPI.get_task_id())
+        }
     }
 }
 
@@ -42,8 +62,9 @@ ringbuf!(Trace, 64, Trace::None);
 #[export_name = "main"]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
-    let configuration_port = Spi::from(SPI.get_task_id()).device(0);
-    let user_design = Spi::from(SPI.get_task_id()).device(1);
+    let spi = claim_spi(&sys);
+    let configuration_port = spi.device(0);
+    let user_design = spi.device(1);
 
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "mainboard", feature = "front_io"))] {

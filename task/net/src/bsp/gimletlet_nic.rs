@@ -5,20 +5,20 @@
 #[cfg(not(feature = "ksz8463"))]
 compile_error!("this BSP requires the ksz8463 feature");
 
-use crate::{bsp_support, pins};
-use drv_spi_api::{Spi, SpiServer};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    pins,
+};
+use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use ksz8463::{
-    Error as RawKszError, Ksz8463, MIBCounter, MIBCounterValue,
-    Register as KszRegister,
+    Error as RawKszError, MIBCounter, MIBCounterValue, Register as KszRegister,
 };
 use ringbuf::*;
 use task_net_api::PhyError;
-use userlib::{hl::sleep_for, task_slot};
+use userlib::hl::sleep_for;
 use vsc7448_pac::types::PhyRegisterAddress;
-
-task_slot!(SPI, spi_driver);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
@@ -58,8 +58,9 @@ impl bsp_support::Bsp for BspImpl {
 
     fn new(_eth: &eth::Ethernet, sys: &Sys) -> Self {
         let ksz8463 = loop {
+            let spi = bsp_support::claim_spi(sys);
             // SPI device is based on ordering in app.toml
-            let ksz8463_spi = Spi::from(SPI.get_task_id()).device(0);
+            let ksz8463_spi = spi.device(0);
 
             // Initialize the KSZ8463 (using SPI4_RESET, PB10)
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1);

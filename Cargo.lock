@@ -223,6 +223,7 @@ dependencies = [
 name = "build-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "serde",
 ]
@@ -233,6 +234,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "indexmap",
+ "ordered-toml",
  "serde",
  "serde_json",
  "toml",
@@ -844,6 +846,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "gnarle",
  "idol",
@@ -1578,12 +1581,15 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "drv-spi-api",
  "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "regex",
  "userlib",
  "zerocopy",
 ]
@@ -1592,6 +1598,7 @@ dependencies = [
 name = "drv-stm32h7-spi-server-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "call_rustfmt",
  "cfg-if",
@@ -1606,6 +1613,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "stm32h7",
@@ -1622,6 +1630,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "drv-sprot-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-update-api",
  "hubpack",
@@ -3970,6 +3979,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "idol",
@@ -3990,14 +4000,17 @@ dependencies = [
 name = "task-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-net",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-local-vpd",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "enum-map",
@@ -4013,6 +4026,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "smoltcp",

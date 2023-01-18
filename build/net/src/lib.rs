@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::Result;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -65,8 +66,7 @@ pub struct TaskNote {
     pub notification: u32,
 }
 
-pub fn load_net_config(
-) -> Result<NetConfig, Box<dyn std::error::Error + Send + Sync>> {
+pub fn load_net_config() -> Result<NetConfig> {
     let cfg = build_util::config::<GlobalConfig>()?.net;
 
     match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {

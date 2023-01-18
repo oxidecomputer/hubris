@@ -132,7 +132,7 @@ impl SpiServer for Spi {
 
 /// Wraps a `Spi`, pairing it with a `device_index` that will automatically be
 /// sent with all operations.
-pub struct SpiDevice<S = Spi> {
+pub struct SpiDevice<S> {
     server: S,
     device_index: u8,
 }

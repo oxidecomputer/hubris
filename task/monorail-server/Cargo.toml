@@ -8,6 +8,7 @@ drv-monorail-api = { path = "../../drv/monorail-api"  }
 drv-sidecar-front-io = { path = "../../drv/sidecar-front-io", features = ["phy_smi"], optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
+drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true  }
 idol-runtime = { workspace = true }
@@ -29,6 +30,9 @@ leds = ["drv-user-leds-api"]
 mgmt = ["task-net-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-sidecar-front-io"]
 vlan = ["task-net-api?/vlan"]
+use-spi-core = ["drv-stm32h7-spi-server-core"]
+h743 = ["drv-stm32h7-spi-server-core?/h743"]
+h753 = ["drv-stm32h7-spi-server-core?/h753"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

@@ -30,34 +30,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
-[tasks.spi4_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["spi4", "h753"]
-uses = ["spi4"]
-start = true
-interrupts = {"spi4.irq" = 1}
-stacksize = 872
-task-slots = ["sys"]
-
-[tasks.spi4_driver.config.spi]
-global_config = "spi4"
-
-[tasks.spi2_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["spi2", "h753"]
-uses = ["spi2"]
-start = true
-interrupts = {"spi2.irq" = 1}
-stacksize = 872
-task-slots = ["sys"]
-
-[tasks.spi2_driver.config.spi]
-global_config = "spi2"
-
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
@@ -84,7 +56,7 @@ interrupts = {"flash_controller.irq" = 0b1}
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "sprot"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1024
@@ -103,13 +75,14 @@ task-slots = ["i2c_driver"]
 name = "task-net"
 stacksize = 6040
 priority = 3
-features = ["mgmt", "h753", "vlan", "vpd-mac"]
+features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16"]
+uses = ["eth", "eth_dma", "tim16", "spi2"]
 start = true
-interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
-task-slots = ["sys", "i2c_driver", { spi_driver = "spi2_driver" }]
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10, "spi2.irq" = 0b100}
+task-slots = ["sys", "i2c_driver"]
+config.spi.global_config = "spi2"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -136,8 +109,11 @@ priority = 3
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
-task-slots = ["sys", {spi_driver = "spi4_driver"}]
-features = ["sink_test"]
+task-slots = ["sys"]
+uses = ["spi4"]
+features = ["sink_test", "use-spi-core", "h753"]
+interrupts = {"spi4.irq" = 1}
+config.spi.global_config = "spi4"
 
 [tasks.udpecho]
 name = "task-udpecho"

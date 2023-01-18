@@ -29,20 +29,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
-[tasks.spi2_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["spi2", "h753"]
-uses = ["spi2"]
-start = true
-interrupts = {"spi2.irq" = 1}
-stacksize = 1000
-task-slots = ["sys"]
-
-[tasks.spi2_driver.config.spi]
-global_config = "spi2"
-
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
@@ -64,13 +50,14 @@ task-slots = ["sys", "user_leds"]
 name = "task-net"
 stacksize = 3000
 priority = 3
-features = ["mgmt", "h753"]
+features = ["mgmt", "h753", "use-spi-core"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16"]
+uses = ["eth", "eth_dma", "tim16", "spi2"]
 start = true
-interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
-task-slots = ["sys", "user_leds", { spi_driver = "spi2_driver" }]
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10, "spi2.irq" = 0b100}
+task-slots = ["sys", "user_leds"]
+config.spi.global_config = "spi2"
 
 [tasks.udpecho]
 name = "task-udpecho"

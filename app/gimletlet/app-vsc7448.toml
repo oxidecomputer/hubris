@@ -44,20 +44,6 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
-[tasks.spi4_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["spi4", "h753"]
-uses = ["spi4"]
-start = true
-interrupts = {"spi4.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
-
-[tasks.spi4_driver.config.spi]
-global_config = "spi4"
-
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
@@ -68,7 +54,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio"]
 priority = 3
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
@@ -79,10 +65,13 @@ task-slots = ["sys", "i2c_driver", "user_leds"]
 name = "task-monorail-server"
 priority = 3
 max-sizes = {flash = 131072, ram = 8192}
-features = ["leds"]
+features = ["leds", "use-spi-core", "h753"]
 stacksize = 4096
 start = true
-task-slots = ["sys", "user_leds", { spi_driver = "spi4_driver" }]
+task-slots = ["sys", "user_leds"]
+interrupts = {"spi4.irq" = 1}
+uses = ["spi4"]
+config.spi.global_config = "spi4"
 
 [tasks.idle]
 name = "task-idle"

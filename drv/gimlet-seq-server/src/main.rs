@@ -15,11 +15,10 @@ use userlib::*;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
-use drv_spi_api as spi_api;
+use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
-use spi_api::SpiServer;
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
@@ -69,7 +68,7 @@ ringbuf!(Trace, 64, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = spi_api::Spi::from(SPI.get_task_id());
+    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
@@ -351,9 +350,9 @@ fn main() -> ! {
     }
 }
 
-struct ServerImpl {
+struct ServerImpl<S: SpiServer> {
     state: PowerState,
-    seq: seq_spi::SequencerFpga,
+    seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
     deadline: u64,
@@ -362,7 +361,7 @@ struct ServerImpl {
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 10;
 
-impl NotificationHandler for ServerImpl {
+impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
         TIMER_MASK
     }
@@ -434,7 +433,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-impl ServerImpl {
+impl<S: SpiServer> ServerImpl<S> {
     fn update_state_internal(&mut self, state: PowerState) {
         self.state = state;
         self.jefe.set_state(state as u32);
@@ -593,7 +592,7 @@ impl ServerImpl {
     }
 }
 
-impl idl::InOrderSequencerImpl for ServerImpl {
+impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn get_state(
         &mut self,
         _: &RecvMessage,
@@ -631,8 +630,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     }
 }
 
-fn reprogram_fpga(
-    spi: &spi_api::SpiDevice,
+fn reprogram_fpga<S: SpiServer>(
+    spi: &SpiDevice<S>,
     sys: &sys_api::Sys,
     config: &ice40::Config,
 ) -> Result<(), ice40::Ice40Error> {

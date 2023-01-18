@@ -5,8 +5,13 @@
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");
 
-use crate::{bsp_support, mgmt, miim_bridge::MiimBridge, pins};
-use drv_spi_api::{Spi, SpiServer};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    mgmt,
+    miim_bridge::MiimBridge,
+    pins,
+};
+use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use drv_user_leds_api::UserLeds;
@@ -21,7 +26,6 @@ use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
 
-task_slot!(SPI, spi_driver);
 task_slot!(USER_LEDS, user_leds);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -122,14 +126,16 @@ impl bsp_support::Bsp for BspImpl {
         leds.led_off(0).unwrap();
         leds.led_on(3).unwrap();
 
+        let spi = bsp_support::claim_spi(sys);
+        let ksz8463_dev = spi.device(0); // from app.toml
+
         let mgmt = mgmt::Config {
             power_en: None,
             slow_power_en: false,
             power_good: None,
             pll_lock: None,
 
-            // SPI device is based on ordering in app.toml
-            ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+            ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::A.pin(9),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Slow,
 
@@ -277,7 +283,7 @@ impl bsp_support::Bsp for BspImpl {
         self.mgmt.phy_write(port, reg, value, eth)
     }
 
-    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &Ksz8463 {
         &self.mgmt.ksz8463
     }
 

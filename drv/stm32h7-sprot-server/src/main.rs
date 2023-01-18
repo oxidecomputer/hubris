@@ -6,7 +6,7 @@
 #![no_main]
 
 use core::convert::Into;
-use drv_spi_api::{CsState, Spi, SpiServer};
+use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
 use drv_update_api::{UpdateError, UpdateTarget};
@@ -15,10 +15,28 @@ use ringbuf::*;
 use userlib::*;
 #[cfg(feature = "sink_test")]
 use zerocopy::{ByteOrder, LittleEndian};
-// use serde::{Deserialize, Serialize};
-// use hubpack::SerializedSize;
 
-task_slot!(SPI, spi_driver);
+cfg_if::cfg_if! {
+    // Select local vs server SPI communication
+    if #[cfg(feature = "use-spi-core")] {
+        /// Claims the SPI core.
+        ///
+        /// This function can only be called once, and will panic otherwise!
+        pub fn claim_spi(sys: &sys_api::Sys)
+            -> drv_stm32h7_spi_server_core::SpiServerCore
+        {
+            // Note that this *always* maps the SPI interrupt to interrupt mask
+            // 0b1, which must match the TOML file.
+            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
+        }
+    } else {
+        pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
+            task_slot!(SPI, spi_driver);
+            drv_spi_api::Spi::from(SPI.get_task_id())
+        }
+    }
+}
+
 task_slot!(SYS, sys);
 
 #[allow(dead_code)]
@@ -140,9 +158,9 @@ fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
     }
 }
 
-pub struct ServerImpl {
+pub struct ServerImpl<S: SpiServer> {
     sys: sys_api::Sys,
-    spi: drv_spi_api::SpiDevice,
+    spi: SpiDevice<S>,
     // Use separate buffers so that retries can be generic.
     pub tx_buf: TxMsg,
     pub rx_buf: RxMsg,
@@ -150,8 +168,8 @@ pub struct ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = Spi::from(SPI.get_task_id()).device(SP_TO_ROT_SPI_DEVICE);
     let sys = sys_api::Sys::from(SYS.get_task_id());
+    let spi = claim_spi(&sys).device(SP_TO_ROT_SPI_DEVICE);
 
     sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
     debug_config(&sys);
@@ -169,7 +187,7 @@ fn main() -> ! {
     }
 }
 
-impl ServerImpl {
+impl<S: SpiServer> ServerImpl<S> {
     /// Handle the mechanics of sending a message and waiting for a response.
     fn do_send_recv(
         &mut self,
@@ -520,7 +538,7 @@ impl ServerImpl {
     }
 }
 
-impl idl::InOrderSpRotImpl for ServerImpl {
+impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     /// Send a message to the RoT for processing.
     fn send_recv(
         &mut self,

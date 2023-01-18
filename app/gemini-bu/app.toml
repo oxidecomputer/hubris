@@ -60,20 +60,6 @@ task-slots = ["sys"]
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
 
-[tasks.spi4_driver]
-name = "drv-stm32h7-spi-server"
-priority = 2
-max-sizes = {flash = 16384, ram = 4096}
-features = ["h753", "spi4"]
-uses = ["spi4"]
-start = true
-interrupts = {"spi4.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
-
-[tasks.spi4_driver.config.spi]
-global_config = "spi4"
-
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
@@ -126,7 +112,11 @@ priority = 5
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 4096
 start = true
-task-slots = ["sys", {spi_driver = "spi4_driver"}]
+task-slots = ["sys"]
+uses = ["spi4"]
+features = ["use-spi-core", "h753"]
+interrupts = {"spi4.irq" = 1}
+config.spi.global_config = "spi4"
 
 [tasks.validate]
 name = "task-validate"

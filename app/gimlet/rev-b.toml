@@ -48,20 +48,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
-[tasks.spi4_driver]
-name = "drv-stm32h7-spi-server"
-priority = 3
-max-sizes = {flash = 16384, ram = 4096}
-features = ["spi4", "h753"]
-uses = ["spi4"]
-start = true
-interrupts = {"spi4.irq" = 1}
-stacksize = 872
-task-slots = ["sys"]
-
-[tasks.spi4_driver.config.spi]
-global_config = "spi4"
-
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
@@ -257,8 +243,11 @@ priority = 4
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
-task-slots = ["sys", {spi_driver = "spi4_driver"}]
-features = ["sink_test"]
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753"]
+uses = ["spi4"]
+interrupts = {"spi4.irq" = 1}
+config.spi.global_config = "spi4"
 
 [tasks.validate]
 name = "task-validate"

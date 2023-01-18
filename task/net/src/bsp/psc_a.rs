@@ -5,17 +5,17 @@
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");
 
-use crate::{bsp_support, mgmt, pins};
-use drv_spi_api::{Spi, SpiServer};
+use crate::{
+    bsp_support::{self, Ksz8463},
+    mgmt, pins,
+};
+use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::task_slot;
 use vsc7448_pac::types::PhyRegisterAddress;
-
-task_slot!(SPI, spi_driver);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -49,6 +49,8 @@ impl bsp_support::Bsp for BspImpl {
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
+        let spi = bsp_support::claim_spi(sys);
+        let ksz8463_dev = spi.device(0); // from app.toml
         let bsp = mgmt::Config {
             // SP_TO_MGMT_V1P0_EN / SP_TO_MGMT_V2P5_EN
             // (note that the latter also enables the MGMT_PHY_REFCLK)
@@ -57,8 +59,7 @@ impl bsp_support::Bsp for BspImpl {
             power_good: None, // TODO
             pll_lock: None,
 
-            // Based on ordering in app.toml
-            ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+            ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::C.pin(2),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
@@ -103,7 +104,7 @@ impl bsp_support::Bsp for BspImpl {
         self.0.phy_write(port, reg, value, eth)
     }
 
-    fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+    fn ksz8463(&self) -> &Ksz8463 {
         &self.0.ksz8463
     }
 
