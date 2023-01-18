@@ -335,8 +335,11 @@ fn check_uses_and_interrupts(
     interrupts: &IndexMap<String, u32>,
 ) -> Result<String> {
     let mut spi = None;
+
+    // 10 SPI peripherals should be enough for anyone
+    let re = regex::Regex::new(r"^spi\d$").unwrap();
     for p in uses {
-        if p.starts_with("spi") {
+        if re.is_match(p) {
             if let Some(q) = spi {
                 bail!("multiple SPI periperals in use: {p} and {q}");
             }

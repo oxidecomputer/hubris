@@ -24,6 +24,7 @@ idol.workspace = true
 indexmap.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
+regex.workspace = true
 serde.workspace = true
 syn.workspace = true
 

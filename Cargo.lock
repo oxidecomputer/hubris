@@ -1608,6 +1608,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "stm32h7",
