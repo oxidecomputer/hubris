@@ -67,13 +67,11 @@ impl PersistIdCsrBuilder {
             .set_pub(public_key.as_bytes())
     }
 
-    const SIGNDATA_RANGE: Range<usize> = persistid_csr_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> SizedBlob
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[persistid_csr_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 

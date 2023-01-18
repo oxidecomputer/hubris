@@ -150,13 +150,11 @@ impl PersistIdSelfCertBuilder {
             .set_pub(public_key.as_bytes())
     }
 
-    const SIGNDATA_RANGE: Range<usize> = persistid_cert_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> PersistIdSelfCert
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[persistid_cert_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
@@ -219,13 +217,11 @@ impl DeviceIdCertBuilder {
             .set_pub(public_key.as_bytes())
     }
 
-    const SIGNDATA_RANGE: Range<usize> = deviceid_cert_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> DeviceIdCert
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[deviceid_cert_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
@@ -289,13 +285,11 @@ impl AliasCertBuilder {
         self.set_range(alias_cert_tmpl::FWID_RANGE, fwid)
     }
 
-    const SIGNDATA_RANGE: Range<usize> = alias_cert_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> AliasCert
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[alias_cert_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
@@ -363,13 +357,11 @@ impl SpMeasureCertBuilder {
         self.set_range(spmeasure_cert_tmpl::FWID_RANGE, fwid)
     }
 
-    const SIGNDATA_RANGE: Range<usize> = spmeasure_cert_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> SpMeasureCert
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[spmeasure_cert_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
@@ -441,14 +433,11 @@ impl TrustQuorumDheCertBuilder {
         self.set_range(trust_quorum_dhe_cert_tmpl::FWID_RANGE, fwid)
     }
 
-    const SIGNDATA_RANGE: Range<usize> =
-        trust_quorum_dhe_cert_tmpl::SIGNDATA_RANGE;
-
     pub fn sign(self, keypair: &Keypair) -> TrustQuorumDheCert
     where
         Self: Sized,
     {
-        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let signdata = &self.0[trust_quorum_dhe_cert_tmpl::SIGNDATA_RANGE];
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
