@@ -5,7 +5,7 @@
 use build_fpga_regmap::fpga_regs;
 use std::{fs, io::Write};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
     let board = build_util::env_var("HUBRIS_BOARD")?;

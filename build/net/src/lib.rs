@@ -65,7 +65,8 @@ pub struct TaskNote {
     pub notification: u32,
 }
 
-pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
+pub fn load_net_config(
+) -> Result<NetConfig, Box<dyn std::error::Error + Send + Sync>> {
     let cfg = build_util::config::<GlobalConfig>()?.net;
 
     match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {

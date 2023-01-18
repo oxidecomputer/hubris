@@ -5,7 +5,7 @@
 use serde::Deserialize;
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let global_config = build_util::config::<GlobalConfig>()?;
     generate_auxflash_config(&global_config.auxflash)?;
 
@@ -33,7 +33,7 @@ struct AuxFlashConfig {
 
 fn generate_auxflash_config(
     config: &AuxFlashConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("auxflash_config.rs");
 

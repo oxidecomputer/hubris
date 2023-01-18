@@ -5,7 +5,7 @@
 use build_fpga_regmap::fpga_regs;
 use std::{fs, io::Write};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::client::build_client_stub(
         "../../idl/ignition.idol",
         "client_stub.rs",

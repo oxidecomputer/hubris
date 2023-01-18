@@ -5,7 +5,7 @@
 use std::fs::File;
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
     idol::server::build_server_support(

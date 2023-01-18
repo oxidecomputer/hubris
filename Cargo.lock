@@ -2290,7 +2290,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=send-sync-err#2f314d1aad8460c18054cd275ff5646d93bc2c3a"
 dependencies = [
  "indexmap",
  "quote",
