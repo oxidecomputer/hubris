@@ -121,7 +121,7 @@ dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-fe
 gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
-idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false, branch = "send-sync-err" }
+idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
