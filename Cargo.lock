@@ -233,6 +233,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "indexmap",
+ "ordered-toml",
  "serde",
  "serde_json",
  "toml",
