@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt};
@@ -9,10 +10,23 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     build_util::expose_target_board();
 
-    let task_config = build_util::task_config::<TaskConfig>()?;
+    let full_task_config = build_util::task_full_config::<TaskConfig>()?;
+    let spi = check_uses_and_interrupts(
+        &full_task_config.uses,
+        &full_task_config.interrupts,
+    )?;
+    let task_config = full_task_config
+        .config
+        .ok_or_else(|| anyhow!("Missing config in SPI task configuration"))?;
+    if task_config.spi.global_config != spi {
+        bail!(
+            "Mismatched SPI peripheral '{spi}' and global config '{}'",
+            task_config.spi.global_config
+        );
+    }
     let global_config = build_util::config::<GlobalConfig>()?;
     check_spi_config(&global_config.spi, &task_config.spi)?;
     generate_spi_config(&global_config.spi, &task_config.spi)?;
@@ -155,9 +169,9 @@ impl Default for ClockDivider {
 fn generate_spi_config(
     config: &BTreeMap<String, SpiConfig>,
     task_config: &SpiTaskConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let config = config.get(&task_config.global_config).ok_or_else(|| {
-        format!(
+        anyhow!(
             "reference to undefined spi config {}",
             task_config.global_config
         )
@@ -316,21 +330,45 @@ impl ToTokens for Af {
 ///////////////////////////////////////////////////////////////////////////////
 // Check routines.
 
+fn check_uses_and_interrupts(
+    uses: &[String],
+    interrupts: &IndexMap<String, u32>,
+) -> Result<String> {
+    let mut spi = None;
+    for p in uses {
+        if p.starts_with("spi") {
+            if let Some(q) = spi {
+                bail!("multiple SPI periperals in use: {p} and {q}");
+            }
+            spi = Some(p);
+        }
+    }
+    let spi = match spi {
+        Some(s) => s,
+        None => bail!("No SPI peripheral in {uses:?}"),
+    };
+    let spi_irq = format!("{spi}.irq");
+    if !interrupts.contains_key(&spi_irq) {
+        bail!("interrupts should contain '{spi_irq}'");
+    }
+    Ok(spi.to_owned())
+}
+
 fn check_spi_config(
     config: &BTreeMap<String, SpiConfig>,
     task_config: &SpiTaskConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     // We only want to look at the subset of global configuration relevant to
     // this task, so that error reporting is more focused.
     let config = config.get(&task_config.global_config).ok_or_else(|| {
-        format!(
+        anyhow!(
             "reference to undefined spi config {}",
             task_config.global_config
         )
     })?;
 
     if config.controller < 1 || config.controller > 6 {
-        return Err(format!(
+        return Err(anyhow!(
             "bad controller {}, valid values are 1 thru 6",
             config.controller
         )
@@ -346,9 +384,10 @@ fn check_spi_config(
 
     for (devname, dev) in &config.devices {
         if !config.mux_options.contains_key(&dev.mux) {
-            return Err(format!(
+            return Err(anyhow!(
                 "device {} names undefined mux {}",
-                devname, dev.mux
+                devname,
+                dev.mux
             )
             .into());
         }
@@ -361,20 +400,19 @@ fn check_spi_config(
     Ok(())
 }
 
-fn check_afpinset(
-    config: &AfPinSetConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn check_afpinset(config: &AfPinSetConfig) -> Result<()> {
     for &pin in &config.pins {
         if pin > 15 {
-            return Err(format!(
+            return Err(anyhow!(
                 "pin {:?}{} is invalid, pins are numbered 0-15",
-                config.port, pin
+                config.port,
+                pin
             )
             .into());
         }
     }
     if config.af.0 > 15 {
-        return Err(format!(
+        return Err(anyhow!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af
         )
@@ -383,10 +421,10 @@ fn check_afpinset(
     Ok(())
 }
 
-fn check_afpin(config: &AfPinConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn check_afpin(config: &AfPinConfig) -> Result<()> {
     check_gpiopin(&config.pc)?;
     if config.af.0 > 15 {
-        return Err(format!(
+        return Err(anyhow!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af
         )
@@ -395,13 +433,12 @@ fn check_afpin(config: &AfPinConfig) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn check_gpiopin(
-    config: &GpioPinConfig,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn check_gpiopin(config: &GpioPinConfig) -> Result<()> {
     if config.pin > 15 {
-        return Err(format!(
+        return Err(anyhow!(
             "pin {:?}{} is invalid, pins are numbered 0-15",
-            config.port, config.pin
+            config.port,
+            config.pin
         )
         .into());
     }
