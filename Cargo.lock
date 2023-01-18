@@ -2302,7 +2302,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
+source = "git+https://github.com/oxidecomputer/idolatry.git#fe1610237bead97908526e4abcb3b23e081a472f"
 dependencies = [
  "userlib",
  "zerocopy",
