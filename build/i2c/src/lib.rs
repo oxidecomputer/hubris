@@ -629,7 +629,7 @@ impl ConfigGenerator {
             I2cController {{
                 controller: Controller::I2C{controller},
                 peripheral: Peripheral::I2c{controller},
-                notification: notifications::I2C{controller}_MASK,
+                notification: notifications::I2C{controller}_IRQ_MASK,
                 registers: unsafe {{ &*device::I2C{controller}::ptr() }},
             }},"##,
                 controller = c.controller,

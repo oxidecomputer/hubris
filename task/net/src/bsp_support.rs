@@ -32,9 +32,8 @@ cfg_if::cfg_if! {
         ///
         /// This function can only be called once, and will panic otherwise!
         pub fn claim_spi(sys: &Sys) -> drv_stm32h7_spi_server_core::SpiServerCore {
-            // Note that this *always* maps the SPI interrupt to interrupt mask
-            // 0b100, which must match the TOML file.
-            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 0b100)
+            drv_stm32h7_spi_server_core::declare_spi_core!(
+                sys.clone(), notifications::SPI_IRQ_MASK)
         }
     } else if #[cfg(all(feature = "ksz8463", not(feature = "use-spi-core")))] {
         // The SPI peripheral is owned by a separate `stm32h7-spi-server` task

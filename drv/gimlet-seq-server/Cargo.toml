@@ -13,6 +13,7 @@ drv-spi-api = { path = "../spi-api" }
 drv-stm32h7-spi = { path = "../stm32h7-spi" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 gnarle = { path = "../../lib/gnarle" }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

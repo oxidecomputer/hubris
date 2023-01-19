@@ -76,7 +76,11 @@ impl crate::bsp_support::Bsp for BspImpl {
                     //
                     // Only listen to our Jefe notification. Discard any error
                     // since this can't fail but the compiler doesn't know that.
-                    let _ = sys_recv_closed(&mut [], 1 << 3, TaskId::KERNEL);
+                    let _ = sys_recv_closed(
+                        &mut [],
+                        notifications::JEFE_STATE_CHANGE_MASK,
+                        TaskId::KERNEL,
+                    );
                 }
             }
         }

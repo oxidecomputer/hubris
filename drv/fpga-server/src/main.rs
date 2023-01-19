@@ -35,9 +35,8 @@ cfg_if::cfg_if! {
         pub fn claim_spi(sys: &sys_api::Sys)
             -> drv_stm32h7_spi_server_core::SpiServerCore
         {
-            // Note that this *always* maps the SPI interrupt to interrupt mask
-            // 0b1, which must match the TOML file.
-            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
+            drv_stm32h7_spi_server_core::declare_spi_core!(
+                sys.clone(), notifications::SPI_IRQ_MASK)
         }
     } else {
         pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {

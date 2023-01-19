@@ -14,6 +14,7 @@ drv-gimlet-state = { path = "../../drv/gimlet-state" }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394"] }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

@@ -19,6 +19,7 @@ drv-onewire = { path = "../../drv/onewire" }
 drv-onewire-devices = { path = "../../drv/onewire-devices" }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-sensor-api = { path = "../sensor-api" }
 task-thermal-api = { path = "../thermal-api" }

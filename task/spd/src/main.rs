@@ -261,7 +261,7 @@ fn main() -> ! {
                 // since this can't fail but the compiler doesn't know that.
                 let _ = sys_recv_closed(
                     &mut [],
-                    1 << JEFE_STATE_NOTIFICATION_BIT,
+                    notifications::JEFE_STATE_CHANGE_MASK,
                     TaskId::KERNEL,
                 );
             }
