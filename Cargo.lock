@@ -1707,6 +1707,7 @@ dependencies = [
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "fixedmap",
+ "notifications",
  "num-traits",
  "ringbuf",
  "stm32g0",

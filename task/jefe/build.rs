@@ -37,9 +37,11 @@ fn main() -> Result<()> {
             "pub(crate) const MAILING_LIST: [({task}, u32); {count}] = [",
         )?;
         for (name, rec) in cfg.on_state_change {
-            let other_task = build_util::other_task_full_config_toml(&name)?;
-            let bit_number = other_task.notification_bit(&rec)?;
-            writeln!(out, "    ({task}::{name}, 1 << {}),", bit_number)?;
+            writeln!(
+                out,
+                "    ({task}::{name}, notifications::{name}::{}_MASK),",
+                rec.to_ascii_uppercase().replace("-", "_"),
+            )?;
         }
         writeln!(out, "];")?;
     }

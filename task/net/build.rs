@@ -91,16 +91,18 @@ fn generate_owner_info(config: &NetConfig) -> Result<TokenStream> {
         .values()
         .map(|socket| {
             let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
-            let other =
-                build_util::other_task_full_config_toml(&socket.owner.name)?;
-            let note = other.notification_mask(&socket.owner.notification)?;
+            let note: syn::Ident = syn::parse_str(&format!(
+                "{}_MASK",
+                socket.owner.notification.to_uppercase().replace("-", "_")
+            ))
+            .unwrap();
             Ok(quote::quote! {
                 (
                     userlib::TaskId::for_index_and_gen(
                         hubris_num_tasks::Task::#task as usize,
                         userlib::Generation::ZERO,
                     ),
-                    #note,
+                    notifications::#task::#note,
                 )
             })
         })
