@@ -20,9 +20,8 @@ pub use dice_mfg_msgs::{SerialNumber, SizedBlob};
 mod cert;
 pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdCert,
-    DeviceIdCertBuilder, PersistIdSelfCert, PersistIdSelfCertBuilder,
-    SpMeasureCert, SpMeasureCertBuilder, TrustQuorumDheCert,
-    TrustQuorumDheCertBuilder,
+    DeviceIdCertBuilder, PersistIdSelfCertBuilder, SpMeasureCert,
+    SpMeasureCertBuilder, TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
 mod csr;
 pub use crate::csr::PersistIdCsrBuilder;
@@ -275,3 +274,9 @@ impl RngSeed {
         Self(okm_from_seed_no_extract(cdi, "entropy".as_bytes()))
     }
 }
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct PersistIdCert(SizedBlob);
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct IntermediateCert(SizedBlob);

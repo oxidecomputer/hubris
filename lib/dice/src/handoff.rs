@@ -3,11 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    AliasCert, AliasOkm, RngSeed, SpMeasureCert, SpMeasureOkm,
-    TrustQuorumDheCert, TrustQuorumDheOkm,
+    AliasCert, AliasOkm, DeviceIdCert, IntermediateCert, PersistIdCert,
+    RngSeed, SpMeasureCert, SpMeasureOkm, TrustQuorumDheCert,
+    TrustQuorumDheOkm,
 };
 use core::ops::Range;
-use dice_mfg_msgs::SizedBlob;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use stage0_handoff::DICE_RANGE as MEM_RANGE;
@@ -34,9 +34,9 @@ sa::const_assert!(RNG_RANGE.end <= MEM_RANGE.end);
 
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct CertData {
-    pub deviceid_cert: SizedBlob,
-    pub persistid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub deviceid_cert: DeviceIdCert,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 // Handoff DICE cert chain.
@@ -56,16 +56,10 @@ unsafe impl HandoffData for CertData {
 fits_in_ram!(CertData);
 
 impl CertData {
-    // This function is unfortunately error prone: All parameters are the
-    // same type and so if we get the order wrong verification of the cert
-    // chain down the line will probably fail as they'll end up in the
-    // wrong order. We can reduce this possibility by using the DeviceIdCert
-    // type directly but the persistid and intermediate cert will remain
-    // problematic.
     pub fn new(
-        deviceid_cert: SizedBlob,
-        persistid_cert: SizedBlob,
-        intermediate_cert: SizedBlob,
+        deviceid_cert: DeviceIdCert,
+        persistid_cert: PersistIdCert,
+        intermediate_cert: IntermediateCert,
     ) -> Self {
         Self {
             deviceid_cert,

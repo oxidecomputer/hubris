@@ -6,10 +6,11 @@ use crate::image_header::Image;
 use crate::Handoff;
 use core::mem;
 use dice_crate::{
-    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, Cert, CertData,
-    CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, RngData, RngSeed,
-    SeedBuf, SerialNumber, SizedBlob, SpMeasureCertBuilder, SpMeasureData,
-    SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
+    CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, IntermediateCert,
+    PersistIdCert, RngData, RngSeed, SeedBuf, SerialNumber,
+    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
+    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use lpc55_puf::Puf;
@@ -28,8 +29,8 @@ pub struct MfgResult {
     pub cert_serial_number: CertSerialNumber,
     pub serial_number: SerialNumber,
     pub persistid_keypair: Keypair,
-    pub persistid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 /// Generate stuff associated with the manufacturing process.
@@ -105,8 +106,8 @@ fn gen_deviceid_artifacts(
     cert_serial_number: &mut CertSerialNumber,
     serial_number: &SerialNumber,
     persistid_keypair: Keypair,
-    persistid_cert: SizedBlob,
-    intermediate_cert: SizedBlob,
+    persistid_cert: PersistIdCert,
+    intermediate_cert: IntermediateCert,
     handoff: &Handoff,
 ) -> Keypair {
     let devid_okm = DeviceIdOkm::from_cdi(cdi);
@@ -121,11 +122,8 @@ fn gen_deviceid_artifacts(
     .sign(&persistid_keypair);
 
     // transfer certs to CertData for serialization
-    let cert_data = CertData::new(
-        SizedBlob::try_from(deviceid_cert.as_bytes()).unwrap(),
-        persistid_cert,
-        intermediate_cert,
-    );
+    let cert_data =
+        CertData::new(deviceid_cert, persistid_cert, intermediate_cert);
 
     handoff.store(&cert_data);
 

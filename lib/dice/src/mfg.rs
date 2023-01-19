@@ -3,9 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    cert::{Cert, PersistIdSelfCertBuilder},
-    csr::PersistIdCsrBuilder,
-    CertSerialNumber, SeedBuf,
+    cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
+    IntermediateCert, PersistIdCert, SeedBuf,
 };
 use dice_mfg_msgs::{MfgMessage, SerialNumber, SizedBlob};
 use lib_lpc55_usart::{Read, Usart, Write};
@@ -48,8 +47,8 @@ pub struct DiceMfgState {
     // This field tracks this state.
     pub cert_serial_number: CertSerialNumber,
     pub serial_number: SerialNumber,
-    pub persistid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 pub trait DiceMfg {
@@ -82,9 +81,8 @@ impl DiceMfg for SelfMfg<'_> {
             cert_serial_number: cert_sn,
             serial_number: dname_sn,
             // TODO: static assert deviceid_cert size < SizedBuf max
-            persistid_cert: SizedBlob::try_from(persistid_cert.as_bytes())
-                .unwrap(),
-            intermediate_cert: SizedBlob::default(),
+            persistid_cert: persistid_cert,
+            intermediate_cert: IntermediateCert(SizedBlob::default()),
         }
     }
 }
@@ -94,8 +92,8 @@ pub struct SerialMfg<'a> {
     usart: Usart<'a>,
     buf: [u8; MfgMessage::MAX_ENCODED_SIZE],
     serial_number: Option<SerialNumber>,
-    persistid_cert: Option<SizedBlob>,
-    intermediate_cert: Option<SizedBlob>,
+    persistid_cert: Option<PersistIdCert>,
+    intermediate_cert: Option<IntermediateCert>,
 }
 
 impl<'a> SerialMfg<'a> {
@@ -147,7 +145,7 @@ impl<'a> SerialMfg<'a> {
     }
 
     fn handle_persistid_cert(&mut self, cert: SizedBlob) -> Result<(), Error> {
-        self.persistid_cert = Some(cert);
+        self.persistid_cert = Some(PersistIdCert(cert));
 
         self.send_ack()
     }
@@ -156,7 +154,7 @@ impl<'a> SerialMfg<'a> {
         &mut self,
         cert: SizedBlob,
     ) -> Result<(), Error> {
-        self.intermediate_cert = Some(cert);
+        self.intermediate_cert = Some(IntermediateCert(cert));
 
         self.send_ack()
     }

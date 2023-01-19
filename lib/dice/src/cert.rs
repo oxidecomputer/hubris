@@ -5,9 +5,10 @@
 use crate::{
     alias_cert_tmpl, deviceid_cert_tmpl, persistid_cert_tmpl,
     spmeasure_cert_tmpl, trust_quorum_dhe_cert_tmpl, CertSerialNumber,
+    PersistIdCert,
 };
 use core::ops::Range;
-use dice_mfg_msgs::SerialNumber;
+use dice_mfg_msgs::{SerialNumber, SizedBlob};
 use hubpack::SerializedSize;
 use salty::constants::{
     PUBLICKEY_SERIALIZED_LENGTH, SIGNATURE_SERIALIZED_LENGTH,
@@ -150,7 +151,7 @@ impl PersistIdSelfCertBuilder {
             .set_pub(public_key.as_bytes())
     }
 
-    pub fn sign(self, keypair: &Keypair) -> PersistIdSelfCert
+    pub fn sign(self, keypair: &Keypair) -> PersistIdCert
     where
         Self: Sized,
     {
@@ -158,7 +159,9 @@ impl PersistIdSelfCertBuilder {
         let sig = keypair.sign(signdata);
         let tmp = self.set_sig(&sig.to_bytes());
 
-        PersistIdSelfCert(tmp.0)
+        // We know the size of the cert we've generated but in the normal mfg
+        // flow we won't so we wrap the generated cert in a more flexible type.
+        PersistIdCert(SizedBlob::try_from(&tmp.0[..]).unwrap())
     }
 }
 
@@ -173,30 +176,6 @@ impl CertBuilder for PersistIdSelfCertBuilder {
 
     fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.0
-    }
-}
-
-/// This type represents a self-signed PersistId certificate. Unlike the other
-/// types implementing the Cert trait this type derives Clone allowing explicit
-/// copying. We rely on Clone when copying the PersistIdSelfCert into the
-/// handoff structures.
-#[derive(Clone, Deserialize, Serialize, SerializedSize)]
-pub struct PersistIdSelfCert(
-    #[serde(with = "BigArray")] [u8; persistid_cert_tmpl::SIZE],
-);
-
-impl Cert for PersistIdSelfCert {
-    const SERIAL_NUMBER_RANGE: Range<usize> =
-        persistid_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = persistid_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        persistid_cert_tmpl::SUBJECT_SN_RANGE;
-    const PUB_RANGE: Range<usize> = persistid_cert_tmpl::PUB_RANGE;
-    const SIG_RANGE: Range<usize> = persistid_cert_tmpl::SIG_RANGE;
-    const SIGNDATA_RANGE: Range<usize> = persistid_cert_tmpl::SIGNDATA_RANGE;
-
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
     }
 }
 

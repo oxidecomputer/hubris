@@ -5,8 +5,8 @@
 use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::Deref;
 use dice_crate::{
-    CertSerialNumber, DiceMfg, PersistIdSeed, SeedBuf, SerialMfg, SerialNumber,
-    SizedBlob,
+    CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
+    SeedBuf, SerialMfg, SerialNumber,
 };
 use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;
@@ -69,8 +69,8 @@ impl Default for Header {
 struct DiceState {
     pub persistid_key_code: [u32; KEYCODE_LEN],
     pub serial_number: SerialNumber,
-    pub persistid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 impl DiceState {
