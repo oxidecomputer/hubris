@@ -2669,6 +2669,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "notifications"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+]
+
+[[package]]
 name = "num"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4046,6 +4054,7 @@ dependencies = [
  "ksz8463",
  "multitimer",
  "mutable-statics",
+ "notifications",
  "num-traits",
  "proc-macro2",
  "quote",

@@ -115,25 +115,23 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
     Ok(t.and_then(|t| t.config))
 }
 
-/// Pulls the full task configuration block
+/// Pulls the full task configuration block for the current task
 ///
-/// (compare with `task_maybe_config`, which returns the `config` subsection)
+/// (compare with `task_maybe_config`, which returns just the `config`
+/// subsection)
 pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
     let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?
         .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
     Ok(t)
 }
 
-/// Pulls the full task configuration block
-///
-/// (compare with `task_maybe_config`, which returns the `config` subsection)
+/// Pulls the full task configuration block, with the `config` subsection
+/// encoded as a TOML `Value`
 pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
     task_full_config()
 }
 
-/// Pulls the full task configuration block
-///
-/// (compare with `task_maybe_config`, which returns the `config` subsection)
+/// Pulls the full task configuration block of a different task
 pub fn other_task_full_config<T: DeserializeOwned>(
     name: &str,
 ) -> Result<toml_task::Task<T>> {
