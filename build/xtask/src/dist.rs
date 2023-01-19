@@ -2131,7 +2131,7 @@ impl Archive {
 
         let archive = File::create(&tmp_path)?;
         let mut inner = zip::ZipWriter::new(archive);
-        inner.set_comment("hubris build archive v5");
+        inner.set_comment("hubris build archive v6");
         Ok(Self {
             final_path,
             tmp_path,
