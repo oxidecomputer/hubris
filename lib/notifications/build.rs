@@ -11,11 +11,7 @@ fn main() -> Result<()> {
     let mut out = std::fs::File::create(dest_path)?;
 
     let full_task_config = build_util::task_full_config_toml()?;
-    for (i, n) in full_task_config.notifications.iter().enumerate() {
-        let n = n.to_uppercase().replace("-", "_");
-        writeln!(&mut out, "pub const {n}_BIT: u8 = {i};")?;
-        writeln!(&mut out, "pub const {n}_MASK: u32 = 1 << {n}_BIT;")?;
-    }
+    write_task_notifications(&mut out, &full_task_config.notifications)?;
 
     if full_task_config.notifications.len() >= 32 {
         bail!(
@@ -28,22 +24,20 @@ fn main() -> Result<()> {
         .expect("missing HUBRIS_TASKS")
         .split(",")
     {
-        writeln!(&mut out, "pub mod {task} {{")?;
         let full_task_config = build_util::other_task_full_config_toml(task)?;
-        for (i, n) in full_task_config.notifications.iter().enumerate() {
-            let n = n.to_uppercase().replace("-", "_");
-            writeln!(&mut out, "    pub const {n}_BIT: u8 = {i};")?;
-            writeln!(&mut out, "    pub const {n}_MASK: u32 = 1 << {n}_BIT;")?;
-        }
+        writeln!(&mut out, "pub mod {task} {{")?;
+        write_task_notifications(&mut out, &full_task_config.notifications)?;
         writeln!(&mut out, "}}")?;
     }
 
-    if full_task_config.notifications.len() >= 32 {
-        bail!(
-            "Too many notifications; \
-             overlapping with `INTERNAL_TIMER_NOTIFICATION`"
-        );
-    }
+    Ok(())
+}
 
+fn write_task_notifications<W: Write>(out: &mut W, t: &[String]) -> Result<()> {
+    for (i, n) in t.iter().enumerate() {
+        let n = n.to_uppercase().replace('-', "_");
+        writeln!(out, "pub const {n}_BIT: u8 = {i};")?;
+        writeln!(out, "pub const {n}_MASK: u32 = 1 << {n}_BIT;")?;
+    }
     Ok(())
 }
