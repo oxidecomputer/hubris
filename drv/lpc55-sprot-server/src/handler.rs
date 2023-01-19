@@ -5,7 +5,7 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    IoStats, MsgType, Protocol, RxMsg, SprotError, SprotStatus, TxMsg,
+    MsgType, Protocol, RotIoStats, RxMsg, SprotError, SprotStatus, TxMsg,
     UpdateRspHeader, VerifiedTxMsg, BUF_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus, UpdateTarget};
@@ -66,7 +66,7 @@ impl Handler {
         &mut self,
         rx_buf: RxMsg,
         mut tx_buf: TxMsg<'a>,
-        stats: &mut IoStats,
+        stats: &mut RotIoStats,
     ) -> Option<VerifiedTxMsg<'a>> {
         // Parse the header and validate the CRC
         let rx_msg = match rx_buf.parse() {
