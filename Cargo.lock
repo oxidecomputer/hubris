@@ -722,8 +722,8 @@ dependencies = [
 
 [[package]]
 name = "dice-mfg-msgs"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/dice-util#e8eca6b2ba190160a27aaf62235e2ff86b212390"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -2465,6 +2465,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55-puf"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "unwrap-lite",
+]
+
+[[package]]
 name = "lpc55-update-server"
 version = "0.1.0"
 dependencies = [
@@ -3615,6 +3623,7 @@ dependencies = [
  "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
+ "lpc55-puf",
  "lpc55_romapi",
  "nb 1.0.0",
  "p256",
@@ -3628,6 +3637,7 @@ dependencies = [
  "toml",
  "unwrap-lite",
  "zerocopy",
+ "zeroize",
 ]
 
 [[package]]

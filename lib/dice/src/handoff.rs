@@ -3,11 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    AliasCert, AliasOkm, RngSeed, SpMeasureCert, SpMeasureOkm,
-    TrustQuorumDheCert, TrustQuorumDheOkm,
+    AliasCert, AliasOkm, DeviceIdCert, IntermediateCert, PersistIdCert,
+    RngSeed, SpMeasureCert, SpMeasureOkm, TrustQuorumDheCert,
+    TrustQuorumDheOkm,
 };
 use core::ops::Range;
-use dice_mfg_msgs::SizedBlob;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use stage0_handoff::DICE_RANGE as MEM_RANGE;
@@ -18,7 +18,7 @@ use static_assertions as sa;
 // to this address must be coordinated with the [dice_*] tables in
 // chips/lpc55/chip.toml
 // TODO: get from app.toml -> chip.toml at build time
-const CERTS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0x800);
+const CERTS_RANGE: Range<usize> = MEM_RANGE.start..(MEM_RANGE.start + 0xa00);
 const ALIAS_RANGE: Range<usize> = CERTS_RANGE.end..(CERTS_RANGE.end + 0x800);
 const SPMEASURE_RANGE: Range<usize> =
     ALIAS_RANGE.end..(ALIAS_RANGE.end + 0x800);
@@ -34,8 +34,9 @@ sa::const_assert!(RNG_RANGE.end <= MEM_RANGE.end);
 
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct CertData {
-    pub deviceid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub deviceid_cert: DeviceIdCert,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 // Handoff DICE cert chain.
@@ -55,9 +56,14 @@ unsafe impl HandoffData for CertData {
 fits_in_ram!(CertData);
 
 impl CertData {
-    pub fn new(deviceid_cert: SizedBlob, intermediate_cert: SizedBlob) -> Self {
+    pub fn new(
+        deviceid_cert: DeviceIdCert,
+        persistid_cert: PersistIdCert,
+        intermediate_cert: IntermediateCert,
+    ) -> Self {
         Self {
             deviceid_cert,
+            persistid_cert,
             intermediate_cert,
         }
     }

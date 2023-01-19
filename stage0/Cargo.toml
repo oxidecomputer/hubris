@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-dice-mfg = ["salty", "static_assertions",  "lib-lpc55-usart"]
-dice-self = ["salty"]
+dice-mfg = ["lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
+dice-self = ["lpc55-puf", "salty"]
 tz_support = []
 
 [dependencies]
@@ -25,9 +25,11 @@ serde = { workspace = true, optional = false }
 sha3 = { workspace = true, optional = false }
 static_assertions = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zeroize = { workspace = true }
 
 abi = { path = "../sys/abi" }
 armv8-m-mpu = { path = "../lib/armv8-m-mpu" }
+lpc55-puf = { path = "../lib/lpc55-puf", optional = true }
 lib-lpc55-usart = { path = "../lib/lpc55-usart", optional = true }
 lpc55_romapi = { path = "../lib/lpc55-romapi" }
 stage0-handoff = { path = "../lib/stage0-handoff"}

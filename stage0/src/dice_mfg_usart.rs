@@ -2,16 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::dice::SerialNumbers;
-use crate::Handoff;
+use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::Deref;
 use dice_crate::{
-    CertData, CertSerialNumber, DeviceIdSerialMfg, DiceMfg, SerialNumber,
-    SizedBlob,
+    CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
+    SeedBuf, SerialMfg, SerialNumber,
 };
 use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;
 use lpc55_pac::Peripherals;
+use lpc55_puf::Puf;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
@@ -37,22 +37,46 @@ sa::const_assert!(
 sa::const_assert!(DICE_FLASH.end % lpc55_romapi::FLASH_PAGE_SIZE == 0);
 sa::const_assert!(DICE_FLASH.start % lpc55_romapi::FLASH_PAGE_SIZE == 0);
 
+const VERSION: u32 = 0;
+const MAGIC: [u8; 12] = [
+    0x9e, 0xc8, 0x93, 0x2a, 0xb5, 0x51, 0x4a, 0x04, 0xd4, 0x43, 0x2c, 0x52,
+];
+
 #[derive(Debug, PartialEq)]
 pub enum DiceStateError {
     Deserialize,
     Serialize,
 }
 
+#[derive(Deserialize, Serialize, SerializedSize)]
+struct Header {
+    pub version: u32,
+    pub magic: [u8; 12],
+}
+
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            version: VERSION,
+            magic: MAGIC,
+        }
+    }
+}
+
 /// data received from manufacturing process
 /// serialized to flash after mfg as device identity
 #[derive(Deserialize, Serialize, SerializedSize)]
 struct DiceState {
+    pub persistid_key_code: [u32; KEYCODE_LEN],
     pub serial_number: SerialNumber,
-    pub deviceid_cert: SizedBlob,
-    pub intermediate_cert: SizedBlob,
+    pub persistid_cert: PersistIdCert,
+    pub intermediate_cert: IntermediateCert,
 }
 
 impl DiceState {
+    const ALIGNED_MAX_SIZE: usize =
+        flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE);
+
     fn from_flash() -> Result<Self, DiceStateError> {
         // SAFETY: This unsafe block relies on the caller verifying that the
         // flash region being read has been programmed. We verify this in the
@@ -60,20 +84,34 @@ impl DiceState {
         let src = unsafe {
             core::slice::from_raw_parts(
                 DICE_FLASH.start as *const u8,
-                DiceState::MAX_SIZE,
+                Self::ALIGNED_MAX_SIZE,
             )
         };
 
-        let (state, _) = hubpack::deserialize::<Self>(src)
+        let (header, rest) = hubpack::deserialize::<Header>(src)
+            .map_err(|_| DiceStateError::Deserialize)?;
+
+        if header.magic != MAGIC {
+            panic!("DiceFlash bad magic");
+        }
+        if header.version != VERSION {
+            panic!("DiceFlash bad version");
+        }
+
+        let (state, _) = hubpack::deserialize::<Self>(rest)
             .map_err(|_| DiceStateError::Deserialize)?;
 
         Ok(state)
     }
 
     pub fn to_flash(&self) -> Result<usize, DiceStateError> {
-        let mut buf = [0u8; flash_page_align!(Self::MAX_SIZE)];
+        let mut buf = [0u8; Self::ALIGNED_MAX_SIZE];
 
-        let size = hubpack::serialize(&mut buf, self)
+        let header = Header::default();
+        let offset = hubpack::serialize(&mut buf, &header)
+            .map_err(|_| DiceStateError::Serialize)?;
+
+        let offset = hubpack::serialize(&mut buf[offset..], self)
             .map_err(|_| DiceStateError::Serialize)?;
 
         // SAFETY: This unsafe block relies on the caller verifying that the
@@ -83,33 +121,63 @@ impl DiceState {
         unsafe {
             lpc55_romapi::flash_erase(
                 DICE_FLASH.start as *const u32 as u32,
-                flash_page_align!(Self::MAX_SIZE) as u32,
+                Self::ALIGNED_MAX_SIZE as u32,
             )
             .expect("flash_erase");
             lpc55_romapi::flash_write(
                 DICE_FLASH.start as *const u32 as u32,
                 &mut buf as *mut u8,
-                flash_page_align!(Self::MAX_SIZE) as u32,
+                Self::ALIGNED_MAX_SIZE as u32,
             )
             .expect("flash_write");
         }
 
-        Ok(size)
+        Ok(offset)
     }
 
     pub fn is_programmed() -> bool {
         lpc55_romapi::validate_programmed(
             DICE_FLASH.start as u32,
-            flash_page_align!(Self::MAX_SIZE) as u32,
+            flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE) as u32,
         )
     }
 }
 
-fn gen_artifacts_from_mfg(
-    deviceid_keypair: &Keypair,
-    peripherals: &Peripherals,
-    handoff: &Handoff,
-) -> SerialNumbers {
+/// Generate platform identity key from PUF and manufacture the system
+/// by certifying this identity. The certification process uses the usart
+/// peripheral to exchange manufacturing data, CSR & cert with the
+/// manufacturing line.
+fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
+    let puf = Puf::new(&peripherals.PUF);
+
+    // Create key code for an ed25519 seed using the PUF. We use this seed
+    // to generate a key used as an identity that is independent from the
+    // DICE measured boot.
+    let mut id_keycode = [0u32; KEYCODE_LEN];
+    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, &mut id_keycode) {
+        panic!("failed to generate key code");
+    }
+    let id_keycode = id_keycode;
+
+    // get keycode from DICE MFG flash region
+    // good opportunity to put a magic value in the DICE MFG flash region
+    let mut seed = [0u8; SEED_LEN];
+    if !puf.get_key(&id_keycode, &mut seed) {
+        panic!("failed to get ed25519 seed");
+    }
+    let seed = seed;
+
+    // we're done with the puf: block the key index used for the identity
+    // key and lock the block register
+    if !puf.block_index(KEY_INDEX) {
+        panic!("failed to block PUF index");
+    }
+    puf.lock_indices_low();
+
+    let id_seed = PersistIdSeed::new(seed);
+
+    let id_keypair = Keypair::from(id_seed.as_bytes());
+
     usart_setup(
         &peripherals.SYSCON,
         &peripherals.IOCON,
@@ -117,47 +185,66 @@ fn gen_artifacts_from_mfg(
     );
 
     let usart = Usart::from(peripherals.USART0.deref());
-    let mfg_state = DeviceIdSerialMfg::new(&deviceid_keypair, usart).run();
+
+    let dice_data = SerialMfg::new(&id_keypair, usart).run();
 
     let dice_state = DiceState {
-        deviceid_cert: mfg_state.deviceid_cert,
-        intermediate_cert: mfg_state.intermediate_cert,
-        serial_number: mfg_state.serial_number,
+        persistid_key_code: id_keycode,
+        serial_number: dice_data.serial_number,
+        persistid_cert: dice_data.persistid_cert,
+        intermediate_cert: dice_data.intermediate_cert,
     };
-    dice_state.to_flash().expect("DiceState::to_flash");
 
-    let cert_data =
-        CertData::new(dice_state.deviceid_cert, dice_state.intermediate_cert);
-    handoff.store(&cert_data);
+    dice_state.to_flash().unwrap();
 
-    SerialNumbers {
-        cert_serial_number: mfg_state.cert_serial_number,
-        serial_number: mfg_state.serial_number,
+    MfgResult {
+        cert_serial_number: Default::default(),
+        serial_number: dice_state.serial_number,
+        persistid_keypair: id_keypair,
+        persistid_cert: dice_state.persistid_cert,
+        intermediate_cert: dice_state.intermediate_cert,
     }
 }
 
-fn gen_artifacts_from_flash(handoff: &Handoff) -> SerialNumbers {
+/// Get platform identity data from the DICE flash region. This is the data
+/// we get from the 'gen_artifacts_from_mfg' function.
+fn gen_artifacts_from_flash(peripherals: &Peripherals) -> MfgResult {
     let dice_state = DiceState::from_flash().expect("DiceState::from_flash");
 
-    let cert_data =
-        CertData::new(dice_state.deviceid_cert, dice_state.intermediate_cert);
-    handoff.store(&cert_data);
+    let puf = Puf::new(&peripherals.PUF);
 
-    SerialNumbers {
+    // get keycode from DICE MFG flash region
+    let mut seed = [0u8; SEED_LEN];
+    if !puf.get_key(&dice_state.persistid_key_code, &mut seed) {
+        panic!("failed to get ed25519 seed");
+    }
+    let seed = seed;
+
+    // we're done with the puf: block the key index used for the identity
+    // key and lock the block register
+    if !puf.block_index(KEY_INDEX) {
+        panic!("failed to block PUF index");
+    }
+    puf.lock_indices_low();
+
+    let id_seed = PersistIdSeed::new(seed);
+
+    let id_keypair = Keypair::from(id_seed.as_bytes());
+
+    MfgResult {
         cert_serial_number: CertSerialNumber::default(),
         serial_number: dice_state.serial_number,
+        persistid_keypair: id_keypair,
+        persistid_cert: dice_state.persistid_cert,
+        intermediate_cert: dice_state.intermediate_cert,
     }
 }
 
-pub fn gen_mfg_artifacts(
-    deviceid_keypair: &Keypair,
-    peripherals: &Peripherals,
-    handoff: &Handoff,
-) -> SerialNumbers {
+pub fn gen_mfg_artifacts_usart(peripherals: &Peripherals) -> MfgResult {
     if DiceState::is_programmed() {
-        gen_artifacts_from_flash(handoff)
+        gen_artifacts_from_flash(peripherals)
     } else {
-        gen_artifacts_from_mfg(deviceid_keypair, peripherals, handoff)
+        gen_artifacts_from_mfg(peripherals)
     }
 }
 
