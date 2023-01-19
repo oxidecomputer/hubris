@@ -67,7 +67,7 @@ fn main() -> ! {
     let mut a_bytes: [u8; 8] = [0xaa; 8];
     let mut b_bytes: [u8; 8] = [0; 8];
 
-    sys_irq_control(1, true);
+    sys_irq_control(notifications::SPI_IRQ, true);
 
     let mut tx = &mut a_bytes;
     let mut rx = &mut b_bytes;
@@ -128,7 +128,7 @@ fn main() -> ! {
             rx_cnt = 0;
         }
 
-        sys_irq_control(1, true);
+        sys_irq_control(notifications::SPI_IRQ, true);
     }
 }
 
