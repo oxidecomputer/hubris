@@ -37,8 +37,6 @@ task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 task_slot!(JEFE, jefe);
 
-const JEFE_STATE_NOTIFICATION_BIT: u8 = 8;
-
 mod ltc4306;
 
 fn configure_pins(pins: &[I2cPin]) {

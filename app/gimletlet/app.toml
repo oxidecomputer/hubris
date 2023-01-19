@@ -18,9 +18,10 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["timer", "fault"]
 
 [tasks.jefe.config.on-state-change]
-host_sp_comms = "state-change"
+host_sp_comms = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -80,8 +81,8 @@ task-slots = ["user_leds"]
 name = "task-uartecho"
 features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
 uses = ["usart2"]
-notifications = ["usart"]
-interrupts = {"usart2.irq" = "usart"}
+notifications = ["usart-irq"]
+interrupts = {"usart2.irq" = "usart-irq"}
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
@@ -92,13 +93,13 @@ task-slots = ["sys"]
 name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7"]
-interrupts = {"uart7.irq" = "uart"}
+interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net"]
-notifications = ["state-change", "uart"]
+notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -119,9 +120,9 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 1920
 start = true
 uses = ["quadspi"]
-interrupts = {"quadspi.irq" = "qspi"}
+interrupts = {"quadspi.irq" = "qspi-irq"}
 task-slots = ["sys", "hash_driver"]
-notifications = ["qspi"]
+notifications = ["qspi-irq"]
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
@@ -131,9 +132,9 @@ max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
 uses = ["hash"]
-interrupts = {"hash.irq" = "hash"}
+interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
-notifications = ["hash"]
+notifications = ["hash-irq"]
 
 [tasks.net]
 name = "task-net"
@@ -144,10 +145,14 @@ max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi4"]
 start = true
-interrupts = {"eth.irq" = "eth", "tim16.irq" = "tim", "spi4.irq" = "spi"}
 task-slots = ["sys"]
 config.spi.global_config = "spi4"
-notifications = ["eth", "tim", "spi"]
+notifications = ["eth-irq", "mdio-timer", "spi-irq", "wake-timer"]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer"
+"spi4.irq" = "spi-irq"
 
 [tasks.udprpc]
 name = "task-udprpc"
@@ -198,8 +203,8 @@ task-slots = [
     "sprot",
 ]
 features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
-notifications = ["usart", "socket"]
-interrupts = {"usart1.irq" = "usart"}
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
 
 [tasks.sensor]
 name = "task-sensor"
@@ -208,6 +213,7 @@ priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 stacksize = 1024
 start = true
+notifications = ["timer"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -254,8 +260,8 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
-notifications = ["flash"]
-interrupts = {"flash_controller.irq" = "flash"}
+notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
 
 [config]
 [[config.i2c.controllers]]

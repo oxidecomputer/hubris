@@ -124,15 +124,6 @@ const TX_RING_SZ: usize = 4;
 
 const RX_RING_SZ: usize = 4;
 
-/// Notification mask for our IRQ; must match configuration in app.toml.
-const ETH_IRQ: u32 = 1 << 0;
-
-/// Notification mask for MDIO timer; must match configuration in app.toml.
-const MDIO_TIMER_IRQ: u32 = 1 << 1;
-
-/// Notification bit for timers.
-const WAKE_IRQ_BIT: u8 = 2;
-
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
 
@@ -189,7 +180,7 @@ fn main() -> ! {
         tx_ring,
         rx_ring,
         unsafe { &*device::TIM16::ptr() },
-        MDIO_TIMER_IRQ,
+        notifications::MDIO_TIMER_MASK,
     );
 
     // Set up the network stack.
@@ -206,7 +197,7 @@ fn main() -> ! {
     let mut server = server_impl::new(&eth, mac_address, bsp);
 
     // Turn on our IRQ.
-    userlib::sys_irq_control(ETH_IRQ, true);
+    userlib::sys_irq_control(notifications::ETH_IRQ_MASK, true);
 
     // We use two timers:
     #[derive(Copy, Clone, Enum)]
@@ -214,7 +205,8 @@ fn main() -> ! {
         Wake,
         Watchdog,
     }
-    let mut multitimer = Multitimer::<Timers>::new(WAKE_IRQ_BIT);
+    let mut multitimer =
+        Multitimer::<Timers>::new(notifications::WAKE_TIMER_BIT);
 
     let now = sys_get_timer().now;
     if let Some(wake_interval) = BspImpl::WAKE_INTERVAL {

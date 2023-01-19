@@ -105,15 +105,12 @@ pub enum Disposition {
     Hold,
 }
 
-// We install a timeout to periodcally check for an external direction
+// We install a timeout to periodically check for an external direction
 // of our task disposition (e.g., via Humility).  This timeout should
 // generally be fast for a human but slow for a computer; we pick a
 // value of ~100 ms.  Our timer mask can't conflict with our fault
 // notification, but can otherwise be arbitrary.
 const TIMER_INTERVAL: u64 = 100;
-const TIMER_MASK: u32 = 1 << 1;
-// We'll have notification 0 wired up to receive information about task faults.
-const FAULT_MASK: u32 = 1 << 0;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -126,7 +123,7 @@ fn main() -> ! {
 
     let deadline = sys_get_timer().now + TIMER_INTERVAL;
 
-    sys_set_timer(Some(deadline), TIMER_MASK);
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     external::set_ready();
 
@@ -212,22 +209,22 @@ struct TaskStatus {
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
-        FAULT_MASK | TIMER_MASK
+        notifications::FAULT_MASK | notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
         // Handle any external (debugger) requests.
         external::check(self.task_states);
 
-        if bits & TIMER_MASK != 0 {
+        if bits & notifications::TIMER_MASK != 0 {
             // If our timer went off, we need to reestablish it
             if sys_get_timer().now >= self.deadline {
                 self.deadline += TIMER_INTERVAL;
-                sys_set_timer(Some(self.deadline), TIMER_MASK);
+                sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
             }
         }
 
-        if bits & FAULT_MASK != 0 {
+        if bits & notifications::FAULT_MASK != 0 {
             // Work out who faulted. It's theoretically possible for more than
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any

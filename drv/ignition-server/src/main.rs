@@ -32,7 +32,6 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
-const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
 #[export_name = "main"]
@@ -69,7 +68,7 @@ fn main() -> ! {
 
     // Set a timer in the past causing the presence state to be polled and
     // updated as soon as the serving loop starts.
-    sys_set_timer(Some(sys_get_timer().now), TIMER_NOTIFICATION_MASK);
+    sys_set_timer(Some(sys_get_timer().now), notifications::TIMER_MASK);
 
     loop {
         idol_runtime::dispatch_n(&mut incoming, &mut server);
@@ -363,7 +362,7 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
 
 impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_NOTIFICATION_MASK
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
@@ -390,7 +389,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         let delta = finish - start;
         let next_deadline = finish + TIMER_INTERVAL - (delta % TIMER_INTERVAL);
 
-        sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
+        sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
     }
 }
 

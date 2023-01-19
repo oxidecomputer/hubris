@@ -29,8 +29,6 @@ pub struct ServerImpl<'a, R> {
     phy_link_down_sticky: [bool; PORT_COUNT],
 }
 
-/// Notification mask for optional periodic logging
-pub const WAKE_IRQ: u32 = 1;
 pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
 impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
@@ -43,7 +41,9 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         // logging.  We schedule a wake-up before entering the idol_runtime dispatch
         // loop, to make sure that this gets called periodically.
         let wake_target_time = sys_get_timer().now;
-        sys_set_timer(Some(0), WAKE_IRQ); // Trigger a wake IRQ right away
+
+        // Trigger a wake IRQ right away
+        sys_set_timer(Some(0), notifications::WAKE_TIMER_MASK);
         Self {
             bsp,
             wake_target_time,
@@ -59,7 +59,10 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             if now >= self.wake_target_time {
                 let out = self.bsp.wake();
                 self.wake_target_time = now + wake_interval;
-                sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
+                sys_set_timer(
+                    Some(self.wake_target_time),
+                    notifications::WAKE_TIMER_MASK,
+                );
                 return out;
             }
         }
@@ -779,7 +782,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for the wake (timer) irq
-        WAKE_IRQ
+        notifications::WAKE_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {

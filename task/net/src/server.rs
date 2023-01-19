@@ -4,10 +4,7 @@
 
 use crate::bsp_support;
 use crate::generated::{self, SOCKET_COUNT};
-use crate::{
-    idl, link_local_iface_addr, MacAddressBlock, ETH_IRQ, NEIGHBORS,
-    WAKE_IRQ_BIT,
-};
+use crate::{idl, link_local_iface_addr, MacAddressBlock, NEIGHBORS};
 
 #[cfg(feature = "vlan")]
 use crate::generated::VLAN_RANGE;
@@ -581,15 +578,14 @@ where
     E: DeviceExt,
 {
     fn current_notification_mask(&self) -> u32 {
-        // We're always listening for our interrupt or the wake (timer) irq
-        ETH_IRQ | 1 << WAKE_IRQ_BIT
+        notifications::ETH_IRQ_MASK | notifications::WAKE_TIMER_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
         // Interrupt dispatch.
-        if bits & ETH_IRQ != 0 {
+        if bits & notifications::ETH_IRQ_MASK != 0 {
             self.eth.on_interrupt();
-            userlib::sys_irq_control(ETH_IRQ, true);
+            userlib::sys_irq_control(notifications::ETH_IRQ_MASK, true);
         }
         // The wake IRQ is handled in the main `net` loop
     }

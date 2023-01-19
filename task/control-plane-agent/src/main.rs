@@ -132,13 +132,6 @@ enum MgsMessage {
 
 ringbuf!(Log, 16, Log::Empty);
 
-// Must match app.toml!
-const NET_IRQ: u32 = 1 << 0;
-const USART_IRQ: u32 = 1 << 1;
-
-// Must not conflict with IRQs above!
-const TIMER_IRQ: u32 = 1 << 2;
-
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]
@@ -147,7 +140,7 @@ fn main() {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        sys_set_timer(server.timer_deadline(), TIMER_IRQ);
+        sys_set_timer(server.timer_deadline(), notifications::TIMER_MASK);
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
 }
@@ -174,19 +167,21 @@ impl ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        NET_IRQ | USART_IRQ | TIMER_IRQ
+        notifications::SOCKET_MASK
+            | notifications::USART_IRQ_MASK
+            | notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if (bits & USART_IRQ) != 0 {
+        if (bits & notifications::USART_IRQ_MASK) != 0 {
             self.mgs_handler.drive_usart();
         }
 
-        if (bits & TIMER_IRQ) != 0 {
+        if (bits & notifications::TIMER_MASK) != 0 {
             self.mgs_handler.handle_timer_fired();
         }
 
-        if (bits & NET_IRQ) != 0
+        if (bits & notifications::SOCKET_MASK) != 0
             || self.net_handler.packet_to_send.is_some()
             || self.mgs_handler.wants_to_send_packet_to_mgs()
         {
