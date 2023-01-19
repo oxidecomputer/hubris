@@ -180,7 +180,7 @@ fn main() -> ! {
         tx_ring,
         rx_ring,
         unsafe { &*device::TIM16::ptr() },
-        notifications::MDIO_TIMER_MASK,
+        notifications::MDIO_TIMER_IRQ_MASK,
     );
 
     // Set up the network stack.

@@ -13,6 +13,7 @@ drv-fpga-api = { path = "../fpga-api" }
 drv-ignition-api = { path = "../ignition-api" }
 drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller" }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api", optional = true }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

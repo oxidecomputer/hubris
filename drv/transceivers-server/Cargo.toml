@@ -12,6 +12,7 @@ drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["transceivers
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-transceivers-api = { path = "../transceivers-api" }
 mutable-statics = { path = "../../lib/mutable-statics" }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-net-api = { path = "../../task/net-api" }
 task-sensor-api = { path = "../../task/sensor-api" }

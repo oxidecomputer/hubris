@@ -782,7 +782,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for the wake (timer) irq
-        notifications::WAKE_MASK
+        notifications::WAKE_TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {

@@ -147,11 +147,11 @@ uses = ["eth", "eth_dma", "tim16", "spi4"]
 start = true
 task-slots = ["sys"]
 config.spi.global_config = "spi4"
-notifications = ["eth-irq", "mdio-timer", "spi-irq", "wake-timer"]
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
-"tim16.irq" = "mdio-timer"
+"tim16.irq" = "mdio-timer-irq"
 "spi4.irq" = "spi-irq"
 
 [tasks.udprpc]

@@ -1916,13 +1916,8 @@ pub fn make_kconfig(
 
         // Interrupts.
         for (irq_str, notification) in &task.interrupts {
-            // The irq_str can be either a base-ten number, or a reference to a
-            // peripheral. Distinguish them based on whether it parses as an
-            // integer.
+            // The irq_str should be a reference to a peripheral.
             let irq_num: u32 =
-                // This might be an error, or might be a peripheral
-                // reference.
-                //
                 // Peripheral references are of the form "P.I", where P is
                 // the peripheral name and I is the name of one of the
                 // peripheral's defined interrupts.
@@ -1959,6 +1954,12 @@ pub fn make_kconfig(
                     );
                 };
 
+            if !notification.ends_with("-irq") {
+                bail!(
+                    "peripheral interrupt {notification} in {name} \
+                     must end in `-irq`"
+                );
+            }
             let mask = task
                 .notification_mask(notification)
                 .context(format!("when building {name}"))?;
