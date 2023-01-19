@@ -170,6 +170,7 @@ fn expect_msg(expected: MsgType, actual: MsgType) -> Result<(), SprotError> {
 }
 
 pub struct Io<S: SpiServer> {
+    stats: SpIoStats,
     sys: sys_api::Sys,
     spi: SpiDevice<S>,
 }
@@ -190,7 +191,11 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        io: Io { sys, spi },
+        io: Io {
+            sys,
+            spi,
+            stats: SpIoStats::default(),
+        },
         tx_buf: [0u8; BUF_SIZE],
         rx_buf: [0u8; BUF_SIZE],
     };
@@ -243,6 +248,9 @@ impl<S: SpiServer> Io<S> {
         &mut self,
         msg: &VerifiedTxMsg,
     ) -> Result<(), SprotError> {
+        // Increase the error count here. We'll decrease if we return successfully.
+        self.stats.tx_errors = self.stats.tx_errors.wrapping_add(1);
+
         let part1_len = ROT_FIFO_SIZE.min(msg.len());
         let part1 = &msg.as_slice()[..part1_len];
         let part2 = &msg.as_slice()[part1_len..];
@@ -258,6 +266,9 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART2_DELAY);
             self.spi.write(part2)?;
         }
+        // Remove the error that we added at the beginning of this function
+        self.stats.tx_errors = self.stats.tx_errors.wrapping_sub(1);
+        self.stats.tx_sent = self.stats.tx_sent.wrapping_add(1);
         Ok(())
     }
 
@@ -275,6 +286,9 @@ impl<S: SpiServer> Io<S> {
         &mut self,
         rxmsg: &mut RxMsg<'a>,
     ) -> Result<MsgHeader, SprotError> {
+        // Increase the error count here. We'll decrease if we return successfully.
+        self.stats.rx_invalid = self.stats.rx_invalid.wrapping_add(1);
+
         // Disjoint borrow nonsense to satisfy the borrow checker
         let spi = &mut self.spi;
 
@@ -330,6 +344,8 @@ impl<S: SpiServer> Io<S> {
         ringbuf_entry!(Trace::Header(header));
 
         rxmsg.validate_crc(&header)?;
+        self.stats.rx_invalid = self.stats.rx_invalid.wrapping_sub(1);
+        self.stats.rx_received = self.stats.rx_received.wrapping_add(1);
         Ok(header)
     }
 
@@ -347,11 +363,14 @@ impl<S: SpiServer> Io<S> {
                 ringbuf_entry!(Trace::FailedRetries { retries, errcode });
                 break;
             }
-            attempts_left -= 1;
 
             if attempts_left != retries {
+                self.stats.retries = self.stats.retries.wrapping_add(1);
                 rxmsg.clear();
             }
+
+            attempts_left -= 1;
+
             match self.do_send_recv(txmsg, rxmsg, timeout) {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
@@ -371,6 +390,8 @@ impl<S: SpiServer> Io<S> {
                 Ok(header) => {
                     match header.msgtype {
                         MsgType::ErrorRsp => {
+                            self.stats.rx_errors =
+                                self.stats.rx_errors.wrapping_add(1);
                             if header.payload_len != 1 {
                                 ringbuf_entry!(Trace::ErrRspPayloadSize(
                                     header.payload_len
@@ -424,15 +445,19 @@ impl<S: SpiServer> Io<S> {
     // ROT_IRQ asserted when not expected.
     //
     // TODO: configuration parameters for delays below
-    fn handle_rot_irq(&self) -> Result<(), SprotError> {
+    fn handle_rot_irq(&mut self) -> Result<(), SprotError> {
         if self.is_rot_irq_asserted() {
             // See if the ROT_IRQ completes quickly.
+            // This is the ROT_IRQ from the last request.
             if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
                 // Nope, it didn't complete. Pulse CSn.
                 ringbuf_entry!(Trace::UnexpectedRotIrq);
+                self.stats.csn_pulses += self.stats.csn_pulses.wrapping_add(1);
                 if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
                     // Did not clear ROT_IRQ
                     ringbuf_entry!(Trace::PulseFailed);
+                    self.stats.csn_pulse_failures +=
+                        self.stats.csn_pulse_failures.wrapping_add(1);
                     debug_set(&self.sys, false); // XXX
                     return Err(SprotError::RotNotReady);
                 }
@@ -487,10 +512,11 @@ impl<S: SpiServer> Io<S> {
     // for the board. Work needs to be done to generalize the EXTI facility.
     // But, hacking in one interrupt as an example should be ok to start things
     // off.
-    fn wait_rot_irq(&self, desired: bool, max_sleep: u32) -> bool {
+    fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
         let mut slept = 0;
         while self.is_rot_irq_asserted() != desired {
             if slept == max_sleep {
+                self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
                 return false;
             }
@@ -560,6 +586,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             attempts,
         ) {
             Ok(_) => {
+                self.io.stats.tx_sent = self.io.stats.tx_sent.wrapping_add(1);
                 let verified_rxmsg = rxmsg.parse().unwrap_lite();
                 let payload = verified_rxmsg.payload();
                 if !payload.is_empty() {
@@ -731,11 +758,14 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
         let header = self.io.do_send_recv(&txmsg, &mut rxmsg, TIMEOUT_QUICK)?;
         expect_msg(MsgType::IoStatsRsp, header.msgtype)?;
-        let status = rxmsg
+        let rot_stats = rxmsg
             .parse()
             .unwrap_lite()
-            .deserialize_hubpack_payload::<IoStats>()?;
-        Ok(status)
+            .deserialize_hubpack_payload::<RotIoStats>()?;
+        Ok(IoStats {
+            rot: rot_stats,
+            sp: self.io.stats,
+        })
     }
 
     fn block_size(

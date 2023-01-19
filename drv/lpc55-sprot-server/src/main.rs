@@ -42,7 +42,7 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    IoStats, MsgHeader, Protocol, RxMsg, SprotError, TxMsg, BUF_SIZE,
+    MsgHeader, Protocol, RotIoStats, RxMsg, SprotError, TxMsg, BUF_SIZE,
     HEADER_SIZE,
 };
 use lpc55_pac as device;
@@ -60,7 +60,7 @@ pub(crate) enum Trace {
     None,
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
-    Stats(IoStats),
+    Stats(RotIoStats),
     Dump(u32),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -135,7 +135,7 @@ fn configure_spi() -> Io {
     Io {
         spi,
         gpio,
-        stats: IoStats::default(),
+        stats: RotIoStats::default(),
     }
 }
 
@@ -143,7 +143,7 @@ fn configure_spi() -> Io {
 struct Io {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
-    stats: IoStats,
+    stats: RotIoStats,
 }
 
 enum IoError {

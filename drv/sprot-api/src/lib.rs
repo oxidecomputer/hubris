@@ -265,7 +265,7 @@ pub struct SprotStatus {
 #[derive(
     Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
 )]
-pub struct IoStats {
+pub struct RotIoStats {
     /// Number of messages received
     pub rx_received: u32,
 
@@ -288,6 +288,50 @@ pub struct IoStats {
 
     /// Number of incomplete transmissions (valid data not fetched by SP).
     pub tx_incomplete: u32,
+}
+
+/// Stats from the SP side of sprot
+///
+/// All of the counters will wrap around.
+#[derive(
+    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+pub struct SpIoStats {
+    // Number of messages sent successfully
+    pub tx_sent: u32,
+
+    // Number of messages that failed to be sent
+    pub tx_errors: u32,
+
+    // Number of messages received successfully
+    pub rx_received: u32,
+
+    // Number of error replies received
+    pub rx_errors: u32,
+
+    // Number of invalid messages received. They don't parse properly.
+    pub rx_invalid: u32,
+
+    // Total Number of retries issued
+    pub retries: u32,
+
+    // Number of times the SP pulsed CSn
+    pub csn_pulses: u32,
+
+    // Number of times pulsing CSn failed.
+    pub csn_pulse_failures: u32,
+
+    // Number of timeouts, while waiting for a reply
+    pub timeouts: u32,
+}
+
+/// Sprot related stats
+#[derive(
+    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+pub struct IoStats {
+    pub rot: RotIoStats,
+    pub sp: SpIoStats,
 }
 
 #[derive(
