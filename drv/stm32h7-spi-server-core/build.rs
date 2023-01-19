@@ -332,7 +332,7 @@ impl ToTokens for Af {
 
 fn check_uses_and_interrupts(
     uses: &[String],
-    interrupts: &IndexMap<String, u32>,
+    interrupts: &IndexMap<String, String>,
 ) -> Result<String> {
     let mut spi = None;
 

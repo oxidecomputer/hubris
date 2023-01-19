@@ -1915,89 +1915,61 @@ pub fn make_kconfig(
         });
 
         // Interrupts.
-        for (irq_str, &notification) in &task.interrupts {
+        for (irq_str, notification) in &task.interrupts {
             // The irq_str can be either a base-ten number, or a reference to a
             // peripheral. Distinguish them based on whether it parses as an
             // integer.
-            match irq_str.parse::<u32>() {
-                Ok(irq_num) => {
-                    // While it's possible to conceive of a world in which one
-                    // might want to have a single interrupt set multiple
-                    // notification bits, it's much easier to conceive of a
-                    // world in which one has misunderstood that the second
-                    // number in the interrupt tuple is in fact a mask, not an
-                    // index.
-                    if notification.count_ones() != 1 {
-                        bail!(
-                            "task {}: IRQ {}: notification mask (0b{:b}) \
-                             has {} bits set (expected exactly one)",
-                            name,
-                            irq_str,
-                            notification,
-                            notification.count_ones()
-                        );
-                    }
-
-                    irqs.insert(
-                        irq_num,
-                        build_kconfig::InterruptConfig {
-                            task_index: i,
-                            notification,
-                        },
-                    );
-                }
-                Err(_) => {
-                    // This might be an error, or might be a peripheral
-                    // reference.
-                    //
-                    // Peripheral references are of the form "P.I", where P is
-                    // the peripheral name and I is the name of one of the
-                    // peripheral's defined interrupts.
-                    if let Some(dot_pos) =
-                        irq_str.bytes().position(|b| b == b'.')
-                    {
-                        let (pname, iname) = irq_str.split_at(dot_pos);
-                        let iname = &iname[1..];
-                        let periph =
-                            toml.peripherals.get(pname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references peripheral {}, \
+            let irq_num: u32 =
+                // This might be an error, or might be a peripheral
+                // reference.
+                //
+                // Peripheral references are of the form "P.I", where P is
+                // the peripheral name and I is the name of one of the
+                // peripheral's defined interrupts.
+                if let Some(dot_pos) = irq_str.bytes().position(|b| b == b'.') {
+                    let (pname, iname) = irq_str.split_at(dot_pos);
+                    let iname = &iname[1..];
+                    let periph =
+                        toml.peripherals.get(pname).ok_or_else(|| {
+                            anyhow!(
+                                "task {} IRQ {} references peripheral {}, \
                                  which does not exist.",
-                                    name,
-                                    irq_str,
-                                    pname,
-                                )
-                            })?;
-                        let irq_num =
-                            periph.interrupts.get(iname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references interrupt {} \
-                                 on peripheral {}, but that interrupt name \
-                                 is not defined for that peripheral.",
-                                    name,
-                                    irq_str,
-                                    iname,
-                                    pname,
-                                )
-                            })?;
-                        irqs.insert(
-                            *irq_num,
-                            build_kconfig::InterruptConfig {
-                                task_index: i,
-                                notification,
-                            },
-                        );
-                    } else {
-                        bail!(
-                            "task {}: IRQ name {} does not match any \
-                             known peripheral interrupt, and is not an \
-                             integer.",
+                                name,
+                                irq_str,
+                                pname,
+                            )
+                        })?;
+                    periph.interrupts.get(iname).ok_or_else(|| {
+                        anyhow!(
+                            "task {} IRQ {} references interrupt {} \
+                             on peripheral {}, but that interrupt name \
+                             not defined for that peripheral.",
                             name,
                             irq_str,
-                        );
-                    }
-                }
-            }
+                            iname,
+                            pname,
+                        )
+                    }).cloned()?
+                } else {
+                    bail!(
+                        "task {}: IRQ name {} does not match any \
+                         known peripheral interrupt.",
+                        name,
+                        irq_str,
+                    );
+                };
+
+            let mask = task
+                .notification_mask(notification)
+                .context(format!("when building {name}"))?;
+            assert_eq!(mask.count_ones(), 1);
+            irqs.insert(
+                irq_num,
+                build_kconfig::InterruptConfig {
+                    task_index: i,
+                    notification: mask,
+                },
+            );
         }
     }
 

@@ -15,14 +15,6 @@ fn main() -> Result<()> {
     // here to make sure that it agrees.
     let task_config = build_util::task_full_config_toml()?;
     let re = regex::Regex::new(r"^spi\d\.irq$").unwrap();
-    const EXPECTED_IRQ: u32 = 0b1;
-    for (k, v) in &task_config.interrupts {
-        if re.is_match(k) {
-            if *v != EXPECTED_IRQ {
-                bail!("{k} must be {EXPECTED_IRQ:#b}");
-            }
-        }
-    }
 
     Ok(())
 }

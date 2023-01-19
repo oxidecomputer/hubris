@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{anyhow, Context, Result};
+use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
 
@@ -127,9 +128,29 @@ pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
 ///
 /// (compare with `task_maybe_config`, which returns the `config` subsection)
 pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
-    let t = toml_from_env::<toml_task::Task<_>>("HUBRIS_TASK_CONFIG")?
-        .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
-    Ok(t)
+    task_full_config()
+}
+
+/// Pulls the full task configuration block
+///
+/// (compare with `task_maybe_config`, which returns the `config` subsection)
+pub fn other_task_full_config<T: DeserializeOwned>(
+    name: &str,
+) -> Result<toml_task::Task<T>> {
+    let mut t = toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
+        "HUBRIS_ALL_TASK_CONFIGS",
+    )?
+    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))?;
+    let out = t
+        .remove(name)
+        .ok_or_else(|| anyhow!("Could not find {name} in tasks"))?;
+    Ok(out)
+}
+
+pub fn other_task_full_config_toml(
+    name: &str,
+) -> Result<toml_task::Task<ordered_toml::Value>> {
+    other_task_full_config(name)
 }
 
 /// Returns a map of task names to their IDs.
