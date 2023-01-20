@@ -76,6 +76,7 @@ priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 
 [tasks.uartecho]
 name = "task-uartecho"

@@ -10,6 +10,7 @@ panic-messages = ["userlib/panic-messages"]
 cortex-m = { workspace = true }
 
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
+notifications = { path = "../../lib/notifications" }
 userlib = { path = "../../sys/userlib" }
 
 [[bin]]

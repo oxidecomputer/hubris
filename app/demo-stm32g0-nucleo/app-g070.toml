@@ -57,6 +57,7 @@ priority = 3
 max-sizes = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 stacksize = 256
 
 [tasks.ping]

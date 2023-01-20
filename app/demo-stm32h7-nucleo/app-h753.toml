@@ -101,6 +101,7 @@ priority = 3
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 
 [tasks.udpecho]
 name = "task-udpecho"

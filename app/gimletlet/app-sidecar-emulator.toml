@@ -76,6 +76,7 @@ priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"

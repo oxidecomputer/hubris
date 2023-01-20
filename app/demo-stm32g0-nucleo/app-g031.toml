@@ -36,6 +36,7 @@ max-sizes = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
 stacksize = 256
+notifications = ["timer"]
 
 [tasks.user_leds]
 name = "drv-user-leds"

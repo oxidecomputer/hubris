@@ -67,6 +67,7 @@ requires = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
 stacksize = 256
+notifications = ["timer"]
 
 [tasks.ping]
 name = "task-ping"
