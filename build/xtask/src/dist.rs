@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::fmt::Write as _;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -1464,18 +1465,42 @@ fn build(
         // A second special case: warn about missing notifications by suggesting
         // that they be added to the app.toml
         let re = regex::bytes::Regex::new(
-            "cannot find value `(?P<n>[A-Z_]+)` in crate `notifications`",
+            "cannot find value `([A-Z_]+)` in (crate|module) `notifications(.*)`",
         )
         .unwrap();
-        let notifications: BTreeSet<_> = re
-            .captures_iter(&stderr_bytes)
-            .map(|mat| std::str::from_utf8(&mat["n"]).unwrap().to_owned())
-            .collect();
-        if !notifications.is_empty() {
-            let v: Vec<_> = notifications.into_iter().collect();
+        let mut missing_notifications: BTreeMap<String, BTreeSet<String>> =
+            BTreeMap::new();
+        for c in re.captures_iter(&stderr_bytes) {
+            let notification =
+                std::str::from_utf8(&c.get(1).unwrap().as_bytes()).unwrap();
+            let task =
+                std::str::from_utf8(&c.get(3).unwrap().as_bytes()).unwrap();
+            let task = if let Some(task) = task.strip_prefix("::") {
+                task
+            } else {
+                name
+            };
+            missing_notifications
+                .entry(task.to_owned())
+                .or_default()
+                .insert(notification.to_owned());
+        }
+        if !missing_notifications.is_empty() {
+            let mut out = String::new();
+            for (task, ns) in missing_notifications {
+                let names = ns
+                    .iter()
+                    .map(|n| {
+                        n.trim_end_matches("_MASK")
+                            .trim_end_matches("_BIT")
+                            .to_lowercase()
+                            .replace("_", "-")
+                    })
+                    .collect::<Vec<_>>();
+                write!(&mut out, "\n- {task} is missing {names:?}")?;
+            }
             bail!(
-                "Missing notifications in `tasks.{name}`: {v:?}\n\
-                 Do you need to add them to the task block in your TOML file?"
+                "Missing notifications; do you need to add them to your TOML file?{out}"
             );
         }
 
