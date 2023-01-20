@@ -6,24 +6,16 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, IdolError)]
 pub enum IdolTestError {
     UhOh = 1,
     YouAskedForThis = 2,
-}
-impl TryFrom<u32> for IdolTestError {
-    type Error = ();
-    fn try_from(x: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(x).ok_or(())
-    }
-}
-impl From<IdolTestError> for u16 {
-    fn from(rc: IdolTestError) -> Self {
-        rc as u16
-    }
+    #[idol(server_death)]
+    RipServer = 3,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
