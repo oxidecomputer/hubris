@@ -319,7 +319,7 @@ this.  `humility test` itself is most easily run via `cargo xtask test`, which
 runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
 and `cargo xtask humility test`.  The exact invocation depends on the board:
 
-- LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
+- LPCXpresso55S69: `cargo xtask test test/tests-lpc55xpresso/app.toml`
 - STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`  
   **Note: for this board, SB10 must be soldered closed for ITM to work**
 - STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
