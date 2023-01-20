@@ -11,6 +11,7 @@ zerocopy = { workspace = true }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-spi = { path = "../lpc55-spi" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

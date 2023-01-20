@@ -17,6 +17,7 @@ max-sizes = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 368
+notifications = ["timer", "fault"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"

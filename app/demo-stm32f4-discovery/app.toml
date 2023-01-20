@@ -16,6 +16,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["timer", "fault"]
 
 [tasks.rcc_driver]
 name = "drv-stm32fx-rcc"
@@ -32,7 +33,8 @@ priority = 2
 max-sizes = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
-interrupts = {"usart2.irq" = 1}
+notifications = ["usart-irq"]
+interrupts = {"usart2.irq" = "usart-irq"}
 task-slots = ["rcc_driver"]
 
 [tasks.user_leds]

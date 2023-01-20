@@ -1460,6 +1460,25 @@ fn build(
                          its allocation in the app's TOML file"
             )
         }
+
+        // A second special case: warn about missing notifications by suggesting
+        // that they be added to the app.toml
+        let re = regex::bytes::Regex::new(
+            "cannot find value `(?P<n>[A-Z_]+)` in crate `notifications`",
+        )
+        .unwrap();
+        let notifications: BTreeSet<_> = re
+            .captures_iter(&stderr_bytes)
+            .map(|mat| std::str::from_utf8(&mat["n"]).unwrap().to_owned())
+            .collect();
+        if !notifications.is_empty() {
+            let v: Vec<_> = notifications.into_iter().collect();
+            bail!(
+                "Missing notifications in `tasks.{name}`: {v:?}\n\
+                 Do you need to add them to the task block in your TOML file?"
+            );
+        }
+
         bail!("command failed, see output for details");
     }
 

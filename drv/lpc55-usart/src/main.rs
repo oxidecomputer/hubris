@@ -63,7 +63,7 @@ fn main() -> ! {
     let mut usart = Usart::from(usart.deref());
 
     // USART side yet, so this won't trigger notifications yet.
-    sys_irq_control(notifications::SPI_IRQ, true);
+    sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     // Field messages.
     let mask = 1;
@@ -88,7 +88,7 @@ fn main() -> ! {
                     }
                 }
 
-                sys_irq_control(notifications::SPI_IRQ, true);
+                sys_irq_control(notifications::USART_IRQ_MASK, true);
             }
         } else {
             match msginfo.operation {

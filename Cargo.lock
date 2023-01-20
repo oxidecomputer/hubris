@@ -1130,6 +1130,7 @@ dependencies = [
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
+ "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1155,6 +1156,7 @@ dependencies = [
  "if_chain",
  "lpc55-pac",
  "lpc55_romapi",
+ "notifications",
  "num-traits",
  "quote",
  "ringbuf",
@@ -1229,6 +1231,7 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
+ "notifications",
  "serde",
  "userlib",
  "zerocopy",
@@ -1490,6 +1493,7 @@ dependencies = [
 name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
+ "notifications",
  "num-traits",
  "stm32f3",
  "stm32f4",
@@ -1504,6 +1508,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
+ "notifications",
  "num-traits",
  "stm32g0",
  "userlib",
@@ -4935,6 +4940,7 @@ dependencies = [
  "ordered-toml",
  "path-slash",
  "rangemap",
+ "regex",
  "ron 0.7.0",
  "scroll",
  "serde",

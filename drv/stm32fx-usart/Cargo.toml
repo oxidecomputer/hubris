@@ -9,6 +9,7 @@ stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
 stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
 zerocopy = { workspace = true }
 
+notifications = { path = "../../lib/notifications" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

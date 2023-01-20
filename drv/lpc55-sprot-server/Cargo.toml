@@ -23,6 +23,7 @@ drv-sprot-api = { path = "../sprot-api" }
 drv-update-api = { path = "../update-api" }
 dumper-api = { path = "../../task/dumper-api" }
 lpc55_romapi = { path = "../../lib/lpc55-romapi" }
+notifications = { path = "../../lib/notifications" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib" }
 

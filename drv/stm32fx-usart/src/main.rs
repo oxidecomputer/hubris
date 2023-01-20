@@ -104,10 +104,10 @@ fn main() -> ! {
 
     // Turn on our interrupt. We haven't enabled any interrupt sources at the
     // USART side yet, so this won't trigger notifications yet.
-    sys_irq_control(notifications::USART_IRQ, true);
+    sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     // Field messages.
-    let mask = notifications::USART_IRQ;
+    let mask = notifications::USART_IRQ_MASK;
     let mut tx: Option<Transmit> = None;
 
     loop {
@@ -134,7 +134,7 @@ fn main() -> ! {
                         step_transmit(&usart, txref);
                     }
 
-                    sys_irq_control(notifications::USART_IRQ, true);
+                    sys_irq_control(notifications::USART_IRQ_MASK, true);
                 }
             },
             // Message handler

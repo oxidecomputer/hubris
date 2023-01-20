@@ -62,7 +62,7 @@ max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi3"]
 start = true
-notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change", "spi-irq"]
+notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "spi-irq"]
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq", "spi3.irq" = "spi-irq"}
 task-slots = ["sys", "i2c_driver", { seq = "sequencer" }]
 config.spi.global_config = "spi3"

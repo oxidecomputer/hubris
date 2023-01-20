@@ -18,6 +18,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["timer", "fault"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -82,7 +83,8 @@ priority = 4
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm0"]
 start = true
-interrupts = {"flexcomm0.irq" = 1}
+notifications = ["usart-irq"]
+interrupts = {"flexcomm0.irq" = "usart-irq"}
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
 
