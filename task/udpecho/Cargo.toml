@@ -8,6 +8,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 
+notifications = { path = "../../lib/notifications" }
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

@@ -107,7 +107,6 @@ fn main() -> ! {
     sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     // Field messages.
-    let mask = notifications::USART_IRQ_MASK;
     let mut tx: Option<Transmit> = None;
 
     loop {
@@ -115,7 +114,7 @@ fn main() -> ! {
             // Buffer (none required)
             &mut [],
             // Notification mask
-            mask,
+            notifications::USART_IRQ_MASK,
             // State to pass through to whichever closure below gets run
             &mut tx,
             // Notification handler

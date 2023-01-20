@@ -15,6 +15,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["timer", "fault"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -44,6 +45,7 @@ priority = 3
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys", "user_leds"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"

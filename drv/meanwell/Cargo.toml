@@ -12,6 +12,7 @@ zerocopy = { workspace = true }
 drv-meanwell-api = { path = "../../drv/meanwell-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", optional = true }
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
+notifications = { path = "../../lib/notifications" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]

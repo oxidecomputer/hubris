@@ -150,7 +150,12 @@ fn main() -> ! {
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
-                sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap();
+                sys_recv_closed(
+                    &mut [],
+                    notifications::SOCKET_MASK,
+                    TaskId::KERNEL,
+                )
+                .unwrap();
             }
             Err(RecvError::ServerRestarted) => {
                 // `net` restarted (probably due to the watchdog); just retry.

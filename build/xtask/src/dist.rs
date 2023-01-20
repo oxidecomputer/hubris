@@ -1488,7 +1488,7 @@ fn build(
         if !missing_notifications.is_empty() {
             let mut out = String::new();
             for (task, ns) in missing_notifications {
-                let names = ns
+                let mut names = ns
                     .iter()
                     .map(|n| {
                         n.trim_end_matches("_MASK")
@@ -1497,6 +1497,8 @@ fn build(
                             .replace("_", "-")
                     })
                     .collect::<Vec<_>>();
+                names.sort();
+                names.dedup();
                 write!(&mut out, "\n- {task} is missing {names:?}")?;
             }
             bail!(

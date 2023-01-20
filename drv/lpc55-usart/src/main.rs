@@ -66,11 +66,10 @@ fn main() -> ! {
     sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     // Field messages.
-    let mask = 1;
     let mut tx: Option<Transmit> = None;
 
     loop {
-        let msginfo = sys_recv_open(&mut [], mask);
+        let msginfo = sys_recv_open(&mut [], notifications::USART_IRQ_MASK);
         if msginfo.sender == TaskId::KERNEL {
             if msginfo.operation & 1 != 0 {
                 // Handling an interrupt. To allow for spurious interrupts,

@@ -1248,6 +1248,7 @@ dependencies = [
  "drv-user-leds-api",
  "idol",
  "idol-runtime",
+ "notifications",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -4357,6 +4358,7 @@ dependencies = [
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
+ "notifications",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4368,6 +4370,7 @@ dependencies = [
 name = "task-udprpc"
 version = "0.1.0"
 dependencies = [
+ "notifications",
  "task-net-api",
  "userlib",
  "zerocopy",

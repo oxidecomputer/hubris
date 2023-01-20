@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 zerocopy = { workspace = true }
 
+notifications = { path = "../../lib/notifications" }
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
