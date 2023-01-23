@@ -420,7 +420,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         return Err(SpCtrlError::Fault.into());
                     }
                 }
-            }
+            },
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
     }
