@@ -391,7 +391,7 @@ fn configure_port(
             sys.gpio_configure_alternate(
                 pin.gpio_pins,
                 OutputType::OpenDrain,
-                Speed::High,
+                Speed::Low,
                 Pull::None,
                 pin.function,
             );
@@ -427,7 +427,7 @@ fn configure_pins(
         sys.gpio_configure_alternate(
             pin.gpio_pins,
             OutputType::OpenDrain,
-            Speed::High,
+            Speed::Low,
             Pull::None,
             pin.function,
         );

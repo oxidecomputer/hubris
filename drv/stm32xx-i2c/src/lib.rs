@@ -184,7 +184,7 @@ impl I2cMux<'_> {
             sys.gpio_configure_output(
                 pin.gpio_pins,
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             );
         }
