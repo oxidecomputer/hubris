@@ -2,6 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//
+// If you are cutting-and-pasting this code into another kernel (and that
+// kernel is armv6m), it is hoped that you will cut-and-paste this compile
+// error along with it and take heed of its admonition!
+//
+#[cfg(not(any(armv7m, armv8m)))]
+compile_error!("ringbuf is unsound in the kernel on armv6m");
+
 use ringbuf::*;
 
 #[derive(Copy, Clone, PartialEq)]
