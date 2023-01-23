@@ -59,13 +59,19 @@ pub struct Task<T = ordered_toml::Value> {
 impl<T> Task<T> {
     pub fn notification_bit(&self, name: &str) -> Result<u8> {
         match self.notifications.iter().position(|n| n == name) {
-            Some(i) => return Ok(i.try_into().unwrap()),
+            Some(i) => {
+                if i < 32 {
+                    Ok(i.try_into().unwrap())
+                } else {
+                    bail!("too many IRQs; {i} cannot fit in a `u32`")
+                }
+            }
             None => bail!(
                 "could not find notification '{name}' \
                  (options are {:?})",
                 self.notifications
             ),
-        };
+        }
     }
     pub fn notification_mask(&self, name: &str) -> Result<u32> {
         Ok(1u32 << self.notification_bit(name)?)
