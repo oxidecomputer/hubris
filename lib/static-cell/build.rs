@@ -6,4 +6,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_m_profile();
     Ok(())
 }
-
