@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
