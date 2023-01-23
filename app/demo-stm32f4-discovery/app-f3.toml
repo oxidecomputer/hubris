@@ -16,7 +16,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
-notifications = ["timer", "fault"]
+notifications = ["fault", "timer"]
 
 [tasks.rcc_driver]
 name = "drv-stm32fx-rcc"

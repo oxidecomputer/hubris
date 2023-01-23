@@ -11,7 +11,6 @@ fn main() -> Result<()> {
     let mut out = std::fs::File::create(dest_path)?;
 
     let full_task_config = build_util::task_full_config_toml()?;
-    write_task_notifications(&mut out, &full_task_config.notifications)?;
 
     if full_task_config.notifications.len() >= 32 {
         bail!(
@@ -19,6 +18,14 @@ fn main() -> Result<()> {
              overlapping with `INTERNAL_TIMER_NOTIFICATION`"
         );
     }
+    if full_task_config.name == "task-jefe"
+        && full_task_config.notifications.get(0).cloned()
+            != Some("fault".to_string())
+    {
+        bail!("`jefe` must have \"fault\" as its first notification");
+    }
+
+    write_task_notifications(&mut out, &full_task_config.notifications)?;
 
     for task in build_util::env_var("HUBRIS_TASKS")
         .expect("missing HUBRIS_TASKS")
