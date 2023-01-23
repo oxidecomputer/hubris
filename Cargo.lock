@@ -1169,6 +1169,7 @@ dependencies = [
  "anyhow",
  "build-lpc55pins",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
