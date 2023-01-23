@@ -72,8 +72,8 @@ task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.usart_driver.config]
 pins = [
-{ pin = { port = 0, pin = 29}, alt = 1},
-{ pin = { port = 0, pin = 30}, alt = 1}
+    { pin = { port = 0, pin = 29}, alt = 1},
+    { pin = { port = 0, pin = 30}, alt = 1}
 ]
 
 [tasks.sprot]
@@ -89,18 +89,18 @@ task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper"]
 
 [tasks.sprot.config]
 pins = [
-# HS_SPI_MOSI = P0_26 = FUN9
-{ pin = { port = 0, pin = 26}, alt = 9},
-# HS_SPI_MISO = P1_3 = FUN6
-{ pin = { port = 1, pin = 3}, alt = 6},
-# HS_SPI_SCK = P1_2 = FUN6
-{ pin = { port = 1, pin = 2}, alt = 6},
-# HS_SSEL1 = P1_1 = FUN5
-{ pin = { port = 1, pin = 1}, alt = 5},
-# ROT_IRQ = P0_18 = FUN0
-{ name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
-# SP_RESET = P0_9 = FUN0
-{ name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
+    # HS_SPI_MOSI = P0_26 = FUN9
+    { pin = { port = 0, pin = 26}, alt = 9},
+    # HS_SPI_MISO = P1_3 = FUN6
+    { pin = { port = 1, pin = 3}, alt = 6},
+    # HS_SPI_SCK = P1_2 = FUN6
+    { pin = { port = 1, pin = 2}, alt = 6},
+    # HS_SSEL1 = P1_1 = FUN5
+    { pin = { port = 1, pin = 1}, alt = 5},
+    # ROT_IRQ = P0_18 = FUN0
+    { name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
+    # SP_RESET = P0_9 = FUN0
+    { name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
 ]
 
 [tasks.swd]
@@ -120,18 +120,18 @@ interrupts = {"flexcomm5.irq" = 1}
 
 # Out = MOSI on, MISO off
 out_cfg = [
-{ pin = { port = 0, pin = 8 }, alt = 3 },
-{ pin = { port = 0, pin = 9 }, alt = 0, mode = "PullDown" },
+    { pin = { port = 0, pin = 8 }, alt = 3 },
+    { pin = { port = 0, pin = 9 }, alt = 0, mode = "PullDown" },
 ]
 # In = MISO on, MOSI off
 in_cfg = [
-{ pin = { port = 0, pin = 9 }, alt = 3 },
-{ pin = { port = 0, pin = 8 }, alt = 0, mode = "PullDown" },
+    { pin = { port = 0, pin = 9 }, alt = 3 },
+    { pin = { port = 0, pin = 8 }, alt = 0, mode = "PullDown" },
 ]
 pins = [
-# SCK
-{ pin = { port = 0, pin = 7 }, alt = 3 },
-{ name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
+    # SCK
+    { pin = { port = 0, pin = 7 }, alt = 3 },
+    { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
 ]
 spi_num = 5
 
