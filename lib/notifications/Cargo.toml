@@ -3,6 +3,50 @@ name = "notifications"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+userlib = { path = "../../sys/userlib" }
+
 [build-dependencies]
 anyhow.workspace = true
 build-util = { path = "../../build/util" }
+
+# The `notifications` crate is used in many tasks, and produces slightly
+# different code in each one.  Naively, this causes Cargo to recompile it each
+# time, which dramatically increases the build time for a full Hubris image.
+#
+# To work around this, we add a bunch of features -- which don't change behavior
+# in any way -- so that each build is cached separately.
+#
+# Each user of the `notifications` crate selects its own feature.
+[features]
+auxflash-server = []
+control-plane-agent = []
+fpga-server = []
+gimlet-hf-server = []
+gimlet-seq-server = []
+host-sp-comms = []
+ignition-server = []
+jefe = []
+lpc55-spi-server = []
+lpc55-sprot-server = []
+lpc55-usart = []
+meanwell = []
+monorail-server = []
+net = []
+pong = []
+power = []
+sensor = []
+sidecar-seq-server = []
+spd = []
+stm32fx-usart = []
+stm32g0-usart = []
+stm32h7-hash-server = []
+stm32h7-spi-server = []
+stm32h7-sprot-server = []
+stm32h7-update-server = []
+stm32xx-i2c-server = []
+thermal = []
+transceivers-server = []
+uartecho = []
+udpecho = []
+udprpc = []

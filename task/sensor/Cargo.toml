@@ -18,8 +18,8 @@ zerocopy.workspace = true
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
 mutable-statics = { path = "../../lib/mutable-statics" }
-notifications = { path = "../../lib/notifications" }
-ringbuf = { path = "../../lib/ringbuf"  }
+notifications = { path = "../../lib/notifications", features = ["sensor"] }
+ringbuf = { path = "../../lib/ringbuf" }
 task-sensor-api = { path = "../sensor-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

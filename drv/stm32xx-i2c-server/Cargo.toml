@@ -14,7 +14,7 @@ drv-i2c-api = { path = "../i2c-api" }
 drv-stm32xx-i2c = { path = "../stm32xx-i2c"  }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 fixedmap = { path = "../../lib/fixedmap" }
-notifications = { path = "../../lib/notifications" }
+notifications = { path = "../../lib/notifications", features = ["stm32xx-i2c-server"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

@@ -14,7 +14,7 @@ zerocopy = { workspace = true }
 drv-hash-api = { path = "../hash-api" }
 drv-stm32h7-hash = { path = "../stm32h7-hash", optional = true }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
-notifications = { path = "../../lib/notifications" }
+notifications = { path = "../../lib/notifications", features = ["stm32h7-hash-server"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

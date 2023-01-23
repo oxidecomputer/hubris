@@ -11,7 +11,7 @@ stm32g0 = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
-notifications = { path = "../../lib/notifications" }
+notifications = { path = "../../lib/notifications", features = ["stm32g0-usart"] }
 userlib = { path = "../../sys/userlib" }
 
 [features]

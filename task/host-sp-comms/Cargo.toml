@@ -20,7 +20,7 @@ drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 multitimer = { path = "../../lib/multitimer" }
 mutable-statics = { path = "../../lib/mutable-statics" }
-notifications = { path = "../../lib/notifications" }
+notifications = { path = "../../lib/notifications", features = ["host-sp-comms"] }
 ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-host-sp-comms-api = { path = "../host-sp-comms-api" }

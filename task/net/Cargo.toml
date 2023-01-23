@@ -31,7 +31,7 @@ hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ksz8463 = {path = "../../drv/ksz8463", optional = true }
 multitimer = { path = "../../lib/multitimer" }
 mutable-statics = { path = "../../lib/mutable-statics" }
-notifications = { path = "../../lib/notifications" }
+notifications = { path = "../../lib/notifications", features = ["net"] }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
