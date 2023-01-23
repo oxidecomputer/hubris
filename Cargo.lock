@@ -1169,6 +1169,7 @@ dependencies = [
  "anyhow",
  "build-lpc55pins",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
@@ -2082,6 +2083,7 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
+ "ringbuf",
  "stm32h7",
 ]
 
@@ -3158,7 +3160,7 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 name = "ringbuf"
 version = "0.2.0"
 dependencies = [
- "userlib",
+ "static-cell",
 ]
 
 [[package]]
@@ -3650,6 +3652,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "static-cell"
+version = "0.1.0"
+dependencies = [
+ "armv6m-atomic-hack",
+ "build-util",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3892,6 +3902,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
+ "static-cell",
  "userlib",
  "zerocopy",
 ]

@@ -21,34 +21,42 @@
 // A successful read operation consists of three phases:
 // - an eight-bit read packet request, from the host to the target
 // - a three-bit OK acknowledge response, from the target to the host
-// - a 33-bit data read phase, where data is transferred from the target to the host
+// - a 33-bit data read phase, where data is transferred from the target to the
+//   host
 //
 // There is one bit of tunraound between the request and acknowledge.
 //
-// It turns out this specification can be implemented on top of a SPI block with
-// some specific implementation details:
+// It turns out this specification can be implemented on top of a SPI block
+// with some specific implementation details:
+//
 // - SPI has 4 pins (MOSI, MISO, CS, CSK) and importantly expects MOSI and MISO
-// to be separate. This is in contrast to SWD which assumes a single pin for
-// both input and output. For our SPI implementation, we tie MOSI and MISO
-// together and configure exactly one of MOSI or MISO for use with SPI at a time.
-// A side effect of this choice is that reading needs to be precise with the
-// specification. Adding extra idle cycles is fairly easy when writing but that
-// is not possible with reading.
+//   to be separate. This is in contrast to SWD which assumes a single pin for
+//   both input and output. For our SPI implementation, we tie MOSI and MISO
+//   together and configure exactly one of MOSI or MISO for use with SPI at a
+//   time.
+//
+//   A side effect of this choice is that reading needs to be precise with the
+//   specification. Adding extra idle cycles is fairly easy when writing but
+//   that is not possible with reading.
+//
 // - The LPC55 can transmit between 4 and 16 bits at a time. This makes
-// makes transmitting the various combinations of phases and turnaround bits
-// a bit of a pain. This is broken up into the following combinations:
-// -- 8-bit packet write
-// -- 4-bit ACK read (turnaround + three bits of response)
-// -- 34-bit write (one bit turnaround, 32 bits data, one bit partiy) broken up
-//    into 9 bit + 8 bit + 8 bit + 9 bit writes
-// -- 33-bit read (32 bits data, one bit parity) broken up into
-//    8 bit + 8 bit + 8 bit + 9 bit reads. There is also one bit of turnaround
-//    after the read but this is aborbed into idle cycles.
+//   makes transmitting the various combinations of phases and turnaround bits
+//   a bit of a pain. This is broken up into the following combinations:
+//
+//   -- 8-bit packet write
+//   -- 4-bit ACK read (turnaround + three bits of response)
+//   -- 34-bit write (one bit turnaround, 32 bits data, one bit parity) broken
+//      up into 9 bit + 8 bit + 8 bit + 9 bit writes
+//   -- 33-bit read (32 bits data, one bit parity) broken up into 8 bit +
+//      8 bit + 8 bit + 9 bit reads. There is also one bit of turnaround after
+//      the read but this is aborbed into idle cycles.
+//
 // - The SWD protocl is LSB first. This works very well when bit-banging but
 //   somewhat less well with a register based hardware block such as SPI. The
-//   SPI controller can do LSB first transfers but it turns out to be easier
-//   to debug and understand if we keep it in MSB form and reverse bits where
-//   needed. Endianness is one of the hardest problems in programming after all.
+//   SPI controller can do LSB first transfers but it turns out to be easier to
+//   debug and understand if we keep it in MSB form and reverse bits where
+//   needed. Endianness is one of the hardest problems in programming after
+//   all.
 
 #![no_std]
 #![no_main]
@@ -74,10 +82,12 @@ enum Trace {
     WriteCmd,
     None,
     AckErr(Ack),
+    DongleDetected,
+    Dhcsr(u32),
     ParityFail { data: u32, received_parity: u16 },
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -92,7 +102,9 @@ enum Ack {
 
 // ADIv5 11.2.1 describes the CSW bits. Several of those fields (DbgSwEnable,
 // Prot, SPIDEN) are implementation defined. RM0433 60.4.2 gives us the details
-// of the implementation we care about.
+// of the implementation we care about. Note that the "Cacheable" bit (bit 27)
+// is essential to correctly read memory that is in fact dirty in the L1 and
+// has not been written back to SRAM!
 
 // Full 32-bit word transfer
 const CSW_SIZE32: u32 = 0x00000002;
@@ -100,8 +112,8 @@ const CSW_SIZE32: u32 = 0x00000002;
 const CSW_SADDRINC: u32 = 0x00000010;
 // AP access enabled
 const CSW_DBGSTAT: u32 = 0x00000040;
-// Privileged + data access
-const CSW_HPROT: u32 = 0x03000000;
+// Cacheable + privileged + data access
+const CSW_HPROT: u32 = 0x0b000000;
 
 const DP_CTRL_CDBGPWRUPREQ: u32 = 1 << 28;
 const DP_CTRL_CDBGPWRUPACK: u32 = 1 << 29;
@@ -122,6 +134,8 @@ const PARK_VAL: u8 = 1 << PARK_BIT;
 const DHCSR: u32 = 0xE000EDF0;
 const DHCSR_HALT_MAGIC: u32 = 0xa05f_0003;
 const DHCSR_RESUME_MAGIC: u32 = 0xa05f_0000;
+const DHCSR_S_HALT: u32 = 1 << 17;
+const DHCSR_S_REGRDY: u32 = 1 << 16;
 
 const DCRSR: u32 = 0xE000EDF4;
 const DCRDR: u32 = 0xE000EDF8;
@@ -373,6 +387,12 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         if !self.init {
             self.pin_setup();
         }
+
+        if self.swd_dongle_detected() {
+            ringbuf_entry!(Trace::DongleDetected);
+            return Err(SpCtrlError::DongleDetected.into());
+        }
+
         match self.swd_setup() {
             Ok(_) => {
                 self.init = true;
@@ -387,7 +407,20 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<SpCtrlError>> {
         match self.write_single_target_addr(DHCSR, DHCSR_HALT_MAGIC) {
-            Ok(_) => Ok(()),
+            Ok(_) => loop {
+                match self.read_single_target_addr(DHCSR) {
+                    Ok(dhcsr) => {
+                        ringbuf_entry!(Trace::Dhcsr(dhcsr));
+
+                        if dhcsr & DHCSR_S_HALT != 0 {
+                            return Ok(());
+                        }
+                    }
+                    Err(_) => {
+                        return Err(SpCtrlError::Fault.into());
+                    }
+                }
+            },
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
     }
@@ -428,6 +461,21 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
 
         if let Err(_) = self.write_single_target_addr(DCRSR, r as u32) {
             return Err(SpCtrlError::Fault.into());
+        }
+
+        loop {
+            match self.read_single_target_addr(DHCSR) {
+                Ok(dhcsr) => {
+                    ringbuf_entry!(Trace::Dhcsr(dhcsr));
+
+                    if dhcsr & DHCSR_S_REGRDY != 0 {
+                        break;
+                    }
+                }
+                Err(_) => {
+                    return Err(SpCtrlError::Fault.into());
+                }
+            }
         }
 
         match self.read_single_target_addr(DCRDR) {
@@ -600,11 +648,11 @@ impl ServerImpl {
         // drive the line low to treat it as extra idle cycles.
         for i in 0..4 {
             let b = if i == 3 {
-                // The last read is 9 bits. Right now we just shift the parity bit
-                // away because it's not clear what the appropriate response is if
-                // we detect a parity error. "Might have to re-issue original read
-                // request or use the RESEND register if a parity or protocol fault"
-                // doesn't give much of a hint...
+                // The last read is 9 bits. Right now we just shift the parity
+                // bit away because it's not clear what the appropriate
+                // response is if we detect a parity error. "Might have to
+                // re-issue original read request or use the RESEND register if
+                // a parity or protocol fault" doesn't give much of a hint...
                 let val = self.read_nine_bits();
                 parity = val & 1;
                 ((val >> 1).reverse_bits() >> 8) as u32
@@ -673,6 +721,22 @@ impl ServerImpl {
             self.swd_finish();
 
             return ret.ok_or(Ack::Fault);
+        }
+    }
+
+    fn swd_dongle_detected(&self) -> bool {
+        cfg_if::cfg_if! {
+            if #[cfg(any(
+                target_board = "gimlet-rot-b",
+                target_board = "gimlet-rot-c"
+            ))] {
+                use drv_lpc55_gpio_api::*;
+
+                let gpio = Pins::from(self.gpio);
+                gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
+            } else {
+                false
+            }
         }
     }
 

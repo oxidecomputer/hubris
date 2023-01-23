@@ -387,8 +387,8 @@ rx = { packets = 3, bytes = 2048 }
 [config.sprot]
 # TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
 pins = [
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
-{ name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
-# SPI6 CS repurposed for debugging
-{ name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
+    # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
+    { name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+    # SPI6 CS repurposed for debugging
+    { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
 ]

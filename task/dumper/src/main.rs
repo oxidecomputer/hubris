@@ -17,6 +17,7 @@ use zerocopy::FromBytes;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     DumpInitiated(u32),
+    SetupFailed(SpCtrlError),
     DumpHeader([u8; 4]),
     Reading(u32, usize, usize),
     Writing(u32, usize, usize),
@@ -59,7 +60,8 @@ impl idl::InOrderDumperImpl for ServerImpl {
         ringbuf_entry!(Trace::DumpInitiated(addr));
         let sp_ctrl = SpCtrl::from(SP_CTRL.get_task_id());
 
-        if sp_ctrl.setup().is_err() {
+        if let Err(err) = sp_ctrl.setup() {
+            ringbuf_entry!(Trace::SetupFailed(err));
             return Err(DumperError::SetupFailed.into());
         }
 

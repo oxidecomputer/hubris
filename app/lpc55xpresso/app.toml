@@ -88,8 +88,8 @@ task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.usart_driver.config]
 pins = [
-{ pin = { port = 0, pin = 29}, alt = 1},
-{ pin = { port = 0, pin = 30}, alt = 1}
+    { pin = { port = 0, pin = 29}, alt = 1},
+    { pin = { port = 0, pin = 30}, alt = 1}
 ]
 
 [tasks.i2c_driver]

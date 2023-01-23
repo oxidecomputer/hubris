@@ -95,6 +95,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         idol::server::ServerStyle::InOrder,
     )?;
 
+    build_util::expose_target_board();
+
     let task_config = build_util::task_config::<TaskConfig>()?;
 
     generate_swd_functions(&task_config)?;
