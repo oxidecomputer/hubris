@@ -262,3 +262,5 @@ fn configure_uart_device() -> Usart {
         hardware_flow_control,
     )
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    build_util::build_notifications()?;
     idol::server::build_server_support(
         "../../idl/update.idol",
         "server_stub.rs",

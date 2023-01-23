@@ -9,7 +9,6 @@ cortex-m = { workspace = true }
 heapless = { workspace = true }
 
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
-notifications = { path = "../../lib/notifications", features = ["uartecho"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

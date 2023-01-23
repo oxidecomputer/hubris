@@ -15,7 +15,6 @@ zerocopy = { workspace = true }
 abi = { path = "../../sys/abi" }
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
-notifications = { path = "../../lib/notifications" , features = ["jefe"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib" }

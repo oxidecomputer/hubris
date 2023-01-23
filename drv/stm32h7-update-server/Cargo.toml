@@ -12,7 +12,6 @@ stm32h7 = { workspace = true, features = ["stm32h753"] }
 zerocopy = { workspace = true }
 
 drv-update-api = { path = "../update-api/" }
-notifications = { path = "../../lib/notifications", features = ["stm32h7-update-server"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

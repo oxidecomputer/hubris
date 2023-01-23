@@ -229,3 +229,5 @@ fn step_transmit(
         end_transmission(usart, tx).reply_fail(ResponseCode::BadArg);
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

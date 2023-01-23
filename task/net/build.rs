@@ -19,6 +19,7 @@ fn main() -> Result<()> {
 
     generate_net_config(&net_config)?;
     build_util::expose_target_board();
+    build_util::build_notifications()?;
 
     Ok(())
 }
@@ -102,7 +103,7 @@ fn generate_owner_info(config: &NetConfig) -> Result<TokenStream> {
                         hubris_num_tasks::Task::#task as usize,
                         userlib::Generation::ZERO,
                     ),
-                    notifications::#task::#note,
+                    crate::notifications::#task::#note,
                 )
             })
         })

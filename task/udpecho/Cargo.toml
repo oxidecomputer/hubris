@@ -8,9 +8,11 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 
-notifications = { path = "../../lib/notifications", features = ["udpecho"] }
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
 
 [features]
 vlan = ["task-net-api/vlan"]

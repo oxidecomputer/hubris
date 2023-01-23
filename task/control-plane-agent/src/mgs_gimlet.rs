@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
+    mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS,
 };

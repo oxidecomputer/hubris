@@ -360,3 +360,4 @@ fn turn_on_flexcomm(syscon: &Syscon) {
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

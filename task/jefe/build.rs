@@ -22,6 +22,7 @@ fn main() -> Result<()> {
     .unwrap();
 
     build_util::expose_m_profile();
+    build_util::build_notifications()?;
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("jefe_config.rs");
@@ -39,7 +40,7 @@ fn main() -> Result<()> {
         for (name, rec) in cfg.on_state_change {
             writeln!(
                 out,
-                "    ({task}::{name}, notifications::{name}::{}_MASK),",
+                "    ({task}::{name}, crate::notifications::{name}::{}_MASK),",
                 rec.to_ascii_uppercase().replace("-", "_"),
             )?;
         }

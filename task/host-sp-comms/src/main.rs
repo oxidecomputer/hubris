@@ -1017,3 +1017,5 @@ mod idl {
     use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

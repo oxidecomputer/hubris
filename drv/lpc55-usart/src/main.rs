@@ -187,3 +187,5 @@ fn step_transmit(usart: &mut Usart<'_>, txs: &mut Transmit) -> bool {
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

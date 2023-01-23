@@ -26,7 +26,6 @@ drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], opt
 drv-update-api = { path = "../../drv/update-api" }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 mutable-statics = { path = "../../lib/mutable-statics" }
-notifications = { path = "../../lib/notifications", features = ["control-plane-agent"] }
 ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-jefe-api = { path = "../jefe-api" }
@@ -37,6 +36,7 @@ update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
+build-util = { path = "../../build/util" }
 idol = { workspace = true }
 
 [features]

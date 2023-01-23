@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![no_std]
-
-include!(concat!(env!("OUT_DIR"), "/notifications_config.rs"));
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    build_util::build_notifications()?;
+    Ok(())
+}

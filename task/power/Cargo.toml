@@ -19,7 +19,6 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"], optional = true }
 mutable-statics = { path = "../../lib/mutable-statics" }
-notifications = { path = "../../lib/notifications", features = ["power"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-power-api = { path = "../power-api" }
 task-sensor-api = { path = "../sensor-api" }

@@ -4,6 +4,7 @@
 
 use crate::bsp_support;
 use crate::generated::{self, SOCKET_COUNT};
+use crate::notifications;
 use crate::{idl, link_local_iface_addr, MacAddressBlock, NEIGHBORS};
 
 #[cfg(feature = "vlan")]

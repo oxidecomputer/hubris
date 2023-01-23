@@ -14,6 +14,7 @@
 //! A BSP module is expected to export a single type, called `BspImpl`, which
 //! implements the `Bsp` trait from this module.
 
+use crate::notifications;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
 use task_net_api::PhyError;

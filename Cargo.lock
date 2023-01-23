@@ -780,7 +780,6 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "stm32h7",
  "tlvc",
@@ -852,7 +851,6 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -884,7 +882,6 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -925,7 +922,6 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "notifications",
  "num-derive",
  "num-traits",
  "ringbuf",
@@ -1031,7 +1027,6 @@ dependencies = [
  "drv-sidecar-seq-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -1130,7 +1125,6 @@ dependencies = [
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1156,7 +1150,6 @@ dependencies = [
  "if_chain",
  "lpc55-pac",
  "lpc55_romapi",
- "notifications",
  "num-traits",
  "quote",
  "ringbuf",
@@ -1231,7 +1224,6 @@ dependencies = [
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
- "notifications",
  "serde",
  "userlib",
  "zerocopy",
@@ -1248,7 +1240,6 @@ dependencies = [
  "drv-user-leds-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1426,7 +1417,6 @@ dependencies = [
  "drv-sidecar-seq-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -1494,7 +1484,7 @@ dependencies = [
 name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
- "notifications",
+ "build-util",
  "num-traits",
  "stm32f3",
  "stm32f4",
@@ -1506,10 +1496,10 @@ dependencies = [
 name = "drv-stm32g0-usart"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
- "notifications",
  "num-traits",
  "stm32g0",
  "userlib",
@@ -1549,7 +1539,6 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -1602,7 +1591,6 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1650,7 +1638,6 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1718,7 +1705,6 @@ dependencies = [
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "fixedmap",
- "notifications",
  "num-traits",
  "ringbuf",
  "stm32g0",
@@ -1802,7 +1788,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "mutable-statics",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -2681,14 +2666,6 @@ dependencies = [
  "memchr",
  "minimal-lexical",
  "version_check",
-]
-
-[[package]]
-name = "notifications"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-util",
 ]
 
 [[package]]
@@ -3745,7 +3722,6 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -3811,6 +3787,7 @@ dependencies = [
 name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if",
  "drv-auxflash-api",
  "drv-gimlet-hf-api",
@@ -3828,7 +3805,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "mutable-statics",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -3951,7 +3927,6 @@ dependencies = [
  "idol-runtime",
  "multitimer",
  "mutable-statics",
- "notifications",
  "num-traits",
  "ringbuf",
  "task-control-plane-agent-api",
@@ -3996,7 +3971,6 @@ dependencies = [
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -4034,7 +4008,6 @@ dependencies = [
  "drv-user-leds-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -4074,7 +4047,6 @@ dependencies = [
  "ksz8463",
  "multitimer",
  "mutable-statics",
- "notifications",
  "num-traits",
  "proc-macro2",
  "quote",
@@ -4125,9 +4097,9 @@ dependencies = [
 name = "task-pong"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "drv-user-leds-api",
- "notifications",
  "userlib",
 ]
 
@@ -4149,7 +4121,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "mutable-statics",
- "notifications",
  "num-traits",
  "paste",
  "ringbuf",
@@ -4199,7 +4170,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "mutable-statics",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -4270,7 +4240,6 @@ dependencies = [
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
- "notifications",
  "num-traits",
  "ringbuf",
  "spd",
@@ -4304,7 +4273,6 @@ dependencies = [
  "drv-transceivers-api",
  "idol",
  "idol-runtime",
- "notifications",
  "num-traits",
  "ringbuf",
  "serde",
@@ -4338,7 +4306,6 @@ dependencies = [
  "cortex-m",
  "drv-stm32h7-usart",
  "heapless",
- "notifications",
  "ringbuf",
  "userlib",
 ]
@@ -4359,7 +4326,7 @@ dependencies = [
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
- "notifications",
+ "build-util",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4371,7 +4338,7 @@ dependencies = [
 name = "task-udprpc"
 version = "0.1.0"
 dependencies = [
- "notifications",
+ "build-util",
  "task-net-api",
  "userlib",
  "zerocopy",

@@ -165,3 +165,5 @@ fn main() -> ! {
         // Try again.
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

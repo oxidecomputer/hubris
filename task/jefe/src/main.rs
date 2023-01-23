@@ -267,6 +267,8 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/jefe_config.rs"));
 }
 
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
 // And the Idol bits
 mod idl {
     use task_jefe_api::ResetReason;

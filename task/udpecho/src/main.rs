@@ -76,3 +76,5 @@ fn main() -> ! {
 
 static UDP_ECHO_COUNT: core::sync::atomic::AtomicU32 =
     core::sync::atomic::AtomicU32::new(0);
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

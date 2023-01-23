@@ -49,3 +49,5 @@ pub fn main() -> ! {
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -328,3 +328,5 @@ fn ethernet_capabilities(
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/net_config.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

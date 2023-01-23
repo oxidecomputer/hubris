@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    build_util::build_notifications()?;
     idol::server::build_server_support(
         "../../idl/spi.idol",
         "server_stub.rs",

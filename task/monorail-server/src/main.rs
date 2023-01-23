@@ -100,3 +100,5 @@ fn main() -> ! {
         idol_runtime::dispatch_n(&mut msgbuf, &mut server);
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

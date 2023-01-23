@@ -10,8 +10,10 @@ panic-messages = ["userlib/panic-messages"]
 cortex-m = { workspace = true }
 
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
-notifications = { path = "../../lib/notifications", features = ["pong"] }
 userlib = { path = "../../sys/userlib" }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
 
 [[bin]]
 name = "task-pong"

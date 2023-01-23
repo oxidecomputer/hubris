@@ -194,3 +194,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

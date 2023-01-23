@@ -11,7 +11,6 @@ zerocopy = { workspace = true }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32h7-spi-server-core = { path = "../stm32h7-spi-server-core" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
-notifications = { path = "../../lib/notifications", features = ["stm32h7-spi-server"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

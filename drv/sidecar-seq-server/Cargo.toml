@@ -17,7 +17,6 @@ drv-i2c-devices = { path = "../i2c-devices" }
 drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["controller", "phy_smi"] }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller", features = ["bitstream"] }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
-notifications = { path = "../../lib/notifications", features = ["sidecar-seq-server"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

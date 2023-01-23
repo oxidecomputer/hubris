@@ -7,7 +7,7 @@ compile_error!("this BSP requires the ksz8463 and mgmt features");
 
 use crate::{
     bsp_support::{self, Ksz8463},
-    mgmt, pins,
+    mgmt, notifications, pins,
 };
 use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::SpiServer;

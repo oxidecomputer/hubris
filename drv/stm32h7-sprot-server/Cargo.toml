@@ -17,7 +17,6 @@ drv-sprot-api = { path = "../../drv/sprot-api", features = ["sink_test"] }
 drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 drv-update-api = { path = "../../drv/update-api" }
-notifications = { path = "../../lib/notifications", features = ["stm32h7-sprot-server"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

@@ -416,3 +416,5 @@ fn main() -> ! {
 
     controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -12,7 +12,6 @@ drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", opti
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true  }
 idol-runtime = { workspace = true }
-notifications = { path = "../../lib/notifications", features = ["monorail-server"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-net-api = { path = "../net-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

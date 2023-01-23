@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 zerocopy = { workspace = true }
 
-notifications = { path = "../../lib/notifications", features = ["udprpc"] }
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
 
 [features]
 vlan = ["task-net-api/vlan"]
