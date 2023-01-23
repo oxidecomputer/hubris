@@ -4,7 +4,7 @@
 
 use std::io::Write;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     write_pub_device_descriptions()?;
 
     idol::client::build_client_stub(
@@ -14,7 +14,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn write_pub_device_descriptions() -> Result<(), Box<dyn std::error::Error>> {
+fn write_pub_device_descriptions(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let devices = build_i2c::device_descriptions().collect::<Vec<_>>();
 
     let out_dir = std::env::var("OUT_DIR")?;

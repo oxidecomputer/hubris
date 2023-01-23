@@ -132,7 +132,7 @@ impl SpiServer for Spi {
 
 /// Wraps a `Spi`, pairing it with a `device_index` that will automatically be
 /// sent with all operations.
-pub struct SpiDevice<S = Spi> {
+pub struct SpiDevice<S> {
     server: S,
     device_index: u8,
 }
@@ -209,6 +209,18 @@ impl<S: SpiServer> SpiDevice<S> {
     /// `SpiError::NothingToRelease`.
     pub fn release(&self) -> Result<(), SpiError> {
         self.server.release()
+    }
+
+    /// Variant of `lock` that returns a resource management object that, when
+    /// dropped, will issue `release`. This makes it much easier to do fallible
+    /// operations while locked.
+    ///
+    /// Otherwise, the rules are the same as for `lock`.
+    pub fn lock_auto(
+        &self,
+        assert_cs: CsState,
+    ) -> Result<ControllerLock<'_, S>, SpiError> {
+        self.server.lock_auto(self.device_index, assert_cs)
     }
 }
 

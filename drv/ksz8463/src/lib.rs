@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #![no_std]
 
-use drv_spi_api::{SpiDevice, SpiError};
+use drv_spi_api::{SpiDevice, SpiError, SpiServer};
 use ringbuf::*;
 use userlib::hl::sleep_for;
 
@@ -103,12 +103,12 @@ pub struct KszRawMacTableEntry {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct Ksz8463 {
-    spi: SpiDevice,
+pub struct Ksz8463<S: SpiServer> {
+    spi: SpiDevice<S>,
 }
 
-impl Ksz8463 {
-    pub fn new(spi: SpiDevice) -> Self {
+impl<S: SpiServer> Ksz8463<S> {
+    pub fn new(spi: SpiDevice<S>) -> Self {
         Self { spi }
     }
 

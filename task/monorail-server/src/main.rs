@@ -15,13 +15,36 @@ mod bsp;
 mod server;
 
 use crate::{bsp::Bsp, server::ServerImpl};
-use drv_spi_api::{Spi, SpiServer};
+use drv_spi_api::SpiServer;
+use drv_stm32xx_sys_api::Sys;
 use ringbuf::*;
 use userlib::*;
 use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};
 
-task_slot!(SPI, spi_driver);
+cfg_if::cfg_if! {
+    // Select local vs server SPI communication
+    if #[cfg(feature = "use-spi-core")] {
+        /// Claims the SPI core.
+        ///
+        /// This function can only be called once, and will panic otherwise!
+        pub fn claim_spi(sys: &Sys)
+            -> drv_stm32h7_spi_server_core::SpiServerCore
+        {
+            // Note that this *always* maps the SPI interrupt to interrupt mask
+            // 0b1, which must match the TOML file.
+            drv_stm32h7_spi_server_core::declare_spi_core!(sys.clone(), 1)
+        }
+    } else {
+        pub fn claim_spi(_sys: &Sys) -> drv_spi_api::Spi {
+            task_slot!(SPI, spi_driver);
+            drv_spi_api::Spi::from(SPI.get_task_id())
+        }
+    }
+}
+
 const VSC7448_SPI_DEVICE: u8 = 0;
+
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -36,7 +59,8 @@ ringbuf!(Trace, 2, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = Spi::from(SPI.get_task_id()).device(VSC7448_SPI_DEVICE);
+    let sys = Sys::from(SYS.get_task_id());
+    let spi = claim_spi(&sys).device(VSC7448_SPI_DEVICE);
     let mut vsc7448_spi = Vsc7448Spi::new(spi);
     let vsc7448 = Vsc7448::new(&mut vsc7448_spi);
 

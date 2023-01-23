@@ -19,15 +19,10 @@ use cortex_m_rt::entry;
 use lpc55_pac::Peripherals;
 use unwrap_lite::UnwrapLite;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "dice-mfg")] {
-        mod dice;
-        mod dice_mfg_usart;
-    } else if #[cfg(feature = "dice-self")] {
-        mod dice;
-        mod dice_mfg_self;
-    }
-}
+#[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+mod dice;
+#[cfg(feature = "dice-mfg")]
+mod dice_mfg_usart;
 
 // FIXME Need to fixup the secure interface calls
 //mod hypo;

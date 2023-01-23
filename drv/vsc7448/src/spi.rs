@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Vsc7448Rw, VscError};
-use drv_spi_api::SpiDevice;
+use drv_spi_api::{SpiDevice, SpiServer};
 use ringbuf::*;
 use userlib::UnwrapLite;
 use vsc7448_pac::{types::RegisterAddress, *};
@@ -26,9 +26,9 @@ ringbuf!(Trace, 16, Trace::None);
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Helper struct to read and write from the VSC7448 over SPI
-pub struct Vsc7448Spi(SpiDevice);
-impl Vsc7448Spi {
-    pub fn new(spi: SpiDevice) -> Self {
+pub struct Vsc7448Spi<S: SpiServer>(SpiDevice<S>);
+impl<S: SpiServer> Vsc7448Spi<S> {
+    pub fn new(spi: SpiDevice<S>) -> Self {
         Self(spi)
     }
 
@@ -116,7 +116,7 @@ impl Vsc7448Spi {
     }
 }
 
-impl Vsc7448Rw for Vsc7448Spi {
+impl<S: SpiServer> Vsc7448Rw for Vsc7448Spi<S> {
     /// Reads from a VSC7448 register.  The register must be in the switch
     /// core register block, i.e. having an address in the range
     /// 0x71000000-0x72000000; otherwise, this return an error.

@@ -139,10 +139,7 @@ fn config_to_token(
 /// cannot be configured using this macro).
 #[proc_macro]
 pub fn task_config(tokens: TokenStream) -> TokenStream {
-    let task_config_str = std::env::var("HUBRIS_TASK_CONFIG")
-        .expect("Missing HUBRIS_TASK_CONFIG variable");
-    let config = toml::from_str::<toml::Value>(&task_config_str)
-        .expect("Could not parse HUBRIS_TASK_CONFIG");
+    let config = build_util::task_config::<toml::Value>().unwrap();
 
     let input = parse_macro_input!(tokens as Config);
     let values = input

@@ -88,7 +88,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::server::build_server_support(
         "../../idl/sp-ctrl.idol",
         "server_stub.rs",

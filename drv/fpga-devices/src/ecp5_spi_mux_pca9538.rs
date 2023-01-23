@@ -7,7 +7,7 @@ use crate::FpgaUserDesign;
 use drv_fpga_api::FpgaError;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::pca9538;
-use drv_spi_api::{self as spi_api, SpiDevice, SpiError};
+use drv_spi_api::{self as spi_api, SpiDevice, SpiError, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 
 /// This module implements an ECP5 driver which exposes two physical devices,
@@ -53,10 +53,10 @@ impl From<Error> for FpgaError {
     }
 }
 
-pub struct DriverConfig {
+pub struct DriverConfig<S: SpiServer> {
     pub sys: Sys,
-    pub configuration_port: SpiDevice,
-    pub user_design: SpiDevice,
+    pub configuration_port: SpiDevice<S>,
+    pub user_design: SpiDevice<S>,
     pub spi_mux_select: sys_api::PinSet,
     pub gpio: pca9538::Pca9538,
     pub user_design_reset_duration: u64,
@@ -69,19 +69,19 @@ pub struct DevicePins {
     pub user_design_reset_n: pca9538::PinSet,
 }
 
-pub struct DeviceInstance<'a> {
-    pub driver: &'a Driver,
+pub struct DeviceInstance<'a, S: SpiServer> {
+    pub driver: &'a Driver<S>,
     pub device_id: usize,
     pub pins: DevicePins,
 }
 
-pub struct Driver {
-    config: DriverConfig,
+pub struct Driver<S: SpiServer> {
+    config: DriverConfig<S>,
     device_selected: core::cell::Cell<Option<usize>>,
 }
 
-impl Driver {
-    pub fn new(config: DriverConfig) -> Self {
+impl<S: SpiServer> Driver<S> {
+    pub fn new(config: DriverConfig<S>) -> Self {
         Self {
             config,
             device_selected: core::cell::Cell::new(None),
@@ -106,7 +106,7 @@ impl Driver {
         &self,
         device_id: usize,
         pins: DevicePins,
-    ) -> Result<DeviceInstance<'_>, Error> {
+    ) -> Result<DeviceInstance<'_, S>, Error> {
         let output_pins =
             pins.init_n | pins.program_n | pins.user_design_reset_n;
 
@@ -133,7 +133,7 @@ impl Driver {
         &self,
         device0_pins: DevicePins,
         device1_pins: DevicePins,
-    ) -> Result<[Ecp5<DeviceInstance<'_>>; 2], Error> {
+    ) -> Result<[Ecp5<DeviceInstance<'_, S>>; 2], Error> {
         Ok([
             Ecp5::new(self.init_device(0, device0_pins)?),
             Ecp5::new(self.init_device(1, device1_pins)?),
@@ -157,7 +157,7 @@ impl Driver {
     }
 }
 
-impl<'a> Ecp5Driver for DeviceInstance<'a> {
+impl<'a, S: SpiServer> Ecp5Driver for DeviceInstance<'a, S> {
     type Error = Error;
 
     fn program_n(&self) -> Result<bool, Self::Error> {
@@ -266,7 +266,7 @@ impl<'a> Ecp5Driver for DeviceInstance<'a> {
     }
 }
 
-impl<'a> FpgaUserDesign for DeviceInstance<'a> {
+impl<'a, S: SpiServer> FpgaUserDesign for DeviceInstance<'a, S> {
     fn user_design_enabled(&self) -> Result<bool, FpgaError> {
         Ok(self.user_design_reset_n()?)
     }

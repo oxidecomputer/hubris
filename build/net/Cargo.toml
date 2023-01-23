@@ -7,5 +7,7 @@ edition = "2021"
 vlan = []
 
 [dependencies]
-build-util = {path = "../util"}
-serde = { workspace = true }
+anyhow.workspace = true
+serde.workspace = true
+
+build-util.path = "../util"

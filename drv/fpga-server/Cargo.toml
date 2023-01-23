@@ -14,6 +14,7 @@ drv-fpga-devices = { path = "../../drv/fpga-devices" }
 drv-i2c-api = { path = "../../drv/i2c-api", optional = true }
 drv-i2c-devices = { path = "../../drv/i2c-devices", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
+drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf"  }
@@ -27,6 +28,9 @@ idol = { workspace = true }
 [features]
 mainboard = []
 front_io = ["drv-i2c-api", "drv-i2c-devices"]
+use-spi-core = ["drv-stm32h7-spi-server-core"]
+h743 = ["drv-stm32h7-spi-server-core?/h743"]
+h753 = ["drv-stm32h7-spi-server-core?/h753"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

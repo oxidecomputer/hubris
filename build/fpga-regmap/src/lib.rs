@@ -259,7 +259,9 @@ pub mod Reg {{"
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn fpga_regs(regs: &str) -> Result<String, Box<dyn std::error::Error>> {
+pub fn fpga_regs(
+    regs: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let mut output = String::new();
 
     let node: Node = serde_json::from_str(regs)?;

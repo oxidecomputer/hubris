@@ -223,6 +223,7 @@ dependencies = [
 name = "build-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "serde",
 ]
@@ -233,9 +234,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "indexmap",
+ "ordered-toml",
  "serde",
  "serde_json",
  "toml",
+ "toml-task",
 ]
 
 [[package]]
@@ -719,8 +722,8 @@ dependencies = [
 
 [[package]]
 name = "dice-mfg-msgs"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util#5bc735ff11c6b4dcf8af598f8f3911d66db7b6ad"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/dice-util#e8eca6b2ba190160a27aaf62235e2ff86b212390"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -843,6 +846,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "gnarle",
  "idol",
@@ -1448,6 +1452,7 @@ version = "0.1.0"
 dependencies = [
  "crc",
  "derive-idol-err",
+ "drv-spi-api",
  "drv-update-api",
  "hubpack",
  "idol",
@@ -1577,12 +1582,15 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "drv-spi-api",
  "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "regex",
  "userlib",
  "zerocopy",
 ]
@@ -1591,6 +1599,7 @@ dependencies = [
 name = "drv-stm32h7-spi-server-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "call_rustfmt",
  "cfg-if",
@@ -1605,6 +1614,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "stm32h7",
@@ -1621,6 +1631,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "drv-sprot-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-update-api",
  "hubpack",
@@ -2015,7 +2026,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#fb739009e0584e6185b352c3cf4390968e112f8f"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#57c680212c98f311be43f18cc8859eaefa7126e4"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2290,7 +2301,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
+source = "git+https://github.com/oxidecomputer/idolatry.git#fe1610237bead97908526e4abcb3b23e081a472f"
 dependencies = [
  "indexmap",
  "quote",
@@ -2302,7 +2313,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#9c0464500d1217d45cb98ab7617ee89e2914eb22"
+source = "git+https://github.com/oxidecomputer/idolatry.git#fe1610237bead97908526e4abcb3b23e081a472f"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2452,6 +2463,14 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "vcell",
+]
+
+[[package]]
+name = "lpc55-puf"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "unwrap-lite",
 ]
 
 [[package]]
@@ -3605,6 +3624,7 @@ dependencies = [
  "hubpack",
  "lib-lpc55-usart",
  "lpc55-pac",
+ "lpc55-puf",
  "lpc55_romapi",
  "nb 1.0.0",
  "p256",
@@ -3618,6 +3638,7 @@ dependencies = [
  "toml",
  "unwrap-lite",
  "zerocopy",
+ "zeroize",
 ]
 
 [[package]]
@@ -3749,6 +3770,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "task-config"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "proc-macro2",
  "quote",
  "serde",
@@ -3975,6 +3997,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "idol",
@@ -3995,14 +4018,17 @@ dependencies = [
 name = "task-net"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-net",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-local-vpd",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
+ "drv-stm32h7-spi-server-core",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "enum-map",
@@ -4018,6 +4044,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
+ "regex",
  "ringbuf",
  "serde",
  "smoltcp",
@@ -4416,7 +4443,9 @@ dependencies = [
 name = "test-idol-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4628,6 +4657,15 @@ version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "toml-task"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "ordered-toml",
  "serde",
 ]
 
@@ -4873,6 +4911,7 @@ dependencies = [
  "tlvc",
  "tlvc-text",
  "toml",
+ "toml-task",
  "walkdir",
  "zerocopy",
  "zip",

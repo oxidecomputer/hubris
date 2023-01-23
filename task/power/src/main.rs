@@ -13,6 +13,7 @@
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
+use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
@@ -58,6 +59,7 @@ enum DeviceType {
     HotSwap(Ohms),
     Fan(Ohms),
     HotSwapIO(Ohms),
+    HotSwapQSFP(Ohms),
     PowerShelf,
 }
 
@@ -80,6 +82,7 @@ enum Device {
     Adm1272(Adm1272),
     Max5970(Max5970),
     Mwocp68(Mwocp68),
+    Ltc4282(Ltc4282),
 }
 
 impl Device {
@@ -90,10 +93,13 @@ impl Device {
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
-            Device::Max5970(..) | Device::Mwocp68(..) => {
+            Device::Mwocp68(..) => {
                 // The MWOCP68 actually has three temperature sensors, but they
                 // aren't associated with power rails, so we don't read them
                 // here.
+                return Err(ResponseCode::NoDevice);
+            }
+            Device::Max5970(..) | Device::Ltc4282(..) => {
                 return Err(ResponseCode::NoDevice);
             }
         };
@@ -109,6 +115,7 @@ impl Device {
             Device::Adm1272(dev) => dev.read_iout()?,
             Device::Max5970(dev) => dev.read_iout()?,
             Device::Mwocp68(dev) => dev.read_iout()?,
+            Device::Ltc4282(dev) => dev.read_iout()?,
         };
         Ok(r)
     }
@@ -122,6 +129,7 @@ impl Device {
             Device::Adm1272(dev) => dev.read_vout()?,
             Device::Max5970(dev) => dev.read_vout()?,
             Device::Mwocp68(dev) => dev.read_vout()?,
+            Device::Ltc4282(dev) => dev.read_vout()?,
         };
         Ok(r)
     }
@@ -157,6 +165,7 @@ impl Device {
             | Device::Isl68224(_)
             | Device::Tps546B24A(_)
             | Device::Adm1272(_)
+            | Device::Ltc4282(_)
             | Device::Max5970(_) => {
                 return Err(ResponseCode::OperationNotSupported)
             }
@@ -184,6 +193,9 @@ impl PowerControllerConfig {
                 Device::Max5970(Max5970::new(&dev, rail, *sense))
             }
             DeviceType::PowerShelf => Device::Mwocp68(Mwocp68::new(&dev, rail)),
+            DeviceType::HotSwapQSFP(sense) => {
+                Device::Ltc4282(Ltc4282::new(&dev, *sense))
+            }
         }
     }
 }
@@ -241,6 +253,24 @@ macro_rules! adm1272_controller {
                 temperature: Some(
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! ltc4282_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: PowerState::$state,
+                device: DeviceType::$which($rsense),
+                builder: i2c_config::power::$rail,
+                voltage: sensors::[<LTC4282_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<LTC4282_ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: None,
             }
         }
     };
@@ -344,6 +374,13 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
     mwocp68_controller!(PowerShelf, v12_psu5, A2),
 ];
 
+#[cfg(target_board = "gimletlet-2")]
+const CONTROLLER_CONFIG: [PowerControllerConfig; 1] = [
+    // The DC2024 has 10 3mΩ current sense resistors in parallel (5 on each
+    // channel), given a total current sense resistance of 300µΩ
+    ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
+];
+
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
@@ -367,7 +404,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
+#[cfg(target_board = "sidecar-a")]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
     adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
@@ -384,6 +421,26 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
     rail_controller!(SerDes, isl68224, v1p8_tf2_vdd, A0),
     rail_controller!(Sys, tps546B24A, v1p0_mgmt, A2),
     rail_controller!(Sys, tps546B24A, v1p8_sys, A2),
+];
+
+#[cfg(target_board = "sidecar-b")]
+const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
+    rail_controller!(IBC, bmr491, v12p0_sys, A2),
+    adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
+    adm1272_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
+    rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
+    rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
+    rail_controller!(Sys, tps546B24A, v5p0_sys, A2),
+    rail_controller!(Core, raa229618, v1p5_tf2_vdda, A0),
+    rail_controller!(Core, raa229618, v0p9_tf2_vddt, A0),
+    rail_controller!(SerDes, isl68224, v1p8_tf2_vdda, A0),
+    rail_controller!(SerDes, isl68224, v1p8_tf2_vdd, A0),
+    rail_controller!(Sys, tps546B24A, v1p0_mgmt, A2),
+    rail_controller!(Sys, tps546B24A, v1p8_sys, A2),
+    ltc4282_controller!(HotSwapQSFP, v12p0_front_io, A2, Ohms(0.001 / 2.0)),
 ];
 
 #[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
@@ -403,7 +460,11 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+#[cfg(any(
+    target_board = "psc-a",
+    target_board = "psc-b",
+    target_board = "gimletlet-2",
+))]
 fn get_state() -> PowerState {
     PowerState::A2
 }
@@ -412,7 +473,8 @@ fn get_state() -> PowerState {
     target_board = "gimlet-b",
     target_board = "gimlet-c",
     target_board = "sidecar-a",
-    target_board = "sidecar-b"
+    target_board = "sidecar-b",
+    target_board = "gimletlet-2",
 ))]
 fn preinit() {
     // Nothing to do here

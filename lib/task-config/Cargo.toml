@@ -9,6 +9,7 @@ quote = { workspace = true }
 serde = { workspace = true }
 syn = { workspace = true }
 toml = { workspace = true }
+build-util = { path = "../../build/util" }
 
 [lib]
 proc-macro = true

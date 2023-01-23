@@ -43,6 +43,9 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
+#[cfg(not(any(feature = "h743", feature = "h753")))]
+compile_error!("must define `h743` or `h753` feature");
+
 #[derive(Clone)]
 pub struct Spi {
     /// Pointer to our register block.

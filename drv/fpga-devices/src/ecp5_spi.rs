@@ -5,17 +5,17 @@
 use crate::ecp5::{Command, Ecp5Driver};
 use crate::FpgaUserDesign;
 use drv_fpga_api::FpgaError;
-use drv_spi_api::{self as spi_api, SpiDevice, SpiError};
+use drv_spi_api::{self as spi_api, SpiDevice, SpiError, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 
 /// `Ecp5UsingSpi` is the simplest implementation of the Ecp5Impl interface using
 /// the SPI and Sys APIs. It assumes the PROGRAM_N, INIT_N and DONE signals are
 /// directly connected to GPIO pins.
 
-pub struct Ecp5UsingSpi {
+pub struct Ecp5UsingSpi<S: SpiServer> {
     pub sys: Sys,
-    pub configuration_port: SpiDevice,
-    pub user_design: SpiDevice,
+    pub configuration_port: SpiDevice<S>,
+    pub user_design: SpiDevice<S>,
     pub done: sys_api::PinSet,
     pub init_n: sys_api::PinSet,
     pub program_n: sys_api::PinSet,
@@ -54,7 +54,7 @@ impl From<Ecp5UsingSpiError> for FpgaError {
     }
 }
 
-impl Ecp5Driver for Ecp5UsingSpi {
+impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     type Error = Ecp5UsingSpiError;
 
     fn program_n(&self) -> Result<bool, Self::Error> {
@@ -121,7 +121,7 @@ impl Ecp5Driver for Ecp5UsingSpi {
     }
 }
 
-impl FpgaUserDesign for Ecp5UsingSpi {
+impl<S: SpiServer> FpgaUserDesign for Ecp5UsingSpi<S> {
     fn user_design_enabled(&self) -> Result<bool, FpgaError> {
         Ok(!self.user_design_reset_n()?)
     }
@@ -164,7 +164,7 @@ impl FpgaUserDesign for Ecp5UsingSpi {
     }
 }
 
-impl Ecp5UsingSpi {
+impl<S: SpiServer> Ecp5UsingSpi<S> {
     pub fn configure_gpio(&self) {
         use sys_api::*;
 
