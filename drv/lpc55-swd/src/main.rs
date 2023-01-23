@@ -727,17 +727,13 @@ impl ServerImpl {
     fn swd_dongle_detected(&self) -> bool {
         cfg_if::cfg_if! {
             if #[cfg(any(
-                target_board = "gimlet-b",
-                target_board = "gimlet-c"
+                target_board = "gimlet-rot-b",
+                target_board = "gimlet-rot-c"
             ))] {
                 use drv_lpc55_gpio_api::*;
 
                 let gpio = Pins::from(self.gpio);
-
-                match gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) {
-                    Value::Zero => true,
-                    Value::One => false,
-                }
+                gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
             } else {
                 false
             }

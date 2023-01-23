@@ -193,7 +193,7 @@ pub enum Direction {
     Output = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum Value {
     Zero = 0,
