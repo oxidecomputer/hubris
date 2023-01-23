@@ -14,7 +14,6 @@
 //! A BSP module is expected to export a single type, called `BspImpl`, which
 //! implements the `Bsp` trait from this module.
 
-use crate::notifications;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
 use task_net_api::PhyError;
@@ -25,6 +24,8 @@ use vsc7448_pac::types::PhyRegisterAddress;
 cfg_if::cfg_if! {
     // Select local vs server SPI communication
     if #[cfg(all(feature = "ksz8463", feature = "use-spi-core"))] {
+        use crate::notifications;
+
         // The SPI peripheral is owned by this task!
         pub type Ksz8463 =
             ksz8463::Ksz8463<drv_stm32h7_spi_server_core::SpiServerCore>;
