@@ -45,7 +45,7 @@
 //
 //   -- 8-bit packet write
 //   -- 4-bit ACK read (turnaround + three bits of response)
-//   -- 34-bit write (one bit turnaround, 32 bits data, one bit partiy) broken
+//   -- 34-bit write (one bit turnaround, 32 bits data, one bit parity) broken
 //      up into 9 bit + 8 bit + 8 bit + 9 bit writes
 //   -- 33-bit read (32 bits data, one bit parity) broken up into 8 bit +
 //      8 bit + 8 bit + 9 bit reads. There is also one bit of turnaround after
