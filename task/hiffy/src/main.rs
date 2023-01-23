@@ -17,7 +17,8 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
-use userlib::{util::StaticCell, *};
+use static_cell::*;
+use userlib::*;
 
 #[cfg(armv6m)]
 use armv6m_atomic_hack::AtomicU32Ext;

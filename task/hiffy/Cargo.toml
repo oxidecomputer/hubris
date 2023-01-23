@@ -18,6 +18,7 @@ drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", optional = true }
 drv-update-api = {path = "../../drv/update-api", optional = true}
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
+static-cell = { path = "../../lib/static-cell"  }
 userlib = { path = "../../sys/userlib" }
 
 byteorder.workspace = true

@@ -9,4 +9,4 @@ edition = "2021"
 disabled = []
 
 [dependencies]
-userlib = { path = "../../sys/userlib" }
+static-cell = { path = "../static-cell" }

@@ -5,12 +5,14 @@ name = "gimlet"
 version = "0.1.0"
 
 [features]
+traptrace = []
 
 [dependencies]
 cortex-m = { workspace = true }
 cortex-m-rt ={ workspace = true }
 cfg-if = { workspace = true }
 stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }
+ringbuf = { path = "../../lib/ringbuf"  }
 
 drv-stm32h7-startup = { path = "../../drv/stm32h7-startup", features = ["h753"] }
 kern = { path = "../../sys/kern" }
