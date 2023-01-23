@@ -3653,6 +3653,10 @@ dependencies = [
 [[package]]
 name = "static-cell"
 version = "0.1.0"
+dependencies = [
+ "armv6m-atomic-hack",
+ "build-util",
+]
 
 [[package]]
 name = "static_assertions"
