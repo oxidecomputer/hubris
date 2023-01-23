@@ -277,6 +277,9 @@ pub fn build_notifications() -> Result<()> {
 }
 
 fn write_task_notifications<W: Write>(out: &mut W, t: &[String]) -> Result<()> {
+    if t.len() > 32 {
+        bail!("Too many notifications; cannot fit in a `u32` mask");
+    }
     for (i, n) in t.iter().enumerate() {
         let n = n.to_uppercase().replace('-', "_");
         writeln!(out, "pub const {n}_BIT: u8 = {i};")?;
