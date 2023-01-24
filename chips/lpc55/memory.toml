@@ -14,8 +14,8 @@ execute = true
 
 [[flash]]
 name = "stage0"
-address = 0x00000000
-size = 0x10000
+address = 0x00008000
+size = 0x8000
 read = true
 execute = true
 
