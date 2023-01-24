@@ -102,6 +102,10 @@ impl ComponentUpdater for HostFlashUpdate {
             .capacity()
             .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
+        if update.total_size as usize > capacity {
+            return Err(SpError::UpdateIsTooLarge);
+        }
+
         // How many total sectors do we need to erase? For gimlet, we know that
         // capacity is an exact multiple of the sector size, which is probably
         // a safe assumption for future parts as well. We'll fail here if that's
