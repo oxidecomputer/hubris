@@ -26,12 +26,13 @@ task_slot!(SYS, sys);
 // the FIFO depth; for simplicity we set:
 const BUFSIZ: usize = 16;
 
-const IRQ_MASK: u32 = 1;
-
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
-    let core = drv_stm32h7_spi_server_core::declare_spi_core!(sys, IRQ_MASK);
+    let core = drv_stm32h7_spi_server_core::declare_spi_core!(
+        sys,
+        notifications::SPI_IRQ_MASK
+    );
     let mut server = ServerImpl { core };
     let mut incoming = [0u8; INCOMING_SIZE];
     loop {
@@ -116,3 +117,5 @@ impl InOrderSpiImpl for ServerImpl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -36,6 +36,7 @@ update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
+build-util = { path = "../../build/util" }
 idol = { workspace = true }
 
 [features]

@@ -37,8 +37,6 @@ task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 task_slot!(JEFE, jefe);
 
-const JEFE_STATE_NOTIFICATION_BIT: u8 = 8;
-
 mod ltc4306;
 
 fn configure_pins(pins: &[I2cPin]) {
@@ -263,7 +261,7 @@ fn main() -> ! {
                 // since this can't fail but the compiler doesn't know that.
                 let _ = sys_recv_closed(
                     &mut [],
-                    1 << JEFE_STATE_NOTIFICATION_BIT,
+                    notifications::JEFE_STATE_CHANGE_MASK,
                     TaskId::KERNEL,
                 );
             }
@@ -418,3 +416,5 @@ fn main() -> ! {
 
     controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

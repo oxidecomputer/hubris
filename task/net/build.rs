@@ -15,25 +15,11 @@ fn main() -> Result<()> {
     )
     .map_err(|e| anyhow!(e))?;
 
-    let task_config = build_util::task_full_config_toml()?;
-    if task_config.features.contains(&"use-spi-core".to_owned()) {
-        // The net task hard-codes the SPI IRQ to 4; we check the app.toml here
-        // to make sure that it agrees.
-        let re = regex::Regex::new(r"^spi\d\.irq$").unwrap();
-        const EXPECTED_IRQ: u32 = 0b100;
-        for (k, v) in &task_config.interrupts {
-            if re.is_match(k) {
-                if *v != EXPECTED_IRQ {
-                    bail!("{k} must be {EXPECTED_IRQ:#b}");
-                }
-            }
-        }
-    }
-
     let net_config = build_net::load_net_config()?;
 
     generate_net_config(&net_config)?;
     build_util::expose_target_board();
+    build_util::build_notifications()?;
 
     Ok(())
 }
@@ -101,19 +87,27 @@ fn generate_port_table(config: &NetConfig) -> Result<TokenStream> {
 }
 
 fn generate_owner_info(config: &NetConfig) -> Result<TokenStream> {
-    let consts = config.sockets.values().map(|socket| {
-        let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
-        let note = socket.owner.notification;
-        quote::quote! {
-            (
-                userlib::TaskId::for_index_and_gen(
-                    hubris_num_tasks::Task::#task as usize,
-                    userlib::Generation::ZERO,
-                ),
-                #note,
-            )
-        }
-    });
+    let consts: Vec<_> = config
+        .sockets
+        .values()
+        .map(|socket| {
+            let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
+            let note: syn::Ident = syn::parse_str(&format!(
+                "{}_MASK",
+                socket.owner.notification.to_uppercase().replace("-", "_")
+            ))
+            .unwrap();
+            Ok(quote::quote! {
+                (
+                    userlib::TaskId::for_index_and_gen(
+                        hubris_num_tasks::Task::#task as usize,
+                        userlib::Generation::ZERO,
+                    ),
+                    crate::notifications::#task::#note,
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let n = config.sockets.len();
 

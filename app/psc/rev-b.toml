@@ -16,6 +16,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -38,12 +39,13 @@ max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c2", "i2c3"]
 start = true
 task-slots = ["sys"]
+notifications = ["i2c2-irq", "i2c3-irq"]
 
 [tasks.i2c_driver.interrupts]
-"i2c2.event" = 0b0000_0010
-"i2c2.error" = 0b0000_0010
-"i2c3.event" = 0b0000_0100
-"i2c3.error" = 0b0000_0100
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -52,7 +54,8 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
-interrupts = {"flash_controller.irq" = 0b1}
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -80,9 +83,19 @@ max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi2"]
 start = true
-interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10, "spi2.irq" = 0b100}
+notifications = [
+    "eth-irq",
+    "mdio-timer-irq",
+    "wake-timer",
+    "spi-irq"
+]
 task-slots = ["sys", "i2c_driver"]
 config.spi.global_config = "spi2"
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi2.irq" = "spi-irq"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -102,6 +115,8 @@ task-slots = [
     "sprot",
 ]
 features = ["psc", "vlan", "vpd-identity"]
+notifications = ["usart-irq", "socket", "timer"]
+# usart-irq is unused but present in the code
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -112,7 +127,8 @@ start = true
 task-slots = ["sys"]
 uses = ["spi4"]
 features = ["sink_test", "use-spi-core", "h753"]
-interrupts = {"spi4.irq" = 1}
+notifications = ["spi-irq"]
+interrupts = {"spi4.irq" = "spi-irq"}
 config.spi.global_config = "spi4"
 
 [tasks.udpecho]
@@ -123,6 +139,7 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 features = ["vlan"]
+notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
@@ -132,6 +149,7 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 features = ["vlan"]
+notifications = ["socket"]
 
 [tasks.udprpc]
 name = "task-udprpc"
@@ -141,6 +159,7 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 features = ["vlan"]
+notifications = ["socket"]
 
 [tasks.eeprom]
 name = "drv-eeprom"
@@ -158,6 +177,7 @@ stacksize = 1000
 start = true
 task-slots = ["i2c_driver", "sensor", "sys"]
 features = ["psc"]
+notifications = ["timer"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -165,6 +185,7 @@ priority = 3
 max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1024
 start = true
+notifications = ["timer"]
 
 [tasks.sensor_polling]
 name = "task-sensor-polling"
@@ -354,28 +375,28 @@ vlan = { start = 0x301, count = 2 }
 
 [config.net.sockets.echo]
 kind = "udp"
-owner = {name = "udpecho", notification = 1}
+owner = {name = "udpecho", notification = "socket"}
 port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.broadcast]
 kind = "udp"
-owner = {name = "udpbroadcast", notification = 1}
+owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.rpc]
 kind = "udp"
-owner = {name = "udprpc", notification = 1}
+owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.control_plane_agent]
 kind = "udp"
-owner = {name = "control_plane_agent", notification = 0b01}
+owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }

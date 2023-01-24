@@ -63,7 +63,7 @@ pub struct BufSize {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TaskNote {
     pub name: String,
-    pub notification: u32,
+    pub notification: String,
 }
 
 pub fn load_net_config() -> Result<NetConfig> {

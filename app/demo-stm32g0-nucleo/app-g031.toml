@@ -17,6 +17,7 @@ max-sizes = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 368
+notifications = ["fault", "timer"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -35,6 +36,7 @@ max-sizes = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
 stacksize = 256
+notifications = ["timer"]
 
 [tasks.user_leds]
 name = "drv-user-leds"

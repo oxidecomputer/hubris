@@ -11,6 +11,7 @@ struct TaskConfig {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    build_util::build_notifications()?;
     let task_config = build_util::task_config::<TaskConfig>()?;
 
     build_lpc55pins::codegen(task_config.pins)?;

@@ -24,8 +24,6 @@ use drv_hash_api::{HashError, SHA256_SZ};
 
 task_slot!(SYS, sys);
 
-const IRQ_MASK: u32 = 1;
-
 fn hash_hw_reset() {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     sys.enter_reset(sys_api::Peripheral::Hash);
@@ -41,7 +39,7 @@ fn main() -> ! {
     hash_hw_reset();
 
     let reg = unsafe { &*device::HASH::ptr() };
-    let hash = Hash::new(reg, IRQ_MASK);
+    let hash = Hash::new(reg, notifications::HASH_IRQ_MASK);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -120,3 +118,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -19,6 +19,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["fault", "timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -67,7 +68,8 @@ priority = 5
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["iocon", "flexcomm0"]
 start = true
-interrupts = {"flexcomm0.irq" = 1}
+notifications = ["usart-irq"]
+interrupts = {"flexcomm0.irq" = "usart-irq"}
 task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.usart_driver.config]
@@ -83,7 +85,8 @@ max-sizes = {flash = 32768, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
-interrupts = {"flexcomm8.hs_spi" = 1}
+notifications = ["spi-irq"]
+interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
 stacksize = 16384
 task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper"]
 
@@ -111,7 +114,8 @@ uses = ["flexcomm5", "iocon"]
 start = true
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
-interrupts = {"flexcomm5.irq" = 1}
+notifications = ["spi-irq"]
+interrupts = {"flexcomm5.irq" = "spi-irq"}
 
 [tasks.swd.config]
 # MOSI = PIO0_8

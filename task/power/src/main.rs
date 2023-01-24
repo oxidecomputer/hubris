@@ -37,7 +37,6 @@ enum PowerState {
     A2,
 }
 
-const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
 task_slot!(I2C, i2c_driver);
@@ -512,7 +511,10 @@ fn main() -> ! {
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
-    sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
+    sys_set_timer(
+        Some(sys_get_timer().now + TIMER_INTERVAL),
+        notifications::TIMER_MASK,
+    );
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
@@ -598,12 +600,15 @@ impl ServerImpl {
 
 impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_MASK
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
         self.handle_timer_fired();
-        sys_set_timer(Some(sys_get_timer().now + TIMER_INTERVAL), TIMER_MASK);
+        sys_set_timer(
+            Some(sys_get_timer().now + TIMER_INTERVAL),
+            notifications::TIMER_MASK,
+        );
     }
 }
 
@@ -658,3 +663,5 @@ mod idl {
     use task_power_api::*;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

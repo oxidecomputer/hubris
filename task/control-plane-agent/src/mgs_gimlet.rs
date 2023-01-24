@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::host_flash::HostFlashUpdate,
+    mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
-    usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS, USART_IRQ,
+    usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -893,8 +893,8 @@ impl UsartHandler {
         let to_tx = claim_mgs_to_sp_usart_buf_static();
         let from_rx = claim_sp_to_mgs_usart_buf_static();
 
-        // Enbale USART interrupts.
-        sys_irq_control(USART_IRQ, true);
+        // Enable USART interrupts.
+        sys_irq_control(notifications::USART_IRQ_MASK, true);
 
         Self {
             usart,
@@ -1094,7 +1094,7 @@ impl UsartHandler {
         }
 
         // Re-enable USART interrupts.
-        sys_irq_control(USART_IRQ, true);
+        sys_irq_control(notifications::USART_IRQ_MASK, true);
     }
 }
 

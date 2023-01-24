@@ -2,9 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
+use std::io::Write;
 
 /// Reads the given environment variable and marks that it's used
 ///
@@ -114,22 +116,40 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
     Ok(t.and_then(|t| t.config))
 }
 
-/// Pulls the full task configuration block
+/// Pulls the full task configuration block for the current task
 ///
-/// (compare with `task_maybe_config`, which returns the `config` subsection)
+/// (compare with `task_maybe_config`, which returns just the `config`
+/// subsection)
 pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
     let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?
         .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
     Ok(t)
 }
 
-/// Pulls the full task configuration block
-///
-/// (compare with `task_maybe_config`, which returns the `config` subsection)
+/// Pulls the full task configuration block, with the `config` subsection
+/// encoded as a TOML `Value`
 pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
-    let t = toml_from_env::<toml_task::Task<_>>("HUBRIS_TASK_CONFIG")?
-        .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
-    Ok(t)
+    task_full_config()
+}
+
+/// Pulls the full task configuration block of a different task
+pub fn other_task_full_config<T: DeserializeOwned>(
+    name: &str,
+) -> Result<toml_task::Task<T>> {
+    let mut t = toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
+        "HUBRIS_ALL_TASK_CONFIGS",
+    )?
+    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))?;
+    let out = t
+        .remove(name)
+        .ok_or_else(|| anyhow!("Could not find {name} in tasks"))?;
+    Ok(out)
+}
+
+pub fn other_task_full_config_toml(
+    name: &str,
+) -> Result<toml_task::Task<ordered_toml::Value>> {
+    other_task_full_config(name)
 }
 
 /// Returns a map of task names to their IDs.
@@ -214,4 +234,56 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
     let rval = toml::from_slice(config.as_bytes())
         .context("deserializing configuration")?;
     Ok(Some(rval))
+}
+
+pub fn build_notifications() -> Result<()> {
+    let out_dir = out_dir();
+    let dest_path = out_dir.join("notifications.rs");
+    let mut out = std::fs::File::create(dest_path)?;
+
+    let full_task_config = task_full_config_toml()?;
+
+    if full_task_config.notifications.len() >= 32 {
+        bail!(
+            "Too many notifications; \
+             overlapping with `INTERNAL_TIMER_NOTIFICATION`"
+        );
+    }
+    if full_task_config.name == "task-jefe"
+        && full_task_config.notifications.get(0).cloned()
+            != Some("fault".to_string())
+    {
+        bail!("`jefe` must have \"fault\" as its first notification");
+    }
+
+    writeln!(&mut out, "#[allow(dead_code)]")?;
+    writeln!(&mut out, "pub mod notifications {{")?;
+
+    write_task_notifications(&mut out, &full_task_config.notifications)?;
+
+    for task in env_var("HUBRIS_TASKS")
+        .expect("missing HUBRIS_TASKS")
+        .split(",")
+    {
+        let full_task_config = other_task_full_config_toml(task)?;
+        writeln!(&mut out, "pub mod {task} {{")?;
+        write_task_notifications(&mut out, &full_task_config.notifications)?;
+        writeln!(&mut out, "}}")?;
+    }
+
+    writeln!(&mut out, "}}")?;
+
+    Ok(())
+}
+
+fn write_task_notifications<W: Write>(out: &mut W, t: &[String]) -> Result<()> {
+    if t.len() > 32 {
+        bail!("Too many notifications; cannot fit in a `u32` mask");
+    }
+    for (i, n) in t.iter().enumerate() {
+        let n = n.to_uppercase().replace('-', "_");
+        writeln!(out, "pub const {n}_BIT: u8 = {i};")?;
+        writeln!(out, "pub const {n}_MASK: u32 = 1 << {n}_BIT;")?;
+    }
+    Ok(())
 }

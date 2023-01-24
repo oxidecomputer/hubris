@@ -1484,6 +1484,7 @@ dependencies = [
 name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "num-traits",
  "stm32f3",
  "stm32f4",
@@ -1495,6 +1496,7 @@ dependencies = [
 name = "drv-stm32g0-usart"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
@@ -1583,7 +1585,6 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "build-util",
  "drv-spi-api",
  "drv-stm32h7-spi-server-core",
@@ -1591,7 +1592,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "regex",
  "userlib",
  "zerocopy",
 ]
@@ -3787,6 +3787,7 @@ dependencies = [
 name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if",
  "drv-auxflash-api",
  "drv-gimlet-hf-api",
@@ -4096,6 +4097,7 @@ dependencies = [
 name = "task-pong"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "drv-user-leds-api",
  "userlib",
@@ -4324,6 +4326,7 @@ dependencies = [
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4335,6 +4338,7 @@ dependencies = [
 name = "task-udprpc"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "task-net-api",
  "userlib",
  "zerocopy",
@@ -4669,6 +4673,7 @@ dependencies = [
 name = "toml-task"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "indexmap",
  "ordered-toml",
  "serde",
@@ -4906,6 +4911,7 @@ dependencies = [
  "ordered-toml",
  "path-slash",
  "rangemap",
+ "regex",
  "ron 0.7.0",
  "scroll",
  "serde",

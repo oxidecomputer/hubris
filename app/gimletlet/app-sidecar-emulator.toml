@@ -16,6 +16,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -37,13 +38,14 @@ priority = 2
 max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c3", "i2c4"]
 start = true
+notifications = ["i2c3-irq", "i2c4-irq"]
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-"i2c3.event" = 0b0000_0100
-"i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+"i2c4.event" = "i2c4-irq"
+"i2c4.error" = "i2c4-irq"
 
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
@@ -52,7 +54,8 @@ max-sizes = {flash = 16384, ram = 4096}
 features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
-interrupts = {"spi4.irq" = 1}
+notifications = ["spi-irq"]
+interrupts = {"spi4.irq" = "spi-irq"}
 stacksize = 880
 task-slots = ["sys"]
 
@@ -73,6 +76,7 @@ priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -114,6 +118,7 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["fpga"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

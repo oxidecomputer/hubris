@@ -100,22 +100,6 @@ enum TimerDisposition {
     Cancel,
 }
 
-/// Notification bit for USART IRQ; must match configuration in app.toml.
-const USART_IRQ: u32 = 1 << 0;
-
-/// Notification bit for Jefe notifying us of state changes; must match Jefe's
-/// `on-state-change` config for us in app.toml.
-const JEFE_STATE_CHANGE_IRQ: u32 = 1 << 1;
-
-/// Notification bit for the timer we set for ourselves.
-const TIMER_IRQ_BIT: u8 = 2;
-const TIMER_IRQ: u32 = 1 << TIMER_IRQ_BIT;
-
-/// Notification bit for control-plane-agent to tell us the phase 2 data the
-/// host wants from MGS has arrived.
-const CONTROL_PLANE_AGENT_IRQ_BIT: u8 = 3;
-const CONTROL_PLANE_AGENT_IRQ: u32 = 1 << CONTROL_PLANE_AGENT_IRQ_BIT;
-
 /// We set the high bit of the sequence number before replying to host requests.
 const SEQ_REPLY: u64 = 0x8000_0000_0000_0000;
 
@@ -139,7 +123,7 @@ fn main() -> ! {
     // Set our restarted status, which interrupts the host to let them know.
     server.set_status_impl(Status::SP_TASK_RESTARTED);
 
-    sys_irq_control(USART_IRQ, true);
+    sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -181,7 +165,7 @@ impl ServerImpl {
         let uart = configure_uart_device(&sys);
         sp_to_sp3_interrupt_enable(&sys);
 
-        let mut timers = Multitimer::new(TIMER_IRQ_BIT);
+        let mut timers = Multitimer::new(notifications::MULTITIMER_BIT);
         timers.set_timer(
             Timers::TxPeriodicZeroByte,
             sys_get_timer().now,
@@ -716,7 +700,7 @@ impl ServerImpl {
                     .fetch_host_phase2_data(
                         hash,
                         offset,
-                        CONTROL_PLANE_AGENT_IRQ_BIT,
+                        notifications::CONTROL_PLANE_AGENT_BIT,
                     )
                     .unwrap_lite();
                 None
@@ -751,22 +735,25 @@ impl ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        USART_IRQ | JEFE_STATE_CHANGE_IRQ | TIMER_IRQ | CONTROL_PLANE_AGENT_IRQ
+        notifications::USART_IRQ_MASK
+            | notifications::JEFE_STATE_CHANGE_MASK
+            | notifications::MULTITIMER_MASK
+            | notifications::CONTROL_PLANE_AGENT_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if bits & USART_IRQ != 0 {
+        if bits & notifications::USART_IRQ_MASK != 0 {
             self.handle_usart_notification();
-            sys_irq_control(USART_IRQ, true);
+            sys_irq_control(notifications::USART_IRQ_MASK, true);
         }
 
-        if bits & JEFE_STATE_CHANGE_IRQ != 0 {
+        if bits & notifications::JEFE_STATE_CHANGE_MASK != 0 {
             self.handle_jefe_notification(
                 self.sequencer.get_state().unwrap_lite(),
             );
         }
 
-        if bits & CONTROL_PLANE_AGENT_IRQ != 0 {
+        if bits & notifications::CONTROL_PLANE_AGENT_MASK != 0 {
             self.handle_control_plane_agent_notification();
         }
 
@@ -1030,3 +1017,5 @@ mod idl {
     use task_host_sp_comms_api::{HostSpCommsError, Status};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

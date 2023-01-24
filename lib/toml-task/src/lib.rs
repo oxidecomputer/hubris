@@ -4,6 +4,7 @@
 
 //! `toml-task` allows for `xtask` and `build.rs` scripts to share a common
 //! definition of a `task` within a TOML file.
+use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +28,8 @@ pub struct Task<T = ordered_toml::Value> {
     pub uses: Vec<String>,
     #[serde(default)]
     pub features: Vec<String>,
+    #[serde(default)]
+    pub notifications: Vec<String>,
 
     // Order matters here:
     // TOML serialization doesn't allow us to put a value type after any Table
@@ -46,11 +49,33 @@ pub struct Task<T = ordered_toml::Value> {
     pub config: Option<T>,
 
     #[serde(default)]
-    pub interrupts: IndexMap<String, u32>,
+    pub interrupts: IndexMap<String, String>,
     #[serde(default)]
     pub sections: IndexMap<String, String>,
     #[serde(default)]
     pub max_sizes: IndexMap<String, u32>,
+}
+
+impl<T> Task<T> {
+    pub fn notification_bit(&self, name: &str) -> Result<u8> {
+        match self.notifications.iter().position(|n| n == name) {
+            Some(i) => {
+                if i < 32 {
+                    Ok(i.try_into().unwrap())
+                } else {
+                    bail!("too many IRQs; {i} cannot fit in a `u32`")
+                }
+            }
+            None => bail!(
+                "could not find notification '{name}' \
+                 (options are {:?})",
+                self.notifications
+            ),
+        }
+    }
+    pub fn notification_mask(&self, name: &str) -> Result<u32> {
+        Ok(1u32 << self.notification_bit(name)?)
+    }
 }
 
 /// In the common case, task slots map back to a task of the same name (e.g.

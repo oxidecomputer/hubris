@@ -391,6 +391,10 @@ impl Config {
         out.env
             .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
 
+        let all_task_config = toml::to_string(&self.tasks).unwrap();
+        out.env
+            .insert("HUBRIS_ALL_TASK_CONFIGS".to_string(), all_task_config);
+
         // Expose the current task's name to allow for better error messages if
         // a required configuration section is missing
         out.env

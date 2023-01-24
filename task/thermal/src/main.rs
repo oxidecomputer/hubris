@@ -77,7 +77,6 @@ struct ServerImpl<'a> {
     runtime: u64,
 }
 
-const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
 impl<'a> ServerImpl<'a> {
@@ -274,7 +273,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_MASK
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
@@ -306,7 +305,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             self.deadline = now + TIMER_INTERVAL;
         }
         self.runtime = sys_get_timer().now - now;
-        sys_set_timer(Some(self.deadline), TIMER_MASK);
+        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
     }
 }
 
@@ -324,7 +323,7 @@ fn main() -> ! {
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
-    sys_set_timer(Some(deadline), TIMER_MASK);
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     let mut server = ServerImpl {
         mode: ThermalMode::Off,
@@ -362,5 +361,7 @@ mod idl {
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

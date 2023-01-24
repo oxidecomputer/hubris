@@ -358,12 +358,11 @@ struct ServerImpl<S: SpiServer> {
     deadline: u64,
 }
 
-const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 10;
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_MASK
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
@@ -428,7 +427,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
         if let Some(interval) = self.poll_interval() {
             self.deadline += interval;
-            sys_set_timer(Some(self.deadline), TIMER_MASK);
+            sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
         }
     }
 }
@@ -524,7 +523,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // And establish our timer to check SP3_TO_SP_NIC_PWREN_L.
                 //
                 self.deadline = sys_get_timer().now + TIMER_INTERVAL;
-                sys_set_timer(Some(self.deadline), TIMER_MASK);
+                sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
 
                 //
                 // Finally, enable transmission to the SP3's UART
@@ -797,3 +796,4 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

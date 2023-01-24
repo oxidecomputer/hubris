@@ -45,8 +45,6 @@ task_slot!(SYS, sys);
 #[cfg(feature = "hash")]
 task_slot!(HASH, hash_driver);
 
-const QSPI_IRQ: u32 = 1;
-
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
     pub reset: sys_api::PinSet,
@@ -81,7 +79,7 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg, QSPI_IRQ);
+    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
 
     // Build a pin struct using a board-specific init function
     let cfg = bsp::init(&qspi, &sys);
@@ -411,3 +409,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

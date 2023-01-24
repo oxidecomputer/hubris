@@ -67,7 +67,7 @@ fn main() -> ! {
     let mut a_bytes: [u8; 8] = [0xaa; 8];
     let mut b_bytes: [u8; 8] = [0; 8];
 
-    sys_irq_control(1, true);
+    sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
     let mut tx = &mut a_bytes;
     let mut rx = &mut b_bytes;
@@ -83,7 +83,9 @@ fn main() -> ! {
     let mut rx_done = false;
 
     loop {
-        if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
+        if sys_recv_closed(&mut [], notifications::SPI_IRQ_MASK, TaskId::KERNEL)
+            .is_err()
+        {
             panic!()
         }
 
@@ -128,7 +130,7 @@ fn main() -> ! {
             rx_cnt = 0;
         }
 
-        sys_irq_control(1, true);
+        sys_irq_control(notifications::SPI_IRQ_MASK, true);
     }
 }
 
@@ -143,3 +145,5 @@ fn turn_on_flexcomm(syscon: &Syscon) {
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

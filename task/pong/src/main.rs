@@ -11,7 +11,6 @@ task_slot!(USER_LEDS, user_leds);
 
 #[export_name = "main"]
 pub fn main() -> ! {
-    const TIMER_NOTIFICATION: u32 = 1;
     const INTERVAL: u64 = 500;
 
     let mut response: u32 = 0;
@@ -21,9 +20,9 @@ pub fn main() -> ! {
     let mut current = 0;
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
-    sys_set_timer(Some(dl), TIMER_NOTIFICATION);
+    sys_set_timer(Some(dl), notifications::TIMER_MASK);
     loop {
-        let msginfo = sys_recv_open(&mut msg, TIMER_NOTIFICATION);
+        let msginfo = sys_recv_open(&mut msg, notifications::TIMER_MASK);
 
         if msginfo.sender != TaskId::KERNEL {
             // We'll just assume this is a ping message and reply.
@@ -33,7 +32,7 @@ pub fn main() -> ! {
             // This is a notification message. We've only got one notification
             // enabled, so we know full well which it is without looking.
             dl += INTERVAL;
-            sys_set_timer(Some(dl), TIMER_NOTIFICATION);
+            sys_set_timer(Some(dl), notifications::TIMER_MASK);
 
             // Toggle the current LED -- and if we've run out, start over
             loop {
@@ -50,3 +49,5 @@ pub fn main() -> ! {
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

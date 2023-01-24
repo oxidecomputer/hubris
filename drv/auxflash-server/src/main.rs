@@ -21,7 +21,6 @@ use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
-const QSPI_IRQ: u32 = 1;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -58,7 +57,7 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg, QSPI_IRQ);
+    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
 
     let clock = 5; // 200MHz kernel / 5 = 40MHz clock
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
@@ -477,5 +476,7 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/checksum.rs"));

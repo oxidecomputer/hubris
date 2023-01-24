@@ -13,6 +13,9 @@ zerocopy = { workspace = true }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib" }
 
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
 [features]
 g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]
 g070 = ["stm32g0/stm32g070", "drv-stm32xx-sys-api/g070"]

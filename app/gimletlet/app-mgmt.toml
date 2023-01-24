@@ -15,6 +15,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -55,9 +56,14 @@ max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi2"]
 start = true
-interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10, "spi2.irq" = 0b100}
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 task-slots = ["sys", "user_leds"]
 config.spi.global_config = "spi2"
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi2.irq" = "spi-irq"
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -66,6 +72,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+notifications = ["socket"]
 
 [tasks.idle]
 name = "task-idle"
@@ -91,7 +98,7 @@ cs = [{port = "I", pin = 0}]
 
 [config.net.sockets.echo]
 kind = "udp"
-owner = {name = "udpecho", notification = 1}
+owner = {name = "udpecho", notification = "socket"}
 port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

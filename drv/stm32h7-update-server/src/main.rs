@@ -35,9 +35,6 @@ const BANK_END: u32 = 0x08200000;
 const BANK_WORD_LIMIT: usize =
     (BANK_END - BANK_ADDR) as usize / FLASH_WORD_BYTES;
 
-// Must match app.toml!
-const FLASH_IRQ: u32 = 1 << 0;
-
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EraseStart,
@@ -232,7 +229,7 @@ impl<'a> ServerImpl<'a> {
 
         // Enable relevant interrupts for completion (or failure) of erasing
         // bank2.
-        sys_irq_control(FLASH_IRQ, true);
+        sys_irq_control(notifications::FLASH_IRQ_MASK, true);
         self.flash.bank2().cr.modify(|_, w| {
             w.eopie()
                 .set_bit()
@@ -255,11 +252,16 @@ impl<'a> ServerImpl<'a> {
 
         // Wait for EOP notification via interrupt.
         loop {
-            sys_recv_closed(&mut [], FLASH_IRQ, TaskId::KERNEL).unwrap_lite();
+            sys_recv_closed(
+                &mut [],
+                notifications::FLASH_IRQ_MASK,
+                TaskId::KERNEL,
+            )
+            .unwrap_lite();
             if self.flash.bank2().sr.read().eop().bit() {
                 break;
             } else {
-                sys_irq_control(FLASH_IRQ, true);
+                sys_irq_control(notifications::FLASH_IRQ_MASK, true);
             }
         }
 
@@ -423,3 +425,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

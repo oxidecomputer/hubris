@@ -17,6 +17,7 @@ max-sizes = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 368
+notifications = ["fault", "timer"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -37,9 +38,10 @@ uses = ["i2c1"]
 start = true
 task-slots = ["sys"]
 stacksize = 896
+notifications = ["i2c1-irq"]
 
 [tasks.i2c_driver.interrupts]
-"i2c1.irq" = 0b0000_0001
+"i2c1.irq" = "i2c1-irq"
 
 [tasks.validate]
 name = "task-validate"

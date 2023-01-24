@@ -2,8 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
+    build_util::build_notifications()?;
 
     let disposition = build_i2c::Disposition::Target;
 
@@ -11,4 +12,5 @@ fn main() {
         println!("code generation failed: {}", e);
         std::process::exit(1);
     }
+    Ok(())
 }

@@ -63,14 +63,13 @@ fn main() -> ! {
     let mut usart = Usart::from(usart.deref());
 
     // USART side yet, so this won't trigger notifications yet.
-    sys_irq_control(1, true);
+    sys_irq_control(notifications::USART_IRQ_MASK, true);
 
     // Field messages.
-    let mask = 1;
     let mut tx: Option<Transmit> = None;
 
     loop {
-        let msginfo = sys_recv_open(&mut [], mask);
+        let msginfo = sys_recv_open(&mut [], notifications::USART_IRQ_MASK);
         if msginfo.sender == TaskId::KERNEL {
             if msginfo.operation & 1 != 0 {
                 // Handling an interrupt. To allow for spurious interrupts,
@@ -88,7 +87,7 @@ fn main() -> ! {
                     }
                 }
 
-                sys_irq_control(1, true);
+                sys_irq_control(notifications::USART_IRQ_MASK, true);
             }
         } else {
             match msginfo.operation {
@@ -188,3 +187,5 @@ fn step_transmit(usart: &mut Usart<'_>, txs: &mut Transmit) -> bool {
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

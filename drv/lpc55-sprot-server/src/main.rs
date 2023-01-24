@@ -68,9 +68,6 @@ ringbuf!(Trace, 16, Trace::None);
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
 
-// Notification mask for Flexcomm8 hs_spi IRQ; must match config in app.toml
-const SPI_IRQ: u32 = 1;
-
 /// Setup spi and its associated GPIO pins
 fn configure_spi() -> Io {
     let syscon = Syscon::from(SYSCON.get_task_id());
@@ -211,13 +208,18 @@ impl Io {
         let mut tx_iter = tx_buf.iter();
         self.prime_tx_fifo(&mut tx_iter);
         let result = loop {
-            sys_irq_control(SPI_IRQ, true);
+            sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
             if signal_reply {
                 self.assert_rot_irq();
             }
 
-            sys_recv_closed(&mut [], SPI_IRQ, TaskId::KERNEL).unwrap_lite();
+            sys_recv_closed(
+                &mut [],
+                notifications::SPI_IRQ_MASK,
+                TaskId::KERNEL,
+            )
+            .unwrap_lite();
 
             // Is CSn asserted by the SP?
             let intstat = self.spi.intstat();
@@ -358,3 +360,4 @@ fn turn_on_flexcomm(syscon: &Syscon) {
 }
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

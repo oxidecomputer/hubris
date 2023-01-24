@@ -22,6 +22,7 @@ fn main() -> Result<()> {
     .unwrap();
 
     build_util::expose_m_profile();
+    build_util::build_notifications()?;
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("jefe_config.rs");
@@ -37,7 +38,11 @@ fn main() -> Result<()> {
             "pub(crate) const MAILING_LIST: [({task}, u32); {count}] = [",
         )?;
         for (name, rec) in cfg.on_state_change {
-            writeln!(out, "    ({task}::{name}, 1 << {}),", rec.bit_number)?;
+            writeln!(
+                out,
+                "    ({task}::{name}, crate::notifications::{name}::{}_MASK),",
+                rec.to_ascii_uppercase().replace("-", "_"),
+            )?;
         }
         writeln!(out, "];")?;
     }
@@ -59,9 +64,9 @@ fn main() -> Result<()> {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Config {
     /// Task requests to be notified on state change, as a map from task name to
-    /// `StateChange` record.
+    /// notification name (in the target task)
     #[serde(default)]
-    on_state_change: BTreeMap<String, StateChange>,
+    on_state_change: BTreeMap<String, String>,
     /// Map of operation names to tasks allowed to call them.
     #[serde(default)]
     allowed_callers: BTreeMap<String, Vec<String>>,
@@ -69,12 +74,4 @@ struct Config {
     /// failure, unless overridden at runtime through Humility.
     #[serde(default)]
     tasks_to_hold: BTreeSet<String>,
-}
-
-/// Description of something a task wants done on state change.
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct StateChange {
-    /// Number of notification bit to signal (_not_ mask).
-    bit_number: u8,
 }

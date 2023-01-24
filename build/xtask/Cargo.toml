@@ -14,26 +14,27 @@ ordered-toml = { workspace = true }
 strsim = { workspace = true }
 
 # for dist
-serde = { workspace = true }
-toml = { workspace = true }
-ron = { workspace = true }
-indexmap = { workspace = true }
-srec = { workspace = true }
-goblin = { workspace = true }
-serde_json = { workspace = true }
-path-slash = { workspace = true }
+byteorder = { workspace = true }
 ctrlc = { workspace = true }
 dunce = { workspace = true }
+filetime = { workspace = true }
+fnv = { workspace = true }
+goblin = { workspace = true }
+indexmap = { workspace = true }
+path-slash = { workspace = true }
+rangemap = { workspace = true }
+regex = { workspace = true }
+ron = { workspace = true }
+scroll = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha3 = { workspace = true }
+srec = { workspace = true }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
-sha3 = { workspace = true }
-byteorder = { workspace = true }
-filetime = { workspace = true }
-scroll = { workspace = true }
+toml = { workspace = true }
 walkdir = { workspace = true }
-fnv = { workspace = true }
 zerocopy = { workspace = true }
-rangemap = { workspace = true }
 
 # a feature of zip we use is deprecated in 0.5.7, so let's make sure we stay
 # on the version that works for us

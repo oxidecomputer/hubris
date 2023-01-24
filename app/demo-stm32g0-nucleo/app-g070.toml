@@ -18,6 +18,7 @@ max-sizes = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 352
+notifications = ["fault", "timer"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -36,7 +37,8 @@ priority = 2
 max-sizes = {flash = 4096, ram = 256}
 uses = ["usart1"]
 start = true
-interrupts = {"usart1.irq" = 1}
+notifications = ["usart-irq"]
+interrupts = {"usart1.irq" = "usart-irq"}
 task-slots = ["sys"]
 stacksize = 256
 
@@ -55,6 +57,7 @@ priority = 3
 max-sizes = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
+notifications = ["timer"]
 stacksize = 256
 
 [tasks.ping]

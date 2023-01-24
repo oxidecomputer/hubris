@@ -476,3 +476,5 @@ fn configure_muxes(
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

@@ -97,9 +97,6 @@ struct ThermalModel {
     model: ThermalProperties,
 }
 
-const NET_NOTIFICATION_MASK: u32 = 1 << 0; // Matches configuration in app.toml
-const TIMER_NOTIFICATION_MASK: u32 = 1 << 1;
-
 /// Controls how often we poll the transceivers (in milliseconds).
 ///
 /// Polling the transceivers serves a few functions:
@@ -480,15 +477,15 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_NOTIFICATION_MASK | NET_NOTIFICATION_MASK
+        notifications::TIMER_MASK | notifications::SOCKET_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if (bits & NET_NOTIFICATION_MASK) != 0 {
+        if (bits & notifications::SOCKET_MASK) != 0 {
             // Nothing to do here; we'll handle it in the main loop
         }
 
-        if (bits & TIMER_NOTIFICATION_MASK) != 0 {
+        if (bits & notifications::TIMER_MASK) != 0 {
             // Check for errors
             if self.leds_initialized {
                 let errors = self.leds.error_summary().unwrap();
@@ -516,7 +513,7 @@ impl NotificationHandler for ServerImpl {
             self.update_thermal_loop(status);
 
             let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-            sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
+            sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
         }
     }
 }
@@ -577,7 +574,7 @@ fn main() -> ! {
 
         // This will put our timer in the past, immediately forcing an update
         let deadline = sys_get_timer().now;
-        sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
+        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
@@ -610,3 +607,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

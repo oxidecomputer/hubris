@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::fmt::Write as _;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -1460,6 +1461,51 @@ fn build(
                          its allocation in the app's TOML file"
             )
         }
+
+        // A second special case: warn about missing notifications by suggesting
+        // that they be added to the app.toml
+        let re = regex::bytes::Regex::new(
+            "cannot find value `([A-Z_]+)` in (crate|module) `notifications(.*)`",
+        )
+        .unwrap();
+        let mut missing_notifications: BTreeMap<String, BTreeSet<String>> =
+            BTreeMap::new();
+        for c in re.captures_iter(&stderr_bytes) {
+            let notification =
+                std::str::from_utf8(&c.get(1).unwrap().as_bytes()).unwrap();
+            let task =
+                std::str::from_utf8(&c.get(3).unwrap().as_bytes()).unwrap();
+            let task = if let Some(task) = task.strip_prefix("::") {
+                task
+            } else {
+                name
+            };
+            missing_notifications
+                .entry(task.to_owned())
+                .or_default()
+                .insert(notification.to_owned());
+        }
+        if !missing_notifications.is_empty() {
+            let mut out = String::new();
+            for (task, ns) in missing_notifications {
+                let mut names = ns
+                    .iter()
+                    .map(|n| {
+                        n.trim_end_matches("_MASK")
+                            .trim_end_matches("_BIT")
+                            .to_lowercase()
+                            .replace("_", "-")
+                    })
+                    .collect::<Vec<_>>();
+                names.sort();
+                names.dedup();
+                write!(&mut out, "\n- {task} is missing {names:?}")?;
+            }
+            bail!(
+                "Missing notifications; do you need to add them to your TOML file?{out}"
+            );
+        }
+
         bail!("command failed, see output for details");
     }
 
@@ -1915,89 +1961,62 @@ pub fn make_kconfig(
         });
 
         // Interrupts.
-        for (irq_str, &notification) in &task.interrupts {
-            // The irq_str can be either a base-ten number, or a reference to a
-            // peripheral. Distinguish them based on whether it parses as an
-            // integer.
-            match irq_str.parse::<u32>() {
-                Ok(irq_num) => {
-                    // While it's possible to conceive of a world in which one
-                    // might want to have a single interrupt set multiple
-                    // notification bits, it's much easier to conceive of a
-                    // world in which one has misunderstood that the second
-                    // number in the interrupt tuple is in fact a mask, not an
-                    // index.
-                    if notification.count_ones() != 1 {
-                        bail!(
-                            "task {}: IRQ {}: notification mask (0b{:b}) \
-                             has {} bits set (expected exactly one)",
-                            name,
-                            irq_str,
-                            notification,
-                            notification.count_ones()
-                        );
-                    }
-
-                    irqs.insert(
-                        irq_num,
-                        build_kconfig::InterruptConfig {
-                            task_index: i,
-                            notification,
-                        },
-                    );
-                }
-                Err(_) => {
-                    // This might be an error, or might be a peripheral
-                    // reference.
-                    //
-                    // Peripheral references are of the form "P.I", where P is
-                    // the peripheral name and I is the name of one of the
-                    // peripheral's defined interrupts.
-                    if let Some(dot_pos) =
-                        irq_str.bytes().position(|b| b == b'.')
-                    {
-                        let (pname, iname) = irq_str.split_at(dot_pos);
-                        let iname = &iname[1..];
-                        let periph =
-                            toml.peripherals.get(pname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references peripheral {}, \
+        for (irq_str, notification) in &task.interrupts {
+            // The irq_str should be a reference to a peripheral.
+            let irq_num: u32 =
+                // Peripheral references are of the form "P.I", where P is
+                // the peripheral name and I is the name of one of the
+                // peripheral's defined interrupts.
+                if let Some(dot_pos) = irq_str.bytes().position(|b| b == b'.') {
+                    let (pname, iname) = irq_str.split_at(dot_pos);
+                    let iname = &iname[1..];
+                    let periph =
+                        toml.peripherals.get(pname).ok_or_else(|| {
+                            anyhow!(
+                                "task {} IRQ {} references peripheral {}, \
                                  which does not exist.",
-                                    name,
-                                    irq_str,
-                                    pname,
-                                )
-                            })?;
-                        let irq_num =
-                            periph.interrupts.get(iname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references interrupt {} \
-                                 on peripheral {}, but that interrupt name \
-                                 is not defined for that peripheral.",
-                                    name,
-                                    irq_str,
-                                    iname,
-                                    pname,
-                                )
-                            })?;
-                        irqs.insert(
-                            *irq_num,
-                            build_kconfig::InterruptConfig {
-                                task_index: i,
-                                notification,
-                            },
-                        );
-                    } else {
-                        bail!(
-                            "task {}: IRQ name {} does not match any \
-                             known peripheral interrupt, and is not an \
-                             integer.",
+                                name,
+                                irq_str,
+                                pname,
+                            )
+                        })?;
+                    periph.interrupts.get(iname).ok_or_else(|| {
+                        anyhow!(
+                            "task {} IRQ {} references interrupt {} \
+                             on peripheral {}, but that interrupt name \
+                             not defined for that peripheral.",
                             name,
                             irq_str,
-                        );
-                    }
-                }
+                            iname,
+                            pname,
+                        )
+                    }).cloned()?
+                } else {
+                    bail!(
+                        "task {}: IRQ name {} does not match any \
+                         known peripheral interrupt.",
+                        name,
+                        irq_str,
+                    );
+                };
+
+            if !notification.ends_with("-irq") {
+                bail!(
+                    "peripheral interrupt {notification} in {name} \
+                     must end in `-irq`"
+                );
             }
+            let mask = task
+                .notification_mask(notification)
+                .context(format!("when building {name}"))?;
+            assert_eq!(mask.count_ones(), 1);
+            irqs.insert(
+                irq_num,
+                build_kconfig::InterruptConfig {
+                    task_index: i,
+                    notification: mask,
+                },
+            );
         }
     }
 
@@ -2159,7 +2178,7 @@ impl Archive {
 
         let archive = File::create(&tmp_path)?;
         let mut inner = zip::ZipWriter::new(archive);
-        inner.set_comment("hubris build archive v5");
+        inner.set_comment("hubris build archive v6");
         Ok(Self {
             final_path,
             tmp_path,

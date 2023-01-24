@@ -15,6 +15,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
+notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -37,12 +38,13 @@ max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]
+notifications = ["i2c3-irq", "i2c4-irq"]
 
 [tasks.i2c_driver.interrupts]
-"i2c3.event" = 0b0000_0100
-"i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+"i2c4.event" = "i2c4-irq"
+"i2c4.error" = "i2c4-irq"
 
 [tasks.user_leds]
 name = "drv-user-leds"
@@ -69,7 +71,8 @@ features = ["leds", "use-spi-core", "h753"]
 stacksize = 4096
 start = true
 task-slots = ["sys", "user_leds"]
-interrupts = {"spi4.irq" = 1}
+notifications = ["spi-irq", "wake-timer"]
+interrupts = {"spi4.irq" = "spi-irq"}
 uses = ["spi4"]
 config.spi.global_config = "spi4"
 

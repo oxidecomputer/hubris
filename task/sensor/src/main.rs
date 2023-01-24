@@ -38,7 +38,6 @@ struct ServerImpl {
     deadline: u64,
 }
 
-const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
 impl idl::InOrderSensorImpl for ServerImpl {
@@ -146,12 +145,12 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_MASK
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
         self.deadline += TIMER_INTERVAL;
-        sys_set_timer(Some(self.deadline), TIMER_MASK);
+        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
     }
 }
 
@@ -162,7 +161,7 @@ fn main() -> ! {
     //
     // This will put our timer in the past, and should immediately kick us.
     //
-    sys_set_timer(Some(deadline), TIMER_MASK);
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     let (last_reading, data_value, data_time, err_value, err_time, nerrors) = mutable_statics::mutable_statics! {
         static mut LAST_READING: [Option<LastReading>; NUM_SENSORS] = [|| None; _];
@@ -195,3 +194,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

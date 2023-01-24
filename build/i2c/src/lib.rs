@@ -629,10 +629,9 @@ impl ConfigGenerator {
             I2cController {{
                 controller: Controller::I2C{controller},
                 peripheral: Peripheral::I2c{controller},
-                notification: (1 << {shift}),
+                notification: crate::notifications::I2C{controller}_IRQ_MASK,
                 registers: unsafe {{ &*device::I2C{controller}::ptr() }},
             }},"##,
-                shift = c.controller - 1,
                 controller = c.controller,
             )?;
         }
