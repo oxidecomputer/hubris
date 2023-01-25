@@ -317,7 +317,7 @@ impl Transceivers {
             };
             if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
-                let wdata: U16<byteorder::BigEndian> = U16::new(mask.get());
+                let wdata: U16<byteorder::LittleEndian> = U16::new(mask.get());
                 fpga.write(op, addr, wdata)?;
             }
         }
@@ -438,9 +438,9 @@ impl Transceivers {
     /// Enable, Reset, LpMode/TxDis, Power Good, Power Good Timeout, Present,
     /// and IRQ/RxLos.
     pub fn get_modules_status(&self) -> Result<ModulesStatus, FpgaError> {
-        let f0: [U16<byteorder::BigEndian>; 8] =
+        let f0: [U16<byteorder::LittleEndian>; 8] =
             self.fpga(FpgaController::Left).read(Addr::QSFP_POWER_EN0)?;
-        let f1: [U16<byteorder::BigEndian>; 8] = self
+        let f1: [U16<byteorder::LittleEndian>; 8] = self
             .fpga(FpgaController::Right)
             .read(Addr::QSFP_POWER_EN0)?;
 
@@ -766,6 +766,6 @@ impl From<TransceiverI2COperation> for u8 {
 pub struct TransceiversI2CRequest {
     reg: u8,
     num_bytes: u8,
-    mask: U16<byteorder::BigEndian>,
+    mask: U16<byteorder::LittleEndian>,
     op: u8,
 }

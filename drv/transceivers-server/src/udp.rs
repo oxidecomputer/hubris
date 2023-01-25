@@ -26,7 +26,7 @@ use transceiver_messages::{
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     Error, HwError, ModuleId,
 };
-use zerocopy::{BigEndian, U16};
+use zerocopy::{LittleEndian, U16};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -390,30 +390,30 @@ impl ServerImpl {
         // This is a bit awkward: the FPGA will get _every_ module's
         // status (for the given FPGA), then we'll unpack to only the
         // ones that we care about
-        let enable: U16<BigEndian> =
+        let enable: U16<LittleEndian> =
             fpga.read(Addr::QSFP_POWER_EN0).map_err(|_e| {
                 Error::StatusFailed(HwError::PowerEnableReadFailed)
             })?;
-        let reset: U16<BigEndian> = fpga
+        let resetl: U16<LittleEndian> = fpga
             .read(Addr::QSFP_MOD_RESETL0)
             .map_err(|_e| Error::StatusFailed(HwError::ResetLReadFailed))?;
-        let lpmode: U16<BigEndian> = fpga
+        let lpmode: U16<LittleEndian> = fpga
             .read(Addr::QSFP_MOD_LPMODE0)
             .map_err(|_e| Error::StatusFailed(HwError::LpModeReadFailed))?;
-        let present: U16<BigEndian> = fpga
+        let presentl: U16<LittleEndian> = fpga
             .read(Addr::QSFP_MOD_MODPRSL0)
             .map_err(|_e| Error::StatusFailed(HwError::ModPrsLReadFailed))?;
-        let irq: U16<BigEndian> = fpga
+        let irql: U16<LittleEndian> = fpga
             .read(Addr::QSFP_MOD_INTL0)
             .map_err(|_e| Error::StatusFailed(HwError::IntLReadFailed))?;
-        let pg: U16<BigEndian> = fpga
+        let pg: U16<LittleEndian> = fpga
             .read(Addr::QSFP_POWER_GOOD0)
             .map_err(|_e| Error::StatusFailed(HwError::PgReadFailed))?;
-        let pg_to: U16<BigEndian> =
+        let pg_to: U16<LittleEndian> =
             fpga.read(Addr::QSFP_POWER_GOOD_TIMEOUT0).map_err(|_e| {
                 Error::StatusFailed(HwError::PgTimeoutReadFailed)
             })?;
-        let pg_lost: U16<BigEndian> = fpga
+        let pg_lost: U16<LittleEndian> = fpga
             .read(Addr::QSFP_POWER_GOOD_LOST0)
             .map_err(|_e| Error::StatusFailed(HwError::PgLostReadFailed))?;
 
@@ -424,16 +424,16 @@ impl ServerImpl {
             if (enable.get() & mask) != 0 {
                 status |= Status::ENABLED;
             }
-            if (reset.get() & mask) != 0 {
+            if (!resetl.get() & mask) != 0 {
                 status |= Status::RESET;
             }
             if (lpmode.get() & mask) != 0 {
                 status |= Status::LOW_POWER_MODE;
             }
-            if (present.get() & mask) != 0 {
+            if (!presentl.get() & mask) != 0 {
                 status |= Status::PRESENT;
             }
-            if (irq.get() & mask) != 0 {
+            if (!irql.get() & mask) != 0 {
                 status |= Status::INTERRUPT;
             }
             if (pg.get() & mask) != 0 {
