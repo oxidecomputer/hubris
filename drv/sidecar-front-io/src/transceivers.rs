@@ -418,7 +418,7 @@ impl Transceivers {
     ) -> Result<(), FpgaError> {
         self.enable_power(mask)?;
         self.assert_lpmode(mask)?;
-        self.assert_reset(mask)?;
+        self.deassert_reset(mask)?;
         Ok(())
     }
 

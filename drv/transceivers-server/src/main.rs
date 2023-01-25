@@ -196,7 +196,7 @@ impl ServerImpl {
                 .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
             if out.status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
                 if out.status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
-                    return Err(FpgaError::ImplError(0));
+                    return Err(FpgaError::ImplError(out.status));
                 } else {
                     // "Internally measured free side device temperatures are
                     // represented as a 16-bit signed twos complement value in
@@ -236,7 +236,7 @@ impl ServerImpl {
         } else {
             // TODO: how should we handle this?
             // Right now, we'll retry on the next pass through the loop.
-            Err(FpgaError::ImplError(0))
+            Err(FpgaError::ImplError(out[0]))
         }
     }
 
@@ -244,12 +244,13 @@ impl ServerImpl {
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
-            let powered = (!status.modprsl & mask) != 0
-                && (status.power_good & mask) != 0;
+            let operational = (!status.modprsl & mask) != 0
+                && (status.power_good & mask) != 0
+                && (status.resetl & mask) != 0;
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
-            if powered && self.thermal_models[i].is_none() {
+            if operational && self.thermal_models[i].is_none() {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
                         ringbuf_entry!(Trace::GotInterface(i, interface));
@@ -269,7 +270,7 @@ impl ServerImpl {
                         ringbuf_entry!(Trace::TemperatureReadError(i, e));
                     }
                 }
-            } else if !powered && self.thermal_models[i].is_some() {
+            } else if !operational && self.thermal_models[i].is_some() {
                 // This transceiver went away; remove it from the thermal loop
                 if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
                     ringbuf_entry!(Trace::ThermalError(i, e));
