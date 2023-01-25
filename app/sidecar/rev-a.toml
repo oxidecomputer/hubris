@@ -57,7 +57,7 @@ notifications = ["qspi-irq"]
 name = "task-net"
 stacksize = 6040
 priority = 5
-features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core"]
+features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi3"]
@@ -65,7 +65,6 @@ start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "spi-irq"]
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq", "spi3.irq" = "spi-irq"}
 task-slots = ["sys", "i2c_driver", { seq = "sequencer" }]
-config.spi.global_config = "spi3"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -98,11 +97,10 @@ max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753"]
+features = ["sink_test", "use-spi-core", "h753", "spi4"]
 uses = ["spi4"]
 notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
-config.spi.global_config = "spi4"
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -138,14 +136,13 @@ notifications = ["socket"]
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753"]
+features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
 task-slots = ["sys", "net", "ecp5_front_io", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
-config.spi.global_config = "spi2"
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -187,7 +184,7 @@ notifications = ["timer"]
 
 [tasks.ecp5_mainboard]
 name = "drv-fpga-server"
-features = ["mainboard", "use-spi-core", "h753"]
+features = ["mainboard", "use-spi-core", "h753", "spi5"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
@@ -196,11 +193,10 @@ uses = ["spi5"]
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 interrupts = {"spi5.irq" = "spi-irq"}
-config.spi.global_config = "spi5"
 
 [tasks.ecp5_front_io]
 name = "drv-fpga-server"
-features = ["front_io", "use-spi-core", "h753"]
+features = ["front_io", "use-spi-core", "h753", "spi1"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
@@ -209,7 +205,6 @@ uses = ["spi1"]
 task-slots = ["sys", "i2c_driver"]
 notifications = ["spi-irq"]
 interrupts = {"spi1.irq" = "spi-irq"}
-config.spi.global_config = "spi1"
 
 [tasks.transceivers]
 name = "drv-transceivers-server"

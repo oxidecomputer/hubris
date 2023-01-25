@@ -32,5 +32,14 @@ build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 
 [features]
+# These features are used to select a global SPI peripheral block; making this
+# choice based on features prevents extra rebuilds when building a complete
+# Hubris app.
+spi1 = []
+spi2 = []
+spi3 = []
+spi4 = []
+spi5 = []
+spi6 = []
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-spi/h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-spi/h753", "drv-stm32xx-sys-api/h753"]

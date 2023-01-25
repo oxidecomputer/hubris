@@ -67,14 +67,13 @@ task-slots = ["sys", "i2c_driver", "user_leds"]
 name = "task-monorail-server"
 priority = 3
 max-sizes = {flash = 131072, ram = 8192}
-features = ["leds", "use-spi-core", "h753"]
+features = ["leds", "use-spi-core", "h753", "spi4"]
 stacksize = 4096
 start = true
 task-slots = ["sys", "user_leds"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 uses = ["spi4"]
-config.spi.global_config = "spi4"
 
 [tasks.idle]
 name = "task-idle"

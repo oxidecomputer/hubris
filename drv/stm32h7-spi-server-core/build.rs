@@ -13,49 +13,38 @@ use std::io::Write;
 fn main() -> Result<()> {
     build_util::expose_target_board();
 
-    let full_task_config = build_util::task_full_config::<TaskConfig>()?;
+    let full_task_config = build_util::task_full_config_toml()?;
     let spi = check_uses_and_interrupts(
         &full_task_config.uses,
         &full_task_config.interrupts,
     )?;
-    let task_config = full_task_config
-        .config
-        .ok_or_else(|| anyhow!("Missing config in SPI task configuration"))?;
-    if task_config.spi.global_config != spi {
+
+    // Confirm that we've enabled the appropriate SPI feature, and *not* enabled
+    // any other SPI features.
+    let feat = format!("CARGO_FEATURE_{}", spi.to_uppercase());
+    if std::env::var(&feat).is_err() {
+        bail!("when using {spi} peripheral, '{spi}' feature must be enabled");
+    }
+    if let Some(f) = std::env::vars()
+        .map(|(k, _v)| k)
+        .filter(|k| k.starts_with("CARGO_FEATURE_SPI"))
+        .find(|f| f != &feat)
+    {
         bail!(
-            "Mismatched SPI peripheral '{spi}' and global config '{}'",
-            task_config.spi.global_config
+            "cannot have feature '{}' defined when using peripheral {spi}",
+            f.trim_start_matches("CARGO_FEATURE_").to_lowercase()
         );
     }
+
     let global_config = build_util::config::<GlobalConfig>()?;
-    check_spi_config(&global_config.spi, &task_config.spi)?;
-    generate_spi_config(&global_config.spi, &task_config.spi)?;
+    check_spi_config(&global_config.spi, &spi)?;
+    generate_spi_config(&global_config.spi, &spi)?;
 
     Ok(())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // SPI config schema definition.
-//
-// There are two portions to this, task-level and global. Both are defined by
-// the structs below using serde.
-//
-// Task-level simply provides a way (through `global_config`) to reference a key
-// in the global.
-//
-// Global starts at `GlobalConfig`.
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-struct TaskConfig {
-    spi: SpiTaskConfig,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SpiTaskConfig {
-    global_config: String,
-}
 
 /// This represents our _subset_ of global config and _must not_ be marked with
 /// `deny_unknown_fields`!
@@ -168,13 +157,10 @@ impl Default for ClockDivider {
 
 fn generate_spi_config(
     config: &BTreeMap<String, SpiConfig>,
-    task_config: &SpiTaskConfig,
+    global_config: &str,
 ) -> Result<()> {
-    let config = config.get(&task_config.global_config).ok_or_else(|| {
-        anyhow!(
-            "reference to undefined spi config {}",
-            task_config.global_config
-        )
+    let config = config.get(global_config).ok_or_else(|| {
+        anyhow!("reference to undefined spi config {}", global_config)
     })?;
 
     let out_dir = build_util::out_dir();
@@ -359,15 +345,12 @@ fn check_uses_and_interrupts(
 
 fn check_spi_config(
     config: &BTreeMap<String, SpiConfig>,
-    task_config: &SpiTaskConfig,
+    global_config: &str,
 ) -> Result<()> {
     // We only want to look at the subset of global configuration relevant to
     // this task, so that error reporting is more focused.
-    let config = config.get(&task_config.global_config).ok_or_else(|| {
-        anyhow!(
-            "reference to undefined spi config {}",
-            task_config.global_config
-        )
+    let config = config.get(global_config).ok_or_else(|| {
+        anyhow!("reference to undefined spi config {}", global_config)
     })?;
 
     if config.controller < 1 || config.controller > 6 {

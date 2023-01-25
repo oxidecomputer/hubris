@@ -60,9 +60,6 @@ interrupts = {"spi2.irq" = "spi-irq"}
 stacksize = 880
 task-slots = ["sys"]
 
-[tasks.spi2_driver.config.spi]
-global_config = "spi2"
-
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
@@ -120,10 +117,9 @@ stacksize = 4096
 start = true
 task-slots = ["sys"]
 uses = ["spi4"]
-features = ["use-spi-core", "h753"]
+features = ["use-spi-core", "h753", "spi4"]
 notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
-config.spi.global_config = "spi4"
 
 [tasks.validate]
 name = "task-validate"

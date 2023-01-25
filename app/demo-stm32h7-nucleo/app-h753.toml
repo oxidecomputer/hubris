@@ -63,9 +63,6 @@ interrupts = {"spi1.irq" = "spi-irq"}
 stacksize = 880
 task-slots = ["sys"]
 
-[tasks.spi_driver.config.spi]
-global_config = "spi1"
-
 [tasks.net]
 name = "task-net"
 stacksize = 3000

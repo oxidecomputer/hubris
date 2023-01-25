@@ -67,9 +67,6 @@ interrupts = {"spi3.irq" = "spi-irq"}
 stacksize = 880
 task-slots = ["sys"]
 
-[tasks.spi3_driver.config.spi]
-global_config = "spi3"
-
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -81,9 +78,6 @@ notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
 stacksize = 880
 task-slots = ["sys"]
-
-[tasks.spi_driver.config.spi]
-global_config = "spi4"
 
 [tasks.user_leds]
 name = "drv-user-leds"

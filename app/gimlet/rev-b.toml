@@ -62,9 +62,6 @@ stacksize = 872
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 
-[tasks.spi2_driver.config.spi]
-global_config = "spi2"
-
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
@@ -261,11 +258,10 @@ max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753"]
+features = ["sink_test", "use-spi-core", "h753", "spi4"]
 uses = ["spi4"]
 notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
-config.spi.global_config = "spi4"
 
 [tasks.validate]
 name = "task-validate"

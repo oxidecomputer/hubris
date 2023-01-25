@@ -146,13 +146,12 @@ notifications = ["hash-irq"]
 name = "task-net"
 stacksize = 6040
 priority = 3
-features = ["h753", "vlan", "gimletlet-nic", "use-spi-core"]
+features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi4"]
 start = true
 task-slots = ["sys"]
-config.spi.global_config = "spi4"
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 
 [tasks.net.interrupts]
@@ -228,11 +227,10 @@ max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753"]
+features = ["sink_test", "use-spi-core", "h753", "spi3"]
 uses = ["spi3"]
 notifications = ["spi-irq"]
 interrupts = {"spi3.irq" = "spi-irq"}
-config.spi.global_config = "spi3"
 
 [tasks.validate]
 name = "task-validate"
