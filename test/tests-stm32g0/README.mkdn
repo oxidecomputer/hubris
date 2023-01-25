@@ -4,12 +4,11 @@ This tests the kernel (not drivers!) on the STM32G0, to exercise Cortex-M0
 support.
 
 Cortex-M0 parts don't have ITM, so the conventional `humility test` won't work.
-Instead, you want to run this under openocd with semihosting enabled. The
+Instead, you want to run this under OpenOCD with semihosting enabled. The
 easiest way to do this is by
 
-- Running `openocd` from the `app/demo-stm32g0-nucleo` directory to pick up the
-  right config
-- In a separate terminal, run `cargo xtask gdb test/tests-stm32g0/app-g070.toml
-  app/demo-stm32g0-nucleo/openocd.gdb`
+- Run `cargo xtask humility test/tests-stm32g0/app-g070.toml -- openocd`
+- In a separate terminal, run `cargo xtask gdb test/tests-stm32g0/app-g070.toml`
 - Delete breakpoints in GDB: `d`
 - Run: `c`
+- The output should appear in the OpenOCD terminal
