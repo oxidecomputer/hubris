@@ -24,7 +24,7 @@
 // - a 33-bit data read phase, where data is transferred from the target to the
 //   host
 //
-// There is one bit of tunraound between the request and acknowledge.
+// There is one bit of turnaround between the request and acknowledge.
 //
 // It turns out this specification can be implemented on top of a SPI block
 // with some specific implementation details:
@@ -51,7 +51,7 @@
 //      8 bit + 8 bit + 9 bit reads. There is also one bit of turnaround after
 //      the read but this is aborbed into idle cycles.
 //
-// - The SWD protocl is LSB first. This works very well when bit-banging but
+// - The SWD protocol is LSB first. This works very well when bit-banging but
 //   somewhat less well with a register based hardware block such as SPI. The
 //   SPI controller can do LSB first transfers but it turns out to be easier to
 //   debug and understand if we keep it in MSB form and reverse bits where
