@@ -48,6 +48,13 @@ h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753",
 vlan = ["task-net-api/vlan", "build-net/vlan", "drv-stm32h7-eth/vlan"]
 gimletlet-nic = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/ksz8463"]
 
+spi1 = ["drv-stm32h7-spi-server-core?/spi1"]
+spi2 = ["drv-stm32h7-spi-server-core?/spi2"]
+spi3 = ["drv-stm32h7-spi-server-core?/spi3"]
+spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
+spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
+spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
+
 [build-dependencies]
 anyhow.workspace = true
 idol.workspace = true

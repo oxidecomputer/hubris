@@ -18,14 +18,15 @@ idol.workspace = true
 build-util.path = "../../build/util"
 
 [features]
-# These features are unused in the app itself, but Humility uses them to decide
-# which SPI server task to address for a given peripheral.
-spi1 = []
-spi2 = []
-spi3 = []
-spi4 = []
-spi5 = []
-spi6 = []
+# These features are used to select a global SPI configuration block; in
+# addition, Humility uses them to decide which SPI server task to address for a
+# given peripheral.
+spi1 = ["drv-stm32h7-spi-server-core/spi1"]
+spi2 = ["drv-stm32h7-spi-server-core/spi2"]
+spi3 = ["drv-stm32h7-spi-server-core/spi3"]
+spi4 = ["drv-stm32h7-spi-server-core/spi4"]
+spi5 = ["drv-stm32h7-spi-server-core/spi5"]
+spi6 = ["drv-stm32h7-spi-server-core/spi6"]
 h743 = ["drv-stm32h7-spi-server-core/h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["drv-stm32h7-spi-server-core/h753", "drv-stm32xx-sys-api/h753"]
 

@@ -80,7 +80,7 @@ task-slots = ["i2c_driver"]
 name = "task-net"
 stacksize = 6040
 priority = 3
-features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core"]
+features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi2"]
@@ -88,7 +88,6 @@ start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "spi-irq"]
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq", "spi2.irq" = "spi-irq"}
 task-slots = ["sys", "i2c_driver"]
-config.spi.global_config = "spi2"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -118,10 +117,9 @@ stacksize = 16384
 start = true
 task-slots = ["sys"]
 uses = ["spi4"]
-features = ["sink_test", "use-spi-core", "h753"]
+features = ["sink_test", "use-spi-core", "h753", "spi4"]
 notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
-config.spi.global_config = "spi4"
 
 [tasks.udpecho]
 name = "task-udpecho"
