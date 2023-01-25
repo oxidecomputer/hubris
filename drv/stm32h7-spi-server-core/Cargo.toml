@@ -32,7 +32,8 @@ build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 
 [features]
-# These features are used to select a global SPI peripheral block; making this
+# These features are used in `build.rs` to select a global SPI peripheral block,
+# which modifies the generated code that's compiled in the crate.  Making this
 # choice based on features prevents extra rebuilds when building a complete
 # Hubris app.
 spi1 = []
