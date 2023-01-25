@@ -409,10 +409,9 @@ impl ServerImpl {
         let pg: U16<LittleEndian> = fpga
             .read(Addr::QSFP_POWER_GOOD0)
             .map_err(|_e| Error::StatusFailed(HwError::PgReadFailed))?;
-        let pg_to: U16<LittleEndian> =
-            fpga.read(Addr::QSFP_POWER_GOOD_TIMEOUT0).map_err(|_e| {
-                Error::StatusFailed(HwError::PgTimeoutReadFailed)
-            })?;
+        let pg_to: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_POWER_GOOD_TIMEOUT0)
+            .map_err(|_e| Error::StatusFailed(HwError::PgTimeoutReadFailed))?;
         let pg_lost: U16<LittleEndian> = fpga
             .read(Addr::QSFP_POWER_GOOD_LOST0)
             .map_err(|_e| Error::StatusFailed(HwError::PgLostReadFailed))?;
