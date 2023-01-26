@@ -1,0 +1,39 @@
+// Interface to Root of Trust for Reporting (ROT-R) task.
+
+Interface(
+    name: "Attest",
+    ops: {
+        "cert_chain_len": (
+            doc: "Get the number of certs in the attestation cert chain",
+            args: {},
+            reply: Result(
+                ok: "u32",
+                err: CLike("AttestError"),
+            ),
+        ),
+        "cert": (
+            doc: "Get a cert from the RoT-R",
+            args: {
+				"index" : "u32",
+                "offset" : "usize",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AttestError"),
+            ),
+        ),
+        "cert_len": (
+            doc: "Get length of a cert in the cert chain",
+            args: {
+                "index" : "u32",
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("AttestError"),
+            ),
+        )
+    }
+)

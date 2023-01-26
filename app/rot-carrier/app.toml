@@ -201,6 +201,14 @@ stacksize = 2048
 [tasks.sp_measure.config]
 binary_path = "../../target/gemini-bu/dist/final.bin"
 
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12000, ram = 8192, dice_alias = 2048, dice_certs = 2560}
+stacksize = 7000
+start = true
+sections = {dice_alias = "dice_alias", dice_certs = "dice_certs"}
+
 [signing]
 enable-secure-boot = true
 enable-dice = true
