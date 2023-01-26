@@ -148,4 +148,9 @@ impl Usart {
     pub fn disable_tx_fifo_empty_interrupt(&self) {
         self.usart.cr3.modify(|_, w| w.txftie().clear_bit());
     }
+
+    pub fn send_break(&self) {
+        self.usart.rqr.write(|w| w.sbkrq().set_bit());
+        // TODO: should we wait for the flag (SBKF) to clear?
+    }
 }

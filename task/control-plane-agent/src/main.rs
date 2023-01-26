@@ -128,6 +128,8 @@ enum MgsMessage {
         component: SpComponent,
         slot: u16,
     },
+    SerialConsoleBreak,
+    SendHostNmi,
 }
 
 ringbuf!(Log, 16, Log::Empty);
