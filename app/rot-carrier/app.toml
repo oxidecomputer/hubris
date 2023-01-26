@@ -195,7 +195,7 @@ task-slots = ["gpio_driver", "swd", "update_server"]
 name = "task-sp-measure"
 priority = 6
 max-sizes = {flash = 131072, ram = 8192}
-task-slots = ["swd"]
+task-slots = ["attest", "swd"]
 stacksize = 2048
 
 [tasks.sp_measure.config]

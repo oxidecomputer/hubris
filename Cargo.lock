@@ -4368,6 +4368,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha3",
+ "task-attest-api",
  "userlib",
 ]
 

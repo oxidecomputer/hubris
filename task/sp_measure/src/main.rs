@@ -8,7 +8,10 @@
 use drv_sp_ctrl_api::*;
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
+use task_attest_api::Attest;
 use userlib::*;
+
+task_slot!(ATTEST, attest);
 
 const READ_SIZE: usize = 256;
 
@@ -67,6 +70,11 @@ fn main() -> ! {
         } else {
             ringbuf_entry!(Trace::ShaBad);
         }
+
+        let attest = Attest::from(ATTEST.get_task_id());
+        attest
+            .record(sha_out.as_slice())
+            .expect("failed to record SP hash");
 
         // Wait for a notification that will never come, politer than
         // busy looping forever

@@ -8,6 +8,7 @@ sha3 = { workspace = true }
 
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }
 ringbuf = { path = "../../lib/ringbuf" }
+task-attest-api = { path = "../attest-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
