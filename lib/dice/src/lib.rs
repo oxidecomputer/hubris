@@ -23,6 +23,7 @@ pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdCert,
     DeviceIdCertBuilder, FwidCert, PersistIdSelfCertBuilder, SpMeasureCert,
     SpMeasureCertBuilder, TrustQuorumDheCert, TrustQuorumDheCertBuilder,
+    FWID_LENGTH,
 };
 mod csr;
 pub use crate::csr::PersistIdCsrBuilder;
@@ -297,7 +298,7 @@ impl RngSeed {
 }
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct PersistIdCert(SizedBlob);
+pub struct PersistIdCert(pub SizedBlob);
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct IntermediateCert(SizedBlob);
+pub struct IntermediateCert(pub SizedBlob);

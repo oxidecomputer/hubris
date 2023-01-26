@@ -30,7 +30,7 @@ const_assert!(DICE_RANGE.end <= UPDATE_RANGE.start);
 const_assert!(UPDATE_RANGE.end <= MEM_RANGE.end);
 /// The error returned when `HandoffData::load` fails.
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub enum HandoffDataLoadError {
     Deserialize,

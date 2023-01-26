@@ -9,7 +9,7 @@ version = 0
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 59840, ram = 2528}
+requires = {flash = 59840, ram = 2696}
 features = ["dice-mfg"]
 
 [caboose]
@@ -133,6 +133,14 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600
 task-slots = ["swd"]
+
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12512, ram = 8192, dice_alias = 2048, dice_certs = 2560}
+stacksize = 7000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
 
 [signing]
 enable-secure-boot = true

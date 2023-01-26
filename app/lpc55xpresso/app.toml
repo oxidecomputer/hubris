@@ -133,6 +133,14 @@ task-slots = ["jefe"]
 stacksize = 1200
 extern-regions = ["sram2"]
 
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12512, ram = 8192, dice_alias = 2048, dice_certs = 2560}
+stacksize = 7000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
+
 [signing]
 enable-secure-boot = true
 enable-dice = true

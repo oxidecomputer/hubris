@@ -173,7 +173,7 @@ pub trait SubjectCnCertBuilder: CertBuilder {
 // Several functions in this module return arrays with the following lengths.
 // These consts are a work around to keep from having to enable an unstable
 // feature: generic_const_exprs.
-const FWID_LENGTH: usize =
+pub const FWID_LENGTH: usize =
     alias_cert_tmpl::FWID_RANGE.end - alias_cert_tmpl::FWID_RANGE.start;
 
 /// Trait for Certs with the TCG DICE TcbInfo structure w/ the FWID member.
