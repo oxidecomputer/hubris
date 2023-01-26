@@ -303,10 +303,10 @@ impl Transceivers {
 
     /// Executes a specified WriteOp (`op`) at `addr` for all ports specified by
     /// the `mask`.
-    pub fn masked_port_op<M: Into<FpgaPortMasks>>(
+    fn masked_port_op(
         &self,
         op: WriteOp,
-        mask: M,
+        mask: FpgaPortMasks,
         addr: Addr,
     ) -> Result<(), FpgaError> {
         let fpga_masks: FpgaPortMasks = mask.into();
@@ -331,7 +331,7 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(WriteOp::BitSet, mask.into(), Addr::QSFP_POWER_EN0)
     }
 
     /// Clear power enable bits per the specified `mask`. Controls whether or
@@ -341,7 +341,11 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_POWER_EN0,
+        )
     }
 
     /// Set ResetL bits per the specified `mask`. This directly controls the
@@ -350,7 +354,11 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_RESETL0)
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_MOD_RESETL0,
+        )
     }
 
     /// Clear ResetL bits per the specified `mask`. This directly controls the
@@ -359,7 +367,11 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL0)
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_MOD_RESETL0,
+        )
     }
 
     /// Set LpMode bits per the specified `mask`. This directly controls the
@@ -368,7 +380,11 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_LPMODE0)
+        self.masked_port_op(
+            WriteOp::BitSet,
+            mask.into(),
+            Addr::QSFP_MOD_LPMODE0,
+        )
     }
 
     /// Clear LpMode bits per the specified `mask`. This directly controls the
@@ -377,22 +393,11 @@ impl Transceivers {
         &self,
         mask: M,
     ) -> Result<(), FpgaError> {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE0)
-    }
-
-    /// Have the SP execute a reset by manually writing the ResetL bits in the
-    /// FPGA. SFF-8679 states that the reset pulse needs to be 10 microseconds
-    /// (t_reset_init), but the module will not be ready for normal operation
-    /// until 2 seconds (t_reset) after reset is released.
-    pub fn module_reset<M: Into<FpgaPortMasks> + Copy>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.assert_reset(mask)?;
-        userlib::hl::sleep_for(1);
-        self.deassert_reset(mask)?;
-        userlib::hl::sleep_for(2000);
-        Ok(())
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask.into(),
+            Addr::QSFP_MOD_LPMODE0,
+        )
     }
 
     /// Get the current status of all low speed signals for all ports. This is

@@ -536,11 +536,12 @@ impl NotificationHandler for ServerImpl {
                 Err(_) => ModulesStatus::new_zeroed(),
             };
 
-            if !status.modprsl != self.modules_present {
-                self.led_update(!status.modprsl);
+            let modules_present = !status.modprsl;
+            if modules_present != self.modules_present {
+                self.led_update(modules_present);
 
-                self.modules_present = !status.modprsl;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(!status.modprsl));
+                self.modules_present = modules_present;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
             }
 
             self.update_thermal_loop(status);

@@ -36,7 +36,6 @@ enum Trace {
     DeserializeError(hubpack::Error),
     DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
-    Reset(ModuleId),
     AssertReset(ModuleId),
     DeassertReset(ModuleId),
     AssertLpMode(ModuleId),
@@ -281,14 +280,6 @@ impl ServerImpl {
                 }
                 self.write(mem, modules, data)?;
                 Ok((SpResponse::Write(mem), 0))
-            }
-            HostRequest::Reset => {
-                ringbuf_entry!(Trace::Reset(modules));
-                let mask = get_mask(modules)?;
-                self.transceivers.module_reset(mask).map_err(|_e| {
-                    Error::WriteFailed(HwError::ResetLWriteFailed)
-                })?;
-                Ok((SpResponse::Ack, 0))
             }
             HostRequest::AssertReset => {
                 ringbuf_entry!(Trace::AssertReset(modules));
