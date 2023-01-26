@@ -230,6 +230,12 @@ fn validate_header_block(
     target: UpdateTarget,
     block: &[u8; BLOCK_SIZE_BYTES],
 ) -> Result<(), UpdateError> {
+    // TODO: Do some actual checks for stage0. This will likely change
+    // with Cliff's bootloader.
+    if target == UpdateTarget::Bootloader {
+        return Ok(());
+    }
+
     let reset_vector = u32::from_le_bytes(
         block[RESET_VECTOR_OFFSET..][..4].try_into().unwrap_lite(),
     );

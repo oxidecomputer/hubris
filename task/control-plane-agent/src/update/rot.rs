@@ -72,15 +72,22 @@ impl ComponentUpdater for RotUpdate {
         }
         // Can we lock the update buffer?
         let buffer =
-            buffer.borrow(SpComponent::ROT, Self::BLOCK_SIZE).map_err(
+            buffer.borrow(update.component, Self::BLOCK_SIZE).map_err(
                 |component| SpError::OtherComponentUpdateInProgress(component),
             )?;
 
         // Which target are we updating?
-        let target = match update.slot {
-            0 => UpdateTarget::ImageA,
-            1 => UpdateTarget::ImageB,
-            _ => return Err(SpError::InvalidSlotForComponent),
+        let target = match update.component {
+            SpComponent::ROT => match update.slot {
+                0 => UpdateTarget::ImageA,
+                1 => UpdateTarget::ImageB,
+                _ => return Err(SpError::InvalidSlotForComponent),
+            },
+            SpComponent::STAGE0 => match update.slot {
+                0 => UpdateTarget::Bootloader,
+                _ => return Err(SpError::InvalidSlotForComponent),
+            },
+            _ => unreachable!(),
         };
 
         self.task
