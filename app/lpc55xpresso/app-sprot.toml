@@ -208,6 +208,14 @@ pins = [
     { name = "SP_RESET", pin = { port = 1, pin = 5}, alt = 0, direction = "input"},
 ]
 
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12256, ram = 16384}
+stacksize = 9000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
+
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
 root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

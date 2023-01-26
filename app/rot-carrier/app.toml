@@ -10,7 +10,7 @@ version = 0
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 52704, ram = 4096}
+requires = {flash = 53000, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
@@ -200,6 +200,14 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gemini-bu/dist/final.bin"
+
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12256, ram = 16384}
+stacksize = 9000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

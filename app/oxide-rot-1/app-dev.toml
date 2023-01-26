@@ -9,7 +9,7 @@ version = 0
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 52384, ram = 4096}
+requires = {flash = 52512, ram = 4096}
 features = ["dice-self"]
 
 [caboose]
@@ -154,6 +154,14 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-c/dist/default/final.bin"
+
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12256, ram = 16384}
+stacksize = 9000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
