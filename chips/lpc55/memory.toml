@@ -107,3 +107,53 @@ write = false
 execute = false
 dma = true
 
+# RAM region used to hand common DICE certificate chain forward to Hubris
+# tasks
+[[dice_certs]]
+name = "a"
+address = 0x40100000
+size = 0xa00
+read = true
+write = false
+execute = false
+
+[[dice_certs]]
+name = "b"
+address = 0x40100000
+size = 0xa00
+read = true
+write = false
+execute = false
+
+[[dice_certs]]
+name = "stage0"
+address = 0x40100000
+size = 0xa00
+read = true
+write = false
+execute = false
+
+# RAM region used to hand DICE artifacts forward to the attestation responder
+[[dice_alias]]
+name = "a"
+address = 0x40100a00
+size = 0x800
+read = true
+write = true
+execute = false
+
+[[dice_alias]]
+name = "b"
+address = 0x40100a00
+size = 0x800
+read = true
+write = true
+execute = false
+
+[[dice_alias]]
+name = "stage0"
+address = 0x40100a00
+size = 0x800
+read = true
+write = true
+execute = false

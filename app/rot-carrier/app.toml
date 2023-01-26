@@ -10,7 +10,7 @@ version = 0
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 52032, ram = 4096}
+requires = {flash = 52544, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
@@ -200,6 +200,14 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gemini-bu/dist/final.bin"
+
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 16384, ram = 16384, dice_alias = 2048, dice_certs = 2560}
+stacksize = 15360
+start = true
+sections = {dice_alias = "dice_alias", dice_certs = "dice_certs"}
 
 [signing]
 enable-secure-boot = true
