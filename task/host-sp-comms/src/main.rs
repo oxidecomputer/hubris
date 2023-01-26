@@ -15,8 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
-    MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, Key,
+    KeyLookupResult, SpToHost, Status, MAX_MESSAGE_SIZE,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -25,7 +25,9 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::ControlPlaneAgent;
 use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
-use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
+use userlib::{
+    hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+};
 
 mod tx_buf;
 
@@ -721,6 +723,21 @@ impl ServerImpl {
                     .unwrap_lite();
                 None
             }
+            HostToSp::KeyLookup {
+                key,
+                max_response_len,
+            } => match self.perform_key_lookup(
+                header.sequence,
+                key,
+                max_response_len,
+            ) {
+                Ok(()) => {
+                    // perform_key_lookup() calls encodes the response directly
+                    // when it succeeds, so we have nothing else to do.
+                    None
+                }
+                Err(err) => Some(SpToHost::KeyLookupResult(err)),
+            },
         };
 
         if let Some(response) = response {
@@ -744,6 +761,39 @@ impl ServerImpl {
 
         // We've processed the message sitting in rx_buf; clear it.
         self.rx_buf.clear();
+
+        Ok(())
+    }
+
+    /// On success, we will have already filled `self.tx_buf` with our response.
+    /// On failure, our caller should response with
+    /// `SpToHost::KeyLookupResult(err)` with the error we return.
+    fn perform_key_lookup(
+        &mut self,
+        sequence: u64,
+        key: u8,
+        max_response_len: u16,
+    ) -> Result<(), KeyLookupResult> {
+        let key = Key::from_u8(key).ok_or(KeyLookupResult::InvalidKey)?;
+
+        match key {
+            Key::Ping => {
+                const PONG: &[u8] = b"pong";
+
+                if max_response_len < 4 {
+                    return Err(KeyLookupResult::MaxResponseLenTooShort);
+                }
+
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        buf[..PONG.len()].copy_from_slice(PONG);
+                        PONG.len()
+                    },
+                );
+            }
+        }
 
         Ok(())
     }

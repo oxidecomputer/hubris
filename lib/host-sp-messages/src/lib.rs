@@ -87,6 +87,12 @@ pub enum HostToSp {
         hash: [u8; 32],
         offset: u64,
     },
+    // TODO: not yet in RFD 316
+    KeyLookup {
+        // TODO document possible keys and why this is a u8 instead of an enum
+        key: u8,
+        max_response_len: u16,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -128,6 +134,30 @@ pub enum SpToHost {
     RotResponse,
     // Followed by a binary data blob (the data)
     Phase2Data,
+    // If `result` is `KeyLookupResult::Ok`, this will be followed by a binary
+    // blob of length at most `max_response_len` from the corresponding request.
+    // For any other result, there is no subsequent binary blob.
+    KeyLookupResult(KeyLookupResult),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
+pub enum Key {
+    // Always sends back b"pong".
+    Ping,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum KeyLookupResult {
+    Ok,
+    /// We don't know the requested key.
+    InvalidKey,
+    /// We have no value for the requested key.
+    NoValueForKey,
+    /// The `max_response_len` in the request is too short for the value
+    /// associated with the requested key.
+    MaxResponseLenTooShort,
 }
 
 #[derive(
@@ -405,6 +435,13 @@ mod tests {
                     offset: 0,
                 },
             ),
+            (
+                0x0e,
+                HostToSp::KeyLookup {
+                    key: 0,
+                    max_response_len: 0,
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -442,6 +479,7 @@ mod tests {
             (0x07, SpToHost::Alert { action: 0 }),
             (0x08, SpToHost::RotResponse),
             (0x09, SpToHost::Phase2Data),
+            (0x0a, SpToHost::KeyLookupResult(KeyLookupResult::Ok)),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
