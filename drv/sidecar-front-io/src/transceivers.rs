@@ -395,45 +395,6 @@ impl Transceivers {
         Ok(())
     }
 
-    /// Sequence of actions to turn off modules per the specified `mask
-    pub fn power_mode_off<M: Into<FpgaPortMasks> + Copy>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.disable_power(mask)?;
-        // lpmode is being deasserted while the module is off to
-        // because it will leak into the main power rail if
-        // actively driven in the absence of power for at least
-        // some modules.
-        self.deassert_lpmode(mask)?;
-        self.assert_reset(mask)?;
-        Ok(())
-    }
-
-    /// Sequence of actions to have modules enter low power mode per the
-    /// specified `mask
-    pub fn power_mode_low<M: Into<FpgaPortMasks> + Copy>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.enable_power(mask)?;
-        self.assert_lpmode(mask)?;
-        self.deassert_reset(mask)?;
-        Ok(())
-    }
-
-    /// Sequence of actions to have modules enter high power mode per the
-    /// specified `mask
-    pub fn power_mode_high<M: Into<FpgaPortMasks> + Copy>(
-        &self,
-        mask: M,
-    ) -> Result<(), FpgaError> {
-        self.enable_power(mask)?;
-        self.deassert_reset(mask)?;
-        self.deassert_lpmode(mask)?;
-        Ok(())
-    }
-
     /// Get the current status of all low speed signals for all ports. This is
     /// Enable, Reset, LpMode/TxDis, Power Good, Power Good Timeout, Present,
     /// and IRQ/RxLos.

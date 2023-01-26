@@ -338,39 +338,6 @@ impl ServerImpl {
                 })?;
                 Ok((SpResponse::Ack, 0))
             }
-            HostRequest::SetPowerMode(mode) => {
-                let mask = get_mask(modules)?;
-                match mode {
-                    PowerMode::Off => {
-                        self.transceivers.power_mode_off(mask).map_err(
-                            |_e| {
-                                Error::PowerModeFailed(
-                                    HwError::PowerModeChangeFailed,
-                                )
-                            },
-                        )?;
-                    }
-                    PowerMode::Low => {
-                        self.transceivers.power_mode_low(mask).map_err(
-                            |_e| {
-                                Error::PowerModeFailed(
-                                    HwError::PowerModeChangeFailed,
-                                )
-                            },
-                        )?;
-                    }
-                    PowerMode::High => {
-                        self.transceivers.power_mode_high(mask).map_err(
-                            |_e| {
-                                Error::PowerModeFailed(
-                                    HwError::PowerModeChangeFailed,
-                                )
-                            },
-                        )?;
-                    }
-                };
-                Ok((SpResponse::Ack, 0))
-            }
             HostRequest::ManagementInterface(i) => {
                 // TODO: Implement this
                 ringbuf_entry!(Trace::ManagementInterface(i));
