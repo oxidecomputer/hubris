@@ -2234,6 +2234,8 @@ dependencies = [
  "fletcher",
  "gateway-messages",
  "hubpack",
+ "num-derive",
+ "num-traits",
  "serde",
  "serde-big-array",
  "serde_repr",
