@@ -1763,8 +1763,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "serde",
- "ssmarshal",
  "task-sensor-api",
  "transceiver-messages",
  "userlib",
@@ -4682,7 +4680,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#a5305a91a32967fbb384c91ecc4ccfb1aec6d302"
 dependencies = [
  "bitflags",
  "hubpack",

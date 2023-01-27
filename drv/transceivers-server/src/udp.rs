@@ -18,7 +18,6 @@ use drv_sidecar_front_io::{
     },
     Addr, Reg,
 };
-use drv_transceivers_api::PowerState;
 use hubpack::SerializedSize;
 use ringbuf::*;
 use task_net_api::*;
@@ -27,7 +26,7 @@ use transceiver_messages::{
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     Error, HwError, ModuleId,
 };
-use zerocopy::{BigEndian, U16};
+use zerocopy::{LittleEndian, U16};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -37,7 +36,12 @@ enum Trace {
     DeserializeError(hubpack::Error),
     DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
-    Reset(ModuleId),
+    AssertReset(ModuleId),
+    DeassertReset(ModuleId),
+    AssertLpMode(ModuleId),
+    DeassertLpMode(ModuleId),
+    EnablePower(ModuleId),
+    DisablePower(ModuleId),
     Status(ModuleId),
     Read(ModuleId, MemoryRead),
     Write(ModuleId, MemoryWrite),
@@ -255,11 +259,6 @@ impl ServerImpl {
         out: &mut [u8],
     ) -> Result<(SpResponse, usize), Error> {
         match h {
-            HostRequest::Reset => {
-                ringbuf_entry!(Trace::Reset(modules));
-                self.reset_transceivers(modules)?;
-                Ok((SpResponse::Ack, 0))
-            }
             HostRequest::Status => {
                 ringbuf_entry!(Trace::Status(modules));
                 let count = self.get_status(modules, out)?;
@@ -282,18 +281,52 @@ impl ServerImpl {
                 self.write(mem, modules, data)?;
                 Ok((SpResponse::Write(mem), 0))
             }
-            HostRequest::SetPowerMode(mode) => {
+            HostRequest::AssertReset => {
+                ringbuf_entry!(Trace::AssertReset(modules));
                 let mask = get_mask(modules)?;
-                let state = match mode {
-                    PowerMode::Off => PowerState::A3,
-                    PowerMode::Low => PowerState::A2,
-                    PowerMode::High => PowerState::A0,
-                };
-                self.transceivers.set_power_state(state, mask).map_err(
-                    |_e| {
-                        Error::PowerModeFailed(HwError::ControlPortWriteFailed)
-                    },
-                )?;
+                self.transceivers.assert_reset(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::ResetLWriteFailed)
+                })?;
+                Ok((SpResponse::Ack, 0))
+            }
+            HostRequest::DeassertReset => {
+                ringbuf_entry!(Trace::DeassertReset(modules));
+                let mask = get_mask(modules)?;
+                self.transceivers.deassert_reset(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::ResetLWriteFailed)
+                })?;
+                Ok((SpResponse::Ack, 0))
+            }
+            HostRequest::AssertLpMode => {
+                ringbuf_entry!(Trace::AssertLpMode(modules));
+                let mask = get_mask(modules)?;
+                self.transceivers.assert_lpmode(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::LpModeWriteFailed)
+                })?;
+                Ok((SpResponse::Ack, 0))
+            }
+            HostRequest::DeassertLpMode => {
+                ringbuf_entry!(Trace::DeassertLpMode(modules));
+                let mask = get_mask(modules)?;
+                self.transceivers.deassert_lpmode(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::LpModeWriteFailed)
+                })?;
+                Ok((SpResponse::Ack, 0))
+            }
+            HostRequest::EnablePower => {
+                ringbuf_entry!(Trace::EnablePower(modules));
+                let mask = get_mask(modules)?;
+                self.transceivers.enable_power(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::PowerEnableWriteFailed)
+                })?;
+                Ok((SpResponse::Ack, 0))
+            }
+            HostRequest::DisablePower => {
+                ringbuf_entry!(Trace::DisablePower(modules));
+                let mask = get_mask(modules)?;
+                self.transceivers.disable_power(mask).map_err(|_e| {
+                    Error::WriteFailed(HwError::PowerEnableWriteFailed)
+                })?;
                 Ok((SpResponse::Ack, 0))
             }
             HostRequest::ManagementInterface(i) => {
@@ -302,15 +335,6 @@ impl ServerImpl {
                 Ok((SpResponse::Error(Error::ProtocolError), 0))
             }
         }
-    }
-
-    fn reset_transceivers(&mut self, modules: ModuleId) -> Result<(), Error> {
-        let mask = get_mask(modules)?;
-
-        self.transceivers.port_reset(mask).map_err(|_e| {
-            Error::PowerModeFailed(HwError::ControlPortWriteFailed)
-        })?;
-        Ok(())
     }
 
     fn get_status(
@@ -324,30 +348,30 @@ impl ServerImpl {
         // This is a bit awkward: the FPGA will get _every_ module's
         // status (for the given FPGA), then we'll unpack to only the
         // ones that we care about
-        let enable: U16<BigEndian> = fpga
-            .read(Addr::QSFP_CTRL_EN_H)
-            .map_err(|_e| Error::StatusFailed(HwError::EnableReadFailed))?;
-        let reset: U16<BigEndian> = fpga
-            .read(Addr::QSFP_CTRL_RESET_H)
-            .map_err(|_e| Error::StatusFailed(HwError::ResetReadFailed))?;
-        let lpmode: U16<BigEndian> = fpga
-            .read(Addr::QSFP_CTRL_LPMODE_H)
-            .map_err(|_e| Error::StatusFailed(HwError::LpReadFailed))?;
-        let present: U16<BigEndian> = fpga
-            .read(Addr::QSFP_STATUS_PRESENT_H)
-            .map_err(|_e| Error::StatusFailed(HwError::PresentReadFailed))?;
-        let irq: U16<BigEndian> = fpga
-            .read(Addr::QSFP_STATUS_IRQ_H)
-            .map_err(|_e| Error::StatusFailed(HwError::IrqReadFailed))?;
-        let pg: U16<BigEndian> = fpga
-            .read(Addr::QSFP_STATUS_PG_H)
-            .map_err(|_e| Error::StatusFailed(HwError::PgReadFailed))?;
-        let pg_to: U16<BigEndian> =
-            fpga.read(Addr::QSFP_STATUS_PG_TIMEOUT_H).map_err(|_e| {
-                Error::StatusFailed(HwError::PgTimeoutReadFailed)
+        let enable: U16<LittleEndian> =
+            fpga.read(Addr::QSFP_POWER_EN0).map_err(|_e| {
+                Error::StatusFailed(HwError::PowerEnableReadFailed)
             })?;
-        let pg_lost: U16<BigEndian> = fpga
-            .read(Addr::QSFP_STATUS_PG_LOST_H)
+        let resetl: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_MOD_RESETL0)
+            .map_err(|_e| Error::StatusFailed(HwError::ResetLReadFailed))?;
+        let lpmode: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_MOD_LPMODE0)
+            .map_err(|_e| Error::StatusFailed(HwError::LpModeReadFailed))?;
+        let presentl: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_MOD_MODPRSL0)
+            .map_err(|_e| Error::StatusFailed(HwError::ModPrsLReadFailed))?;
+        let irql: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_MOD_INTL0)
+            .map_err(|_e| Error::StatusFailed(HwError::IntLReadFailed))?;
+        let pg: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_POWER_GOOD0)
+            .map_err(|_e| Error::StatusFailed(HwError::PgReadFailed))?;
+        let pg_to: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_POWER_GOOD_TIMEOUT0)
+            .map_err(|_e| Error::StatusFailed(HwError::PgTimeoutReadFailed))?;
+        let pg_lost: U16<LittleEndian> = fpga
+            .read(Addr::QSFP_POWER_GOOD_LOST0)
             .map_err(|_e| Error::StatusFailed(HwError::PgLostReadFailed))?;
 
         // Write one bitfield per active port in the ModuleId
@@ -357,16 +381,16 @@ impl ServerImpl {
             if (enable.get() & mask) != 0 {
                 status |= Status::ENABLED;
             }
-            if (reset.get() & mask) != 0 {
+            if (!resetl.get() & mask) != 0 {
                 status |= Status::RESET;
             }
             if (lpmode.get() & mask) != 0 {
                 status |= Status::LOW_POWER_MODE;
             }
-            if (present.get() & mask) != 0 {
+            if (!presentl.get() & mask) != 0 {
                 status |= Status::PRESENT;
             }
-            if (irq.get() & mask) != 0 {
+            if (!irql.get() & mask) != 0 {
                 status |= Status::INTERRUPT;
             }
             if (pg.get() & mask) != 0 {
