@@ -526,7 +526,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -550,7 +552,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -575,7 +577,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            SpComponent::ROT => self.rot_update.status(),
+            SpComponent::ROT | SpComponent::STAGE0 => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -603,7 +605,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
