@@ -77,17 +77,11 @@ impl ComponentUpdater for RotUpdate {
             )?;
 
         // Which target are we updating?
-        let target = match update.component {
-            SpComponent::ROT => match update.slot {
-                0 => UpdateTarget::ImageA,
-                1 => UpdateTarget::ImageB,
-                _ => return Err(SpError::InvalidSlotForComponent),
-            },
-            SpComponent::STAGE0 => match update.slot {
-                0 => UpdateTarget::Bootloader,
-                _ => return Err(SpError::InvalidSlotForComponent),
-            },
-            _ => unreachable!(),
+        let target = match (update.component, update.slot) {
+            (SpComponent::ROT, 0) => UpdateTarget::ImageA,
+            (SpComponent::ROT, 1) => UpdateTarget::ImageB,
+            (SpComponent::STAGE0, 0) => UpdateTarget::Bootloader,
+            _ => return Err(SpError::InvalidSlotForComponent),
         };
 
         self.task
