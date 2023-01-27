@@ -134,5 +134,5 @@ sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", def
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
-transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false, branch = "direct-control" }
+transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
