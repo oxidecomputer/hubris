@@ -38,7 +38,7 @@ fn main() -> ! {
             addr: Address::Ipv6(Ipv6Address([
                 0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
             ])),
-            port: 8,
+            port: 8888,
             size: out.len() as u32,
             #[cfg(feature = "vlan")]
             vid: vid_iter.next().unwrap(),
