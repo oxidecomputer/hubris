@@ -377,6 +377,15 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
+    fn serial_console_break(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
     fn reset_prepare(
         &mut self,
         _sender: SocketAddrV6,
@@ -518,5 +527,16 @@ impl SpHandler for MgsHandler {
             offset,
             data_len: data.len(),
         }));
+    }
+
+    fn send_host_nmi(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        // This can only fail if the `gimlet-seq` server is dead; in that
+        // case, send `Busy` because it should be rebooting.
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        Err(SpError::RequestUnsupportedForSp)
     }
 }

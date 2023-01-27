@@ -728,6 +728,20 @@ impl SpHandler for MgsHandler {
         Ok(())
     }
 
+    fn serial_console_break(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        // TODO: same caveats as above!
+        if Some((sender, port)) != self.attached_serial_console_mgs {
+            return Err(SpError::SerialConsoleNotAttached);
+        }
+        self.usart.send_break();
+        Ok(())
+    }
+
     fn reset_prepare(
         &mut self,
         _sender: SocketAddrV6,
@@ -879,6 +893,20 @@ impl SpHandler for MgsHandler {
 
         self.host_phase2
             .ingest_incoming_data(port, hash, offset, data);
+    }
+
+    fn send_host_nmi(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        // This can only fail if the `gimlet-seq` server is dead; in that
+        // case, send `Busy` because it should be rebooting.
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        self.sequencer
+            .send_hardware_nmi()
+            .map_err(|_| SpError::Busy)?;
+        Ok(())
     }
 }
 
@@ -1099,6 +1127,10 @@ impl UsartHandler {
 
         // Re-enable USART interrupts.
         sys_irq_control(notifications::USART_IRQ_MASK, true);
+    }
+
+    fn send_break(&self) {
+        self.usart.send_break();
     }
 }
 

@@ -2027,7 +2027,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#49a269d8850d90b859dd1e16b0f5d64ec8a772ec"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#2bb2d22a6f80a1508f8e5e9038f9b78ca70dfce4"
 dependencies = [
  "bitflags",
  "hubpack",

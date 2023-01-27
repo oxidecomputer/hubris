@@ -85,6 +85,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<(), RequestError<SeqError>> {
         Ok(())
     }
+
+    fn send_hardware_nmi(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
 }
 
 mod idl {
