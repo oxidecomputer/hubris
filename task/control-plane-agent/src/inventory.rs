@@ -360,14 +360,14 @@ mod devices_with_static_validation {
 
         if encoded_len > MIN_TRAILING_DATA_LEN {
             panic!(concat!(
-            "The device details (device and description) of at least one ",
-            "device in the current app.toml are too long to fit in a single ",
-            "TLV triple to send to MGS. Current Rust restrictions prevent us ",
-            "from being able to specific the specific device in this error ",
-            "message. Change this panic to `panic!(\"{{}}\", description)` ",
-            "and rebuild to see the description of the too-long device ",
-            "instead."
-        ))
+                "The device details (device and description) of at least one ",
+                "device in the current app.toml are too long to fit in a ",
+                "single TLV triple to send to MGS. Current Rust restrictions ",
+                "prevent us from being able to specific the specific device ",
+                "in this error message. Change this panic to ",
+                "`panic!(\"{{}}\", description)` and rebuild to see the ",
+                "description of the too-long device instead."
+            ));
         }
     }
 
