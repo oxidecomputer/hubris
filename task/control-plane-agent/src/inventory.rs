@@ -26,7 +26,7 @@ pub(crate) struct Inventory {
 
 impl Inventory {
     pub(crate) fn new() -> Self {
-        let () = ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
+        let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
@@ -225,86 +225,95 @@ impl fmt::Write for FmtComponentId {
     }
 }
 
-// List of logical or high-level components that this task is responsible for
-// (or at least responds to in terms of MGS requests for status / update, even
-// if another task is actually responsible for lower-level details).
-//
-// TODO: Are our device names and descriptions good enough, or are there more
-//       specific names we should use? This may be answered when we expand
-//       DeviceDescription with any VPD / serial numbers.
-const OUR_DEVICES: &[DeviceDescription<'static>] = &[
-    // We always include "ourself" as a component; this is the component name
-    // MGS uses to send SP image updates.
-    DeviceDescription {
-        component: SpComponent::SP_ITSELF,
-        device: SpComponent::SP_ITSELF.const_as_str(),
-        description: "Service Processor",
-        capabilities: DeviceCapabilities::UPDATEABLE,
-        presence: DevicePresence::Present,
-    },
-    // If we have the auxflash feature enabled, report the auxflash as a
-    // component. We do not mark it as explicitly "updateable", even though it
-    // is written as a part of the SP update process. Crucially, that is a part
-    // of updating the `SP_ITSELF` component; the auxflash is not independently
-    // updateable.
-    #[cfg(feature = "auxflash")]
-    DeviceDescription {
-        component: SpComponent::SP_AUX_FLASH,
-        device: SpComponent::SP_AUX_FLASH.const_as_str(),
-        description: "Service Processor auxiliary flash",
-        capabilities: DeviceCapabilities::empty(),
-        presence: DevicePresence::Present,
-    },
-    // If we're building for gimlet, we always claim to have a host CPU.
-    //
-    // This is a lie on gimletlet (where we still build with the "gimlet"
-    // feature), but a useful one in general.
-    #[cfg(feature = "gimlet")]
-    DeviceDescription {
-        component: SpComponent::SP3_HOST_CPU,
-        device: SpComponent::SP3_HOST_CPU.const_as_str(),
-        description: "Gimlet SP3 host cpu",
-        capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
-        presence: DevicePresence::Present, // TODO: ok to assume always present?
-    },
-    // If we're building for gimlet, we always claim to have host boot flash.
-    //
-    // This is a lie on gimletlet (where we still build with the "gimlet"
-    // feature), and a less useful one than the host CPU (since trying to access
-    // the "host flash" will fail unless we have an adapter providing QSPI
-    // flash).
-    #[cfg(feature = "gimlet")]
-    DeviceDescription {
-        component: SpComponent::HOST_CPU_BOOT_FLASH,
-        device: SpComponent::HOST_CPU_BOOT_FLASH.const_as_str(),
-        description: "Gimlet host boot flash",
-        capabilities: DeviceCapabilities::UPDATEABLE,
-        presence: DevicePresence::Present, // TODO: ok to assume always present?
-    },
-    // If we're building for sidecar, we always claim to have a monorail.
-    #[cfg(feature = "sidecar")]
-    DeviceDescription {
-        component: SpComponent::MONORAIL,
-        device: SpComponent::MONORAIL.const_as_str(),
-        description: "Management network switch",
-        capabilities: DeviceCapabilities::HAS_MEASUREMENT_CHANNELS,
-        // Fine to assume this is always present; if it isn't, we can't respond
-        // to MGS messages anyway!
-        presence: DevicePresence::Present,
-    },
-];
-
-// We use a generic component ID of `{prefix}{index}` for all of
-// `VALIDATE_DEVICES`; here we statically assert the maximum number of devices
-// we can use with this scheme. At the time of writing this comment, our ID
-// width is 16 bytes and the prefix is 4 bytes, allowing up to 999_999_999_999
-// devices to be listed.
-//
-// We tag this with `#[allow(dead_code)]` to prevent warnings about the contents
-// of this module not being used; the static assertion _is_ still checked.
+use devices_with_static_validation::OUR_DEVICES;
+// We tag this with module `#[allow(dead_code)]` to prevent warnings about the
+// contents of this module not being used; it contains constants used in static
+// assertion that are otherwise dead code.
 #[allow(dead_code)]
-mod max_num_devices {
-    use super::{SpComponent, VALIDATE_DEVICES};
+mod devices_with_static_validation {
+    use super::{
+        DeviceCapabilities, DeviceDescription, DevicePresence, SpComponent,
+    };
+    use task_validate_api::DEVICES_CONST as VALIDATE_DEVICES_CONST;
+
+    // List of logical or high-level components that this task is responsible
+    // for (or at least responds to in terms of MGS requests for status /
+    // update, even if another task is actually responsible for lower-level
+    // details).
+    //
+    // TODO: Are our device names and descriptions good enough, or are there more
+    //       specific names we should use? This may be answered when we expand
+    //       DeviceDescription with any VPD / serial numbers.
+    const OUR_DEVICES_CONST: &[DeviceDescription<'static>] = &[
+        // We always include "ourself" as a component; this is the component name
+        // MGS uses to send SP image updates.
+        DeviceDescription {
+            component: SpComponent::SP_ITSELF,
+            device: SpComponent::SP_ITSELF.const_as_str(),
+            description: "Service Processor",
+            capabilities: DeviceCapabilities::UPDATEABLE,
+            presence: DevicePresence::Present,
+        },
+        // If we have the auxflash feature enabled, report the auxflash as a
+        // component. We do not mark it as explicitly "updateable", even though
+        // it is written as a part of the SP update process. Crucially, that is
+        // a part of updating the `SP_ITSELF` component; the auxflash is not
+        // independently updateable.
+        #[cfg(feature = "auxflash")]
+        DeviceDescription {
+            component: SpComponent::SP_AUX_FLASH,
+            device: SpComponent::SP_AUX_FLASH.const_as_str(),
+            description: "Service Processor auxiliary flash",
+            capabilities: DeviceCapabilities::empty(),
+            presence: DevicePresence::Present,
+        },
+        // If we're building for gimlet, we always claim to have a host CPU.
+        //
+        // This is a lie on gimletlet (where we still build with the "gimlet"
+        // feature), but a useful one in general.
+        #[cfg(feature = "gimlet")]
+        DeviceDescription {
+            component: SpComponent::SP3_HOST_CPU,
+            device: SpComponent::SP3_HOST_CPU.const_as_str(),
+            description: "Gimlet SP3 host cpu",
+            capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
+            presence: DevicePresence::Present, // TODO: ok to assume always present?
+        },
+        // If we're building for gimlet, we always claim to have host boot flash.
+        //
+        // This is a lie on gimletlet (where we still build with the "gimlet"
+        // feature), and a less useful one than the host CPU (since trying to
+        // access the "host flash" will fail unless we have an adapter providing
+        // QSPI flash).
+        #[cfg(feature = "gimlet")]
+        DeviceDescription {
+            component: SpComponent::HOST_CPU_BOOT_FLASH,
+            device: SpComponent::HOST_CPU_BOOT_FLASH.const_as_str(),
+            description: "Gimlet host boot flash",
+            capabilities: DeviceCapabilities::UPDATEABLE,
+            presence: DevicePresence::Present, // TODO: ok to assume always present?
+        },
+        // If we're building for sidecar, we always claim to have a monorail.
+        #[cfg(feature = "sidecar")]
+        DeviceDescription {
+            component: SpComponent::MONORAIL,
+            device: SpComponent::MONORAIL.const_as_str(),
+            description: "Management network switch",
+            capabilities: DeviceCapabilities::HAS_MEASUREMENT_CHANNELS,
+            // Fine to assume this is always present; if it isn't, we can't respond
+            // to MGS messages anyway!
+            presence: DevicePresence::Present,
+        },
+    ];
+
+    pub(super) static OUR_DEVICES: &[DeviceDescription<'static>] =
+        OUR_DEVICES_CONST;
+
+    // We use a generic component ID of `{prefix}{index}` for all of
+    // `VALIDATE_DEVICES`; here we statically assert the maximum number of
+    // devices we can use with this scheme. At the time of writing this comment,
+    // our ID width is 16 bytes and the prefix is 4 bytes, allowing up to
+    // 999_999_999_999 devices to be listed.
 
     // How many bytes are available for digits of a device index in base 10?
     const DIGITS_AVAILABLE: usize =
@@ -315,7 +324,7 @@ mod max_num_devices {
 
     // Statically assert that we have at most that many devices.
     static_assertions::const_assert!(
-        VALIDATE_DEVICES.len() as u64 <= MAX_NUM_DEVICES
+        VALIDATE_DEVICES_CONST.len() as u64 <= MAX_NUM_DEVICES
     );
 
     // Helper function: computes 10^n at compile time.
@@ -327,31 +336,30 @@ mod max_num_devices {
         }
         x
     }
-}
 
-// We will spread the contents of `DEVICES` out over multiple packets to MGS;
-// however, we do _not_ currently handle the case where a single `DEVICES` entry
-// is too large to fit in a packet, even if it's the only device present in that
-// packet. Therefore, we assert at compile time via all the machinery below that
-// each entry of `DEVICES` is small enough that it will indeed fit in one packet
-// after being packed into a TLV triple.
-const ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET: () =
-    assert_each_device_tlv_fits_in_one_packet();
+    // We will spread the contents of `DEVICES` out over multiple packets to
+    // MGS; however, we do _not_ currently handle the case where a single
+    // `DEVICES` entry is too large to fit in a packet, even if it's the only
+    // device present in that packet. Therefore, we assert at compile time via
+    // all the machinery below that each entry of `DEVICES` is small enough that
+    // it will indeed fit in one packet after being packed into a TLV triple.
+    pub(super) const ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET: () =
+        assert_each_device_tlv_fits_in_one_packet();
 
-const fn assert_device_tlv_fits_in_one_packet(
-    device: &'static str,
-    description: &'static str,
-) {
-    use gateway_messages::{tlv, SerializedSize, MIN_TRAILING_DATA_LEN};
+    const fn assert_device_tlv_fits_in_one_packet(
+        device: &'static str,
+        description: &'static str,
+    ) {
+        use gateway_messages::{tlv, SerializedSize, MIN_TRAILING_DATA_LEN};
 
-    let encoded_len = tlv::tlv_len(
-        gateway_messages::DeviceDescriptionHeader::MAX_SIZE
-            + device.len()
-            + description.len(),
-    );
+        let encoded_len = tlv::tlv_len(
+            gateway_messages::DeviceDescriptionHeader::MAX_SIZE
+                + device.len()
+                + description.len(),
+        );
 
-    if encoded_len > MIN_TRAILING_DATA_LEN {
-        panic!(concat!(
+        if encoded_len > MIN_TRAILING_DATA_LEN {
+            panic!(concat!(
             "The device details (device and description) of at least one ",
             "device in the current app.toml are too long to fit in a single ",
             "TLV triple to send to MGS. Current Rust restrictions prevent us ",
@@ -360,34 +368,35 @@ const fn assert_device_tlv_fits_in_one_packet(
             "and rebuild to see the description of the too-long device ",
             "instead."
         ))
-    }
-}
-
-const fn assert_each_device_tlv_fits_in_one_packet() {
-    // Check devices described by `validate`.
-    let mut i = 0;
-    loop {
-        if i == VALIDATE_DEVICES.len() {
-            break;
         }
-        assert_device_tlv_fits_in_one_packet(
-            VALIDATE_DEVICES[i].device,
-            VALIDATE_DEVICES[i].description,
-        );
-        i += 1;
     }
 
-    // Check devices described by us.
-    let mut i = 0;
-    loop {
-        if i == OUR_DEVICES.len() {
-            break;
+    const fn assert_each_device_tlv_fits_in_one_packet() {
+        // Check devices described by `validate`.
+        let mut i = 0;
+        loop {
+            if i == VALIDATE_DEVICES_CONST.len() {
+                break;
+            }
+            assert_device_tlv_fits_in_one_packet(
+                VALIDATE_DEVICES_CONST[i].device,
+                VALIDATE_DEVICES_CONST[i].description,
+            );
+            i += 1;
         }
-        assert_device_tlv_fits_in_one_packet(
-            OUR_DEVICES[i].device,
-            OUR_DEVICES[i].description,
-        );
-        i += 1;
+
+        // Check devices described by us.
+        let mut i = 0;
+        loop {
+            if i == OUR_DEVICES_CONST.len() {
+                break;
+            }
+            assert_device_tlv_fits_in_one_packet(
+                OUR_DEVICES_CONST[i].device,
+                OUR_DEVICES_CONST[i].description,
+            );
+            i += 1;
+        }
     }
 }
 

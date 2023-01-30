@@ -26,7 +26,7 @@ fn write_pub_device_descriptions(
 
     writeln!(
         file,
-        "pub const DEVICES: [DeviceDescription; {}] = [",
+        "pub const DEVICES_CONST: [DeviceDescription; {}] = [",
         devices.len()
     )?;
 
@@ -47,6 +47,12 @@ fn write_pub_device_descriptions(
     }
 
     writeln!(file, "];")?;
+
+    writeln!(
+        file,
+        "pub static DEVICES: [DeviceDescription; DEVICES_CONST.len()] = DEVICES_CONST;"
+    )?;
+
     file.flush()?;
 
     Ok(())
