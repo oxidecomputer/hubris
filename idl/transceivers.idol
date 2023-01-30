@@ -11,23 +11,10 @@ Interface(
             ),
         ),
 
-        "all_power_states": (
-            doc: "Get the power state of all ports.",
-            reply: Result(
-                ok: "PowerStatesAll",
-                err: CLike("TransceiversError"),
-            ),
-            encoding: Ssmarshal
-        ),
-
-        "set_power_state": (
-            doc: "Set each port in the mask to the specified state",
+        "port_enable_power": (
+            doc: "Enable the hot swap controller for each port in the mask",
             args: {
-                "mask": "u32",
-                "state": (
-                    type: "PowerState",
-                    recv: FromPrimitive("u8"),
-                )
+                "logical_port_mask": "u32",
             },
             reply: Result(
                 ok: "()",
@@ -35,8 +22,52 @@ Interface(
             ),
         ),
 
-        "port_reset": (
-            doc: "Reset each port in the mask and leave them in low-power mode",
+        "port_disable_power": (
+            doc: "Disable the hot swap controller for each port in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "port_assert_reset": (
+            doc: "Assert ResetL for each port in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "port_deassert_reset": (
+            doc: "Deassert ResetL for each port in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "port_assert_lpmode": (
+            doc: "Assert LpMode for each port in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "port_deassert_lpmode": (
+            doc: "Deassert LpMode for each port in the mask",
             args: {
                 "logical_port_mask": "u32",
             },
@@ -47,7 +78,7 @@ Interface(
         ),
 
         "port_clear_fault": (
-            doc: "Clear the fault for each port in the mask and leave them off",
+            doc: "Clear the fault for each port in the mask",
             args: {
                 "logical_port_mask": "u32",
             },

@@ -307,7 +307,9 @@ impl SpHandler for MgsHandler {
         }));
 
         match update.component {
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -322,7 +324,9 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
-            SpComponent::ROT => Ok(self.rot_update.status()),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                Ok(self.rot_update.status())
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -343,7 +347,7 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -361,7 +365,9 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -425,6 +431,15 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn serial_console_break(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -607,6 +622,17 @@ impl SpHandler for MgsHandler {
             offset,
             data_len: data.len(),
         }));
+    }
+
+    fn send_host_nmi(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        // This can only fail if the `gimlet-seq` server is dead; in that
+        // case, send `Busy` because it should be rebooting.
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        Err(SpError::RequestUnsupportedForSp)
     }
 }
 

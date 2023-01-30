@@ -526,7 +526,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -550,7 +552,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -575,7 +577,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            SpComponent::ROT => self.rot_update.status(),
+            SpComponent::ROT | SpComponent::STAGE0 => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -603,7 +605,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -721,6 +725,20 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
+        Ok(())
+    }
+
+    fn serial_console_break(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        // TODO: same caveats as above!
+        if Some((sender, port)) != self.attached_serial_console_mgs {
+            return Err(SpError::SerialConsoleNotAttached);
+        }
+        self.usart.send_break();
         Ok(())
     }
 
@@ -875,6 +893,20 @@ impl SpHandler for MgsHandler {
 
         self.host_phase2
             .ingest_incoming_data(port, hash, offset, data);
+    }
+
+    fn send_host_nmi(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        // This can only fail if the `gimlet-seq` server is dead; in that
+        // case, send `Busy` because it should be rebooting.
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        self.sequencer
+            .send_hardware_nmi()
+            .map_err(|_| SpError::Busy)?;
+        Ok(())
     }
 }
 
@@ -1095,6 +1127,10 @@ impl UsartHandler {
 
         // Re-enable USART interrupts.
         sys_irq_control(notifications::USART_IRQ_MASK, true);
+    }
+
+    fn send_break(&self) {
+        self.usart.send_break();
     }
 }
 

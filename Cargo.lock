@@ -1763,8 +1763,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "serde",
- "ssmarshal",
  "task-sensor-api",
  "transceiver-messages",
  "userlib",
@@ -2027,7 +2025,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#583101f3b41907e5dbc4478f2d21e8286e8eaa1c"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#2bb2d22a6f80a1508f8e5e9038f9b78ca70dfce4"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -4684,7 +4682,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#a5305a91a32967fbb384c91ecc4ccfb1aec6d302"
 dependencies = [
  "bitflags",
  "hubpack",
