@@ -126,6 +126,7 @@ cfg_if::cfg_if! {
             port: sys_api::Port::E,
             pin_mask: 1 << 3,
         };
+        const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
         fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
     } else if #[cfg(target_board = "gimletlet-2")] {
@@ -151,6 +152,7 @@ cfg_if::cfg_if! {
             ringbuf_entry!(Trace::Debug(asserted));
             sys.gpio_set_to(DEBUG_PIN, asserted);
         }
+        const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::SPI3_HEADER;
     } else {
         compile_error!("No configuration for ROT_IRQ");
     }
@@ -181,7 +183,7 @@ pub struct ServerImpl<S: SpiServer> {
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
-    let spi = claim_spi(&sys).device(drv_spi_api::devices::ROT);
+    let spi = claim_spi(&sys).device(ROT_SPI_DEVICE);
 
     sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
     debug_config(&sys);
