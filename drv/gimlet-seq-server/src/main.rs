@@ -228,7 +228,9 @@ fn main() -> ! {
     // If the sequencer is already loaded and operational, the design loaded
     // into it should be willing to talk to us over SPI, and should be able to
     // serve up a recognizable ident code.
-    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+    let seq = seq_spi::SequencerFpga::new(
+        spi.device(drv_spi_api::devices::SEQUENCER),
+    );
 
     // If the image announces the correct identifier and has a matching
     // bitstream checksum, then we can skip reprogramming;
@@ -252,7 +254,7 @@ fn main() -> ! {
 
         // Reprogramming will continue until morale improves -- to a point.
         loop {
-            let prog = spi.device(ICE40_SPI_DEVICE);
+            let prog = spi.device(drv_spi_api::devices::ICE40);
             ringbuf_entry!(Trace::Programming);
             match reprogram_fpga(&prog, &sys, &ICE40_CONFIG) {
                 Ok(()) => {
@@ -684,9 +686,6 @@ cfg_if::cfg_if! {
         target_board = "gimlet-b",
         target_board = "gimlet-c",
     ))] {
-        const SEQ_SPI_DEVICE: u8 = 0;
-        const ICE40_SPI_DEVICE: u8 = 1;
-
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
             creset: sys_api::Port::D.pin(5),

@@ -50,7 +50,7 @@ impl bsp_support::Bsp for BspImpl {
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let spi = bsp_support::claim_spi(sys);
-        let ksz8463_dev = spi.device(0); // from app.toml
+        let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
         let bsp = mgmt::Config {
             // SP_TO_MGMT_PHY_A2_PWR_EN
             power_en: Some(Port::I.pin(10)),

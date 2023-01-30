@@ -75,8 +75,6 @@ enum Trace {
 }
 ringbuf!(Trace, 64, Trace::None);
 
-const SP_TO_ROT_SPI_DEVICE: u8 = 0;
-
 // TODO:These timeouts are somewhat arbitrary.
 // TODO: Make timeouts configurable
 // All timeouts are in 'ticks'
@@ -183,7 +181,7 @@ pub struct ServerImpl<S: SpiServer> {
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
-    let spi = claim_spi(&sys).device(SP_TO_ROT_SPI_DEVICE);
+    let spi = claim_spi(&sys).device(drv_spi_api::devices::ROT);
 
     sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
     debug_config(&sys);

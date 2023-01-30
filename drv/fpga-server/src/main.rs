@@ -62,8 +62,10 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys);
-    let configuration_port = spi.device(0);
-    let user_design = spi.device(1);
+    let configuration_port =
+        spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
+    let user_design =
+        spi.device(drv_spi_api::devices::ECP5_FRONT_IO_USER_DESIGN);
 
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "mainboard", feature = "front_io"))] {
