@@ -20,12 +20,12 @@ use userlib::*;
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
 extern "C" {
-    static __IMAGE_A_BASE: u32;
-    static __IMAGE_B_BASE: u32;
-    static __IMAGE_STAGE0_BASE: u32;
-    static __IMAGE_A_END: u32;
-    static __IMAGE_B_END: u32;
-    static __IMAGE_STAGE0_END: u32;
+    static __IMAGE_A_BASE: [u32; 0];
+    static __IMAGE_B_BASE: [u32; 0];
+    static __IMAGE_STAGE0_BASE: [u32; 0];
+    static __IMAGE_A_END: [u32; 0];
+    static __IMAGE_B_END: [u32; 0];
+    static __IMAGE_STAGE0_END: [u32; 0];
 
 }
 
