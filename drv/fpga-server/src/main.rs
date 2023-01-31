@@ -62,8 +62,6 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys);
-    let configuration_port = spi.device(0);
-    let user_design = spi.device(1);
 
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "mainboard", feature = "front_io"))] {
@@ -71,6 +69,11 @@ fn main() -> ! {
         } else if #[cfg(all(any(target_board = "sidecar-a",
                                 target_board = "sidecar-b"),
                             feature = "mainboard"))] {
+            let configuration_port =
+                spi.device(drv_spi_api::devices::ECP5_MAINBOARD_FPGA);
+            let user_design =
+                spi.device(drv_spi_api::devices::ECP5_MAINBOARD_USER_DESIGN);
+
             let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::J.pin(15),
@@ -87,6 +90,11 @@ fn main() -> ! {
         } else if #[cfg(all(any(target_board = "sidecar-a",
                                 target_board = "sidecar-b"),
                             feature = "front_io"))] {
+            let configuration_port =
+                spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
+            let user_design =
+                spi.device(drv_spi_api::devices::ECP5_FRONT_IO_USER_DESIGN);
+
             use drv_i2c_devices::pca9538::*;
             use drv_fpga_devices::ecp5_spi_mux_pca9538::*;
 
@@ -124,6 +132,9 @@ fn main() -> ! {
                 }
             };
         } else if #[cfg(target_board = "gimletlet-2")] {
+            // Hard-coding because the TOML file doesn't specify great names
+            let configuration_port = spi.device(0);
+            let user_design = spi.device(1);
             let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::E.pin(15),
