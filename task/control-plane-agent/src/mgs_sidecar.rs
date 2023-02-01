@@ -629,9 +629,21 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        // This can only fail if the `gimlet-seq` server is dead; in that
-        // case, send `Busy` because it should be rebooting.
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn set_ipcc_key_lookup_value(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        key: u8,
+        value: &[u8],
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
+            key,
+            value_len: value.len(),
+        }));
         Err(SpError::RequestUnsupportedForSp)
     }
 }

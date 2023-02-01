@@ -69,6 +69,14 @@ Interface(
             reply: Simple("UartClient"),
             idempotent: true,
         ),
+        "get_installinator_image_id": (
+            doc: "Get the current installinator image ID; writes 0 bytes if we have no ID.",
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(512)),
+            },
+            reply: Simple("usize"),
+            idempotent: true,
+        ),
         "set_humility_uart_client": (
             doc: "Attach or detach Humility as the host serial console client.",
             args: {

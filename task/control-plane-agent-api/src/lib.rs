@@ -13,6 +13,9 @@ use static_assertions::const_assert;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
+/// Maximum length (in bytes) allowed for installinator image ID blobs.
+pub const MAX_INSTALLINATOR_IMAGE_ID_LEN: usize = 512;
+
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ControlPlaneAgentError {
     DataUnavailable = 1,
