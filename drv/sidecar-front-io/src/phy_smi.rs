@@ -141,7 +141,7 @@ impl PhySmi {
         }
 
         self.fpga
-            .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_WDATA_H, request)
+            .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_WDATA0, request)
     }
 }
 
@@ -162,7 +162,7 @@ impl PhyRw for PhySmi {
 #[derive(AsBytes, FromBytes, Unaligned)]
 #[repr(C)]
 struct SmiWriteRequest {
-    wdata: U16<byteorder::BigEndian>,
+    wdata: U16<byteorder::LittleEndian>,
     phy: u8,
     reg: u8,
     ctrl: u8,
@@ -180,5 +180,5 @@ struct SmiReadRequest {
 #[repr(C)]
 struct SmiReadData {
     status: u8,
-    rdata: U16<byteorder::BigEndian>,
+    rdata: U16<byteorder::LittleEndian>,
 }
