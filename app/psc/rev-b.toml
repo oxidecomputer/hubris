@@ -192,6 +192,14 @@ max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["i2c_driver", "sensor"]
 
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
 [tasks.idle]
 name = "task-idle"
 priority = 6
