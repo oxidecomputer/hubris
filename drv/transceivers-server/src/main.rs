@@ -57,6 +57,8 @@ enum Trace {
     LEDInitError(Error),
     LEDErrorSummary(FullErrorSummary),
     LEDUninitialized,
+    LEDEnableError(FpgaError),
+    LEDReadError(Error),
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
@@ -521,7 +523,13 @@ impl NotificationHandler for ServerImpl {
         if (bits & notifications::TIMER_MASK) != 0 {
             // Check for errors
             if self.leds_initialized {
-                let errors = self.leds.error_summary().unwrap();
+                let errors = match self.leds.error_summary() {
+                    Ok(errs) => errs,
+                    Err(e) => {
+                        ringbuf_entry!(Trace::LEDReadError(e));
+                        Default::default()
+                    }
+                };
                 if errors != self.led_error {
                     self.led_error = errors;
                     ringbuf_entry!(Trace::LEDErrorSummary(errors));
@@ -603,8 +611,10 @@ fn main() -> ! {
 
         ringbuf_entry!(Trace::LEDInit);
 
-        server.transceivers.enable_led_controllers().unwrap();
-        server.led_init();
+        match server.transceivers.enable_led_controllers() {
+            Ok(_) => server.led_init(),
+            Err(e) => ringbuf_entry!(Trace::LEDEnableError(e)),
+        };
 
         // This will put our timer in the past, immediately forcing an update
         let deadline = sys_get_timer().now;
