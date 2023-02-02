@@ -5,7 +5,12 @@
 use crate::dist::PackageConfig;
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io::Read, path::PathBuf};
+use std::{
+    collections::{hash_map::DefaultHasher, BTreeMap},
+    hash::{Hash, Hasher},
+    io::Read,
+    path::PathBuf,
+};
 
 /// The dumbest subset of a `Cargo.toml` manifest, sufficient to get the name
 #[derive(Deserialize)]
@@ -18,11 +23,12 @@ struct Package {
     name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Hash)]
 struct LspConfig {
     target: String,
     features: Vec<String>,
     env: BTreeMap<String, String>,
+    hash: String,
 }
 
 fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
@@ -114,7 +120,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                 bail!("missing --target argument");
             }
 
-            return Ok(LspConfig {
+            let mut out = LspConfig {
                 features: features
                     .unwrap_or(&"".to_owned())
                     .split(',')
@@ -122,7 +128,15 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                     .collect(),
                 target: target.unwrap().to_string(),
                 env: build_cfg.env,
-            });
+                hash: "".to_owned(),
+            };
+
+            let mut s = DefaultHasher::new();
+            out.hash(&mut s);
+            out.hash = format!("{:x}", s.finish());
+            out.hash.truncate(8);
+
+            return Ok(out);
         }
     }
     Err(anyhow!("could not find {package_name} used in any apps"))
