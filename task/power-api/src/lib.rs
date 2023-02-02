@@ -10,6 +10,7 @@ pub use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::sys_send;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]
 pub enum Device {
@@ -126,5 +127,22 @@ impl From<pmbus::units::Percent> for PmbusValue {
         Self::Percent(value.0)
     }
 }
+
+/// Simple wrapper type for the BMR491 event log
+///
+/// To simplify the implementation, this is the result of a raw PMBus read;
+/// this means the first byte is the length of the remaining data (i.e. 23).
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    AsBytes,
+    FromBytes,
+)]
+#[repr(C)]
+pub struct Bmr491Event([u8; 24]);
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
