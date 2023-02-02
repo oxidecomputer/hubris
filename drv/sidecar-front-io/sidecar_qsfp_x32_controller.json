@@ -321,7 +321,7 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "The VSC8562 has been brought out of reset and is ready for\nsoftware control"
+                            "desc": "The VSC8562 has been brought out of reset and is ready for software control"
                         },
                         {
                             "type": "field",
@@ -332,7 +332,7 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Either the V1P0 or V2P5 rail has failed to come up. V1P0 is\nfirst in the sequence, its PG is the EN for V2P5."
+                            "desc": "Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5."
                         }
                     ]
                 },
@@ -374,7 +374,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit to 1 will clear the timed out state of the\nV1P0 and V2P5 rail controllers, allowing PHY power\nsequencing to be attempted again."
+                            "desc": "Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again."
                         }
                     ]
                 },
@@ -405,7 +405,7 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "1 for active interrupt (inversion of\nmiim_phy_to_fpga_mdint_l pin)"
+                            "desc": "1 for active interrupt (inversion of miim_phy_to_fpga_mdint_l pin)"
                         }
                     ]
                 },
