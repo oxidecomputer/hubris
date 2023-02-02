@@ -38,7 +38,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
 
             match dev.read_eeprom() {
                 Err(err) => {
-                    let code: drv_i2c_api::ResponseCode = err.into();
+                    let code: ResponseCode = err.into();
                     let err: VpdError = code.into();
                     Err(err.into())
                 }
