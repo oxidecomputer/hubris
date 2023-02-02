@@ -683,8 +683,8 @@ pub struct BuildConfig<'a> {
     /// File written by the compiler
     pub out_path: PathBuf,
 
-    args: Vec<String>,
-    env: BTreeMap<String, String>,
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
 
     /// Optional sysroot to a specific Rust installation.  If this is
     /// specified, then `cargo` is called from the sysroot instead of using
