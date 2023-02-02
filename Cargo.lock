@@ -4138,6 +4138,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "paste",
+ "pmbus",
  "ringbuf",
  "serde",
  "task-power-api",

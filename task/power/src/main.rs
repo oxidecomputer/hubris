@@ -18,12 +18,12 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
-use task_power_api::PmbusValue;
+use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
 
-use drv_i2c_api::ResponseCode;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, TempSensor,
     VoltageSensor,
@@ -596,6 +596,20 @@ impl ServerImpl {
             }
         }
     }
+
+    /// Find the BMR491 and return an `I2cDevice` handle
+    ///
+    /// This could be a _little_ inefficient, but means that the code doesn't
+    /// need to be special-cased for SPs without a BMR491 (and it's the first
+    /// item in the list anyways).
+    fn bmr491(&self) -> Result<I2cDevice, ResponseCode> {
+        let device = CONTROLLER_CONFIG
+            .iter()
+            .find(|dev| matches!(dev.device, DeviceType::IBC))
+            .ok_or(ResponseCode::NoDevice)?;
+        let (dev, _rail) = (device.builder)(self.i2c_task);
+        Ok(dev)
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
@@ -642,6 +656,66 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .ok_or(ResponseCode::NoDevice)?;
 
         Ok(device.pmbus_read(op)?)
+    }
+
+    fn bmr491_event_log_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u8,
+    ) -> Result<Bmr491Event, idol_runtime::RequestError<ResponseCode>> {
+        if index >= 48 {
+            return Err(ResponseCode::BadArg.into());
+        }
+
+        let dev = self.bmr491()?;
+        dev.write(&[
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+            index,
+        ])?;
+
+        let out = dev.read_reg(
+            pmbus::commands::bmr491::CommandCode::MFR_READ_EVENT as u8,
+        )?;
+
+        Ok(out)
+    }
+
+    fn bmr491_max_fault_event_index(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
+        let dev = self.bmr491()?;
+
+        // 255 is a special value, setting MFR_EVENT_INDEX to the index of the
+        // newest record in the fault section of the event recorder.
+        dev.write(&[
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+            255,
+        ])?;
+
+        let out = dev.read_reg(
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+        )?;
+        Ok(out)
+    }
+
+    fn bmr491_max_lifecycle_event_index(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
+        let dev = self.bmr491()?;
+
+        // 255 is a special value, setting MFR_EVENT_INDEX to the index of the
+        // newest record in the lifecycle event section of the event recorder.
+        dev.write(&[
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+            254,
+        ])?;
+
+        let out = dev.read_reg(
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+        )?;
+        Ok(out)
     }
 }
 
