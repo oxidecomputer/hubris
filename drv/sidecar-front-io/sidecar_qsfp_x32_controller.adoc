@@ -109,9 +109,8 @@ Status bits related to VSC8562 (valid on FPGA1 only)
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
-|[6] | r | READY | The VSC8562 has been brought out of reset and is ready for
-software control
+|[7] | r | PG_TIMED_OUT | Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5.
+|[6] | r | READY | The VSC8562 has been brought out of reset and is ready for software control
 |[5] | r | RESET | Value inverted to drive  FPGA1_TO_PHY_RESET_L.
 |[4] | r | REFCLK_EN | Value of FPGA1_TO_PHY_REFCLK_EN
 |[3] | r | COMA_MODE | Value of FPGA1_TO_PHY_COMA_MODE
@@ -126,7 +125,8 @@ Control bits related to VSC8562  (valid on FPGA1 only)
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:2] |  | - | Reserved
+|[7:3] |  | - | Reserved
+|[2] | rw | CLEAR_POWER_FAULT | Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again.
 |[1] | rw | COMA_MODE | Software control for the COMA_MODE pin.
 |[0] | rw | EN | Enable for the VSC8562 power up state machine
 |===
@@ -142,40 +142,40 @@ Status bits for the SMI interface to the VSC8562 (valid on FPGA1 only)
 |[0] | r | BUSY | 1 if a transaction is in progress
 |===
 
-SMI Read Data [15:8] (valid on FPGA1 only)
-[caption="Address: "]
-.0x0013 - VSC8562_PHY_SMI_RDATA_H Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:0] | rw | DATA | Upper byte of read data
-|===
-
 SMI Read Data [7:0] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0014 - VSC8562_PHY_SMI_RDATA_L Register
+.0x0013 - VSC8562_PHY_SMI_RDATA0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
 |[7:0] | rw | DATA | Lower byte of read data
 |===
 
-SMI Write Data [15:8] (valid on FPGA1 only)
+SMI Read Data [15:8] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0015 - VSC8562_PHY_SMI_WDATA_H Register
+.0x0014 - VSC8562_PHY_SMI_RDATA1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:0] | rw | DATA | Upper byte of write data
+|[7:0] | rw | DATA | Upper byte of read data
 |===
 
 SMI Write Data [7:0] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0016 - VSC8562_PHY_SMI_WDATA_L Register
+.0x0015 - VSC8562_PHY_SMI_WDATA0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
 |[7:0] | rw | DATA | Lower byte of write data
+|===
+
+SMI Write Data [15:8] (valid on FPGA1 only)
+[caption="Address: "]
+.0x0016 - VSC8562_PHY_SMI_WDATA1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | DATA | Upper byte of write data
 |===
 
 PHY Address (valid on FPGA1 only)
@@ -198,8 +198,7 @@ Register Address (valid on FPGA1 only)
 |[4:0] | rw | ADDR | Address for a register
 |===
 
-SMI control bits, these are one-shot registers and intended to
-                be written in the same transaction. (valid on FPGA1 only)
+SMI control bits, these are one-shot registers and intended to be written in the same transaction. (valid on FPGA1 only)
 [caption="Address: "]
 .0x0019 - VSC8562_PHY_SMI_CTRL Register
 [cols=4,options="header"]

@@ -650,7 +650,7 @@
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">PG_TIMED_OUT</td>
                 <td class="validspandef" colspan="2*">READY</td>
                 <td class="validspandef" colspan="2*">RESET</td>
                 <td class="validspandef" colspan="2*">REFCLK_EN</td>
@@ -669,12 +669,20 @@
     </tr>
     <tr class="cat11" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PG_TIMED_OUT</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5.
+        </td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">READY</td>
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">The VSC8562 has been brought out of reset and is ready for
-software control
+        <td class="FieldDesc" colspan="14">The VSC8562 has been brought out of reset and is ready for software control
         </td>
     </tr>
     <tr class="cat11" style="display: none">
@@ -746,7 +754,8 @@ software control
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">CLEAR_POWER_FAULT</td>
                 <td class="validspandef" colspan="2*">COMA_MODE</td>
                 <td class="validspandef" colspan="2*">EN</td>
     </tr>
@@ -757,6 +766,15 @@ software control
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">CLEAR_POWER_FAULT</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again.
+        </td>
     </tr>
     <tr class="cat12" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -822,57 +840,23 @@ software control
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">VSC8562_PHY_SMI_RDATA_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">VSC8562_PHY_SMI_RDATA0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x13
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;SMI Read Data [15:8] (valid on FPGA1 only)</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat14" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">DATA</td>
-    </tr>
-    <tr class="cat14" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat14" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Upper byte of read data
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">VSC8562_PHY_SMI_RDATA_L</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x14
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Read Data [7:0] (valid on FPGA1 only)</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat15" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -880,7 +864,7 @@ software control
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
@@ -890,57 +874,57 @@ software control
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">VSC8562_PHY_SMI_WDATA_H</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">VSC8562_PHY_SMI_RDATA1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x14
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Read Data [15:8] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Upper byte of read data
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">VSC8562_PHY_SMI_WDATA0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x15
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;SMI Write Data [15:8] (valid on FPGA1 only)</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat16" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="16*">DATA</td>
-    </tr>
-    <tr class="cat16" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat16" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Upper byte of write data
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">VSC8562_PHY_SMI_WDATA_L</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x16
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Write Data [7:0] (valid on FPGA1 only)</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat17" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -948,13 +932,47 @@ software control
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Lower byte of write data
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">VSC8562_PHY_SMI_WDATA1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x16
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SMI Write Data [15:8] (valid on FPGA1 only)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Upper byte of write data
         </td>
     </tr>
     <tr class="Register">
@@ -1035,8 +1053,7 @@ software control
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;SMI control bits, these are one-shot registers and intended to
-                be written in the same transaction. (valid on FPGA1 only)</td>
+        <td class="Description" colspan="16">&nbsp;SMI control bits, these are one-shot registers and intended to be written in the same transaction. (valid on FPGA1 only)</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat20" style="display: none">
