@@ -663,6 +663,9 @@ impl idl::InOrderPowerImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         index: u8,
     ) -> Result<Bmr491Event, idol_runtime::RequestError<ResponseCode>> {
+        // The BMR491 has 48 event log slots:
+        // - 0-23 are reserved for faults
+        // - 24-47 are reserved for lifecycle events
         if index >= 48 {
             return Err(ResponseCode::BadArg.into());
         }
@@ -705,8 +708,9 @@ impl idl::InOrderPowerImpl for ServerImpl {
     ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
         let dev = self.bmr491()?;
 
-        // 255 is a special value, setting MFR_EVENT_INDEX to the index of the
-        // newest record in the lifecycle event section of the event recorder.
+        // 254 is *also* a special value, setting MFR_EVENT_INDEX to the index
+        // of the newest record in the lifecycle event section of the event
+        // recorder.
         dev.write(&[
             pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
             254,

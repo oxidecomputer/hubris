@@ -20,7 +20,6 @@ Interface(
         ),
         "bmr491_event_log_read": (
             doc: "reads an event from the BMR491's combined fault and lifecycle event log",
-            encoding: Hubpack,
             args: {
                 "index": "u8",
             },
@@ -32,7 +31,6 @@ Interface(
         ),
         "bmr491_max_fault_event_index": (
             doc: "returns the index of the most recent fault event in the BMR491's event log",
-            encoding: Hubpack,
             reply: Result(
                 ok: "u8",
                 err: CLike("ResponseCode"),
@@ -41,7 +39,6 @@ Interface(
         ),
         "bmr491_max_lifecycle_event_index": (
             doc: "returns the index of the most recent lifecycle event in the BMR491's event log",
-            encoding: Hubpack,
             reply: Result(
                 ok: "u8",
                 err: CLike("ResponseCode"),
