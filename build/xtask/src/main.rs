@@ -17,6 +17,7 @@ mod elf;
 mod flash;
 mod graph;
 mod humility;
+mod lsp;
 mod print;
 mod sizes;
 mod task_slot;
@@ -184,6 +185,14 @@ enum Xtask {
         #[clap(long)]
         expanded_config: bool,
     },
+
+    Lsp {
+        #[clap(long)]
+        env: bool,
+
+        /// Path to a Rust source file
+        file: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -349,6 +358,9 @@ fn run(xtask: Xtask) -> Result<()> {
         } => {
             print::run(&cfg, archive, image_name, expanded_config)
                 .context("could not print information about the build")?;
+        }
+        Xtask::Lsp { env, file } => {
+            lsp::run(&file, env)?;
         }
     }
 
