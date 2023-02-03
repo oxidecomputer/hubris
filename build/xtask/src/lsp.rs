@@ -63,6 +63,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
 
     let metadata = cargo_metadata::MetadataCommand::new()
         .no_deps()
+        .features(cargo_metadata::CargoOpt::AllFeatures)
         .exec()
         .context("failed to run cargo metadata")?;
 
@@ -75,42 +76,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         anyhow!("cannot find package {package_name} in cargo metadata")
     })?;
 
-    // If this is a binary file, then we'll assume it's a task
-    let is_bin = package
-        .targets
-        .iter()
-        .any(|t| t.kind.iter().any(|k| k == "bin"));
-
-    // TODO: handle build.rs files, which need the appropriate environmental
-    // variables but don't build for the ARM target (?)
-
-    let mut todo = vec![package.name.clone()];
-    let mut dependencies = BTreeSet::new();
-    while let Some(t) = todo.pop() {
-        if packages.contains_key(&t) && dependencies.insert(t.clone()) {
-            todo.extend(
-                packages[&t]
-                    .dependencies
-                    .iter()
-                    .filter(|s| s.kind != cargo_metadata::DependencyKind::Build)
-                    .map(|s| s.name.clone())
-                    .filter(|d| !dependencies.contains(d)),
-            );
-        }
-    }
-
     let root = metadata.workspace_root;
-    let exclude_dirs: Vec<String> = packages
-        .values()
-        .filter(|p| !dependencies.contains(&p.name))
-        .map(|p| {
-            pathdiff::diff_paths(p.manifest_path.parent().unwrap(), &root)
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_owned()
-        })
-        .collect();
 
     let preferred_apps = [
         "app/gimlet/rev-c.toml",
@@ -122,7 +88,58 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         let cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
 
-        let target_name = if is_bin {
+        for (name, task) in cfg.toml.tasks {
+            // We're going to calculate this package's dependencies, taking
+            // features into account.  The `dependencies` array below stores a
+            // mapping from packages to their enabled features; we build it by
+            // recursing down the whole package tree, starting at the task.
+            let mut dependencies: BTreeMap<String, BTreeSet<String>> =
+                BTreeMap::new();
+            let mut todo: Vec<(String, bool, BTreeSet<String>)> = vec![(
+                task.name.clone(),
+                task.features.clone().into_iter().collect(),
+            )];
+            while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
+                let pkg = match packages.get(&pkg_name) {
+                    Some(pkg) => pkg,
+                    None => continue,
+                };
+
+                // Calculate the full set of features by iterating over them
+                // repeatedly until the set of enabled features stabilizes.
+                loop {
+                    let mut changed = false;
+                    for (f, sub) in &pkg.features {
+                        if feat.contains(f) {
+                            for s in sub.iter() {
+                                if !s.starts_with("dep:") {
+                                    changed |= feat.insert(s.to_string());
+                                }
+                            }
+                        }
+                    }
+                    if changed {
+                        break;
+                    }
+                }
+
+                // Now that we've got features, we can figure out which
+                // dependencies are enabled by features.
+                let mut enabled_packages = BTreeSet::new();
+                for (f, sub) in &pkg.features {
+                    if feat.contains(f) {
+                        for s in sub.iter() {
+                            if let Some(pkg) = s.strip_prefix("dep:") {
+                                enabled_packages.
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        let target_name = if unimplemented!() {
             Some(package_name.clone())
         } else {
             let mut out = None;
@@ -207,7 +224,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                 target: target.unwrap().to_string(),
                 extra_env: build_cfg.env,
                 hash: "".to_owned(),
-                exclude_dirs,
+                exclude_dirs: todo!(),
                 build_override_command,
                 app: p.clone().to_owned(),
                 task: t.0.clone(),
