@@ -70,7 +70,7 @@ Interface(
             idempotent: true,
         ),
         "get_installinator_image_id": (
-            doc: "Get the current installinator image ID; writes 0 bytes if we have no ID.",
+            doc: "Get the current installinator image ID, returning the number of bytes written. If we have no installinator image ID, does not modify the leased buffer and returns 0.",
             leases: {
                 "data": (type: "[u8]", write: true, max_len: Some(512)),
             },
