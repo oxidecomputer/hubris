@@ -158,8 +158,9 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                     .map(|s| s.to_string())
                     .collect();
             build_override_command.extend(build_cfg.args.iter().cloned());
-            build_override_command
-                .extend(dependencies.iter().map(|d| format!("-p{d}")));
+            build_override_command.push(format!("-p{package_name}"));
+            build_override_command.push("--target-dir".to_owned());
+            build_override_command.push("target/rust-analyzer".to_owned());
 
             let mut out = LspConfig {
                 features: features
