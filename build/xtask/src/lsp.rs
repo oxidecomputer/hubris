@@ -32,6 +32,8 @@ struct LspConfig {
     hash: String,
     exclude_dirs: Vec<String>,
     build_override_command: Vec<String>,
+    app: String,
+    task: String,
 }
 
 fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
@@ -82,11 +84,6 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
     // TODO: handle build.rs files, which need the appropriate environmental
     // variables but don't build for the ARM target (?)
 
-    // TODO: handle libraries
-    if !is_bin {
-        bail!("must run on task binaries");
-    }
-
     let mut todo = vec![package.name.clone()];
     let mut dependencies = BTreeSet::new();
     while let Some(t) = todo.pop() {
@@ -124,11 +121,48 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         let file = root.join(p);
         let cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
+
+        let target_name = if is_bin {
+            Some(package_name.clone())
+        } else {
+            let mut out = None;
+            for t in cfg.toml.tasks.values() {
+                let mut todo = vec![t.name.clone()];
+                let mut dependencies = BTreeSet::new();
+                while let Some(t) = todo.pop() {
+                    if packages.contains_key(&t)
+                        && dependencies.insert(t.clone())
+                    {
+                        todo.extend(
+                            packages[&t]
+                                .dependencies
+                                .iter()
+                                .filter(|s| {
+                                    s.kind
+                                        != cargo_metadata::DependencyKind::Build
+                                })
+                                .map(|s| s.name.clone())
+                                .filter(|d| !dependencies.contains(d)),
+                        );
+                    }
+                }
+                if dependencies.contains(&package_name) {
+                    out = Some(t.name.clone());
+                    break;
+                }
+            }
+            out
+        };
+
+        let target_name = target_name.ok_or_else(|| {
+            anyhow!("Could not find a package for {package_name}")
+        })?;
+
         if let Some(t) = cfg
             .toml
             .tasks
             .iter()
-            .find(|(_name, task)| task.name == package_name)
+            .find(|(_name, task)| task.name == target_name)
         {
             let build_cfg =
                 cfg.toml.task_build_config(t.0, false, None).map_err(|_| {
@@ -158,6 +192,9 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                     .collect();
             build_override_command.extend(build_cfg.args.iter().cloned());
             build_override_command.push(format!("-p{package_name}"));
+            if package_name != target_name {
+                build_override_command.push(format!("-p{target_name}"));
+            }
             build_override_command.push("--target-dir".to_owned());
             build_override_command.push("target/rust-analyzer".to_owned());
 
@@ -172,6 +209,8 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                 hash: "".to_owned(),
                 exclude_dirs,
                 build_override_command,
+                app: p.clone().to_owned(),
+                task: t.0.clone(),
             };
 
             let mut s = DefaultHasher::new();
