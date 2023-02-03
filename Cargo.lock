@@ -1373,6 +1373,8 @@ name = "drv-sbrmi-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "idol",
  "num-traits",
  "userlib",

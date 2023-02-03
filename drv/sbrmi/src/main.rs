@@ -5,9 +5,8 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::sbrmi::{CpuidResult, Error, Sbrmi};
+use drv_i2c_devices::sbrmi::{CpuidResult, Sbrmi};
 use drv_sbrmi_api::SbrmiError;
-use idol_runtime::NotificationHandler;
 use idol_runtime::RequestError;
 use ringbuf::*;
 use userlib::*;
@@ -41,7 +40,8 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
         match dev.cpuid(thread, eax, ecx) {
             Err(code) => {
                 ringbuf_entry!(Trace::CpuidError(code));
-                Err(SbrmiError::CpuidError.into())
+                let err = SbrmiError::from(code);
+                Err(err.into())
             }
             Ok(rval) => {
                 ringbuf_entry!(Trace::CpuidResult(rval));

@@ -7,11 +7,48 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use drv_i2c_devices::sbrmi;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
 pub enum SbrmiError {
-    CpuidError = 1,
+    Unavailable = 1,
+    BusLocked,
+    I2cError,
+    BadThreadId,
+    BadCpuidInput,
+    CpuidError,
+    CpuidUnavailable,
+    CpuidTimeout,
+}
+
+impl From<drv_i2c_api::ResponseCode> for SbrmiError {
+    fn from(code: drv_i2c_api::ResponseCode) -> Self {
+        match code {
+            drv_i2c_api::ResponseCode::NoDevice => Self::Unavailable,
+            drv_i2c_api::ResponseCode::BusLocked => Self::BusLocked,
+            _ => Self::I2cError,
+        }
+    }
+}
+
+impl From<sbrmi::Error> for SbrmiError {
+    fn from(err: sbrmi::Error) -> Self {
+        use sbrmi::{Error, StatusCode};
+
+        match err {
+            Error::BadRegisterRead { code, .. } => code.into(),
+            Error::BadCpuidRead { code } => code.into(),
+            Error::BadThreadId => Self::BadThreadId,
+            Error::BadCpuidInput => Self::BadCpuidInput,
+            Error::BadCpuidLength { .. } => Self::CpuidError,
+            Error::CpuidFailed { code } => match code {
+                StatusCode::CommandTimeout => Self::CpuidTimeout,
+                StatusCode::UnsupportedCommand => Self::CpuidUnavailable,
+                _ => Self::CpuidError,
+            }
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
