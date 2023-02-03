@@ -1350,6 +1350,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sbrmi"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "cfg-if",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-sbrmi-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-sbrmi-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-sidecar-front-io"
 version = "0.1.0"
 dependencies = [

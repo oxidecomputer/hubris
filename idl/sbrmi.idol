@@ -1,0 +1,19 @@
+// SB-RMI API
+
+Interface(
+    name: "Sbrmi",
+    ops: {
+        "cpuid": (
+            args: {
+                "thread": "u8",
+                "eax": "u32",
+                "ecx": "u32",
+            },
+            reply: Result(
+                ok: "[u32; 4]",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)
