@@ -2040,7 +2040,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#2bb2d22a6f80a1508f8e5e9038f9b78ca70dfce4"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#482bae9bfa704282e981008abae9328344150d36"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -3944,6 +3944,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "static_assertions",
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "task-net-api",

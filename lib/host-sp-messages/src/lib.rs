@@ -30,6 +30,16 @@ pub const MAGIC: u32 = 0x01de_19cc;
 // `SpToHost` or `HostToSp`).
 pub const MAX_MESSAGE_SIZE: usize = 4123;
 
+/// Minimum amount of space available for data trailing after an `SpToHost`
+/// response.
+///
+/// The buffer passed to the `fill_data` callback of `serialize` is guaranteed
+/// to be _at least_ this long, regardless of the particular `SpToHost` response
+/// being sent. It will be longer than this for any `SpToHost` variants that
+/// serialize to a sequence shorter than `SpToHost::MAX_SIZE`.
+pub const MIN_SP_TO_HOST_FILL_DATA_LEN: usize =
+    MAX_MESSAGE_SIZE - Header::MAX_SIZE - CHECKSUM_SIZE - SpToHost::MAX_SIZE;
+
 const CHECKSUM_SIZE: usize = core::mem::size_of::<u16>();
 
 pub mod version {
@@ -148,8 +158,7 @@ pub enum SpToHost {
 pub enum Key {
     // Always sends back b"pong".
     Ping,
-    // Not yet implemented
-    // InstallinatorImageId,
+    InstallinatorImageId,
 }
 
 #[derive(

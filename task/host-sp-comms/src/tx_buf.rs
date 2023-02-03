@@ -50,6 +50,9 @@ impl TxBuf {
     /// terminator, but such a case means the host will receive an incomplete
     /// packet.
     pub(crate) fn reset(&mut self) {
+        ringbuf_entry!(Trace::ResponseBufferReset {
+            now: sys_get_timer().now
+        });
         self.state = State::Idle;
     }
 
