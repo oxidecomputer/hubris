@@ -84,6 +84,7 @@ panic-itm = { version = "0.4.1", default-features = false }
 panic-semihosting = { version = "0.5.3", default-features = false }
 paste = { version = "1", default-features = false }
 path-slash = { version = "0.1.3", default-features = false }
+pathdiff = { version = "0.2" }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 rand = { version = "0.8", default-features = false }

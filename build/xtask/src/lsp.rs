@@ -6,7 +6,7 @@ use crate::dist::PackageConfig;
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap},
+    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet},
     hash::{Hash, Hasher},
     io::Read,
     path::PathBuf,
@@ -24,11 +24,14 @@ struct Package {
 }
 
 #[derive(Serialize, Hash)]
+#[serde(rename_all = "camelCase")]
 struct LspConfig {
     target: String,
     features: Vec<String>,
-    env: BTreeMap<String, String>,
+    extra_env: BTreeMap<String, String>,
     hash: String,
+    exclude_dirs: Vec<String>,
+    build_override_command: Vec<String>,
 }
 
 fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
@@ -61,13 +64,14 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         .exec()
         .context("failed to run cargo metadata")?;
 
-    let package = metadata
+    let packages = metadata
         .packages
-        .iter()
-        .find(|p| p.name == package_name)
-        .ok_or_else(|| {
-            anyhow!("cannot find package {package_name} in cargo metadata")
-        })?;
+        .into_iter()
+        .map(|p| (p.name.clone(), p))
+        .collect::<BTreeMap<_, _>>();
+    let package = packages.get(&package_name).ok_or_else(|| {
+        anyhow!("cannot find package {package_name} in cargo metadata")
+    })?;
 
     // If this is a binary file, then we'll assume it's a task
     let is_bin = package
@@ -76,19 +80,47 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         .any(|t| t.kind.iter().any(|k| k == "bin"));
 
     // TODO: handle build.rs files, which need the appropriate environmental
-    // variables but don't build for the ARM target
+    // variables but don't build for the ARM target (?)
 
-    // TODO: handle libraries (YOLO)
+    // TODO: handle libraries
     if !is_bin {
         bail!("must run on task binaries");
     }
 
+    let mut todo = vec![package.name.clone()];
+    let mut dependencies = BTreeSet::new();
+    while let Some(t) = todo.pop() {
+        if packages.contains_key(&t) && dependencies.insert(t.clone()) {
+            todo.extend(
+                packages[&t]
+                    .dependencies
+                    .iter()
+                    .filter(|s| s.kind != cargo_metadata::DependencyKind::Build)
+                    .map(|s| s.name.clone())
+                    .filter(|d| !dependencies.contains(d)),
+            );
+        }
+    }
+
+    let root = metadata.workspace_root;
+    let exclude_dirs: Vec<String> = packages
+        .values()
+        .filter(|p| !dependencies.contains(&p.name))
+        .map(|p| {
+            pathdiff::diff_paths(p.manifest_path.parent().unwrap(), &root)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+
     let preferred_apps = [
+        "app/demo-stm32g0-nucleo/app-g031-mini.toml",
         "app/gimlet/rev-c.toml",
         "app/sidecar/rev-b.toml",
         "app/psc/rev-b.toml",
     ];
-    let root = metadata.workspace_root;
     for p in preferred_apps {
         let file = root.join(p);
         let cfg = PackageConfig::new(&file, false, false)
@@ -120,6 +152,15 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                 bail!("missing --target argument");
             }
 
+            let mut build_override_command: Vec<String> =
+                "cargo check --message-format=json"
+                    .split(' ')
+                    .map(|s| s.to_string())
+                    .collect();
+            build_override_command.extend(build_cfg.args.iter().cloned());
+            build_override_command
+                .extend(dependencies.iter().map(|d| format!("-p{d}")));
+
             let mut out = LspConfig {
                 features: features
                     .unwrap_or(&"".to_owned())
@@ -127,8 +168,10 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                     .map(|s| s.to_string())
                     .collect(),
                 target: target.unwrap().to_string(),
-                env: build_cfg.env,
+                extra_env: build_cfg.env,
                 hash: "".to_owned(),
+                exclude_dirs,
+                build_override_command,
             };
 
             let mut s = DefaultHasher::new();
