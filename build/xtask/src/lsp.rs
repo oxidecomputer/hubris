@@ -102,6 +102,8 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
             // system contains an ad hoc, informally-specified, bug-ridden, slow
             // implementation of half of Cargo."
             while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
+                // Anything not in `packages` is something from outside the
+                // workspace, so we don't care about it.
                 let pkg = match packages.get(&pkg_name) {
                     Some(pkg) => pkg,
                     None => continue,
@@ -165,6 +167,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                     .flat_map(|(_, sub)| sub.iter())
                     .filter(|f| !package_features.contains(*f))
                 {
+                    let s = s.strip_prefix("dep:").unwrap_or(s);
                     if s.contains("?/") {
                         let mut iter = s.split("?/");
                         let cra = iter.next().unwrap();
@@ -180,8 +183,6 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                         let t = next.get_mut(cra).unwrap();
                         t.optional = false;
                         t.features.push(fea.to_owned());
-                    } else if let Some(s) = s.strip_prefix("dep:") {
-                        next.get_mut(s).unwrap().optional = false;
                     } else {
                         next.get_mut(s).unwrap().optional = false;
                     }
