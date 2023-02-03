@@ -825,6 +825,10 @@ impl ServerImpl {
                     },
                 );
 
+                // A response length of 0 is how `control-plane-agent` indicates
+                // we do not have an installinator image ID; instead of
+                // returning a 0-length success to the host, convert it to the
+                // "we have no value for this key" error.
                 if response_len == 0 {
                     self.tx_buf.reset();
                     return Err(KeyLookupResult::NoValueForKey);

@@ -935,15 +935,19 @@ impl SpHandler for MgsHandler {
 
         match Key::from_u8(key) {
             Some(Key::InstallinatorImageId) => {
-                if value.len() > self.installinator_image_id.capacity() {
+                // Check the incoming data length first; if this fails, we'll
+                // keep whatever existing image ID we have.
+                let max_len = self.installinator_image_id.capacity();
+                if value.len() > max_len {
                     return Err(SpError::SetIpccKeyLookupValueFailed(
                         IpccKeyLookupValueError::ValueTooLong {
-                            max_len: self.installinator_image_id.capacity()
-                                as u16,
+                            max_len: max_len as u16,
                         },
                     ));
                 }
 
+                // We now know `value` will fit, so replace our current
+                // installinator ID and unwrap the `extend_from_slice()`.
                 self.installinator_image_id.clear();
                 self.installinator_image_id
                     .extend_from_slice(value)
