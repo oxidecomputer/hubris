@@ -5,12 +5,12 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_devices::sbrmi::{CpuidResult, Error, Sbrmi};
 use drv_sbrmi_api::SbrmiError;
 use idol_runtime::NotificationHandler;
 use idol_runtime::RequestError;
-use drv_i2c_devices::sbrmi::{Sbrmi, Error, CpuidResult};
-use userlib::*;
 use ringbuf::*;
+use userlib::*;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -45,7 +45,7 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
             }
             Ok(rval) => {
                 ringbuf_entry!(Trace::CpuidResult(rval));
-                Ok([ rval.eax, rval.ebx, rval.ecx, rval.edx ])
+                Ok([rval.eax, rval.ebx, rval.ecx, rval.edx])
             }
         }
     }

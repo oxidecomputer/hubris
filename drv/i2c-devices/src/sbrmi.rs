@@ -117,9 +117,11 @@ impl Sbrmi {
         thread: u8,
         eax: u32,
         ecx: u32,
-    ) -> Result<CpuidResult, Error>   {
+    ) -> Result<CpuidResult, Error> {
         let eax = eax.to_le_bytes();
-        let mut rval = CpuidResult { ..Default::default() };
+        let mut rval = CpuidResult {
+            ..Default::default()
+        };
 
         if (thread >> 7) != 0 {
             return Err(Error::BadThreadId);
@@ -136,15 +138,15 @@ impl Sbrmi {
             let mut result = [0u8; 10];
 
             let call: [u8; 10] = [
-                0x73,               // Read CPUID/Read Register Command Format
-                0x8,                // Payload size
-                0x8,                // Desired return size
-                0x91,               // CPUID command
-                thread << 1,        // Thread ID
-                eax[0],             // EAX[7:0]
-                eax[1],             // EAX[15:8]
-                eax[2],             // EAX[23:16]
-                eax[3],             // EAX[31:24]
+                0x73,        // Read CPUID/Read Register Command Format
+                0x8,         // Payload size
+                0x8,         // Desired return size
+                0x91,        // CPUID command
+                thread << 1, // Thread ID
+                eax[0],      // EAX[7:0]
+                eax[1],      // EAX[15:8]
+                eax[2],      // EAX[23:16]
+                eax[3],      // EAX[31:24]
                 (((ecx & 0xf) << 4) | regset) as u8, // ECX[3:0] + reg set
             ];
 
@@ -163,7 +165,7 @@ impl Sbrmi {
             let code = StatusCode::from(result[1]);
 
             if code != StatusCode::Success {
-                return Err(Error::CpuidFailed { code })
+                return Err(Error::CpuidFailed { code });
             }
 
             if regset == 0 {
