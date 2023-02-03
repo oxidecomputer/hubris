@@ -72,9 +72,6 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         .into_iter()
         .map(|p| (p.name.clone(), p))
         .collect::<BTreeMap<_, _>>();
-    let package = packages.get(&package_name).ok_or_else(|| {
-        anyhow!("cannot find package {package_name} in cargo metadata")
-    })?;
 
     let root = metadata.workspace_root;
 
@@ -88,7 +85,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         let cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
 
-        for (name, task) in cfg.toml.tasks {
+        for (name, task) in &cfg.toml.tasks {
             // We're going to calculate this package's dependencies, taking
             // features into account.  The `dependencies` array below stores a
             // mapping from packages to their enabled features; we build it by
@@ -97,145 +94,184 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
                 BTreeMap::new();
             let mut todo: Vec<(String, bool, BTreeSet<String>)> = vec![(
                 task.name.clone(),
+                false,
                 task.features.clone().into_iter().collect(),
             )];
+
+            // Ferris's tenth rule: "Any sufficiently complicated Rust build
+            // system contains an ad hoc, informally-specified, bug-ridden, slow
+            // implementation of half of Cargo."
             while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
                 let pkg = match packages.get(&pkg_name) {
                     Some(pkg) => pkg,
                     None => continue,
                 };
 
-                // Calculate the full set of features by iterating over them
-                // repeatedly until the set of enabled features stabilizes.
+                let package_features: BTreeSet<String> =
+                    pkg.features.keys().cloned().collect();
+
+                // Features can enable other features; calculate the full set of
+                // features by iterating over them repeatedly until the set of
+                // enabled features stabilizes.
                 loop {
                     let mut changed = false;
                     for (f, sub) in &pkg.features {
-                        if feat.contains(f) {
+                        if feat.contains(f) || (f == "default" && default_feat)
+                        {
                             for s in sub.iter() {
-                                if !s.starts_with("dep:") {
+                                if package_features.contains(s) {
                                     changed |= feat.insert(s.to_string());
                                 }
                             }
                         }
                     }
-                    if changed {
+                    if !changed {
                         break;
                     }
                 }
 
-                // Now that we've got features, we can figure out which
-                // dependencies are enabled by features.
-                let mut enabled_packages = BTreeSet::new();
-                for (f, sub) in &pkg.features {
-                    if feat.contains(f) {
-                        for s in sub.iter() {
-                            if let Some(pkg) = s.strip_prefix("dep:") {
-                                enabled_packages.
-                            }
-                        }
+                // Feature unification: if we've already seen this package, and
+                // the currently-enabled features don't add anything new, then
+                // we can skip it.
+                {
+                    let mut changed = !dependencies.contains_key(&pkg_name);
+                    let entry =
+                        dependencies.entry(pkg_name.clone()).or_default();
+                    for f in feat.iter() {
+                        changed |= entry.insert(f.to_string());
+                    }
+                    if !changed {
+                        continue;
                     }
                 }
 
-            }
-        }
-
-        let target_name = if unimplemented!() {
-            Some(package_name.clone())
-        } else {
-            let mut out = None;
-            for t in cfg.toml.tasks.values() {
-                let mut todo = vec![t.name.clone()];
-                let mut dependencies = BTreeSet::new();
-                while let Some(t) = todo.pop() {
-                    if packages.contains_key(&t)
-                        && dependencies.insert(t.clone())
-                    {
-                        todo.extend(
-                            packages[&t]
-                                .dependencies
-                                .iter()
-                                .filter(|s| {
-                                    s.kind
-                                        != cargo_metadata::DependencyKind::Build
-                                })
-                                .map(|s| s.name.clone())
-                                .filter(|d| !dependencies.contains(d)),
-                        );
-                    }
-                }
-                if dependencies.contains(&package_name) {
-                    out = Some(t.name.clone());
-                    break;
-                }
-            }
-            out
-        };
-
-        let target_name = target_name.ok_or_else(|| {
-            anyhow!("Could not find a package for {package_name}")
-        })?;
-
-        if let Some(t) = cfg
-            .toml
-            .tasks
-            .iter()
-            .find(|(_name, task)| task.name == target_name)
-        {
-            let build_cfg =
-                cfg.toml.task_build_config(t.0, false, None).map_err(|_| {
-                    anyhow!("could not get build config for {}", t.0)
-                })?;
-
-            let mut iter = build_cfg.args.iter();
-            let mut features = None;
-            let mut target = None;
-            while let Some(t) = iter.next() {
-                if t == "--features" {
-                    features = iter.next().to_owned();
-                }
-                if t == "--target" {
-                    target = iter.next().to_owned();
-                }
-            }
-
-            if target.is_none() {
-                bail!("missing --target argument");
-            }
-
-            let mut build_override_command: Vec<String> =
-                "cargo check --message-format=json"
-                    .split(' ')
-                    .map(|s| s.to_string())
+                // Store the crates to examine next
+                let mut next: BTreeMap<String, _> = pkg
+                    .dependencies
+                    .iter()
+                    .map(|d| (d.name.clone(), d.clone()))
                     .collect();
-            build_override_command.extend(build_cfg.args.iter().cloned());
-            build_override_command.push(format!("-p{package_name}"));
-            if package_name != target_name {
-                build_override_command.push(format!("-p{target_name}"));
+
+                // Now that we've got features, we can figure out which
+                // dependencies are enabled by features.  We iterate over
+                // feature that is enabled, examining anything that *it* enables
+                // which is not itself a feature (since those were handled
+                // above).  This means that everything handled in this loop is
+                // a dependency of some work ('dep', 'dep/feat', 'dep?/feat')
+                for s in pkg
+                    .features
+                    .iter()
+                    .filter(|f| feat.contains(f.0))
+                    .flat_map(|(_, sub)| sub.iter())
+                    .filter(|f| !package_features.contains(*f))
+                {
+                    if s.contains("?/") {
+                        let mut iter = s.split("?/");
+                        let cra = iter.next().unwrap();
+                        let fea = iter.next().unwrap();
+                        next.get_mut(cra)
+                            .unwrap()
+                            .features
+                            .push(fea.to_owned());
+                    } else if s.contains('/') {
+                        let mut iter = s.split('/');
+                        let cra = iter.next().unwrap();
+                        let fea = iter.next().unwrap();
+                        let t = next.get_mut(cra).unwrap();
+                        t.optional = false;
+                        t.features.push(fea.to_owned());
+                    } else if let Some(s) = s.strip_prefix("dep:") {
+                        next.get_mut(s).unwrap().optional = false;
+                    } else {
+                        next.get_mut(s).unwrap().optional = false;
+                    }
+                }
+                for n in next.values() {
+                    if n.kind != cargo_metadata::DependencyKind::Build
+                        && !n.optional
+                    {
+                        todo.push((
+                            n.name.clone(),
+                            n.uses_default_features,
+                            n.features.iter().cloned().collect(),
+                        ));
+                    }
+                }
             }
-            build_override_command.push("--target-dir".to_owned());
-            build_override_command.push("target/rust-analyzer".to_owned());
 
-            let mut out = LspConfig {
-                features: features
-                    .unwrap_or(&"".to_owned())
-                    .split(',')
-                    .map(|s| s.to_string())
-                    .collect(),
-                target: target.unwrap().to_string(),
-                extra_env: build_cfg.env,
-                hash: "".to_owned(),
-                exclude_dirs: todo!(),
-                build_override_command,
-                app: p.clone().to_owned(),
-                task: t.0.clone(),
-            };
+            // Congrats, we've found a task in the given image which uses our
+            // desired crate.  Let's do some stuff with it.
+            if dependencies.contains_key(&package_name) {
+                let build_cfg =
+                    cfg.toml.task_build_config(&name, false, None).map_err(
+                        |_| anyhow!("could not get build config for {}", name),
+                    )?;
 
-            let mut s = DefaultHasher::new();
-            out.hash(&mut s);
-            out.hash = format!("{:x}", s.finish());
-            out.hash.truncate(8);
+                let mut iter = build_cfg.args.iter();
+                let mut target = None;
+                while let Some(t) = iter.next() {
+                    if t == "--target" {
+                        target = iter.next().to_owned();
+                    }
+                }
 
-            return Ok(out);
+                if target.is_none() {
+                    bail!("missing --target argument");
+                }
+
+                let features: Vec<String> = dependencies
+                    .iter()
+                    .flat_map(|(package, feat)| {
+                        feat.iter().map(move |f| format!("{package}/{f}"))
+                    })
+                    .collect();
+
+                let exclude_dirs: Vec<String> = packages
+                    .values()
+                    .filter(|p| !dependencies.contains_key(&p.name))
+                    .map(|p| {
+                        pathdiff::diff_paths(
+                            p.manifest_path.parent().unwrap(),
+                            &root,
+                        )
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                    })
+                    .collect();
+
+                let mut build_override_command: Vec<String> =
+                    "cargo check --message-format=json"
+                        .split(' ')
+                        .map(|s| s.to_string())
+                        .collect();
+                build_override_command.extend(build_cfg.args.iter().cloned());
+                build_override_command
+                    .extend(dependencies.keys().map(|p| format!("-p{p}")));
+                build_override_command.push("--target-dir".to_owned());
+                build_override_command.push("target/rust-analyzer".to_owned());
+                build_override_command
+                    .push(format!("--features={}", features.join(",")));
+
+                let mut out = LspConfig {
+                    features,
+                    target: target.unwrap().to_string(),
+                    extra_env: build_cfg.env,
+                    hash: "".to_owned(),
+                    exclude_dirs,
+                    build_override_command,
+                    app: p.clone().to_owned(),
+                    task: name.clone(),
+                };
+
+                let mut s = DefaultHasher::new();
+                out.hash(&mut s);
+                out.hash = format!("{:x}", s.finish());
+                out.hash.truncate(8);
+
+                return Ok(out);
+            }
         }
     }
     Err(anyhow!("could not find {package_name} used in any apps"))
