@@ -116,7 +116,6 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         .collect();
 
     let preferred_apps = [
-        "app/demo-stm32g0-nucleo/app-g031-mini.toml",
         "app/gimlet/rev-c.toml",
         "app/sidecar/rev-b.toml",
         "app/psc/rev-b.toml",
