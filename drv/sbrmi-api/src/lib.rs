@@ -20,6 +20,7 @@ pub enum SbrmiError {
     CpuidError,
     CpuidUnavailable,
     CpuidTimeout,
+    RdmsrError,
 }
 
 impl From<drv_i2c_api::ResponseCode> for SbrmiError {
@@ -39,6 +40,7 @@ impl From<sbrmi::Error> for SbrmiError {
         match err {
             Error::BadRegisterRead { code, .. } => code.into(),
             Error::BadCpuidRead { code } => code.into(),
+            Error::BadRdmsr { code, .. } => code.into(),
             Error::BadThreadId => Self::BadThreadId,
             Error::BadCpuidInput => Self::BadCpuidInput,
             Error::BadCpuidLength { .. } => Self::CpuidError,
@@ -46,7 +48,9 @@ impl From<sbrmi::Error> for SbrmiError {
                 StatusCode::CommandTimeout => Self::CpuidTimeout,
                 StatusCode::UnsupportedCommand => Self::CpuidUnavailable,
                 _ => Self::CpuidError,
-            }
+            },
+            Error::BadRdmsrLength { .. } => Self::RdmsrError,
+            Error::RdmsrFailed { .. } => Self::RdmsrError,
         }
     }
 }

@@ -15,5 +15,49 @@ Interface(
             ),
             idempotent: true,
         ),
+        "rdmsr8": (
+            args: {
+                "thread": "u8",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+        ),
+        "rdmsr16": (
+            args: {
+                "thread": "u8",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+        ),
+        "rdmsr32": (
+            args: {
+                "thread": "u8",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+        ),
+        "rdmsr64": (
+            args: {
+                "thread": "u8",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u64",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+        ),
     },
 )

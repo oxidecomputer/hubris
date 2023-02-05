@@ -7,6 +7,7 @@
 use crate::Validate;
 use drv_i2c_api::*;
 use ringbuf::*;
+use zerocopy::FromBytes;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -48,6 +49,9 @@ pub enum Error {
     BadCpuidLength { length: u8 },
     BadCpuidRead { code: ResponseCode },
     CpuidFailed { code: StatusCode },
+    BadRdmsrLength { length: u8 },
+    BadRdmsr { code: ResponseCode },
+    RdmsrFailed { code: StatusCode },
 }
 
 impl From<Error> for ResponseCode {
@@ -92,6 +96,8 @@ enum Trace {
     None,
     CpuidCall([u8; 10]),
     CpuidResult([u8; 10]),
+    RdmsrCall([u8; 9]),
+    RdmsrResult([u8; 10]),
 }
 
 ringbuf!(Trace, 12, Trace::None);
@@ -178,6 +184,48 @@ impl Sbrmi {
         }
 
         Ok(rval)
+    }
+
+    pub fn rdmsr<V: FromBytes>(
+        &self,
+        thread: u8,
+        msr: u32,
+    ) -> Result<V, Error> {
+        let size = core::mem::size_of::<V>() as u8;
+        let msr = msr.to_le_bytes();
+        let mut result = [0u8; 10];
+
+        let call: [u8; 9] = [
+            0x73,        // Read CPUID/Read Register Command Format
+            0x7,         // Payload size
+            size,        // Desired return size
+            0x86,        // Read register command
+            thread << 1, // Thread ID
+            msr[0],      // address[7:0]
+            msr[1],      // address[15:8]
+            msr[2],      // address[23:16]
+            msr[3],      // address[31:24]
+        ];
+
+        ringbuf_entry!(Trace::RdmsrCall(call));
+
+        if let Err(code) = self.device.read_reg_into(call, &mut result) {
+            return Err(Error::BadRdmsr { code });
+        }
+
+        ringbuf_entry!(Trace::RdmsrResult(result));
+
+        if result[0] == 0 || result[0] > size + 1 {
+            return Err(Error::BadRdmsrLength { length: result[0] });
+        }
+
+        let code = StatusCode::from(result[1]);
+
+        if code != StatusCode::Success {
+            return Err(Error::RdmsrFailed { code });
+        }
+
+        Ok(<V>::read_from(&result[2..2 + size as usize]).unwrap())
     }
 }
 
