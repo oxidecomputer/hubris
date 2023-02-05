@@ -23,6 +23,7 @@ struct Package {
     name: String,
 }
 
+/// Configuration to send to the text editor
 #[derive(Serialize, Hash)]
 #[serde(rename_all = "camelCase")]
 struct LspConfig {
@@ -35,6 +36,144 @@ struct LspConfig {
     app: String,
     task: String,
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct PackageGraph(BTreeMap<String, cargo_metadata::Package>);
+
+impl PackageGraph {
+    fn new(metadata: cargo_metadata::Metadata) -> Self {
+        let packages = metadata
+            .packages
+            .into_iter()
+            .map(|p| (p.name.clone(), p))
+            .collect::<BTreeMap<_, _>>();
+        Self(packages)
+    }
+
+    fn resolve(
+        &self,
+        root: &str,
+        features: &[String],
+    ) -> BTreeMap<String, BTreeSet<String>> {
+        // We're going to calculate this package's dependencies, taking
+        // features into account.  The `dependencies` array below stores a
+        // mapping from packages to their enabled features; we build it by
+        // recursing down the whole package tree, starting at the task.
+        let mut dependencies: BTreeMap<String, BTreeSet<String>> =
+            BTreeMap::new();
+        let mut todo: Vec<(String, bool, BTreeSet<String>)> = vec![(
+            root.to_owned(),
+            false,
+            features.clone().into_iter().cloned().collect(),
+        )];
+
+        // Ferris's tenth rule: "Any sufficiently complicated Rust build
+        // system contains an ad hoc, informally-specified, bug-ridden, slow
+        // implementation of half of Cargo."
+        while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
+            // Anything not in `packages` is something from outside the
+            // workspace, so we don't care about it.
+            let pkg = match self.0.get(&pkg_name) {
+                Some(pkg) => pkg,
+                None => continue,
+            };
+
+            let package_features: BTreeSet<String> =
+                pkg.features.keys().cloned().collect();
+
+            // Features can enable other features; calculate the full set of
+            // features by iterating over them repeatedly until the set of
+            // enabled features stabilizes.
+            loop {
+                let mut changed = false;
+                for (f, sub) in &pkg.features {
+                    if feat.contains(f) || (f == "default" && default_feat) {
+                        for s in sub.iter() {
+                            if package_features.contains(s) {
+                                changed |= feat.insert(s.to_string());
+                            }
+                        }
+                    }
+                }
+                if !changed {
+                    break;
+                }
+            }
+
+            // Feature unification: if we've already seen this package, and
+            // the currently-enabled features don't add anything new, then
+            // we can skip it.
+            {
+                let mut changed = !dependencies.contains_key(&pkg_name);
+                let entry = dependencies.entry(pkg_name.clone()).or_default();
+                for f in feat.iter() {
+                    changed |= entry.insert(f.to_string());
+                }
+                if !changed {
+                    continue;
+                }
+            }
+
+            // Store the crates to examine next
+            let mut next: BTreeMap<String, _> = pkg
+                .dependencies
+                .iter()
+                .map(|d| (d.name.clone(), d.clone()))
+                .collect();
+
+            // Now that we've got features, we can figure out which
+            // dependencies are enabled by features.  We iterate over
+            // feature that is enabled, examining anything that *it* enables
+            // which is not itself a feature (since those were handled
+            // above).  This means that everything handled in this loop is
+            // a dependency of some work ('dep', 'dep/feat', 'dep?/feat')
+            for s in pkg
+                .features
+                .iter()
+                .filter(|f| feat.contains(f.0))
+                .flat_map(|(_, sub)| sub.iter())
+                .filter(|f| !package_features.contains(*f))
+            {
+                let s = s.strip_prefix("dep:").unwrap_or(s);
+                if s.contains("?/") {
+                    let mut iter = s.split("?/");
+                    let cra = iter.next().unwrap();
+                    let fea = iter.next().unwrap();
+                    next.get_mut(cra).unwrap().features.push(fea.to_owned());
+                } else if s.contains('/') {
+                    let mut iter = s.split('/');
+                    let cra = iter.next().unwrap();
+                    let fea = iter.next().unwrap();
+                    let t = next.get_mut(cra).unwrap();
+                    t.optional = false;
+                    t.features.push(fea.to_owned());
+                } else {
+                    next.get_mut(s).unwrap().optional = false;
+                }
+            }
+            for n in next.values() {
+                if n.kind != cargo_metadata::DependencyKind::Build
+                    && !n.optional
+                {
+                    todo.push((
+                        n.name.clone(),
+                        n.uses_default_features,
+                        n.features.iter().cloned().collect(),
+                    ));
+                }
+            }
+        }
+
+        dependencies
+    }
+
+    fn values(&self) -> impl Iterator<Item = &cargo_metadata::Package> {
+        self.0.values()
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
     if !file.is_file() {
@@ -67,13 +206,8 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
         .exec()
         .context("failed to run cargo metadata")?;
 
-    let packages = metadata
-        .packages
-        .into_iter()
-        .map(|p| (p.name.clone(), p))
-        .collect::<BTreeMap<_, _>>();
-
-    let root = metadata.workspace_root;
+    let root = metadata.workspace_root.clone();
+    let packages = PackageGraph::new(metadata);
 
     let preferred_apps = [
         "app/gimlet/rev-c.toml",
@@ -86,119 +220,7 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
             .context(format!("could not open {file:?}"))?;
 
         for (name, task) in &cfg.toml.tasks {
-            // We're going to calculate this package's dependencies, taking
-            // features into account.  The `dependencies` array below stores a
-            // mapping from packages to their enabled features; we build it by
-            // recursing down the whole package tree, starting at the task.
-            let mut dependencies: BTreeMap<String, BTreeSet<String>> =
-                BTreeMap::new();
-            let mut todo: Vec<(String, bool, BTreeSet<String>)> = vec![(
-                task.name.clone(),
-                false,
-                task.features.clone().into_iter().collect(),
-            )];
-
-            // Ferris's tenth rule: "Any sufficiently complicated Rust build
-            // system contains an ad hoc, informally-specified, bug-ridden, slow
-            // implementation of half of Cargo."
-            while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
-                // Anything not in `packages` is something from outside the
-                // workspace, so we don't care about it.
-                let pkg = match packages.get(&pkg_name) {
-                    Some(pkg) => pkg,
-                    None => continue,
-                };
-
-                let package_features: BTreeSet<String> =
-                    pkg.features.keys().cloned().collect();
-
-                // Features can enable other features; calculate the full set of
-                // features by iterating over them repeatedly until the set of
-                // enabled features stabilizes.
-                loop {
-                    let mut changed = false;
-                    for (f, sub) in &pkg.features {
-                        if feat.contains(f) || (f == "default" && default_feat)
-                        {
-                            for s in sub.iter() {
-                                if package_features.contains(s) {
-                                    changed |= feat.insert(s.to_string());
-                                }
-                            }
-                        }
-                    }
-                    if !changed {
-                        break;
-                    }
-                }
-
-                // Feature unification: if we've already seen this package, and
-                // the currently-enabled features don't add anything new, then
-                // we can skip it.
-                {
-                    let mut changed = !dependencies.contains_key(&pkg_name);
-                    let entry =
-                        dependencies.entry(pkg_name.clone()).or_default();
-                    for f in feat.iter() {
-                        changed |= entry.insert(f.to_string());
-                    }
-                    if !changed {
-                        continue;
-                    }
-                }
-
-                // Store the crates to examine next
-                let mut next: BTreeMap<String, _> = pkg
-                    .dependencies
-                    .iter()
-                    .map(|d| (d.name.clone(), d.clone()))
-                    .collect();
-
-                // Now that we've got features, we can figure out which
-                // dependencies are enabled by features.  We iterate over
-                // feature that is enabled, examining anything that *it* enables
-                // which is not itself a feature (since those were handled
-                // above).  This means that everything handled in this loop is
-                // a dependency of some work ('dep', 'dep/feat', 'dep?/feat')
-                for s in pkg
-                    .features
-                    .iter()
-                    .filter(|f| feat.contains(f.0))
-                    .flat_map(|(_, sub)| sub.iter())
-                    .filter(|f| !package_features.contains(*f))
-                {
-                    let s = s.strip_prefix("dep:").unwrap_or(s);
-                    if s.contains("?/") {
-                        let mut iter = s.split("?/");
-                        let cra = iter.next().unwrap();
-                        let fea = iter.next().unwrap();
-                        next.get_mut(cra)
-                            .unwrap()
-                            .features
-                            .push(fea.to_owned());
-                    } else if s.contains('/') {
-                        let mut iter = s.split('/');
-                        let cra = iter.next().unwrap();
-                        let fea = iter.next().unwrap();
-                        let t = next.get_mut(cra).unwrap();
-                        t.optional = false;
-                        t.features.push(fea.to_owned());
-                    } else {
-                        next.get_mut(s).unwrap().optional = false;
-                    }
-                }
-                for n in next.values() {
-                    if n.kind != cargo_metadata::DependencyKind::Build
-                        && !n.optional
-                    {
-                        todo.push((
-                            n.name.clone(),
-                            n.uses_default_features,
-                            n.features.iter().cloned().collect(),
-                        ));
-                    }
-                }
-            }
+            let dependencies = packages.resolve(&task.name, &task.features);
 
             // Congrats, we've found a task in the given image which uses our
             // desired crate.  Let's do some stuff with it.
