@@ -22,6 +22,7 @@ mod bsp;
 
 use userlib::*;
 
+use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
@@ -180,6 +181,24 @@ impl ServerImpl {
             HfMuxState::HostCPU => Err(HfError::NotMuxedToSP),
         }
     }
+
+    fn page_program_inner(
+        &mut self,
+        addr: u32,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        // Read the entire data block into our address space.
+        data.read_range(0..data.len(), &mut self.block[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        // Now we can't fail.
+
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.page_program(addr, &self.block[..data.len()]);
+        poll_for_write_complete(&self.qspi, None);
+        Ok(())
+    }
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -226,17 +245,19 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        self.check_muxed_to_sp()?;
-        // Read the entire data block into our address space.
-        data.read_range(0..data.len(), &mut self.block[..data.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        if addr as usize / SECTOR_SIZE_BYTES == 0 {
+            return Err(HfError::Sector0IsReserved.into());
+        }
+        self.page_program_inner(addr, data)
+    }
 
-        // Now we can't fail.
-
-        set_and_check_write_enable(&self.qspi)?;
-        self.qspi.page_program(addr, &self.block[..data.len()]);
-        poll_for_write_complete(&self.qspi, None);
-        Ok(())
+    fn page_program_sector0(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        self.page_program_inner(addr, data)
     }
 
     fn read(
@@ -259,9 +280,23 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         addr: u32,
     ) -> Result<(), RequestError<HfError>> {
+        if addr as usize / SECTOR_SIZE_BYTES == 0 {
+            return Err(HfError::Sector0IsReserved.into());
+        }
         self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.sector_erase(addr);
+        poll_for_write_complete(&self.qspi, Some(1));
+        Ok(())
+    }
+
+    fn sector0_erase(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.sector_erase(0);
         poll_for_write_complete(&self.qspi, Some(1));
         Ok(())
     }
@@ -378,15 +413,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     }
 }
 
-fn set_and_check_write_enable(
-    qspi: &Qspi,
-) -> Result<(), RequestError<HfError>> {
+fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
     qspi.write_enable();
     let status = qspi.read_status();
 
     if status & 0b10 == 0 {
         // oh oh
-        return Err(HfError::WriteEnableFailed.into());
+        return Err(HfError::WriteEnableFailed);
     }
     Ok(())
 }

@@ -44,6 +44,19 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "page_program_sector0": (
+            doc: "Programs data to a flash page, allowing writes to sector 0",
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "read": (
             args: {
                 "address": "u32",
@@ -60,6 +73,13 @@ Interface(
             args: {
                 "address": "u32",
             },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "sector0_erase": (
+            doc: "erases sector 0, which is normally reserved",
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),

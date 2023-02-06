@@ -25,6 +25,7 @@ pub enum HfError {
     HashNotConfigured,
     NoDevSelect,
     NotMuxedToSP,
+    Sector0IsReserved,
 
     #[idol(server_death)]
     ServerRestarted,
