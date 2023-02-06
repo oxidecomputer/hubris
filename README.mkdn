@@ -274,9 +274,6 @@ require'rust-tools'.setup{
         ra.check = {
           overrideCommand = json.Ok.buildOverrideCommand,
         }
-        ra.files = {
-          excludeDirs = json.Ok.excludeDirs
-        }
         config.lspinfo = function()
           return { "Hubris app:      " .. json.Ok.app,
                    "Hubris task:     " .. json.Ok.task }
