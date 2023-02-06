@@ -268,6 +268,10 @@ require'rust-tools'.setup{
       if json ~= nil then
         local config = vim.deepcopy(client.config)
         local ra = config.settings["rust-analyzer"]
+        -- Do rust-analyzer builds in a separate folder to avoid blocking
+        -- the main build with a file lock.
+        table.insert(json.Ok.buildOverrideCommand, "--target-dir")
+        table.insert(json.Ok.buildOverrideCommand, "target/rust-analyzer")
         ra.cargo = {
           extraEnv = json.Ok.extraEnv,
           features = json.Ok.features,
