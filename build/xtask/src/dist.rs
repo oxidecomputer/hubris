@@ -156,27 +156,30 @@ impl PackageConfig {
         // beginning with "\\hostname\".  However, rustc expects a non-UNC
         // path for its --remap-path-prefix argument, so we use
         // `dunce::canonicalize` instead
-        let cargo_home = dunce::canonicalize(std::env::var("CARGO_HOME")?)?;
-        let cargo_git = cargo_home.join("git").join("checkouts");
-        remap_paths.insert(cargo_git, "/git");
+        if let Ok(home) = std::env::var("CARGO_HOME") {
+            let cargo_home = dunce::canonicalize(home)?;
+            let cargo_git = cargo_home.join("git").join("checkouts");
+            remap_paths.insert(cargo_git, "/git");
 
-        // This hash is canonical-ish: Cargo tries hard not to change it
-        // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
-        //
-        // It depends on system architecture, so this won't work on (for example)
-        // a Raspberry Pi, but the only downside is that panic messages will
-        // be longer.
-        let cargo_registry = cargo_home
-            .join("registry")
-            .join("src")
-            .join("github.com-1ecc6299db9ec823");
-        remap_paths.insert(cargo_registry, "/crates.io");
+            // This hash is canonical-ish: Cargo tries hard not to change it
+            // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
+            //
+            // It depends on system architecture, so this won't work on (for example)
+            // a Raspberry Pi, but the only downside is that panic messages will
+            // be longer.
+            let cargo_registry = cargo_home
+                .join("registry")
+                .join("src")
+                .join("github.com-1ecc6299db9ec823");
+            remap_paths.insert(cargo_registry, "/crates.io");
+        }
 
-        let mut hubris_dir =
-            dunce::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
-        hubris_dir.pop();
-        hubris_dir.pop();
-        remap_paths.insert(hubris_dir.to_path_buf(), "/hubris");
+        if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
+            let mut hubris_dir = dunce::canonicalize(dir)?;
+            hubris_dir.pop();
+            hubris_dir.pop();
+            remap_paths.insert(hubris_dir.to_path_buf(), "/hubris");
+        }
         Ok(remap_paths)
     }
 }

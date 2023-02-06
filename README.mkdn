@@ -180,6 +180,154 @@ more tasks in the context of a particular image:
 $ cargo xtask clippy app/gimletlet/app.toml ping pong
 ```
 
+## Integrating with `rust-analyzer`
+The Hubris build system will not work with `rust-analyzer` out of the box.
+
+However, `cargo xtask lsp` is here to help: it takes as its argument a Rust
+file, and returns JSON-encoded configuration for how to set up `rust-analyzer`.
+
+To use this data, some editor configuration is required!
+
+(we haven't made plugins yet, but it would certainly be possible)
+
+Using Neovim and [`rust-tools`](https://github.com/simrat39/rust-tools.nvim),
+here's an example configuration:
+
+```lua
+-- monkeypatch rust-tools to correctly detect our custom rust-analyzer
+require'rust-tools.utils.utils'.is_ra_server = function (client)
+  local name = client.name
+  local target = "rust_analyzer"
+  return string.sub(client.name, 1, string.len(target)) == target
+    or client.name == "rust_analyzer-standalone"
+end
+
+-- Configure LSP through rust-tools.nvim plugin, with lots of bonus
+-- content for Hubris compatibility
+local cache = {}
+local clients = {}
+require'rust-tools'.setup{
+  tools = { -- rust-tools options
+    autoSetHints = true,
+    inlay_hints = {
+      show_parameter_hints = false,
+      parameter_hints_prefix = "",
+      other_hints_prefix = "",
+      -- do other configuration here as desired
+    },
+  },
+
+  server = {
+    on_new_config = function(new_config, new_root_dir)
+      local bufnr = vim.api.nvim_get_current_buf()
+      local bufname = vim.api.nvim_buf_get_name(bufnr)
+      local dir = new_config.root_dir()
+      if string.find(dir, "hubris") then
+        -- Run `xtask lsp` for the target file, which gives us a JSON
+        -- dictionary with bonus configuration.
+        local prev_cwd = vim.fn.getcwd()
+        vim.cmd("cd " .. dir)
+        local cmd = dir .. "/target/debug/xtask lsp "
+        -- Notify `xtask lsp` of existing clients in the CLI invocation,
+        -- so it can check against them first (which would mean a faster
+        -- attach)
+        for _,v in pairs(clients) do
+          local c = vim.fn.escape(vim.json.encode(v), '"')
+          cmd = cmd .. '-c"' .. c .. '" '
+        end
+        local handle = io.popen(cmd .. bufname)
+        handle:flush()
+        local result = handle:read("*a")
+        handle:close()
+        vim.cmd("cd " .. prev_cwd)
+
+        -- If `xtask` doesn't know about `lsp`, then it will print an error to
+        -- stderr and return nothing on stdout.
+        if result == "" then
+          vim.notify("recompile `xtask` for `lsp` support", vim.log.levels.WARN)
+        end
+
+        -- If the given file should be handled with special care, then
+        -- we give the rust-analyzer client a custom name (to prevent
+        -- multiple buffers from attaching to it), then cache the JSON in
+        -- a local variable for use in `on_attach`
+        local json = vim.json.decode(result)
+        if json["Ok"] ~= nil then
+          new_config.name = "rust_analyzer_" .. json.Ok.hash
+          cache[bufnr] = json
+          table.insert(clients, {toml = json.Ok.app, task = json.Ok.task})
+        else
+          -- TODO:
+          -- vim.notify(vim.inspect(json.Err), vim.log.levels.ERROR)
+        end
+      end
+    end,
+
+    on_attach = function(client, bufnr)
+      local json = cache[bufnr]
+      if json ~= nil then
+        local config = vim.deepcopy(client.config)
+        local ra = config.settings["rust-analyzer"]
+        -- Do rust-analyzer builds in a separate folder to avoid blocking
+        -- the main build with a file lock.
+        table.insert(json.Ok.buildOverrideCommand, "--target-dir")
+        table.insert(json.Ok.buildOverrideCommand, "target/rust-analyzer")
+        ra.cargo = {
+          extraEnv = json.Ok.extraEnv,
+          features = json.Ok.features,
+          noDefaultFeatures = true,
+          target = json.Ok.target,
+          buildScripts = {
+            overrideCommand = json.Ok.buildOverrideCommand,
+          },
+        }
+        ra.check = {
+          overrideCommand = json.Ok.buildOverrideCommand,
+        }
+        config.lspinfo = function()
+          return { "Hubris app:      " .. json.Ok.app,
+                   "Hubris task:     " .. json.Ok.task }
+        end
+        client.config = config
+      end
+    end,
+
+    settings = {
+      ["rust-analyzer"] = {
+        -- enable clippy on save
+        checkOnSave = {
+          command = "clippy",
+          extraArgs = { '--target-dir', 'target/rust-analyzer' },
+        },
+        diagnostics = {
+          disabled = {"inactive-code"},
+        },
+      }
+    }
+  },
+}
+end
+```
+
+### What's going on here?
+When a new LSP configuration is created (`on_new_config`), we run `cargo
+xtask lsp` on the target file.  The JSON configuration includes a hash of
+the configuration; we use that hash to modify the name of the client from
+`rust_analyzer` to `rust_analyzer_$HASH`.  This prevents Neovim from
+attempting to reuse an existing client, which are normally deduplicated by
+client name and workspace root directory; in Hubris, we want multiple clients
+coexisting with same workspace root, so they need different names.  Then, we
+stash the rest of the configuration in a local variable (`cache`), and record
+the existence of this client in `clients`.
+
+When attaching to the LSP, we try to pull the configuration out of `cache`.  If
+one exists, then we know we're dealing with a Hubris buffer; copy over relevant
+portions of the configuration.
+
+Note that this does not compile `xtask` for you; it assumes it already exists
+in `target/debug/xtask`.  This should be true if you're using Hubris regularly,
+and saves significant amounts of time when opening a new file.
+
 ## Adding a task
 
 To create your own task, the easiest method is:

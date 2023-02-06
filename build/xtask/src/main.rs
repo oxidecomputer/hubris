@@ -17,6 +17,7 @@ mod elf;
 mod flash;
 mod graph;
 mod humility;
+mod lsp;
 mod print;
 mod sizes;
 mod task_slot;
@@ -184,6 +185,19 @@ enum Xtask {
         #[clap(long)]
         expanded_config: bool,
     },
+
+    /// Print a JSON blob with configuration info for `rust-analyzer`
+    Lsp {
+        /// Existing LSP clients.
+        ///
+        /// These should be JSON-encoded strings which can be parsed into an
+        /// `LspClient`.
+        #[clap(short, value_parser)]
+        clients: Vec<lsp::LspClient>,
+
+        /// Path to a Rust source file
+        file: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -349,6 +363,9 @@ fn run(xtask: Xtask) -> Result<()> {
         } => {
             print::run(&cfg, archive, image_name, expanded_config)
                 .context("could not print information about the build")?;
+        }
+        Xtask::Lsp { clients, file } => {
+            lsp::run(&file, &clients)?;
         }
     }
 
