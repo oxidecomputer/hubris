@@ -12,6 +12,19 @@ use std::{
     path::PathBuf,
 };
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct LspClient {
+    toml: String,
+    task: String,
+}
+
+impl std::str::FromStr for LspClient {
+    type Err = serde_json::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
 /// The dumbest subset of a `Cargo.toml` manifest, sufficient to get the name
 #[derive(Deserialize)]
 struct Manifest {
@@ -167,15 +180,89 @@ impl PackageGraph {
 
         dependencies
     }
+}
 
-    fn values(&self) -> impl Iterator<Item = &cargo_metadata::Package> {
-        self.0.values()
+/// Checks whether the given package is valid for the given task
+fn check_task(
+    package_name: &str,
+    task_name: &str,
+    app_name: &str,
+    app_cfg: &PackageConfig,
+    packages: &PackageGraph,
+) -> Option<LspConfig> {
+    let task = &app_cfg.toml.tasks[task_name];
+
+    // Check to see if our target package is used in this task (resolved based
+    // on per-task features)
+    let dependencies = packages.resolve(&task.name, &task.features);
+
+    // Congrats, we've found a task in the given image which uses our
+    // desired crate.  Let's do some stuff with it.
+    if dependencies.contains_key(package_name) {
+        let build_cfg = app_cfg
+            .toml
+            .task_build_config(&task_name, false, None)
+            .map_err(|_| {
+                anyhow!("could not get build config for {}", task_name)
+            })
+            .unwrap();
+
+        let mut iter = build_cfg.args.iter();
+        let mut target = None;
+        while let Some(t) = iter.next() {
+            if t == "--target" {
+                target = iter.next().to_owned();
+            }
+        }
+
+        if target.is_none() {
+            panic!("missing --target argument in build config");
+        }
+
+        let features: Vec<String> = dependencies
+            .iter()
+            .flat_map(|(package, feat)| {
+                feat.iter().map(move |f| format!("{package}/{f}"))
+            })
+            .collect();
+
+        let mut build_override_command: Vec<String> =
+            "cargo check --message-format=json"
+                .split(' ')
+                .map(|s| s.to_string())
+                .collect();
+        build_override_command.extend(build_cfg.args.iter().cloned());
+        build_override_command
+            .extend(dependencies.keys().map(|p| format!("-p{p}")));
+        build_override_command.push("--target-dir".to_owned());
+        build_override_command.push("target/rust-analyzer".to_owned());
+        build_override_command
+            .push(format!("--features={}", features.join(",")));
+
+        let mut out = LspConfig {
+            features,
+            target: target.unwrap().to_string(),
+            extra_env: build_cfg.env,
+            hash: "".to_owned(),
+            exclude_dirs: vec![],
+            build_override_command,
+            app: app_name.clone().to_owned(),
+            task: task_name.to_owned(),
+        };
+
+        let mut s = DefaultHasher::new();
+        out.hash(&mut s);
+        out.hash = format!("{:x}", s.finish());
+        out.hash.truncate(8);
+
+        return Some(out);
     }
+    None
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
+fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
     if !file.is_file() {
         bail!("input must be a file");
     }
@@ -209,99 +296,56 @@ fn inner(file: &PathBuf, _env: bool) -> Result<LspConfig> {
     let root = metadata.workspace_root.clone();
     let packages = PackageGraph::new(metadata);
 
+    // First, see if we have a matching client in the list of clients provided
+    // to the CLI.  This minimizes the number of unique `rust-analyzer`
+    // configurations running simultaneously, and speeds up initial attach time.
+    for c in clients {
+        // TODO: we parse the PackageConfig multiple times here, which may be
+        // slow (but probably not slower than `cargo metadata` above)
+        let file = root.join(&c.toml);
+        let app_cfg = PackageConfig::new(&file, false, false)
+            .context(format!("could not open {file:?}"))?;
+        if let Some(out) =
+            check_task(&package_name, &c.task, &c.toml, &app_cfg, &packages)
+        {
+            return Ok(out);
+        }
+    }
+
     let preferred_apps = [
         "app/gimlet/rev-c.toml",
         "app/sidecar/rev-b.toml",
         "app/psc/rev-b.toml",
     ];
-    for p in preferred_apps {
-        let file = root.join(p);
-        let cfg = PackageConfig::new(&file, false, false)
+    for app_name in preferred_apps {
+        let file = root.join(app_name);
+        let app_cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
 
-        for (name, task) in &cfg.toml.tasks {
-            let dependencies = packages.resolve(&task.name, &task.features);
-
-            // Congrats, we've found a task in the given image which uses our
-            // desired crate.  Let's do some stuff with it.
-            if dependencies.contains_key(&package_name) {
-                let build_cfg =
-                    cfg.toml.task_build_config(&name, false, None).map_err(
-                        |_| anyhow!("could not get build config for {}", name),
-                    )?;
-
-                let mut iter = build_cfg.args.iter();
-                let mut target = None;
-                while let Some(t) = iter.next() {
-                    if t == "--target" {
-                        target = iter.next().to_owned();
-                    }
-                }
-
-                if target.is_none() {
-                    bail!("missing --target argument");
-                }
-
-                let features: Vec<String> = dependencies
-                    .iter()
-                    .flat_map(|(package, feat)| {
-                        feat.iter().map(move |f| format!("{package}/{f}"))
-                    })
-                    .collect();
-
-                let exclude_dirs: Vec<String> = packages
-                    .values()
-                    .filter(|p| !dependencies.contains_key(&p.name))
-                    .map(|p| {
-                        pathdiff::diff_paths(
-                            p.manifest_path.parent().unwrap(),
-                            &root,
-                        )
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_owned()
-                    })
-                    .collect();
-
-                let mut build_override_command: Vec<String> =
-                    "cargo check --message-format=json"
-                        .split(' ')
-                        .map(|s| s.to_string())
-                        .collect();
-                build_override_command.extend(build_cfg.args.iter().cloned());
-                build_override_command
-                    .extend(dependencies.keys().map(|p| format!("-p{p}")));
-                build_override_command.push("--target-dir".to_owned());
-                build_override_command.push("target/rust-analyzer".to_owned());
-                build_override_command
-                    .push(format!("--features={}", features.join(",")));
-
-                let mut out = LspConfig {
-                    features,
-                    target: target.unwrap().to_string(),
-                    extra_env: build_cfg.env,
-                    hash: "".to_owned(),
-                    exclude_dirs,
-                    build_override_command,
-                    app: p.clone().to_owned(),
-                    task: name.clone(),
-                };
-
-                let mut s = DefaultHasher::new();
-                out.hash(&mut s);
-                out.hash = format!("{:x}", s.finish());
-                out.hash.truncate(8);
-
-                return Ok(out);
-            }
+        // See if we can find a valid task within this app_cfg
+        if let Some(out) = app_cfg
+            .toml
+            .tasks
+            .keys()
+            .flat_map(|task_name| {
+                check_task(
+                    &package_name,
+                    task_name,
+                    app_name,
+                    &app_cfg,
+                    &packages,
+                )
+            })
+            .next()
+        {
+            return Ok(out);
         }
     }
     Err(anyhow!("could not find {package_name} used in any apps"))
 }
 
-pub fn run(file: &PathBuf, env: bool) -> Result<()> {
-    let out = inner(file, env).map_err(|e| e.to_string());
+pub fn run(file: &PathBuf, clients: &[LspClient]) -> Result<()> {
+    let out = inner(file, clients).map_err(|e| e.to_string());
     println!("{}", serde_json::to_string(&out)?);
     Ok(())
 }

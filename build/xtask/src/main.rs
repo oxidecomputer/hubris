@@ -186,9 +186,14 @@ enum Xtask {
         expanded_config: bool,
     },
 
+    /// Print a JSON blob with configuration info for `rust-analyzer`
     Lsp {
-        #[clap(long)]
-        env: bool,
+        /// Existing LSP clients.
+        ///
+        /// These should be JSON-encoded strings which can be parsed into an
+        /// `LspClient`.
+        #[clap(short, value_parser)]
+        clients: Vec<lsp::LspClient>,
 
         /// Path to a Rust source file
         file: PathBuf,
@@ -359,8 +364,8 @@ fn run(xtask: Xtask) -> Result<()> {
             print::run(&cfg, archive, image_name, expanded_config)
                 .context("could not print information about the build")?;
         }
-        Xtask::Lsp { env, file } => {
-            lsp::run(&file, env)?;
+        Xtask::Lsp { clients, file } => {
+            lsp::run(&file, &clients)?;
         }
     }
 
