@@ -268,8 +268,6 @@ fn check_task(
         build_override_command.extend(build_cfg.args.iter().cloned());
         build_override_command
             .extend(dependencies.keys().map(|p| format!("-p{p}")));
-        build_override_command.push("--target-dir".to_owned());
-        build_override_command.push("target/rust-analyzer".to_owned());
         build_override_command
             .push(format!("--features={}", features.join(",")));
 
