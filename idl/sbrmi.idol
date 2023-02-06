@@ -3,6 +3,27 @@
 Interface(
     name: "Sbrmi",
     ops: {
+	"nthreads": (
+            reply: Result(
+                ok: "u8",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+	),
+	"enabled": (
+            reply: Result(
+                ok: "[u8; 16]",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+	),
+	"alert": (
+            reply: Result(
+                ok: "[u8; 16]",
+                err: CLike("SbrmiError"),
+            ),
+            idempotent: true,
+	),
         "cpuid": (
             args: {
                 "thread": "u8",

@@ -13,6 +13,7 @@ use userlib::*;
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
 pub enum SbrmiError {
     Unavailable = 1,
+    Unsupported,
     BusLocked,
     I2cError,
     BadThreadId,

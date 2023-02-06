@@ -30,20 +30,21 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
+fn sbrmi() -> Sbrmi {
+    let devs = i2c_config::devices::sbrmi(I2C.get_task_id());
+    Sbrmi::new(&devs[0])
+}
+
 fn rdmsr<T: FromBytes>(
     thread: u8,
     msr: u32,
 ) -> Result<T, RequestError<SbrmiError>> {
-    let devs = i2c_config::devices::sbrmi(I2C.get_task_id());
-    let dev = Sbrmi::new(&devs[0]);
-
     ringbuf_entry!(Trace::Rdmsr(msr));
 
-    match dev.rdmsr::<T>(thread, msr) {
+    match sbrmi().rdmsr::<T>(thread, msr) {
         Err(code) => {
             ringbuf_entry!(Trace::RdmsrError(code));
-            let err = SbrmiError::from(code);
-            Err(err.into())
+            Err(SbrmiError::from(code).into())
         }
         Ok(rval) => {
             ringbuf_entry!(Trace::RdmsrOk);
@@ -53,6 +54,33 @@ fn rdmsr<T: FromBytes>(
 }
 
 impl idl::InOrderSbrmiImpl for ServerImpl {
+    fn nthreads(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<SbrmiError>> {
+        sbrmi()
+            .nthreads()
+            .map_err(|code| RequestError::from(SbrmiError::from(code)))
+    }
+
+    fn enabled(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 16], RequestError<SbrmiError>> {
+        sbrmi()
+            .enabled()
+            .map_err(|code| RequestError::from(SbrmiError::from(code)))
+    }
+
+    fn alert(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 16], RequestError<SbrmiError>> {
+        sbrmi()
+            .alert()
+            .map_err(|code| RequestError::from(SbrmiError::from(code)))
+    }
+
     fn cpuid(
         &mut self,
         _: &RecvMessage,
@@ -60,10 +88,7 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
         eax: u32,
         ecx: u32,
     ) -> Result<[u32; 4], RequestError<SbrmiError>> {
-        let devs = i2c_config::devices::sbrmi(I2C.get_task_id());
-        let dev = Sbrmi::new(&devs[0]);
-
-        match dev.cpuid(thread, eax, ecx) {
+        match sbrmi().cpuid(thread, eax, ecx) {
             Err(code) => {
                 ringbuf_entry!(Trace::CpuidError(code));
                 let err = SbrmiError::from(code);
