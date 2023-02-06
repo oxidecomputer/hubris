@@ -307,19 +307,12 @@ the configuration; we use that hash to modify the name of the client from
 attempting to reuse an existing client, which are normally deduplicated by
 client name and workspace root directory; in Hubris, we want multiple clients
 coexisting with same workspace root, so they need different names.  Then, we
-stash the rest of the configuration in a local variable (`cache`)
+stash the rest of the configuration in a local variable (`cache`), and record
+the existence of this client in `clients`.
 
 When attaching to the LSP, we try to pull the configuration out of `cache`.  If
 one exists, then we know we're dealing with a Hubris buffer; copy over relevant
 portions of the configuration.
-
-There is currently
-[a bug in `rust-tools`](https://github.com/simrat39/rust-tools.nvim/pull/329)
-that prevents it from loading inlay hints when multiple clients are connected;
-we recommend applying the patch in that PR.
-
-(Note that we also monkeypatch `is_ra_server` for our bespoke client naming
-convention, but that's a minor tweak and shouldn't be merged upstream)
 
 ## Adding a task
 
