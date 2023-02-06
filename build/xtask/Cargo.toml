@@ -22,7 +22,6 @@ fnv = { workspace = true }
 goblin = { workspace = true }
 indexmap = { workspace = true }
 path-slash = { workspace = true }
-pathdiff = { workspace = true }
 rangemap = { workspace = true }
 regex = { workspace = true }
 ron = { workspace = true }
