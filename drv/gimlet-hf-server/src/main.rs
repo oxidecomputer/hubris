@@ -382,6 +382,21 @@ impl ServerImpl {
         poll_for_write_complete(&self.qspi, Some(1));
         Ok(())
     }
+
+    fn write_raw_persistent_data_to_addr(
+        &mut self,
+        addr: Option<u32>,
+        raw_data: &RawPersistentData,
+    ) -> Result<(), HfError> {
+        let addr = match addr {
+            Some(a) => a,
+            None => {
+                self.raw_sector0_erase()?;
+                0
+            }
+        };
+        Self::page_program_raw(&self.qspi, addr, raw_data.as_bytes())
+    }
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -619,43 +634,22 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             // ----------------------------------------------------------------
             // Write the persistent data to the currently inactive flash.
             //
-            // This code is a little awkward, because we want to restore the
-            // active flash if there's an error, meaning we can't simply use `?`
-            // everywhere to exit early.
-            //
             // At this point, all of the ways that `set_dev` could fail have
             // been checked: we already called both `check_muxed_to_sp` and that
             // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
             // `self.set_dev(...)`.
             self.set_dev(!prev_slot).unwrap();
-            let addr = match a_next {
-                Some(a) => a,
-                None => {
-                    if let Err(e) = self.raw_sector0_erase() {
-                        self.set_dev(prev_slot).unwrap();
-                        return Err(e.into());
-                    }
-                    0
-                }
-            };
-            if let Err(e) =
-                Self::page_program_raw(&self.qspi, addr, raw.as_bytes())
-            {
-                self.set_dev(prev_slot).unwrap();
-                return Err(e.into());
-            }
+            let out_a = self.write_raw_persistent_data_to_addr(a_next, &raw);
 
             // ----------------------------------------------------------------
             // Write the persistent data to the currently active flash
             self.set_dev(prev_slot).unwrap();
-            let addr = match b_next {
-                Some(b) => b,
-                None => {
-                    self.raw_sector0_erase()?;
-                    0
-                }
-            };
-            Self::page_program_raw(&self.qspi, addr, raw.as_bytes())?;
+            let out_b = self.write_raw_persistent_data_to_addr(b_next, &raw);
+
+            // Now that we've restored the current active flash, check whether
+            // we should propagate errors.
+            out_a?;
+            out_b?;
         } else {
             // Single-flash case is less complicated, because we don't have to
             // track and maintain the active device.
