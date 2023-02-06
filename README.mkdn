@@ -241,6 +241,12 @@ require'rust-tools'.setup{
         handle:close()
         vim.cmd("cd " .. prev_cwd)
 
+        -- If `xtask` doesn't know about `lsp`, then it will print an error to
+        -- stderr and return nothing on stdout.
+        if result == "" then
+          vim.notify("recompile `xtask` for `lsp` support", vim.log.levels.WARN)
+        end
+
         -- If the given file should be handled with special care, then
         -- we give the rust-analyzer client a custom name (to prevent
         -- multiple buffers from attaching to it), then cache the JSON in
@@ -313,6 +319,10 @@ the existence of this client in `clients`.
 When attaching to the LSP, we try to pull the configuration out of `cache`.  If
 one exists, then we know we're dealing with a Hubris buffer; copy over relevant
 portions of the configuration.
+
+Note that this does not compile `xtask` for you; it assumes it already exists
+in `target/debug/xtask`.  This should be true if you're using Hubris regularly,
+and saves significant amounts of time when opening a new file.
 
 ## Adding a task
 
