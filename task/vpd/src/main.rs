@@ -7,9 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
-use drv_i2c_devices::tmp117::Tmp117;
 use idol_runtime::RequestError;
 use task_vpd_api::VpdError;
 use userlib::*;
@@ -21,11 +19,15 @@ struct ServerImpl;
 task_slot!(I2C, i2c_driver);
 
 impl idl::InOrderVpdImpl for ServerImpl {
+    #[cfg(feature = "tmp117-eeprom")]
     fn read_tmp117_eeprom(
         &mut self,
         _: &RecvMessage,
         index: u8,
     ) -> Result<[u8; 6], RequestError<VpdError>> {
+        use drv_i2c_api::ResponseCode;
+        use drv_i2c_devices::tmp117::Tmp117;
+
         let devs = i2c_config::devices::tmp117(I2C.get_task_id());
         let index = index as usize;
 
@@ -43,6 +45,15 @@ impl idl::InOrderVpdImpl for ServerImpl {
                 Ok(rval) => Ok(rval),
             }
         }
+    }
+
+    #[cfg(not(feature = "tmp117-eeprom"))]
+    fn read_tmp117_eeprom(
+        &mut self,
+        _: &RecvMessage,
+        _index: u8,
+    ) -> Result<[u8; 6], RequestError<VpdError>> {
+        Err(VpdError::NotImplemented.into())
     }
 
     fn read(

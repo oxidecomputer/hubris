@@ -159,6 +159,14 @@ stacksize = 256
 start = true
 task-slots = ["i2c_driver"]
 
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
 [tasks.power]
 name = "task-power"
 priority = 4

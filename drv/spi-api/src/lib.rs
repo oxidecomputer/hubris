@@ -225,3 +225,4 @@ impl<S: SpiServer> SpiDevice<S> {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+include!(concat!(env!("OUT_DIR"), "/spi_devices.rs"));

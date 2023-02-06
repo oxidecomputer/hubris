@@ -10,9 +10,12 @@ use gateway_messages::{
     UpdateId,
 };
 use host_sp_messages::HostStartupOptions;
-use idol_runtime::{Leased, NotificationHandler, RequestError};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError,
+};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
 };
@@ -128,6 +131,12 @@ enum MgsMessage {
         component: SpComponent,
         slot: u16,
     },
+    SerialConsoleBreak,
+    SendHostNmi,
+    SetIpccKeyValue {
+        key: u8,
+        value_len: usize,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -240,6 +249,43 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
     ) -> Result<VpdIdentity, RequestError<core::convert::Infallible>> {
         Ok(self.mgs_handler.identity())
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_installinator_image_id(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: LenLimit<
+            Leased<idol_runtime::W, [u8]>,
+            MAX_INSTALLINATOR_IMAGE_ID_LEN,
+        >,
+    ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        let image_id = self.mgs_handler.installinator_image_id();
+        if image_id.len() > data.len() {
+            // `image_id` is at most `MAX_INSTALLINATOR_IMAGE_ID_LEN`; if our
+            // client didn't send us that much space, fault them.
+            Err(RequestError::Fail(ClientError::BadLease))
+        } else {
+            data.write_range(0..image_id.len(), image_id)
+                .map_err(|()| RequestError::went_away())?;
+            Ok(image_id.len())
+        }
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_installinator_image_id(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: LenLimit<
+            Leased<idol_runtime::W, [u8]>,
+            MAX_INSTALLINATOR_IMAGE_ID_LEN,
+        >,
+    ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        // Non-gimlets should never request this function; fault them.
+        //
+        // TODO can we remove this op from our idol specification entirely for
+        // non-gimlets?
+        Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 
     #[cfg(feature = "gimlet")]

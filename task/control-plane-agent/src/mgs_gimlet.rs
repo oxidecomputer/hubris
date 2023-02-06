@@ -20,15 +20,16 @@ use gateway_messages::{
     PowerState, SpComponent, SpError, SpPort, SpRequest, SpState,
     SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
-use heapless::Deque;
+use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
+    MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
 use task_net_api::{Address, MacAddress, UdpMetadata};
-use userlib::{sys_get_timer, sys_irq_control, UnwrapLite};
+use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
@@ -84,6 +85,8 @@ const SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS: u64 = 500;
 userlib::task_slot!(HOST_FLASH, hf);
 userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
 
+type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
+
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
@@ -96,6 +99,7 @@ pub(crate) struct MgsHandler {
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     serial_console_write_offset: u64,
     next_message_id: u32,
+    installinator_image_id: &'static mut InstallinatorImageIdBuf,
 }
 
 impl MgsHandler {
@@ -121,11 +125,16 @@ impl MgsHandler {
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
+            installinator_image_id: claim_installinator_image_id_static(),
         }
     }
 
     pub(crate) fn identity(&self) -> VpdIdentity {
         self.common.identity()
+    }
+
+    pub(crate) fn installinator_image_id(&self) -> &[u8] {
+        self.installinator_image_id
     }
 
     /// If we want to be woken by the system timer, we return a deadline here.
@@ -526,7 +535,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -550,7 +561,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -575,7 +586,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            SpComponent::ROT => self.rot_update.status(),
+            SpComponent::ROT | SpComponent::STAGE0 => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -603,7 +614,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -721,6 +734,20 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
+        Ok(())
+    }
+
+    fn serial_console_break(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        // TODO: same caveats as above!
+        if Some((sender, port)) != self.attached_serial_console_mgs {
+            return Err(SpError::SerialConsoleNotAttached);
+        }
+        self.usart.send_break();
         Ok(())
     }
 
@@ -875,6 +902,64 @@ impl SpHandler for MgsHandler {
 
         self.host_phase2
             .ingest_incoming_data(port, hash, offset, data);
+    }
+
+    fn send_host_nmi(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        // This can only fail if the `gimlet-seq` server is dead; in that
+        // case, send `Busy` because it should be rebooting.
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        self.sequencer
+            .send_hardware_nmi()
+            .map_err(|_| SpError::Busy)?;
+        Ok(())
+    }
+
+    fn set_ipcc_key_lookup_value(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        key: u8,
+        value: &[u8],
+    ) -> Result<(), SpError> {
+        use gateway_messages::IpccKeyLookupValueError;
+        use host_sp_messages::Key;
+
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
+            key,
+            value_len: value.len(),
+        }));
+
+        match Key::from_u8(key) {
+            Some(Key::InstallinatorImageId) => {
+                // Check the incoming data length first; if this fails, we'll
+                // keep whatever existing image ID we have.
+                let max_len = self.installinator_image_id.capacity();
+                if value.len() > max_len {
+                    return Err(SpError::SetIpccKeyLookupValueFailed(
+                        IpccKeyLookupValueError::ValueTooLong {
+                            max_len: max_len as u16,
+                        },
+                    ));
+                }
+
+                // We now know `value` will fit, so replace our current
+                // installinator ID and unwrap the `extend_from_slice()`.
+                self.installinator_image_id.clear();
+                self.installinator_image_id
+                    .extend_from_slice(value)
+                    .unwrap_lite();
+                Ok(())
+            }
+            Some(Key::Ping) | None => {
+                Err(SpError::SetIpccKeyLookupValueFailed(
+                    IpccKeyLookupValueError::InvalidKey,
+                ))
+            }
+        }
     }
 }
 
@@ -1096,6 +1181,10 @@ impl UsartHandler {
         // Re-enable USART interrupts.
         sys_irq_control(notifications::USART_IRQ_MASK, true);
     }
+
+    fn send_break(&self) {
+        self.usart.send_break();
+    }
 }
 
 fn configure_usart() -> Usart {
@@ -1209,4 +1298,20 @@ fn claim_sp_to_mgs_usart_buf_static(
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
     unsafe { &mut UART_RX_BUF }
+}
+
+fn claim_installinator_image_id_static() -> &'static mut InstallinatorImageIdBuf
+{
+    static mut INSTALLINATOR_IMAGE_ID_BUF: InstallinatorImageIdBuf = Vec::new();
+
+    static TAKEN: AtomicBool = AtomicBool::new(false);
+    if TAKEN.swap(true, Ordering::Relaxed) {
+        panic!()
+    }
+
+    // Safety: unsafe because of references to mutable statics; safe because of
+    // the AtomicBool swap above, combined with the lexical scoping of
+    // `INSTALLINATOR_IMAGE_ID_BUF`, means that this reference can't be aliased
+    // by any other reference in the program.
+    unsafe { &mut INSTALLINATOR_IMAGE_ID_BUF }
 }

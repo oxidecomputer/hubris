@@ -20,12 +20,12 @@ use userlib::*;
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
 extern "C" {
-    static __IMAGE_A_BASE: u32;
-    static __IMAGE_B_BASE: u32;
-    static __IMAGE_STAGE0_BASE: u32;
-    static __IMAGE_A_END: u32;
-    static __IMAGE_B_END: u32;
-    static __IMAGE_STAGE0_END: u32;
+    static __IMAGE_A_BASE: [u32; 0];
+    static __IMAGE_B_BASE: [u32; 0];
+    static __IMAGE_STAGE0_BASE: [u32; 0];
+    static __IMAGE_A_END: [u32; 0];
+    static __IMAGE_B_END: [u32; 0];
+    static __IMAGE_STAGE0_END: [u32; 0];
 
 }
 
@@ -230,6 +230,12 @@ fn validate_header_block(
     target: UpdateTarget,
     block: &[u8; BLOCK_SIZE_BYTES],
 ) -> Result<(), UpdateError> {
+    // TODO: Do some actual checks for stage0. This will likely change
+    // with Cliff's bootloader.
+    if target == UpdateTarget::Bootloader {
+        return Ok(());
+    }
+
     let reset_vector = u32::from_le_bytes(
         block[RESET_VECTOR_OFFSET..][..4].try_into().unwrap_lite(),
     );

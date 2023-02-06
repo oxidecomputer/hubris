@@ -4,14 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = { workspace = true }
-corncobs = { workspace = true }
-cortex-m = { workspace = true }
-enum-map = { workspace = true }
-heapless = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
+cfg-if.workspace = true
+corncobs.workspace = true
+cortex-m.workspace = true
+enum-map.workspace = true
+heapless.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+static_assertions.workspace = true
+zerocopy.workspace = true
 
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api" }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
@@ -28,7 +29,7 @@ userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
-idol = { workspace = true }
+idol.workspace = true
 
 [features]
 stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743"]

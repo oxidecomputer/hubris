@@ -22,6 +22,7 @@ pub enum VpdError {
     BadBuffer,
     BadRead,
     BadWrite,
+    NotImplemented,
 
     #[idol(server_death)]
     ServerRestarted,

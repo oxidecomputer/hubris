@@ -88,7 +88,7 @@ impl crate::bsp_support::Bsp for BspImpl {
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let spi = bsp_support::claim_spi(sys);
-        let ksz8463_dev = spi.device(2); // from app.toml
+        let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
         Self(
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN

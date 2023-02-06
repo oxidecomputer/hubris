@@ -41,8 +41,6 @@ cfg_if::cfg_if! {
     }
 }
 
-const VSC7448_SPI_DEVICE: u8 = 0;
-
 task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, PartialEq)]
@@ -59,7 +57,7 @@ ringbuf!(Trace, 2, Trace::None);
 #[export_name = "main"]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
-    let spi = claim_spi(&sys).device(VSC7448_SPI_DEVICE);
+    let spi = claim_spi(&sys).device(drv_spi_api::devices::VSC7448);
     let mut vsc7448_spi = Vsc7448Spi::new(spi);
     let vsc7448 = Vsc7448::new(&mut vsc7448_spi);
 

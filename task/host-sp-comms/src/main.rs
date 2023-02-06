@@ -15,17 +15,23 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, SpToHost, Status,
-    MAX_MESSAGE_SIZE,
+    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, Key,
+    KeyLookupResult, SpToHost, Status, MAX_MESSAGE_SIZE,
+    MIN_SP_TO_HOST_FILL_DATA_LEN,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::ControlPlaneAgent;
+use static_assertions::const_assert;
+use task_control_plane_agent_api::{
+    ControlPlaneAgent, MAX_INSTALLINATOR_IMAGE_ID_LEN,
+};
 use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
-use userlib::{hl, sys_get_timer, sys_irq_control, task_slot, UnwrapLite};
+use userlib::{
+    hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+};
 
 mod tx_buf;
 
@@ -84,6 +90,9 @@ enum Trace {
         now: u64,
         sequence: u64,
         message: HostToSp,
+    },
+    ResponseBufferReset {
+        now: u64,
     },
     Response {
         now: u64,
@@ -705,6 +714,21 @@ impl ServerImpl {
                     .unwrap_lite();
                 None
             }
+            HostToSp::KeyLookup {
+                key,
+                max_response_len,
+            } => match self.perform_key_lookup(
+                header.sequence,
+                key,
+                usize::from(max_response_len),
+            ) {
+                Ok(()) => {
+                    // perform_key_lookup() calls encodes the response directly
+                    // when it succeeds, so we have nothing else to do.
+                    None
+                }
+                Err(err) => Some(SpToHost::KeyLookupResult(err)),
+            },
         };
 
         if let Some(response) = response {
@@ -728,6 +752,92 @@ impl ServerImpl {
 
         // We've processed the message sitting in rx_buf; clear it.
         self.rx_buf.clear();
+
+        Ok(())
+    }
+
+    /// On success, we will have already filled `self.tx_buf` with our response.
+    /// On failure, our caller should response with
+    /// `SpToHost::KeyLookupResult(err)` with the error we return.
+    fn perform_key_lookup(
+        &mut self,
+        sequence: u64,
+        key: u8,
+        max_response_len: usize,
+    ) -> Result<(), KeyLookupResult> {
+        let key = Key::from_u8(key).ok_or(KeyLookupResult::InvalidKey)?;
+
+        match key {
+            Key::Ping => {
+                const PONG: &[u8] = b"pong";
+
+                if max_response_len < PONG.len() {
+                    return Err(KeyLookupResult::MaxResponseLenTooShort);
+                }
+
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        buf[..PONG.len()].copy_from_slice(PONG);
+                        PONG.len()
+                    },
+                );
+            }
+            Key::InstallinatorImageId => {
+                // Borrow `cp_agent` to avoid borrowing `self` in the closure
+                // below.
+                let cp_agent = &self.cp_agent;
+
+                // We don't want to have to set aside our own memory to copy the
+                // installinator image ID (other than our already-allocated
+                // outgoing tx buf), so we will optimistically serialize a
+                // successful response, including the image ID. After
+                // serializing this successful response, we'll check that
+                // `max_response_len` (i.e., the buffer length of the host
+                // process that requested this value) is sufficient; if it is
+                // not (or if we have no installinator image ID at all), we'll
+                // discard the optimistically-serialized response and return an
+                // error.
+                //
+                // We expect both of these "reset and replace the response with
+                // an error" to be extremely rare: host processes should not ask
+                // for an installinator ID with a too-small buffer, and should
+                // only ask for an installinator ID during a recovery process in
+                // which we expect MGS has already given us an ID.
+                let mut response_len = 0;
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |mut buf| {
+                        // Statically guarantee we have sufficient space in
+                        // `buf` for the installinator image ID blob, and then
+                        // cap `buf` to that length to satisfy the idol
+                        // operation length limit.
+                        const_assert!(
+                            MIN_SP_TO_HOST_FILL_DATA_LEN
+                                >= MAX_INSTALLINATOR_IMAGE_ID_LEN
+                        );
+                        buf = &mut buf[..MAX_INSTALLINATOR_IMAGE_ID_LEN];
+
+                        response_len = cp_agent.get_installinator_image_id(buf);
+                        response_len
+                    },
+                );
+
+                // A response length of 0 is how `control-plane-agent` indicates
+                // we do not have an installinator image ID; instead of
+                // returning a 0-length success to the host, convert it to the
+                // "we have no value for this key" error.
+                if response_len == 0 {
+                    self.tx_buf.reset();
+                    return Err(KeyLookupResult::NoValueForKey);
+                } else if response_len > max_response_len {
+                    self.tx_buf.reset();
+                    return Err(KeyLookupResult::MaxResponseLenTooShort);
+                }
+            }
+        }
 
         Ok(())
     }

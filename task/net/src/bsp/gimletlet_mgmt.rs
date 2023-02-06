@@ -127,7 +127,7 @@ impl bsp_support::Bsp for BspImpl {
         leds.led_on(3).unwrap();
 
         let spi = bsp_support::claim_spi(sys);
-        let ksz8463_dev = spi.device(0); // from app.toml
+        let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
 
         let mgmt = mgmt::Config {
             power_en: None,

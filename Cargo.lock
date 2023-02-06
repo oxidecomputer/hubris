@@ -229,6 +229,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-spi"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
+]
+
+[[package]]
 name = "build-util"
 version = "0.1.0"
 dependencies = [
@@ -1439,6 +1450,9 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-spi",
+ "build-util",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1601,6 +1615,7 @@ name = "drv-stm32h7-spi-server-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-spi",
  "build-util",
  "call_rustfmt",
  "cfg-if",
@@ -1763,8 +1778,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "serde",
- "ssmarshal",
  "task-sensor-api",
  "transceiver-messages",
  "userlib",
@@ -2027,7 +2040,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#583101f3b41907e5dbc4478f2d21e8286e8eaa1c"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#482bae9bfa704282e981008abae9328344150d36"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2234,6 +2247,8 @@ dependencies = [
  "fletcher",
  "gateway-messages",
  "hubpack",
+ "num-derive",
+ "num-traits",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -3929,6 +3944,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "static_assertions",
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "task-net-api",
@@ -4123,6 +4139,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "paste",
+ "pmbus",
  "ringbuf",
  "serde",
  "task-power-api",
@@ -4682,7 +4699,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#92c85c2732de2fcdb2b1e98dba97172f69e5bf5b"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#a5305a91a32967fbb384c91ecc4ccfb1aec6d302"
 dependencies = [
  "bitflags",
  "hubpack",

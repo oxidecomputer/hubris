@@ -40,5 +40,13 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "send_hardware_nmi": (
+            doc: "Triggers a hardware NMI by toggling LPC_SMI_L",
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: ServerDeath,
+            ),
+        ),
     },
 )

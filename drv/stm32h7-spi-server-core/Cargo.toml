@@ -29,6 +29,7 @@ serde.workspace = true
 syn.workspace = true
 
 build-util = { path = "../../build/util" }
+build-spi = { path = "../../build/spi" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 
 [features]

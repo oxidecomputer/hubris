@@ -59,8 +59,8 @@ impl bsp_support::Bsp for BspImpl {
     fn new(_eth: &eth::Ethernet, sys: &Sys) -> Self {
         let ksz8463 = loop {
             let spi = bsp_support::claim_spi(sys);
-            // SPI device is based on ordering in app.toml
-            let ksz8463_spi = spi.device(0);
+            // SPI4_HEADER is shared by both the SPI4 header and the NIC
+            let ksz8463_spi = spi.device(drv_spi_api::devices::SPI4_HEADER);
 
             // Initialize the KSZ8463 (using SPI4_RESET, PB10)
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1);

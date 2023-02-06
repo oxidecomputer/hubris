@@ -321,7 +321,18 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "The VSC8562 has been brought out of reset and is ready for\nsoftware control"
+                            "desc": "The VSC8562 has been brought out of reset and is ready for software control"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PG_TIMED_OUT",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5."
                         }
                     ]
                 },
@@ -353,6 +364,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Software control for the COMA_MODE pin."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "CLEAR_POWER_FAULT",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again."
                         }
                     ]
                 },
@@ -389,28 +411,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_RDATA_H",
+                    "inst_name": "PHY_SMI_RDATA0",
                     "addr_offset": 3,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "DATA",
-                            "lsb": 0,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Upper byte of read data"
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "PHY_SMI_RDATA_L",
-                    "addr_offset": 4,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -429,7 +431,27 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_WDATA_H",
+                    "inst_name": "PHY_SMI_RDATA1",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "DATA",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Upper byte of read data"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PHY_SMI_WDATA0",
                     "addr_offset": 5,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -443,13 +465,13 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Upper byte of write data"
+                            "desc": "Lower byte of write data"
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_WDATA_L",
+                    "inst_name": "PHY_SMI_WDATA1",
                     "addr_offset": 6,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -463,7 +485,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Lower byte of write data"
+                            "desc": "Upper byte of write data"
                         }
                     ]
                 },
@@ -607,105 +629,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_BCAST_H",
+                    "inst_name": "I2C_BCAST0",
                     "addr_offset": 3,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT8",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT9",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT10",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT11",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT12",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT13",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT14",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT15",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "I2C_BCAST_L",
-                    "addr_offset": 4,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -789,6 +714,103 @@
                         {
                             "type": "field",
                             "inst_name": "PORT7",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "I2C_BCAST1",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT8",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT9",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT10",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT11",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT12",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT13",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT14",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -832,105 +854,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "I2C_BUSY_H",
+                    "inst_name": "I2C_BUSY0",
                     "addr_offset": 6,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT8",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT9",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT10",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT11",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT12",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT13",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT14",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT15",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "I2C_BUSY_L",
-                    "addr_offset": 7,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -1014,6 +939,103 @@
                         {
                             "type": "field",
                             "inst_name": "PORT7",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "I2C_BUSY1",
+                    "addr_offset": 7,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT8",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT9",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT10",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT11",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT12",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT13",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT14",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -1052,17 +1074,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1094,17 +1105,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1136,17 +1136,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1178,17 +1167,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1220,17 +1198,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1262,17 +1229,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1304,17 +1260,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1346,17 +1291,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1388,17 +1322,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1430,17 +1353,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1472,17 +1384,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1514,17 +1415,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1556,17 +1446,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1598,17 +1477,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1640,17 +1508,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1682,17 +1539,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -1713,28 +1559,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1755,28 +1579,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1797,28 +1599,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1839,28 +1619,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1881,28 +1639,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1923,28 +1659,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -1965,28 +1679,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2007,28 +1699,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2049,28 +1719,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2091,28 +1739,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2133,28 +1759,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2175,28 +1779,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2217,28 +1799,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2259,28 +1819,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2301,28 +1839,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
@@ -2343,44 +1859,22 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit will clear a fault state. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "RESET",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Setting this bit will reset the port. The module will make sure it is in A2 before doing the reset. This bit auto-clears."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 1,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0"
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_EN_H",
+                    "inst_name": "POWER_EN0",
                     "addr_offset": 40,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2388,10 +1882,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2399,10 +1893,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2410,10 +1904,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2421,10 +1915,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2432,10 +1926,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2443,10 +1937,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2454,10 +1948,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2467,17 +1961,17 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_EN_L",
+                    "inst_name": "POWER_EN1",
                     "addr_offset": 41,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2485,10 +1979,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2496,10 +1990,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2507,10 +2001,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2518,10 +2012,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2529,10 +2023,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2540,10 +2034,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2551,10 +2045,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 0,
+                            "reset": 1,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2564,17 +2058,17 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_RESET_H",
+                    "inst_name": "POWER_GOOD0",
                     "addr_offset": 42,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2582,10 +2076,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2593,10 +2087,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2604,10 +2098,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2615,10 +2109,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2626,10 +2120,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2637,10 +2131,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2648,10 +2142,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2661,17 +2155,17 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_RESET_L",
+                    "inst_name": "POWER_GOOD1",
                     "addr_offset": 43,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2679,10 +2173,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2690,10 +2184,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2701,10 +2195,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2712,10 +2206,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2723,10 +2217,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2734,10 +2228,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2745,10 +2239,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2758,17 +2252,17 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_LPMODE_H",
+                    "inst_name": "POWER_GOOD_TIMEOUT0",
                     "addr_offset": 44,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2776,10 +2270,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2787,10 +2281,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2798,10 +2292,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2809,10 +2303,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2820,10 +2314,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2831,10 +2325,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2842,10 +2336,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2855,17 +2349,17 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "CTRL_LPMODE_L",
+                    "inst_name": "POWER_GOOD_TIMEOUT1",
                     "addr_offset": 45,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2873,10 +2367,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2884,10 +2378,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2895,10 +2389,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2906,10 +2400,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2917,10 +2411,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2928,10 +2422,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2939,10 +2433,10 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
-                            "reset": 1,
+                            "reset": 0,
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
@@ -2952,14 +2446,14 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_H",
+                    "inst_name": "POWER_GOOD_LOST0",
                     "addr_offset": 46,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
@@ -2970,7 +2464,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
@@ -2981,7 +2475,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
@@ -2992,7 +2486,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
@@ -3003,7 +2497,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
@@ -3014,7 +2508,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
@@ -3025,7 +2519,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
@@ -3036,7 +2530,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -3049,14 +2543,14 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_L",
+                    "inst_name": "POWER_GOOD_LOST1",
                     "addr_offset": 47,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
@@ -3067,7 +2561,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
@@ -3078,7 +2572,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
@@ -3089,7 +2583,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
@@ -3100,7 +2594,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
@@ -3111,7 +2605,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
@@ -3122,7 +2616,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
@@ -3133,7 +2627,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -3146,95 +2640,95 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PRESENT_H",
+                    "inst_name": "MOD_RESETL0",
                     "addr_offset": 48,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -3243,95 +2737,95 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PRESENT_L",
+                    "inst_name": "MOD_RESETL1",
                     "addr_offset": 49,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -3340,95 +2834,95 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_IRQ_H",
+                    "inst_name": "MOD_LPMODE0",
                     "addr_offset": 50,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -3437,95 +2931,95 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_IRQ_L",
+                    "inst_name": "MOD_LPMODE1",
                     "addr_offset": 51,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
+                            "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT1",
+                            "inst_name": "PORT9",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT2",
+                            "inst_name": "PORT10",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT3",
+                            "inst_name": "PORT11",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT4",
+                            "inst_name": "PORT12",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT5",
+                            "inst_name": "PORT13",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT6",
+                            "inst_name": "PORT14",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT7",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -3534,14 +3028,14 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_TIMEOUT_H",
+                    "inst_name": "MOD_MODPRSL0",
                     "addr_offset": 52,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT8",
+                            "inst_name": "PORT0",
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
@@ -3552,7 +3046,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT9",
+                            "inst_name": "PORT1",
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
@@ -3563,7 +3057,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT10",
+                            "inst_name": "PORT2",
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
@@ -3574,7 +3068,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT11",
+                            "inst_name": "PORT3",
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
@@ -3585,7 +3079,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT12",
+                            "inst_name": "PORT4",
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
@@ -3596,7 +3090,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT13",
+                            "inst_name": "PORT5",
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
@@ -3607,7 +3101,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT14",
+                            "inst_name": "PORT6",
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
@@ -3618,7 +3112,7 @@
                         },
                         {
                             "type": "field",
-                            "inst_name": "PORT15",
+                            "inst_name": "PORT7",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -3631,110 +3125,13 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_TIMEOUT_L",
+                    "inst_name": "MOD_MODPRSL1",
                     "addr_offset": 53,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
                         {
                             "type": "field",
-                            "inst_name": "PORT0",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT1",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT2",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT3",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT4",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT5",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT6",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT7",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "STATUS_PG_LOST_H",
-                    "addr_offset": 54,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
                             "inst_name": "PORT8",
                             "lsb": 0,
                             "msb": 0,
@@ -3825,8 +3222,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "STATUS_PG_LOST_L",
-                    "addr_offset": 55,
+                    "inst_name": "MOD_INTL0",
+                    "addr_offset": 54,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -3910,6 +3307,103 @@
                         {
                             "type": "field",
                             "inst_name": "PORT7",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "MOD_INTL1",
+                    "addr_offset": 55,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT8",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT9",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT10",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT11",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT12",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT13",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT14",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT15",
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
@@ -3948,17 +3442,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -3997,17 +3480,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4046,17 +3518,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4095,17 +3556,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4144,17 +3594,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4193,17 +3632,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4242,17 +3670,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4291,17 +3708,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4340,17 +3746,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4389,17 +3784,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4438,17 +3822,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4487,17 +3860,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4536,17 +3898,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4585,17 +3936,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4634,17 +3974,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },
@@ -4683,17 +4012,6 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the bus is busy."
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "POWER_STATE",
-                            "lsb": 5,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "0x0 = A4, 0x1 = A3, 0x2 = A2, 0x3 = A0, 0x4 = Fault"
                         }
                     ]
                 },

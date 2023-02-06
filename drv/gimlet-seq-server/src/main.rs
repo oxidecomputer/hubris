@@ -228,7 +228,9 @@ fn main() -> ! {
     // If the sequencer is already loaded and operational, the design loaded
     // into it should be willing to talk to us over SPI, and should be able to
     // serve up a recognizable ident code.
-    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+    let seq = seq_spi::SequencerFpga::new(
+        spi.device(drv_spi_api::devices::SEQUENCER),
+    );
 
     // If the image announces the correct identifier and has a matching
     // bitstream checksum, then we can skip reprogramming;
@@ -252,7 +254,7 @@ fn main() -> ! {
 
         // Reprogramming will continue until morale improves -- to a point.
         loop {
-            let prog = spi.device(ICE40_SPI_DEVICE);
+            let prog = spi.device(drv_spi_api::devices::ICE40);
             ringbuf_entry!(Trace::Programming);
             match reprogram_fpga(&prog, &sys, &ICE40_CONFIG) {
                 Ok(()) => {
@@ -334,6 +336,7 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
+        sys: sys.clone(),
         seq,
         jefe,
         hf,
@@ -345,6 +348,15 @@ fn main() -> ! {
         server.set_state_internal(PowerState::A0).unwrap();
     }
 
+    // Configure the NMI pin, leaving it high (i.e. not sending an NMI)
+    sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
+    sys.gpio_configure_output(
+        SP_TO_SP3_NMI_SYNC_FLOOD_L,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
@@ -352,6 +364,7 @@ fn main() -> ! {
 
 struct ServerImpl<S: SpiServer> {
     state: PowerState,
+    sys: sys_api::Sys,
     seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
@@ -627,6 +640,19 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
             .unwrap();
         Ok(())
     }
+
+    fn send_hardware_nmi(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        // The required length for an NMI pulse is apparently not documented.
+        //
+        // Let's try 25 ms!
+        self.sys.gpio_reset(SP_TO_SP3_NMI_SYNC_FLOOD_L);
+        hl::sleep_for(25);
+        self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
+        Ok(())
+    }
 }
 
 fn reprogram_fpga<S: SpiServer>(
@@ -660,9 +686,6 @@ cfg_if::cfg_if! {
         target_board = "gimlet-b",
         target_board = "gimlet-c",
     ))] {
-        const SEQ_SPI_DEVICE: u8 = 0;
-        const ICE40_SPI_DEVICE: u8 = 1;
-
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
             creset: sys_api::Port::D.pin(5),
@@ -674,6 +697,9 @@ cfg_if::cfg_if! {
         const GLOBAL_RESET: Option<sys_api::PinSet> = Some(
             sys_api::Port::A.pin(6)
         );
+
+        const SP_TO_SP3_NMI_SYNC_FLOOD_L: sys_api::PinSet =
+            sys_api::Port::J.pin(2);
 
         // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
         // of circuit to be able to program the FPGA, because we accidentally

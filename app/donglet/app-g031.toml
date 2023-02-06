@@ -59,7 +59,7 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
-features = ["g031"]
+features = ["g031", "tmp117-eeprom"]
 
 [tasks.hiffy]
 name = "task-hiffy"
