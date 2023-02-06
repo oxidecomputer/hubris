@@ -204,7 +204,7 @@ start = true
 ## Graphing task relationships and priorities
 
 A graph can be generated that show the relationships of the various tasks
-and their priorities. The resulting file is in [Graphvis](https://grahviz.org)'s
+and their priorities. The resulting file is in [Graphvis](https://graphviz.org/)'s
 `dot` format. `Dot` source [can be included](https://docs.asciidoctor.org/diagram-extension/latest/) in [Asciidoctor](https://asciidoctor.org) source
 or rendered to a variety of formats.
 
