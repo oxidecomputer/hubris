@@ -8,6 +8,8 @@
 
 use derive_idol_err::IdolError;
 use drv_hash_api::SHA256_SZ;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -26,6 +28,7 @@ pub enum HfError {
     NoDevSelect,
     NotMuxedToSP,
     Sector0IsReserved,
+    NoPersistentData,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -41,11 +44,38 @@ pub enum HfMuxState {
 
 /// Selects between multiple flash chips. This is not used on all hardware
 /// revisions; it was added in Gimlet rev B.
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(u8)]
 pub enum HfDevSelect {
     Flash0 = 0,
     Flash1 = 1,
+}
+
+impl core::ops::Not for HfDevSelect {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        match self {
+            Self::Flash0 => Self::Flash1,
+            Self::Flash1 => Self::Flash0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, SerializedSize)]
+pub struct HfPersistentData {
+    pub startup_options: u64,
+    pub slot: HfDevSelect,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

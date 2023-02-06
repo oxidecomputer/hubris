@@ -884,9 +884,11 @@ dependencies = [
  "derive-idol-err",
  "drv-hash-api",
  "drv-qspi-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy",
 ]
@@ -896,13 +898,16 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "crc",
  "drv-gimlet-hf-api",
  "drv-hash-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "stm32h7",
  "userlib",
  "zerocopy",

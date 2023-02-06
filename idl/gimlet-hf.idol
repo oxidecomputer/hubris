@@ -141,5 +141,24 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "get_persistent_data": (
+            doc: "looks up persistent configuration data",
+            reply: Result(
+                ok: "HfPersistentData",
+                err: CLike("HfError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "write_persistent_data": (
+            doc: "stores persistent configuration data to flash",
+            args: {
+                "data": "HfPersistentData",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+            encoding: Hubpack,
+        ),
     },
 )

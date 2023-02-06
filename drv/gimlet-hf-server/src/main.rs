@@ -26,6 +26,7 @@ use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use zerocopy::{AsBytes, FromBytes};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -40,7 +41,9 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
-use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState, PAGE_SIZE_BYTES};
+use drv_gimlet_hf_api::{
+    HfDevSelect, HfError, HfMuxState, HfPersistentData, PAGE_SIZE_BYTES,
+};
 
 task_slot!(SYS, sys);
 #[cfg(feature = "hash")]
@@ -153,6 +156,89 @@ fn main() -> ! {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+/// Represents persistent data that is both stored on the host flash and used to
+/// configure host boot.
+///
+/// We reserve sector 0 (i.e. the lowest 64 KiB) of both host flash ICs for
+/// Hubris data.  On both host flashes, we tile sector 0 with this 40-byte
+/// struct, placed at 128-byte intervals (in case it needs to grow in the
+/// future).
+///
+/// The current value of persistent data is the instance of `RawPersistentData`
+/// with a valid checksum and the highest `epoch` across both flash ICs.
+///
+/// When writing new data, we increment the epoch and write to both ICs, one by
+/// one.  This ensures robustness in case of power loss.
+#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[repr(C)]
+struct RawPersistentData {
+    /// Reserved field, because this is placed at address 0, which PSP firmware
+    /// may look at under certain circumstances.
+    amd_reserved_must_be_all_ones: u64,
+
+    /// Must always be 0x1dea_bcde.
+    oxide_magic: u32,
+
+    /// Must always be 1 (for now)
+    header_version: u32,
+
+    /// Monotonically increasing counter
+    epoch: u64,
+
+    /// Equivalent to `host_sp_messages::HostStartupOptions`
+    host_startup_options: u64,
+
+    /// Either 0 or 1; directly translatable to `gimlet_hf_api::HfDevSelect`
+    active_slot: u32,
+
+    /// CRC-32 over the rest of the data using the iSCSI polynomial
+    checksum: u32,
+}
+
+impl RawPersistentData {
+    fn new(data: HfPersistentData, epoch: u64) -> Self {
+        let mut out = Self {
+            amd_reserved_must_be_all_ones: u64::MAX,
+            oxide_magic: HF_PERSISTENT_DATA_MAGIC,
+            header_version: HF_PERSISTENT_DATA_HEADER_VERSION,
+            epoch,
+            host_startup_options: data.startup_options,
+            active_slot: data.slot as u32,
+            checksum: 0,
+        };
+        out.checksum = out.expected_checksum();
+        assert!(out.is_valid());
+        out
+    }
+
+    fn expected_checksum(&self) -> u32 {
+        let c = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
+        let mut c = c.digest();
+        // We do a CRC32 of everything except the checksum, which is positioned
+        // at the end of the struct and is a `u32`
+        let size = core::mem::size_of::<RawPersistentData>()
+            - core::mem::size_of::<u32>();
+        c.update(&self.as_bytes()[..size]);
+        c.finalize()
+    }
+
+    fn is_valid(&self) -> bool {
+        self.amd_reserved_must_be_all_ones == u64::MAX
+            && self.oxide_magic == HF_PERSISTENT_DATA_MAGIC
+            && self.header_version == HF_PERSISTENT_DATA_HEADER_VERSION
+            && self.active_slot <= 1
+            && self.checksum == self.expected_checksum()
+    }
+}
+
+const HF_PERSISTENT_DATA_MAGIC: u32 = 0x1dea_bcde;
+const HF_PERSISTENT_DATA_STRIDE: usize = 128;
+const HF_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
+
+////////////////////////////////////////////////////////////////////////////////
+
 struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
@@ -198,6 +284,89 @@ impl ServerImpl {
         self.qspi.page_program(addr, &self.block[..data.len()]);
         poll_for_write_complete(&self.qspi, None);
         Ok(())
+    }
+
+    fn set_dev(&mut self, state: HfDevSelect) -> Result<(), HfError> {
+        // Return early if the dev select pin is missing
+        let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
+
+        self.check_muxed_to_sp()?;
+
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+        match state {
+            HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
+            HfDevSelect::Flash1 => sys.gpio_set(dev_select_pin),
+        }
+
+        self.dev_state = state;
+        Ok(())
+    }
+
+    fn get_raw_persistent_data(
+        &mut self,
+    ) -> Result<RawPersistentData, HfError> {
+        self.check_muxed_to_sp()?;
+        let best = if self.dev_select_pin.is_some() {
+            let prev_slot = self.dev_state;
+
+            // At this point, all of the ways that `set_dev` could fail have
+            // been checked: we already called both `check_muxed_to_sp` and that
+            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
+            // `self.set_dev(...)`.
+
+            // Look at the inactive slot first
+            self.set_dev(!prev_slot).unwrap();
+            let (a, _) = self.persistent_data_scan();
+
+            // Then switch back to our current slot, so that the resulting state
+            // is unchanged.
+            self.set_dev(prev_slot).unwrap();
+            let (b, _) = self.persistent_data_scan();
+
+            match (a, b) {
+                (Some(a), Some(b)) => {
+                    if a.epoch > b.epoch {
+                        Some(a)
+                    } else {
+                        Some(b)
+                    }
+                }
+                (Some(_), None) => a,
+                (None, Some(_)) => b,
+                (None, None) => None,
+            }
+        } else {
+            // The single-chip case is easy:
+            self.persistent_data_scan().0
+        };
+
+        best.ok_or(HfError::NoPersistentData)
+    }
+
+    /// Scans the currently active flash IC for persistent data
+    ///
+    /// Returns a tuple containing
+    /// - newest persistent data record
+    /// - address of first empty slot
+    fn persistent_data_scan(&self) -> (Option<RawPersistentData>, Option<u32>) {
+        let mut best: Option<RawPersistentData> = None;
+        let mut empty_slot: Option<u32> = None;
+        for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE {
+            let addr = (i * HF_PERSISTENT_DATA_STRIDE) as u32;
+            let mut data = RawPersistentData::new_zeroed();
+            self.qspi.read_memory(addr, data.as_bytes_mut());
+            if data.is_valid()
+                && best.map(|b| b.epoch < data.epoch).unwrap_or(true)
+            {
+                best = Some(data)
+            }
+            if empty_slot.is_none()
+                && data.as_bytes().iter().all(|b| *b == 0xFF)
+            {
+                empty_slot = Some(addr);
+            }
+        }
+        (best, empty_slot)
     }
 }
 
@@ -336,19 +505,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         state: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
-        // Return early if the dev select pin is missing
-        let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
-
-        self.check_muxed_to_sp()?;
-
-        let sys = sys_api::Sys::from(SYS.get_task_id());
-        match state {
-            HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
-            HfDevSelect::Flash1 => sys.gpio_set(dev_select_pin),
-        }
-
-        self.dev_state = state;
-        Ok(())
+        self.set_dev(state).map_err(RequestError::from)
     }
 
     #[cfg(feature = "hash")]
@@ -411,6 +568,52 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         Err(HfError::HashNotConfigured.into())
     }
+
+    fn get_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfPersistentData, RequestError<HfError>> {
+        let out = self.get_raw_persistent_data()?;
+        Ok(HfPersistentData {
+            startup_options: out.host_startup_options,
+            slot: HfDevSelect::from_u8(out.active_slot as u8).unwrap(),
+        })
+    }
+
+    fn write_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+        data: HfPersistentData,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        if self.dev_select_pin.is_some() {
+            let prev_slot = self.dev_state;
+
+            self.set_dev(!prev_slot).unwrap();
+            let (a_slot, a_next) = self.persistent_data_scan();
+
+            self.set_dev(prev_slot).unwrap();
+            let (b_slot, b_next) = self.persistent_data_scan();
+
+            let prev_epoch = match (a_slot, b_slot) {
+                (Some(a), Some(b)) => a.epoch.max(b.epoch),
+                (Some(a), None) => a.epoch,
+                (None, Some(b)) => b.epoch,
+                (None, None) => 0,
+            };
+            let epoch = prev_epoch + 1;
+            let raw = RawPersistentData::new(data, epoch);
+        } else {
+            let (slot, next) = self.persistent_data_scan();
+            let prev_epoch = match slot {
+                Some(a) => a.epoch,
+                None => 0,
+            };
+            let epoch = prev_epoch + 1;
+            let raw = RawPersistentData::new(data, epoch);
+        }
+        Ok(())
+    }
 }
 
 fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
@@ -438,7 +641,7 @@ fn poll_for_write_complete(qspi: &Qspi, sleep_between_polls: Option<u64>) {
 }
 
 mod idl {
-    use super::{HfDevSelect, HfError, HfMuxState};
+    use super::{HfDevSelect, HfError, HfMuxState, HfPersistentData};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
