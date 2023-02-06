@@ -278,11 +278,19 @@ impl ServerImpl {
         data.read_range(0..data.len(), &mut self.block[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        // Now we can't fail.
+        // Now we can't fail. (TODO is this comment outdated?)
+        Self::page_program_raw(&self.qspi, addr, &self.block[..data.len()])?;
+        Ok(())
+    }
 
-        set_and_check_write_enable(&self.qspi)?;
-        self.qspi.page_program(addr, &self.block[..data.len()]);
-        poll_for_write_complete(&self.qspi, None);
+    fn page_program_raw(
+        qspi: &Qspi,
+        addr: u32,
+        data: &[u8],
+    ) -> Result<(), HfError> {
+        set_and_check_write_enable(qspi)?;
+        qspi.page_program(addr, data);
+        poll_for_write_complete(qspi, None);
         Ok(())
     }
 
@@ -367,6 +375,12 @@ impl ServerImpl {
             }
         }
         (best, empty_slot)
+    }
+    fn raw_sector0_erase(&mut self) -> Result<(), HfError> {
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.sector_erase(0);
+        poll_for_write_complete(&self.qspi, Some(1));
+        Ok(())
     }
 }
 
@@ -464,9 +478,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        set_and_check_write_enable(&self.qspi)?;
-        self.qspi.sector_erase(0);
-        poll_for_write_complete(&self.qspi, Some(1));
+        self.raw_sector0_erase()?;
         Ok(())
     }
 
@@ -603,7 +615,50 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
+
+            // ----------------------------------------------------------------
+            // Write the persistent data to the currently inactive flash.
+            //
+            // This code is a little awkward, because we want to restore the
+            // active flash if there's an error, meaning we can't simply use `?`
+            // everywhere to exit early.
+            //
+            // At this point, all of the ways that `set_dev` could fail have
+            // been checked: we already called both `check_muxed_to_sp` and that
+            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
+            // `self.set_dev(...)`.
+            self.set_dev(!prev_slot).unwrap();
+            let addr = match a_next {
+                Some(a) => a,
+                None => {
+                    if let Err(e) = self.raw_sector0_erase() {
+                        self.set_dev(prev_slot).unwrap();
+                        return Err(e.into());
+                    }
+                    0
+                }
+            };
+            if let Err(e) =
+                Self::page_program_raw(&self.qspi, addr, raw.as_bytes())
+            {
+                self.set_dev(prev_slot).unwrap();
+                return Err(e.into());
+            }
+
+            // ----------------------------------------------------------------
+            // Write the persistent data to the currently active flash
+            self.set_dev(prev_slot).unwrap();
+            let addr = match b_next {
+                Some(b) => b,
+                None => {
+                    self.raw_sector0_erase()?;
+                    0
+                }
+            };
+            Self::page_program_raw(&self.qspi, addr, raw.as_bytes())?;
         } else {
+            // Single-flash case is less complicated, because we don't have to
+            // track and maintain the active device.
             let (slot, next) = self.persistent_data_scan();
             let prev_epoch = match slot {
                 Some(a) => a.epoch,
@@ -611,6 +666,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
+            let addr = match next {
+                Some(v) => v,
+                None => {
+                    self.raw_sector0_erase()?;
+                    0
+                }
+            };
+            Self::page_program_raw(&self.qspi, addr, raw.as_bytes())?;
         }
         Ok(())
     }
