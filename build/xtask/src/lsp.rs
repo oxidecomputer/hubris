@@ -4,6 +4,7 @@
 
 use crate::dist::PackageConfig;
 use anyhow::{anyhow, bail, Context, Result};
+use cargo_metadata::DependencyKind;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet},
@@ -68,14 +69,17 @@ impl PackageGraph {
         root: &str,
         features: &[String],
     ) -> BTreeMap<String, BTreeSet<String>> {
-        // We're going to calculate this package's dependencies, taking
-        // features into account.  The `dependencies` array below stores a
-        // mapping from packages to their enabled features; we build it by
-        // recursing down the whole package tree, starting at the task.
+        // We're going to calculate this package's dependencies, taking features
+        // into account.  `package_dependencies` and `package_features` store
+        // a mapping from package name to their enabled dependencies and
+        // features respectively.
         let mut package_features: BTreeMap<String, BTreeSet<String>> =
             BTreeMap::new();
         let mut package_dependencies: BTreeMap<String, BTreeSet<String>> =
             BTreeMap::new();
+
+        // We're going to build those mappings by starting at the root with a
+        // known set of features enabled.
         let mut todo: Vec<(String, Option<String>)> = features
             .iter()
             .map(|f| (root.to_owned(), Some(f.clone())))
@@ -87,9 +91,9 @@ impl PackageGraph {
         // implementation of half of Cargo."
         //
         // Dependency resolution and feature unification could be simple, but
-        // for optional features (of the form `crate?/feat`).  Optional
+        // for optional features of the form `crate?/feat`.  Optional
         // features may become active **after** they have already been
-        // considered, which makes things trickier.
+        // considered, which makes things trickier!
         //
         // For example, if we are enabling features "foo" and "baz"
         // ```toml
@@ -98,9 +102,12 @@ impl PackageGraph {
         // ```
         // when "foo" is checked, it does not know that "bar" is enabled.
         //
-        // To work around this, we accumulation possible optional features in
-        // a separate list (`optional`), then recheck them after all of the
-        // mandatory features and dependencies have been handled.
+        // To work around this, we accumulate optional features in a separate
+        // list (`optional`), then recheck them after all of the mandatory
+        // features and dependencies have been handled.
+        //
+        // Once everything stabilizes, we know that any remaining optional
+        // features did not get enabled, and we break out of the loop.
         loop {
             let mut changed = false;
             let mut optional = vec![];
@@ -118,17 +125,13 @@ impl PackageGraph {
                     assert!(!package_dependencies.contains_key(&pkg_name));
 
                     // Start with no features enabled
-                    package_features
-                        .insert(pkg_name.clone(), BTreeSet::default());
-                    package_dependencies
-                        .insert(pkg_name.clone(), BTreeSet::default());
+                    package_features.entry(pkg_name.clone()).or_default();
+                    package_dependencies.entry(pkg_name.clone()).or_default();
                     changed = true;
 
-                    // Insert all non-optional dependencies
+                    // Insert all non-optional, non-build dependencies
                     for d in pkg.dependencies.iter() {
-                        if !d.optional
-                            && d.kind != cargo_metadata::DependencyKind::Build
-                        {
+                        if !d.optional && d.kind != DependencyKind::Build {
                             // Record this dependency
                             changed |= package_dependencies
                                 .get_mut(&pkg_name)
@@ -163,70 +166,46 @@ impl PackageGraph {
                         .get_mut(&pkg_name)
                         .unwrap()
                         .insert(feat);
-                    for e in f {
-                        todo.push((pkg_name.clone(), Some(e.clone())));
-                    }
+                    todo.extend(
+                        f.iter().map(|f| (pkg_name.clone(), Some(f.clone()))),
+                    );
                 } else if feat == "default" {
                     // Someone tried to enable the default features for this
-                    // crate, but there are not default features; continue.
+                    // crate, but there are no default features; continue.
                     continue;
                 } else {
                     let s = feat.strip_prefix("dep:").unwrap_or(&feat);
-                    if s.contains("?/") {
+                    let (cra, fea) = if s.contains("?/") {
                         let mut iter = s.split("?/");
                         let cra = iter.next().unwrap();
                         let fea = iter.next().unwrap();
                         if package_dependencies[&pkg_name].contains(cra) {
-                            changed |= package_dependencies
-                                .entry(pkg_name)
-                                .or_default()
-                                .insert(cra.to_owned());
-
-                            let d = pkg
-                                .dependencies
-                                .iter()
-                                .find(|d| d.name == cra)
-                                .unwrap();
-                            if d.kind != cargo_metadata::DependencyKind::Build {
-                                todo.push((
-                                    cra.to_owned(),
-                                    Some(fea.to_owned()),
-                                ))
-                            }
+                            (cra, Some(fea))
                         } else {
                             optional.push((pkg_name.clone(), Some(feat)));
+                            continue;
                         }
                     } else if s.contains('/') {
                         let mut iter = s.split('/');
                         let cra = iter.next().unwrap();
                         let fea = iter.next().unwrap();
-                        changed |= package_dependencies
-                            .entry(pkg_name)
-                            .or_default()
-                            .insert(cra.to_owned());
-
-                        let d = pkg
-                            .dependencies
-                            .iter()
-                            .find(|d| d.name == cra)
-                            .unwrap();
-                        if d.kind != cargo_metadata::DependencyKind::Build {
-                            todo.push((cra.to_owned(), Some(fea.to_owned())))
-                        }
+                        (cra, Some(fea))
                     } else {
-                        let cra = s;
-                        changed |= package_dependencies
-                            .entry(pkg_name)
-                            .or_default()
-                            .insert(cra.to_owned());
-                        let d = pkg
-                            .dependencies
-                            .iter()
-                            .find(|d| d.name == cra)
-                            .unwrap();
-                        if d.kind != cargo_metadata::DependencyKind::Build {
-                            todo.push((cra.to_owned(), None))
-                        }
+                        (s, None)
+                    };
+
+                    changed |= package_dependencies
+                        .entry(pkg_name)
+                        .or_default()
+                        .insert(cra.to_owned());
+
+                    let d = pkg
+                        .dependencies
+                        .iter()
+                        .find(|d| d.name == cra)
+                        .unwrap();
+                    if d.kind != DependencyKind::Build {
+                        todo.push((cra.to_owned(), fea.map(|s| s.to_owned())))
                     }
                 }
             }
