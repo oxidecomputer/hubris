@@ -73,112 +73,174 @@ impl PackageGraph {
         // features into account.  The `dependencies` array below stores a
         // mapping from packages to their enabled features; we build it by
         // recursing down the whole package tree, starting at the task.
-        let mut dependencies: BTreeMap<String, BTreeSet<String>> =
+        let mut package_features: BTreeMap<String, BTreeSet<String>> =
             BTreeMap::new();
-        let mut todo: Vec<(String, bool, BTreeSet<String>)> = vec![(
-            root.to_owned(),
-            false,
-            features.clone().into_iter().cloned().collect(),
-        )];
+        let mut package_dependencies: BTreeMap<String, BTreeSet<String>> =
+            BTreeMap::new();
+        let mut todo: Vec<(String, Option<String>)> = features
+            .iter()
+            .map(|f| (root.to_owned(), Some(f.clone())))
+            .chain(std::iter::once((root.to_owned(), None)))
+            .collect();
 
         // Ferris's tenth rule: "Any sufficiently complicated Rust build
         // system contains an ad hoc, informally-specified, bug-ridden, slow
         // implementation of half of Cargo."
-        while let Some((pkg_name, default_feat, mut feat)) = todo.pop() {
-            // Anything not in `packages` is something from outside the
-            // workspace, so we don't care about it.
-            let pkg = match self.0.get(&pkg_name) {
-                Some(pkg) => pkg,
-                None => continue,
-            };
+        //
+        // Dependency resolution and feature unification could be simple, but
+        // for optional features (of the form `crate?/feat`).  Optional
+        // features may become active **after** they have already been
+        // considered, which makes things trickier.
+        //
+        // For example, if we are enabling features "foo" and "baz"
+        // ```toml
+        // foo = ["bar?/lol"]
+        // baz = ["bar"]
+        // ```
+        // when "foo" is checked, it does not know that "bar" is enabled.
+        //
+        // To work around this, we accumulation possible optional features in
+        // a separate list (`optional`), then recheck them after all of the
+        // mandatory features and dependencies have been handled.
+        loop {
+            let mut changed = false;
+            let mut optional = vec![];
+            while let Some((pkg_name, feat)) = todo.pop() {
+                // Anything not in `packages` is something from outside the
+                // workspace, so we don't care about it.
+                let pkg = match self.0.get(&pkg_name) {
+                    Some(pkg) => pkg,
+                    None => continue,
+                };
 
-            let package_features: BTreeSet<String> =
-                pkg.features.keys().cloned().collect();
+                // If we've never seen this package before, then insert all of
+                // its non-optional dependencies with their features.
+                if !package_features.contains_key(&pkg_name) {
+                    assert!(!package_dependencies.contains_key(&pkg_name));
 
-            // Features can enable other features; calculate the full set of
-            // features by iterating over them repeatedly until the set of
-            // enabled features stabilizes.
-            loop {
-                let mut changed = false;
-                for (f, sub) in &pkg.features {
-                    if feat.contains(f) || (f == "default" && default_feat) {
-                        for s in sub.iter() {
-                            if package_features.contains(s) {
-                                changed |= feat.insert(s.to_string());
+                    // Start with no features enabled
+                    package_features
+                        .insert(pkg_name.clone(), BTreeSet::default());
+                    package_dependencies
+                        .insert(pkg_name.clone(), BTreeSet::default());
+                    changed = true;
+
+                    // Insert all non-optional dependencies
+                    for d in pkg.dependencies.iter() {
+                        if !d.optional
+                            && d.kind != cargo_metadata::DependencyKind::Build
+                        {
+                            // Record this dependency
+                            changed |= package_dependencies
+                                .get_mut(&pkg_name)
+                                .unwrap()
+                                .insert(d.name.clone());
+
+                            // Queue up the dependent package for evaluation
+                            todo.push((d.name.clone(), None));
+                            if d.uses_default_features {
+                                todo.push((
+                                    d.name.clone(),
+                                    Some("default".to_owned()),
+                                ));
+                            }
+                            for f in &d.features {
+                                todo.push((d.name.clone(), Some(f.to_owned())))
                             }
                         }
                     }
                 }
-                if !changed {
-                    break;
-                }
-            }
 
-            // Feature unification: if we've already seen this package, and
-            // the currently-enabled features don't add anything new, then
-            // we can skip it.
-            {
-                let mut changed = !dependencies.contains_key(&pkg_name);
-                let entry = dependencies.entry(pkg_name.clone()).or_default();
-                for f in feat.iter() {
-                    changed |= entry.insert(f.to_string());
-                }
-                if !changed {
+                // Check to see if we're also enabling a feature here
+                if feat.is_none() {
                     continue;
                 }
-            }
+                let feat = feat.unwrap();
 
-            // Store the crates to examine next
-            let mut next: BTreeMap<String, _> = pkg
-                .dependencies
-                .iter()
-                .map(|d| (d.name.clone(), d.clone()))
-                .collect();
-
-            // Now that we've got features, we can figure out which
-            // dependencies are enabled by features.  We iterate over
-            // feature that is enabled, examining anything that *it* enables
-            // which is not itself a feature (since those were handled
-            // above).  This means that everything handled in this loop is
-            // a dependency of some work ('dep', 'dep/feat', 'dep?/feat')
-            for s in pkg
-                .features
-                .iter()
-                .filter(|f| feat.contains(f.0))
-                .flat_map(|(_, sub)| sub.iter())
-                .filter(|f| !package_features.contains(*f))
-            {
-                let s = s.strip_prefix("dep:").unwrap_or(s);
-                if s.contains("?/") {
-                    let mut iter = s.split("?/");
-                    let cra = iter.next().unwrap();
-                    let fea = iter.next().unwrap();
-                    next.get_mut(cra).unwrap().features.push(fea.to_owned());
-                } else if s.contains('/') {
-                    let mut iter = s.split('/');
-                    let cra = iter.next().unwrap();
-                    let fea = iter.next().unwrap();
-                    let t = next.get_mut(cra).unwrap();
-                    t.optional = false;
-                    t.features.push(fea.to_owned());
+                if let Some(f) = pkg.features.get(&feat) {
+                    // Queue up everything downstream of this feature for
+                    // evaluation.
+                    changed |= package_features
+                        .get_mut(&pkg_name)
+                        .unwrap()
+                        .insert(feat);
+                    for e in f {
+                        todo.push((pkg_name.clone(), Some(e.clone())));
+                    }
+                } else if feat == "default" {
+                    // Someone tried to enable the default features for this
+                    // crate, but there are not default features; continue.
+                    continue;
                 } else {
-                    next.get_mut(s).unwrap().optional = false;
+                    let s = feat.strip_prefix("dep:").unwrap_or(&feat);
+                    if s.contains("?/") {
+                        let mut iter = s.split("?/");
+                        let cra = iter.next().unwrap();
+                        let fea = iter.next().unwrap();
+                        if package_dependencies[&pkg_name].contains(cra) {
+                            changed |= package_dependencies
+                                .entry(pkg_name)
+                                .or_default()
+                                .insert(cra.to_owned());
+
+                            let d = pkg
+                                .dependencies
+                                .iter()
+                                .find(|d| d.name == cra)
+                                .unwrap();
+                            if d.kind != cargo_metadata::DependencyKind::Build {
+                                todo.push((
+                                    cra.to_owned(),
+                                    Some(fea.to_owned()),
+                                ))
+                            }
+                        } else {
+                            optional.push((pkg_name.clone(), Some(feat)));
+                        }
+                    } else if s.contains('/') {
+                        let mut iter = s.split('/');
+                        let cra = iter.next().unwrap();
+                        let fea = iter.next().unwrap();
+                        changed |= package_dependencies
+                            .entry(pkg_name)
+                            .or_default()
+                            .insert(cra.to_owned());
+
+                        let d = pkg
+                            .dependencies
+                            .iter()
+                            .find(|d| d.name == cra)
+                            .unwrap();
+                        if d.kind != cargo_metadata::DependencyKind::Build {
+                            todo.push((cra.to_owned(), Some(fea.to_owned())))
+                        }
+                    } else {
+                        let cra = s;
+                        changed |= package_dependencies
+                            .entry(pkg_name)
+                            .or_default()
+                            .insert(cra.to_owned());
+                        let d = pkg
+                            .dependencies
+                            .iter()
+                            .find(|d| d.name == cra)
+                            .unwrap();
+                        if d.kind != cargo_metadata::DependencyKind::Build {
+                            todo.push((cra.to_owned(), None))
+                        }
+                    }
                 }
             }
-            for n in next.values() {
-                if n.kind != cargo_metadata::DependencyKind::Build
-                    && !n.optional
-                {
-                    todo.push((
-                        n.name.clone(),
-                        n.uses_default_features,
-                        n.features.iter().cloned().collect(),
-                    ));
-                }
+            if !changed {
+                break;
             }
+            // Start the loop anew, checking whether the optional `crate?/feat`
+            // are now active.
+            assert!(todo.is_empty());
+            todo = optional;
         }
 
-        dependencies
+        package_features
     }
 }
 
