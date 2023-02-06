@@ -205,6 +205,7 @@ end
 -- Configure LSP through rust-tools.nvim plugin, with lots of bonus
 -- content for Hubris compatibility
 local cache = {}
+local clients = {}
 require'rust-tools'.setup{
   tools = { -- rust-tools options
     autoSetHints = true,
@@ -212,6 +213,7 @@ require'rust-tools'.setup{
       show_parameter_hints = false,
       parameter_hints_prefix = "",
       other_hints_prefix = "",
+      -- do other configuration here as desired
     },
   },
 
@@ -225,7 +227,15 @@ require'rust-tools'.setup{
         -- dictionary with bonus configuration.
         local prev_cwd = vim.fn.getcwd()
         vim.cmd("cd " .. dir)
-        local handle = io.popen(dir .. "/target/debug/xtask lsp " .. bufname)
+        local cmd = dir .. "/target/debug/xtask lsp "
+        -- Notify `xtask lsp` of existing clients in the CLI invocation,
+        -- so it can check against them first (which would mean a faster
+        -- attach)
+        for _,v in pairs(clients) do
+          local c = vim.fn.escape(vim.json.encode(v), '"')
+          cmd = cmd .. '-c"' .. c .. '" '
+        end
+        local handle = io.popen(cmd .. bufname)
         handle:flush()
         local result = handle:read("*a")
         handle:close()
@@ -239,6 +249,7 @@ require'rust-tools'.setup{
         if json["Ok"] ~= nil then
           new_config.name = "rust_analyzer_" .. json.Ok.hash
           cache[bufnr] = json
+          table.insert(clients, {toml = json.Ok.app, task = json.Ok.task})
         else
           -- TODO:
           -- vim.notify(vim.inspect(json.Err), vim.log.levels.ERROR)
