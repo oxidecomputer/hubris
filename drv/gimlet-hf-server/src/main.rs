@@ -660,14 +660,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
-            let addr = match next {
-                Some(v) => v,
-                None => {
-                    self.raw_sector0_erase()?;
-                    0
-                }
-            };
-            Self::page_program_raw(&self.qspi, addr, raw.as_bytes())?;
+            self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
         Ok(())
     }
