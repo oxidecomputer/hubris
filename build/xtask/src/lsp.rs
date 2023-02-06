@@ -114,10 +114,7 @@ impl PackageGraph {
             while let Some((pkg_name, feat)) = todo.pop() {
                 // Anything not in `packages` is something from outside the
                 // workspace, so we don't care about it.
-                let pkg = match self.0.get(&pkg_name) {
-                    Some(pkg) => pkg,
-                    None => continue,
-                };
+                let Some(pkg) = self.0.get(&pkg_name) else { continue };
 
                 // If we've never seen this package before, then insert all of
                 // its non-optional dependencies with their features.
@@ -154,10 +151,7 @@ impl PackageGraph {
                 }
 
                 // Check to see if we're also enabling a feature here
-                if feat.is_none() {
-                    continue;
-                }
-                let feat = feat.unwrap();
+                let Some(feat) = feat else { continue };
 
                 if let Some(f) = pkg.features.get(&feat) {
                     // Queue up everything downstream of this feature for
