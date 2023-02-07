@@ -31,7 +31,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 [tasks.net]
 name = "task-net"
 stacksize = 6040
-priority = 5
+priority = 6
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -97,7 +97,7 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.thermal]
 name = "task-thermal"
 features = ["itm", "gimlet"]
-priority = 5
+priority = 6
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000
 start = true
@@ -107,7 +107,7 @@ notifications = ["timer"]
 [tasks.power]
 name = "task-power"
 features = ["itm", "gimlet"]
-priority = 6
+priority = 7
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 1000
 start = true
@@ -117,7 +117,7 @@ notifications = ["timer"]
 [tasks.hiffy]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash", "update", "sprot"]
-priority = 5
+priority = 6
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1024
 start = true
@@ -126,7 +126,7 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
 features = ["h753"]
-priority = 4
+priority = 5
 max-sizes = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
@@ -152,7 +152,7 @@ notifications = ["hash-irq"]
 [tasks.hf]
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
-priority = 3
+priority = 4
 max-sizes = {flash = 16384, ram = 2048 }
 stacksize = 1920
 start = true
@@ -174,7 +174,7 @@ notifications = ["flash-irq"]
 [tasks.sensor]
 name = "task-sensor"
 features = ["itm"]
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 8192 }
 stacksize = 1024
 start = true
@@ -185,7 +185,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7"]
 interrupts = {"uart7.irq" = "usart-irq"}
-priority = 7
+priority = 8
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
@@ -194,7 +194,7 @@ notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -204,7 +204,7 @@ notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
@@ -214,7 +214,7 @@ notifications = ["socket"]
 
 [tasks.udprpc]
 name = "task-udprpc"
-priority = 6
+priority = 7
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
@@ -224,7 +224,7 @@ notifications = ["socket"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 131072, ram = 32768}
 stacksize = 4096
 start = true
@@ -253,7 +253,7 @@ interrupts = {"usart1.irq" = "usart-irq"}
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
-priority = 4
+priority = 5
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 16384
 start = true
@@ -265,7 +265,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.validate]
 name = "task-validate"
-priority = 5
+priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000 
 start = true
@@ -273,7 +273,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.vpd]
 name = "task-vpd"
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
@@ -298,7 +298,7 @@ uses = [ "sram2", "sram3", "sram4" ]
 
 [tasks.idle]
 name = "task-idle"
-priority = 8
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
