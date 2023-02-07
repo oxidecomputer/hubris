@@ -274,6 +274,15 @@ start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 notifications = ["timer"]
 
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["sprot"]
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
+
 [tasks.idle]
 name = "task-idle"
 priority = 8
