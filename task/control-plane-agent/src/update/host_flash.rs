@@ -50,12 +50,16 @@ impl HostFlashUpdate {
 
         // Attempt to swap to the chosen slot, returning a "slot busy" error if
         // we don't have control over the host flash.
-        self.task.set_dev(slot).map_err(|err| match err {
-            HfError::NotMuxedToSP => SpError::UpdateSlotBusy,
-            _ => SpError::UpdateFailed(err as u32),
-        })?;
+        match self.task.set_dev(slot) {
+            Ok(()) => Ok(()),
+            // If this board does not have multiple devices (indicated by
+            // receiving NoDevSelect), then Flash0 is the only valid option.
+            Err(HfError::NoDevSelect) if slot == HfDevSelect::Flash0 => Ok(()),
 
-        Ok(())
+            // Otherwise, things went wrong; translate if possible:
+            Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
+            Err(err) => Err(SpError::UpdateFailed(err as u32)),
+        }
     }
 }
 
@@ -119,12 +123,14 @@ impl ComponentUpdater for HostFlashUpdate {
         }
         let num_sectors = (capacity / SECTOR_SIZE_BYTES) as u32;
 
+        // Note that we preserve sector 0, which is used for Hubris-level
+        // persistent data.
         self.current = Some(CurrentUpdate::new(
             update.id,
             update.total_size,
             State::ErasingSectors {
                 buffer,
-                sectors_to_erase: 0..num_sectors,
+                sectors_to_erase: 1..num_sectors,
             },
         ));
 
