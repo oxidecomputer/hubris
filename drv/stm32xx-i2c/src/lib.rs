@@ -525,8 +525,8 @@ impl I2cController<'_> {
                         break;
                     }
 
-                    (ctrl.wfi)(notification);
                     (ctrl.enable)(notification);
+                    (ctrl.wfi)(notification);
                 }
 
                 // Get a single byte.
@@ -555,8 +555,8 @@ impl I2cController<'_> {
                     break;
                 }
 
-                (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
+                (ctrl.wfi)(notification);
             }
         }
 
@@ -600,8 +600,8 @@ impl I2cController<'_> {
                 }
 
                 loop {
-                    (ctrl.wfi)(notification);
                     (ctrl.enable)(notification);
+                    (ctrl.wfi)(notification);
 
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::ReadISR(isr.bits()));
@@ -647,8 +647,8 @@ impl I2cController<'_> {
 
                 self.check_errors(&isr)?;
 
-                (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
+                (ctrl.wfi)(notification);
             }
         }
 
@@ -721,8 +721,8 @@ impl I2cController<'_> {
                     break;
                 }
 
-                (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
+                (ctrl.wfi)(notification);
             }
         }
 
