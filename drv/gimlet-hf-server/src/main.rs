@@ -192,7 +192,7 @@ struct RawPersistentData {
     host_startup_options: u64,
 
     /// Either 0 or 1; directly translatable to `gimlet_hf_api::HfDevSelect`
-    active_slot: u32,
+    dev_select: u32,
 
     /// CRC-32 over the rest of the data using the iSCSI polynomial
     checksum: u32,
@@ -206,7 +206,7 @@ impl RawPersistentData {
             header_version: HF_PERSISTENT_DATA_HEADER_VERSION,
             epoch,
             host_startup_options: data.startup_options,
-            active_slot: data.slot as u32,
+            dev_select: data.dev_select as u32,
             checksum: 0,
         };
         out.checksum = out.expected_checksum();
@@ -229,7 +229,7 @@ impl RawPersistentData {
         self.amd_reserved_must_be_all_ones == u64::MAX
             && self.oxide_magic == HF_PERSISTENT_DATA_MAGIC
             && self.header_version == HF_PERSISTENT_DATA_HEADER_VERSION
-            && self.active_slot <= 1
+            && self.dev_select <= 1
             && self.checksum == self.expected_checksum()
     }
 }
@@ -658,7 +658,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let out = self.get_raw_persistent_data()?;
         Ok(HfPersistentData {
             startup_options: out.host_startup_options,
-            slot: HfDevSelect::from_u8(out.active_slot as u8).unwrap(),
+            dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
         })
     }
 
@@ -666,8 +666,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn write_persistent_data(
         &mut self,
         _: &RecvMessage,
-        data: HfPersistentData,
+        startup_options: u64,
+        dev_select: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
+        let data = HfPersistentData {
+            startup_options,
+            dev_select,
+        };
         self.check_muxed_to_sp()?;
         if self.dev_select_pin.is_some() {
             let prev_slot = self.dev_state;

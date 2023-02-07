@@ -75,7 +75,7 @@ impl core::ops::Not for HfDevSelect {
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, SerializedSize)]
 pub struct HfPersistentData {
     pub startup_options: u64,
-    pub slot: HfDevSelect,
+    pub dev_select: HfDevSelect,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
