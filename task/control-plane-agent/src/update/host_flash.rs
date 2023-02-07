@@ -269,18 +269,32 @@ impl ComponentUpdater for HostFlashUpdate {
             if buffer.len() == buffer.capacity()
                 || *next_write_offset + buffer.len() as u32 == total_size
             {
-                // TODO: skip bytes in sector 0 here, after checking that
-                // they're all 0xFF.
+                // Alright, this is a little tricky: we want to preserve sector
+                // 0 of the host flash, because it's used by Hubris to store
+                // bookkeeping information (e.g. what flash slot to select).
+                //
+                // However, the host that's sending us data doesn't necessarily
+                // know about this limitation.  We skip bytes up until the end
+                // of sector 0, after checking that they are all 0xFF.
+                let skip_bytes = SECTOR_SIZE_BYTES
+                    .saturating_sub(*next_write_offset as usize)
+                    .min(buffer.len());
 
-                // We trust that the caller will not be trying to write to
-                // sector 0; this will return an error otherwise.
-                if let Err(err) = self.task.page_program(
-                    *next_write_offset,
-                    HfProtectMode::ProtectSector0,
-                    buffer,
-                ) {
+                if buffer[0..skip_bytes].iter().any(|b| *b != 0xFF) {
+                    let err = HfError::Sector0IsReserved;
                     *current.state_mut() = State::Failed(err);
                     return Err(SpError::UpdateFailed(err as u32));
+                }
+
+                if skip_bytes < buffer.len() {
+                    if let Err(err) = self.task.page_program(
+                        *next_write_offset + skip_bytes as u32,
+                        HfProtectMode::ProtectSector0,
+                        &buffer[skip_bytes..],
+                    ) {
+                        *current.state_mut() = State::Failed(err);
+                        return Err(SpError::UpdateFailed(err as u32));
+                    }
                 }
 
                 *next_write_offset += buffer.len() as u32;
