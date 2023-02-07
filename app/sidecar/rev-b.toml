@@ -75,7 +75,7 @@ task-slots = ["sys", "i2c_driver",
 name = "task-control-plane-agent"
 priority = 7
 max-sizes = {flash = 131072, ram = 16384}
-stacksize = 4096
+stacksize = 6144
 start = true
 uses = []
 task-slots = [
@@ -286,6 +286,15 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["sprot"]
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
 
 [tasks.idle]
 name = "task-idle"
