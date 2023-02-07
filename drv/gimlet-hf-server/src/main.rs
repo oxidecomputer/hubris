@@ -131,13 +131,12 @@ fn main() -> ! {
         }
     };
 
-    if log2_capacity.is_none() {
+    let Some(log2_capacity) = log2_capacity else {
         loop {
             // We are dead now.
             hl::sleep_for(1000);
         }
-    }
-    let log2_capacity = log2_capacity.unwrap();
+    };
     qspi.configure(cfg.clock, log2_capacity);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -150,6 +149,8 @@ fn main() -> ! {
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
     };
+
+    server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -376,6 +377,7 @@ impl ServerImpl {
         }
         (best, empty_slot)
     }
+
     fn raw_sector0_erase(&mut self) -> Result<(), HfError> {
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.sector_erase(0);
@@ -396,6 +398,59 @@ impl ServerImpl {
             }
         };
         Self::page_program_raw(&self.qspi, addr, raw_data.as_bytes())
+    }
+
+    /// Checks that the persistent data is consistent between the two flash ICs.
+    fn ensure_persistent_data_is_redundant(&mut self) -> Result<(), HfError> {
+        // This should only be called on startup, at which point we're always
+        // muxed to the SP.
+        self.check_muxed_to_sp().unwrap();
+
+        // We can't have redundant data if we've only got a single flash
+        if self.dev_select_pin.is_none() {
+            return Ok(());
+        }
+
+        // Load the current state of persistent data from flash
+        let prev_slot = self.dev_state;
+        self.set_dev(!prev_slot).unwrap();
+        let (a_data, a_next) = self.persistent_data_scan();
+
+        self.set_dev(prev_slot).unwrap();
+        let (b_data, b_next) = self.persistent_data_scan();
+
+        match (a_data, b_data) {
+            (Some(a), Some(b)) => match a.epoch.cmp(&b.epoch) {
+                core::cmp::Ordering::Less => {
+                    self.set_dev(!prev_slot).unwrap();
+                    let out =
+                        self.write_raw_persistent_data_to_addr(a_next, &b);
+                    self.set_dev(prev_slot).unwrap();
+                    out
+                }
+                core::cmp::Ordering::Greater => {
+                    self.write_raw_persistent_data_to_addr(b_next, &a)
+                }
+                core::cmp::Ordering::Equal => {
+                    // Redundant data is consistent
+                    // TODO: should we have a special case if they don't agree?
+                    Ok(())
+                }
+            },
+            (Some(a), None) => {
+                self.write_raw_persistent_data_to_addr(b_next, &a)
+            }
+            (None, Some(b)) => {
+                self.set_dev(!prev_slot).unwrap();
+                let out = self.write_raw_persistent_data_to_addr(a_next, &b);
+                self.set_dev(prev_slot).unwrap();
+                out
+            }
+            (None, None) => {
+                // No persistent data recorded; nothing to do here
+                Ok(())
+            }
+        }
     }
 }
 
@@ -607,6 +662,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         })
     }
 
+    /// Writes the given persistent data to host flash
     fn write_persistent_data(
         &mut self,
         _: &RecvMessage,
@@ -617,12 +673,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             let prev_slot = self.dev_state;
 
             self.set_dev(!prev_slot).unwrap();
-            let (a_slot, a_next) = self.persistent_data_scan();
+            let (a_data, a_next) = self.persistent_data_scan();
 
             self.set_dev(prev_slot).unwrap();
-            let (b_slot, b_next) = self.persistent_data_scan();
+            let (b_data, b_next) = self.persistent_data_scan();
 
-            let prev_epoch = match (a_slot, b_slot) {
+            let prev_epoch = match (a_data, b_data) {
                 (Some(a), Some(b)) => a.epoch.max(b.epoch),
                 (Some(a), None) => a.epoch,
                 (None, Some(b)) => b.epoch,
@@ -631,7 +687,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
 
-            // ----------------------------------------------------------------
             // Write the persistent data to the currently inactive flash.
             //
             // At this point, all of the ways that `set_dev` could fail have
@@ -641,15 +696,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             self.set_dev(!prev_slot).unwrap();
             let out_a = self.write_raw_persistent_data_to_addr(a_next, &raw);
 
-            // ----------------------------------------------------------------
             // Write the persistent data to the currently active flash
             self.set_dev(prev_slot).unwrap();
-            let out_b = self.write_raw_persistent_data_to_addr(b_next, &raw);
 
             // Now that we've restored the current active flash, check whether
             // we should propagate errors.
             out_a?;
-            out_b?;
+
+            self.write_raw_persistent_data_to_addr(b_next, &raw)?;
         } else {
             // Single-flash case is less complicated, because we don't have to
             // track and maintain the active device.
