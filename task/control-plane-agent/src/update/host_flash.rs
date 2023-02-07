@@ -171,8 +171,9 @@ impl ComponentUpdater for HostFlashUpdate {
 
             let addr = sectors_to_erase.start * SECTOR_SIZE_BYTES as u32;
 
-            // We trust that the caller is aware of the sector 0 restrictions
-            // and will not write to it; this will return an error otherwise.
+            // During construction of the State::ErasingSectors object, we
+            // should have configured it to start at sector 1; using
+            // HfProtectMode::ProtectSector0 guards against mistakes.
             match self.task.sector_erase(addr, HfProtectMode::ProtectSector0) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
