@@ -1166,14 +1166,14 @@ cleared by software when SP3 hotplug indicates enable
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
-        <td class="FieldDesc" colspan="14">A1 State machine enum.
+        <td class="FieldDesc" colspan="14">State Machine enum
         <br>
         <br>
-            A1Idle = 0x0 <br>
-            A1Enable = 0x1 <br>
-            A1WaitPG = 0x2 <br>
-            A1Delay = 0x3 <br>
-            A1Done = 0x5 
+            IDLE = 0x0 <br>
+            ENABLE = 0x1 <br>
+            WAITPG = 0x2 <br>
+            DELAY = 0x3 <br>
+            DONE = 0x5 
         </td>
     </tr>
     <tr class="Register">
@@ -1207,7 +1207,7 @@ cleared by software when SP3 hotplug indicates enable
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
-        <td class="FieldDesc" colspan="14">A0 State machine enum
+        <td class="FieldDesc" colspan="14">State Machine enum
         <br>
         <br>
             IDLE = 0x0 <br>
@@ -1480,7 +1480,7 @@ faults are clear. (Inverted to active high in register)
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Asserted (and inverted) from AMD’s RESET_L pin. 10Ms minimum assertion time, 
+        <td class="FieldDesc" colspan="14">Asserted (and inverted) from AMD's RESET_L pin. 10Ms minimum assertion time, 
 remains asserted for minimum of 1ms after PWROK assertion
 (SP3_TO_SEQ_RESET_V3P3_L net)
         </td>
@@ -1695,12 +1695,9 @@ VDD_MEM_ABCD_A0
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="8*">RSVD</td>
                 <td class="validspandef" colspan="2*">CONT2_CFP</td>
                 <td class="validspandef" colspan="2*">CONT2_NVRHOT</td>
-                <td class="validspandef" colspan="2*">EFGH_CFP</td>
-                <td class="validspandef" colspan="2*">EFGH_NVRHOT</td>
-                <td class="validspandef" colspan="2*">ABCD_CFP</td>
-                <td class="validspandef" colspan="2*">ABCD_NVRHOT</td>
                 <td class="validspandef" colspan="2*">CONT1_CFP</td>
                 <td class="validspandef" colspan="2*">CONT1_NVRHOT</td>
     </tr>
@@ -1715,7 +1712,7 @@ VDD_MEM_ABCD_A0
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CONT2_CFP</td>
-        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Catastrophic fault protection output from RAA229618 U351 controlling 
@@ -1725,54 +1722,12 @@ SP3_VDDCR_SOC_A0 and VDD_MEM_EFGH_A0 rails (PWR_CONT2_SP3_CFP net).
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CONT2_NVRHOT</td>
-        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Set high (inverted from board) when rail reaches OT_WARN threshold, only valid 
 after configuration. From RAA229618 U351 driving rails SP3_VDDCR_SOC_A0 and 
 VDD_MEM_EFGH_A0 (PWR_CONT2_SP3_NVRHOT net)
-        </td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">EFGH_CFP</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Catastrophic fault protection output for ISL68224 and downstream devices
-driving VPP_EFGH_A0. (PWR_CONT_DIMM_EFGH_CFP net)
-        </td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">EFGH_NVRHOT</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Set high (inverted from board) when rail reaches OT_WARN threshold, 
-only valid after configuration from ISL68224 U418 driving VPP_EFGH_A0 rail.
-(PWR_CONT_DIMM_EFGH_NVRHOT net)
-        </td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ABCD_CFP</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Catastrophic fault protection output from ISL68224 feeding VPP_ABCD_A0 
-and V3P3_SYS_A0 rails. (PWR_CONT_DIMM_ABCD_CFP net)
-        </td>
-    </tr>
-    <tr class="cat30" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ABCD_NVRHOT</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Set high (inverted from board) when rail reaches OT_WARN threshold, 
-only valid after configuration from ISL68224 U352
- driving VPP_ABCD_A0 and V3P3_SYS_A0 rails. (PWR_CONT_DIMM_ABCD_NVRHOT net)
         </td>
     </tr>
     <tr class="cat30" style="display: none">
@@ -1890,7 +1845,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)
+        <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1899,7 +1854,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_AVDD_A0HP (inverted NIC_TO_SEQ_V1P5A_PG_L net)
+        <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_AVDD_A0HP (inverted NIC_TO_SEQ_V1P5A_PG_L net)
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1908,7 +1863,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P2_NIC_ETH  (inverted NIC_TO_SEQ_V1P2_PG_L net)
+        <td class="FieldDesc" colspan="14">Power good for V1P2_NIC_ETH  (inverted NIC_TO_SEQ_V1P2_PG_L net)
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1917,7 +1872,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P2_NIC_MDIO_A0HP  (inverted NIC_TO_SEQ_V1P2_PG_L net)
+        <td class="FieldDesc" colspan="14">Power good for V1P2_NIC_MDIO_A0HP  (inverted NIC_TO_SEQ_V1P2_PG_L net)
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1926,7 +1881,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P1_NIC_ETH_IO_A0HP (inverted NIC_TO_SEQ_V1P1_PG_L net)
+        <td class="FieldDesc" colspan="14">Power good for V1P1_NIC_ETH_IO_A0HP (inverted NIC_TO_SEQ_V1P1_PG_L net)
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1935,7 +1890,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Power good for V0P96_NIC_VDD_A0HP (PWR_CONT_NIC_PG0 net)
+        <td class="FieldDesc" colspan="14">Power good for V0P96_NIC_VDD_A0HP (PWR_CONT_NIC_PG0 net)
         </td>
     </tr>
     <tr class="Register">
@@ -2068,7 +2023,7 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Output from the AMD processor that it has effectively acknowledged that power is itself
-good.  This  is  connected  from  the  BSP  to  the  AP’s  PWR_GOOD  input  in  a  two  socket
+good.  This  is  connected  from  the  BSP  to  the  AP's  PWR_GOOD  input  in  a  two  socket
 system.  The  FCH  may  actually  control  this  being  generated  via  the
 FCH::PM::RESETCONTROL2 register.
         </td>
@@ -2523,7 +2478,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V3PV_NIC_A0HP rail (SEQ_TO_NIC_LDO_V3P3_EN net)
+        <td class="FieldDesc" colspan="14">Enables V3PV_NIC_A0HP rail (SEQ_TO_NIC_LDO_V3P3_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2532,7 +2487,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Turns on V1P1_NIC_ETH_IO_A0HP rail (SEQ_TO_NIC_V1P1_EN net)
+        <td class="FieldDesc" colspan="14">Turns on V1P1_NIC_ETH_IO_A0HP rail (SEQ_TO_NIC_V1P1_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2541,7 +2496,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable for V1P2_NIC_MDIO_A0HP rail (SEQ_TO_NIC_V1P2_EN net)
+        <td class="FieldDesc" colspan="14">Enable for V1P2_NIC_MDIO_A0HP rail (SEQ_TO_NIC_V1P2_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2550,7 +2505,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">En for V1P5_NIC_PCIE_MEM_A0HP rail (SEQ_TO_NIC_V1P5D_EN net)
+        <td class="FieldDesc" colspan="14">En for V1P5_NIC_PCIE_MEM_A0HP rail (SEQ_TO_NIC_V1P5D_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2559,7 +2514,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">En for V1P5_NIC_AVDD_A0HP rail (SEQ_TO_NIC_V1P5A_EN net)
+        <td class="FieldDesc" colspan="14">En for V1P5_NIC_AVDD_A0HP rail (SEQ_TO_NIC_V1P5A_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2568,7 +2523,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Turns on V1P2_NIC_ENET_A0HP, no readback (SEQ_TO_NIC_V1P2_ENET_EN net)
+        <td class="FieldDesc" colspan="14">Turns on V1P2_NIC_ENET_A0HP, no readback (SEQ_TO_NIC_V1P2_ENET_EN net)
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2577,7 +2532,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable (U565), V0P96_NIC_VDD_A0HP rail (SEQ_TO_NIC_V0P9_A0HP_EN net)
+        <td class="FieldDesc" colspan="14">Enable (U565), V0P96_NIC_VDD_A0HP rail (SEQ_TO_NIC_V0P9_A0HP_EN net)
         </td>
     </tr>
     <tr class="Register">
@@ -2644,7 +2599,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">CLD Reset to Chelsio. De-asserted after NIC power stable (SEQ_TO_NIC_CLD_RST_L net inverted)
+        <td class="FieldDesc" colspan="14">CLD Reset to Chelsio. De-asserted after NIC power stable (SEQ_TO_NIC_CLD_RST_L net inverted)
         </td>
     </tr>
     <tr class="cat41" style="display: none">
@@ -2801,10 +2756,7 @@ CLD_RST will normally be controlled by state machine and NIC Control register
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Debug enable bit. Setting this flips a mux on FPGA output pins to
-be controlled by the following debug registers. If state maintence or pre-conditions
-are required you may use the next bit to capture the current state, or write to the
-debug registers to set up any desired pre-conditions
+        <td class="FieldDesc" colspan="14">Un-used
         </td>
     </tr>
     <tr class="cat44" style="display: none">
@@ -2819,517 +2771,24 @@ installed
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="45">A1_DBG_OUT</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="45">AMD_DBG_OUT</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x2d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;A1 Output debug control</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat45" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">RSMRST</td>
-                <td class="validspandef" colspan="2*">V0P9_S5_EN</td>
-                <td class="validspandef" colspan="2*">V1P8_S5_EN</td>
-                <td class="validspandef" colspan="2*">V1P5_RTC_EN</td>
-                <td class="validspandef" colspan="2*">V3P3_S5_EN</td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">RSMRST</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">De-asserted to processor after GroupA supplies are stable (10ms after S5 rails minimum) 
-(SEQ_TO_SP3_RSMRST_V3P3_L net inverted from this register)
-        </td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V0P9_S5_EN</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V0P9_SP3_VDD_SOC_S5_A1 rail (SEQ_TO_SP3_V0P9_S5_EN pin)
-        </td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V1P8_S5_EN</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V1P8_SP3_VDD_18_S5_A1 rail (SEQ_TO_SP3_V1P8_S5_EN pin)
-        </td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V1P5_RTC_EN</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V1P5_SP3_VDD_RTC_A1 rail (SEQ_TO_SP3_V1P5_RTC_EN pin)
-        </td>
-    </tr>
-    <tr class="cat45" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V3P3_S5_EN</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V3P3_SP3_VDD_33_S5_A1 rail (SEQ_TO_SP3_V3P3_S5_EN pin)
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="46">A0_DBG_OUT_1</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x2e
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;A0 Register 1 Output debug control</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat46" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">VTT_EFGH_EN</td>
-                <td class="validspandef" colspan="2*">VTT_ABCD_EN</td>
-                <td class="validspandef" colspan="2*">VDD_MEM_EFGH_EN</td>
-                <td class="validspandef" colspan="2*">VDD_MEM_ABCD_EN</td>
-                <td class="validspandef" colspan="2*">V1P8_SP3_VDD_EN</td>
-                <td class="validspandef" colspan="2*">V3P3_SYS_EN</td>
-                <td class="validspandef" colspan="2*">VPP_EFGH_EN</td>
-                <td class="validspandef" colspan="2*">VPP_ABCD_EN</td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VTT_EFGH_EN</td>
-        <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB2: Enables VTT_EFGH_A0 rail (seq_to_vtt_efgh_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VTT_ABCD_EN</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB2: Enables VTT_ABCD_A0 rail (seq_to_vtt_abcd_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VDD_MEM_EFGH_EN</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB2: Enables VDD_MEM_EFGH_A0 rail (pwr_cont2_sp3_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VDD_MEM_ABCD_EN</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB2: Enables VDD_MEM_ABCD_A0 rail (pwr_cont1_sp3_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V1P8_SP3_VDD_EN</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB1: Enables V1P8_SP3_VDD_18_A0 rail (seq_to_sp3_v1p8_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V3P3_SYS_EN</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB1: Enables V3P3_SYS_A0 rail (seq_to_v3p3_sys_en net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VPP_EFGH_EN</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB1: Drives VPP_EFGH_A0 rail (pwr_cont_dimm_en1 net RevB)
-        </td>
-    </tr>
-    <tr class="cat46" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">VPP_ABCD_EN</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">GroupB1: Drives VPP_ABCD_A0 rail (pwr_cont_dimm_en0 net RevB)
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="47">A0_DBG_OUT_2</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x2f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;A0 Register 2 Output debug control</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat47" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
-                <td class="validspandef" colspan="2*">PWR_GOOD</td>
-                <td class="validspandef" colspan="2*">PWR_BTN</td>
-                <td class="validspandef" colspan="2*">CONT2_EN</td>
-                <td class="validspandef" colspan="2*">CONT1_EN</td>
-                <td class="validspandef" colspan="2*">V1P8_SP3_EN</td>
-                <td class="validspandef" colspan="2*">U351_PWROK</td>
-                <td class="validspandef" colspan="2*">U350_PWROK</td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PWR_GOOD</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">This is asserted to CPU, 1ms before asserting. Set when A0 rails are good. (SEQ_TO_SP3_PWR_GOOD net)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PWR_BTN</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Pulsed according to AMD's EDS min 15ms (SP_TO_SP3_PWR_BTN_L net, inverted from this register)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">CONT2_EN</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable for RAA229618 (U35) VDD_MEM_EFGH_A0 (and gates SP3_VDDCR_SOC_A0) 
-(PWR_CONT2_SP3_EN net)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">CONT1_EN</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable for RAA229618 (U350) VDD_MEM_ABCD_A0 (PWR_CONT1_SP3_EN net)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">V1P8_SP3_EN</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V1P8_SP3_VDD_18_A0 rail (SEQ_TO_SP3_V1P8_EN net)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">U351_PWROK</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x1</td>
-        <td class="FieldDesc" colspan="14">Strap High, no definition yet. PWROK pin to RAA229618 U351 driving
-SP3_VDDCR_SOC_A0 and VDD_MEM_EFGH_A0 (PWR_CONT2_SP3_PWROK net)
-        </td>
-    </tr>
-    <tr class="cat47" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">U350_PWROK</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x1</td>
-        <td class="FieldDesc" colspan="14">Strap High, no definition yet. PWROK pin to RAA229618 U350 driving 
-SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="48">DBG_OUT_NIC1</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x30
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;NIC REgister 1 Output debug control</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat48" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
-                <td class="validspandef" colspan="2*">NIC_V3P3_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V1P1_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V1P2_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V1P5D_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V1P5A_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V1P2_ETH_EN</td>
-                <td class="validspandef" colspan="2*">NIC_V0P9_A0_EN</td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V3P3_EN</td>
-        <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enables V3PV_NIC_A0HP rail (SEQ_TO_NIC_LDO_V3P3_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P1_EN</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Turns on V1P1_NIC_ETH_IO_A0HP rail (SEQ_TO_NIC_V1P1_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P2_EN</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable for V1P2_NIC_MDIO_A0HP rail (SEQ_TO_NIC_V1P2_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P5D_EN</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">En for V1P5_NIC_PCIE_MEM_A0HP rail (SEQ_TO_NIC_V1P5D_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P5A_EN</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">En for V1P5_NIC_AVDD_A0HP rail (SEQ_TO_NIC_V1P5A_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P2_ETH_EN</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Turns on V1P2_NIC_ENET_A0HP, no readback (SEQ_TO_NIC_V1P2_ENET_EN net)
-        </td>
-    </tr>
-    <tr class="cat48" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V0P9_A0_EN</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Enable (U565), V0P96_NIC_VDD_A0HP rail (SEQ_TO_NIC_V0P9_A0HP_EN net)
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="49">DBG_OUT_NIC2</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x31
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Readbacks of FPGA outputs (register 2 of 2) to NIC supplies/NIC</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat49" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="4*">RSVD</td>
-                <td class="validspandef" colspan="2*">NIC_EXT_RST</td>
-                <td class="validspandef" colspan="2*">NIC_PERST</td>
-                <td class="validspandef" colspan="2*">PWRFLT</td>
-                <td class="validspandef" colspan="2*">NIC_CLD_RST</td>
-                <td class="validspandef" colspan="2*">NIC_COMB_PG</td>
-                <td class="validspandef" colspan="2*">SP3_PERST</td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_EXT_RST</td>
-        <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">RevB-only nic ext rst output  ( inverted net)
-        </td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_PERST</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">RevB-only PERST outptut (PERST_L inverted net)
-        </td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">PWRFLT</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Alert SP3 of a NIC power fault (NIC_TO_SP3_PWRFLT_L inverted net)
-        </td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_CLD_RST</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">CLD Reset to Chelsio. De-asserted after NIC power stable (SEQ_TO_NIC_CLD_RST_L net inverted)
-        </td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_COMB_PG</td>
-        <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Becomes clock enable for clk_100M_TO_RSW (SEQ_TO_NIC_COMB_PG net)
-        </td>
-    </tr>
-    <tr class="cat49" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">SP3_PERST</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Input to FPGA from SP3 I/O expander (inverted)
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="50">CLKGEN_DBG_OUT</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x32
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Clock Generator Output readbacks</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat50" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
-                <td class="validspandef" colspan="2*">SEQ_NMR</td>
-    </tr>
-    <tr class="cat50" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat50" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">SEQ_NMR</td>
-        <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">CLK_TO_SEQ_NMR_L inverted to clk generator
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="51">AMD_DBG_OUT</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x33
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Readbacks of FPGA outputs to AMD</td>
     </tr>
     <!-- Loop over bytes in register !-->
-    <tr class="cat51" style="display: none">
+    <tr class="cat45" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">SYS_RESET</td>
     </tr>
-    <tr class="cat51" style="display: none">
+    <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -3337,7 +2796,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat51" style="display: none">
+    <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SYS_RESET</td>
         <td class="FieldDesc" colspan="1*">0</td>
