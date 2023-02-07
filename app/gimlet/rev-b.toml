@@ -284,7 +284,7 @@ name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
 max-sizes = {flash = 2048, ram = 1024}
-start = true
+start = false
 task-slots = ["sys"]
 
 [tasks.dump_agent]

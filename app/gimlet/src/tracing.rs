@@ -2,75 +2,72 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//
-// If you are cutting-and-pasting this code into another kernel (and that
-// kernel is armv6m), it is hoped that you will cut-and-paste this compile
-// error along with it and take heed of its admonition!
-//
-#[cfg(not(any(armv7m, armv8m)))]
-compile_error!("ringbuf is unsound in the kernel on armv6m");
-
-use ringbuf::*;
-
-#[derive(Copy, Clone, PartialEq)]
-enum Event {
-    SyscallEnter(u32),
-    SyscallExit,
-    SecondarySyscallEnter,
-    SecondarySyscallExit,
-    IsrEnter,
-    IsrExit,
-    TimerIsrEnter,
-    TimerIsrExit,
-    ContextSwitch(usize),
-}
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    Event(Event),
-    None,
-}
-
-ringbuf!(Trace, 128, Trace::None);
-
-fn trace(event: Event) {
-    ringbuf_entry!(Trace::Event(event));
-}
+use crate::device;
 
 fn syscall_enter(nr: u32) {
-    trace(Event::SyscallEnter(nr));
+    uart_send16(0x5C, nr as u8);
 }
 
 fn syscall_exit() {
-    trace(Event::SyscallExit);
+    uart_send16(0xCA, 0xFE);
 }
 
 fn secondary_syscall_enter() {
-    trace(Event::SecondarySyscallEnter);
 }
 
 fn secondary_syscall_exit() {
-    trace(Event::SecondarySyscallExit);
 }
 
 fn isr_enter() {
-    trace(Event::IsrEnter);
+    uart_send16(0x01, 0x40);
 }
 
 fn isr_exit() {
-    trace(Event::IsrExit);
 }
 
 fn timer_isr_enter() {
-    trace(Event::TimerIsrEnter);
 }
 
 fn timer_isr_exit() {
-    trace(Event::TimerIsrExit);
 }
 
 fn context_switch(addr: usize) {
-    trace(Event::ContextSwitch(addr));
+    let addr = addr >> 4;
+    
+    uart_send16(0xC5, addr as u8);
+}
+
+fn uart_send(byte: u8) {
+    let mut frame = (u32::from(byte) | 0x300) << 1;
+    let gpio = unsafe { &*device::GPIOA::ptr() };
+    for _ in 0..11 {
+        gpio.bsrr.write(|w| {
+            if frame & 1 == 0 {
+                w.br3().set_bit();
+            } else {
+                w.bs3().set_bit();
+            }
+            w
+        });
+        frame >>= 1;
+    }
+}
+
+fn uart_send16(a: u8, b: u8) {
+    let pkt = u16::from(a) << 8 | u16::from(b);
+    let mut frame = (u32::from(pkt) | 0x3_00_00) << 1;
+    let gpio = unsafe { &*device::GPIOA::ptr() };
+    for _ in 0..(16+2+1) {
+        gpio.bsrr.write(|w| {
+            if frame & 1 == 0 {
+                w.br3().set_bit();
+            } else {
+                w.bs3().set_bit();
+            }
+            w
+        });
+        frame >>= 1;
+    }
 }
 
 static TRACING: kern::profiling::EventsTable = kern::profiling::EventsTable {
