@@ -75,7 +75,7 @@ task-slots = ["sys", "i2c_driver",
 name = "task-control-plane-agent"
 priority = 7
 max-sizes = {flash = 131072, ram = 16384}
-stacksize = 4096
+stacksize = 6144
 start = true
 uses = []
 task-slots = [
