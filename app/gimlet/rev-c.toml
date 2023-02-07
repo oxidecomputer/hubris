@@ -289,7 +289,7 @@ task-slots = ["sys"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["sprot"]
