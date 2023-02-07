@@ -6,7 +6,8 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_gimlet_hf_api::{
-    HfDevSelect, HfError, HostFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
     ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
@@ -163,7 +164,10 @@ impl ComponentUpdater for HostFlashUpdate {
             };
 
             let addr = sectors_to_erase.start * SECTOR_SIZE_BYTES as u32;
-            match self.task.sector_erase(addr) {
+
+            // We trust that the caller is aware of the sector 0 restrictions
+            // and will not write to it; this will return an error otherwise.
+            match self.task.sector_erase(addr, HfProtectMode::ProtectSector0) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
                     if sectors_to_erase.start == sectors_to_erase.end {
@@ -265,9 +269,16 @@ impl ComponentUpdater for HostFlashUpdate {
             if buffer.len() == buffer.capacity()
                 || *next_write_offset + buffer.len() as u32 == total_size
             {
-                if let Err(err) =
-                    self.task.page_program(*next_write_offset, buffer)
-                {
+                // TODO: skip bytes in sector 0 here, after checking that
+                // they're all 0xFF.
+
+                // We trust that the caller will not be trying to write to
+                // sector 0; this will return an error otherwise.
+                if let Err(err) = self.task.page_program(
+                    *next_write_offset,
+                    HfProtectMode::ProtectSector0,
+                    buffer,
+                ) {
                     *current.state_mut() = State::Failed(err);
                     return Err(SpError::UpdateFailed(err as u32));
                 }

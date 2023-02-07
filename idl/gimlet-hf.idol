@@ -26,7 +26,12 @@ Interface(
             ),
         ),
         "bulk_erase": (
-            args: {},
+            args: {
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),
@@ -35,19 +40,10 @@ Interface(
         "page_program": (
             args: {
                 "address": "u32",
-            },
-            leases: {
-                "data": (type: "[u8]", read: true, max_len: Some(256)),
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("HfError"),
-            ),
-        ),
-        "page_program_sector0": (
-            doc: "Programs data to a flash page, allowing writes to sector 0",
-            args: {
-                "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             leases: {
                 "data": (type: "[u8]", read: true, max_len: Some(256)),
@@ -72,14 +68,11 @@ Interface(
         "sector_erase": (
             args: {
                 "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
             },
-            reply: Result(
-                ok: "()",
-                err: CLike("HfError"),
-            ),
-        ),
-        "sector0_erase": (
-            doc: "erases sector 0, which is normally reserved",
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),
@@ -153,13 +146,15 @@ Interface(
             doc: "stores persistent configuration data to flash",
             args: {
                 "startup_options": "u64",
-                "dev_select": "HfDevSelect",
+                "dev_select": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),
             ),
-            encoding: Hubpack,
         ),
     },
 )

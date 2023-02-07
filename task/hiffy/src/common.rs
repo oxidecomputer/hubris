@@ -777,7 +777,9 @@ pub(crate) fn qspi_bulk_erase(
     use drv_gimlet_hf_api as hf;
 
     let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.bulk_erase())?;
+    func_err(
+        server.bulk_erase(hf::HfProtectMode::AllowModificationsToSector0),
+    )?;
     Ok(0)
 }
 
@@ -787,27 +789,11 @@ pub(crate) fn qspi_page_program(
     data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
-    if stack.len() < 3 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let frame = &stack[stack.len() - 3..];
-    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
-    let offset =
-        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
-    let len =
-        frame[2].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
-
-    if offset + len > data.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let data = &data[offset..offset + len];
-
-    let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.page_program(addr, data))?;
-    Ok(0)
+    qspi_page_program_inner(
+        stack,
+        data,
+        drv_gimlet_hf_api::HfProtectMode::ProtectSector0,
+    )
 }
 
 #[cfg(feature = "qspi")]
@@ -815,6 +801,19 @@ pub(crate) fn qspi_page_program_sector0(
     stack: &[Option<u32>],
     data: &[u8],
     _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    qspi_page_program_inner(
+        stack,
+        data,
+        drv_gimlet_hf_api::HfProtectMode::AllowModificationsToSector0,
+    )
+}
+
+#[cfg(feature = "qspi")]
+fn qspi_page_program_inner(
+    stack: &[Option<u32>],
+    data: &[u8],
+    protect: drv_gimlet_hf_api::HfProtectMode,
 ) -> Result<usize, Failure> {
     use drv_gimlet_hf_api as hf;
 
@@ -835,7 +834,7 @@ pub(crate) fn qspi_page_program_sector0(
     let data = &data[offset..offset + len];
 
     let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.page_program_sector0(addr, data))?;
+    func_err(server.page_program(addr, protect, data))?;
     Ok(0)
 }
 
@@ -931,7 +930,7 @@ pub(crate) fn qspi_sector_erase(
     let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
 
     let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.sector_erase(addr))?;
+    func_err(server.sector_erase(addr, hf::HfProtectMode::ProtectSector0))?;
     Ok(0)
 }
 
@@ -944,7 +943,9 @@ pub(crate) fn qspi_sector0_erase(
     use drv_gimlet_hf_api as hf;
 
     let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.sector0_erase())?;
+    func_err(
+        server.sector_erase(0, hf::HfProtectMode::AllowModificationsToSector0),
+    )?;
     Ok(0)
 }
 

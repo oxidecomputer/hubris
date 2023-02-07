@@ -42,7 +42,8 @@ use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
 use drv_gimlet_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, PAGE_SIZE_BYTES,
+    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+    PAGE_SIZE_BYTES,
 };
 
 task_slot!(SYS, sys);
@@ -484,7 +485,11 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn bulk_erase(
         &mut self,
         _: &RecvMessage,
+        protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
+        if !matches!(protect, HfProtectMode::AllowModificationsToSector0) {
+            return Err(HfError::Sector0IsReserved.into());
+        }
         self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.bulk_erase();
@@ -496,20 +501,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         addr: u32,
+        protect: HfProtectMode,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        if addr as usize / SECTOR_SIZE_BYTES == 0 {
+        if addr as usize / SECTOR_SIZE_BYTES == 0
+            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
+        {
             return Err(HfError::Sector0IsReserved.into());
         }
-        self.page_program_inner(addr, data)
-    }
-
-    fn page_program_sector0(
-        &mut self,
-        _: &RecvMessage,
-        addr: u32,
-        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
         self.page_program_inner(addr, data)
     }
 
@@ -532,23 +531,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         addr: u32,
+        protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
-        if addr as usize / SECTOR_SIZE_BYTES == 0 {
+        if addr as usize / SECTOR_SIZE_BYTES == 0
+            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
+        {
             return Err(HfError::Sector0IsReserved.into());
         }
         self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.sector_erase(addr);
         poll_for_write_complete(&self.qspi, Some(1));
-        Ok(())
-    }
-
-    fn sector0_erase(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<HfError>> {
-        self.check_muxed_to_sp()?;
-        self.raw_sector0_erase()?;
         Ok(())
     }
 
@@ -750,7 +743,9 @@ fn poll_for_write_complete(qspi: &Qspi, sleep_between_polls: Option<u64>) {
 }
 
 mod idl {
-    use super::{HfDevSelect, HfError, HfMuxState, HfPersistentData};
+    use super::{
+        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

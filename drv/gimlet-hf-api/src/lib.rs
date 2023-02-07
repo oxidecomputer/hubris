@@ -72,6 +72,25 @@ impl core::ops::Not for HfDevSelect {
     }
 }
 
+/// Flag which allows sector 0 to be modified
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum HfProtectMode {
+    ProtectSector0,
+    AllowModificationsToSector0,
+}
+
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, SerializedSize)]
 pub struct HfPersistentData {
     pub startup_options: u64,
