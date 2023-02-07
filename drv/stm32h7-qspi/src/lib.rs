@@ -317,7 +317,7 @@ impl Qspi {
         self.reg
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
-        while self.is_busy() {
+        while !self.reg.sr.read().tcf().bit() {
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
