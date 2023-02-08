@@ -167,6 +167,14 @@ stacksize = 256
 start = true
 task-slots = ["i2c_driver"]
 
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
 [tasks.power]
 name = "task-power"
 priority = 4
@@ -191,6 +199,15 @@ priority = 4
 max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["i2c_driver", "sensor"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["sprot"]
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
 
 [tasks.idle]
 name = "task-idle"

@@ -638,18 +638,42 @@ impl Transceivers {
         }
     }
 
-    /// Releases the LED controller from reset and enables the output
-    pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
+    /// Apply reset to the LED controller
+    ///
+    /// Per section 7.6 of the datasheet the minimum required pulse width here
+    /// is 2.5 microseconds. Given the SPI interface runs at 3MHz, the
+    /// transaction to clear the reset would take ~10 microseconds on its own,
+    /// so there is no additional delay here.
+    pub fn assert_led_controllers_reset(&mut self) -> Result<(), FpgaError> {
+        for fpga in &self.fpgas {
+            fpga.write(WriteOp::BitSet, Addr::LED_CTRL, Reg::LED_CTRL::RESET)?;
+        }
+        Ok(())
+    }
+
+    /// Remove reset from the LED controller
+    ///
+    /// Per section 7.6 of the datasheet the device has a maximum wait time of
+    /// 1.5 milliseconds after the release of reset to normal operation, so
+    /// there is a 2 millisecond wait here.
+    pub fn deassert_led_controllers_reset(&mut self) -> Result<(), FpgaError> {
         for fpga in &self.fpgas {
             fpga.write(
                 WriteOp::BitClear,
                 Addr::LED_CTRL,
                 Reg::LED_CTRL::RESET,
             )?;
+        }
+        userlib::hl::sleep_for(2);
+        Ok(())
+    }
 
+    /// Releases the LED controller from reset and enables the output
+    pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
+        self.deassert_led_controllers_reset()?;
+        for fpga in &self.fpgas {
             fpga.write(WriteOp::BitSet, Addr::LED_CTRL, Reg::LED_CTRL::OE)?;
         }
-
         Ok(())
     }
 

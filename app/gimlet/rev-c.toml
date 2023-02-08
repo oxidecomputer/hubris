@@ -225,7 +225,7 @@ notifications = ["socket"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
-max-sizes = {flash = 131072, ram = 16384}
+max-sizes = {flash = 131072, ram = 32768}
 stacksize = 4096
 start = true
 uses = ["usart1"]
@@ -289,7 +289,7 @@ task-slots = ["sys"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["sprot"]

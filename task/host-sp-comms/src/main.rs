@@ -17,12 +17,16 @@ use heapless::Vec;
 use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, Key,
     KeyLookupResult, SpToHost, Status, MAX_MESSAGE_SIZE,
+    MIN_SP_TO_HOST_FILL_DATA_LEN,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_control_plane_agent_api::ControlPlaneAgent;
+use static_assertions::const_assert;
+use task_control_plane_agent_api::{
+    ControlPlaneAgent, MAX_INSTALLINATOR_IMAGE_ID_LEN,
+};
 use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use userlib::{
@@ -86,6 +90,9 @@ enum Trace {
         now: u64,
         sequence: u64,
         message: HostToSp,
+    },
+    ResponseBufferReset {
+        now: u64,
     },
     Response {
         now: u64,
@@ -776,6 +783,59 @@ impl ServerImpl {
                         PONG.len()
                     },
                 );
+            }
+            Key::InstallinatorImageId => {
+                // Borrow `cp_agent` to avoid borrowing `self` in the closure
+                // below.
+                let cp_agent = &self.cp_agent;
+
+                // We don't want to have to set aside our own memory to copy the
+                // installinator image ID (other than our already-allocated
+                // outgoing tx buf), so we will optimistically serialize a
+                // successful response, including the image ID. After
+                // serializing this successful response, we'll check that
+                // `max_response_len` (i.e., the buffer length of the host
+                // process that requested this value) is sufficient; if it is
+                // not (or if we have no installinator image ID at all), we'll
+                // discard the optimistically-serialized response and return an
+                // error.
+                //
+                // We expect both of these "reset and replace the response with
+                // an error" to be extremely rare: host processes should not ask
+                // for an installinator ID with a too-small buffer, and should
+                // only ask for an installinator ID during a recovery process in
+                // which we expect MGS has already given us an ID.
+                let mut response_len = 0;
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |mut buf| {
+                        // Statically guarantee we have sufficient space in
+                        // `buf` for the installinator image ID blob, and then
+                        // cap `buf` to that length to satisfy the idol
+                        // operation length limit.
+                        const_assert!(
+                            MIN_SP_TO_HOST_FILL_DATA_LEN
+                                >= MAX_INSTALLINATOR_IMAGE_ID_LEN
+                        );
+                        buf = &mut buf[..MAX_INSTALLINATOR_IMAGE_ID_LEN];
+
+                        response_len = cp_agent.get_installinator_image_id(buf);
+                        response_len
+                    },
+                );
+
+                // A response length of 0 is how `control-plane-agent` indicates
+                // we do not have an installinator image ID; instead of
+                // returning a 0-length success to the host, convert it to the
+                // "we have no value for this key" error.
+                if response_len == 0 {
+                    self.tx_buf.reset();
+                    return Err(KeyLookupResult::NoValueForKey);
+                } else if response_len > max_response_len {
+                    self.tx_buf.reset();
+                    return Err(KeyLookupResult::MaxResponseLenTooShort);
+                }
             }
         }
 

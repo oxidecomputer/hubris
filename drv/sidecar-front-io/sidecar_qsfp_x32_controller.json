@@ -321,7 +321,18 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "The VSC8562 has been brought out of reset and is ready for\nsoftware control"
+                            "desc": "The VSC8562 has been brought out of reset and is ready for software control"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PG_TIMED_OUT",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5."
                         }
                     ]
                 },
@@ -353,6 +364,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Software control for the COMA_MODE pin."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "CLEAR_POWER_FAULT",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again."
                         }
                     ]
                 },
@@ -389,28 +411,8 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_RDATA_H",
+                    "inst_name": "PHY_SMI_RDATA0",
                     "addr_offset": 3,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "DATA",
-                            "lsb": 0,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "rw",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": "Upper byte of read data"
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "PHY_SMI_RDATA_L",
-                    "addr_offset": 4,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -429,7 +431,27 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_WDATA_H",
+                    "inst_name": "PHY_SMI_RDATA1",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "DATA",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Upper byte of read data"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PHY_SMI_WDATA0",
                     "addr_offset": 5,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -443,13 +465,13 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Upper byte of write data"
+                            "desc": "Lower byte of write data"
                         }
                     ]
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_WDATA_L",
+                    "inst_name": "PHY_SMI_WDATA1",
                     "addr_offset": 6,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -463,7 +485,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Lower byte of write data"
+                            "desc": "Upper byte of write data"
                         }
                     ]
                 },
