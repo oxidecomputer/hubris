@@ -28,10 +28,8 @@ fn hash_hw_reset() {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     sys.enter_reset(sys_api::Peripheral::Hash);
     sys.disable_clock(sys_api::Peripheral::Hash);
-    hl::sleep_for(1);
     sys.enable_clock(sys_api::Peripheral::Hash);
     sys.leave_reset(sys_api::Peripheral::Hash);
-    hl::sleep_for(1);
 }
 
 #[export_name = "main"]
