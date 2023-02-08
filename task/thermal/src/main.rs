@@ -77,7 +77,7 @@ struct ServerImpl<'a> {
     runtime: u64,
 }
 
-const TIMER_INTERVAL: u64 = 1000;
+const TIMER_INTERVAL: u64 = 10;
 
 impl<'a> ServerImpl<'a> {
     /// Configures the control loop to run in manual mode, loading the given
