@@ -4112,6 +4112,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-overflow"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,30 @@
+[package]
+name = "task-overflow"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[dependencies]
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[build-dependencies]
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
+idol = { workspace = true }
+
+build-util = { path = "../../build/util" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-overflow"
+test = false
+bench = false
