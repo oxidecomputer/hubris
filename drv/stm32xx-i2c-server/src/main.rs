@@ -9,7 +9,7 @@
 
 use drv_i2c_api::*;
 use drv_stm32xx_i2c::*;
-use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
+use drv_stm32xx_sys_api::{Mode, OutputType, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;
@@ -382,10 +382,24 @@ fn configure_port(
         if pin.port == current {
             //
             // We de-configure our current port by setting the pins to
-            // `Mode::input`, which will assure that we don't leave SCL and
-            // SDA pulled high.
+            // `Mode::Analog`, which tristates them and disables the input
+            // buffer so the I2C peripheral doesn't respond to their state.
             //
-            sys.gpio_configure_input(pin.gpio_pins, Pull::None);
+            // At the same time, we leave the alternate function mux set to the
+            // I2C device to prevent glitching when we turn the port back on.
+            //
+            // This is a slightly unusual operation that lacks a convenience
+            // operation in the GPIO API, so we do it longhand:
+            //
+            sys.gpio_configure(
+                pin.gpio_pins.port,
+                pin.gpio_pins.pin_mask,
+                Mode::Analog,
+                OutputType::OpenDrain,
+                Speed::Low,
+                Pull::None,
+                pin.function,
+            );
         } else if pin.port == port {
             // Configure our new port!
             sys.gpio_configure_alternate(
@@ -417,8 +431,18 @@ fn configure_pins(
             Some(port) if port != pin.port => {
                 //
                 // If we have already enabled this controller with a different
-                // port, we don't want to enable this pin.
+                // port, we want to set this pin to its unselected state to
+                // prevent glitches when we first use it.
                 //
+                sys.gpio_configure(
+                    pin.gpio_pins.port,
+                    pin.gpio_pins.pin_mask,
+                    Mode::Analog,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
                 continue;
             }
             _ => {}
