@@ -103,10 +103,10 @@ pub fn idt8a3xxxx_payload<E>(
         // INPUT[1].IN_DIV = [1, 0]
         // INPUT[1].IN_PHASE = [0, 0]
         // INPUT[1].IN_SYNC = [1]
-        // INPUT[1].IN_MODE = [21]
+        // INPUT[1].IN_MODE = [31]
         &[
             0xc0, 0x00, 0xe1, 0xf5, 0x05, 0x00, 0x00, 0x00,
-            0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x21,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x31,
         ],
 
         // INPUT[2].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
@@ -741,7 +741,7 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // DPLL[4].DPLL_CTRL_1 = [0]
-        // DPLL[4].DPLL_CTRL_2 = [0]
+        // DPLL[4].DPLL_CTRL_2 = [2]
         // DPLL[4].DPLL_UPDATE_RATE_CFG = [0]
         // DPLL[4].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
         // DPLL[4].DPLL_HO_ADVCD_HISTORY = [0]
@@ -776,13 +776,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[4].DPLL_MAX_FREQ_OFFSET = [0]
         // DPLL[4].DPLL_FASTLOCK_PSL = [0]
         &[
-            0xbb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xbb, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x0a, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xc500
@@ -799,8 +799,8 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[5].DPLL_HO_ADVCD_HISTORY = [0]
         // DPLL[5].DPLL_HO_ADVCD_BW = [0, 0]
         // DPLL[5].DPLL_HO_CFG = [0]
-        // DPLL[5].DPLL_LOCK_0 = [a]
-        // DPLL[5].DPLL_LOCK_1 = [1]
+        // DPLL[5].DPLL_LOCK_0 = [0]
+        // DPLL[5].DPLL_LOCK_1 = [0]
         // DPLL[5].DPLL_LOCK_2 = [0]
         // DPLL[5].DPLL_LOCK_3 = [0]
         // DPLL[5].DPLL_REF_PRIORITY_0 = [0]
@@ -829,13 +829,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[5].DPLL_FASTLOCK_PSL = [0]
         &[
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x30, 0x00, 0x00, 0x00,
         ],
 
         // DPLL[6].DPLL_CTRL_1 = [0]
@@ -892,8 +892,8 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[7].DPLL_HO_ADVCD_HISTORY = [0]
         // DPLL[7].DPLL_HO_ADVCD_BW = [0, 0]
         // DPLL[7].DPLL_HO_CFG = [0]
-        // DPLL[7].DPLL_LOCK_0 = [a]
-        // DPLL[7].DPLL_LOCK_1 = [1]
+        // DPLL[7].DPLL_LOCK_0 = [0]
+        // DPLL[7].DPLL_LOCK_1 = [0]
         // DPLL[7].DPLL_LOCK_2 = [0]
         // DPLL[7].DPLL_LOCK_3 = [0]
         // DPLL[7].DPLL_REF_PRIORITY_0 = [0]
@@ -922,13 +922,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[7].DPLL_FASTLOCK_PSL = [0]
         &[
             0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x30, 0x00, 0x00, 0x00,
         ],
 
         // SYS_DPLL.SYS_DPLL_LOCK_0 = [a]
@@ -1382,12 +1382,12 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // DPLL_CTRL[4].DPLL_HS_TIE_RESET = [0]
-        // DPLL_CTRL[4].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[4].DPLL_MANU_REF_CFG = [1]
         // DPLL_CTRL[4].DPLL_DAMPING = [0]
         // DPLL_CTRL[4].DPLL_DECIMATOR_BW_MULT = [4]
         // DPLL_CTRL[4].DPLL_BW = [19]
         &[
-            0x00, 0x00, 0x00, 0x00, 0x04, 0x19,
+            0x00, 0x00, 0x01, 0x00, 0x04, 0x19,
         ],
 
         // DPLL_CTRL[4].DPLL_BW+0x1 = [80]
@@ -1484,17 +1484,17 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL_CTRL[5].DPLL_HS_TIE_RESET = [0]
         // DPLL_CTRL[5].DPLL_MANU_REF_CFG = [0]
         // DPLL_CTRL[5].DPLL_DAMPING = [0]
-        // DPLL_CTRL[5].DPLL_DECIMATOR_BW_MULT = [4]
-        // DPLL_CTRL[5].DPLL_BW = [19]
+        // DPLL_CTRL[5].DPLL_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[5].DPLL_BW = [0]
         &[
-            0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-            0x19,
+            0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
         ],
 
-        // DPLL_CTRL[5].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[5].DPLL_BW+0x1 = [0]
         // DPLL_CTRL[5].DPLL_PSL = [0]
         &[
-            0x41, 0x80, 0x00,
+            0x41, 0x00, 0x00,
         ],
 
         // DPLL_CTRL[5].DPLL_PSL+0x1 = [0]
@@ -1689,17 +1689,17 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL_CTRL[7].DPLL_HS_TIE_RESET = [0]
         // DPLL_CTRL[7].DPLL_MANU_REF_CFG = [0]
         // DPLL_CTRL[7].DPLL_DAMPING = [0]
-        // DPLL_CTRL[7].DPLL_DECIMATOR_BW_MULT = [4]
-        // DPLL_CTRL[7].DPLL_BW = [19]
+        // DPLL_CTRL[7].DPLL_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[7].DPLL_BW = [0]
         &[
-            0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-            0x19,
+            0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
         ],
 
-        // DPLL_CTRL[7].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[7].DPLL_BW+0x1 = [0]
         // DPLL_CTRL[7].DPLL_PSL = [0]
         &[
-            0xc1, 0x80, 0x00,
+            0xc1, 0x00, 0x00,
         ],
 
         // DPLL_CTRL[7].DPLL_PSL+0x1 = [0]
@@ -2618,9 +2618,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // OUTPUT[7].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
         // OUTPUT[7].OUT_CTRL_0 = [41]
-        // OUTPUT[7].OUT_CTRL_1 = [20]
+        // OUTPUT[7].OUT_CTRL_1 = [24]
         &[
-            0x97, 0x00, 0x41, 0x20,
+            0x97, 0x00, 0x41, 0x24,
         ],
 
         // OUTPUT[7].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2647,9 +2647,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // OUTPUT[8].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
         // OUTPUT[8].OUT_CTRL_0 = [41]
-        // OUTPUT[8].OUT_CTRL_1 = [20]
+        // OUTPUT[8].OUT_CTRL_1 = [24]
         &[
-            0xa7, 0x00, 0x41, 0x20,
+            0xa7, 0x00, 0x41, 0x24,
         ],
 
         // OUTPUT[8].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2704,9 +2704,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
         // OUTPUT[10].OUT_CTRL_0 = [41]
-        // OUTPUT[10].OUT_CTRL_1 = [20]
+        // OUTPUT[10].OUT_CTRL_1 = [24]
         &[
-            0xc7, 0x00, 0x41, 0x20,
+            0xc7, 0x00, 0x41, 0x24,
         ],
 
         // OUTPUT[10].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2732,9 +2732,9 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // OUTPUT[11].OUT_CTRL_0 = [3]
-        // OUTPUT[11].OUT_CTRL_1 = [22]
+        // OUTPUT[11].OUT_CTRL_1 = [26]
         &[
-            0xd8, 0x03, 0x22,
+            0xd8, 0x03, 0x26,
         ],
 
         // OUTPUT[11].OUT_PHASE_ADJ = [0, 0, 0]
