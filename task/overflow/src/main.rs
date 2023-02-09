@@ -16,7 +16,7 @@ impl idl::InOrderOverflowImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<u8, RequestError<core::convert::Infallible>> {
         let mut buf = [0u8; 2024];
-        sys_recv_open(&mut buf[2000..], 5);
+        sys_recv_open(&mut buf[0..], 5);
         Ok(0)
     }
 }
