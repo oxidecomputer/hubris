@@ -36,7 +36,7 @@ sa::const_assert!(RNG_RANGE.end <= MEM_RANGE.end);
 pub struct CertData {
     pub deviceid_cert: DeviceIdCert,
     pub persistid_cert: PersistIdCert,
-    pub intermediate_cert: IntermediateCert,
+    pub intermediate_cert: Option<IntermediateCert>,
 }
 
 // Handoff DICE cert chain.
@@ -59,7 +59,7 @@ impl CertData {
     pub fn new(
         deviceid_cert: DeviceIdCert,
         persistid_cert: PersistIdCert,
-        intermediate_cert: IntermediateCert,
+        intermediate_cert: Option<IntermediateCert>,
     ) -> Self {
         Self {
             deviceid_cert,
