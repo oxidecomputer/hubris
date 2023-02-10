@@ -364,6 +364,28 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Nic MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_PWROK_FEDGE",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK fedge while in >=A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_RSTN_FEDGE",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET fedge while in >=A0"
                 }
             ]
         },
@@ -428,6 +450,28 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Nic MAPO"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_PWROK_FEDGE",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK fedge while in >=A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "AMD_RSTN_FEDGE",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET fedge while in >=A0"
                 }
             ]
         },
@@ -1979,6 +2023,46 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "CPU's `SYS_RESET_L`, see EDS. 10ms assertion time, would traditionally be wired to a PC reset button"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_RSTN_CNTS",
+            "addr_offset": 46,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RESET_CNTS",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's reset output while in A0/A0HP. Saturates at 255. Any write clears"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "AMD_PWROKN_CNTS",
+            "addr_offset": 47,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RESET_CNTS",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Any write clears"
                 }
             ]
         }
