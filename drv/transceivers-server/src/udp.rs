@@ -13,8 +13,8 @@
 use crate::ServerImpl;
 use drv_sidecar_front_io::{
     transceivers::{
-        FpgaController, FpgaPortMasks, LogicalPortMask, PhysicalPort,
-        PhysicalPortMask, PortLocation,
+        FpgaController, FpgaPortMasks, PhysicalPort, PhysicalPortMask,
+        PortLocation,
     },
     Addr, Reg,
 };
@@ -24,7 +24,7 @@ use task_net_api::*;
 use transceiver_messages::{
     message::*,
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
-    Error, HwError, ModuleId,
+    Error, HwError, ModuleId, PortMask,
 };
 use zerocopy::{LittleEndian, U16};
 
@@ -450,9 +450,11 @@ impl ServerImpl {
             .transceivers
             .wait_and_check_i2c(mask)
             .map_err(|_e| HwError::WaitFailed)?;
-        if !err_mask.left.is_empty() || !err_mask.right.is_empty() {
+        if !err_mask.left.is_empty() {
             // FPGA reported an I2C error
-            return Err(HwError::I2cError(LogicalPortMask::from(mask).get()));
+            return Err(HwError::I2cError(PortMask(err_mask.left.get())));
+        } else if !err_mask.right.is_empty() {
+            return Err(HwError::I2cError(PortMask(err_mask.right.get())));
         }
         Ok(())
     }
@@ -474,7 +476,7 @@ impl ServerImpl {
             .setup_i2c_read(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::ReadFailed(HwError::ReadSetupFailed))?;
 
-        let mut failures: u32 = 0;
+        let mut failure_mask: PortMask = PortMask(0);
 
         for (port, out) in modules
             .ports
@@ -486,17 +488,17 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
-            let port = PortLocation {
+            let port_loc = PortLocation {
                 controller: get_fpga(modules)?,
                 port: PhysicalPort(port),
             };
             loop {
                 // If we have not encountered any errors, keep pulling full
                 // status + buffer payloads.
-                if failures == 0 {
+                if failure_mask.selected_transceiver_count() == 0 {
                     self.transceivers
                         .get_i2c_status_and_read_buffer(
-                            port,
+                            port_loc,
                             &mut buf[0..(out.len() + 1)],
                         )
                         .map_err(|_e| {
@@ -511,7 +513,7 @@ impl ServerImpl {
                         if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
                             // Record which port the error ocurred at so we can
                             // give the host a more meaningful error.
-                            failures |= port.logical_port().as_mask().get();
+                            failure_mask.set(port_loc.port.get())?;
                         } else {
                             // Add data to payload
                             out.copy_from_slice(&buf[1..][..out.len()]);
@@ -522,16 +524,16 @@ impl ServerImpl {
                 // We have encountered at least one error, meaning we will fail
                 // the entire request. We will still go get the status register
                 // of each port identify which ports had errors so we can tell
-                // host software where the problems occurred. 
+                // host software where the problems occurred.
                 } else {
                     let status =
-                        self.transceivers.get_i2c_status(port).map_err(
+                        self.transceivers.get_i2c_status(port_loc).map_err(
                             |_e| Error::ReadFailed(HwError::ReadBufFailed),
                         )?;
 
                     if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
                         if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
-                            failures |= port.logical_port().as_mask().get();
+                            failure_mask.set(port_loc.port.get())?;
                         }
                         break;
                     }
@@ -540,8 +542,8 @@ impl ServerImpl {
                 userlib::hl::sleep_for(1);
             }
         }
-        if failures != 0 {
-            return Err(Error::ReadFailed(HwError::I2cError(failures)));
+        if failure_mask.selected_transceiver_count() != 0 {
+            return Err(Error::ReadFailed(HwError::I2cError(failure_mask)));
         }
         Ok(())
     }

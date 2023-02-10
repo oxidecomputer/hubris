@@ -20,18 +20,22 @@ pub enum FpgaController {
 }
 
 /// Physical port location
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 pub struct PortLocation {
     pub controller: FpgaController,
     pub port: PhysicalPort,
 }
 
 /// Physical port location within a particular FPGA, as a 0-15 index
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 pub struct PhysicalPort(pub u8);
 impl PhysicalPort {
     pub fn as_mask(&self) -> PhysicalPortMask {
         PhysicalPortMask(1 << self.0)
+    }
+
+    pub fn get(&self) -> u8 {
+        return self.0
     }
 }
 
@@ -249,36 +253,6 @@ const PORT_MAP: [PortLocation; 32] = [
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
 #[derive(Copy, Clone, Debug)]
 pub struct LogicalPortMask(pub u32);
-impl LogicalPortMask {
-    pub fn get(&self) -> u32 {
-        self.0
-    }
-}
-
-impl From<FpgaPortMasks> for LogicalPortMask {
-    fn from(masks: FpgaPortMasks) -> LogicalPortMask {
-        let mut logical_mask: u32 = 0;
-
-        for fpga in masks.iter_fpgas() {
-            let phys_mask = match fpga {
-                FpgaController::Left => masks.left,
-                FpgaController::Right => masks.right,
-            };
-
-            for i in 0..15 {
-                let port = PhysicalPort(i as u8);
-                if phys_mask.is_set(port) {
-                    let port_loc = PortLocation {
-                        controller: fpga,
-                        port: port,
-                    };
-                    logical_mask |= port_loc.logical_port().as_mask().get();
-                }
-            }
-        }
-        LogicalPortMask(logical_mask)
-    }
-}
 
 /// Represents a single logical port (0-31)
 #[derive(Copy, Clone, Debug)]
@@ -307,12 +281,6 @@ impl From<LogicalPortMask> for FpgaPortMasks {
             }
         }
         fpga_port_masks
-    }
-}
-
-impl PortLocation {
-    pub fn logical_port(&self) -> LogicalPort {
-        LogicalPort(PORT_MAP.iter().position(|&p| p == *self).unwrap() as u8)
     }
 }
 
@@ -580,7 +548,8 @@ impl Transceivers {
         Ok(())
     }
 
-    /// Get
+    /// Read the value of the QSFP_PORTx_STATUS. This contains information on if
+    /// the I2C core is busy or if there were any errors with the transaction.
     pub fn get_i2c_status<P: Into<PortLocation>>(
         &self,
         port: P,
