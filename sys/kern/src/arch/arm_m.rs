@@ -1383,6 +1383,29 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
         panic!("Kernel fault");
     }
 
+    // Okay, now that we're confident we came from a task, we need to deal with
+    // the case where the fault occurred while stacking an SVC exception frame.
+    // In this case, the SVC exception will still be set as pending, which means
+    // when we try to return to the supervisor to handle this fault, it'll
+    // generate a spurious SVC. Even in the best of cases, this breaks the
+    // supervisor.
+    //
+    // SVCALLPENDED is in the System Handler Control and State Register, bit 15,
+    // and we need to clear its bit. We do this unconditionally because it
+    // doesn't hurt, and it's slightly faster/smaller.
+    //
+    // (If you're comparing this to the ARMv7/v8-M equivalent, note that v6-M
+    // lacks the usage/mem/bus faults present in v7/8.)
+    //
+    // Safety: the cortex-m crate makes all these registers blanket-unsafe
+    // without documenting the required preconditions. From the ARMv7-M spec, we
+    // can infer that the main risk here is if SVC were higher priority than
+    // this handler, which it is not.
+    unsafe {
+        let scb = &*cortex_m::peripheral::SCB::PTR;
+        scb.shcsr.modify(|bits| bits & !(1 << 15));
+    }
+
     // ARMv6-M, to reduce complexity, does not distinguish fault causes.
     let fault = FaultInfo::InvalidOperation(0);
 
@@ -1475,6 +1498,43 @@ unsafe extern "C" fn handle_fault(
             scb.mmfar.read(),
             scb.bfar.read(),
         );
+    }
+
+    // Okay, now that we're confident we came from a task, we need to deal with
+    // the case where the fault is **derived.** In ARMvX-M jargon, a derived
+    // fault is one produced by attempting to handle a different exception or
+    // fault. In our case these are almost always due to mishandling of the
+    // stack by the task, e.g.
+    //
+    // - Making a syscall (SVC) without enough stack space for the exception
+    //   frame,
+    // - Setting your stack pointer to NULL and then taking an interrupt or
+    //   fault, or
+    // - Dereferencing NULL, or executing an illegal instruction, without enough
+    //   stack.
+    //
+    // In these cases, we'll wind up taking a MemManage fault, but the original
+    // exception from which it was derived (SVC, Bus, Usage, etc) will still be
+    // set to *pending* in the interrupt hardware. This means that after we
+    // handle the fault, when we try to return-from-interrupt into the
+    // supervisor task, we'll still try to handle the pended exception.
+    //
+    // This will appear as though _the supervisor_ has called it, generating a
+    // phantom fault or syscall. This breaks things.
+    //
+    // This only affects architectural exceptions/faults and not hardware
+    // interrupts, which we _do_ want to process even if a fault occurred. The
+    // pended bits for those exceptions/faults are in the System Handler Control
+    // and State Register, bits 15:12. We need to clear them. We do this
+    // unconditionally because it doesn't hurt, and it's slightly
+    // faster/smaller.
+    //
+    // Safety: the cortex-m crate makes all these registers blanket-unsafe
+    // without documenting the required preconditions. From the ARMv7-M spec, we
+    // can infer that the main risk here is if SVC were higher priority than
+    // this handler, which it is not.
+    unsafe {
+        scb.shcsr.modify(|bits| bits & !(0b1111 << 12));
     }
 
     let (fault, stackinvalid) = match fault_type {
