@@ -362,15 +362,21 @@ fn configure_port(
     port: PortIndex,
     pins: &[I2cPin],
 ) {
-    let current = map.get(controller.controller).unwrap();
+    //let current = map.get(controller.controller).unwrap();
 
-    if current == port {
-        return;
-    }
+    //if current == port {
+    //    return;
+    //}
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    for pin in pins
+        .iter()
+        .filter(|p| p.controller == controller.controller)
+    {
+        sys.gpio_configure_input(pin.gpio_pins, Pull::None);
+    }
     //
     // We will now iterate over all pins, de-configuring any that match our
     // old port, and configuring any that match our new port.
@@ -379,14 +385,7 @@ fn configure_port(
         .iter()
         .filter(|p| p.controller == controller.controller)
     {
-        if pin.port == current {
-            //
-            // We de-configure our current port by setting the pins to
-            // `Mode::input`, which will assure that we don't leave SCL and
-            // SDA pulled high.
-            //
-            sys.gpio_configure_input(pin.gpio_pins, Pull::None);
-        } else if pin.port == port {
+        if pin.port == port {
             // Configure our new port!
             sys.gpio_configure_alternate(
                 pin.gpio_pins,
@@ -412,25 +411,6 @@ fn configure_pins(
     for pin in pins {
         let controller =
             lookup_controller(controllers, pin.controller).ok().unwrap();
-
-        match map.get(controller.controller) {
-            Some(port) if port != pin.port => {
-                //
-                // If we have already enabled this controller with a different
-                // port, we don't want to enable this pin.
-                //
-                continue;
-            }
-            _ => {}
-        }
-
-        sys.gpio_configure_alternate(
-            pin.gpio_pins,
-            OutputType::OpenDrain,
-            Speed::Low,
-            Pull::None,
-            pin.function,
-        );
 
         map.insert(controller.controller, pin.port);
     }
