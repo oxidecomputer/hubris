@@ -240,6 +240,12 @@ impl hubpack::SerializedSize for DecodeFailureReason {
     const MAX_SIZE: usize = core::mem::size_of::<DecodeFailureReason>();
 }
 
+impl From<HubpackError> for DecodeFailureReason {
+    fn from(_: HubpackError) -> Self {
+        Self::Deserialize
+    }
+}
+
 bitflags::bitflags! {
     #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
     #[repr(transparent)]
@@ -396,14 +402,14 @@ where
 /// Returns [`HubpackError::Custom`] for checksum mismatches.
 pub fn deserialize<T: DeserializeOwned>(
     data: &[u8],
-) -> Result<(Header, T, &[u8]), HubpackError> {
+) -> Result<(Header, T, &[u8]), DecodeFailureReason> {
     let (header, leftover) = hubpack::deserialize::<Header>(data)?;
     let (command, leftover) = hubpack::deserialize::<T>(leftover)?;
 
     // We expect at least 2 bytes remaining in `leftover` for the checksum; any
     // additional bytes are treated as the data blob we return.
     if leftover.len() < CHECKSUM_SIZE {
-        return Err(HubpackError::Truncated);
+        return Err(DecodeFailureReason::DataLengthInvalid);
     }
 
     let (data_blob, checksum) =
@@ -412,8 +418,9 @@ pub fn deserialize<T: DeserializeOwned>(
     let checksum = u16::from_le_bytes(checksum.try_into().unwrap_lite());
     let expected_checksum =
         fletcher::calc_fletcher16(&data[..data.len() - CHECKSUM_SIZE]);
+
     if checksum != expected_checksum {
-        return Err(HubpackError::Custom);
+        return Err(DecodeFailureReason::Crc);
     }
 
     Ok((header, command, data_blob))
@@ -669,5 +676,68 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         assert_eq!(expected_without_cksum, &buf[..n - CHECKSUM_SIZE]);
+    }
+
+    #[test]
+    fn bad_host_sp_command() {
+        #[rustfmt::skip]
+        let data: &[u8] = &[
+            // magic
+            0xcc, 0x19, 0xde, 0x01,
+            // version
+            0x67, 0x45, 0x23, 0x01,
+            // sequence
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+            // command that does not map to a `HostToSp` variant
+            0xff,
+        ];
+
+        assert_eq!(
+            deserialize::<HostToSp>(data),
+            Err(DecodeFailureReason::Deserialize)
+        );
+    }
+
+    #[test]
+    fn bad_crc() {
+        #[rustfmt::skip]
+        let data: &[u8] = &[
+            // magic
+            0xcc, 0x19, 0xde, 0x01,
+            // version
+            0x67, 0x45, 0x23, 0x01,
+            // sequence
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+            // HostToSp::RequestReboot
+            0x01,
+            // Incorrect checksum
+            0xff, 0xff,
+        ];
+
+        assert_eq!(
+            deserialize::<HostToSp>(data),
+            Err(DecodeFailureReason::Crc)
+        );
+    }
+
+    #[test]
+    fn missing_crc() {
+        #[rustfmt::skip]
+        let data: &[u8] = &[
+            // magic
+            0xcc, 0x19, 0xde, 0x01,
+            // version
+            0x67, 0x45, 0x23, 0x01,
+            // sequence
+            0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+            // HostToSp::RequestReboot
+            0x01,
+            // CRC should be here: omit it
+        ];
+
+        assert_eq!(
+            deserialize::<HostToSp>(data),
+            Err(DecodeFailureReason::DataLengthInvalid)
+        );
     }
 }
