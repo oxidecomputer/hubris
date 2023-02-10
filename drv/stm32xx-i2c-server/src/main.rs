@@ -362,11 +362,14 @@ fn configure_port(
     port: PortIndex,
     pins: &[I2cPin],
 ) {
-    //let current = map.get(controller.controller).unwrap();
+    let current = map.get(controller.controller).unwrap();
 
-    //if current == port {
-    //    return;
-    //}
+    let is_mid_bus = pins.iter()
+        .any(|pin| pin.gpio_pins.port == Port::H && pin.gpio_pins.mask & (1 << 7) != 0);
+
+    if current == port && is_mid_bus {
+        return;
+    }
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
