@@ -9,7 +9,7 @@
 
 use drv_i2c_api::*;
 use drv_stm32xx_i2c::*;
-use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
+use drv_stm32xx_sys_api::{OutputType, Port, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;
@@ -365,7 +365,7 @@ fn configure_port(
     let current = map.get(controller.controller).unwrap();
 
     let is_mid_bus = pins.iter()
-        .any(|pin| pin.gpio_pins.port == Port::H && pin.gpio_pins.mask & (1 << 7) != 0);
+        .any(|pin| pin.gpio_pins.port == Port::H && pin.gpio_pins.pin_mask & (1 << 7) != 0);
 
     if current == port && is_mid_bus {
         return;
