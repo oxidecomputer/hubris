@@ -35,7 +35,7 @@ impl PhysicalPort {
     }
 
     pub fn get(&self) -> u8 {
-        return self.0
+        return self.0;
     }
 }
 
