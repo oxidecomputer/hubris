@@ -15,9 +15,8 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, HubpackError, Key,
-    KeyLookupResult, SpToHost, Status, MAX_MESSAGE_SIZE,
-    MIN_SP_TO_HOST_FILL_DATA_LEN,
+    Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult, SpToHost,
+    Status, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -911,15 +910,7 @@ fn parse_received_message(
     let deframed = &rx_buf[..n];
 
     let (header, request, data) =
-        match host_sp_messages::deserialize::<HostToSp>(deframed) {
-            Ok((header, request, data)) => (header, request, data),
-            Err(HubpackError::Custom) => {
-                return Err(DecodeFailureReason::Crc);
-            }
-            Err(_) => {
-                return Err(DecodeFailureReason::Deserialize);
-            }
-        };
+        host_sp_messages::deserialize::<HostToSp>(deframed)?;
 
     if header.magic != host_sp_messages::MAGIC {
         return Err(DecodeFailureReason::MagicMismatch);
