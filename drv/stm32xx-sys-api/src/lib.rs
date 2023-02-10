@@ -149,12 +149,6 @@ impl Sys {
 
     /// Configures the pins in `PinSet` as high-impedance digital inputs, with
     /// optional pull resistors.
-    ///
-    /// This chooses arbitrary settings for all the other fields (output type,
-    /// slew rate, alternate function), and so it is not suitable for
-    /// pins that need to be repeatedly reconfigured between high-impedance and
-    /// alternate without intermediate glitching. In such cases you probably
-    /// want to use the raw `gpio_configure`.
     pub fn gpio_configure_input(&self, pinset: PinSet, pull: Pull) {
         self.gpio_configure(
             pinset.port,
