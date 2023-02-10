@@ -153,6 +153,10 @@ controller = 2
 pins = [ 0, 1 ]
 af = 4
 
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 10, 11 ]
+af = 4
+
 #
 # To use the Nucleo board as an SPD initiator, uncomment the following:
 #
