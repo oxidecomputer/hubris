@@ -52,13 +52,12 @@ enum Trace {
     NICPowerEnableLow(bool),
     RailsOn,
     UartEnabled,
-    GetState,
     SetState(PowerState, PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
-    Status(u8, u8, u8),
-    PGStatus(u8, u8, u8),
-    SMStatus(u8, u8),
+    Status { ier: u8, ifr: u8, amd_status: u8, amd_a0: u8 },
+    PGStatus { b_pg: u8, c_pg: u8, nic: u8 },
+    SMStatus { a1: u8, a0: u8 },
     PowerControl(u8),
     InterruptFlags(u8),
     None,
@@ -379,11 +378,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        ringbuf_entry!(Trace::Status(
-            self.seq.read_byte(Addr::IER).unwrap(),
-            self.seq.read_byte(Addr::IFR).unwrap(),
-            self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::Status {
+            ier: self.seq.read_byte(Addr::IER).unwrap(),
+            ifr: self.seq.read_byte(Addr::IFR).unwrap(),
+            amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
+            amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap(),
+        });
 
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
             //
@@ -407,17 +407,17 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             let sys = sys_api::Sys::from(SYS.get_task_id());
             let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS) != 0;
 
-            ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
-
             let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
+                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0PlusHP);
                 }
 
                 (PowerState::A0PlusHP, true) => {
+                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0);
                 }
@@ -457,16 +457,16 @@ impl<S: SpiServer> ServerImpl<S> {
     ) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::SetState(self.state, state));
 
-        ringbuf_entry!(Trace::PGStatus(
-            self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
-            self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
-            self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::PGStatus {
+            b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
+            c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
+            nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
+        });
 
-        ringbuf_entry!(Trace::SMStatus(
-            self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
-            self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::SMStatus {
+            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
+            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
+        });
 
         ringbuf_entry!(Trace::PowerControl(
             self.seq.read_byte(Addr::PWR_CTRL).unwrap(),
@@ -567,10 +567,10 @@ impl<S: SpiServer> ServerImpl<S> {
                 self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
 
                 //
-                // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables, we wait
-                // for a tick here to make sure the SPI command to the FPGA
-                // propagated and the FPGA has had time to act. AMD's EDS doesn't
-                // give a minimum time so we'll give them 1 ms.
+                // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables,
+                // we wait for a tick here to make sure the SPI command to the
+                // FPGA propagated and the FPGA has had time to act. AMD's EDS
+                // doesn't give a minimum time so we'll give them 1 ms.
                 //
                 hl::sleep_for(1);
                 vcore_soc_off();
@@ -598,7 +598,7 @@ impl<S: SpiServer> ServerImpl<S> {
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
             PowerState::A0 => Some(10),
-            PowerState::A0PlusHP => Some(100),
+            PowerState::A0PlusHP => Some(1),
             _ => None,
         }
     }
@@ -609,7 +609,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
         Ok(self.state)
     }
 
