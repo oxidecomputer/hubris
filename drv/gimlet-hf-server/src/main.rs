@@ -270,14 +270,10 @@ impl ServerImpl {
         }
     }
 
-    fn page_program_raw(
-        qspi: &Qspi,
-        addr: u32,
-        data: &[u8],
-    ) -> Result<(), HfError> {
-        set_and_check_write_enable(qspi)?;
-        qspi.page_program(addr, data);
-        poll_for_write_complete(qspi, None);
+    fn page_program_raw(&self, addr: u32, data: &[u8]) -> Result<(), HfError> {
+        self.set_and_check_write_enable()?;
+        self.qspi.page_program(addr, data);
+        self.poll_for_write_complete(None);
         Ok(())
     }
 
@@ -380,9 +376,9 @@ impl ServerImpl {
             return Err(HfError::Sector0IsReserved.into());
         }
         self.check_muxed_to_sp()?;
-        set_and_check_write_enable(&self.qspi)?;
+        self.set_and_check_write_enable()?;
         self.qspi.sector_erase(addr);
-        poll_for_write_complete(&self.qspi, Some(1));
+        self.poll_for_write_complete(Some(1));
         Ok(())
     }
 
@@ -406,7 +402,7 @@ impl ServerImpl {
                 0
             }
         };
-        Self::page_program_raw(&self.qspi, addr, raw_data.as_bytes())
+        self.page_program_raw(addr, raw_data.as_bytes())
     }
 
     /// Checks that the persistent data is consistent between the two flash ICs.
@@ -461,6 +457,30 @@ impl ServerImpl {
             }
         }
     }
+
+    fn set_and_check_write_enable(&self) -> Result<(), HfError> {
+        self.qspi.write_enable();
+        let status = self.qspi.read_status();
+
+        if status & 0b10 == 0 {
+            // oh oh
+            return Err(HfError::WriteEnableFailed);
+        }
+        Ok(())
+    }
+
+    fn poll_for_write_complete(&self, sleep_between_polls: Option<u64>) {
+        loop {
+            let status = self.qspi.read_status();
+            if status & 1 == 0 {
+                // ooh we're done
+                break;
+            }
+            if let Some(ticks) = sleep_between_polls {
+                hl::sleep_for(ticks);
+            }
+        }
+    }
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -499,9 +519,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             return Err(HfError::Sector0IsReserved.into());
         }
         self.check_muxed_to_sp()?;
-        set_and_check_write_enable(&self.qspi)?;
+        self.set_and_check_write_enable()?;
         self.qspi.bulk_erase();
-        poll_for_write_complete(&self.qspi, Some(100));
+        self.poll_for_write_complete(Some(100));
         Ok(())
     }
 
@@ -523,7 +543,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         // Now we can't fail. (TODO is this comment outdated?)
-        Self::page_program_raw(&self.qspi, addr, &self.block[..data.len()])?;
+        self.page_program_raw(addr, &self.block[..data.len()])?;
         Ok(())
     }
 
@@ -721,30 +741,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
         Ok(())
-    }
-}
-
-fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
-    qspi.write_enable();
-    let status = qspi.read_status();
-
-    if status & 0b10 == 0 {
-        // oh oh
-        return Err(HfError::WriteEnableFailed);
-    }
-    Ok(())
-}
-
-fn poll_for_write_complete(qspi: &Qspi, sleep_between_polls: Option<u64>) {
-    loop {
-        let status = qspi.read_status();
-        if status & 1 == 0 {
-            // ooh we're done
-            break;
-        }
-        if let Some(ticks) = sleep_between_polls {
-            hl::sleep_for(ticks);
-        }
     }
 }
 
