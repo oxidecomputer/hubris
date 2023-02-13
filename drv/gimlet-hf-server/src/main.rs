@@ -349,7 +349,7 @@ impl ServerImpl {
             if data.is_valid()
                 && best.map(|b| b.epoch < data.epoch).unwrap_or(true)
             {
-                best = Some(data)
+                best = Some(data);
             }
             if empty_slot.is_none()
                 && data.as_bytes().iter().all(|b| *b == 0xFF)
