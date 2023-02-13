@@ -270,21 +270,6 @@ impl ServerImpl {
         }
     }
 
-    fn page_program_inner(
-        &mut self,
-        addr: u32,
-        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        self.check_muxed_to_sp()?;
-        // Read the entire data block into our address space.
-        data.read_range(0..data.len(), &mut self.block[..data.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-
-        // Now we can't fail. (TODO is this comment outdated?)
-        Self::page_program_raw(&self.qspi, addr, &self.block[..data.len()])?;
-        Ok(())
-    }
-
     fn page_program_raw(
         qspi: &Qspi,
         addr: u32,
@@ -379,13 +364,33 @@ impl ServerImpl {
         (best, empty_slot)
     }
 
-    fn raw_sector0_erase(&mut self) -> Result<(), HfError> {
+    /// Erases the sector containing the given address
+    ///
+    /// If this is sector 0, requires `protect` to be
+    /// `HfProtectMode::AllowModificationsToSector0` (otherwise this function
+    /// will return an error).
+    fn sector_erase(
+        &mut self,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), HfError> {
+        if addr as usize / SECTOR_SIZE_BYTES == 0
+            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
+        {
+            return Err(HfError::Sector0IsReserved.into());
+        }
+        self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
-        self.qspi.sector_erase(0);
+        self.qspi.sector_erase(addr);
         poll_for_write_complete(&self.qspi, Some(1));
         Ok(())
     }
 
+    /// Writes raw persistent data to the given address on the
+    /// currently-selected flash IC.
+    ///
+    /// If `addr` is `None`, then we're out of available space; erase all of
+    /// sector 0 and write to address 0 upon success.
     fn write_raw_persistent_data_to_addr(
         &mut self,
         addr: Option<u32>,
@@ -394,7 +399,10 @@ impl ServerImpl {
         let addr = match addr {
             Some(a) => a,
             None => {
-                self.raw_sector0_erase()?;
+                self.sector_erase(
+                    0,
+                    HfProtectMode::AllowModificationsToSector0,
+                )?;
                 0
             }
         };
@@ -509,7 +517,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         {
             return Err(HfError::Sector0IsReserved.into());
         }
-        self.page_program_inner(addr, data)
+        self.check_muxed_to_sp()?;
+        // Read the entire data block into our address space.
+        data.read_range(0..data.len(), &mut self.block[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        // Now we can't fail. (TODO is this comment outdated?)
+        Self::page_program_raw(&self.qspi, addr, &self.block[..data.len()])?;
+        Ok(())
     }
 
     fn read(
@@ -533,16 +548,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
-        if addr as usize / SECTOR_SIZE_BYTES == 0
-            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
-        {
-            return Err(HfError::Sector0IsReserved.into());
-        }
-        self.check_muxed_to_sp()?;
-        set_and_check_write_enable(&self.qspi)?;
-        self.qspi.sector_erase(addr);
-        poll_for_write_complete(&self.qspi, Some(1));
-        Ok(())
+        self.sector_erase(addr, protect).map_err(RequestError::from)
     }
 
     fn get_mux(
