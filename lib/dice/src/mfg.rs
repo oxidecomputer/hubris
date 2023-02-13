@@ -48,7 +48,7 @@ pub struct DiceMfgState {
     pub cert_serial_number: CertSerialNumber,
     pub serial_number: SerialNumber,
     pub persistid_cert: PersistIdCert,
-    pub intermediate_cert: IntermediateCert,
+    pub intermediate_cert: Option<IntermediateCert>,
 }
 
 pub trait DiceMfg {
@@ -82,7 +82,7 @@ impl DiceMfg for SelfMfg<'_> {
             serial_number: dname_sn,
             // TODO: static assert deviceid_cert size < SizedBuf max
             persistid_cert: persistid_cert,
-            intermediate_cert: IntermediateCert(SizedBlob::default()),
+            intermediate_cert: None,
         }
     }
 }
@@ -242,7 +242,7 @@ impl DiceMfg for SerialMfg<'_> {
             cert_serial_number: Default::default(),
             serial_number: self.serial_number.unwrap(),
             persistid_cert: self.persistid_cert.unwrap(),
-            intermediate_cert: self.intermediate_cert.unwrap(),
+            intermediate_cert: Some(self.intermediate_cert.unwrap()),
         }
     }
 }
