@@ -192,7 +192,7 @@ Interface(
             args: {
                 "segment": (
                     type: "DirectBarSegment",
-                    recv: FromPrimitive("u8"),
+                    recv: FromPrimitive("u32"),
                 ),
                 "offset": "u32",
             },
@@ -207,7 +207,7 @@ Interface(
             args: {
                 "segment": (
                     type: "DirectBarSegment",
-                    recv: FromPrimitive("u8"),
+                    recv: FromPrimitive("u32"),
                 ),
                 "offset": "u32",
                 "value": "u32",
