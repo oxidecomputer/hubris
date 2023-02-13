@@ -68,7 +68,8 @@ impl crate::bsp_support::Bsp for BspImpl {
                 | Some(PowerState::A1)
                 | Some(PowerState::A0)
                 | Some(PowerState::A0PlusHP)
-                | Some(PowerState::A0Thermtrip) => {
+                | Some(PowerState::A0Thermtrip)
+                | Some(PowerState::A0Reset) => {
                     break;
                 }
                 None => {

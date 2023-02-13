@@ -104,7 +104,10 @@ impl Bsp {
             }
         };
         match state {
-            PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
+            PowerState::A0PlusHP
+            | PowerState::A0
+            | PowerState::A1
+            | PowerState::A0Reset => {
                 use drv_i2c_devices::max5970;
                 use userlib::units::Ohms;
 

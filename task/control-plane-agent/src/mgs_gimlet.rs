@@ -399,7 +399,8 @@ impl MgsHandler {
             DrvPowerState::A1 => PowerState::A1,
             DrvPowerState::A0
             | DrvPowerState::A0PlusHP
-            | DrvPowerState::A0Thermtrip => PowerState::A0,
+            | DrvPowerState::A0Thermtrip
+            | DrvPowerState::A0Reset => PowerState::A0,
         };
 
         Ok(state)

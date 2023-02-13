@@ -55,9 +55,21 @@ enum Trace {
     SetState(PowerState, PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
-    Status { ier: u8, ifr: u8, amd_status: u8, amd_a0: u8 },
-    PGStatus { b_pg: u8, c_pg: u8, nic: u8 },
-    SMStatus { a1: u8, a0: u8 },
+    Status {
+        ier: u8,
+        ifr: u8,
+        amd_status: u8,
+        amd_a0: u8,
+    },
+    PGStatus {
+        b_pg: u8,
+        c_pg: u8,
+        nic: u8,
+    },
+    SMStatus {
+        a1: u8,
+        a0: u8,
+    },
     PowerControl(u8),
     InterruptFlags(u8),
     None,
@@ -387,12 +399,23 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
             //
-            // The first order of business is to check if the sequencer hit a
-            // THERMTRIP.  If it did, we need to go to A0Thermtrip and clear
-            // the bit.
+            // The first order of business is to check if sequencer saw a
+            // falling edge on PWROK (denoting a reset) or a THERMTRIP.  If
+            // it did, we need to go to A0Reset or A0Thermtrip as appropriate
+            // (and if both are set, we want to clear both but land in
+            // A0Thermtrip).
             //
             let thermtrip = Reg::IFR::THERMTRIP;
+            let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
+            let rstn_fedge = Reg::IFR::AMD_RSTN_FEDGE;
             let ifr = self.seq.read_byte(Addr::IFR).unwrap();
+
+            if ifr & pwrok_fedge != 0 {
+                self.seq
+                    .clear_bytes(Addr::IFR, &[pwrok_fedge | rstn_fedge])
+                    .unwrap();
+                self.update_state_internal(PowerState::A0Reset);
+            }
 
             if ifr & thermtrip != 0 {
                 self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
@@ -425,6 +448,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                 (PowerState::A0, true) | (PowerState::A0PlusHP, false) => {
                     //
                     // Our power state matches NIC_PWREN_L -- nothing to do
+                    //
+                }
+
+                (PowerState::A0Reset, _) | (PowerState::A0Thermtrip, _) => {
+                    //
+                    // We must have just sent ourselves here; nothing to do.
                     //
                 }
 
@@ -550,7 +579,8 @@ impl<S: SpiServer> ServerImpl<S> {
 
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
+            | (PowerState::A0Thermtrip, PowerState::A2)
+            | (PowerState::A0Reset, PowerState::A2) => {
                 //
                 // Flip the UART mux back to disabled
                 //
@@ -598,7 +628,7 @@ impl<S: SpiServer> ServerImpl<S> {
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
             PowerState::A0 => Some(10),
-            PowerState::A0PlusHP => Some(1),
+            PowerState::A0PlusHP => Some(100),
             _ => None,
         }
     }
