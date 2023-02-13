@@ -180,7 +180,7 @@ struct RawPersistentData {
     /// may look at under certain circumstances.
     amd_reserved_must_be_all_ones: u64,
 
-    /// Must always be 0x1dea_bcde.
+    /// Must always be `HF_PERSISTENT_DATA_MAGIC`.
     oxide_magic: u32,
 
     /// Must always be 1 (for now)
