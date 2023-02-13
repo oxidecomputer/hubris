@@ -774,7 +774,9 @@
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">AMD_RSTN_FEDGE</td>
+                <td class="validspandef" colspan="2*">AMD_PWROK_FEDGE</td>
                 <td class="validspandef" colspan="2*">NICMAPO</td>
                 <td class="validspandef" colspan="2*">A0MAPO</td>
                 <td class="validspandef" colspan="2*">A1MAPO</td>
@@ -788,6 +790,24 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">AMD_RSTN_FEDGE</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">AMD RESET fedge while in >=A0
+        </td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">AMD_PWROK_FEDGE</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">AMD PWROK fedge while in >=A0
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -849,7 +869,9 @@
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">AMD_RSTN_FEDGE</td>
+                <td class="validspandef" colspan="2*">AMD_PWROK_FEDGE</td>
                 <td class="validspandef" colspan="2*">NICMAPO</td>
                 <td class="validspandef" colspan="2*">A0MAPO</td>
                 <td class="validspandef" colspan="2*">A1MAPO</td>
@@ -863,6 +885,24 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">AMD_RSTN_FEDGE</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">AMD RESET fedge while in >=A0
+        </td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">AMD_PWROK_FEDGE</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">AMD PWROK fedge while in >=A0
+        </td>
     </tr>
     <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2803,6 +2843,74 @@ installed
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">CPU's `SYS_RESET_L`, see EDS. 10ms assertion time, would traditionally be wired to a PC reset button
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="46">AMD_RSTN_CNTS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x2e
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;AMD_RSTN_CNTS</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">RESET_CNTS</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESET_CNTS</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Falling edge counter of AMD's reset output while in A0/A0HP. Saturates at 255. Any write clears
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="47">AMD_PWROKN_CNTS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x2f
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;AMD_PWROKN_CNTS</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">RESET_CNTS</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RESET_CNTS</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Any write clears
         </td>
     </tr>
     </table>

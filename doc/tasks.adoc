@@ -87,7 +87,7 @@ This has a bunch of advantages, including:
 - It makes the addresses of tasks in physical memory predictable, simplifying
   the debugger.
 - Tasks can size data structures based on the fixed number of tasks in the
-  system, if required. (This is used in <<supervision,supervisor tasks>> and in
+  system, if required. (This is used in <<supervisor,supervisor tasks>> and in
   our prototype network stack.)
 
 It _does_ put some requirements on your design of applications, however, if
