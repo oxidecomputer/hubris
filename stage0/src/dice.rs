@@ -30,7 +30,7 @@ pub struct MfgResult {
     pub serial_number: SerialNumber,
     pub persistid_keypair: Keypair,
     pub persistid_cert: PersistIdCert,
-    pub intermediate_cert: IntermediateCert,
+    pub intermediate_cert: Option<IntermediateCert>,
 }
 
 /// Generate stuff associated with the manufacturing process.
@@ -107,7 +107,7 @@ fn gen_deviceid_artifacts(
     serial_number: &SerialNumber,
     persistid_keypair: Keypair,
     persistid_cert: PersistIdCert,
-    intermediate_cert: IntermediateCert,
+    intermediate_cert: Option<IntermediateCert>,
     handoff: &Handoff,
 ) -> Keypair {
     let devid_okm = DeviceIdOkm::from_cdi(cdi);
