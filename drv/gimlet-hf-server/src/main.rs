@@ -173,7 +173,7 @@ fn main() -> ! {
 ///
 /// When writing new data, we increment the epoch and write to both ICs, one by
 /// one.  This ensures robustness in case of power loss.
-#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, AsBytes, FromBytes)]
 #[repr(C)]
 struct RawPersistentData {
     /// Reserved field, because this is placed at address 0, which PSP firmware
@@ -708,6 +708,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 (None, Some(b)) => b.epoch,
                 (None, None) => 0,
             };
+
+            // Early exit if the previous persistent data matches
+            let prev_raw = RawPersistentData::new(data, prev_epoch);
+            if a_data == b_data && a_data == Some(prev_raw) {
+                return Ok(());
+            }
+
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
 
