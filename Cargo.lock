@@ -4711,7 +4711,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#a5305a91a32967fbb384c91ecc4ccfb1aec6d302"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#cec7bd168b7a447a28db0fd4b2910a8d3ec63e01"
 dependencies = [
  "bitflags",
  "hubpack",

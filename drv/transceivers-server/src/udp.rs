@@ -24,7 +24,7 @@ use task_net_api::*;
 use transceiver_messages::{
     message::*,
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
-    Error, HwError, ModuleId,
+    Error, HwError, ModuleId, PortMask,
 };
 use zerocopy::{LittleEndian, U16};
 
@@ -450,9 +450,11 @@ impl ServerImpl {
             .transceivers
             .wait_and_check_i2c(mask)
             .map_err(|_e| HwError::WaitFailed)?;
-        if !err_mask.left.is_empty() || !err_mask.right.is_empty() {
+        if !err_mask.left.is_empty() {
             // FPGA reported an I2C error
-            return Err(HwError::I2cError);
+            return Err(HwError::I2cError(PortMask(err_mask.left.get())));
+        } else if !err_mask.right.is_empty() {
+            return Err(HwError::I2cError(PortMask(err_mask.right.get())));
         }
         Ok(())
     }
@@ -474,6 +476,8 @@ impl ServerImpl {
             .setup_i2c_read(mem.offset(), mem.len(), mask)
             .map_err(|_e| Error::ReadFailed(HwError::ReadSetupFailed))?;
 
+        let mut failure_mask: PortMask = PortMask(0);
+
         for (port, out) in modules
             .ports
             .to_indices()
@@ -484,31 +488,62 @@ impl ServerImpl {
             // terminate with a single read, since I2C is faster than Hubris
             // IPC.
             let mut buf = [0u8; 129];
-            let port = PortLocation {
+            let port_loc = PortLocation {
                 controller: get_fpga(modules)?,
                 port: PhysicalPort(port),
             };
             loop {
-                self.transceivers
-                    .get_i2c_status_and_read_buffer(
-                        port,
-                        &mut buf[0..(out.len() + 1)],
-                    )
-                    .map_err(|_e| Error::ReadFailed(HwError::ReadBufFailed))?;
-                let status = buf[0];
+                // If we have not encountered any errors, keep pulling full
+                // status + buffer payloads.
+                if failure_mask.selected_transceiver_count() == 0 {
+                    self.transceivers
+                        .get_i2c_status_and_read_buffer(
+                            port_loc,
+                            &mut buf[0..(out.len() + 1)],
+                        )
+                        .map_err(|_e| {
+                            Error::ReadFailed(HwError::ReadBufFailed)
+                        })?;
 
-                // Use QSFP::PORT0 for constants, since they're all identical
-                if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
-                    // Check error mask
-                    if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
-                        return Err(Error::ReadFailed(HwError::I2cError));
-                    } else {
-                        out.copy_from_slice(&buf[1..][..out.len()]);
+                    let status = buf[0];
+
+                    // Use QSFP::PORT0 for constants, since they're all identical
+                    if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                        // Check error mask
+                        if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
+                            // Record which port the error ocurred at so we can
+                            // give the host a more meaningful error.
+                            failure_mask.set(port_loc.port.get())?;
+                        } else {
+                            // Add data to payload
+                            out.copy_from_slice(&buf[1..][..out.len()]);
+                        }
+                        break;
+                    }
+
+                // We have encountered at least one error, meaning we will fail
+                // the entire request. We will still go get the status register
+                // of each port identify which ports had errors so we can tell
+                // host software where the problems occurred.
+                } else {
+                    let status =
+                        self.transceivers.get_i2c_status(port_loc).map_err(
+                            |_e| Error::ReadFailed(HwError::ReadBufFailed),
+                        )?;
+
+                    if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                        if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
+                            failure_mask.set(port_loc.port.get())?;
+                        }
                         break;
                     }
                 }
+
                 userlib::hl::sleep_for(1);
             }
+        }
+        if failure_mask.selected_transceiver_count() != 0 {
+            return Err(Error::ReadFailed(HwError::I2cError(failure_mask)));
         }
         Ok(())
     }

@@ -33,6 +33,10 @@ impl PhysicalPort {
     pub fn as_mask(&self) -> PhysicalPortMask {
         PhysicalPortMask(1 << self.0)
     }
+
+    pub fn get(&self) -> u8 {
+        return self.0;
+    }
 }
 
 /// Physical port mask within a particular FPGA, as a 16-bit bitfield
@@ -542,6 +546,17 @@ impl Transceivers {
         }
 
         Ok(())
+    }
+
+    /// Read the value of the QSFP_PORTx_STATUS. This contains information on if
+    /// the I2C core is busy or if there were any errors with the transaction.
+    pub fn get_i2c_status<P: Into<PortLocation>>(
+        &self,
+        port: P,
+    ) -> Result<u8, FpgaError> {
+        let port_loc = port.into();
+        self.fpga(port_loc.controller)
+            .read(Self::read_status_address(port_loc.port))
     }
 
     /// Get `buf.len()` bytes of data from the I2C read buffer for a `port`. The
