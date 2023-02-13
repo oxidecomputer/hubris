@@ -183,7 +183,7 @@ struct RawPersistentData {
     /// Must always be `HF_PERSISTENT_DATA_MAGIC`.
     oxide_magic: u32,
 
-    /// Must always be 1 (for now)
+    /// Must always be `HF_PERSISTENT_DATA_HEADER_VERSION` (for now)
     header_version: u32,
 
     /// Monotonically increasing counter
