@@ -153,6 +153,24 @@ fn main() -> ! {
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
 
+    // If we have persistent data, then use it to decide which flash chip to
+    // select initially.
+    match server.get_persistent_data() {
+        Ok(data) if server.dev_select_pin.is_some() => {
+            server.set_dev(data.dev_select).unwrap()
+        }
+        Ok(_data) => {
+            // No chip select pin, so we ignore the persistent data
+        }
+        Err(HfError::NoPersistentData) => {
+            // No persistent data, e.g. initial power-on
+        }
+        Err(_) => {
+            // Other errors indicate a true problem.
+            panic!("failed to get persistent data")
+        }
+    };
+
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -251,6 +269,9 @@ struct ServerImpl {
     mux_select_pin: sys_api::PinSet,
 
     /// Selects between QSPI flash chips 1 and 2 (if present)
+    ///
+    /// On startup, this is loaded from the persistent storage, but it can be
+    /// changed by `set_dev` without necessarily being persisted to flash.
     dev_state: HfDevSelect,
     dev_select_pin: Option<sys_api::PinSet>,
 }
@@ -481,6 +502,14 @@ impl ServerImpl {
             }
         }
     }
+
+    fn get_persistent_data(&mut self) -> Result<HfPersistentData, HfError> {
+        let out = self.get_raw_persistent_data()?;
+        Ok(HfPersistentData {
+            startup_options: out.host_startup_options,
+            dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
+        })
+    }
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -674,11 +703,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HfPersistentData, RequestError<HfError>> {
-        let out = self.get_raw_persistent_data()?;
-        Ok(HfPersistentData {
-            startup_options: out.host_startup_options,
-            dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
-        })
+        self.get_persistent_data().map_err(RequestError::from)
     }
 
     /// Writes the given persistent data to host flash
@@ -696,6 +721,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if self.dev_select_pin.is_some() {
             let prev_slot = self.dev_state;
 
+            // At this point, all of the ways that `set_dev` could fail have
+            // been checked: we already called both `check_muxed_to_sp` and that
+            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
+            // `self.set_dev(...)`.
             self.set_dev(!prev_slot).unwrap();
             let (a_data, a_next) = self.persistent_data_scan();
 
@@ -719,30 +748,33 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             let raw = RawPersistentData::new(data, epoch);
 
             // Write the persistent data to the currently inactive flash.
-            //
-            // At this point, all of the ways that `set_dev` could fail have
-            // been checked: we already called both `check_muxed_to_sp` and that
-            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
-            // `self.set_dev(...)`.
             self.set_dev(!prev_slot).unwrap();
             let out_a = self.write_raw_persistent_data_to_addr(a_next, &raw);
 
-            // Write the persistent data to the currently active flash
+            // Swap back to the currently selected flash
             self.set_dev(prev_slot).unwrap();
 
             // Now that we've restored the current active flash, check whether
             // we should propagate errors.
             out_a?;
 
+            // Write the persistent data to the currently active flash
             self.write_raw_persistent_data_to_addr(b_next, &raw)?;
         } else {
             // Single-flash case is less complicated, because we don't have to
             // track and maintain the active device.
-            let (slot, next) = self.persistent_data_scan();
-            let prev_epoch = match slot {
+            let (prev_data, next) = self.persistent_data_scan();
+            let prev_epoch = match prev_data {
                 Some(a) => a.epoch,
                 None => 0,
             };
+
+            // Early exit if the previous persistent data matches
+            let prev_raw = RawPersistentData::new(data, prev_epoch);
+            if prev_data == Some(prev_raw) {
+                return Ok(());
+            }
+
             let epoch = prev_epoch + 1;
             let raw = RawPersistentData::new(data, epoch);
             self.write_raw_persistent_data_to_addr(next, &raw)?;
