@@ -29,6 +29,7 @@ pub enum HfError {
     NotMuxedToSP,
     Sector0IsReserved,
     NoPersistentData,
+    MonotonicCounterOverflow,
 
     #[idol(server_death)]
     ServerRestarted,

@@ -735,7 +735,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 return Ok(());
             }
 
-            let epoch = prev_epoch + 1;
+            let epoch = prev_epoch
+                .checked_add(1)
+                .ok_or(HfError::MonotonicCounterOverflow)?;
             let raw = RawPersistentData::new(data, epoch);
 
             // Write the persistent data to the currently inactive flash.
@@ -766,7 +768,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 return Ok(());
             }
 
-            let epoch = prev_epoch + 1;
+            let epoch = prev_epoch
+                .checked_add(1)
+                .ok_or(HfError::MonotonicCounterOverflow)?;
             let raw = RawPersistentData::new(data, epoch);
             self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
