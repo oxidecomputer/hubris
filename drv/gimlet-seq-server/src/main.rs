@@ -20,6 +20,7 @@ use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
 use task_jefe_api::Jefe;
+use static_assertions::const_assert;
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
@@ -53,6 +54,7 @@ enum Trace {
     RailsOn,
     UartEnabled,
     SetState(PowerState, PowerState),
+    UpdateState(PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
     Status {
@@ -69,6 +71,10 @@ enum Trace {
     SMStatus {
         a1: u8,
         a0: u8,
+    },
+    ResetCounts {
+        rstn: u8,
+        pwrokn: u8
     },
     PowerControl(u8),
     InterruptFlags(u8),
@@ -400,27 +406,14 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
             //
             // The first order of business is to check if sequencer saw a
-            // falling edge on PWROK (denoting a reset) or a THERMTRIP.  If
-            // it did, we need to go to A0Reset or A0Thermtrip as appropriate
-            // (and if both are set, we want to clear both but land in
-            // A0Thermtrip).
+            // falling edge on PWROK (denoting a reset) or a THERMTRIP.  If it
+            // did, we will go to A0Reset or A0Thermtrip as appropriate (and
+            // if both are indicated, we will clear both conditions -- but
+            // land in A0Thermtrip).
             //
-            let thermtrip = Reg::IFR::THERMTRIP;
-            let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
-            let rstn_fedge = Reg::IFR::AMD_RSTN_FEDGE;
             let ifr = self.seq.read_byte(Addr::IFR).unwrap();
-
-            if ifr & pwrok_fedge != 0 {
-                self.seq
-                    .clear_bytes(Addr::IFR, &[pwrok_fedge | rstn_fedge])
-                    .unwrap();
-                self.update_state_internal(PowerState::A0Reset);
-            }
-
-            if ifr & thermtrip != 0 {
-                self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
-                self.update_state_internal(PowerState::A0Thermtrip);
-            }
+            self.check_reset(ifr);
+            self.check_thermtrip(ifr);
 
             //
             // Now we need to check NIC_PWREN_L to assure that our power state
@@ -476,6 +469,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
 impl<S: SpiServer> ServerImpl<S> {
     fn update_state_internal(&mut self, state: PowerState) {
+        ringbuf_entry!(Trace::UpdateState(state));
         self.state = state;
         self.jefe.set_state(state as u32);
     }
@@ -529,6 +523,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     // status -- but we only actually care about the A0 state
                     // machine.
                     //
+                    const_assert!(Addr::A1SMSTATUS.precedes(Addr::A0SMSTATUS));
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
@@ -587,6 +582,12 @@ impl<S: SpiServer> ServerImpl<S> {
                 uart_sp_to_sp3_disable();
 
                 //
+                // For good measure, set CLD_RST in NIC_CTRL.
+                //
+                let cld_rst = Reg::NIC_CTRL::CLD_RST;
+                self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+
+                //
                 // Start FPGA down-sequence. Clearing the enables immediately
                 // de-asserts PWR_GOOD to the SP3 processor which the EDS
                 // says is required before taking the rails out.
@@ -616,6 +617,34 @@ impl<S: SpiServer> ServerImpl<S> {
             }
 
             _ => Err(SeqError::IllegalTransition),
+        }
+    }
+
+    fn check_thermtrip(&mut self, ifr: u8) {
+        let thermtrip = Reg::IFR::THERMTRIP;
+
+        if ifr & thermtrip != 0 {
+            self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
+            self.update_state_internal(PowerState::A0Thermtrip);
+        }
+    }
+
+    fn check_reset(&mut self, ifr: u8) {
+        let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
+
+        if ifr & pwrok_fedge != 0 {
+            let mut cnts = [0u8; 2];
+
+            const_assert!(Addr::AMD_RSTN_CNTS.precedes(Addr::AMD_PWROKN_CNTS));
+            self.seq.read_bytes(Addr::AMD_RSTN_CNTS, &mut cnts).unwrap();
+
+            let (rstn, pwrokn) = (cnts[0], cnts[1]);
+            ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+
+            self.seq.write_bytes(Addr::AMD_RSTN_CNTS, &[0, 0]).unwrap();
+            let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
+            self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap();
+            self.update_state_internal(PowerState::A0Reset);
         }
     }
 

@@ -948,6 +948,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "static_assertions",
  "task-jefe-api",
  "userlib",
  "zerocopy",
