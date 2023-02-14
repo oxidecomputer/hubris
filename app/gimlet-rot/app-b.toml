@@ -80,7 +80,7 @@ pins = [
 
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
-priority = 4
+priority = 6
 max-sizes = {flash = 32768, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
@@ -108,7 +108,7 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-priority = 3
+priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
 start = true
@@ -141,7 +141,7 @@ spi_num = 5
 
 [tasks.dumper]
 name = "task-dumper"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600

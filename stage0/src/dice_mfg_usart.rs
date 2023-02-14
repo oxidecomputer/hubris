@@ -70,7 +70,7 @@ struct DiceState {
     pub persistid_key_code: [u32; KEYCODE_LEN],
     pub serial_number: SerialNumber,
     pub persistid_cert: PersistIdCert,
-    pub intermediate_cert: IntermediateCert,
+    pub intermediate_cert: Option<IntermediateCert>,
 }
 
 impl DiceState {
