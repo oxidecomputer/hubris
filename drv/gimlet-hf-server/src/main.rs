@@ -187,10 +187,11 @@ fn main() -> ! {
 /// future).
 ///
 /// The current value of persistent data is the instance of `RawPersistentData`
-/// with a valid checksum and the highest `epoch` across both flash ICs.
+/// with a valid checksum and the highest `monotonic_counter` across both flash
+/// ICs.
 ///
-/// When writing new data, we increment the epoch and write to both ICs, one by
-/// one.  This ensures robustness in case of power loss.
+/// When writing new data, we increment the monotonic counter and write to both
+/// ICs, one by one.  This ensures robustness in case of power loss.
 #[derive(Copy, Clone, Eq, PartialEq, AsBytes, FromBytes)]
 #[repr(C)]
 struct RawPersistentData {
@@ -205,7 +206,7 @@ struct RawPersistentData {
     header_version: u32,
 
     /// Monotonically increasing counter
-    epoch: u64,
+    monotonic_counter: u64,
 
     /// Either 0 or 1; directly translatable to `gimlet_hf_api::HfDevSelect`
     dev_select: u32,
@@ -215,12 +216,12 @@ struct RawPersistentData {
 }
 
 impl RawPersistentData {
-    fn new(data: HfPersistentData, epoch: u64) -> Self {
+    fn new(data: HfPersistentData, monotonic_counter: u64) -> Self {
         let mut out = Self {
             amd_reserved_must_be_all_ones: u64::MAX,
             oxide_magic: HF_PERSISTENT_DATA_MAGIC,
             header_version: HF_PERSISTENT_DATA_HEADER_VERSION,
-            epoch,
+            monotonic_counter,
             dev_select: data.dev_select as u32,
             checksum: 0,
         };
@@ -333,7 +334,7 @@ impl ServerImpl {
 
             match (a, b) {
                 (Some(a), Some(b)) => {
-                    if a.epoch > b.epoch {
+                    if a.monotonic_counter > b.monotonic_counter {
                         Some(a)
                     } else {
                         Some(b)
@@ -364,7 +365,9 @@ impl ServerImpl {
             let mut data = RawPersistentData::new_zeroed();
             self.qspi.read_memory(addr, data.as_bytes_mut());
             if data.is_valid()
-                && best.map(|b| b.epoch < data.epoch).unwrap_or(true)
+                && best
+                    .map(|b| b.monotonic_counter < data.monotonic_counter)
+                    .unwrap_or(true)
             {
                 best = Some(data);
             }
@@ -442,23 +445,25 @@ impl ServerImpl {
         let (b_data, b_next) = self.persistent_data_scan();
 
         match (a_data, b_data) {
-            (Some(a), Some(b)) => match a.epoch.cmp(&b.epoch) {
-                core::cmp::Ordering::Less => {
-                    self.set_dev(!prev_slot).unwrap();
-                    let out =
-                        self.write_raw_persistent_data_to_addr(a_next, &b);
-                    self.set_dev(prev_slot).unwrap();
-                    out
+            (Some(a), Some(b)) => {
+                match a.monotonic_counter.cmp(&b.monotonic_counter) {
+                    core::cmp::Ordering::Less => {
+                        self.set_dev(!prev_slot).unwrap();
+                        let out =
+                            self.write_raw_persistent_data_to_addr(a_next, &b);
+                        self.set_dev(prev_slot).unwrap();
+                        out
+                    }
+                    core::cmp::Ordering::Greater => {
+                        self.write_raw_persistent_data_to_addr(b_next, &a)
+                    }
+                    core::cmp::Ordering::Equal => {
+                        // Redundant data is consistent
+                        // TODO: should we have a special case if they don't agree?
+                        Ok(())
+                    }
                 }
-                core::cmp::Ordering::Greater => {
-                    self.write_raw_persistent_data_to_addr(b_next, &a)
-                }
-                core::cmp::Ordering::Equal => {
-                    // Redundant data is consistent
-                    // TODO: should we have a special case if they don't agree?
-                    Ok(())
-                }
-            },
+            }
             (Some(a), None) => {
                 self.write_raw_persistent_data_to_addr(b_next, &a)
             }
@@ -722,23 +727,25 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             self.set_dev(prev_slot).unwrap();
             let (b_data, b_next) = self.persistent_data_scan();
 
-            let prev_epoch = match (a_data, b_data) {
-                (Some(a), Some(b)) => a.epoch.max(b.epoch),
-                (Some(a), None) => a.epoch,
-                (None, Some(b)) => b.epoch,
+            let prev_monotonic_counter = match (a_data, b_data) {
+                (Some(a), Some(b)) => {
+                    a.monotonic_counter.max(b.monotonic_counter)
+                }
+                (Some(a), None) => a.monotonic_counter,
+                (None, Some(b)) => b.monotonic_counter,
                 (None, None) => 0,
             };
 
             // Early exit if the previous persistent data matches
-            let prev_raw = RawPersistentData::new(data, prev_epoch);
+            let prev_raw = RawPersistentData::new(data, prev_monotonic_counter);
             if a_data == b_data && a_data == Some(prev_raw) {
                 return Ok(());
             }
 
-            let epoch = prev_epoch
+            let monotonic_counter = prev_monotonic_counter
                 .checked_add(1)
                 .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = RawPersistentData::new(data, epoch);
+            let raw = RawPersistentData::new(data, monotonic_counter);
 
             // Write the persistent data to the currently inactive flash.
             self.set_dev(!prev_slot).unwrap();
@@ -757,21 +764,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             // Single-flash case is less complicated, because we don't have to
             // track and maintain the active device.
             let (prev_data, next) = self.persistent_data_scan();
-            let prev_epoch = match prev_data {
-                Some(a) => a.epoch,
+            let prev_monotonic_counter = match prev_data {
+                Some(a) => a.monotonic_counter,
                 None => 0,
             };
 
             // Early exit if the previous persistent data matches
-            let prev_raw = RawPersistentData::new(data, prev_epoch);
+            let prev_raw = RawPersistentData::new(data, prev_monotonic_counter);
             if prev_data == Some(prev_raw) {
                 return Ok(());
             }
 
-            let epoch = prev_epoch
+            let monotonic_counter = prev_monotonic_counter
                 .checked_add(1)
                 .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = RawPersistentData::new(data, epoch);
+            let raw = RawPersistentData::new(data, monotonic_counter);
             self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
         Ok(())
