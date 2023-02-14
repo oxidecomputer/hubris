@@ -450,10 +450,15 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     //
                 }
 
-                _ => {
+                (PowerState::A2, _)
+                | (PowerState::A2PlusMono, _)
+                | (PowerState::A2PlusFans, _)
+                | (PowerState::A1, _) => {
                     //
                     // We can only be in this larger block if the state is A0
                     // or A0PlusHP; we must have matched one of the arms above.
+                    // (We deliberately exhaustively match on power state to
+                    // force any power state addition to consider this case.)
                     //
                     unreachable!();
                 }
