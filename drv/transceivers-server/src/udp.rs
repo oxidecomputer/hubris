@@ -335,7 +335,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::ManagementInterface(i));
                 Ok((SpResponse::Error(Error::ProtocolError), 0))
             }
-            HostRequest::MacAddrs(_m) => {
+            HostRequest::MacAddrs => {
                 ringbuf_entry!(Trace::MacAddrs);
                 let b = self.net.get_spare_mac_addresses();
                 Ok((

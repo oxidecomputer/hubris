@@ -4716,6 +4716,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=mac-address-message#e49825d07729af82292d39184d9b039ead3d8fcf"
 dependencies = [
  "bitflags",
  "hubpack",
