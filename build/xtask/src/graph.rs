@@ -87,7 +87,7 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
     }
     for edge in edges {
         let attr = if edge.inverted {
-            " [color=red, penwidth=3]"
+            " [color=red, penwidth=3, constraint=false]"
         } else {
             " [color=green]"
         };
