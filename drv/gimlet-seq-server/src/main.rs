@@ -19,8 +19,8 @@ use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
-use task_jefe_api::Jefe;
 use static_assertions::const_assert;
+use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
@@ -74,7 +74,7 @@ enum Trace {
     },
     ResetCounts {
         rstn: u8,
-        pwrokn: u8
+        pwrokn: u8,
     },
     PowerControl(u8),
     InterruptFlags(u8),
