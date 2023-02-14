@@ -24,7 +24,7 @@ use task_net_api::*;
 use transceiver_messages::{
     message::*,
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
-    Error, HwError, ModuleId, PortMask,
+    Error, HwError, MacAddrs, ModuleId, PortMask,
 };
 use zerocopy::{LittleEndian, U16};
 
@@ -50,6 +50,7 @@ enum Trace {
     GotSpRequest,
     GotSpResponse,
     WrongVersion(u8),
+    MacAddrs,
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -333,6 +334,18 @@ impl ServerImpl {
                 // TODO: Implement this
                 ringbuf_entry!(Trace::ManagementInterface(i));
                 Ok((SpResponse::Error(Error::ProtocolError), 0))
+            }
+            HostRequest::MacAddrs(_m) => {
+                ringbuf_entry!(Trace::MacAddrs);
+                let b = self.net.get_spare_mac_addresses();
+                Ok((
+                    SpResponse::MacAddrs(MacAddrs {
+                        base_mac: b.base_mac,
+                        count: b.count.get(),
+                        stride: b.stride,
+                    }),
+                    0,
+                ))
             }
         }
     }
