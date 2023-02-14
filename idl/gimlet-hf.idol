@@ -26,7 +26,12 @@ Interface(
             ),
         ),
         "bulk_erase": (
-            args: {},
+            args: {
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),
@@ -35,6 +40,10 @@ Interface(
         "page_program": (
             args: {
                 "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             leases: {
                 "data": (type: "[u8]", read: true, max_len: Some(256)),
@@ -59,6 +68,10 @@ Interface(
         "sector_erase": (
             args: {
                 "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "()",
@@ -118,6 +131,27 @@ Interface(
             },
             reply: Result(
                 ok: "[u8; crate::SHA256_SZ]",
+                err: CLike("HfError"),
+            ),
+        ),
+        "get_persistent_data": (
+            doc: "looks up persistent configuration data",
+            reply: Result(
+                ok: "HfPersistentData",
+                err: CLike("HfError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "write_persistent_data": (
+            doc: "stores persistent configuration data to flash",
+            args: {
+                "dev_select": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
                 err: CLike("HfError"),
             ),
         ),

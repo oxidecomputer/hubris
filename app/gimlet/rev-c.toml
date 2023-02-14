@@ -153,8 +153,8 @@ notifications = ["hash-irq"]
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 3
-max-sizes = {flash = 16384, ram = 2048 }
-stacksize = 1920
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 3000
 start = true
 uses = ["quadspi"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
