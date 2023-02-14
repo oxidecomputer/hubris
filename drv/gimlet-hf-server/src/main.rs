@@ -207,9 +207,6 @@ struct RawPersistentData {
     /// Monotonically increasing counter
     epoch: u64,
 
-    /// Equivalent to `host_sp_messages::HostStartupOptions`
-    host_startup_options: u64,
-
     /// Either 0 or 1; directly translatable to `gimlet_hf_api::HfDevSelect`
     dev_select: u32,
 
@@ -224,7 +221,6 @@ impl RawPersistentData {
             oxide_magic: HF_PERSISTENT_DATA_MAGIC,
             header_version: HF_PERSISTENT_DATA_HEADER_VERSION,
             epoch,
-            host_startup_options: data.startup_options,
             dev_select: data.dev_select as u32,
             checksum: 0,
         };
@@ -506,7 +502,6 @@ impl ServerImpl {
     fn get_persistent_data(&mut self) -> Result<HfPersistentData, HfError> {
         let out = self.get_raw_persistent_data()?;
         Ok(HfPersistentData {
-            startup_options: out.host_startup_options,
             dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
         })
     }
@@ -710,13 +705,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn write_persistent_data(
         &mut self,
         _: &RecvMessage,
-        startup_options: u64,
         dev_select: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
-        let data = HfPersistentData {
-            startup_options,
-            dev_select,
-        };
+        let data = HfPersistentData { dev_select };
         self.check_muxed_to_sp()?;
         if self.dev_select_pin.is_some() {
             let prev_slot = self.dev_state;

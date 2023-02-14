@@ -145,7 +145,6 @@ Interface(
         "write_persistent_data": (
             doc: "stores persistent configuration data to flash",
             args: {
-                "startup_options": "u64",
                 "dev_select": (
                     type: "HfDevSelect",
                     recv: FromPrimitive("u8"),

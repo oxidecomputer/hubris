@@ -91,9 +91,9 @@ pub enum HfProtectMode {
     AllowModificationsToSector0,
 }
 
+/// Persistent data associated with host flash
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, SerializedSize)]
 pub struct HfPersistentData {
-    pub startup_options: u64,
     pub dev_select: HfDevSelect,
 }
 
