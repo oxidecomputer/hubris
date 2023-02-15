@@ -592,7 +592,8 @@ impl<S: SpiServer> ServerImpl<S> {
                 uart_sp_to_sp3_disable();
 
                 //
-                // For good measure, set CLD_RST in NIC_CTRL.
+                // To assure that we always enter A0 the same way, set CLD_RST
+                // in NIC_CTRL on our way back to A2.
                 //
                 let cld_rst = Reg::NIC_CTRL::CLD_RST;
                 self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
