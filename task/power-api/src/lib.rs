@@ -15,6 +15,7 @@ use zerocopy::{AsBytes, FromBytes};
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]
 pub enum Device {
     PowerShelf,
+    Bmr491,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]

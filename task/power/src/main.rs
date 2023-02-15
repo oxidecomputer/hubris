@@ -171,6 +171,20 @@ impl Device {
         };
         Ok(v)
     }
+
+    fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, ResponseCode> {
+        let v = match &self {
+            Device::Mwocp68(dev) => dev.read_mode()?,
+            Device::Bmr491(dev) => dev.read_mode()?,
+            Device::Raa229618(dev) => dev.read_mode()?,
+            Device::Isl68224(dev) => dev.read_mode()?,
+            Device::Tps546B24A(dev) => dev.read_mode()?,
+            Device::Adm1272(..) | Device::Ltc4282(..) | Device::Max5970(..) => {
+                return Err(ResponseCode::OperationNotSupported)
+            }
+        };
+        Ok(v)
+    }
 }
 
 impl PowerControllerConfig {
@@ -610,6 +624,39 @@ impl ServerImpl {
         let (dev, _rail) = (device.builder)(self.i2c_task);
         Ok(dev)
     }
+
+    fn get_device(
+        &self,
+        req_dev: task_power_api::Device,
+        req_rail: u8,
+        req_index: u32,
+    ) -> Result<Device, ResponseCode> {
+        use task_power_api::Device;
+
+        // Skim through `CONTROLLER_CONFIG` looking for the requested device.
+        CONTROLLER_CONFIG
+            .iter()
+            .filter_map(|dev| {
+                match (dev.device, req_dev) {
+                    // Filter down to only devices that match types...
+                    (DeviceType::PowerShelf, Device::PowerShelf) => {
+                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        // ... and rails
+                        (rail == req_rail)
+                            .then_some(dev.get_device(self.i2c_task))
+                    }
+                    (DeviceType::IBC, Device::Bmr491) => {
+                        let (_device, rail) = (dev.builder)(self.i2c_task);
+                        // ... and rails
+                        (rail == req_rail)
+                            .then_some(dev.get_device(self.i2c_task))
+                    }
+                    _ => None,
+                }
+            })
+            .nth(req_index as usize)
+            .ok_or(ResponseCode::NoDevice)
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
@@ -635,27 +682,20 @@ impl idl::InOrderPowerImpl for ServerImpl {
         req_index: u32,
         op: task_power_api::Operation,
     ) -> Result<PmbusValue, idol_runtime::RequestError<ResponseCode>> {
-        use task_power_api::Device;
-
-        // Skim through `CONTROLLER_CONFIG` looking for the requested device.
-        let device = CONTROLLER_CONFIG
-            .iter()
-            .filter_map(|dev| {
-                match (dev.device, req_dev) {
-                    // Filter down to only devices that match types...
-                    (DeviceType::PowerShelf, Device::PowerShelf) => {
-                        let (_device, rail) = (dev.builder)(self.i2c_task);
-                        // ... and rails
-                        (rail == req_rail)
-                            .then_some(dev.get_device(self.i2c_task))
-                    }
-                    _ => None,
-                }
-            })
-            .nth(req_index as usize)
-            .ok_or(ResponseCode::NoDevice)?;
-
+        let device = self.get_device(req_dev, req_rail, req_index)?;
         Ok(device.pmbus_read(op)?)
+    }
+
+    fn read_mode(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        req_dev: task_power_api::Device,
+        req_rail: u8,
+        req_index: u32,
+    ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
+        let device = self.get_device(req_dev, req_rail, req_index)?;
+        let out = device.read_mode()?;
+        Ok(out.0)
     }
 
     fn bmr491_event_log_read(

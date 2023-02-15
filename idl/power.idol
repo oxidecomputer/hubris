@@ -18,6 +18,20 @@ Interface(
             ),
             idempotent: true,
         ),
+        "read_mode": (
+            doc: "reads the VOUT_MODE value for the given device",
+            encoding: Hubpack,
+            args: {
+                "dev": "Device",
+                "rail": "u8",
+                "index": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
         "bmr491_event_log_read": (
             doc: "reads an event from the BMR491's combined fault and lifecycle event log",
             args: {
