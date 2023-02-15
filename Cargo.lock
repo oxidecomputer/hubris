@@ -189,7 +189,7 @@ dependencies = [
  "build-util",
  "cargo_metadata",
  "cfg-if",
- "convert_case 0.4.0",
+ "convert_case",
  "indexmap",
  "multimap",
  "serde",
@@ -210,7 +210,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if",
- "convert_case 0.4.0",
+ "convert_case",
  "indexmap",
  "multimap",
  "proc-macro2",
@@ -391,12 +391,6 @@ name = "const-oid"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4c78c047431fee22c1a7bb92e00ad095a02a983affe4d8a72e2a2c62c1b94f3"
-
-[[package]]
-name = "convert_case"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1f025f441cdfb75831bec89b9d6a6ed02e5e763f78fc5e1ff30d4870fefaec"
 
 [[package]]
 name = "convert_case"
@@ -710,7 +704,7 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
- "convert_case 0.4.0",
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version 0.4.0",
@@ -2331,11 +2325,11 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#fe1610237bead97908526e4abcb3b23e081a472f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#3acae2a2cc117157ffc973dd597e1613700a3ef1"
 dependencies = [
  "indexmap",
  "quote",
- "ron 0.7.0",
+ "ron",
  "serde",
  "toml",
 ]
@@ -2343,7 +2337,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#fe1610237bead97908526e4abcb3b23e081a472f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#3acae2a2cc117157ffc973dd597e1613700a3ef1"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2406,7 +2400,7 @@ dependencies = [
  "phash-gen",
  "proc-macro2",
  "quote",
- "ron 0.7.0",
+ "ron",
  "serde",
  "ssmarshal",
  "syn",
@@ -3004,14 +2998,14 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#781cf33414b267277e168ed7f8699c3959090f76"
+source = "git+https://github.com/oxidecomputer/pmbus#03124d68e77a84a1e05513133c61990b14a2a75d"
 dependencies = [
  "anyhow",
- "convert_case 0.3.2",
+ "convert_case",
  "libm",
  "num-derive",
  "num-traits",
- "ron 0.6.6",
+ "ron",
  "serde",
  "serde_with",
 ]
@@ -3214,28 +3208,6 @@ checksum = "88aa938cda42a0cf62a20cfe8d139ff1af20c2e681212b5b34adb5a58333f222"
 dependencies = [
  "lazy_static",
  "regex",
-]
-
-[[package]]
-name = "ron"
-version = "0.6.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86018df177b1beef6c7c8ef949969c4f7cb9a9344181b92486b23c79995bdaa4"
-dependencies = [
- "base64",
- "bitflags",
- "serde",
-]
-
-[[package]]
-name = "ron"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b861ecaade43ac97886a512b360d01d66be9f41f3c61088b42cedf92e03d678"
-dependencies = [
- "base64",
- "bitflags",
- "serde",
 ]
 
 [[package]]
@@ -4688,7 +4660,7 @@ name = "tlvc-text"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
 dependencies = [
- "ron 0.8.0",
+ "ron",
  "serde",
  "tlvc",
  "zerocopy",
@@ -4946,7 +4918,7 @@ dependencies = [
  "path-slash",
  "rangemap",
  "regex",
- "ron 0.7.0",
+ "ron",
  "scroll",
  "serde",
  "serde_json",
