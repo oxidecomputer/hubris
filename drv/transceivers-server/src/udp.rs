@@ -339,11 +339,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::MacAddrs);
                 let b = self.net.get_spare_mac_addresses();
                 Ok((
-                    SpResponse::MacAddrs(MacAddrs {
-                        base_mac: b.base_mac,
-                        count: b.count.get(),
-                        stride: b.stride,
-                    }),
+                    SpResponse::MacAddrs(
+                        MacAddrs::new(b.base_mac, b.count.get(), b.stride)
+                            .unwrap(),
+                    ),
                     0,
                 ))
             }
