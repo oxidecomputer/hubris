@@ -130,6 +130,7 @@ enum MgsMessage {
     ComponentSetActiveSlot {
         component: SpComponent,
         slot: u16,
+        persist: bool,
     },
     SerialConsoleBreak,
     SendHostNmi,
