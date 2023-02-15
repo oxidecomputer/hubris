@@ -365,11 +365,16 @@ fn main() -> ! {
         server.set_state_internal(PowerState::A0).unwrap();
     }
 
-    // Configure the NMI pin, leaving it high (i.e. not sending an NMI)
+    //
+    // Configure the NMI pin. Note that this needs to be configured as open
+    // drain rather than push/pull:  SP_TO_SP3_NMI_SYNC_FLOOD_L is pulled up
+    // to V3P3_SYS_A0 (by R5583) and we do not want to backdrive it when in
+    // A2, lest we prevent the PCA9535 GPIO expander (U307) from resetting!
+    //
     sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
     sys.gpio_configure_output(
         SP_TO_SP3_NMI_SYNC_FLOOD_L,
-        sys_api::OutputType::PushPull,
+        sys_api::OutputType::OpenDrain,
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );
