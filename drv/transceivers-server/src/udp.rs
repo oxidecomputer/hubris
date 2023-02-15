@@ -333,7 +333,7 @@ impl ServerImpl {
             HostRequest::ManagementInterface(i) => {
                 // TODO: Implement this
                 ringbuf_entry!(Trace::ManagementInterface(i));
-                Ok((SpResponse::Error(Error::ProtocolError), 0))
+                Err(Error::ProtocolError)
             }
             HostRequest::MacAddrs => {
                 ringbuf_entry!(Trace::MacAddrs);
