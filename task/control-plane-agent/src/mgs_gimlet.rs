@@ -847,14 +847,16 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
         slot: u16,
+        persist: bool,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
             component,
             slot,
+            persist,
         }));
         match component {
             SpComponent::HOST_CPU_BOOT_FLASH => {
-                self.host_flash_update.set_active_slot(slot)
+                self.host_flash_update.set_active_slot(slot, persist)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }

@@ -41,7 +41,11 @@ impl HostFlashUpdate {
         }
     }
 
-    pub(crate) fn set_active_slot(&self, slot: u16) -> Result<(), SpError> {
+    pub(crate) fn set_active_slot(
+        &self,
+        slot: u16,
+        persist: bool,
+    ) -> Result<(), SpError> {
         let slot = match slot {
             0 => HfDevSelect::Flash0,
             1 => HfDevSelect::Flash1,
@@ -59,6 +63,15 @@ impl HostFlashUpdate {
             // Otherwise, things went wrong; translate if possible:
             Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
             Err(err) => Err(SpError::UpdateFailed(err as u32)),
+        }?;
+        if persist {
+            match self.task.write_persistent_data(slot) {
+                Ok(()) => Ok(()),
+                Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
+                Err(err) => Err(SpError::UpdateFailed(err as u32)),
+            }
+        } else {
+            Ok(())
         }
     }
 }
@@ -98,8 +111,9 @@ impl ComponentUpdater for HostFlashUpdate {
                 SpError::OtherComponentUpdateInProgress(component)
             })?;
 
-        // Update the currently-active slot so we can write to it.
-        self.set_active_slot(update.slot)?;
+        // Update the currently-active slot so we can write to it, but don't
+        // persist those changes to non-volatile memory.
+        self.set_active_slot(update.slot, false)?;
 
         // What is the total capacity of the device?
         let capacity = self
