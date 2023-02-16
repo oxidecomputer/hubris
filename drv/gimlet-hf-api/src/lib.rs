@@ -8,6 +8,8 @@
 
 use derive_idol_err::IdolError;
 use drv_hash_api::SHA256_SZ;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -25,6 +27,9 @@ pub enum HfError {
     HashNotConfigured,
     NoDevSelect,
     NotMuxedToSP,
+    Sector0IsReserved,
+    NoPersistentData,
+    MonotonicCounterOverflow,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -40,11 +45,57 @@ pub enum HfMuxState {
 
 /// Selects between multiple flash chips. This is not used on all hardware
 /// revisions; it was added in Gimlet rev B.
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(u8)]
 pub enum HfDevSelect {
     Flash0 = 0,
     Flash1 = 1,
+}
+
+impl core::ops::Not for HfDevSelect {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        match self {
+            Self::Flash0 => Self::Flash1,
+            Self::Flash1 => Self::Flash0,
+        }
+    }
+}
+
+/// Flag which allows sector 0 to be modified
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum HfProtectMode {
+    ProtectSector0,
+    AllowModificationsToSector0,
+}
+
+/// Persistent data associated with host flash
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, SerializedSize)]
+pub struct HfPersistentData {
+    pub dev_select: HfDevSelect,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

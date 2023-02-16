@@ -108,9 +108,13 @@ pub enum Functions {
     #[cfg(feature = "qspi")]
     QspiPageProgram((u32, usize, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
+    QspiPageProgramSector0((u32, usize, usize), drv_gimlet_hf_api::HfError),
+    #[cfg(feature = "qspi")]
     QspiRead((u32, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
     QspiSectorErase(u32, drv_gimlet_hf_api::HfError),
+    #[cfg(feature = "qspi")]
+    QspiSector0Erase((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
     QspiVerify((u32, usize, usize), drv_gimlet_hf_api::HfError),
     #[cfg(all(feature = "qspi", feature = "hash"))]
@@ -633,9 +637,13 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     #[cfg(feature = "qspi")]
     crate::common::qspi_page_program,
     #[cfg(feature = "qspi")]
+    crate::common::qspi_page_program_sector0,
+    #[cfg(feature = "qspi")]
     crate::common::qspi_read,
     #[cfg(feature = "qspi")]
     crate::common::qspi_sector_erase,
+    #[cfg(feature = "qspi")]
+    crate::common::qspi_sector0_erase,
     #[cfg(feature = "qspi")]
     crate::common::qspi_verify,
     #[cfg(all(feature = "qspi", feature = "hash"))]

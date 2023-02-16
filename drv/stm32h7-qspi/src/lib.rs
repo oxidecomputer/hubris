@@ -214,7 +214,7 @@ impl Qspi {
         self.reg
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
-        while self.is_busy() {
+        while self.transfer_not_complete() {
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
@@ -310,14 +310,14 @@ impl Qspi {
             // next!
         }
 
-        // There's a chance we race BUSY clearing here, because we've seen it
-        // happen in the wild, no matter what the reference manual might
-        // suggest. Waiting for transfer complete seems to be good enough,
-        // though the relationship between BUSY and TC is not documented.
+        // Wait for the Transfer Complete flag to get set. This does not
+        // necessarily imply the BUSY flag is clear, but since commands are
+        // issued into a FIFO, we can issue the next command even while BUSY is
+        // set, it appears.
         self.reg
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
-        while self.is_busy() {
+        while self.transfer_not_complete() {
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
@@ -338,8 +338,8 @@ impl Qspi {
             .write(|w| unsafe { w.dl().bits(len as u32 - 1) });
     }
 
-    fn is_busy(&self) -> bool {
-        self.reg.sr.read().busy().bit()
+    fn transfer_not_complete(&self) -> bool {
+        !self.reg.sr.read().tcf().bit()
     }
 
     /// Performs an 8-bit load from the low byte of the Data Register.

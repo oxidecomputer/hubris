@@ -6,7 +6,8 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_gimlet_hf_api::{
-    HfDevSelect, HfError, HostFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
     ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
@@ -49,12 +50,16 @@ impl HostFlashUpdate {
 
         // Attempt to swap to the chosen slot, returning a "slot busy" error if
         // we don't have control over the host flash.
-        self.task.set_dev(slot).map_err(|err| match err {
-            HfError::NotMuxedToSP => SpError::UpdateSlotBusy,
-            _ => SpError::UpdateFailed(err as u32),
-        })?;
+        match self.task.set_dev(slot) {
+            Ok(()) => Ok(()),
+            // If this board does not have multiple devices (indicated by
+            // receiving NoDevSelect), then Flash0 is the only valid option.
+            Err(HfError::NoDevSelect) if slot == HfDevSelect::Flash0 => Ok(()),
 
-        Ok(())
+            // Otherwise, things went wrong; translate if possible:
+            Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
+            Err(err) => Err(SpError::UpdateFailed(err as u32)),
+        }
     }
 }
 
@@ -118,12 +123,14 @@ impl ComponentUpdater for HostFlashUpdate {
         }
         let num_sectors = (capacity / SECTOR_SIZE_BYTES) as u32;
 
+        // Note that we preserve sector 0, which is used for Hubris-level
+        // persistent data.
         self.current = Some(CurrentUpdate::new(
             update.id,
             update.total_size,
             State::ErasingSectors {
                 buffer,
-                sectors_to_erase: 0..num_sectors,
+                sectors_to_erase: 1..num_sectors,
             },
         ));
 
@@ -163,7 +170,11 @@ impl ComponentUpdater for HostFlashUpdate {
             };
 
             let addr = sectors_to_erase.start * SECTOR_SIZE_BYTES as u32;
-            match self.task.sector_erase(addr) {
+
+            // During construction of the State::ErasingSectors object, we
+            // should have configured it to start at sector 1; using
+            // HfProtectMode::ProtectSector0 guards against mistakes.
+            match self.task.sector_erase(addr, HfProtectMode::ProtectSector0) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
                     if sectors_to_erase.start == sectors_to_erase.end {
@@ -265,11 +276,32 @@ impl ComponentUpdater for HostFlashUpdate {
             if buffer.len() == buffer.capacity()
                 || *next_write_offset + buffer.len() as u32 == total_size
             {
-                if let Err(err) =
-                    self.task.page_program(*next_write_offset, buffer)
-                {
+                // Alright, this is a little tricky: we want to preserve sector
+                // 0 of the host flash, because it's used by Hubris to store
+                // bookkeeping information (e.g. what flash slot to select).
+                //
+                // However, the host that's sending us data doesn't necessarily
+                // know about this limitation.  We skip bytes up until the end
+                // of sector 0, after checking that they are all 0xFF.
+                let skip_bytes = SECTOR_SIZE_BYTES
+                    .saturating_sub(*next_write_offset as usize)
+                    .min(buffer.len());
+
+                if buffer[0..skip_bytes].iter().any(|b| *b != 0xFF) {
+                    let err = HfError::Sector0IsReserved;
                     *current.state_mut() = State::Failed(err);
                     return Err(SpError::UpdateFailed(err as u32));
+                }
+
+                if skip_bytes < buffer.len() {
+                    if let Err(err) = self.task.page_program(
+                        *next_write_offset + skip_bytes as u32,
+                        HfProtectMode::ProtectSector0,
+                        &buffer[skip_bytes..],
+                    ) {
+                        *current.state_mut() = State::Failed(err);
+                        return Err(SpError::UpdateFailed(err as u32));
+                    }
                 }
 
                 *next_write_offset += buffer.len() as u32;

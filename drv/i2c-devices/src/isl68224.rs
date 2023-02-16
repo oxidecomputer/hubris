@@ -70,7 +70,7 @@ impl Isl68224 {
         }
     }
 
-    fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
+    pub fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
         Ok(match self.mode.get() {
             None => {
                 let mode = pmbus_read!(self.device, commands::VOUT_MODE)?;
