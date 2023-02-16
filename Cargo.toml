@@ -119,7 +119,7 @@ zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_de
 
 # Oxide forks and repos
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
-gateway-messages = {git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "persist-active-slot" }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
