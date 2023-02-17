@@ -26,7 +26,7 @@ impl core::fmt::Display for Raa229618 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
@@ -98,6 +98,12 @@ impl Raa229618 {
         let mut operation = pmbus_read!(self.device, OPERATION)?;
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
+    }
+
+    pub fn get_status(&mut self) -> Result<u16, Error> {
+        self.set_rail()?;
+        let status = pmbus_read!(self.device, STATUS_WORD)?;
+        Ok(status.0)
     }
 
     pub fn set_vout(&mut self, value: Volts) -> Result<(), Error> {

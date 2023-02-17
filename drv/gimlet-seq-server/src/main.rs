@@ -76,12 +76,16 @@ enum Trace {
         rstn: u8,
         pwrokn: u8,
     },
+    RailStatusCore(u16),
+    RailErrorCore(drv_i2c_devices::raa229618::Error),
+    RailStatusSoc(u16),
+    RailErrorSoc(drv_i2c_devices::raa229618::Error),
     PowerControl(u8),
     InterruptFlags(u8),
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 100, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -523,6 +527,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
                 self.seq.write_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+                let mut seen = Reg::A0SMSTATUS::Encoded::IDLE as u8;
 
                 loop {
                     let mut power = [0u8, 0u8];
@@ -537,6 +542,18 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
+                    if power[1] > seen {
+                        //
+                        // We have seen some surprising behavior with respect
+                        // to rails appearing on before we have instructed
+                        // them to do so.  To better understand these
+                        // potential conditions, we record our rail status
+                        // whenever we see our state machine advance.
+                        //
+                        vcore_soc_status();
+                        seen = power[1];
+                    }
+
                     if power[1] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
                     }
@@ -549,6 +566,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 vcore_soc_on();
                 ringbuf_entry!(Trace::RailsOn);
+                vcore_soc_status();
 
                 //
                 // Now wait for the end of Group C.
@@ -621,6 +639,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     return Err(SeqError::MuxToSPFailed);
                 }
 
+                vcore_soc_status();
                 self.update_state_internal(PowerState::A2);
                 ringbuf_entry!(Trace::A2);
 
@@ -881,6 +900,28 @@ cfg_if::cfg_if! {
             vdd_vcore.turn_on().unwrap();
             vddcr_soc.turn_on().unwrap();
         }
+
+        fn vcore_soc_status() {
+            use drv_i2c_devices::raa229618::Raa229618;
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let mut vdd_vcore = Raa229618::new(&device, rail);
+
+            match vdd_vcore.get_status() {
+                Ok(status) => ringbuf_entry!(Trace::RailStatusCore(status)),
+                Err(err) => ringbuf_entry!(Trace::RailErrorCore(err)),
+            }
+
+            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let mut vddcr_soc = Raa229618::new(&device, rail);
+
+            match vddcr_soc.get_status() {
+                Ok(status) => ringbuf_entry!(Trace::RailStatusSoc(status)),
+                Err(err) => ringbuf_entry!(Trace::RailErrorSoc(err)),
+            }
+        }
+
     } else {
         compile_error!("unsupported target board");
     }
