@@ -4647,8 +4647,8 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "tlvc"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
 dependencies = [
  "byteorder",
  "crc",
@@ -4658,7 +4658,7 @@ dependencies = [
 [[package]]
 name = "tlvc-text"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
 dependencies = [
  "ron",
  "serde",
