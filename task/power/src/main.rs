@@ -38,6 +38,7 @@ enum PowerState {
 }
 
 const TIMER_INTERVAL: u64 = 1000;
+const LEASE_MARGIN: u64 = 5;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -66,6 +67,7 @@ struct PowerControllerConfig {
     state: PowerState,
     device: DeviceType,
     builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
+    leased: bool,
     voltage: SensorId,
     input_voltage: Option<SensorId>,
     current: SensorId,
@@ -221,6 +223,28 @@ macro_rules! rail_controller {
                 state: PowerState::$state,
                 device: DeviceType::$which,
                 builder: i2c_config::pmbus::$rail,
+                leased: false,
+                voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: Some(
+                    sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
+                ),
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! leased_controller {
+    ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: PowerState::$state,
+                device: DeviceType::$which,
+                builder: i2c_config::pmbus::$rail,
+                leased: true,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
@@ -240,7 +264,8 @@ macro_rules! rail_controller_notemp {
             PowerControllerConfig {
                 state: PowerState::$state,
                 device: DeviceType::$which,
-                builder:i2c_config::pmbus::$rail,
+                builder: i2c_config::pmbus::$rail,
+                leased: false,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
@@ -259,6 +284,7 @@ macro_rules! adm1272_controller {
                 state: PowerState::$state,
                 device: DeviceType::$which($rsense),
                 builder: i2c_config::pmbus::$rail,
+                leased: false,
                 voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
                 current: sensors::[<ADM1272_ $rail:upper _CURRENT_SENSOR>],
@@ -279,6 +305,7 @@ macro_rules! ltc4282_controller {
                 state: PowerState::$state,
                 device: DeviceType::$which($rsense),
                 builder: i2c_config::power::$rail,
+                leased: false,
                 voltage: sensors::[<LTC4282_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
                 current: sensors::[<LTC4282_ $rail:upper _CURRENT_SENSOR>],
@@ -297,6 +324,7 @@ macro_rules! max5970_controller {
                 state: PowerState::$state,
                 device: DeviceType::$which($rsense),
                 builder: i2c_config::power::$rail,
+                leased: false,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
@@ -315,6 +343,7 @@ macro_rules! mwocp68_controller {
                 state: PowerState::$state,
                 device: DeviceType::$which,
                 builder: i2c_config::pmbus::$rail,
+                leased: false,
                 voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: Some(
                     sensors::[<MWOCP68_ $rail:upper _INPUT_VOLTAGE_SENSOR>]
@@ -333,10 +362,10 @@ macro_rules! mwocp68_controller {
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
-    rail_controller!(Core, raa229618, vdd_vcore, A0),
-    rail_controller!(Core, raa229618, vddcr_soc, A0),
-    rail_controller!(Mem, raa229618, vdd_mem_abcd, A0),
-    rail_controller!(Mem, raa229618, vdd_mem_efgh, A0),
+    leased_controller!(Core, raa229618, vdd_vcore, A0),
+    leased_controller!(Core, raa229618, vddcr_soc, A0),
+    leased_controller!(Mem, raa229618, vdd_mem_abcd, A0),
+    leased_controller!(Mem, raa229618, vdd_mem_efgh, A0),
     rail_controller_notemp!(MemVpp, isl68224, vpp_abcd, A0),
     rail_controller_notemp!(MemVpp, isl68224, vpp_efgh, A0),
     rail_controller_notemp!(MemVpp, isl68224, v1p8_sp3, A0),
@@ -394,30 +423,6 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 1] = [
     ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
 ];
 
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
-fn get_state() -> PowerState {
-    task_slot!(SEQUENCER, gimlet_seq);
-
-    use drv_gimlet_seq_api as seq_api;
-
-    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
-
-    //
-    // We deliberately enumerate all power states to force the addition of
-    // new ones to update this code.
-    //
-    match sequencer.get_state().unwrap() {
-        seq_api::PowerState::A0
-        | seq_api::PowerState::A0PlusHP
-        | seq_api::PowerState::A0Thermtrip
-        | seq_api::PowerState::A0Reset => PowerState::A0,
-        seq_api::PowerState::A1
-        | seq_api::PowerState::A2
-        | seq_api::PowerState::A2PlusMono
-        | seq_api::PowerState::A2PlusFans => PowerState::A2,
-    }
-}
-
 #[cfg(target_board = "sidecar-a")]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
@@ -457,6 +462,30 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
     ltc4282_controller!(HotSwapQSFP, v12p0_front_io, A2, Ohms(0.001 / 2.0)),
 ];
 
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+fn get_state() -> PowerState {
+    task_slot!(SEQUENCER, gimlet_seq);
+
+    use drv_gimlet_seq_api as seq_api;
+
+    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
+
+    //
+    // We deliberately enumerate all power states to force the addition of
+    // new ones to update this code.
+    //
+    match sequencer.get_state().unwrap() {
+        seq_api::PowerState::A0
+        | seq_api::PowerState::A0PlusHP
+        | seq_api::PowerState::A0Thermtrip
+        | seq_api::PowerState::A0Reset => PowerState::A0,
+        seq_api::PowerState::A1
+        | seq_api::PowerState::A2
+        | seq_api::PowerState::A2PlusMono
+        | seq_api::PowerState::A2PlusFans => PowerState::A2,
+    }
+}
+
 #[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
@@ -481,6 +510,28 @@ fn get_state() -> PowerState {
 ))]
 fn get_state() -> PowerState {
     PowerState::A2
+}
+
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+fn get_lease() -> u64 {
+    task_slot!(SEQUENCER, gimlet_seq);
+
+    use drv_gimlet_seq_api as seq_api;
+
+    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
+    sequencer.lease_devices().unwrap()
+}
+
+#[cfg(any(
+    target_board = "sidecar-a",
+    target_board = "sidecar-b",
+    target_board = "gimletlet-2",
+    target_board = "psc-a",
+    target_board = "psc-b",
+))]
+fn get_lease() -> u64 {
+    // These boards don't need device leasing, so we should never be called
+    panic!();
 }
 
 #[cfg(any(
@@ -523,7 +574,9 @@ fn main() -> ! {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
+        lease_expiration: None,
     };
+
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     sys_set_timer(
@@ -538,6 +591,7 @@ fn main() -> ! {
 struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
+    lease_expiration: Option<u64>,
     devices: &'static mut [Device; CONTROLLER_CONFIG.len()],
 }
 
@@ -547,6 +601,25 @@ impl ServerImpl {
         let sensor = &self.sensor;
 
         for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
+            //
+            // If this device is leased from the sequencer, and our lease has
+            // less that LEASE_MARGIN milliseconds left on it (or we don't
+            // yet have a device lease at all), re-up our lease.
+            //
+            if c.leased {
+                let now = sys_get_timer().now;
+
+                let reup = match self.lease_expiration {
+                    None => true,
+                    Some(e) if now + LEASE_MARGIN > e => true,
+                    _ => false,
+                };
+
+                if reup {
+                    self.lease_expiration = Some(get_lease());
+                }
+            }
+
             if c.state == PowerState::A0 && state != PowerState::A0 {
                 let now = sys_get_timer().now;
                 sensor.nodata(c.voltage, NoData::DeviceOff, now).unwrap();

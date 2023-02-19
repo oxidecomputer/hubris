@@ -47,6 +47,7 @@ enum Trace {
     RailsOff,
     Ident(u16),
     A1Status(u8),
+    A2LeaseSleep(u16),
     A2,
     A1Power(u8, u8),
     A0Power(u8),
@@ -76,10 +77,6 @@ enum Trace {
         rstn: u8,
         pwrokn: u8,
     },
-    RailStatusCore(u16),
-    RailErrorCore(drv_i2c_devices::raa229618::Error),
-    RailStatusSoc(u16),
-    RailErrorSoc(drv_i2c_devices::raa229618::Error),
     PowerControl(u8),
     InterruptFlags(u8),
     None,
@@ -362,6 +359,7 @@ fn main() -> ! {
         jefe,
         hf,
         deadline: 0,
+        lease_expiration: None,
     };
 
     // Power on, unless suppressed by the `stay-in-a2` feature
@@ -395,9 +393,11 @@ struct ServerImpl<S: SpiServer> {
     jefe: Jefe,
     hf: hf_api::HostFlash,
     deadline: u64,
+    lease_expiration: Option<u64>,
 }
 
 const TIMER_INTERVAL: u64 = 10;
+const LEASE_LENGTH: u64 = 100;
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
@@ -527,7 +527,6 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
                 self.seq.write_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
-                let mut seen = Reg::A0SMSTATUS::Encoded::IDLE as u8;
 
                 loop {
                     let mut power = [0u8, 0u8];
@@ -542,18 +541,6 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
-                    if power[1] > seen {
-                        //
-                        // We have seen some surprising behavior with respect
-                        // to rails appearing on before we have instructed
-                        // them to do so.  To better understand these
-                        // potential conditions, we record our rail status
-                        // whenever we see our state machine advance.
-                        //
-                        vcore_soc_status();
-                        seen = power[1];
-                    }
-
                     if power[1] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
                     }
@@ -566,7 +553,6 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 vcore_soc_on();
                 ringbuf_entry!(Trace::RailsOn);
-                vcore_soc_status();
 
                 //
                 // Now wait for the end of Group C.
@@ -633,13 +619,28 @@ impl<S: SpiServer> ServerImpl<S> {
                 // doesn't give a minimum time so we'll give them 1 ms.
                 //
                 hl::sleep_for(1);
+
+                //
+                // Before we explicitly disable the rails, we need to make
+                // sure that any leases have expired.  To give ourselves
+                // plenty of room here, we wait for twice our lease length.
+                //
+                if let Some(expiration) = self.lease_expiration {
+                    let now = sys_get_timer().now;
+
+                    if now < expiration + LEASE_LENGTH {
+                        let sleep = expiration + LEASE_LENGTH - now;
+                        ringbuf_entry!(Trace::A2LeaseSleep(sleep as u16));
+                        hl::sleep_for(sleep);
+                    }
+                }
+
                 vcore_soc_off();
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
                     return Err(SeqError::MuxToSPFailed);
                 }
 
-                vcore_soc_status();
                 self.update_state_internal(PowerState::A2);
                 ringbuf_entry!(Trace::A2);
 
@@ -740,6 +741,15 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         hl::sleep_for(25);
         self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
         Ok(())
+    }
+
+    fn lease_devices(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u64, RequestError<SeqError>> {
+        let expiration = sys_get_timer().now + LEASE_LENGTH;
+        self.lease_expiration = Some(expiration);
+        Ok(expiration)
     }
 }
 
@@ -883,6 +893,9 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
+            //
+            // The rails -- apparently! -- do not always turn off (!).  So
+            //
             vdd_vcore.turn_off().unwrap();
             vddcr_soc.turn_off().unwrap();
         }
@@ -900,28 +913,6 @@ cfg_if::cfg_if! {
             vdd_vcore.turn_on().unwrap();
             vddcr_soc.turn_on().unwrap();
         }
-
-        fn vcore_soc_status() {
-            use drv_i2c_devices::raa229618::Raa229618;
-            let i2c = I2C.get_task_id();
-
-            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
-            let mut vdd_vcore = Raa229618::new(&device, rail);
-
-            match vdd_vcore.get_status() {
-                Ok(status) => ringbuf_entry!(Trace::RailStatusCore(status)),
-                Err(err) => ringbuf_entry!(Trace::RailErrorCore(err)),
-            }
-
-            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
-            let mut vddcr_soc = Raa229618::new(&device, rail);
-
-            match vddcr_soc.get_status() {
-                Ok(status) => ringbuf_entry!(Trace::RailStatusSoc(status)),
-                Err(err) => ringbuf_entry!(Trace::RailErrorSoc(err)),
-            }
-        }
-
     } else {
         compile_error!("unsupported target board");
     }

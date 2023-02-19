@@ -100,12 +100,6 @@ impl Raa229618 {
         pmbus_write!(self.device, OPERATION, operation)
     }
 
-    pub fn get_status(&mut self) -> Result<u16, Error> {
-        self.set_rail()?;
-        let status = pmbus_read!(self.device, STATUS_WORD)?;
-        Ok(status.0)
-    }
-
     pub fn set_vout(&mut self, value: Volts) -> Result<(), Error> {
         if value > Volts(3.050) {
             Err(Error::InvalidData {

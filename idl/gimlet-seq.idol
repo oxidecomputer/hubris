@@ -48,5 +48,13 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+	"lease_devices": (
+            doc: "Lease the voltage regulators for purposes of querying them",
+            args: {},
+            reply: Result(
+                ok: "u64",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )
