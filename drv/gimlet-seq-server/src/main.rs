@@ -893,9 +893,6 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            //
-            // The rails -- apparently! -- do not always turn off (!).  So
-            //
             vdd_vcore.turn_off().unwrap();
             vddcr_soc.turn_off().unwrap();
         }
