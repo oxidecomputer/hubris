@@ -527,10 +527,12 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
         slot: u16,
+        persist: bool,
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
             component,
             slot,
+            persist,
         }));
 
         // For now, we don't have any components with active slots.
