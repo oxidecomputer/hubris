@@ -26,11 +26,15 @@ fn main() -> ! {
 
 struct ServerImpl {
     jefe: Jefe,
+    lease_expiration: Option<u64>,
 }
 
 impl ServerImpl {
     fn init(jefe: Jefe) -> Self {
-        let me = Self { jefe };
+        let me = Self {
+            jefe,
+            lease_expiration: None,
+        };
         me.set_state_impl(PowerState::A2);
         me
     }
@@ -91,6 +95,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         Ok(())
+    }
+
+    fn lease_devices(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u64, RequestError<SeqError>> {
+        const LEASE_LENGTH: u64 = 100;
+        let expiration = userlib::sys_get_timer().now + LEASE_LENGTH;
+        self.lease_expiration = Some(expiration);
+        Ok(expiration)
     }
 }
 
