@@ -397,6 +397,15 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u64 = 10;
+
+//
+// The length (in milliseconds)) of the RAA229618 lease that we extend to the
+// power task.  This needs should be long enough that it can get meaningful
+// work done (and in particular, we set it long enough that it likely only
+// needs one lease per second).  (When we transition from A0 to A2, we will
+// wait long enough for any lease to expire before we explicitly turn the
+// rails off.)
+//
 const LEASE_LENGTH: u64 = 100;
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
@@ -651,6 +660,11 @@ impl<S: SpiServer> ServerImpl<S> {
         }
     }
 
+    //
+    // Check for a THERMTRIP, sending ourselves to A0Thermtrip if we've
+    // seen it (and knowing that the FPGA has already taken care of the
+    // time-critical bits to assure that we don't melt!).
+    //
     fn check_thermtrip(&mut self, ifr: u8) {
         let thermtrip = Reg::IFR::THERMTRIP;
 
@@ -660,6 +674,14 @@ impl<S: SpiServer> ServerImpl<S> {
         }
     }
 
+    //
+    // Check for a reset by looking for a latched falling edge on PWROK.
+    // (Host software explicitly configures this by setting rsttocpupwrgden
+    // in FCH::PM::RESETCONTROL1.)  The sequencer also latches the number of
+    // such edges that it has seen -- along with the number of falling edges
+    // of RESET_L.  If we have seen a host reset, we send ourselves to
+    // A0Reset.
+    //
     fn check_reset(&mut self, ifr: u8) {
         let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
 
@@ -672,9 +694,14 @@ impl<S: SpiServer> ServerImpl<S> {
             let (rstn, pwrokn) = (cnts[0], cnts[1]);
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
 
+            //
+            // Clear the counts to denote that we wish to re-latch any
+            // falling PWROK/RESET_L edge.
+            //
             self.seq.write_bytes(Addr::AMD_RSTN_CNTS, &[0, 0]).unwrap();
             let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
             self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap();
+
             self.update_state_internal(PowerState::A0Reset);
         }
     }

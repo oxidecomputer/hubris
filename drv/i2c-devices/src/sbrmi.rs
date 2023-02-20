@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Driver for AMD SB-RMI interface for AMD Milan.  This interface is both
-//! AMD- and Milan-specific -- and in particular, note that the number of
-//! threads cannot exceed a 7-bit quantity in this processor generation.
+//! AMD- and Milan-specific (and in particular, note that the number of
+//! threads cannot exceed a 7-bit quantity in this processor generation).
 
 use crate::Validate;
 use drv_i2c_api::*;
