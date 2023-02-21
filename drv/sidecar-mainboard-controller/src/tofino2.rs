@@ -4,6 +4,8 @@
 
 use crate::{Addr, MainboardController, Reg};
 use bitfield::bitfield;
+use core::convert::Into;
+use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
@@ -493,9 +495,15 @@ pub enum DirectBarSegment {
 /// Intel.
 #[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
 #[repr(u32)]
-pub enum TofinoRegisters {
+pub enum TofinoBar0Registers {
     Scratchpad = 0x0,
     FreeRunningCounter = 0x10,
+    SoftwareReset = (0x80000 | 0x0),
+    ResetOptions = (0x80000 | 0x4),
+    PciePhyLaneControl0 = (0x80000 | 0x38),
+    PciePhyLaneControl1 = (0x80000 | 0x3c),
+    PciePhyLaneStatus0 = (0x80000 | 0x40),
+    PciePhyLaneStatus1 = (0x80000 | 0x44),
     SpiOutData0 = (0x80000 | 0x120),
     SpiOutData1 = (0x80000 | 0x124),
     SpiInData = (0x80000 | 0x12c),
@@ -503,10 +511,105 @@ pub enum TofinoRegisters {
     SpiIdCode = (0x80000 | 0x130),
 }
 
-impl From<TofinoRegisters> for u32 {
-    fn from(r: TofinoRegisters) -> Self {
+impl From<TofinoBar0Registers> for u32 {
+    fn from(r: TofinoBar0Registers) -> Self {
         r as u32
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[repr(u32)]
+pub enum TofinoCfgRegisters {
+    KGen = 0x0,
+}
+
+impl From<TofinoCfgRegisters> for u32 {
+    fn from(r: TofinoCfgRegisters) -> Self {
+        r as u32
+    }
+}
+
+bitfield! {
+    /// The `SoftwareReset` register allows for software control over the reset
+    /// sequence of Tofino. Note that not all fields are represented in this
+    /// struct. See the full set in
+    /// 631384-0001_TF2-Top-Level_Register_Map_05062021.html if additional ones
+    /// are desired.
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct SoftwareReset(u32);
+    pub pcie_phy, set_pcie_phy: 0;
+    pub pcie_ctrl, set_pcie_ctrl: 2;
+    pub pcie_app, set_pcie_app: 3;
+    pub pcie_lanes, set_pcie_lanes: 7, 4;
+}
+
+bitfield! {
+    /// Control registers providing some control over the lane configuration of
+    /// the PCIe PHY. Each register contains the controls for two lanes, for a
+    /// total of four lanes.
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct PciePhyLaneControl(u16);
+    pub tx_to_rx_serial_loopback, set_tx_to_rx_serial_loopback: 0;
+    pub rx_to_tx_parallel_loopback, set_rx_to_tx_parallel_loopback: 1;
+    pub sris, set_sris: 2;
+    pub rx_termination, set_rx_termination: 3;
+    pub clock_pattern, set_clock_pattern: 4;
+    pub pipe_tx_pattern, set_pipe_tx_pattern: 6, 5;
+    pub tx_bypass_eq_calc, set_tx_bypass_eq_calc: 7;
+    pub common_refclk, set_common_refclk_mode: 8;
+    pub elastic_buffer_empty, set_elastic_buffer_empty: 9;
+}
+
+bitfield! {
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct PciePhyLaneControlPair(u32);
+    pub u16, into PciePhyLaneControl, lane0, set_lane0: 15, 0;
+    pub u16, into PciePhyLaneControl, lane1, set_lane1: 31, 16;
+}
+
+bitfield! {
+    /// Similar to the control registers above a PCIe PHY Lane Status register
+    /// allows monitoring some state while the PHY is running.
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct PciePhyLaneStatus(u16);
+    pub elastic_buffer_pointer, _: 7, 0;
+    pub aligned, _: 8;
+    pub pipe_data_bus_width, _: 11, 10;
+    pub pipe_max_p_clk, _: 13, 12;
+}
+
+bitfield! {
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct PciePhyLaneStatusPair(u32);
+    pub u16, into PciePhyLaneStatus, lane0, set_lane0: 15, 0;
+    pub u16, into PciePhyLaneStatus, lane1, set_lane1: 31, 16;
+}
+
+bitfield! {
+    /// The PCIe Controller Control register, allowing some control over high
+    /// level features of the PCIe Controller. This register is not documented
+    /// and Intel (or rather their IP vendor) refers to this as k_gen. See IPS
+    /// 00781992 for more context.
+    ///
+    /// Note that with the exception of SRIS and the PHY rate selectors
+    /// (presumably allowing one to force a lower link speed) modifying these
+    /// parameters will break the link.
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct PcieControllerConfiguration(u32);
+    pub pcie_version, _: 3, 0;
+    pub port_type, _: 7, 4;
+    pub sris, set_sris: 8;
+    pub rate_2_5g_supported, _: 9;
+    pub rate_5g_supported, _: 10;
+    pub rate_8g_supported, _: 11;
+    pub rate_16g_supported, _: 12;
+    pub rate_32g_supported, _: 13;
 }
 
 /// SPI EEPROM instructions, as per for example
@@ -618,7 +721,7 @@ impl DebugPort {
         &self,
         segment: DirectBarSegment,
         offset: impl Into<u32> + Copy,
-        value: u32,
+        value: impl Into<u32>,
     ) -> Result<(), FpgaError> {
         assert!(offset.into() < 1 << 28);
 
@@ -650,7 +753,7 @@ impl DebugPort {
         }
 
         // Write the value to the queue.
-        for b in value.as_bytes().iter() {
+        for b in value.into().as_bytes().iter() {
             self.fpga.write(
                 WriteOp::Write,
                 Addr::TOFINO_DEBUG_PORT_BUFFER,
@@ -685,9 +788,10 @@ impl DebugPort {
 
     /// Wait for a SPI request to complete.
     fn await_spi_request_done(&self) -> Result<(), FpgaError> {
-        while self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiCommand)?
-            & 0x80
+        while self.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::SpiCommand,
+        )? & 0x80
             != 0
         {
             userlib::hl::sleep_for(1);
@@ -703,13 +807,13 @@ impl DebugPort {
     ) -> Result<(), FpgaError> {
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiOutData0,
+            TofinoBar0Registers::SpiOutData0,
             i as u32,
         )?;
         // Initiate the SPI transaction.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiCommand,
+            TofinoBar0Registers::SpiCommand,
             Self::spi_command(1, 1),
         )?;
 
@@ -719,7 +823,7 @@ impl DebugPort {
     /// Read the register containing the IDCODE latched by Tofino when it
     /// successfully reads the PCIe SerDes parameters from the SPI EEPROM.
     pub fn spi_eeprom_idcode(&self) -> Result<u32, FpgaError> {
-        self.read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiIdCode)
+        self.read_direct(DirectBarSegment::Bar0, TofinoBar0Registers::SpiIdCode)
     }
 
     /// Read the SPI EEPROM Status register.
@@ -729,9 +833,10 @@ impl DebugPort {
         )?;
 
         // Read the EEPROM response.
-        Ok(self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiInData)?
-            as u8)
+        Ok(self.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::SpiInData,
+        )? as u8)
     }
 
     /// Write the SPI EEPROM Status register.
@@ -739,7 +844,7 @@ impl DebugPort {
         // Request the WRSR instruction with the given value.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiOutData0,
+            TofinoBar0Registers::SpiOutData0,
             u32::from_le_bytes([
                 SpiEepromInstruction::WriteStatusRegister as u8,
                 value,
@@ -750,7 +855,7 @@ impl DebugPort {
         // Initiate the SPI transaction.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiCommand,
+            TofinoBar0Registers::SpiCommand,
             Self::spi_command(1, 0),
         )?;
 
@@ -762,7 +867,7 @@ impl DebugPort {
         // Request a read of the given address.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiOutData0,
+            TofinoBar0Registers::SpiOutData0,
             u32::from_le_bytes([
                 SpiEepromInstruction::Read as u8,
                 (offset >> 8) as u8,
@@ -774,7 +879,7 @@ impl DebugPort {
         // Initiate the SPI transaction.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiCommand,
+            TofinoBar0Registers::SpiCommand,
             Self::spi_command(3, 4),
         )?;
 
@@ -782,7 +887,10 @@ impl DebugPort {
 
         // Read the EEPROM response.
         Ok(self
-            .read_direct(DirectBarSegment::Bar0, TofinoRegisters::SpiInData)?
+            .read_direct(
+                DirectBarSegment::Bar0,
+                TofinoBar0Registers::SpiInData,
+            )?
             .to_be_bytes())
     }
 
@@ -797,7 +905,7 @@ impl DebugPort {
         // Request a Write of the given address.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiOutData0,
+            TofinoBar0Registers::SpiOutData0,
             u32::from_le_bytes([
                 SpiEepromInstruction::Write as u8,
                 (offset >> 8) as u8,
@@ -808,14 +916,14 @@ impl DebugPort {
 
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiOutData1,
+            TofinoBar0Registers::SpiOutData1,
             u32::from_le_bytes([data[1], data[2], data[3], 0]),
         )?;
 
         // Initiate the SPI transaction.
         self.write_direct(
             DirectBarSegment::Bar0,
-            TofinoRegisters::SpiCommand,
+            TofinoBar0Registers::SpiCommand,
             Self::spi_command(7, 0),
         )?;
 

@@ -59,6 +59,8 @@ enum Trace {
     TofinoPowerRailAbort(PowerRails, PowerRailPinState),
     TofinoVidAck,
     TofinoEepromIdCode(u32),
+    TofinoBar0RegisterValue(TofinoBar0Registers, u32),
+    TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     InitiateTofinoPowerUp,
     InitiateTofinoPowerDown,
     SetVddCoreVout(userlib::units::Volts),
