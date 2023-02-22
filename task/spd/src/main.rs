@@ -251,6 +251,7 @@ fn main() -> ! {
             | Some(PowerState::A1)
             | Some(PowerState::A0)
             | Some(PowerState::A0PlusHP)
+            | Some(PowerState::A0Reset)
             | Some(PowerState::A0Thermtrip) => {
                 break;
             }

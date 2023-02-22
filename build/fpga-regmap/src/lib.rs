@@ -118,6 +118,20 @@ impl From<Addr> for u16 {{
 }}"
     )
     .unwrap();
+
+    writeln!(
+        output,
+        "
+impl Addr {{
+    /// Returns true iff this `Addr` immediately precedes the parameter,
+    /// which can be useful to statically assert that multibyte reads will
+    /// read the desired registers.
+    pub const fn precedes(self, other: Addr) -> bool {{
+        self as u16 + 1 == other as u16
+    }}
+}}"
+    )
+    .unwrap();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

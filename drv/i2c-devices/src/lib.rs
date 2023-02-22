@@ -26,6 +26,7 @@
 //! - [`pca9956b`]: PCA9956B LED driver
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
+//! - [`sbrmi`]: AMD SB-RMI driver
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
 //! - [`tmp451`]: TMP451 temperature sensor
@@ -56,40 +57,41 @@ macro_rules! pmbus_read {
         }
     };
 
-    ($device:expr, $dev:ident::$cmd:ident) => {
-        match $dev::$cmd::CommandData::from_slice(&match $device
-            .read_reg::<u8, [u8; $dev::$cmd::CommandData::len()]>(
-                $dev::$cmd::CommandData::code(),
+    ($device:expr, $dev:ident::$cmd:ident) => {{
+        use $dev::$cmd;
+        pmbus_read!($device, $cmd)
+    }};
+}
+
+macro_rules! pmbus_rail_read {
+    ($device:expr, $rail:expr, $cmd:ident) => {{
+        let payload = [PAGE::CommandData::code(), $rail];
+
+        match $cmd::CommandData::from_slice(&match $device
+            .write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
+                $cmd::CommandData::code(),
+                &payload,
             ) {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
-                cmd: $dev::$cmd::CommandData::code(),
+                cmd: $cmd::CommandData::code(),
                 code,
             }),
         }?) {
             Some(data) => Ok(data),
             None => Err(Error::BadData {
-                cmd: $dev::$cmd::CommandData::code(),
+                cmd: $cmd::CommandData::code(),
             }),
-        }
-    };
-}
-
-macro_rules! pmbus_write {
-    ($device:expr, $dev:ident::$cmd:ident, $data:expr) => {{
-        let mut payload = [0u8; $dev::$cmd::CommandData::len() + 1];
-        payload[0] = $dev::$cmd::CommandData::code();
-        $data.to_slice(&mut payload[1..]);
-
-        match $device.write(&payload) {
-            Err(code) => Err(Error::BadWrite {
-                cmd: $dev::$cmd::CommandData::code(),
-                code,
-            }),
-            Ok(_) => Ok(()),
         }
     }};
 
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
+        use $dev::{$cmd, PAGE};
+        pmbus_rail_read!($device, $rail, $cmd)
+    }};
+}
+
+macro_rules! pmbus_write {
     ($device:expr, $cmd:ident, $data:expr) => {{
         let mut payload = [0u8; $cmd::CommandData::len() + 1];
         payload[0] = $cmd::CommandData::code();
@@ -102,6 +104,34 @@ macro_rules! pmbus_write {
             }),
             Ok(_) => Ok(()),
         }
+    }};
+
+    ($device:expr, $dev:ident::$cmd:ident, $data:expr) => {{
+        use $dev::$cmd;
+        pmbus_write!($device, $cmd, $data)
+    }};
+}
+
+macro_rules! pmbus_rail_write {
+    ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
+        let rpayload = [PAGE::CommandData::code(), $rail];
+
+        let mut payload = [0u8; $cmd::CommandData::len() + 1];
+        payload[0] = $cmd::CommandData::code();
+        $data.to_slice(&mut payload[1..]);
+
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
+        use $dev::{$cmd, PAGE};
+        pmbus_rail_write!($device, $rail, $cmd, $data)
     }};
 }
 
@@ -181,6 +211,7 @@ pub mod pca9538;
 pub mod pca9956b;
 pub mod pct2075;
 pub mod raa229618;
+pub mod sbrmi;
 pub mod sbtsi;
 pub mod tmp117;
 pub mod tmp451;

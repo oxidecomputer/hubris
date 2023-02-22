@@ -91,6 +91,8 @@ pub enum ResponseCode {
     BadSelectedMux = 24,
     /// Requested operation is not supported
     OperationNotSupported = 25,
+    /// Illegal number of leases
+    IllegalLeaseCount = 26,
 }
 
 ///
@@ -426,7 +428,6 @@ impl I2cDevice {
     /// in fact overwrite the contents of the first two registers.)
     ///
     pub fn read<V: AsBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
-        let empty = [0u8; 1];
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -440,7 +441,7 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
+            &[Lease::read_only(&[]), Lease::from(val.as_bytes_mut())],
         );
 
         if code != 0 {
@@ -457,7 +458,6 @@ impl I2cDevice {
     /// the specified mutable slice, returning the number of bytes read.
     ///
     pub fn read_into(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
-        let empty = [0u8; 1];
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -470,7 +470,7 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(&empty[0..0]), Lease::from(buf)],
+            &[Lease::read_only(&[]), Lease::from(buf)],
         );
 
         if code != 0 {
@@ -486,7 +486,6 @@ impl I2cDevice {
     /// perform any follow-up reads.
     ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
-        let empty = [0u8; 1];
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -499,7 +498,89 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(buffer), Lease::from(&empty[0..0])],
+            &[Lease::from(buffer), Lease::read_only(&[])],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(())
+        }
+    }
+
+    ///
+    /// Writes a buffer, and then performs a subsequent register read.  These
+    /// are not performed as a single I2C transaction (that is, it is not a
+    /// repeated start) -- but the effect is the same in that the server does
+    /// these operations without an intervening receive (assuring that the
+    /// write can modify device state that the subsequent register read can
+    /// assume).
+    ///
+    pub fn write_read_reg<R: AsBytes, V: AsBytes + FromBytes>(
+        &self,
+        reg: R,
+        buffer: &[u8],
+    ) -> Result<V, ResponseCode> {
+        let mut val = V::new_zeroed();
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[
+                Lease::from(buffer),
+                Lease::read_only(&[]),
+                Lease::from(reg.as_bytes()),
+                Lease::from(val.as_bytes_mut()),
+            ],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(val)
+        }
+    }
+
+    ///
+    /// Writes one buffer to a device, and then another.  These are not
+    /// performed as a single I2C transaction (that is, it is not a repeated
+    /// start) -- but the effect is the same in that the server does these
+    /// operations without an intervening receive (assuring that the write can
+    /// modify device state that the subsequent write can assume).
+    ///
+    pub fn write_write(
+        &self,
+        first: &[u8],
+        second: &[u8],
+    ) -> Result<(), ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[
+                Lease::from(first),
+                Lease::read_only(&[]),
+                Lease::from(second),
+                Lease::read_only(&[]),
+            ],
         );
 
         if code != 0 {

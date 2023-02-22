@@ -273,7 +273,8 @@ impl ServerImpl {
                 // just repeat our loop and try again.
                 PowerState::A0
                 | PowerState::A0PlusHP
-                | PowerState::A0Thermtrip => continue,
+                | PowerState::A0Thermtrip
+                | PowerState::A0Reset => continue,
 
                 // If we're already in A2 somehow, we're done.
                 PowerState::A2
@@ -324,6 +325,15 @@ impl ServerImpl {
                 }
             }
             PowerState::A1 => (), // do nothing
+            PowerState::A0Reset => {
+                // We have spontaneously reset.  We are in A0 (and indeed,
+                // by time we get this, the ABL is presumably running), but
+                // we cannot let the SoC simply reset because the true state
+                // of hidden cores is unknown:  explicitly bounce to A2
+                // as if the host had requested it.
+                self.power_off_host(true);
+            }
+
             PowerState::A0 | PowerState::A0PlusHP | PowerState::A0Thermtrip => {
                 // TODO should we clear self.reboot_state here? What if we
                 // transitioned from one A0 state to another? For now, leave it

@@ -81,23 +81,16 @@ impl Isl68224 {
         })
     }
 
-    fn set_rail(&self) -> Result<(), Error> {
-        let page = PAGE::CommandData(self.rail);
-        pmbus_write!(self.device, PAGE, page)
-    }
-
     pub fn turn_off(&self) -> Result<(), Error> {
-        self.set_rail()?;
-        let mut operation = pmbus_read!(self.device, OPERATION)?;
-        operation.set_on_off_state(OPERATION::OnOffState::Off);
-        pmbus_write!(self.device, OPERATION, operation)
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::Off);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 
     pub fn turn_on(&self) -> Result<(), Error> {
-        self.set_rail()?;
-        let mut operation = pmbus_read!(self.device, OPERATION)?;
-        operation.set_on_off_state(OPERATION::OnOffState::On);
-        pmbus_write!(self.device, OPERATION, operation)
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::On);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 }
 
@@ -111,24 +104,21 @@ impl Validate<Error> for Isl68224 {
 
 impl VoltageSensor<Error> for Isl68224 {
     fn read_vout(&self) -> Result<Volts, Error> {
-        self.set_rail()?;
-        let vout = pmbus_read!(self.device, READ_VOUT)?;
+        let vout = pmbus_rail_read!(self.device, self.rail, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }
 
 impl TempSensor<Error> for Isl68224 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        self.set_rail()?;
-        let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
-        Ok(Celsius(temp.get()?.0))
+        let t = pmbus_rail_read!(self.device, self.rail, READ_TEMPERATURE_1)?;
+        Ok(Celsius(t.get()?.0))
     }
 }
 
 impl CurrentSensor<Error> for Isl68224 {
     fn read_iout(&self) -> Result<Amperes, Error> {
-        self.set_rail()?;
-        let iout = pmbus_read!(self.device, READ_IOUT)?;
+        let iout = pmbus_rail_read!(self.device, self.rail, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
     }
 }

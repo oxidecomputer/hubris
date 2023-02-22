@@ -19,6 +19,7 @@ use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
@@ -52,19 +53,35 @@ enum Trace {
     NICPowerEnableLow(bool),
     RailsOn,
     UartEnabled,
-    GetState,
     SetState(PowerState, PowerState),
+    UpdateState(PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
-    Status(u8, u8, u8),
-    PGStatus(u8, u8, u8),
-    SMStatus(u8, u8),
+    Status {
+        ier: u8,
+        ifr: u8,
+        amd_status: u8,
+        amd_a0: u8,
+    },
+    PGStatus {
+        b_pg: u8,
+        c_pg: u8,
+        nic: u8,
+    },
+    SMStatus {
+        a1: u8,
+        a0: u8,
+    },
+    ResetCounts {
+        rstn: u8,
+        pwrokn: u8,
+    },
     PowerControl(u8),
     InterruptFlags(u8),
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -348,7 +365,12 @@ fn main() -> ! {
         server.set_state_internal(PowerState::A0).unwrap();
     }
 
-    // Configure the NMI pin, leaving it high (i.e. not sending an NMI)
+    //
+    // Configure the NMI pin. Note that this needs to be configured as open
+    // drain rather than push/pull:  SP_TO_SP3_NMI_SYNC_FLOOD_L is pulled up
+    // to V3P3_SYS_A0 (by R5583) and we do not want to backdrive it when in
+    // A2, lest we prevent the PCA9535 GPIO expander (U307) from resetting!
+    //
     sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
     sys.gpio_configure_output(
         SP_TO_SP3_NMI_SYNC_FLOOD_L,
@@ -379,25 +401,24 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        ringbuf_entry!(Trace::Status(
-            self.seq.read_byte(Addr::IER).unwrap(),
-            self.seq.read_byte(Addr::IFR).unwrap(),
-            self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::Status {
+            ier: self.seq.read_byte(Addr::IER).unwrap(),
+            ifr: self.seq.read_byte(Addr::IFR).unwrap(),
+            amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
+            amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap(),
+        });
 
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
             //
-            // The first order of business is to check if the sequencer hit a
-            // THERMTRIP.  If it did, we need to go to A0Thermtrip and clear
-            // the bit.
+            // The first order of business is to check if sequencer saw a
+            // falling edge on PWROK (denoting a reset) or a THERMTRIP.  If it
+            // did, we will go to A0Reset or A0Thermtrip as appropriate (and
+            // if both are indicated, we will clear both conditions -- but
+            // land in A0Thermtrip).
             //
-            let thermtrip = Reg::IFR::THERMTRIP;
             let ifr = self.seq.read_byte(Addr::IFR).unwrap();
-
-            if ifr & thermtrip != 0 {
-                self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
-                self.update_state_internal(PowerState::A0Thermtrip);
-            }
+            self.check_reset(ifr);
+            self.check_thermtrip(ifr);
 
             //
             // Now we need to check NIC_PWREN_L to assure that our power state
@@ -407,17 +428,17 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             let sys = sys_api::Sys::from(SYS.get_task_id());
             let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS) != 0;
 
-            ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
-
             let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
+                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0PlusHP);
                 }
 
                 (PowerState::A0PlusHP, true) => {
+                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0);
                 }
@@ -428,10 +449,21 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     //
                 }
 
-                _ => {
+                (PowerState::A0Reset, _) | (PowerState::A0Thermtrip, _) => {
+                    //
+                    // We must have just sent ourselves here; nothing to do.
+                    //
+                }
+
+                (PowerState::A2, _)
+                | (PowerState::A2PlusMono, _)
+                | (PowerState::A2PlusFans, _)
+                | (PowerState::A1, _) => {
                     //
                     // We can only be in this larger block if the state is A0
                     // or A0PlusHP; we must have matched one of the arms above.
+                    // (We deliberately exhaustively match on power state to
+                    // force any power state addition to consider this case.)
                     //
                     unreachable!();
                 }
@@ -447,6 +479,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
 impl<S: SpiServer> ServerImpl<S> {
     fn update_state_internal(&mut self, state: PowerState) {
+        ringbuf_entry!(Trace::UpdateState(state));
         self.state = state;
         self.jefe.set_state(state as u32);
     }
@@ -457,16 +490,16 @@ impl<S: SpiServer> ServerImpl<S> {
     ) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::SetState(self.state, state));
 
-        ringbuf_entry!(Trace::PGStatus(
-            self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
-            self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
-            self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::PGStatus {
+            b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
+            c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
+            nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
+        });
 
-        ringbuf_entry!(Trace::SMStatus(
-            self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
-            self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
-        ));
+        ringbuf_entry!(Trace::SMStatus {
+            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
+            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
+        });
 
         ringbuf_entry!(Trace::PowerControl(
             self.seq.read_byte(Addr::PWR_CTRL).unwrap(),
@@ -500,6 +533,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     // status -- but we only actually care about the A0 state
                     // machine.
                     //
+                    const_assert!(Addr::A1SMSTATUS.precedes(Addr::A0SMSTATUS));
                     self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
                     ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
@@ -550,11 +584,19 @@ impl<S: SpiServer> ServerImpl<S> {
 
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
+            | (PowerState::A0Thermtrip, PowerState::A2)
+            | (PowerState::A0Reset, PowerState::A2) => {
                 //
                 // Flip the UART mux back to disabled
                 //
                 uart_sp_to_sp3_disable();
+
+                //
+                // To assure that we always enter A0 the same way, set CLD_RST
+                // in NIC_CTRL on our way back to A2.
+                //
+                let cld_rst = Reg::NIC_CTRL::CLD_RST;
+                self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
 
                 //
                 // Start FPGA down-sequence. Clearing the enables immediately
@@ -567,12 +609,13 @@ impl<S: SpiServer> ServerImpl<S> {
                 self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
 
                 //
-                // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables, we wait
-                // for a tick here to make sure the SPI command to the FPGA
-                // propagated and the FPGA has had time to act. AMD's EDS doesn't
-                // give a minimum time so we'll give them 1 ms.
+                // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables,
+                // we wait for a tick here to make sure the SPI command to the
+                // FPGA propagated and the FPGA has had time to act. AMD's EDS
+                // doesn't give a minimum time so we'll give them 1 ms.
                 //
                 hl::sleep_for(1);
+
                 vcore_soc_off();
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
@@ -586,6 +629,52 @@ impl<S: SpiServer> ServerImpl<S> {
             }
 
             _ => Err(SeqError::IllegalTransition),
+        }
+    }
+
+    //
+    // Check for a THERMTRIP, sending ourselves to A0Thermtrip if we've
+    // seen it (and knowing that the FPGA has already taken care of the
+    // time-critical bits to assure that we don't melt!).
+    //
+    fn check_thermtrip(&mut self, ifr: u8) {
+        let thermtrip = Reg::IFR::THERMTRIP;
+
+        if ifr & thermtrip != 0 {
+            self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
+            self.update_state_internal(PowerState::A0Thermtrip);
+        }
+    }
+
+    //
+    // Check for a reset by looking for a latched falling edge on PWROK.
+    // (Host software explicitly configures this by setting rsttocpupwrgden
+    // in FCH::PM::RESETCONTROL1.)  The sequencer also latches the number of
+    // such edges that it has seen -- along with the number of falling edges
+    // of RESET_L.  If we have seen a host reset, we send ourselves to
+    // A0Reset.
+    //
+    fn check_reset(&mut self, ifr: u8) {
+        let pwrok_fedge = Reg::IFR::AMD_PWROK_FEDGE;
+
+        if ifr & pwrok_fedge != 0 {
+            let mut cnts = [0u8; 2];
+
+            const_assert!(Addr::AMD_RSTN_CNTS.precedes(Addr::AMD_PWROKN_CNTS));
+            self.seq.read_bytes(Addr::AMD_RSTN_CNTS, &mut cnts).unwrap();
+
+            let (rstn, pwrokn) = (cnts[0], cnts[1]);
+            ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+
+            //
+            // Clear the counts to denote that we wish to re-latch any
+            // falling PWROK/RESET_L edge.
+            //
+            self.seq.write_bytes(Addr::AMD_RSTN_CNTS, &[0, 0]).unwrap();
+            let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
+            self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap();
+
+            self.update_state_internal(PowerState::A0Reset);
         }
     }
 
@@ -609,7 +698,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
         Ok(self.state)
     }
 

@@ -230,9 +230,15 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead | Op::WriteReadBlock => {
+                let lease_count = msg.lease_count();
+
                 let (payload, caller) = msg
-                    .fixed_with_leases::<[u8; 4], usize>(2)
+                    .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
+
+                if lease_count < 2 || lease_count % 2 != 0 {
+                    return Err(ResponseCode::IllegalLeaseCount);
+                }
 
                 let (addr, controller, port, mux) =
                     Marshal::unmarshal(payload)?;
@@ -262,60 +268,72 @@ fn main() -> ! {
                     }
                 }
 
-                let wbuf = caller.borrow(0);
-                let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
+                let mut total = 0;
 
-                if !winfo.attributes.contains(LeaseAttributes::READ) {
-                    return Err(ResponseCode::BadArg);
-                }
+                //
+                // Now iterate over our write/read pairs (we have already
+                // verified that we have an even number of leases).
+                //
+                for i in (0..lease_count).step_by(2) {
+                    let wbuf = caller.borrow(i);
+                    let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
 
-                let rbuf = caller.borrow(1);
-                let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
+                    if !winfo.attributes.contains(LeaseAttributes::READ) {
+                        return Err(ResponseCode::BadArg);
+                    }
 
-                if winfo.len == 0 && rinfo.len == 0 {
-                    // We must have either a write OR a read -- while perhaps
-                    // valid to support both being zero as a way of testing an
-                    // address for a NACK, it's not a mode that we (currently)
-                    // support.
-                    return Err(ResponseCode::BadArg);
-                }
+                    let rbuf = caller.borrow(i + 1);
+                    let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
 
-                if winfo.len > 255 || rinfo.len > 255 {
-                    // For now, we don't support writing or reading more than
-                    // 255 bytes.
-                    return Err(ResponseCode::BadArg);
-                }
+                    if winfo.len == 0 && rinfo.len == 0 {
+                        // In a given lease pair, we must have either a write
+                        // OR a read -- while perhaps valid to support both
+                        // being zero as a way of testing an address for a
+                        // NACK, it's not a mode that we (currently) support.
+                        return Err(ResponseCode::BadArg);
+                    }
 
-                let mut nread = 0;
+                    if winfo.len > 255 || rinfo.len > 255 {
+                        // For now, we don't support writing or reading more
+                        // than 255 bytes.
+                        return Err(ResponseCode::BadArg);
+                    }
 
-                match controller.write_read(
-                    addr,
-                    winfo.len,
-                    |pos| wbuf.read_at(pos),
-                    if op == Op::WriteRead {
-                        ReadLength::Fixed(rinfo.len)
-                    } else {
-                        ReadLength::Variable
-                    },
-                    |pos, byte| {
-                        if pos + 1 > nread {
-                            nread = pos + 1;
+                    let mut nread = 0;
+
+                    match controller.write_read(
+                        addr,
+                        winfo.len,
+                        |pos| wbuf.read_at(pos),
+                        if op == Op::WriteRead {
+                            ReadLength::Fixed(rinfo.len)
+                        } else {
+                            ReadLength::Variable
+                        },
+                        |pos, byte| {
+                            if pos + 1 > nread {
+                                nread = pos + 1;
+                            }
+
+                            rbuf.write_at(pos, byte)
+                        },
+                        &ctrl,
+                    ) {
+                        Err(code) => {
+                            ringbuf_entry!(Trace::Error);
+                            reset_if_needed(
+                                code, controller, port, &muxes, mux,
+                            );
+                            return Err(code);
                         }
-
-                        rbuf.write_at(pos, byte)
-                    },
-                    &ctrl,
-                ) {
-                    Err(code) => {
-                        ringbuf_entry!(Trace::Error);
-                        reset_if_needed(code, controller, port, &muxes, mux);
-                        Err(code)
-                    }
-                    Ok(_) => {
-                        caller.reply(nread);
-                        Ok(())
+                        Ok(_) => {
+                            total += nread;
+                        }
                     }
                 }
+
+                caller.reply(total);
+                Ok(())
             }
             Op::SelectedMuxSegment => {
                 let (payload, caller) = msg

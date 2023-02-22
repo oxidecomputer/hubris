@@ -417,8 +417,19 @@ impl I2cController<'_> {
     fn wait_until_notbusy(&self) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
 
+        //
+        // We will spin for some number of laps, in which we very much expect
+        // a functional controller to no longer be busy.  The threshold
+        // should err on the side of being a little too high:  if the
+        // controller remains busy after BUSY_SLEEP_THRESHOLD laps, we will
+        // sleep for two milliseconds -- and we do not want to hit that
+        // delay on otherwise functional systems!  (If, on the other hand,
+        // the threshold is too high and the controller is hung, we will
+        // consume more CPU than we would otherwise -- a relatively benign
+        // failure mode for a condition expected to be unusual.)
+        //
+        const BUSY_SLEEP_THRESHOLD: u32 = 300;
         let mut laps = 0;
-        const BUSY_SLEEP_THRESHOLD: u32 = 3;
 
         loop {
             let isr = i2c.isr.read();

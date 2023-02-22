@@ -296,6 +296,14 @@ task-slots = ["sprot"]
 stacksize = 1200
 uses = [ "sram2", "sram3", "sram4" ]
 
+[tasks.sbrmi]
+name = "drv-sbrmi"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["i2c_driver"]
+stacksize = 800
+
 [tasks.idle]
 name = "task-idle"
 priority = 8
@@ -898,6 +906,13 @@ description = "M.2 hot plug controller"
 power = { rails = [ "V3P3_M2A_A0HP", "V3P3_M2B_A0HP" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 refdes = "U275"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x3c
+device = "sbrmi"
+name = "RMI"
+description = "CPU via SB-RMI"
 
 [[config.i2c.devices]]
 bus = "mid"
