@@ -175,7 +175,14 @@ fn print_task_table(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
+    let task_pad = toml
+        .tasks
+        .keys()
+        .map(|s| s.as_str())
+        .chain(std::iter::once("PROGRAM"))
+        .map(|k| k.len())
+        .max()
+        .unwrap_or(0);
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
@@ -247,7 +254,14 @@ fn print_memory_map(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
+    let task_pad = toml
+        .tasks
+        .keys()
+        .map(|s| s.as_str())
+        .chain(std::iter::once("-padding-"))
+        .map(|k| k.len())
+        .max()
+        .unwrap_or(0);
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
