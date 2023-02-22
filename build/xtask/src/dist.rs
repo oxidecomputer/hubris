@@ -14,6 +14,7 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
+use hubtools::LoadSegment;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use zerocopy::AsBytes;
@@ -376,13 +377,16 @@ pub fn package(
 
         // Generate combined SREC, which is our source of truth for combined images.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        write_srec(
+        hubtools::write_srec(
             &all_output_sections,
             kentry,
             &cfg.img_file("combined.srec", image_name),
         )?;
 
-        translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
+        hubtools::translate_srec_to_other_formats(
+            &cfg.img_dir(image_name),
+            "combined",
+        )?;
 
         if let Some(signing) = &cfg.toml.signing {
             if cfg.toml.caboose.is_some() {
@@ -406,8 +410,9 @@ pub fn package(
             // We have to cheat a little for (re) generating the
             // srec after signing. The assumption is the binary starts
             // at the beginning of flash.
-            binary_to_srec(
+            hubtools::binary_to_srec(
                 &cfg.img_file("combined.bin", image_name),
+                "signed",
                 cfg.toml
                     .memories(image_name)?
                     .get(&"flash".to_string())
@@ -416,7 +421,10 @@ pub fn package(
                 kentry,
                 &cfg.img_file("final.srec", image_name),
             )?;
-            translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
+            hubtools::translate_srec_to_other_formats(
+                &cfg.img_dir(image_name),
+                "final",
+            )?;
 
             let mut cmpa = signing.generate_cmpa(&rkth)?;
             let cmpa_bytes = cmpa.to_vec()?;
@@ -551,24 +559,6 @@ fn secure_update(
         }
         Ok(None)
     }
-}
-
-/// Convert SREC to other formats for convenience.
-fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
-    let src = dist_dir.join(format!("{}.srec", name));
-    for (out_type, ext) in [
-        ("elf32-littlearm", "elf"),
-        ("ihex", "ihex"),
-        ("binary", "bin"),
-    ] {
-        objcopy_translate_format(
-            "srec",
-            &src,
-            out_type,
-            &dist_dir.join(format!("{}.{}", name, ext)),
-        )?;
-    }
-    Ok(())
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
@@ -787,12 +777,6 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
-}
-
-#[derive(Debug, Hash)]
-struct LoadSegment {
-    source_file: PathBuf,
-    data: Vec<u8>,
 }
 
 /// Builds a specific task
@@ -2076,46 +2060,6 @@ pub fn make_kconfig(
     })
 }
 
-/// Loads an SREC file into the same representation we use for ELF. This is
-/// currently unused, but I'm keeping it compiling as proof that it's possible,
-/// because we may need it later.
-#[allow(dead_code)]
-fn load_srec(
-    input: &Path,
-    output: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
-    let srec_text = std::fs::read_to_string(input)?;
-    for record in srec::reader::read_records(&srec_text) {
-        let record = record?;
-        match record {
-            srec::Record::S3(data) => {
-                // Check for address overlap
-                let range =
-                    data.address.0..data.address.0 + data.data.len() as u32;
-                if let Some(overlap) = output.range(range.clone()).next() {
-                    bail!(
-                        "{}: record address range {:x?} overlaps {:x}",
-                        input.display(),
-                        range,
-                        overlap.0
-                    )
-                }
-                output.insert(
-                    data.address.0,
-                    LoadSegment {
-                        source_file: input.into(),
-                        data: data.data,
-                    },
-                );
-            }
-            srec::Record::S7(srec::Address32(e)) => return Ok(e),
-            _ => (),
-        }
-    }
-
-    panic!("SREC file missing terminating S7 record");
-}
-
 fn load_elf(
     input: &Path,
     output: &mut BTreeMap<u32, LoadSegment>,
@@ -2151,7 +2095,7 @@ fn load_elf(
 
         flash += size;
 
-        // We use this function to re-load an ELF file after we've modfified
+        // We use this function to re-load an ELF file after we've modified
         // it. Don't check for overlap if this happens.
         if !output.contains_key(&addr) {
             let range = addr..addr + size as u32;
@@ -2298,102 +2242,6 @@ fn get_git_status() -> Result<(String, bool)> {
         .context(format!("failed to get git status ({:?})", cmd))?;
 
     Ok((rev, !status.success()))
-}
-
-fn binary_to_srec(
-    binary: &Path,
-    bin_addr: u32,
-    entry: u32,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("signed".to_string())];
-
-    let binary = std::fs::read(binary)?;
-
-    let mut addr = bin_addr;
-    for chunk in binary.chunks(255 - 5) {
-        srec_out.push(srec::Record::S3(srec::Data {
-            address: srec::Address32(addr),
-            data: chunk.to_vec(),
-        }));
-        addr += chunk.len() as u32;
-    }
-
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(entry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
-fn write_srec(
-    sections: &BTreeMap<u32, LoadSegment>,
-    kentry: u32,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
-    for (&base, sec) in sections {
-        // SREC record size limit is 255 (0xFF). 32-bit addressed records
-        // additionally contain a four-byte address and one-byte checksum, for a
-        // payload limit of 255 - 5.
-        let mut addr = base;
-        for chunk in sec.data.chunks(255 - 5) {
-            srec_out.push(srec::Record::S3(srec::Data {
-                address: srec::Address32(addr),
-                data: chunk.to_vec(),
-            }));
-            addr += chunk.len() as u32;
-        }
-    }
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
-fn objcopy_translate_format(
-    in_format: &str,
-    src: &Path,
-    out_format: &str,
-    dest: &Path,
-) -> Result<()> {
-    let mut cmd = Command::new("arm-none-eabi-objcopy");
-    cmd.arg("-I")
-        .arg(in_format)
-        .arg("-O")
-        .arg(out_format)
-        .arg("--gap-fill")
-        .arg("0xFF")
-        .arg(src)
-        .arg(dest);
-
-    let status = cmd
-        .status()
-        .context(format!("failed to objcopy ({:?})", cmd))?;
-
-    if !status.success() {
-        bail!("objcopy failed, see output for details");
-    }
-    Ok(())
 }
 
 fn cargo_clean(names: &[&str], target: &str) -> Result<()> {

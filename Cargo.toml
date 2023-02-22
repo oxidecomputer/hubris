@@ -102,7 +102,6 @@ sha3 = { version = "0.10", default-features = false }
 smbus-pec = { version = "1.0.1", default-features = false }
 smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv6", "medium-ethernet", "socket-udp", "async"] }
 spin = { version = "0.9.4", default-features = false, features = ["mutex", "spin_mutex"]}
-srec = { version = "0.2.0", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 static_assertions = { version = "1", default-features = false }
 stm32f3 = { version = "0.13.0", default-features = false }
@@ -122,6 +121,7 @@ dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-fe
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
