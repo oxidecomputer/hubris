@@ -30,7 +30,8 @@ pub fn handle_kernel_message(
             read_image_id(tasks, caller, args.response?)
         }
         Ok(Kipcnum::Reset) => reset(tasks, caller, args.message?),
-        _ => {
+        Ok(Kipcnum::ReadHeader) => read_header(tasks, caller, args.response?),
+        Err(_) => {
             // Task has sent an unknown message to the kernel. That's bad.
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
@@ -206,6 +207,21 @@ fn read_image_id(
     let id =
         unsafe { core::ptr::read_volatile(&crate::startup::HUBRIS_IMAGE_ID) };
     let response_len = serialize_response(&mut tasks[caller], response, &id)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+fn read_header(
+    tasks: &mut [Task],
+    caller: usize,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    // SAFETY: populated by the build system
+    let header = unsafe { crate::header::HEADER.assume_init_ref() };
+    let response_len =
+        serialize_response(&mut tasks[caller], response, header)?;
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

@@ -478,6 +478,7 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
+    ReadHeader = 6,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -490,13 +491,16 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
+            6 => Ok(Self::ReadHeader),
             _ => Err(()),
         }
     }
 }
 
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
+#[derive(
+    Default, Copy, Clone, Debug, FromBytes, AsBytes, Serialize, Deserialize,
+)]
 pub struct SAUEntry {
     pub rbar: u32,
     pub rlar: u32,
@@ -507,7 +511,7 @@ pub const HEADER_MAGIC: u32 = 0x1535_6637;
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block
 #[repr(C)]
-#[derive(Default, AsBytes, FromBytes)]
+#[derive(Default, AsBytes, FromBytes, Serialize, Deserialize)]
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
