@@ -70,3 +70,17 @@ pub fn read_image_id() -> u64 {
     assert_eq!(len, 8); // we *really* expect this to be a u64
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
+
+pub fn read_header() -> abi::ImageHeader {
+    let mut response = [0; core::mem::size_of::<u64>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadHeader as u16,
+        &[],
+        &mut response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 8); // we *really* expect this to be 2x u32
+    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}
