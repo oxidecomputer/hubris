@@ -88,13 +88,111 @@ impl Tofino {
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
 
+                // Keep parts of the PCIe PHY lanes in reset and delay PCIE_INIT
+                // so changes to the config can be made after loading parameters
+                // from EEPROM.
+                let mut software_reset =
+                    SoftwareReset(self.debug_port.read_direct(
+                        DirectBarSegment::Bar0,
+                        TofinoBar0Registers::SoftwareReset,
+                    )?);
+
+                software_reset.set_pcie_lanes(0xf); // Bit mask to select lanes.
+                self.debug_port.write_direct(
+                    DirectBarSegment::Bar0,
+                    TofinoBar0Registers::SoftwareReset,
+                    software_reset,
+                )?;
+                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+                    TofinoBar0Registers::SoftwareReset,
+                    self.debug_port.read_direct(
+                        DirectBarSegment::Bar0,
+                        TofinoBar0Registers::SoftwareReset
+                    )?
+                ));
+
                 // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
-                // to load and the peripheral to initialize, and log the latched
-                // IDCODE.
+                // to load and the peripheral to initialize. Log the latched
+                // IDCODE afterwards.
                 self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
                 hl::sleep_for(200);
                 ringbuf_entry!(Trace::TofinoEepromIdCode(
                     self.debug_port.spi_eeprom_idcode()?
+                ));
+
+                // The EEPROM contents have loaded, scribble over some of the
+                // registers to enable SRIS.
+
+                let set_sris = |r| -> Result<(), SeqError> {
+                    let mut pcie_lane_ctrl_pair = PciePhyLaneControlPair(
+                        self.debug_port
+                            .read_direct(DirectBarSegment::Bar0, r)?,
+                    );
+                    let mut lane0_ctrl = pcie_lane_ctrl_pair.lane0();
+                    let mut lane1_ctrl = pcie_lane_ctrl_pair.lane1();
+
+                    lane0_ctrl.set_sris(true);
+                    lane1_ctrl.set_sris(true);
+
+                    pcie_lane_ctrl_pair.set_lane0(lane0_ctrl.into());
+                    pcie_lane_ctrl_pair.set_lane1(lane1_ctrl.into());
+
+                    self.debug_port.write_direct(
+                        DirectBarSegment::Bar0,
+                        r,
+                        pcie_lane_ctrl_pair,
+                    )?;
+                    ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+                        r,
+                        self.debug_port
+                            .read_direct(DirectBarSegment::Bar0, r)?
+                    ));
+
+                    Ok(())
+                };
+
+                set_sris(TofinoBar0Registers::PciePhyLaneControl0)?;
+                set_sris(TofinoBar0Registers::PciePhyLaneControl1)?;
+
+                // Enable SRIS in the controller in order to adjust the SKP
+                // Ordered Sets interval, allowing the SP3 to keep up with the
+                // faster 100MHz ref clock used by Tofino.
+                let mut pcie_controller =
+                    PcieControllerConfiguration(self.debug_port.read_direct(
+                        DirectBarSegment::Cfg,
+                        TofinoCfgRegisters::KGen,
+                    )?);
+                pcie_controller.set_sris(true);
+                self.debug_port.write_direct(
+                    DirectBarSegment::Cfg,
+                    TofinoCfgRegisters::KGen,
+                    pcie_controller,
+                )?;
+                ringbuf_entry!(Trace::TofinoCfgRegisterValue(
+                    TofinoCfgRegisters::KGen,
+                    self.debug_port.read_direct(
+                        DirectBarSegment::Cfg,
+                        TofinoCfgRegisters::KGen
+                    )?
+                ));
+
+                // Release the PCIe PHY from reset.
+                software_reset = SoftwareReset(self.debug_port.read_direct(
+                    DirectBarSegment::Bar0,
+                    TofinoBar0Registers::SoftwareReset,
+                )?);
+                software_reset.set_pcie_lanes(0);
+                self.debug_port.write_direct(
+                    DirectBarSegment::Bar0,
+                    TofinoBar0Registers::SoftwareReset,
+                    software_reset,
+                )?;
+                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+                    TofinoBar0Registers::SoftwareReset,
+                    self.debug_port.read_direct(
+                        DirectBarSegment::Bar0,
+                        TofinoBar0Registers::SoftwareReset
+                    )?
                 ));
 
                 // Set PCIe present to trigger a hotplug event on the attached
