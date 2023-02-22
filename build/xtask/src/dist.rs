@@ -334,6 +334,19 @@ pub fn package(
             None
         };
 
+        // Add an empty output section for the caboose
+        if let Some(caboose) = &cfg.toml.caboose {
+            let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
+            // BTreeMap<u32, LoadSegment>,
+            all_output_sections.insert(
+                caboose_range.start,
+                LoadSegment {
+                    source_file: "caboose".into(),
+                    data: vec![0xFF; caboose.size as usize],
+                },
+            );
+        }
+
         // If we've done a partial build (which may have included the kernel), bail
         // out here before linking stuff.
         if partial_build {
