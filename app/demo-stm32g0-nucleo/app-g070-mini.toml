@@ -1,0 +1,33 @@
+# Tiny G0 image, useful for making small Humility archives
+name = "demo-stm32g070-nucleo"
+target = "thumbv6m-none-eabi"
+chip = "../../chips/stm32g0"
+memory = "memory-g070.toml"
+board = "stm32g070"
+stacksize = 944
+
+[kernel]
+name = "demo-stm32g0-nucleo"
+requires = {flash = 18048, ram = 1632}
+features = ["g070"]
+stacksize = 640
+
+[caboose]
+region = "flash"
+size = 128
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 4096, ram = 512}
+start = true
+features = ["log-null"]
+stacksize = 352
+notifications = ["fault", "timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 128, ram = 64}
+stacksize = 64
+start = true

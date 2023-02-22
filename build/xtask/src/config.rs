@@ -76,6 +76,7 @@ struct RawConfig {
     #[serde(default)]
     secure_task: Option<String>,
     auxflash: Option<AuxFlash>,
+    caboose: Option<CabooseConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +104,13 @@ pub struct Config {
     pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
+    pub caboose: Option<CabooseConfig>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CabooseConfig {
+    pub region: String,
+    pub size: u32,
 }
 
 impl Config {
@@ -219,6 +227,7 @@ impl Config {
             patches: None,
             secure_task: toml.secure_task,
             dice_mfg,
+            caboose: toml.caboose,
         })
     }
 
