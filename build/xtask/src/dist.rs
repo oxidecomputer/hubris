@@ -1045,6 +1045,12 @@ fn update_image_header(
                     epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
                     total_image_len: len as u32,
+                    caboose_size: cfg
+                        .toml
+                        .caboose
+                        .as_ref()
+                        .map(|c| c.size)
+                        .unwrap_or(0),
                     ..Default::default()
                 };
 
