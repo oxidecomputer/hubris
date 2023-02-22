@@ -478,7 +478,7 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
-    ReadHeader = 6,
+    ReadCaboosePos = 6,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -491,7 +491,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
-            6 => Ok(Self::ReadHeader),
+            6 => Ok(Self::ReadCaboosePos),
             _ => Err(()),
         }
     }
@@ -518,7 +518,6 @@ pub struct ImageHeader {
     pub sau_entries: [SAUEntry; 8],
     pub version: u32,
     pub epoch: u32,
-    pub caboose_size: u32,
 }
 
 // Corresponds to the ARM vector table, limited to what we need

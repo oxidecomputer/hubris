@@ -338,12 +338,16 @@ pub fn package(
         // Add an empty output section for the caboose
         if let Some(caboose) = &cfg.toml.caboose {
             let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
-            // BTreeMap<u32, LoadSegment>,
+            // The final word in the caboose is the caboose length, so that we
+            // can decode the caboose start by looking at it
+            let mut caboose_data = vec![0xFF; caboose.size as usize];
+            caboose_data[caboose.size as usize - 4..]
+                .copy_from_slice(&caboose.size.to_le_bytes());
             all_output_sections.insert(
                 caboose_range.start,
                 LoadSegment {
                     source_file: "caboose".into(),
-                    data: vec![0xFF; caboose.size as usize],
+                    data: caboose_data,
                 },
             );
         }
@@ -1045,12 +1049,6 @@ fn update_image_header(
                     epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
                     total_image_len: len as u32,
-                    caboose_size: cfg
-                        .toml
-                        .caboose
-                        .as_ref()
-                        .map(|c| c.size)
-                        .unwrap_or(0),
                     ..Default::default()
                 };
 

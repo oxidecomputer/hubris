@@ -30,7 +30,9 @@ pub fn handle_kernel_message(
             read_image_id(tasks, caller, args.response?)
         }
         Ok(Kipcnum::Reset) => reset(tasks, caller, args.message?),
-        Ok(Kipcnum::ReadHeader) => read_header(tasks, caller, args.response?),
+        Ok(Kipcnum::ReadCaboosePos) => {
+            read_caboose_pos(tasks, caller, args.response?)
+        }
         Err(_) => {
             // Task has sent an unknown message to the kernel. That's bad.
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
@@ -213,17 +215,32 @@ fn read_image_id(
     Ok(NextTask::Same)
 }
 
-fn read_header(
+fn read_caboose_pos(
     tasks: &mut [Task],
     caller: usize,
     response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
-    // SAFETY: populated by the build system
+    // TODO YOLO?
     let header = unsafe { crate::header::HEADER.assume_init_ref() };
+
+    // The end-of-image position is given as an image length, so we need to
+    // apply it as an offset to the start-of-image.
+    extern "C" {
+        static __start_vector: u8;
+    }
+    let caboose_size: u32 = unsafe {
+        core::ptr::read_volatile(
+            ((&__start_vector) as *const u8)
+                .add(header.total_image_len as usize - 4)
+                as *const u32,
+        )
+    };
     let response_len =
-        serialize_response(&mut tasks[caller], response, header)?;
+        serialize_response(&mut tasks[caller], response, &caboose_size)?;
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
 }
+
+
