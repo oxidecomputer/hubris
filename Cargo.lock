@@ -2295,6 +2295,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubtools"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/hubtools#324d0ecf0ed5ec1785538e1cb5a49718ad52e444"
+dependencies = [
+ "anyhow",
+ "srec",
+ "zip",
+]
+
+[[package]]
 name = "humpty"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/humpty#bcb02bd530beadd296a3a80b0ec2c4dbc00403c1"
@@ -4911,6 +4921,7 @@ dependencies = [
  "fnv",
  "gnarle",
  "goblin",
+ "hubtools",
  "indexmap",
  "lpc55_areas",
  "lpc55_sign",
@@ -4924,7 +4935,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
- "srec",
  "strsim",
  "tlvc",
  "tlvc-text",
