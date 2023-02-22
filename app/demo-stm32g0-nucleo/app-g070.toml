@@ -7,7 +7,7 @@ stacksize = 944
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 18048, ram = 1632}
+requires = {flash = 18248, ram = 1632}
 features = ["g070"]
 stacksize = 640
 
