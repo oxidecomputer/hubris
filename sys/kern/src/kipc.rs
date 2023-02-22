@@ -242,5 +242,3 @@ fn read_caboose_pos(
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
 }
-
-
