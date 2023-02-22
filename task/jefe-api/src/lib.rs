@@ -8,6 +8,8 @@
 
 use serde::{Deserialize, Serialize};
 use userlib::*;
+use humpty::DumpAreaHeader;
+use derive_idol_err::IdolError;
 
 /// Platform-agnostic (but heavily influenced) reset status bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,6 +25,13 @@ pub enum ResetReason {
     ExitStandby,
     Other(u32),
     Unknown, // TODO remove and use `Option<ResetReason>` once we switch to hubpack
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[repr(C)]
+pub enum DumpAreaHeaderError {
+    InvalidIndex = 1,
+    AlreadyInUse,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

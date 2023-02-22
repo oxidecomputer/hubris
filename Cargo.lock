@@ -2330,9 +2330,10 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#bcb02bd530beadd296a3a80b0ec2c4dbc00403c1"
 dependencies = [
+ "hubpack",
  "lzss",
+ "serde",
  "static_assertions",
  "zerocopy",
 ]
@@ -3890,6 +3891,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -4007,7 +4009,10 @@ dependencies = [
  "build-util",
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
+ "dump-agent-api",
+ "hubpack",
  "hubris-num-tasks",
+ "humpty",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -4024,6 +4029,8 @@ name = "task-jefe-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "hubpack",
+ "humpty",
  "idol",
  "num-traits",
  "serde",

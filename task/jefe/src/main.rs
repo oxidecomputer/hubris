@@ -31,8 +31,12 @@ mod external;
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
-use task_jefe_api::ResetReason;
+use humpty::{DumpArea, DumpAreaHeader};
+use task_jefe_api::{ResetReason, DumpAreaHeaderError};
+use dump_agent_api::{DUMP_AGENT_VERSION, DUMP_AGENT_TASKS, DUMP_AGENT_SYSTEM};
+use idol_runtime::RequestError;
 use userlib::*;
+use ringbuf::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
     match fault {
@@ -132,6 +136,7 @@ fn main() -> ! {
         deadline,
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
+        dump_areas: None,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -145,13 +150,25 @@ struct ServerImpl<'s> {
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
+    dump_areas: Option<u32>,
 }
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Initialized,
+    GetDumpAreaHeader(u8),
+    Base(u32),
+    Header(DumpAreaHeader),
+}
+
+ringbuf!(Trace, 8, Trace::None);
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn request_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         // If we wanted to broadcast to other tasks that a restart is occuring
         // here is where we would do so!
         kipc::system_restart();
@@ -160,7 +177,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn get_reset_reason(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<ResetReason, idol_runtime::RequestError<Infallible>> {
+    ) -> Result<ResetReason, RequestError<Infallible>> {
         Ok(self.reset_reason)
     }
 
@@ -168,7 +185,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
         reason: ResetReason,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.reset_reason = reason;
         Ok(())
     }
@@ -176,7 +193,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn get_state(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<u32, idol_runtime::RequestError<Infallible>> {
+    ) -> Result<u32, RequestError<Infallible>> {
         Ok(self.state)
     }
 
@@ -184,7 +201,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
         state: u32,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         if self.state != state {
             self.state = state;
 
@@ -195,6 +212,80 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 sys_post(taskid, mask);
             }
         }
+        Ok(())
+    }
+
+    fn get_dump_area_header(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u8,
+        readonly: bool
+    ) -> Result<DumpAreaHeader, RequestError<DumpAreaHeaderError>> {
+        ringbuf_entry!(Trace::GetDumpAreaHeader(index));
+
+        if let Some(base) = self.dump_areas {
+            ringbuf_entry!(Trace::Base(base));
+
+            if let Some(header) = humpty::get_dump_area_header(base, index) {
+                let h = (*header).clone();
+
+                ringbuf_entry!(Trace::Header(h));
+                return Ok(h);
+
+/*
+                return Ok(DumpAreaHeader { 
+                magic: [1, 2, 3, 4],
+                address: 12,
+                nsegments: 0,
+                written: 18,
+                length: 4,
+                agent_version: 1,
+                dumper_version: 2,
+                next: 0,
+                });
+*/
+
+
+/*
+                return Ok(h);
+
+                if readonly {
+                    return Ok(*header);
+                }
+
+                if header.agent_version == DUMP_AGENT_VERSION {
+                    humpty::set_agent::<DUMP_AGENT_SYSTEM>(header);
+                    return Ok(*header);
+                }
+
+                return Err(DumpAreaHeaderError::AlreadyInUse.into());
+*/
+            }
+        }
+
+        Err(DumpAreaHeaderError::InvalidIndex.into())
+    }
+
+    fn initialize_dump_areas(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+        self.dump_areas = humpty::initialize_dump_areas::<DUMP_AGENT_VERSION>(&[
+            DumpArea {
+                address: 0x30020000,
+                length: 0x20000,
+            },
+            DumpArea {
+                address: 0x30040000,
+                length: 0x8000,
+            },
+            DumpArea {
+                address: 0x38000000,
+                length: 0x10000,
+            },
+        ]);
+
+        ringbuf_entry!(Trace::Initialized);
         Ok(())
     }
 }
@@ -271,6 +362,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::ResetReason;
+    use task_jefe_api::{ResetReason, DumpAreaHeaderError};
+    use humpty::DumpAreaHeader;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

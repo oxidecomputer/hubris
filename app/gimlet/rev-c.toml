@@ -12,11 +12,12 @@ requires = {flash = 32768, ram = 8192}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+uses = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -292,7 +293,7 @@ name = "task-dump-agent"
 priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
-task-slots = ["sprot"]
+task-slots = ["sprot", "jefe"]
 stacksize = 1200
 uses = [ "sram2", "sram3", "sram4" ]
 

@@ -8,6 +8,8 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
+hubpack = { workspace = true }
+humpty = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }

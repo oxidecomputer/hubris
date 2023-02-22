@@ -11,6 +11,7 @@ use core::mem::size_of;
 use dump_agent_api::*;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
+use task_jefe_api::Jefe;
 use userlib::*;
 
 //
@@ -27,40 +28,27 @@ struct ServerImpl {
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
 
+task_slot!(JEFE, jefe);
+
 impl ServerImpl {
     fn initialize(&self) {
-        let mut next = 0;
-
-        for area in self.areas.iter().rev() {
-            unsafe {
-                let header = area.address as *mut DumpAreaHeader;
-
-                //
-                // We initialize our dump header with deliberately bad magic
-                // to prevent any dumps until we have everything initialized
-                //
-                (*header) = DumpAreaHeader {
-                    magic: DUMP_UNINITIALIZED,
-                    address: area.address,
-                    nsegments: 0,
-                    written: size_of::<DumpAreaHeader>() as u32,
-                    length: area.length,
-                    agent_version: DUMP_AGENT_VERSION,
-                    dumper_version: DUMPER_NONE,
-                    next,
-                }
-            }
-
-            next = area.address;
-        }
-
-        for area in &self.areas {
-            unsafe {
-                let header = area.address as *mut DumpAreaHeader;
-                (*header).magic = DUMP_MAGIC;
-            }
-        }
+        let jefe = Jefe::from(JEFE.get_task_id());
+        jefe.initialize_dump_areas();
     }
+
+/*
+    fn get_area(
+        &self,
+        index: u8,
+        readonly: bool
+    ) -> Result<DumpArea, DumpAgentError> {
+        let jefe = Jefe::from(JEFE.get_task_id());
+        match jefe.get_dump_area_header(index, readonly) {
+            Ok(header) => Ok(DumpHeader {
+                address: header.
+        
+    }
+*/
 
     fn add_dump_segment(
         &mut self,
@@ -68,7 +56,7 @@ impl ServerImpl {
         length: u32,
     ) -> Result<(), DumpAgentError> {
         let area = self.areas[0];
-
+        
         unsafe {
             let header = area.address as *mut DumpAreaHeader;
 
@@ -106,6 +94,9 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         _msg: &RecvMessage,
         index: u8,
     ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+//        match self.get_area(index, false
+
+
         if index as usize >= self.areas.len() {
             Err(DumpAgentError::InvalidArea.into())
         } else {
@@ -182,6 +173,8 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         if offset & ((rval.len() as u32) - 1) != 0 {
             return Err(DumpAgentError::UnalignedOffset.into());
         }
+
+        // let area = self.get_area(index, Area::ReadOnly);
 
         let area = self
             .areas

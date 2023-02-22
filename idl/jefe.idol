@@ -33,5 +33,21 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "get_dump_area_header": (
+            args: {
+                "index": "u8",
+                "readonly": "bool",
+            },
+            reply: Result(
+                ok: "DumpAreaHeader",
+                err: CLike("DumpAreaHeaderError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "initialize_dump_areas": (
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )
