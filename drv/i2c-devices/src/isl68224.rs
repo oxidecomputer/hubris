@@ -84,13 +84,13 @@ impl Isl68224 {
     pub fn turn_off(&self) -> Result<(), Error> {
         let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
         op.set_on_off_state(OPERATION::OnOffState::Off);
-        pmbus_write!(self.device, OPERATION, op)
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 
     pub fn turn_on(&self) -> Result<(), Error> {
         let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
         op.set_on_off_state(OPERATION::OnOffState::On);
-        pmbus_write!(self.device, OPERATION, op)
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 }
 

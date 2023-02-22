@@ -428,7 +428,6 @@ impl I2cDevice {
     /// in fact overwrite the contents of the first two registers.)
     ///
     pub fn read<V: AsBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
-        let empty = [0u8; 1];
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
@@ -442,7 +441,7 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
+            &[Lease::read_only(&[]), Lease::from(val.as_bytes_mut())],
         );
 
         if code != 0 {
@@ -459,7 +458,6 @@ impl I2cDevice {
     /// the specified mutable slice, returning the number of bytes read.
     ///
     pub fn read_into(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
-        let empty = [0u8; 1];
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -472,7 +470,7 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(&empty[0..0]), Lease::from(buf)],
+            &[Lease::read_only(&[]), Lease::from(buf)],
         );
 
         if code != 0 {
@@ -488,7 +486,6 @@ impl I2cDevice {
     /// perform any follow-up reads.
     ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
-        let empty = [0u8; 1];
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -501,7 +498,7 @@ impl I2cDevice {
                 self.segment,
             )),
             response.as_bytes_mut(),
-            &[Lease::from(buffer), Lease::from(&empty[0..0])],
+            &[Lease::from(buffer), Lease::read_only(&[])],
         );
 
         if code != 0 {
@@ -527,7 +524,6 @@ impl I2cDevice {
     ) -> Result<V, ResponseCode> {
         let mut val = V::new_zeroed();
         let mut response = 0_usize;
-        let empty = [0u8; 1];
 
         let (code, _) = sys_send(
             self.task,
@@ -541,7 +537,7 @@ impl I2cDevice {
             response.as_bytes_mut(),
             &[
                 Lease::from(buffer),
-                Lease::from(&empty[0..0]),
+                Lease::read_only(&[]),
                 Lease::from(reg.as_bytes()),
                 Lease::from(val.as_bytes_mut()),
             ],
@@ -567,8 +563,6 @@ impl I2cDevice {
         first: &[u8],
         second: &[u8],
     ) -> Result<(), ResponseCode> {
-        let empty1 = [0u8; 1];
-        let empty2 = [0u8; 1];
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -583,9 +577,9 @@ impl I2cDevice {
             response.as_bytes_mut(),
             &[
                 Lease::from(first),
-                Lease::from(&empty1[0..0]),
+                Lease::read_only(&[]),
                 Lease::from(second),
-                Lease::from(&empty2[0..0]),
+                Lease::read_only(&[]),
             ],
         );
 
