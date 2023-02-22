@@ -81,6 +81,5 @@ pub fn read_header() -> abi::ImageHeader {
         &[],
     );
     assert_eq!(rc, 0);
-    assert_eq!(len, 8); // we *really* expect this to be 2x u32
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
