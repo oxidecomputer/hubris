@@ -73,7 +73,11 @@ impl Raa229618 {
     pub fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
         Ok(match self.mode.get() {
             None => {
-                let mode = pmbus_read!(self.device, commands::VOUT_MODE)?;
+                let mode = pmbus_rail_read!(
+                    self.device,
+                    self.rail,
+                    commands::VOUT_MODE
+                )?;
                 self.mode.set(Some(mode));
                 mode
             }
@@ -81,23 +85,16 @@ impl Raa229618 {
         })
     }
 
-    fn set_rail(&self) -> Result<(), Error> {
-        let page = PAGE::CommandData(self.rail);
-        pmbus_write!(self.device, PAGE, page)
-    }
-
     pub fn turn_off(&mut self) -> Result<(), Error> {
-        self.set_rail()?;
-        let mut operation = pmbus_read!(self.device, OPERATION)?;
-        operation.set_on_off_state(OPERATION::OnOffState::Off);
-        pmbus_write!(self.device, OPERATION, operation)
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::Off);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 
     pub fn turn_on(&mut self) -> Result<(), Error> {
-        self.set_rail()?;
-        let mut operation = pmbus_read!(self.device, OPERATION)?;
-        operation.set_on_off_state(OPERATION::OnOffState::On);
-        pmbus_write!(self.device, OPERATION, operation)
+        let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
+        op.set_on_off_state(OPERATION::OnOffState::On);
+        pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
 
     pub fn set_vout(&mut self, value: Volts) -> Result<(), Error> {
@@ -106,10 +103,9 @@ impl Raa229618 {
                 err: pmbus::Error::ValueOutOfRange,
             })
         } else {
-            self.set_rail()?;
             let mut vout = VOUT_COMMAND::CommandData(0);
             vout.set(self.read_mode()?, pmbus::units::Volts(value.0))?;
-            pmbus_write!(self.device, VOUT_COMMAND, vout)
+            pmbus_rail_write!(self.device, self.rail, VOUT_COMMAND, vout)
         }
     }
 }
@@ -124,24 +120,21 @@ impl Validate<Error> for Raa229618 {
 
 impl VoltageSensor<Error> for Raa229618 {
     fn read_vout(&self) -> Result<Volts, Error> {
-        self.set_rail()?;
-        let vout = pmbus_read!(self.device, READ_VOUT)?;
+        let vout = pmbus_rail_read!(self.device, self.rail, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }
 
 impl TempSensor<Error> for Raa229618 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        self.set_rail()?;
-        let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
-        Ok(Celsius(temp.get()?.0))
+        let t = pmbus_rail_read!(self.device, self.rail, READ_TEMPERATURE_1)?;
+        Ok(Celsius(t.get()?.0))
     }
 }
 
 impl CurrentSensor<Error> for Raa229618 {
     fn read_iout(&self) -> Result<Amperes, Error> {
-        self.set_rail()?;
-        let iout = pmbus_read!(self.device, READ_IOUT)?;
+        let iout = pmbus_rail_read!(self.device, self.rail, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
     }
 }

@@ -76,6 +76,50 @@ macro_rules! pmbus_read {
     };
 }
 
+macro_rules! pmbus_rail_read {
+    ($device:expr, $rail:expr, $cmd:ident) => {{
+        let payload = [PAGE::CommandData::code(), $rail];
+
+        match $cmd::CommandData::from_slice(&match $device
+            .write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
+                $cmd::CommandData::code(),
+                &payload,
+            ) {
+            Ok(rval) => Ok(rval),
+            Err(code) => Err(Error::BadRead {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+        }?) {
+            Some(data) => Ok(data),
+            None => Err(Error::BadData {
+                cmd: $cmd::CommandData::code(),
+            }),
+        }
+    }};
+
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
+        let payload = [$dev::PAGE::CommandData::code(), $rail];
+
+        match $dev::$cmd::CommandData::from_slice(&match $device
+            .write_read_reg::<u8, [u8; $dev::$cmd::CommandData::len()]>(
+                $dev::$cmd::CommandData::code(),
+                &payload,
+            ) {
+            Ok(rval) => Ok(rval),
+            Err(code) => Err(Error::BadRead {
+                cmd: $dev::$cmd::CommandData::code(),
+                code,
+            }),
+        }?) {
+            Some(data) => Ok(data),
+            None => Err(Error::BadData {
+                cmd: $dev::$cmd::CommandData::code(),
+            }),
+        }
+    }};
+}
+
 macro_rules! pmbus_write {
     ($device:expr, $dev:ident::$cmd:ident, $data:expr) => {{
         let mut payload = [0u8; $dev::$cmd::CommandData::len() + 1];
@@ -97,6 +141,40 @@ macro_rules! pmbus_write {
         $data.to_slice(&mut payload[1..]);
 
         match $device.write(&payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+}
+
+macro_rules! pmbus_rail_write {
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
+        let rpayload = [$dev::PAGE::CommandData::code(), $rail];
+
+        let mut payload = [0u8; $dev::$cmd::CommandData::len() + 1];
+        payload[0] = $dev::$cmd::CommandData::code();
+        $data.to_slice(&mut payload[1..]);
+
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $dev::$cmd::CommandData::code(),
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+
+    ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
+        let rpayload = [PAGE::CommandData::code(), $rail];
+
+        let mut payload = [0u8; $cmd::CommandData::len() + 1];
+        payload[0] = $cmd::CommandData::code();
+        $data.to_slice(&mut payload[1..]);
+
+        match $device.write_write(&rpayload, &payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $cmd::CommandData::code(),
                 code,

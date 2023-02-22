@@ -126,10 +126,8 @@ impl Sbrmi {
     }
 
     fn read_reg(&self, reg: Register) -> Result<u8, Error> {
-        match self.device.read_reg::<u8, u8>(reg.into()) {
-            Ok(buf) => Ok(buf),
-            Err(code) => Err(Error::BadRegisterRead { reg, code }),
-        }
+        self.device.read_reg::<u8, u8>(reg.into())
+            .map_err(|code| Error::BadRegisterRead { reg, code })
     }
 
     pub fn nthreads(&self) -> Result<u8, Error> {
@@ -189,6 +187,17 @@ impl Sbrmi {
         //   0x52      MceStat[3:0] = Threads[114,98,82,66]
         //   0x53      MceStat[3:0] = Threads[115,99,83,67]
         //   0x54      MceStat[3:0] = Threads[116,100,84,68]
+        //   0x55      MceStat[3:0] = Threads[117,101,85,69]
+        //   0x56      MceStat[3:0] = Threads[118,102,86,70]
+        //   0x57      MceStat[3:0] = Threads[119,103,87,71]
+        //   0x58      MceStat[3:0] = Threads[120,104,88,72]
+        //   0x59      MceStat[3:0] = Threads[121,105,89,73]
+        //   0x5A      MceStat[3:0] = Threads[122,106,90,74]
+        //   0x5B      MceStat[3:0] = Threads[123,107,91,75]
+        //   0x5C      MceStat[3:0] = Threads[124,108,92,76]
+        //   0x5D      MceStat[3:0] = Threads[125,109,93,77]
+        //   0x5E      MceStat[3:0] = Threads[126,110,94,78]
+        //   0x5F      MceStat[3:0] = Threads[127,111,95,79]
         //
         let mut rval = [0u8; 16];
         let banksize = 16usize;
@@ -225,9 +234,7 @@ impl Sbrmi {
         ecx: u32,
     ) -> Result<CpuidResult, Error> {
         let eax = eax.to_le_bytes();
-        let mut rval = CpuidResult {
-            ..Default::default()
-        };
+        let mut rval: CpuidResult = Default::default();
 
         if (thread >> 7) != 0 {
             return Err(Error::BadThreadId);

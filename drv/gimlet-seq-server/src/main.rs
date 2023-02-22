@@ -47,7 +47,6 @@ enum Trace {
     RailsOff,
     Ident(u16),
     A1Status(u8),
-    A2LeaseSleep(u16),
     A2,
     A1Power(u8, u8),
     A0Power(u8),
@@ -82,7 +81,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 100, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -359,7 +358,6 @@ fn main() -> ! {
         jefe,
         hf,
         deadline: 0,
-        lease_expiration: None,
     };
 
     // Power on, unless suppressed by the `stay-in-a2` feature
@@ -393,20 +391,9 @@ struct ServerImpl<S: SpiServer> {
     jefe: Jefe,
     hf: hf_api::HostFlash,
     deadline: u64,
-    lease_expiration: Option<u64>,
 }
 
 const TIMER_INTERVAL: u64 = 10;
-
-//
-// The length (in milliseconds)) of the RAA229618 lease that we extend to the
-// power task.  This needs should be long enough that it can get meaningful
-// work done (and in particular, we set it long enough that it likely only
-// needs one lease per second).  (When we transition from A0 to A2, we will
-// wait long enough for any lease to expire before we explicitly turn the
-// rails off.)
-//
-const LEASE_LENGTH: u64 = 100;
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
@@ -629,21 +616,6 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 hl::sleep_for(1);
 
-                //
-                // Before we explicitly disable the rails, we need to make
-                // sure that any leases have expired.  To give ourselves
-                // plenty of room here, we wait for twice our lease length.
-                //
-                if let Some(expiration) = self.lease_expiration {
-                    let now = sys_get_timer().now;
-
-                    if now < expiration + LEASE_LENGTH {
-                        let sleep = expiration + LEASE_LENGTH - now;
-                        ringbuf_entry!(Trace::A2LeaseSleep(sleep as u16));
-                        hl::sleep_for(sleep);
-                    }
-                }
-
                 vcore_soc_off();
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
@@ -768,15 +740,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         hl::sleep_for(25);
         self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
         Ok(())
-    }
-
-    fn lease_devices(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<u64, RequestError<SeqError>> {
-        let expiration = sys_get_timer().now + LEASE_LENGTH;
-        self.lease_expiration = Some(expiration);
-        Ok(expiration)
     }
 }
 
