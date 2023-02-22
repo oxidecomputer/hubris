@@ -425,10 +425,11 @@ impl I2cController<'_> {
         // sleep for two milliseconds -- and we do not want to hit that
         // delay on otherwise functional systems!  (If, on the other hand,
         // the threshold is too high and the controller is hung, we will
-        // consume more CPU than we would otherwise.)
+        // consume more CPU than we would otherwise -- a relatively benign
+        // failure mode for a condition expected to be unusual.)
         //
-        let mut laps = 0;
         const BUSY_SLEEP_THRESHOLD: u32 = 300;
+        let mut laps = 0;
 
         loop {
             let isr = i2c.isr.read();

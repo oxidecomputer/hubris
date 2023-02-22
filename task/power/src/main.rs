@@ -37,7 +37,7 @@ enum PowerState {
     A2,
 }
 
-const TIMER_INTERVAL: u64 = 1;
+const TIMER_INTERVAL: u64 = 1000;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -547,11 +547,6 @@ impl ServerImpl {
         let sensor = &self.sensor;
 
         for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
-            match dev {
-                Device::Raa229618(_) => {}
-                _ => continue,
-            }
-
             if c.state == PowerState::A0 && state != PowerState::A0 {
                 let now = sys_get_timer().now;
                 sensor.nodata(c.voltage, NoData::DeviceOff, now).unwrap();
