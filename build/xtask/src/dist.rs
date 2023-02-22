@@ -19,7 +19,7 @@ use path_slash::PathBufExt;
 use zerocopy::AsBytes;
 
 use crate::{
-    config::{BuildConfig, Config, ConfigPatches},
+    config::{BuildConfig, CabooseConfig, Config, ConfigPatches},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -278,7 +278,8 @@ pub fn package(
         .collect::<Result<_, _>>()?;
 
     // Allocate memories.
-    let allocated = allocate_all(&cfg.toml, &task_sizes)?;
+    let allocated =
+        allocate_all(&cfg.toml, &task_sizes, cfg.toml.caboose.as_ref())?;
 
     for image_name in &cfg.toml.image_names {
         // Build each task.
@@ -1589,6 +1590,8 @@ pub struct Allocations {
     pub kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
     pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    /// Optional trailing caboose, located in the given region
+    pub caboose: Option<(String, Range<u32>)>,
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -1628,6 +1631,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
+    caboose: Option<&CabooseConfig>,
 ) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1749,6 +1753,23 @@ pub fn allocate_all(
                 // Panic here because otherwise it's a hang.
                 panic!("loop iteration without progess made!");
             }
+        }
+
+        if let Some(caboose) = caboose {
+            if toml.tasks.contains_key("caboose") {
+                bail!("cannot have both a caboose and a task named 'caboose'");
+            }
+            if !caboose.size.is_power_of_two() {
+                bail!("caboose size must be a power of two");
+            }
+            let avail = free.get_mut(&caboose.region).ok_or_else(|| {
+                anyhow!("could not find caboose region {}", caboose.region)
+            })?;
+            let align = toml.task_memory_alignment(caboose.size);
+            allocs.caboose = Some((
+                caboose.region.clone(),
+                allocate_one(&caboose.region, caboose.size, align, avail)?,
+            ));
         }
 
         result.insert(image_name.to_string(), (allocs, free));
