@@ -126,7 +126,8 @@ impl Sbrmi {
     }
 
     fn read_reg(&self, reg: Register) -> Result<u8, Error> {
-        self.device.read_reg::<u8, u8>(reg.into())
+        self.device
+            .read_reg::<u8, u8>(reg.into())
             .map_err(|code| Error::BadRegisterRead { reg, code })
     }
 
