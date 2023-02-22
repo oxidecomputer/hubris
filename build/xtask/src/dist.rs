@@ -385,6 +385,9 @@ pub fn package(
         translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
+            if cfg.toml.caboose.is_some() {
+                bail!("cannot sign an image with a caboose");
+            }
             let rkth = lpc55_sign::signed_image::sign_chain(
                 &cfg.img_file("combined.bin", image_name),
                 Some(&cfg.app_src_dir),
