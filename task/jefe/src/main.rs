@@ -31,8 +31,8 @@ mod external;
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
-use humpty::{DumpArea, DumpAreaHeader};
-use task_jefe_api::{ResetReason, DumpAreaHeaderError};
+use humpty::DumpArea;
+use task_jefe_api::{ResetReason, DumpAgentError};
 use dump_agent_api::{DUMP_AGENT_VERSION, DUMP_AGENT_TASKS, DUMP_AGENT_SYSTEM};
 use idol_runtime::RequestError;
 use userlib::*;
@@ -157,9 +157,9 @@ struct ServerImpl<'s> {
 enum Trace {
     None,
     Initialized,
-    GetDumpAreaHeader(u8),
+    GetDumpArea(u8),
     Base(u32),
-    Header(DumpAreaHeader),
+    GetDumpAreaFailed(humpty::DumpError<()>),
 }
 
 ringbuf!(Trace, 8, Trace::None);
@@ -215,55 +215,39 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    fn get_dump_area_header(
+    fn get_dump_area(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u8,
         readonly: bool
-    ) -> Result<DumpAreaHeader, RequestError<DumpAreaHeaderError>> {
-        ringbuf_entry!(Trace::GetDumpAreaHeader(index));
+    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+        ringbuf_entry!(Trace::GetDumpArea(index));
 
         if let Some(base) = self.dump_areas {
             ringbuf_entry!(Trace::Base(base));
 
-            if let Some(header) = humpty::get_dump_area_header(base, index) {
-                let h = (*header).clone();
+            match humpty::get_dump_area(
+                base,
+                index,
+                |addr, buf| {
+                    let src = unsafe {
+                        core::slice::from_raw_parts(addr as *const u8, buf.len())
+                    };
 
-                ringbuf_entry!(Trace::Header(h));
-                return Ok(h);
-
-/*
-                return Ok(DumpAreaHeader { 
-                magic: [1, 2, 3, 4],
-                address: 12,
-                nsegments: 0,
-                written: 18,
-                length: 4,
-                agent_version: 1,
-                dumper_version: 2,
-                next: 0,
-                });
-*/
-
-
-/*
-                return Ok(h);
-
-                if readonly {
-                    return Ok(*header);
+                    buf.copy_from_slice(src);
+                    Ok(())
+                }
+            ) {
+                Err(e) => {
+                    ringbuf_entry!(Trace::GetDumpAreaFailed(e));
+                    Err(DumpAgentError::InvalidArea.into())
                 }
 
-                if header.agent_version == DUMP_AGENT_VERSION {
-                    humpty::set_agent::<DUMP_AGENT_SYSTEM>(header);
-                    return Ok(*header);
-                }
-
-                return Err(DumpAreaHeaderError::AlreadyInUse.into());
-*/
+                Ok(hdr) => Ok(hdr)
             }
+        } else {
+            Err(DumpAgentError::NoDumpAreas.into())
         }
-
-        Err(DumpAreaHeaderError::InvalidIndex.into())
     }
 
     fn initialize_dump_areas(
@@ -362,7 +346,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{ResetReason, DumpAreaHeaderError};
-    use humpty::DumpAreaHeader;
+    use task_jefe_api::{ResetReason, DumpAgentError};
+    use humpty::DumpArea;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -8,8 +8,9 @@
 
 use serde::{Deserialize, Serialize};
 use userlib::*;
-use humpty::DumpAreaHeader;
+use humpty::DumpArea;
 use derive_idol_err::IdolError;
+pub use dump_agent_api::DumpAgentError;
 
 /// Platform-agnostic (but heavily influenced) reset status bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,7 +30,7 @@ pub enum ResetReason {
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 #[repr(C)]
-pub enum DumpAreaHeaderError {
+pub enum DumpAreaError {
     InvalidIndex = 1,
     AlreadyInUse,
 }

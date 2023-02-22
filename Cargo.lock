@@ -4029,6 +4029,7 @@ name = "task-jefe-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "dump-agent-api",
  "hubpack",
  "humpty",
  "idol",
