@@ -514,6 +514,7 @@ pub struct ImageHeader {
     pub sau_entries: [SAUEntry; 8],
     pub version: u32,
     pub epoch: u32,
+    pub caboose_size: u32,
 }
 
 // Corresponds to the ARM vector table, limited to what we need
