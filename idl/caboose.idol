@@ -1,0 +1,15 @@
+// API for the Caboose reader task
+Interface(
+    name: "Caboose",
+    ops: {
+        "caboose_addr": (
+            doc: "reads the caboose address from the kernel",
+            reply: Result(
+                ok: "u32",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+    }
+)
+
