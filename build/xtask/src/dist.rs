@@ -320,22 +320,11 @@ pub fn package(
         let s =
             secure_update(&cfg, allocs, &mut all_output_sections, image_name)?;
 
-        // Build the kernel!
-        let kern_build = if tasks_to_build.contains("kernel") {
-            Some(build_kernel(
-                &cfg,
-                allocs,
-                &mut all_output_sections,
-                &cfg.toml.memories(image_name)?,
-                &entry_points,
-                image_name,
-                &s,
-            )?)
-        } else {
-            None
-        };
-
         // Add an empty output section for the caboose
+        //
+        // This has to be done before building the kernel, because the caboose
+        // is included in the total image size that's patched into the kernel
+        // header.
         if let Some(caboose) = &cfg.toml.caboose {
             let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
             // The final word in the caboose is the caboose length, so that we
@@ -351,6 +340,21 @@ pub fn package(
                 },
             );
         }
+
+        // Build the kernel!
+        let kern_build = if tasks_to_build.contains("kernel") {
+            Some(build_kernel(
+                &cfg,
+                allocs,
+                &mut all_output_sections,
+                &cfg.toml.memories(image_name)?,
+                &entry_points,
+                image_name,
+                &s,
+            )?)
+        } else {
+            None
+        };
 
         // If we've done a partial build (which may have included the kernel), bail
         // out here before linking stuff.

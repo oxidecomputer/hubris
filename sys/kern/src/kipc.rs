@@ -228,15 +228,19 @@ fn read_caboose_pos(
     extern "C" {
         static __start_vector: u8;
     }
-    let caboose_size: u32 = unsafe {
-        core::ptr::read_volatile(
-            ((&__start_vector) as *const u8)
-                .add(header.total_image_len as usize - 4)
-                as *const u32,
-        )
-    };
-    let response_len =
-        serialize_response(&mut tasks[caller], response, &caboose_size)?;
+    let image_start = unsafe { &__start_vector } as *const u8 as u32;
+    let image_end = image_start + header.total_image_len;
+
+    // The caboose records its own size in its last word.  The recorded size is
+    // **inclusive** of this word.
+    let caboose_size: u32 =
+        unsafe { core::ptr::read_volatile((image_end - 4) as *const u32) };
+
+    let response_len = serialize_response(
+        &mut tasks[caller],
+        response,
+        &(image_end - caboose_size),
+    )?;
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);
