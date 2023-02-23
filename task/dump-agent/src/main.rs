@@ -21,9 +21,7 @@ use userlib::*;
 const_assert!(DUMP_READ_SIZE & (DUMP_READ_SIZE - 1) == 0);
 const_assert!(DUMP_READ_SIZE <= 1024);
 
-struct ServerImpl {
-    areas: [DumpArea; 3],
-}
+struct ServerImpl;
 
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
@@ -36,55 +34,39 @@ impl ServerImpl {
         jefe.initialize_dump_areas();
     }
 
-/*
-    fn get_area(
+    fn dump_area(
         &self,
         index: u8,
-        readonly: bool
     ) -> Result<DumpArea, DumpAgentError> {
         let jefe = Jefe::from(JEFE.get_task_id());
-        match jefe.get_dump_area_header(index, readonly) {
-            Ok(header) => Ok(DumpHeader {
-                address: header.
-        
+        jefe.get_dump_area(index)
     }
-*/
+
+    fn claim_dump_area(
+        &self,
+    ) -> Result<DumpArea, DumpAgentError> {
+        let jefe = Jefe::from(JEFE.get_task_id());
+        jefe.claim_dump_area()
+    }
 
     fn add_dump_segment(
         &mut self,
         addr: u32,
         length: u32,
     ) -> Result<(), DumpAgentError> {
-        let area = self.areas[0];
-        
-        unsafe {
-            let header = area.address as *mut DumpAreaHeader;
+        let area = self.dump_area(0)?;
 
-            if (*header).magic != DUMP_MAGIC {
-                panic!("bad dump magic!");
-            }
-
-            let nsegments = (*header).nsegments;
-
-            let offset = size_of::<DumpAreaHeader>()
-                + (nsegments as usize) * size_of::<DumpSegmentHeader>();
-            let need = (offset + size_of::<DumpSegmentHeader>()) as u32;
-
-            if need > (*header).length {
-                return Err(DumpAgentError::OutOfSpaceForSegments);
-            }
-
-            let saddr = area.address as usize + offset;
-            let segment = saddr as *mut DumpSegmentHeader;
-
-            (*segment).address = addr;
-            (*segment).length = length;
-
-            (*header).nsegments = nsegments + 1;
-            (*header).written = need;
+        if area.agent != humpty::DumpAgent::Task {
+            self.claim_dump_area()?;
         }
 
-        Ok(())
+        humpty::add_dump_segment(
+            area.address, 
+            addr,
+            length,
+            humpty::from_mem,
+            humpty::to_mem
+        ).map_err(|err| DumpAgentError::BadSegmentAdd)
     }
 }
 
@@ -94,13 +76,9 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         _msg: &RecvMessage,
         index: u8,
     ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-//        match self.get_area(index, false
-
-
-        if index as usize >= self.areas.len() {
-            Err(DumpAgentError::InvalidArea.into())
-        } else {
-            Ok(self.areas[index as usize])
+        match self.dump_area(index) {
+            Ok(area) => Ok(area),
+            Err(err) => Err(err.into())
         }
     }
 
@@ -139,9 +117,15 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
         let mut buf = [0u8; 4];
 
+        let area = self.dump_area(0)?;
+
+        if area.agent != humpty::DumpAgent::Task {
+            return Err(DumpAgentError::UnclaimedDumpArea.into());
+        }
+
         match sprot.send_recv(
             drv_sprot_api::MsgType::DumpReq,
-            &self.areas[0].address.to_le_bytes(),
+            &area.address.to_le_bytes(),
             &mut buf,
         ) {
             Err(_) => Err(DumpAgentError::DumpFailed.into()),
@@ -174,12 +158,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnalignedOffset.into());
         }
 
-        // let area = self.get_area(index, Area::ReadOnly);
-
-        let area = self
-            .areas
-            .get(index as usize)
-            .ok_or(DumpAgentError::InvalidArea)?;
+        let area = self.dump_area(index)?;
 
         let written = unsafe {
             let header = area.address as *mut DumpAreaHeader;
@@ -204,23 +183,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut server = ServerImpl {
-        areas: [
-            DumpArea {
-                address: 0x30020000,
-                length: 0x20000,
-            },
-            DumpArea {
-                address: 0x30040000,
-                length: 0x8000,
-            },
-            DumpArea {
-                address: 0x38000000,
-                length: 0x10000,
-            },
-        ],
-    };
-
+    let mut server = ServerImpl;
     server.initialize();
 
     let mut buffer = [0; idl::INCOMING_SIZE];

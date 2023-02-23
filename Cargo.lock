@@ -3885,6 +3885,7 @@ dependencies = [
  "drv-sprot-api",
  "dump-agent-api",
  "hubpack",
+ "humpty",
  "idol",
  "idol-runtime",
  "num-traits",

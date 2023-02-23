@@ -33,10 +33,13 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "initialize_dump_areas": (
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "get_dump_area": (
             args: {
                 "index": "u8",
-                "readonly": "bool",
             },
             reply: Result(
                 ok: "DumpArea",
@@ -45,8 +48,12 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
-        "initialize_dump_areas": (
-            reply: Simple("()"),
+        "claim_dump_area": (
+            reply: Result(
+                ok: "DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
             idempotent: true,
         ),
     },

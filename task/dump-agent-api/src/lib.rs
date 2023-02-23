@@ -18,10 +18,14 @@ pub enum DumpAgentError {
     UnalignedOffset,
     UnalignedSegmentAddress,
     UnalignedSegmentLength,
-    OutOfSpaceForSegments,
     DumpFailed,
     NotSupported,
     NoDumpAreas,
+    DumpPresent,
+    UnclaimedDumpArea,
+    CannotClaimDumpArea,
+    DumpAreaInUse,
+    BadSegmentAdd,
 
     #[idol(server_death)]
     ServerRestarted,

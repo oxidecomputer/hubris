@@ -31,9 +31,8 @@ mod external;
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
-use humpty::DumpArea;
+use humpty::{DumpAgent, DumpArea};
 use task_jefe_api::{ResetReason, DumpAgentError};
-use dump_agent_api::{DUMP_AGENT_VERSION, DUMP_AGENT_TASKS, DUMP_AGENT_SYSTEM};
 use idol_runtime::RequestError;
 use userlib::*;
 use ringbuf::*;
@@ -160,6 +159,8 @@ enum Trace {
     GetDumpArea(u8),
     Base(u32),
     GetDumpAreaFailed(humpty::DumpError<()>),
+    ClaimDumpAreaFailed(humpty::DumpError<()>),
+    Claiming,
 }
 
 ringbuf!(Trace, 8, Trace::None);
@@ -219,31 +220,44 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u8,
-        readonly: bool
     ) -> Result<DumpArea, RequestError<DumpAgentError>> {
         ringbuf_entry!(Trace::GetDumpArea(index));
 
         if let Some(base) = self.dump_areas {
             ringbuf_entry!(Trace::Base(base));
 
-            match humpty::get_dump_area(
-                base,
-                index,
-                |addr, buf| {
-                    let src = unsafe {
-                        core::slice::from_raw_parts(addr as *const u8, buf.len())
-                    };
-
-                    buf.copy_from_slice(src);
-                    Ok(())
-                }
-            ) {
+            match humpty::get_dump_area(base, index, humpty::from_mem) {
                 Err(e) => {
                     ringbuf_entry!(Trace::GetDumpAreaFailed(e));
                     Err(DumpAgentError::InvalidArea.into())
                 }
 
-                Ok(hdr) => Ok(hdr)
+                Ok(rval) => Ok(rval)
+            }
+        } else {
+            Err(DumpAgentError::NoDumpAreas.into())
+        }
+    }
+
+    fn claim_dump_area(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+        if let Some(base) = self.dump_areas {
+            ringbuf_entry!(Trace::Claiming);
+            match humpty::claim_dump_area(
+                base, DumpAgent::Task, true, humpty::from_mem, humpty::to_mem
+            ) {
+                Err(e) => {
+                    ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
+                    Err(DumpAgentError::CannotClaimDumpArea.into())
+                }
+                
+                Ok(None) => {
+                    Err(DumpAgentError::DumpAreaInUse.into())
+                }
+
+                Ok(Some(rval)) => Ok(rval)
             }
         } else {
             Err(DumpAgentError::NoDumpAreas.into())
@@ -254,18 +268,21 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<Infallible>> {
-        self.dump_areas = humpty::initialize_dump_areas::<DUMP_AGENT_VERSION>(&[
+        self.dump_areas = humpty::initialize_dump_areas(&[
             DumpArea {
                 address: 0x30020000,
                 length: 0x20000,
+                agent: DumpAgent::None,
             },
             DumpArea {
                 address: 0x30040000,
                 length: 0x8000,
+                agent: DumpAgent::None,
             },
             DumpArea {
                 address: 0x38000000,
                 length: 0x10000,
+                agent: DumpAgent::None,
             },
         ]);
 
@@ -273,6 +290,8 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 }
+
+fn record_dump(base: u32, task: usize) {}
 
 /// Structure we use for tracking the state of the tasks we supervise. There is
 /// one of these per supervised task.
@@ -318,6 +337,10 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     abi::TaskState::Faulted { fault, .. } => {
                         // Well! A fault we didn't know about.
                         log_fault(i, &fault);
+
+                        if let Some(areas) = self.dump_areas {
+                            record_dump(areas, i);
+                        }
 
                         if status.disposition == Disposition::Restart {
                             // Stand it back up
