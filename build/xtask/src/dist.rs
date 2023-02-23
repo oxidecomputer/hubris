@@ -1336,6 +1336,20 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
+    writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
+        .unwrap();
+    writeln!(
+        linkscr,
+        "_HUBRIS_IMAGE_HEADER_ALIGN = {:#x};",
+        std::mem::align_of::<abi::ImageHeader>()
+    )
+    .unwrap();
+    writeln!(
+        linkscr,
+        "_HUBRIS_IMAGE_HEADER_SIZE = {:#x};",
+        std::mem::size_of::<abi::ImageHeader>()
+    )
+    .unwrap();
 
     append_image_names(&mut linkscr, images, image_name)?;
     Ok(())

@@ -3,10 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use abi::ImageHeader;
-use core::mem::MaybeUninit;
 
-// This is updated by build scripts (which is why this is marked as no_mangle)
-#[used]
-#[no_mangle]
-#[link_section = ".image_header"]
-pub static HEADER: MaybeUninit<ImageHeader> = MaybeUninit::uninit();
+// Filled with dummy data by the linker, then populated by the build system
+extern "C" {
+    pub static HEADER: ImageHeader;
+}

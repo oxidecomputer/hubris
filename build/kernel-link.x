@@ -65,8 +65,11 @@ SECTIONS
   /* Header containing data needed by the bootloader */
   .header :
   {
-	__header_start = .;
-	KEEP(*(.image_header));
+    _HEADER_UNALIGNED = .;
+    . = ALIGN(_HUBRIS_IMAGE_HEADER_ALIGN);
+    HEADER = .;
+    ASSERT(_HEADER_UNALIGNED == HEADER, "error: header alignment is invalid");
+    . = . + _HUBRIS_IMAGE_HEADER_SIZE;
   } > FLASH
 
   /* Explicitly place text at vector table + size of header, deliberately ignoring

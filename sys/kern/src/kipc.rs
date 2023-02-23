@@ -220,8 +220,8 @@ fn read_caboose_pos(
     caller: usize,
     response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
-    // TODO YOLO?
-    let header = unsafe { crate::header::HEADER.assume_init_ref() };
+    // SAFETY: populated by the linker + build system
+    let header = unsafe { &crate::header::HEADER };
 
     // The end-of-image position is given as an image length, so we need to
     // apply it as an offset to the start-of-image.
