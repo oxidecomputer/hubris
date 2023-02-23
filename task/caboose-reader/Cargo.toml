@@ -12,7 +12,7 @@ num-traits.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
 
-derive-idol-err.path = "../../lib/derive-idol-err"
+task-caboose-reader-api.path = "../caboose-reader-api"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

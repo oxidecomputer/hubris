@@ -507,6 +507,7 @@ pub struct SAUEntry {
 }
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
+pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block

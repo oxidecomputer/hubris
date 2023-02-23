@@ -327,11 +327,21 @@ pub fn package(
         // header.
         if let Some(caboose) = &cfg.toml.caboose {
             let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
+            // The caboose has the format
+            // [CABOOSE_MAGIC, ..., MAX_LENGTH]
+            // where all words in between are initialize to u32::MAX
+            //
             // The final word in the caboose is the caboose length, so that we
-            // can decode the caboose start by looking at it
+            // can decode the caboose start by looking at it while only knowing
+            // total image size.  The first word is CABOOSE_MAGIC, so we can
+            // check that a valid caboose exists.  Everything else is left to
+            // the user.
             let mut caboose_data = vec![0xFF; caboose.size as usize];
             caboose_data[caboose.size as usize - 4..]
                 .copy_from_slice(&caboose.size.to_le_bytes());
+            caboose_data[0..4]
+                .copy_from_slice(&abi::CABOOSE_MAGIC.to_le_bytes());
+
             all_output_sections.insert(
                 caboose_range.start,
                 LoadSegment {

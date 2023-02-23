@@ -226,21 +226,37 @@ fn read_caboose_pos(
     // The end-of-image position is given as an image length, so we need to
     // apply it as an offset to the start-of-image.
     extern "C" {
-        static __start_vector: u8;
+        static __start_vector: u32;
     }
-    let image_start = unsafe { &__start_vector } as *const u8 as u32;
+    // SAFETY: populated by the linker script
+    let image_start = unsafe { &__start_vector } as *const u32 as u32;
     let image_end = image_start + header.total_image_len;
 
     // The caboose records its own size in its last word.  The recorded size is
     // **inclusive** of this word.
+    //
+    // SAFETY: populated by the build system to a valid value
     let caboose_size: u32 =
         unsafe { core::ptr::read_volatile((image_end - 4) as *const u32) };
 
-    let response_len = serialize_response(
-        &mut tasks[caller],
-        response,
-        &(image_end - caboose_size),
-    )?;
+    // Calculate the beginning of the caboose.  If the caboose is unpopulated,
+    // then we expect a random value (or 0xFFFFFFFF) as its size, which we can
+    // catch because it will give us an obviously invalid start location.
+    let caboose_start = image_end.saturating_sub(caboose_size);
+    let out = if caboose_start <= image_start {
+        (0, 0)
+    } else {
+        // SAFETY: we know this pointer is within the image flash region
+        let v =
+            unsafe { core::ptr::read_volatile(caboose_start as *const u32) };
+        if v == abi::CABOOSE_MAGIC {
+            (caboose_start + 4, image_end - 4)
+        } else {
+            (0, 0)
+        }
+    };
+
+    let response_len = serialize_response(&mut tasks[caller], response, &out)?;
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

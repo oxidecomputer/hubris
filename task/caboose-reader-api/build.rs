@@ -3,10 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    idol::server::build_server_support(
+    idol::client::build_client_stub(
         "../../idl/caboose.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
+        "client_stub.rs",
     )?;
     Ok(())
 }

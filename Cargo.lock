@@ -3826,13 +3826,24 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "task-caboose-reader-api",
+ "tlvc",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-caboose-reader-api"
+version = "0.1.0"
+dependencies = [
  "derive-idol-err",
  "idol",
  "idol-runtime",
  "num-traits",
- "tlvc",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
