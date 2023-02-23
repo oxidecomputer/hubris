@@ -72,7 +72,7 @@ pub fn read_image_id() -> u64 {
 }
 
 pub fn read_caboose_pos() -> core::ops::Range<u32> {
-    let mut response = [0; core::mem::size_of::<u32>()];
+    let mut response = [0; core::mem::size_of::<core::ops::Range<u32>>()];
     let (rc, len) = sys_send(
         TaskId::KERNEL,
         Kipcnum::ReadCaboosePos as u16,
