@@ -1,5 +1,0 @@
-# Task Template
-
-Copy this directory to get started writing a new task. Don't forget to add your
-task to `workspace.members` in the root `Cargo.toml`! (If you forget, `cargo`
-will remind you.)
