@@ -62,7 +62,11 @@ SECTIONS
   } > FLASH
 
   __vector_size = SIZEOF(.vector_table);
-  /* Header containing data needed by the bootloader */
+  /* Header containing data needed by the bootloader.  We specify
+     _HUBRIS_IMAGE_HEADER_SIZE and _HUBRIS_IMAGE_HEADER_ALIGN in memory.x at
+     build time, then reserve enough space for the header here in the linker
+     script.
+   */
   .header :
   {
     ASSERT(. == ALIGN(_HUBRIS_IMAGE_HEADER_ALIGN), "error: header alignment is invalid");
