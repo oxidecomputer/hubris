@@ -71,9 +71,7 @@ struct RawConfig {
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
-    #[serde(default)]
     config: Option<ordered_toml::Value>,
-    #[serde(default)]
     secure_task: Option<String>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
@@ -109,7 +107,19 @@ pub struct Config {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CabooseConfig {
+    /// List of tasks that are allowed to access the caboose
+    #[serde(default)]
+    pub tasks: Vec<String>,
+
+    /// Name of the memory region in which the caboose is placed
+    ///
+    /// (this is almost certainly "flash")
     pub region: String,
+
+    /// Size of the caboose
+    ///
+    /// The system reserves two words (8 bytes) for the size and marker, so the
+    /// user-accessible space is 8 bytes less than this value.
     pub size: u32,
 }
 

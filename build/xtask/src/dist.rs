@@ -293,7 +293,7 @@ pub fn package(
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
-        let entry_points: HashMap<_, _> = cfg
+        let mut entry_points: HashMap<_, _> = cfg
             .toml
             .tasks
             .keys()
@@ -326,6 +326,16 @@ pub fn package(
         // is included in the total image size that's patched into the kernel
         // header.
         if let Some(caboose) = &cfg.toml.caboose {
+            if (caboose.size as usize) < std::mem::size_of::<u32>() * 2 {
+                bail!("caboose is too small; must fit at least 2x u32");
+            }
+
+            for t in &caboose.tasks {
+                if !cfg.toml.tasks.contains_key(t) {
+                    bail!("caboose specifies invalid task {t}");
+                }
+            }
+
             let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
             // The caboose has the format
             // [CABOOSE_MAGIC, ..., MAX_LENGTH]
@@ -349,6 +359,7 @@ pub fn package(
                     data: caboose_data,
                 },
             );
+            entry_points.insert("caboose".to_string(), caboose_range.start);
         }
 
         // Build the kernel!
@@ -1943,6 +1954,22 @@ pub fn make_kconfig(
         );
     }
 
+    if let Some(c) = &toml.caboose {
+        flat_shared.insert(
+            "caboose".to_string(),
+            build_kconfig::RegionConfig {
+                base: entry_points["caboose"],
+                size: c.size,
+                attributes: build_kconfig::RegionAttributes {
+                    read: true,
+                    write: false,
+                    execute: false,
+                    special_role: None,
+                },
+            },
+        );
+    }
+
     let mut used_shared_regions = BTreeSet::new();
 
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
@@ -1961,12 +1988,20 @@ pub fn make_kconfig(
 
         // Mark off the regions this task uses.
         for region in &task.uses {
-            used_shared_regions.insert(region);
+            used_shared_regions.insert(region.as_str());
         }
 
         // Prep this task's shared region name set.
-        let shared_regions: std::collections::BTreeSet<String> =
+        let mut shared_regions: std::collections::BTreeSet<String> =
             task.uses.iter().cloned().collect();
+
+        // Allow specified tasks to use the caboose
+        if let Some(caboose) = &toml.caboose {
+            if caboose.tasks.contains(&name) {
+                used_shared_regions.insert("caboose");
+                shared_regions.insert("caboose".to_owned());
+            }
+        }
 
         let owned_regions = task_allocations[name].iter()
             .map(|(out_name, range)| {
@@ -2077,7 +2112,7 @@ pub fn make_kconfig(
     }
 
     // Pare down the list of shared regions.
-    flat_shared.retain(|name, _v| used_shared_regions.contains(name));
+    flat_shared.retain(|name, _v| used_shared_regions.contains(name.as_str()));
 
     Ok(build_kconfig::KernelConfig {
         irqs,
