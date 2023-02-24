@@ -16,7 +16,7 @@ use atty::Stream;
 use colored::*;
 use hubtools::LoadSegment;
 use indexmap::IndexMap;
-use path_slash::PathBufExt;
+use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
 
 use crate::{
@@ -2247,7 +2247,7 @@ impl Archive {
     ) -> Result<()> {
         let mut input = File::open(src_path)?;
         self.inner
-            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+            .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
         std::io::copy(&mut input, &mut self.inner)?;
         Ok(())
     }
@@ -2259,7 +2259,7 @@ impl Archive {
         contents: impl AsRef<str>,
     ) -> Result<()> {
         self.inner
-            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+            .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
         self.inner.write_all(contents.as_ref().as_bytes())?;
         Ok(())
     }
