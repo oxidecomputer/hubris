@@ -226,7 +226,7 @@ fn read_caboose_pos(
     // The end-of-image position is given as an image length, so we need to
     // apply it as an offset to the start-of-image.
     extern "C" {
-        static __start_vector: u32;
+        static __start_vector: [u32; 0];
     }
     // SAFETY: populated by the linker script
     let image_start = unsafe { &__start_vector } as *const u32 as u32;
