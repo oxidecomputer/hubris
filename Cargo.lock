@@ -248,7 +248,7 @@ dependencies = [
  "ordered-toml",
  "serde",
  "serde_json",
- "toml 0.5.8",
+ "toml 0.7.2",
  "toml-task",
 ]
 
@@ -3719,7 +3719,7 @@ dependencies = [
  "sha3",
  "stage0-handoff",
  "static_assertions",
- "toml 0.5.8",
+ "toml 0.7.2",
  "unwrap-lite",
  "zerocopy",
  "zeroize",
@@ -3889,7 +3889,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "toml 0.5.8",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -5089,7 +5089,7 @@ dependencies = [
  "strsim",
  "tlvc",
  "tlvc-text",
- "toml 0.5.8",
+ "toml 0.7.2",
  "toml-task",
  "walkdir",
  "zerocopy",
