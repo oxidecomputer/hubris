@@ -153,25 +153,12 @@ enum Trace {
 
 ringbuf!(Trace, 8, Trace::None);
 
-fn reset_if_needed(
-    code: ResponseCode,
+fn reset(
     controller: &I2cController<'_>,
     port: PortIndex,
     muxes: &[I2cMux<'_>],
     mux: Option<(Mux, Segment)>,
 ) {
-    match code {
-        ResponseCode::BusLocked
-        | ResponseCode::BusLockedMux
-        | ResponseCode::BusReset
-        | ResponseCode::BusResetMux
-        | ResponseCode::BusError
-        | ResponseCode::ControllerLocked => {}
-        _ => {
-            return;
-        }
-    }
-
     ringbuf_entry!(Trace::Reset(controller.controller, port));
 
     let sys = SYS.get_task_id();
@@ -186,6 +173,30 @@ fn reset_if_needed(
         mux.driver.reset(mux, &sys)?;
         Ok(())
     });
+}
+
+fn reset_needed(code: ResponseCode) -> bool {
+    match code {
+        ResponseCode::BusLocked
+        | ResponseCode::BusLockedMux
+        | ResponseCode::BusReset
+        | ResponseCode::BusResetMux
+        | ResponseCode::BusError
+        | ResponseCode::ControllerLocked => true,
+        _ => false,
+    }
+}
+
+fn reset_if_needed(
+    code: ResponseCode,
+    controller: &I2cController<'_>,
+    port: PortIndex,
+    muxes: &[I2cMux<'_>],
+    mux: Option<(Mux, Segment)>,
+) {
+    if reset_needed(code) {
+        reset(controller, port, muxes, mux)
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -493,19 +504,41 @@ fn configure_muxes(
             lookup_controller(controllers, mux.controller).unwrap();
         configure_port(map, controller, mux.port, pins);
 
+        let mut reset_attempted = false;
+
         loop {
             match mux.driver.configure(mux, controller, &sys, ctrl) {
                 Ok(_) => {
                     //
-                    // We are going to attempt to disable all segments -- but
-                    // we are also going to need to eat the error here if
-                    // we get one:  it's possible that the mux itself is
-                    // powered off.
+                    // We are going to attempt to disable all segments.  If we
+                    // get an error here and that error indicates that we need
+                    // to reset the controller, we will do so, but only once:
+                    // if the mux has segments that are in a different power
+                    // domain, it is conceivable that we will get what appears
+                    // to be hung bus that will not be resolved by us
+                    // resetting the controller -- and we don't want to spin
+                    // forever here.
+                    //
+                    // In terms of why we might see a resolvable reset: we
+                    // have noticed an issue whereby the first I2C transaction
+                    // on some busses (notably, those that share controllers
+                    // via pin muxing) will result in SCL being spuriously
+                    // held down (see #1034 for details).  Resets of the I2C
+                    // controller seem to always resolve the issue, so we want
+                    // to do that reset now if we see a condition that
+                    // indicates it:  we don't want to allow it to lie in wait
+                    // for the first I2C transaction (which may or may not
+                    // deal with the reset).
                     //
                     if let Err(code) =
                         mux.driver.enable_segment(mux, controller, None, ctrl)
                     {
                         ringbuf_entry!(Trace::SegmentFailed(code));
+                        if reset_needed(code) && !reset_attempted {
+                            reset(controller, mux.port, muxes, None);
+                            reset_attempted = true;
+                            continue;
+                        }
                     }
 
                     break;
