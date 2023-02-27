@@ -1361,8 +1361,6 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
-    writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
-        .unwrap();
     writeln!(
         linkscr,
         "_HUBRIS_IMAGE_HEADER_ALIGN = {:#x};",

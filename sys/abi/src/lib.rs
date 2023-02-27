@@ -498,9 +498,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
 }
 
 #[repr(C)]
-#[derive(
-    Default, Copy, Clone, Debug, FromBytes, AsBytes, Serialize, Deserialize,
-)]
+#[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
 pub struct SAUEntry {
     pub rbar: u32,
     pub rlar: u32,
@@ -512,7 +510,7 @@ pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block
 #[repr(C)]
-#[derive(Default, AsBytes, FromBytes, Serialize, Deserialize)]
+#[derive(Default, AsBytes, FromBytes)]
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
