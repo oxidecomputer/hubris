@@ -140,9 +140,9 @@ impl Config {
         hasher.write(&cfg_contents);
 
         // Minimal TOML file inheritance, to enable features on a per-task basis
-        if let Ok(inherited) = toml::de::from_str::<PatchedConfig>(
-            std::str::from_utf8(&cfg_contents)?,
-        ) {
+        if let Ok(inherited) =
+            toml::from_str::<PatchedConfig>(std::str::from_utf8(&cfg_contents)?)
+        {
             let file = cfg.parent().unwrap().join(&inherited.inherit);
             let mut original = Config::from_file_with_hasher(&file, hasher)
                 .context(format!("Could not load template from {file:?}"))?;
@@ -164,7 +164,7 @@ impl Config {
         }
 
         let toml: RawConfig =
-            toml::de::from_str(std::str::from_utf8(&cfg_contents)?)?;
+            toml::from_str(std::str::from_utf8(&cfg_contents)?)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
@@ -177,7 +177,7 @@ impl Config {
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
-            toml::de::from_str(std::str::from_utf8(&chip_contents)?)?
+            toml::from_str(std::str::from_utf8(&chip_contents)?)?
         };
 
         let outputs: IndexMap<String, Vec<Output>> = {
@@ -192,7 +192,7 @@ impl Config {
                     format!("reading chip file {}", chip_file.display())
                 })?;
             hasher.write(&chip_contents);
-            toml::de::from_str(std::str::from_utf8(&chip_contents)?)?
+            toml::from_str(std::str::from_utf8(&chip_contents)?)?
         };
 
         let buildhash = hasher.finish();

@@ -316,7 +316,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
         .read_to_end(&mut cargo_text)
         .context("failed to read Cargo.toml")?;
     let cargo_toml: Manifest =
-        toml::de::from_str(std::str::from_utf8(&cargo_text)?)?;
+        toml::from_str(std::str::from_utf8(&cargo_text)?)?;
     let package_name = cargo_toml.package.name;
 
     let metadata = cargo_metadata::MetadataCommand::new()
