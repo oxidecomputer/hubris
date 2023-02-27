@@ -10,3 +10,4 @@
   Threats In Multiserver Operating Systems: A Fundamental Requirement for
   Dependability]. 2008. _This paper marked MINIX 3's transition from a teaching
   tool to a high-reliability research platform._
+- [[[`hubtools`]]] https://github.com/oxidecomputer/hubtools
