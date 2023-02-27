@@ -73,5 +73,5 @@ implemented by the <<_read_caboose_pos_6,`read_caboose_pos`>> kernel IPC call.
 Other than reserving the two words above, the Hubris build system is
 _deliberately agnostic_ to the contents of the caboose; it is left to a separate
 release engineering process to decide what to store there.  The
-<<hubtools,`hubtools`>> repository includes a library and CLI for modifying the
-caboose of a Hubris archive.
+https://github.com/oxidecomputer/hubtools[`hubtools` repository] includes a
+library and CLI for modifying the caboose of a Hubris archive.
