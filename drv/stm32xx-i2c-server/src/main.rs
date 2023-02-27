@@ -210,8 +210,13 @@ fn main() -> ! {
 
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c(&controllers);
+    // SLEEP HERE - only on cold poweron, not on reset, but on reset there is a
+    // glitch
     configure_pins(&controllers, &pins, &mut portmap);
+    // SLEEP HERE - problem occurs on reset, 418 us low, also cold power cycle,
+    // no glitch
     configure_controllers(&controllers);
+    // SLEEP HERE - fix the whole problem
 
     // Field messages.
     let mut buffer = [0; 4];
