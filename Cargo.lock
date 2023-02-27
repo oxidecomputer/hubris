@@ -2025,6 +2025,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrand"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
+dependencies = [
+ "instant",
+]
+
+[[package]]
 name = "ff"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2331,9 +2340,11 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools#89f88f53f32c154f2f832728b1ac58f6600200ac"
+source = "git+https://github.com/oxidecomputer/hubtools#950fc8a0b05f7e1d26b80558d4c6c869ad5f768e"
 dependencies = [
+ "path-slash",
  "srec",
+ "tempfile",
  "thiserror",
  "toml 0.7.2",
  "zerocopy",
@@ -2405,6 +2416,15 @@ dependencies = [
  "autocfg",
  "hashbrown",
  "serde",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -3222,6 +3242,15 @@ name = "regex-syntax"
 version = "0.6.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
+
+[[package]]
+name = "remove_dir_all"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
+dependencies = [
+ "winapi",
+]
 
 [[package]]
 name = "ringbuf"
@@ -4496,6 +4525,20 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "tempfile"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cdb1ef4eaeeaddc8fbd371e5017057064af0911902ef36b39801f67cc6d79e4"
+dependencies = [
+ "cfg-if",
+ "fastrand",
+ "libc",
+ "redox_syscall",
+ "remove_dir_all",
+ "winapi",
 ]
 
 [[package]]
