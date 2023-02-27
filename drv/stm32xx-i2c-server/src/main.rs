@@ -182,7 +182,7 @@ fn reset_needed(code: ResponseCode) -> bool {
         | ResponseCode::BusReset
         | ResponseCode::BusResetMux
         | ResponseCode::BusError
-        | ResponseCode::ControllerLocked => true,
+        | ResponseCode::ControllerBusy => true,
         _ => false,
     }
 }
