@@ -100,7 +100,7 @@ impl From<ResponseCode> for NoData {
             ResponseCode::NoRegister => NoData::DeviceUnavailable,
             ResponseCode::BusLocked
             | ResponseCode::BusLockedMux
-            | ResponseCode::ControllerLocked => NoData::DeviceTimeout,
+            | ResponseCode::ControllerBusy => NoData::DeviceTimeout,
             _ => NoData::DeviceError,
         }
     }

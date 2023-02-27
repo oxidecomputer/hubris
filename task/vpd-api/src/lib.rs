@@ -35,7 +35,7 @@ impl From<ResponseCode> for VpdError {
             ResponseCode::NoRegister => VpdError::Unavailable,
             ResponseCode::BusLocked
             | ResponseCode::BusLockedMux
-            | ResponseCode::ControllerLocked => VpdError::DeviceTimeout,
+            | ResponseCode::ControllerBusy => VpdError::DeviceTimeout,
             _ => VpdError::DeviceError,
         }
     }

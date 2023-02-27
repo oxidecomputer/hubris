@@ -16,6 +16,7 @@
 //! to pick which EEPROM to read.
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
+use ringbuf::*;
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
@@ -34,6 +35,14 @@ struct EepromReader<'a> {
     eeprom: &'a At24Csw080,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    EepromError(drv_i2c_devices::at24csw080::Error),
+    None,
+}
+
+ringbuf!(Trace, 1, Trace::None);
+
 impl<'a> TlvcRead for EepromReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
         Ok(EEPROM_SIZE as u64)
@@ -43,9 +52,10 @@ impl<'a> TlvcRead for EepromReader<'a> {
         offset: u64,
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError> {
-        self.eeprom
-            .read_into(offset as u16, dest)
-            .map_err(|_| TlvcReadError::Truncated)?;
+        self.eeprom.read_into(offset as u16, dest).map_err(|code| {
+            ringbuf_entry!(Trace::EepromError(code));
+            TlvcReadError::Truncated
+        })?;
         Ok(())
     }
 }
