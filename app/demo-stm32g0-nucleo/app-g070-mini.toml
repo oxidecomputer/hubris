@@ -14,7 +14,7 @@ stacksize = 640
 
 [caboose]
 region = "flash"
-size = 128
+size = 256
 
 [tasks.jefe]
 name = "task-jefe"
