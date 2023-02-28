@@ -162,20 +162,44 @@ impl ServerImpl {
     ) -> Option<u32> {
         match hubpack::deserialize::<Header>(rx_data_buf) {
             Ok((header, _)) => {
-                if header.version == version::CURRENT {
+                // This message comes from a host implementation older than the
+                // minimum committed version of the protocol. We really can't do
+                // anything with this message, and the protocol mandates that we
+                // drop the message.
+                if header.version < version::MIN {
+                    ringbuf_entry!(Trace::WrongVersion(header.version));
+                    None
+
+                // In this case, the message has failed to deserialize, but
+                // we've successfully deserialized the header. That implies that
+                // the host has sent us a message that does not exist in our own
+                // implementation of the protocol.
+                //
+                // Check that implication by ensuring that the host version is
+                // after our own CURRENT.
+                } else if header.version > version::CURRENT {
                     let n = hubpack::serialize(
                         tx_data_buf,
                         &Message {
                             header,
                             modules: ModuleId::default(),
                             body: MessageBody::SpResponse(SpResponse::Error(
-                                Error::ProtocolError,
+                                Error::VersionMismatch {
+                                    expected: version::CURRENT,
+                                    actual: header.version,
+                                },
                             )),
                         },
                     );
                     Some(n.unwrap() as u32)
+
+                // This last case catches failures to deserialize something we
+                // _should_ have been able to deserialize. The host version is
+                // between MIN and CURRENT, so it's a message that's part of our
+                // own protocol. We really just failed to deserialize it, such
+                // as a corrupt buffer or some similar failure mode. Just drop
+                // the message, since we've already logged a `DeserializeError`.
                 } else {
-                    ringbuf_entry!(Trace::WrongVersion(header.version));
                     None
                 }
             }
@@ -196,9 +220,10 @@ impl ServerImpl {
         data: &[u8],
         tx_data_buf: &mut [u8],
     ) -> Option<u32> {
-        // If the version is mismatched, then we can't trust the deserialization
-        // (even though it nominally succeeded); don't reply.
-        if msg.header.version != version::CURRENT {
+        // If the version is below the minimum committed, then we can't really
+        // trust the message, even though it nominally deserialized correctly.
+        // Don't reply.
+        if msg.header.version < version::MIN {
             ringbuf_entry!(Trace::WrongVersion(msg.header.version));
             return None;
         }
@@ -233,9 +258,15 @@ impl ServerImpl {
             }
         };
 
-        // Serialize the Message into the front of the tx buffer
+        // Serialize the Message into the front of the tx buffer.
+        // Note that we send out _our_ protocol version number, which may differ
+        // from the host's, but should be compatible with it.
+        let header = Header {
+            version: version::CURRENT,
+            ..msg.header
+        };
         let out = Message {
-            header: msg.header,
+            header,
             modules: msg.modules,
             body: MessageBody::SpResponse(reply),
         };
