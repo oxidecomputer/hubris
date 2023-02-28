@@ -35,7 +35,7 @@ impl From<ResponseCode> for ValidateError {
             ResponseCode::NoRegister => ValidateError::Unavailable,
             ResponseCode::BusLocked
             | ResponseCode::BusLockedMux
-            | ResponseCode::ControllerLocked => ValidateError::DeviceTimeout,
+            | ResponseCode::ControllerBusy => ValidateError::DeviceTimeout,
             _ => ValidateError::DeviceError,
         }
     }

@@ -473,7 +473,7 @@ impl I2cController<'_> {
                 // more expected conditions on bus lockup (namely, a timeout
                 // or arbitration lost).
                 //
-                return Err(drv_i2c_api::ResponseCode::ControllerLocked);
+                return Err(drv_i2c_api::ResponseCode::ControllerBusy);
             }
         }
 
