@@ -339,7 +339,7 @@ pub fn package(
             let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
             // The caboose has the format
             // [CABOOSE_MAGIC, ..., MAX_LENGTH]
-            // where all words in between are initialize to u32::MAX
+            // where all words in between are initialized to u32::MAX
             //
             // The final word in the caboose is the caboose length, so that we
             // can decode the caboose start by looking at it while only knowing
