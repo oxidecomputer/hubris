@@ -136,13 +136,25 @@ fn build_memory_map<'a>(
         .tasks
         .iter()
         .map(|(name, task)| {
-            (name.as_str(), &task.max_sizes, &allocs.tasks[name])
+            (
+                name.as_str(),
+                task.max_sizes.clone(),
+                allocs.tasks[name].clone(),
+            )
         })
         .chain(std::iter::once((
             "kernel",
-            &toml.kernel.requires,
-            &allocs.kernel,
+            toml.kernel.requires.clone(),
+            allocs.kernel.clone(),
         )))
+        .chain(allocs.caboose.iter().map(|(region, size)| {
+            let mut alloc = BTreeMap::new();
+            alloc.insert(region.clone(), size.clone());
+            let mut requires = IndexMap::new();
+            requires
+                .insert(region.clone(), toml.caboose.as_ref().unwrap().size);
+            ("-caboose-", requires, alloc)
+        }))
     {
         // Here's the minimal size, based on the temporarily linked file
         let sizes = &sizes.sizes[name];
@@ -175,7 +187,14 @@ fn print_task_table(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
+    let task_pad = toml
+        .tasks
+        .keys()
+        .map(|s| s.as_str())
+        .chain(std::iter::once("PROGRAM"))
+        .map(|k| k.len())
+        .max()
+        .unwrap_or(0);
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
@@ -247,7 +266,14 @@ fn print_memory_map(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
+    let task_pad = toml
+        .tasks
+        .keys()
+        .map(|s| s.as_str())
+        .chain(std::iter::once("-padding-"))
+        .map(|k| k.len())
+        .max()
+        .unwrap_or(0);
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
@@ -396,6 +422,12 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
         let task_sizes = load_task_size(toml, name, stacksize)?;
 
         sizes.insert(name, task_sizes);
+    }
+
+    if let Some(caboose) = &toml.caboose {
+        let mut map = IndexMap::new();
+        map.insert(caboose.region.as_str(), caboose.size as u64);
+        sizes.insert("-caboose-", map);
     }
 
     Ok(TaskSizes { sizes })

@@ -57,7 +57,11 @@ pub fn run(
                 .map(|name| (name.as_str(), fake_sizes.clone()))
                 .collect();
 
-            let allocated = crate::dist::allocate_all(&toml, &task_sizes)?;
+            let allocated = crate::dist::allocate_all(
+                &toml,
+                &task_sizes,
+                toml.caboose.as_ref(),
+            )?;
 
             let (allocs, _) = allocated
                 .get(&toml.image_names[0])

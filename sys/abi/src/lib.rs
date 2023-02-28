@@ -478,6 +478,7 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
+    ReadCaboosePos = 6,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -490,6 +491,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
+            6 => Ok(Self::ReadCaboosePos),
             _ => Err(()),
         }
     }
@@ -503,6 +505,7 @@ pub struct SAUEntry {
 }
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
+pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block

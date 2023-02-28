@@ -3,3 +3,4 @@
 include::servers.adoc[leveloffset=+1]
 include::supervision.adoc[leveloffset=+1]
 include::drivers.adoc[leveloffset=+1]
+include::caboose.adoc[leveloffset=+1]

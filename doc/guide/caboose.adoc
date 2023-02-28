@@ -1,0 +1,77 @@
+[#caboose]
+= The caboose
+
+At times, users may wish for a Hubris archive to contain information with the
+following properties:
+
+* Decided **after** the image is built
+* Readable in a wide variety of situations:
+** A live system with well-known APIs to request it (e.g. over the network)
+** A Hubris build archive
+** A binary file, given the original build archive
+** A binary file, **without** the original build archive
+
+Note that a live system with a debugger attached is morally equivalent to "a
+binary file", because we can read arbitrary memory.
+
+The motivating example of this data is a component-level version: after building
+an image, a separate release engineering process wants to assign it a
+user-facing version (e.g. `1.2.3`) and store that informatio _somewhere_ in the
+image.
+
+The "caboose" is a region of flash allocated for this purpose. It is declared
+with a `[caboose]` section in an `app.toml`, e.g.
+
+[#caboose-words]
+```toml
+[caboose]
+region = "flash"
+size = 128
+tasks = ["caboose_reader"]
+```
+
+If this section is present in an `app.toml`, the build system reserves an
+appropriately-aligned section of memory for the caboose.  The caboose is located
+at the **end** of flash (after the final task), and is aligned so that it can be
+mapped as an MPU region. Only tasks declared in `caboose.tasks` are allowed to
+read data from the caboose region of flash.  If other tasks attempt to read from
+this memory region, they will experience the typical memory fault.
+
+Hubris does not have strong opinions about the contents of the caboose, other
+than reserving two words.  At build time, the caboose is loaded with the
+following data (shown here as `u32` words):
+
+[cols="1,3"]
+|===
+| **Start** | `abi::CABOOSE_MAGIC`
+| ...       | _(filled with `0xFFFFFFFF`)_
+| **End**   | Caboose size (little-endian `u32`)
+|===
+
+The caboose's length is included in the `total_image_len` field of
+`abi::ImageHeader`.  Because the caboose is located at the end of flash, its
+presence and size can be determined as follows:
+
+* Read total image length from the `ImageHeader`
+** At runtime, this is a variable that can be read by the kernel
+** At rest, the image header is at a known location (depending on
+   microcontroller) and includes a distinctive magic number
+   (`abi::HEADER_MAGIC`)
+* Read the final word of the image, which may be the caboose length
+* Subtract this value from total image length to get the (presumptive) caboose
+  start
+** If this subtraction underflows or exceeds the bounds of flash, the caboose is
+   not present.
+* Read the first word of the (presumptive) caboose
+** If this word is not `abi::CABOOSE_MAGIC`, then the caboose is not present
+** Otherwise, the caboose position and length is now known
+
+Note that this procedure works both at runtime and from a binary file, with or
+without an associated Hubris archive.  In a live system, this logic is
+implemented by the <<_read_caboose_pos_6,`read_caboose_pos`>> kernel IPC call.
+
+Other than reserving the two words above, the Hubris build system is
+_deliberately agnostic_ to the contents of the caboose; it is left to a separate
+release engineering process to decide what to store there.  The
+https://github.com/oxidecomputer/hubtools[`hubtools` repository] includes a
+library and CLI for modifying the caboose of a Hubris archive.

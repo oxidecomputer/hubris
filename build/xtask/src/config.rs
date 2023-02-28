@@ -71,11 +71,10 @@ struct RawConfig {
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
-    #[serde(default)]
     config: Option<ordered_toml::Value>,
-    #[serde(default)]
     secure_task: Option<String>,
     auxflash: Option<AuxFlash>,
+    caboose: Option<CabooseConfig>,
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +102,25 @@ pub struct Config {
     pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
+    pub caboose: Option<CabooseConfig>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CabooseConfig {
+    /// List of tasks that are allowed to access the caboose
+    #[serde(default)]
+    pub tasks: Vec<String>,
+
+    /// Name of the memory region in which the caboose is placed
+    ///
+    /// (this is almost certainly "flash")
+    pub region: String,
+
+    /// Size of the caboose
+    ///
+    /// The system reserves two words (8 bytes) for the size and marker, so the
+    /// user-accessible space is 8 bytes less than this value.
+    pub size: u32,
 }
 
 impl Config {
@@ -122,7 +140,8 @@ impl Config {
         hasher.write(&cfg_contents);
 
         // Minimal TOML file inheritance, to enable features on a per-task basis
-        if let Ok(inherited) = toml::from_slice::<PatchedConfig>(&cfg_contents)
+        if let Ok(inherited) =
+            toml::from_str::<PatchedConfig>(std::str::from_utf8(&cfg_contents)?)
         {
             let file = cfg.parent().unwrap().join(&inherited.inherit);
             let mut original = Config::from_file_with_hasher(&file, hasher)
@@ -144,7 +163,8 @@ impl Config {
             return Ok(original);
         }
 
-        let toml: RawConfig = toml::from_slice(&cfg_contents)?;
+        let toml: RawConfig =
+            toml::from_str(std::str::from_utf8(&cfg_contents)?)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
@@ -157,7 +177,7 @@ impl Config {
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
-            toml::from_slice(&chip_contents)?
+            toml::from_str(std::str::from_utf8(&chip_contents)?)?
         };
 
         let outputs: IndexMap<String, Vec<Output>> = {
@@ -172,7 +192,7 @@ impl Config {
                     format!("reading chip file {}", chip_file.display())
                 })?;
             hasher.write(&chip_contents);
-            toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?
+            toml::from_str(std::str::from_utf8(&chip_contents)?)?
         };
 
         let buildhash = hasher.finish();
@@ -219,6 +239,7 @@ impl Config {
             patches: None,
             secure_task: toml.secure_task,
             dice_mfg,
+            caboose: toml.caboose,
         })
     }
 

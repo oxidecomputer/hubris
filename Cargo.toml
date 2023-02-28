@@ -102,7 +102,6 @@ sha3 = { version = "0.10", default-features = false }
 smbus-pec = { version = "1.0.1", default-features = false }
 smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv6", "medium-ethernet", "socket-udp", "async"] }
 spin = { version = "0.9.4", default-features = false, features = ["mutex", "spin_mutex"]}
-srec = { version = "0.2.0", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 static_assertions = { version = "1", default-features = false }
 stm32f3 = { version = "0.13.0", default-features = false }
@@ -111,17 +110,19 @@ stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro"] }
-toml = { version = "0.5.6", default-features = false }
+toml = { version = "0.7", default-features = false, features = ["parse"] }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
 zerocopy = { version = "0.6.1", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
+zip = { version = "0.5", default-features = false }
 
 # Oxide forks and repos
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }

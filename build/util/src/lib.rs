@@ -229,8 +229,8 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
         Ok(c) => c,
     };
 
-    let rval = toml::from_slice(config.as_bytes())
-        .context("deserializing configuration")?;
+    let rval =
+        toml::from_str(&config).context("deserializing configuration")?;
     Ok(Some(rval))
 }
 

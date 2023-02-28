@@ -14,12 +14,13 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
+use hubtools::LoadSegment;
 use indexmap::IndexMap;
-use path_slash::PathBufExt;
+use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
 
 use crate::{
-    config::{BuildConfig, Config, ConfigPatches},
+    config::{BuildConfig, CabooseConfig, Config, ConfigPatches},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -278,7 +279,8 @@ pub fn package(
         .collect::<Result<_, _>>()?;
 
     // Allocate memories.
-    let allocated = allocate_all(&cfg.toml, &task_sizes)?;
+    let allocated =
+        allocate_all(&cfg.toml, &task_sizes, cfg.toml.caboose.as_ref())?;
 
     for image_name in &cfg.toml.image_names {
         // Build each task.
@@ -291,7 +293,7 @@ pub fn package(
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
-        let entry_points: HashMap<_, _> = cfg
+        let mut entry_points: HashMap<_, _> = cfg
             .toml
             .tasks
             .keys()
@@ -317,6 +319,48 @@ pub fn package(
 
         let s =
             secure_update(&cfg, allocs, &mut all_output_sections, image_name)?;
+
+        // Add an empty output section for the caboose
+        //
+        // This has to be done before building the kernel, because the caboose
+        // is included in the total image size that's patched into the kernel
+        // header.
+        if let Some(caboose) = &cfg.toml.caboose {
+            if (caboose.size as usize) < std::mem::size_of::<u32>() * 2 {
+                bail!("caboose is too small; must fit at least 2x u32");
+            }
+
+            for t in &caboose.tasks {
+                if !cfg.toml.tasks.contains_key(t) {
+                    bail!("caboose specifies invalid task {t}");
+                }
+            }
+
+            let (_, caboose_range) = allocs.caboose.as_ref().unwrap();
+            // The caboose has the format
+            // [CABOOSE_MAGIC, ..., MAX_LENGTH]
+            // where all words in between are initialized to u32::MAX
+            //
+            // The final word in the caboose is the caboose length, so that we
+            // can decode the caboose start by looking at it while only knowing
+            // total image size.  The first word is CABOOSE_MAGIC, so we can
+            // check that a valid caboose exists.  Everything else is left to
+            // the user.
+            let mut caboose_data = vec![0xFF; caboose.size as usize];
+            caboose_data[caboose.size as usize - 4..]
+                .copy_from_slice(&caboose.size.to_le_bytes());
+            caboose_data[0..4]
+                .copy_from_slice(&abi::CABOOSE_MAGIC.to_le_bytes());
+
+            all_output_sections.insert(
+                caboose_range.start,
+                LoadSegment {
+                    source_file: "caboose".into(),
+                    data: caboose_data,
+                },
+            );
+            entry_points.insert("caboose".to_string(), caboose_range.start);
+        }
 
         // Build the kernel!
         let kern_build = if tasks_to_build.contains("kernel") {
@@ -362,15 +406,21 @@ pub fn package(
 
         // Generate combined SREC, which is our source of truth for combined images.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        write_srec(
+        hubtools::write_srec(
             &all_output_sections,
             kentry,
             &cfg.img_file("combined.srec", image_name),
         )?;
 
-        translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
+        hubtools::translate_srec_to_other_formats(
+            &cfg.img_dir(image_name),
+            "combined",
+        )?;
 
         if let Some(signing) = &cfg.toml.signing {
+            if cfg.toml.caboose.is_some() {
+                bail!("cannot sign an image with a caboose");
+            }
             let rkth = lpc55_sign::signed_image::sign_chain(
                 &cfg.img_file("combined.bin", image_name),
                 Some(&cfg.app_src_dir),
@@ -389,8 +439,9 @@ pub fn package(
             // We have to cheat a little for (re) generating the
             // srec after signing. The assumption is the binary starts
             // at the beginning of flash.
-            binary_to_srec(
+            hubtools::binary_to_srec(
                 &cfg.img_file("combined.bin", image_name),
+                "signed",
                 cfg.toml
                     .memories(image_name)?
                     .get(&"flash".to_string())
@@ -399,7 +450,10 @@ pub fn package(
                 kentry,
                 &cfg.img_file("final.srec", image_name),
             )?;
-            translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
+            hubtools::translate_srec_to_other_formats(
+                &cfg.img_dir(image_name),
+                "final",
+            )?;
 
             let mut cmpa = signing.generate_cmpa(&rkth)?;
             let cmpa_bytes = cmpa.to_vec()?;
@@ -534,24 +588,6 @@ fn secure_update(
         }
         Ok(None)
     }
-}
-
-/// Convert SREC to other formats for convenience.
-fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
-    let src = dist_dir.join(format!("{}.srec", name));
-    for (out_type, ext) in [
-        ("elf32-littlearm", "elf"),
-        ("ihex", "ihex"),
-        ("binary", "bin"),
-    ] {
-        objcopy_translate_format(
-            "srec",
-            &src,
-            out_type,
-            &dist_dir.join(format!("{}.{}", name, ext)),
-        )?;
-    }
-    Ok(())
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
@@ -770,12 +806,6 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
-}
-
-#[derive(Debug, Hash)]
-struct LoadSegment {
-    source_file: PathBuf,
-    data: Vec<u8>,
 }
 
 /// Builds a specific task
@@ -1331,6 +1361,18 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
+    writeln!(
+        linkscr,
+        "_HUBRIS_IMAGE_HEADER_ALIGN = {:#x};",
+        std::mem::align_of::<abi::ImageHeader>()
+    )
+    .unwrap();
+    writeln!(
+        linkscr,
+        "_HUBRIS_IMAGE_HEADER_SIZE = {:#x};",
+        std::mem::size_of::<abi::ImageHeader>()
+    )
+    .unwrap();
 
     append_image_names(&mut linkscr, images, image_name)?;
     Ok(())
@@ -1589,6 +1631,8 @@ pub struct Allocations {
     pub kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
     pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    /// Optional trailing caboose, located in the given region
+    pub caboose: Option<(String, Range<u32>)>,
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -1628,6 +1672,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
+    caboose: Option<&CabooseConfig>,
 ) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1749,6 +1794,23 @@ pub fn allocate_all(
                 // Panic here because otherwise it's a hang.
                 panic!("loop iteration without progess made!");
             }
+        }
+
+        if let Some(caboose) = caboose {
+            if toml.tasks.contains_key("caboose") {
+                bail!("cannot have both a caboose and a task named 'caboose'");
+            }
+            if !caboose.size.is_power_of_two() {
+                bail!("caboose size must be a power of two");
+            }
+            let avail = free.get_mut(&caboose.region).ok_or_else(|| {
+                anyhow!("could not find caboose region {}", caboose.region)
+            })?;
+            let align = toml.task_memory_alignment(caboose.size);
+            allocs.caboose = Some((
+                caboose.region.clone(),
+                allocate_one(&caboose.region, caboose.size, align, avail)?,
+            ));
         }
 
         result.insert(image_name.to_string(), (allocs, free));
@@ -1890,6 +1952,22 @@ pub fn make_kconfig(
         );
     }
 
+    if let Some(c) = &toml.caboose {
+        flat_shared.insert(
+            "caboose".to_string(),
+            build_kconfig::RegionConfig {
+                base: entry_points["caboose"],
+                size: c.size,
+                attributes: build_kconfig::RegionAttributes {
+                    read: true,
+                    write: false,
+                    execute: false,
+                    special_role: None,
+                },
+            },
+        );
+    }
+
     let mut used_shared_regions = BTreeSet::new();
 
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
@@ -1908,12 +1986,20 @@ pub fn make_kconfig(
 
         // Mark off the regions this task uses.
         for region in &task.uses {
-            used_shared_regions.insert(region);
+            used_shared_regions.insert(region.as_str());
         }
 
         // Prep this task's shared region name set.
-        let shared_regions: std::collections::BTreeSet<String> =
+        let mut shared_regions: std::collections::BTreeSet<String> =
             task.uses.iter().cloned().collect();
+
+        // Allow specified tasks to use the caboose
+        if let Some(caboose) = &toml.caboose {
+            if caboose.tasks.contains(&name) {
+                used_shared_regions.insert("caboose");
+                shared_regions.insert("caboose".to_owned());
+            }
+        }
 
         let owned_regions = task_allocations[name].iter()
             .map(|(out_name, range)| {
@@ -2024,53 +2110,13 @@ pub fn make_kconfig(
     }
 
     // Pare down the list of shared regions.
-    flat_shared.retain(|name, _v| used_shared_regions.contains(name));
+    flat_shared.retain(|name, _v| used_shared_regions.contains(name.as_str()));
 
     Ok(build_kconfig::KernelConfig {
         irqs,
         tasks,
         shared_regions: flat_shared,
     })
-}
-
-/// Loads an SREC file into the same representation we use for ELF. This is
-/// currently unused, but I'm keeping it compiling as proof that it's possible,
-/// because we may need it later.
-#[allow(dead_code)]
-fn load_srec(
-    input: &Path,
-    output: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
-    let srec_text = std::fs::read_to_string(input)?;
-    for record in srec::reader::read_records(&srec_text) {
-        let record = record?;
-        match record {
-            srec::Record::S3(data) => {
-                // Check for address overlap
-                let range =
-                    data.address.0..data.address.0 + data.data.len() as u32;
-                if let Some(overlap) = output.range(range.clone()).next() {
-                    bail!(
-                        "{}: record address range {:x?} overlaps {:x}",
-                        input.display(),
-                        range,
-                        overlap.0
-                    )
-                }
-                output.insert(
-                    data.address.0,
-                    LoadSegment {
-                        source_file: input.into(),
-                        data: data.data,
-                    },
-                );
-            }
-            srec::Record::S7(srec::Address32(e)) => return Ok(e),
-            _ => (),
-        }
-    }
-
-    panic!("SREC file missing terminating S7 record");
 }
 
 fn load_elf(
@@ -2108,7 +2154,7 @@ fn load_elf(
 
         flash += size;
 
-        // We use this function to re-load an ELF file after we've modfified
+        // We use this function to re-load an ELF file after we've modified
         // it. Don't check for overlap if this happens.
         if !output.contains_key(&addr) {
             let range = addr..addr + size as u32;
@@ -2199,7 +2245,7 @@ impl Archive {
     ) -> Result<()> {
         let mut input = File::open(src_path)?;
         self.inner
-            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+            .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
         std::io::copy(&mut input, &mut self.inner)?;
         Ok(())
     }
@@ -2211,7 +2257,7 @@ impl Archive {
         contents: impl AsRef<str>,
     ) -> Result<()> {
         self.inner
-            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+            .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
         self.inner.write_all(contents.as_ref().as_bytes())?;
         Ok(())
     }
@@ -2255,102 +2301,6 @@ fn get_git_status() -> Result<(String, bool)> {
         .context(format!("failed to get git status ({:?})", cmd))?;
 
     Ok((rev, !status.success()))
-}
-
-fn binary_to_srec(
-    binary: &Path,
-    bin_addr: u32,
-    entry: u32,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("signed".to_string())];
-
-    let binary = std::fs::read(binary)?;
-
-    let mut addr = bin_addr;
-    for chunk in binary.chunks(255 - 5) {
-        srec_out.push(srec::Record::S3(srec::Data {
-            address: srec::Address32(addr),
-            data: chunk.to_vec(),
-        }));
-        addr += chunk.len() as u32;
-    }
-
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(entry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
-fn write_srec(
-    sections: &BTreeMap<u32, LoadSegment>,
-    kentry: u32,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
-    for (&base, sec) in sections {
-        // SREC record size limit is 255 (0xFF). 32-bit addressed records
-        // additionally contain a four-byte address and one-byte checksum, for a
-        // payload limit of 255 - 5.
-        let mut addr = base;
-        for chunk in sec.data.chunks(255 - 5) {
-            srec_out.push(srec::Record::S3(srec::Data {
-                address: srec::Address32(addr),
-                data: chunk.to_vec(),
-            }));
-            addr += chunk.len() as u32;
-        }
-    }
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
-fn objcopy_translate_format(
-    in_format: &str,
-    src: &Path,
-    out_format: &str,
-    dest: &Path,
-) -> Result<()> {
-    let mut cmd = Command::new("arm-none-eabi-objcopy");
-    cmd.arg("-I")
-        .arg(in_format)
-        .arg("-O")
-        .arg(out_format)
-        .arg("--gap-fill")
-        .arg("0xFF")
-        .arg(src)
-        .arg(dest);
-
-    let status = cmd
-        .status()
-        .context(format!("failed to objcopy ({:?})", cmd))?;
-
-    if !status.success() {
-        bail!("objcopy failed, see output for details");
-    }
-    Ok(())
 }
 
 fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
