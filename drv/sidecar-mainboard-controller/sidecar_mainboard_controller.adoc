@@ -154,6 +154,66 @@ Scratchpad
 |[7:0] | rw | SCRATCHPAD | Scribble Register for read-write use
 |===
 
+Fan 0 State
+[caption="Address: "]
+.0x0020 - FAN0_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 1 State
+[caption="Address: "]
+.0x0021 - FAN1_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 2 State
+[caption="Address: "]
+.0x0022 - FAN2_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
+Fan 3 State
+[caption="Address: "]
+.0x0023 - FAN3_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | PG_TIMED_OUT | FANx_HSC_TO_FPGA_PG was not released within timeout period.
+|[4] | r | POWER_FAULT | PG was lost during normal operation.
+|[3] | r | PG | Value of FANx_HSC_TO_FPGA_PG.
+|[2] | r | PRESENT | Debounced value of FANx_TO_FPGA_PRESENT_2V5.
+|[1] | rw | LED | Drives FPGA_TO_FANx_LED_L (not actually active low).
+|[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
+|===
+
 Tofino Sequencer Control
 [caption="Address: "]
 .0x0100 - TOFINO_SEQ_CTRL Register

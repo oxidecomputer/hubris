@@ -345,6 +345,306 @@
         },
         {
             "type": "reg",
+            "inst_name": "FAN0_STATE",
+            "addr_offset": 32,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LED",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_LED_L (not actually active low)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debounced value of FANx_TO_FPGA_PRESENT_2V5."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FANx_HSC_TO_FPGA_PG."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "POWER_FAULT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PG was lost during normal operation."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMED_OUT",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "FANx_HSC_TO_FPGA_PG was not released within timeout period."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FAN1_STATE",
+            "addr_offset": 33,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LED",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_LED_L (not actually active low)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debounced value of FANx_TO_FPGA_PRESENT_2V5."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FANx_HSC_TO_FPGA_PG."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "POWER_FAULT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PG was lost during normal operation."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMED_OUT",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "FANx_HSC_TO_FPGA_PG was not released within timeout period."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FAN2_STATE",
+            "addr_offset": 34,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LED",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_LED_L (not actually active low)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debounced value of FANx_TO_FPGA_PRESENT_2V5."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FANx_HSC_TO_FPGA_PG."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "POWER_FAULT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PG was lost during normal operation."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMED_OUT",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "FANx_HSC_TO_FPGA_PG was not released within timeout period."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FAN3_STATE",
+            "addr_offset": 35,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LED",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Drives FPGA_TO_FANx_LED_L (not actually active low)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Debounced value of FANx_TO_FPGA_PRESENT_2V5."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FANx_HSC_TO_FPGA_PG."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "POWER_FAULT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PG was lost during normal operation."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMED_OUT",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "FANx_HSC_TO_FPGA_PG was not released within timeout period."
+                }
+            ]
+        },
+        {
+            "type": "reg",
             "inst_name": "TOFINO_SEQ_CTRL",
             "addr_offset": 256,
             "regwidth": 8,

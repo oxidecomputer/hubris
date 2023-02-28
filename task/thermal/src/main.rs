@@ -72,6 +72,10 @@ enum Trace {
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(ThermalError),
+    FanNotPresent(Fan),
+    FanPresenceUpdateFailed(SeqError),
+    FanAdded(Fan),
+    FanRemoved(Fan),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -293,6 +297,9 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
     fn handle_notification(&mut self, _bits: u32) {
         let now = sys_get_timer().now;
         if now >= self.deadline {
+            // See if any fans were removed or added since last iteration
+            self.control.update_fan_presence();
+
             // We *always* read sensor data, which does not touch the control
             // loop; this simply posts results to the `sensors` task.
             self.control.read_sensors();

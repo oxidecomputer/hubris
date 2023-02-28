@@ -5,7 +5,7 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
+    Device, FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
 };
 use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
@@ -37,7 +37,8 @@ pub const NUM_TEMPERATURE_INPUTS: usize =
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize =
     drv_transceivers_api::NUM_PORTS as usize;
 
-const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
+// Number of individual fans
+pub const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = true;
@@ -61,9 +62,6 @@ pub(crate) struct Bsp {
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
-
-    /// Fans and their respective RPM sensors
-    pub fans: [SensorId; NUM_FANS],
 
     /// Our two fan controllers: east for 0/1 and west for 1/2
     fctrl_east: Max31790,
@@ -139,26 +137,32 @@ impl Bsp {
             .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
     }
 
-    pub fn new(i2c_task: TaskId) -> Self {
-        // Awkwardly build the fan array, because there's not a great way
-        // to build a fixed-size array from a function
-        let mut fans = [None; NUM_FANS];
-        for (i, f) in fans.iter_mut().enumerate() {
-            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
+    pub fn get_fan_presence(&self) -> Result<Fans, SeqError> {
+        let presence = self.seq.fan_module_presence()?;
+        let mut next = Fans::new();
+        for (i, present) in presence.0.iter().enumerate() {
+            // two fans per module
+            let idx = i * 2;
+            if *present {
+                next.add(idx, sensors::MAX31790_SPEED_SENSORS[idx]);
+                next.add(idx + 1, sensors::MAX31790_SPEED_SENSORS[idx + 1]);
+            }
         }
-        let fans = fans.map(Option::unwrap);
+        Ok(next)
+    }
+
+    pub fn new(i2c_task: TaskId) -> Self {
+        // Handle for the sequencer task, which we check for power state and
+        // fan presence
+        let seq = Sequencer::from(SEQUENCER.get_task_id());
 
         let fctrl_east = Max31790::new(&devices::max31790_east(i2c_task));
         let fctrl_west = Max31790::new(&devices::max31790_west(i2c_task));
         fctrl_east.initialize().unwrap();
         fctrl_west.initialize().unwrap();
 
-        // Handle for the sequencer task, which we check for power state
-        let seq = Sequencer::from(SEQUENCER.get_task_id());
-
         Self {
             seq,
-            fans,
             fctrl_east,
             fctrl_west,
 

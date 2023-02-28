@@ -13,9 +13,12 @@ use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_mainboard_controller::MainboardController;
-use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
+use drv_sidecar_seq_api::{
+    FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
+};
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -87,6 +90,10 @@ enum Trace {
         expected: [u8; 4],
     },
     FrontIOVsc8562Ready,
+    FpgaFanModuleFailure(FpgaError),
+    FanModulePowerFault(FanModuleIndex, FanModuleStatus),
+    FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
+    FanModuleEnableUpdate(FanModuleIndex, bool),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -97,6 +104,80 @@ struct ServerImpl {
     clock_generator: ClockGenerator,
     tofino: Tofino,
     front_io_board: FrontIOBoard,
+    fan_modules: FanModules,
+    // a piece of state to allow blinking LEDs to be in phase
+    led_blink_on: bool,
+}
+
+impl ServerImpl {
+    fn set_fan_module_led_state(
+        &mut self,
+        module: FanModuleIndex,
+        state: FanModuleLedState,
+    ) {
+        ringbuf_entry!(Trace::FanModuleLedUpdate(module, state));
+        self.fan_modules.set_led_state(module.into(), state);
+    }
+
+    fn set_fan_module_enable(
+        &self,
+        module: FanModuleIndex,
+        enabled: bool,
+    ) -> Result<(), FpgaError> {
+        ringbuf_entry!(Trace::FanModuleEnableUpdate(module, enabled));
+        if enabled {
+            self.fan_modules.set_enable(module.into())
+        } else {
+            self.fan_modules.clear_enable(module.into())
+        }
+    }
+
+    // The SP does not need to disable the module when presence is lost because
+    // the FPGA does that automatically. The SP does need to re-enable it when
+    // presence is detected again.
+    fn monitor_fan_modules(&mut self) {
+        match self.fan_modules.get_status() {
+            Ok(status) => {
+                for (module, status) in status.iter().enumerate() {
+                    // Fan module is not present, make sure the LED isn't driven
+                    if !status.present() {
+                        ringbuf_entry!(Trace::FanModuleLedUpdate(
+                            module.into(),
+                            FanModuleLedState::Off
+                        ));
+                        self.set_fan_module_led_state(
+                            module.into(),
+                            FanModuleLedState::Off,
+                        );
+
+                    // Fan module is present but disabled, re-enable it
+                    } else if !status.enable() {
+                        if let Err(e) =
+                            self.set_fan_module_enable(module.into(), true)
+                        {
+                            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
+                        }
+
+                    // Power fault has been observed for the module, disable it
+                    } else if status.power_fault() || status.power_timed_out() {
+                        ringbuf_entry!(Trace::FanModulePowerFault(
+                            module.into(),
+                            *status
+                        ));
+                        if let Err(e) =
+                            self.set_fan_module_enable(module.into(), false)
+                        {
+                            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
+                        }
+                    }
+                }
+            }
+            Err(e) => ringbuf_entry!(Trace::FpgaFanModuleFailure(e)),
+        }
+        if let Err(e) = self.fan_modules.update_leds(self.led_blink_on) {
+            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
+        }
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -400,6 +481,71 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .map_err(SeqError::from)
             .map_err(RequestError::from)
     }
+
+    fn fan_module_status(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<FanModuleStatus, RequestError<SeqError>> {
+        match self.fan_modules.get_status() {
+            Ok(all_modules) => Ok(all_modules[usize::from(module)]),
+            Err(e) => Err(RequestError::from(SeqError::from(e))),
+        }
+    }
+
+    fn fan_module_presence(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<FanModulePresence, RequestError<SeqError>> {
+        Ok(FanModulePresence(self.fan_modules.get_presence()))
+    }
+
+    fn fan_module_led_off(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_fan_module_led_state(module.into(), FanModuleLedState::Off);
+        Ok(())
+    }
+
+    fn fan_module_led_on(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_fan_module_led_state(module.into(), FanModuleLedState::On);
+        Ok(())
+    }
+
+    fn fan_module_led_blink(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_fan_module_led_state(module.into(), FanModuleLedState::Blink);
+        Ok(())
+    }
+
+    fn fan_module_enable(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_fan_module_enable(module.into(), true)
+            .map_err(SeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn fan_module_disable(
+        &mut self,
+        _: &RecvMessage,
+        module: FanModuleIndex,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_fan_module_enable(module.into(), false)
+            .map_err(SeqError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -413,6 +559,13 @@ impl NotificationHandler for ServerImpl {
         if let Err(e) = self.tofino.handle_tick() {
             ringbuf_entry!(Trace::TofinoSequencerError(e));
         }
+
+        // Change status of LED blink variable, keeping anything gating on/off
+        // with it in phase
+        self.led_blink_on = !self.led_blink_on;
+
+        // Fan module monitoring pulled out to keep this loop readable
+        self.monitor_fan_modules();
 
         let finish = sys_get_timer().now;
 
@@ -443,12 +596,15 @@ fn main() -> ! {
         I2C.get_task_id(),
         AUXFLASH.get_task_id(),
     );
+    let fan_modules = FanModules::new(MAINBOARD.get_task_id());
 
     let mut server = ServerImpl {
         mainboard_controller,
         clock_generator,
         tofino,
         front_io_board,
+        fan_modules,
+        led_blink_on: false,
     };
 
     ringbuf_entry!(Trace::FpgaInit);
@@ -642,8 +798,9 @@ fn main() -> ! {
 
 mod idl {
     use super::{
-        DebugPortState, DirectBarSegment, SeqError, TofinoPcieReset,
-        TofinoSeqError, TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
+        DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
+        FanModuleStatus, SeqError, TofinoPcieReset, TofinoSeqError,
+        TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
