@@ -6,11 +6,11 @@
 
 #![no_std]
 
-use serde::{Deserialize, Serialize};
-use userlib::*;
-use humpty::DumpArea;
 use derive_idol_err::IdolError;
 pub use dump_agent_api::DumpAgentError;
+use humpty::DumpArea;
+use serde::{Deserialize, Serialize};
+use userlib::*;
 
 /// Platform-agnostic (but heavily influenced) reset status bits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -92,8 +92,9 @@ impl idl::InOrderDumperImpl for ServerImpl {
         let mut nwritten = 0;
         let mut reg = 0;
 
-        let r = humpty::dump::<DumperError, 512, humpty::DUMPER_EXTERNAL>(
+        let r = humpty::dump::<DumperError, 512, { humpty::DUMPER_EXTERNAL }>(
             header.address,
+            None,
             || {
                 for r in reg..=31 {
                     ringbuf_entry!(Trace::ReadingRegister(r));

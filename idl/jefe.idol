@@ -34,7 +34,11 @@ Interface(
             idempotent: true,
         ),
         "initialize_dump_areas": (
-            reply: Simple("()"),
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
             idempotent: true,
         ),
         "get_dump_area": (

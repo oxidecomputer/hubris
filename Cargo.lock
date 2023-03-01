@@ -4009,6 +4009,7 @@ dependencies = [
  "anyhow",
  "armv6m-atomic-hack",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
  "dump-agent-api",

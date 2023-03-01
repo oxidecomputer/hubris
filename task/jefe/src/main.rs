@@ -26,16 +26,18 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "dump")]
+mod dump;
+
 mod external;
 
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
-use humpty::{DumpAgent, DumpArea};
-use task_jefe_api::{ResetReason, DumpAgentError};
+use humpty::DumpArea;
 use idol_runtime::RequestError;
+use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::*;
-use ringbuf::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
     match fault {
@@ -152,19 +154,6 @@ struct ServerImpl<'s> {
     dump_areas: Option<u32>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Initialized,
-    GetDumpArea(u8),
-    Base(u32),
-    GetDumpAreaFailed(humpty::DumpError<()>),
-    ClaimDumpAreaFailed(humpty::DumpError<()>),
-    Claiming,
-}
-
-ringbuf!(Trace, 8, Trace::None);
-
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn request_reset(
         &mut self,
@@ -216,78 +205,54 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    fn get_dump_area(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        index: u8,
-    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-        ringbuf_entry!(Trace::GetDumpArea(index));
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "dump")] {
+            fn get_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                index: u8,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                dump::get_dump_area(self.dump_areas, index)
+                    .map_err(|e| e.into())
+            }
 
-        if let Some(base) = self.dump_areas {
-            ringbuf_entry!(Trace::Base(base));
+            fn claim_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                dump::claim_dump_area(self.dump_areas).map_err(|e| e.into())
+            }
 
-            match humpty::get_dump_area(base, index, humpty::from_mem) {
-                Err(e) => {
-                    ringbuf_entry!(Trace::GetDumpAreaFailed(e));
-                    Err(DumpAgentError::InvalidArea.into())
-                }
-
-                Ok(rval) => Ok(rval)
+            fn initialize_dump_areas(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                self.dump_areas = dump::initialize_dump_areas();
+                Ok(())
             }
         } else {
-            Err(DumpAgentError::NoDumpAreas.into())
-        }
-    }
-
-    fn claim_dump_area(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-        if let Some(base) = self.dump_areas {
-            ringbuf_entry!(Trace::Claiming);
-            match humpty::claim_dump_area(
-                base, DumpAgent::Task, true, humpty::from_mem, humpty::to_mem
-            ) {
-                Err(e) => {
-                    ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
-                    Err(DumpAgentError::CannotClaimDumpArea.into())
-                }
-                
-                Ok(None) => {
-                    Err(DumpAgentError::DumpAreaInUse.into())
-                }
-
-                Ok(Some(rval)) => Ok(rval)
+            fn get_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _index: u8,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::Unsupported.into())
             }
-        } else {
-            Err(DumpAgentError::NoDumpAreas.into())
+
+            fn claim_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::Unsupported.into())
+            }
+
+            fn initialize_dump_areas(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                Err(DumpAgentError::Unsupported.into())
+            }
         }
-    }
-
-    fn initialize_dump_areas(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
-        self.dump_areas = humpty::initialize_dump_areas(&[
-            DumpArea {
-                address: 0x30020000,
-                length: 0x20000,
-                agent: DumpAgent::None,
-            },
-            DumpArea {
-                address: 0x30040000,
-                length: 0x8000,
-                agent: DumpAgent::None,
-            },
-            DumpArea {
-                address: 0x38000000,
-                length: 0x10000,
-                agent: DumpAgent::None,
-            },
-        ]);
-
-        ringbuf_entry!(Trace::Initialized);
-        Ok(())
     }
 }
 
@@ -369,7 +334,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{ResetReason, DumpAgentError};
     use humpty::DumpArea;
+    use task_jefe_api::{DumpAgentError, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

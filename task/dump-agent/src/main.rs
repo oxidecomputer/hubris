@@ -29,22 +29,17 @@ task_slot!(SPROT, sprot);
 task_slot!(JEFE, jefe);
 
 impl ServerImpl {
-    fn initialize(&self) {
+    fn initialize(&self) -> Result<(), DumpAgentError> {
         let jefe = Jefe::from(JEFE.get_task_id());
-        jefe.initialize_dump_areas();
+        jefe.initialize_dump_areas()
     }
 
-    fn dump_area(
-        &self,
-        index: u8,
-    ) -> Result<DumpArea, DumpAgentError> {
+    fn dump_area(&self, index: u8) -> Result<DumpArea, DumpAgentError> {
         let jefe = Jefe::from(JEFE.get_task_id());
         jefe.get_dump_area(index)
     }
 
-    fn claim_dump_area(
-        &self,
-    ) -> Result<DumpArea, DumpAgentError> {
+    fn claim_dump_area(&self) -> Result<DumpArea, DumpAgentError> {
         let jefe = Jefe::from(JEFE.get_task_id());
         jefe.claim_dump_area()
     }
@@ -61,12 +56,13 @@ impl ServerImpl {
         }
 
         humpty::add_dump_segment(
-            area.address, 
+            area.address,
             addr,
             length,
             humpty::from_mem,
-            humpty::to_mem
-        ).map_err(|err| DumpAgentError::BadSegmentAdd)
+            humpty::to_mem,
+        )
+        .map_err(|_| DumpAgentError::BadSegmentAdd)
     }
 }
 
@@ -76,18 +72,14 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         _msg: &RecvMessage,
         index: u8,
     ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-        match self.dump_area(index) {
-            Ok(area) => Ok(area),
-            Err(err) => Err(err.into())
-        }
+        self.dump_area(index).map_err(|e| e.into())
     }
 
     fn initialize_dump(
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
-        self.initialize();
-        Ok(())
+        self.initialize().map_err(|e| e.into())
     }
 
     fn add_dump_segment(
