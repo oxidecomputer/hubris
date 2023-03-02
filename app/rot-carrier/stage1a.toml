@@ -2,8 +2,8 @@ name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
 board = "rot-carrier-2"
 chip = "../../chips/lpc55"
-memory = "memory_stage1_hack.toml"
-image-names = ["stage1_a", "stage1_b"]
+memory = "memory_stage1_hack_a.toml"
+image-names = ["stage1_a"]
 external-images = ["a"]
 
 

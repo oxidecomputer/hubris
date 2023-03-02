@@ -13,7 +13,6 @@ use unwrap_lite::UnwrapLite;
 
 extern "C" {
     static __IMAGE_A_BASE: abi::ImageVectors;
-    static __IMAGE_B_BASE: abi::ImageVectors;
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -47,18 +46,6 @@ const PAGE_SIZE: u32 = FLASH_PAGE_SIZE as u32;
 // modified externally and subject to data races. In our case
 // we have to assume that neither of these is true, since it's
 // being furnished by our linker script, which we trust.
-
-pub fn get_image_b() -> Option<Image> {
-    let imageb = unsafe { &__IMAGE_B_BASE };
-
-    let img = Image(imageb);
-
-    if img.validate() {
-        Some(img)
-    } else {
-        None
-    }
-}
 
 pub fn get_image_a() -> Option<Image> {
     let imagea = unsafe { &__IMAGE_A_BASE };
@@ -190,29 +177,22 @@ impl Image {
 }
 
 pub fn select_image_to_boot() -> (Image, RotSlot) {
-    let (imagea, imageb) = (get_image_a(), get_image_b());
+    let imagea = get_image_a();
 
     // Image selection is very simple at the moment
     // Future work: check persistent state and epochs
-    match (imagea, imageb) {
-        (None, None) => panic!(),
-        (Some(a), None) => (a, RotSlot::A),
-        (None, Some(b)) => (b, RotSlot::B),
-        (Some(a), Some(b)) => {
-            if a.get_version() > b.get_version() {
-                (a, RotSlot::A)
-            } else {
-                (b, RotSlot::B)
-            }
-        }
+    match imagea {
+        None => panic!(),
+        Some(a) => (a, RotSlot::A),
     }
 }
 
 /// Handoff Image metadata to USB SRAM
 pub fn dump_image_details_to_ram(handoff: &Handoff) {
     let a = get_image_a().map(image_details);
-    let b = get_image_b().map(image_details);
     let (_, active) = select_image_to_boot();
+
+    let b = None;
 
     let details = RotBootState { active, a, b };
 

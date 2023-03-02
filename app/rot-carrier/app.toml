@@ -1,8 +1,8 @@
 name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
-board = "rot-carrier-1"
+board = "rot-carrier-2"
 chip = "../../chips/lpc55"
-memory = "256k.toml"
+memory = "memory_after_hypo.toml"
 stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0

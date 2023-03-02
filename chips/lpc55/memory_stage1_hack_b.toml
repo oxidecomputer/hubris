@@ -1,0 +1,39 @@
+[[flash]]
+name = "stage1_b"
+address = 0x00050000
+size = 0x10000
+read = true
+execute = true
+
+[[flash]]
+name = "a" # yes, this is still named A, for _code reasons_
+address = 0x00060000
+size = 0x30000
+read = true
+execute = true
+
+[[flash]]
+name = "dice-mfg"
+address = 0x90000
+size = 0x800
+read = true
+write = false
+execute = false
+
+[[ram]]
+name = "stage1_b"
+address = 0x20000000
+size = 0x4000
+read = true
+write = true
+execute = false
+
+# Info about the images loaded into flash and dumped by stage1 into USB SRAM
+# for hubris use.
+[[sram3]]
+name = "stage1_b"
+address = 0x40102000
+size = 0x1000
+read = true
+write = false
+execute = false
