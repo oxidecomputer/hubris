@@ -5,11 +5,11 @@
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_sprot_api::SpRot;
+use drv_sprot_api::{SpRot, SprotError, UpdateTarget};
 use gateway_messages::{
-    DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
-    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpError, SpPort,
-    SpState,
+    DiscoverResponse, ImageVersion, PowerState, ResetIntent, RotBootState,
+    RotError, RotImageDetails, RotSlot, RotState, RotUpdateDetails,
+    SpComponent, SpError, SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -23,6 +23,7 @@ task_slot!(PACKRAT, packrat);
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
     reset_requested: bool,
+    reset_component_requested: SpComponent,
     inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
@@ -32,6 +33,9 @@ impl MgsCommon {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
             reset_requested: false,
+            reset_component_requested: SpComponent {
+                id: [0; SpComponent::MAX_ID_LENGTH],
+            },
             inventory: Inventory::new(),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
@@ -142,6 +146,108 @@ impl MgsCommon {
             // bank2 slot; it shouldn't ever be returned by the local reader.
             CabooseError::NoImageHeader => panic!(),
         })
+    }
+
+    pub(crate) fn reset_component_prepare(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        // TODO: Add some kind of auth check before performing a reset.
+        // https://github.com/oxidecomputer/hubris/issues/723
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ResetPrepare));
+        self.reset_component_requested = component;
+        Ok(())
+    }
+
+    pub(crate) fn reset_component_trigger(
+        &mut self,
+        update: &SpUpdate,
+        component: SpComponent,
+        slot: Option<u16>,
+        intent: ResetIntent,
+        auth_data: &[u8],
+    ) -> Result<(), SpError> {
+        // TODO: Add some kind of auth check before performing a reset.
+        // https://github.com/oxidecomputer/hubris/issues/723
+        if self.reset_component_requested != component {
+            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+        }
+        // If we are not resetting the SP_ITSELF, then we may come back here.
+        self.reset_component_requested.id.fill(0);
+
+        // For now, resetting the SP through reset_component() is
+        // the same as through reset()
+        if component == SpComponent::SP_ITSELF {
+            task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
+                .request_reset();
+            // If `request_reset()` returns,
+            // something has gone very wrong.
+            panic!();
+        }
+
+        // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
+        // reset strategy. Here we take care of common SP and RoT cases.
+        let target = if matches!(
+            intent,
+            ResetIntent::Persistent | ResetIntent::Transient
+        ) {
+            match component {
+                SpComponent::ROT => match slot {
+                    Some(0) => UpdateTarget::ImageA,
+                    Some(1) => UpdateTarget::ImageB,
+                    _ => return Err(SpError::RequestUnsupportedForComponent),
+                },
+                _ => return Err(SpError::RequestUnsupportedForComponent),
+            }
+        } else {
+            // TODO: This value is ignored when intent is Normal or Expensive*
+            UpdateTarget::ImageA
+        };
+        match update.sprot_task().reset_component(
+            intent.into(),
+            target,
+            auth_data.len() as u16,
+            auth_data,
+        ) {
+            Err(SprotError::RspTimeout) => {
+                // This is the expected error if the reset was successful.
+                // It could be that the RoT is out-to-lunch for some other
+                // reason though.
+                // Things for upper layers to do:
+                // TODO: Check boot nonce to see if we are in a new session.
+                // TODO: Check that the expected image is now running.
+                // (Management plane should do that.)
+                // TODO: Enable staged updates where we don't automatically
+                // reset after writing an image.
+                ringbuf_entry!(Log::RotReset {
+                    err: SprotError::RspTimeout
+                });
+            }
+            Err(err) => {
+                // Some other error occurred.
+                // TODO: Update is all-or-nothing at the moment.
+                // The control plane can try to reset the RoT again or it
+                // can start the update process all over again.  We should
+                // be able to make incremental progress if there is some
+                // bug/condition that is degrading SpRot communications.
+                ringbuf_entry!(Log::RotReset { err });
+                // TODO: send an error back. However, changes need to be
+                // made to the management plane for it to understand that
+                // the write was successful but the new image is not yet
+                // running.
+            }
+            _ => {
+                // We cannot get here given the RoT's current
+                // implementation. It will either
+                // reset, forgetting about our request,
+                // or reject our request with an error.
+                // TODO: Similar to RoT's transient boot selection,
+                // we could leave a reminder to the next RoT session
+                // to send a response to the reset request.
+                panic!()
+            }
+        }
+        Ok(())
     }
 }
 

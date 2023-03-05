@@ -81,5 +81,26 @@ Interface(
             ),
             idempotent: true,
         ),
+        "reset_component": (
+            doc: "Just reset, or also update boot image select policy.",
+            args: {
+                "intent": (
+                    type: "ResetIntent",
+                    recv: FromPrimitive("u8"),
+                ),
+                "target":  {
+                    type: "UpdateTarget",
+                    recv: FromPrimitive("u8"),
+                },
+                "auth_len": "u16"
+            },
+            leases : {
+                "auth": (type: "[u8]", read: true, max_len: Some(768)),
+            },
+            reply: Result (
+                ok: "()",
+                err: CLike("UpdateError"),
+            ),
+        ),
     }
 )

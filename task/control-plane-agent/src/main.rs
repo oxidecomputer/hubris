@@ -59,6 +59,7 @@ enum Log {
     UpdatePartial { bytes_written: u32 },
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
+    RotReset { err: drv_sprot_api::SprotError },
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the

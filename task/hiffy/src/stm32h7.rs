@@ -137,6 +137,8 @@ pub enum Functions {
     FinishUpdate((), drv_update_api::UpdateError),
     #[cfg(feature = "update")]
     BlockSize((), drv_update_api::UpdateError),
+    #[cfg(feature = "update")]
+    ResetComponent((u8, usize), drv_update_api::UpdateError),
 
     #[cfg(feature = "sprot")]
     SpRotSendRecv((u32, u32), drv_spi_api::SpiError),
@@ -156,6 +158,8 @@ pub enum Functions {
     SpRotFinishUpdate((), drv_update_api::UpdateError),
     #[cfg(feature = "sprot")]
     SpRotBlockSize((), drv_update_api::UpdateError),
+    #[cfg(feature = "sprot")]
+    SpRotResetComponent((u8, usize), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "i2c")]
@@ -666,6 +670,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::finish_update,
     #[cfg(feature = "update")]
     crate::common::block_size,
+    #[cfg(feature = "update")]
+    crate::common::reset_component,
     #[cfg(feature = "sprot")]
     crate::common::sprot_send_recv,
     #[cfg(feature = "sprot")]
@@ -682,6 +688,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sprot_finish_update,
     #[cfg(feature = "sprot")]
     crate::common::sprot_block_size,
+    #[cfg(feature = "sprot")]
+    crate::common::sprot_reset_component,
 ];
 
 //

@@ -15,8 +15,9 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    IgnitionCommand, IgnitionState, MgsError, PowerState, ResetIntent,
+    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -663,6 +664,37 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
+    }
+
+    fn reset_component_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        match component {
+            SpComponent::ROT | SpComponent::SP_ITSELF => {}
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        }
+        self.common.reset_component_prepare(component)
+    }
+
+    fn reset_component_trigger(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: Option<u16>,
+        intent: ResetIntent,
+        auth_data: &[u8],
+    ) -> Result<(), SpError> {
+        self.common.reset_component_trigger(
+            &self.sp_update,
+            component,
+            slot,
+            intent,
+            auth_data,
+        )
     }
 }
 

@@ -11,6 +11,12 @@ use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
+// This is the maximum size for the authorization blob
+// for ResetComponent::IrrevocableAndExpensive
+// The size is somewhat arbitrary but would allow an RSA 4906 signature
+// plus other data. Presumably, something more efficient could be implemented.
+pub const AUTH_MAX_SZ: usize = 768;
+
 // Re-export
 pub use stage0_handoff::{
     HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
@@ -43,7 +49,7 @@ pub enum UpdateTarget {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub enum UpdateStatus {
     LoadError(HandoffDataLoadError),
@@ -81,18 +87,59 @@ pub enum UpdateError {
     // Specific to RoT (LPC55)
     SpRotError = 21,
 
+    #[idol(server_death)]
+    ServerRestarted = 22,
+
     // Caboose checks
     ImageBoardMismatch = 23,
     ImageBoardUnknown = 24,
 
-    #[idol(server_death)]
-    ServerRestarted = 22,
+    NotImplemented = 25,
 
-    Unknown = 0xff,
+    Unknown = 0xff, // XXX With Hubpack encoding, inserting a new code above this will change the deserializer's notion of Unknown.
 }
 
 impl hubpack::SerializedSize for UpdateError {
     const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
+}
+
+#[repr(u8)]
+#[derive(
+    Eq,
+    FromPrimitive,
+    AsBytes,
+    PartialEq,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum ResetIntent {
+    Normal = 1,
+    Persistent,
+    Transient,
+    ExpensiveAndIrrevocableProdToDev = 86,
+}
+
+impl From<gateway_messages::ResetIntent> for crate::ResetIntent {
+    fn from(value: gateway_messages::ResetIntent) -> Self {
+        match value {
+            gateway_messages::ResetIntent::Normal => Self::Normal,
+            gateway_messages::ResetIntent::Persistent => Self::Persistent,
+            gateway_messages::ResetIntent::Transient => Self::Transient,
+            gateway_messages::ResetIntent::ExpensiveAndIrrevocableProdToDev => {
+                Self::ExpensiveAndIrrevocableProdToDev
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, SerializedSize, Serialize, Deserialize)]
+#[repr(C)]
+pub struct ResetComponentHeader {
+    pub intent: ResetIntent,
+    pub target: UpdateTarget,
 }
 
 pub mod stm32h7 {

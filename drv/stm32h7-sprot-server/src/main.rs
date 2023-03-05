@@ -9,7 +9,7 @@ use core::convert::Into;
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::{UpdateError, UpdateTarget};
+use drv_update_api::{ResetIntent, UpdateError, UpdateTarget, AUTH_MAX_SZ};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use ringbuf::*;
 use userlib::*;
@@ -46,11 +46,13 @@ enum Trace {
     BlockSize(usize),
     Debug(bool),
     Error(SprotError),
-    FailedRetries { retries: u16, errcode: SprotError },
+    FailedRetries {
+        retries: u16,
+        errcode: SprotError,
+    },
     SprotError(SprotError),
     PulseFailed,
     RotNotReady,
-    RotReadyTimeout,
     RxParseError(u8, u8, u8, u8),
     RxSpiError(drv_spi_api::SpiError),
     RxPart1(usize),
@@ -72,6 +74,29 @@ enum Trace {
     Recoverable(SprotError),
     Header(MsgHeader),
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
+    ResetComponent {
+        component: UpdateTarget,
+        slot: Option<u16>,
+        intent: ResetIntent,
+        auth_len: u16,
+    },
+    Intent {
+        intent: ResetIntent,
+    },
+    AuthLen {
+        auth_len: u16,
+    },
+    Upd {
+        rsp: MsgType,
+        timeout: u32,
+        attempts: u16,
+    },
+    RotReady {
+        slept: u32,
+        desired: bool,
+    },
+    RotReadyTimeout,
+    RspTimeout,
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -93,7 +118,7 @@ const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
 
 // Delay between asserting CSn and sending the portion of a message
 // that fits entierly in the RoT's FIFO.
-const PART1_DELAY: u64 = 0;
+const PART1_DELAY: u64 = 1;
 
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
@@ -231,8 +256,8 @@ impl<S: SpiServer> Io<S> {
         self.do_send_request(txmsg)?;
 
         if !self.wait_rot_irq(true, timeout) {
-            ringbuf_entry!(Trace::RotNotReady);
-            return Err(SprotError::RotNotReady);
+            ringbuf_entry!(Trace::RspTimeout);
+            return Err(SprotError::RspTimeout);
         }
 
         // Fill in rx_buf with a complete message and validate its crc
@@ -266,7 +291,9 @@ impl<S: SpiServer> Io<S> {
         }
         self.spi.write(part1)?;
         if !part2.is_empty() {
-            hl::sleep_for(PART2_DELAY);
+            if PART2_DELAY != 0 {
+                hl::sleep_for(PART2_DELAY);
+            }
             self.spi.write(part2)?;
         }
         // Remove the error that we added at the beginning of this function
@@ -456,8 +483,6 @@ impl<S: SpiServer> Io<S> {
                 // Nope, it didn't complete. Pulse CSn.
                 ringbuf_entry!(Trace::UnexpectedRotIrq);
                 self.stats.csn_pulses += self.stats.csn_pulses.wrapping_add(1);
-                // One sample of an LPC55S28 reacting to CSn deasserted
-                // in about 54us. So, 10ms is plenty.
                 if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
                     // Did not clear ROT_IRQ
                     ringbuf_entry!(Trace::PulseFailed);
@@ -886,12 +911,40 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         )?;
         Ok(())
     }
+
+    fn reset_component(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        intent: ResetIntent,
+        target: UpdateTarget,
+        auth_len: u16,
+        auth: idol_runtime::LenLimit<
+            idol_runtime::Leased<idol_runtime::R, [u8]>,
+            AUTH_MAX_SZ,
+        >,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::Intent { intent });
+        ringbuf_entry!(Trace::AuthLen { auth_len });
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .reset_component(intent, target, auth_len, auth)?;
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
+            MsgType::UpdResetComponentRsp,
+            TIMEOUT_QUICK,
+            1, // Let upper layers do retries. XXX
+               // Usually the RoT will reset instead of reply.
+               // If authentication is rejected, there will be an error.
+        )?;
+        Ok(())
+    }
 }
 
 mod idl {
     use super::{
-        IoStats, MsgType, PulseStatus, Received, SinkStatus, SprotError,
-        SprotStatus, UpdateTarget,
+        IoStats, MsgType, PulseStatus, Received, ResetIntent, SinkStatus,
+        SprotError, SprotStatus, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

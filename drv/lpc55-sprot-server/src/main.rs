@@ -46,6 +46,7 @@ use drv_sprot_api::{
     HEADER_SIZE,
 };
 use lpc55_pac as device;
+#[allow(unused_imports)]
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
@@ -60,7 +61,6 @@ pub(crate) enum Trace {
     None,
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
-    Stats(RotIoStats),
     Dump(u32),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -159,8 +159,6 @@ fn main() -> ! {
     let mut signal_reply = false;
 
     loop {
-        ringbuf_entry!(Trace::Stats(io.stats));
-
         // Every time through the io loop we receive a fresh request
         let mut rx_msg = RxMsg::new(&mut rx_buf[..]);
 
@@ -256,7 +254,7 @@ impl Io {
         loop {
             // Let's exchange some bytes
             let mut io = true;
-            while io == true {
+            while io {
                 io = false;
                 if self.spi.can_tx() {
                     io = true;
@@ -295,7 +293,18 @@ impl Io {
                 // potentially throttle sends in the future.
                 self.spi.rxerr_clear();
                 self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                err = Some(IoError::Flow);
+                // TODO: If we were just sending our response, and SP was
+                // just sending zeros and we received the first byte
+                // correctly and that first byte was zero, then
+                // our Rx overrun is inconsequential and does not
+                // need to be reported as a message.
+                if err.is_none()
+                    && rx_msg.len() > 0
+                    && rx_msg.protocol() != Some(0.into())
+                {
+                    // This error matters
+                    err = Some(IoError::Flow);
+                }
             }
 
             // Are we done?

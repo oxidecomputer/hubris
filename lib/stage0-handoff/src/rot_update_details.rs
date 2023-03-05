@@ -19,7 +19,7 @@ unsafe impl HandoffData for RotBootState {
 ///
 /// It gets read from RAM by the `lpc55-update-server`
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotBootState {
     pub active: RotSlot,
@@ -39,7 +39,7 @@ impl RotBootState {
 fits_in_ram!(RotBootState);
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotImageDetails {
     pub digest: [u8; 32],

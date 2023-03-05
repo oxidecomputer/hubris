@@ -14,7 +14,10 @@ use drv_caboose::{CabooseError, CabooseReader};
 use drv_update_api::stm32h7::{
     BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
-use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    ImageVersion, ResetIntent, UpdateError, UpdateStatus, UpdateTarget,
+    AUTH_MAX_SZ,
+};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -41,6 +44,8 @@ extern "C" {
     pub static mut __REGION_BANK2_BASE: [u32; 0];
     pub static mut __REGION_BANK2_END: [u32; 0];
 }
+
+task_slot!(JEFE, jefe);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -521,6 +526,37 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
         Ok(chunk.len() as u32)
     }
+
+    fn reset_component(
+        &mut self,
+        _: &RecvMessage,
+        intent: ResetIntent,
+        _target: UpdateTarget,
+        auth_len: u16,
+        _auth: LenLimit<Leased<R, [u8]>, AUTH_MAX_SZ>,
+    ) -> Result<(), RequestError<UpdateError>> {
+        match self.state {
+            UpdateState::NoUpdate => (),
+            UpdateState::InProgress => {
+                return Err(UpdateError::UpdateInProgress.into())
+            }
+            UpdateState::Finished => (),
+        }
+
+        let auth_len = auth_len as usize;
+        if auth_len > 0 {
+            return Err(UpdateError::NotImplemented.into());
+        }
+
+        match intent {
+            ResetIntent::Normal => {
+                let jefe = task_jefe_api::Jefe::from(crate::JEFE.get_task_id());
+                jefe.request_reset();
+                panic!()
+            }
+            _ => return Err(UpdateError::NotImplemented.into()),
+        }
+    }
 }
 
 #[export_name = "main"]
@@ -541,7 +577,8 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+        CabooseError, ImageVersion, ResetIntent, UpdateError, UpdateStatus,
+        UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

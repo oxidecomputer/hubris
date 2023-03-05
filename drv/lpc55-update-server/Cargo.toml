@@ -11,6 +11,7 @@ hypocalls.path = "../../lib/hypocalls"
 ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+task-jefe-api = { path = "../../task/jefe-api" }
 
 cfg-if = { workspace = true }
 hubpack = { workspace = true }

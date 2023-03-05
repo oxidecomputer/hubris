@@ -12,7 +12,9 @@
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseError;
-use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    ResetIntent, UpdateError, UpdateStatus, UpdateTarget, AUTH_MAX_SZ,
+};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
@@ -29,6 +31,8 @@ extern "C" {
     static __IMAGE_STAGE0_END: [u32; 0];
 
 }
+
+task_slot!(JEFE, jefe);
 
 #[used]
 #[link_section = ".bootstate"]
@@ -48,6 +52,7 @@ enum UpdateState {
     Finished,
 }
 
+// TODO: Cache the full stage0 image before flashing it.
 struct ServerImpl {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
@@ -125,7 +130,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
 
         // The max lease length is longer than our block size, double
         // check that here. We share the API with other targets and there isn't
-        // a nice way to define the least length based on a constant.
+        // a nice way to define the lease length based on a constant.
         if len > BLOCK_SIZE_BYTES {
             return Err(UpdateError::BadLength.into());
         }
@@ -137,10 +142,10 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             let header_block =
                 self.header_block.get_or_insert([0u8; BLOCK_SIZE_BYTES]);
             block
-                .read_range(0..len as usize, &mut header_block[..])
+                .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             header_block[len..].fill(0);
-            if let Err(e) = validate_header_block(target, &header_block) {
+            if let Err(e) = validate_header_block(target, header_block) {
                 self.header_block = None;
                 return Err(e.into());
             }
@@ -153,7 +158,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
                 return Err(UpdateError::MissingHeaderBlock.into());
             }
             block
-                .read_range(0..len as usize, &mut flash_page)
+                .read_range(0..len, &mut flash_page)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             flash_page[len..].fill(0);
@@ -233,6 +238,72 @@ impl idl::InOrderUpdateImpl for ServerImpl {
     ) -> Result<u32, RequestError<CabooseError>> {
         Err(CabooseError::MissingCaboose.into()) // TODO
     }
+
+    /// Give boot policy input to hypovisor depending on intent and
+    /// current state, then reset.
+    /// Return failure on invalid requests.
+    fn reset_component(
+        &mut self,
+        _: &RecvMessage,
+        intent: ResetIntent,
+        _target: UpdateTarget,
+        auth_len: u16,
+        data: LenLimit<Leased<R, [u8]>, AUTH_MAX_SZ>,
+    ) -> Result<(), RequestError<UpdateError>> {
+        let mut auth = [0u8; AUTH_MAX_SZ];
+        let auth_len = auth_len as usize;
+        data.read_range(0..auth_len, &mut auth[..auth_len])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        match self.state {
+            UpdateState::NoUpdate => (),
+            UpdateState::Finished => (),
+            UpdateState::InProgress => {
+                return Err(UpdateError::UpdateInProgress.into())
+            }
+        }
+
+        match intent {
+            ResetIntent::Normal => {
+                // MRB (Transient Image Selection) won't be set for next boot.
+                // CFPA (Persistent Image Selection) won't be altered.
+                //
+                // Note that epoch is not part of the boot-time image
+                // selection policy.
+                // If we are running the current image only because of
+                // `Once{A,B}` and the current image is failing/undesired,
+                // and the current image is in a higher epoch than the
+                // preferred image, then a normal boot will bring us back
+                // to the old image from which we can recover.
+                do_reset();
+            }
+            ResetIntent::Transient | ResetIntent::Persistent => {
+                // Though stage0 doesn't have an A and a B, some
+                // stage0 updates may need a coordinated image selection
+                // if the new stage0 is not backward compatible with
+                // the old Hypo+Hubris.
+                //
+                // If we are prefering ourselves, that's always ok.
+                // (is it?)
+                // TODO: Disallow prefering an image with a lower epoch.
+                // We didn't allow overwriting ourselves.
+                // So we still know our own epoch and version without asking.
+                // The other bank may have been rewritten.
+                // Ask hypovisor what it sees in other bank right now, not
+                // what it saw on boot.
+                //   Validity:
+                //   - integrity check would be great.
+                //   - signature check would be best.
+                //   Version:
+                //   - epoch and version (required)
+                // Is the header block still valid?
+                // self.header_block = None;
+                Err(UpdateError::NotImplemented.into())
+            }
+            ResetIntent::ExpensiveAndIrrevocableProdToDev => {
+                Err(UpdateError::NotImplemented.into())
+            }
+        }
+    }
 }
 
 // Perform some sanity checking on the header block.
@@ -304,6 +375,11 @@ fn do_block_write(
     }
 }
 
+fn do_reset() -> ! {
+    task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
+    panic!()
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl {
@@ -321,7 +397,8 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+        CabooseError, ImageVersion, ResetIntent, UpdateError, UpdateStatus,
+        UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -5,6 +5,8 @@
 use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
 #[allow(unused_imports)]
+use unwrap_lite::UnwrapLite;
+#[allow(unused_imports)]
 use userlib::task_slot;
 #[cfg(any(feature = "sprot", feature = "update"))]
 use userlib::FromPrimitive;
@@ -729,6 +731,56 @@ pub(crate) fn sprot_block_size(
     Ok(4)
 }
 
+#[cfg(feature = "sprot")]
+pub(crate) fn sprot_reset_component(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let fp = stack.len() - 3;
+    let intent: drv_update_api::ResetIntent = match stack[fp + 0] {
+        // Some(intent) => match drv_update_api::ResetIntent::try_from(intent as u8) {
+        Some(intent) => {
+            match drv_update_api::ResetIntent::from_u8(intent as u8) {
+                Some(intent) => intent,
+                None => return Err(Failure::Fault(Fault::BadParameter(0))),
+            }
+        }
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+    let target: drv_update_api::UpdateTarget = match stack[fp + 1] {
+        Some(target) => match drv_update_api::UpdateTarget::from_u32(target) {
+            Some(target) => target,
+            None => return Err(Failure::Fault(Fault::BadParameter(1))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
+    };
+    let auth_len: usize = match stack[fp + 2] {
+        Some(auth_len) => auth_len as usize,
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    if auth_len > data.len().min(drv_update_api::AUTH_MAX_SZ) {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let mut auth_data = [0u8; drv_update_api::AUTH_MAX_SZ];
+    auth_data[..auth_len].copy_from_slice(&data[..auth_len]);
+
+    func_err(
+        drv_sprot_api::SpRot::from(SPROT.get_task_id()).reset_component(
+            intent,
+            target,
+            (auth_len as u32).try_into().unwrap_lite(),
+            &auth_data[..],
+        ),
+    )?;
+    Ok(0)
+}
+
 #[cfg(feature = "qspi")]
 task_slot!(HF, hf);
 
@@ -1204,4 +1256,54 @@ pub(crate) fn block_size(
     rval[..4].copy_from_slice(&bytes);
 
     Ok(4)
+}
+
+// intent, auth_len, auth_data(Lease)
+#[cfg(feature = "update")]
+pub(crate) fn reset_component(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let fp = stack.len() - 3;
+    let intent: drv_update_api::ResetIntent = match stack[fp + 0] {
+        Some(intent) => {
+            match drv_update_api::ResetIntent::from_u8(intent as u8) {
+                Some(intent) => intent,
+                None => return Err(Failure::Fault(Fault::BadParameter(0))),
+            }
+        }
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+    let target: drv_update_api::UpdateTarget = match stack[fp + 1] {
+        Some(target) => match drv_update_api::UpdateTarget::from_u32(target) {
+            Some(target) => target,
+            None => return Err(Failure::Fault(Fault::BadParameter(1))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
+    };
+    let auth_len: usize = match stack[fp + 2] {
+        Some(auth_len) => auth_len as usize,
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    if auth_len > data.len().min(drv_update_api::AUTH_MAX_SZ) {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let mut auth_data = [0u8; drv_update_api::AUTH_MAX_SZ];
+    auth_data[..auth_len].copy_from_slice(&data[..auth_len]);
+
+    func_err(
+        drv_update_api::Update::from(UPDATE.get_task_id()).reset_component(
+            intent,
+            target,
+            (auth_len as u32).try_into().unwrap_lite(),
+            &data[..],
+        ),
+    )?;
+    Ok(0)
 }

@@ -20,6 +20,9 @@ features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 
+[tasks.jefe.config.allowed-callers]
+request_reset = ["hiffy", "update_server"]
+
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 5
@@ -49,6 +52,7 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses-secure-entry = true
+task-slots = ["jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"

@@ -19,8 +19,9 @@ extern crate memoffset;
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_spi_api::SpiError;
-use drv_update_api::{
-    HandoffDataLoadError, RotBootState, UpdateError, UpdateTarget,
+pub use drv_update_api::{
+    HandoffDataLoadError, ResetComponentHeader, ResetIntent, RotBootState,
+    UpdateError, UpdateTarget, AUTH_MAX_SZ,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
@@ -181,6 +182,7 @@ impl From<UpdateError> for SprotError {
             UpdateError::Unknown
             | UpdateError::ImageBoardMismatch // TODO add new error codes here
             | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
+            UpdateError::NotImplemented => SprotError::NotImplemented,
         }
     }
 }
@@ -211,6 +213,7 @@ pub fn is_recoverable_error(err: SprotError) -> bool {
             | SprotError::EmptyMessage
             | SprotError::RotNotReady
             | SprotError::RotBusy
+            | SprotError::RspTimeout
             | SprotError::FlowError
             | SprotError::UnsupportedProtocol
             | SprotError::BadMessageLength
@@ -451,6 +454,10 @@ pub enum MsgType {
     DumpReq = 22,
     DumpRsp = 23,
 
+    // Reset
+    UpdResetComponentReq = 24,
+    UpdResetComponentRsp = 25,
+
     // Reserved value.
     Unknown = 0xff,
 }
@@ -480,6 +487,10 @@ impl From<u8> for MsgType {
             19 => MsgType::UpdFinishImageUpdateRsp,
             20 => MsgType::IoStatsReq,
             21 => MsgType::IoStatsRsp,
+            22 => MsgType::DumpReq,
+            23 => MsgType::DumpRsp,
+            24 => MsgType::UpdResetComponentReq,
+            25 => MsgType::UpdResetComponentRsp,
             _ => MsgType::Unknown,
         }
     }
@@ -598,6 +609,36 @@ impl<'a> TxMsg<'a> {
             .map_err(|_| SprotError::TaskRestart)?;
         let payload_len = n + block.len();
         self.from_existing(MsgType::UpdWriteOneBlockReq, payload_len)
+            .map_err(|(_, e)| e)
+    }
+
+    /// Serialize a reset component request
+    ///
+    /// There is an optional authorization blob.
+    pub fn reset_component(
+        mut self,
+        intent: ResetIntent,
+        target: UpdateTarget,
+        auth_len: u16,
+        auth: idol_runtime::LenLimit<
+            idol_runtime::Leased<idol_runtime::R, [u8]>,
+            AUTH_MAX_SZ,
+        >,
+    ) -> Result<VerifiedTxMsg<'a>, SprotError> {
+        let n = hubpack::serialize(
+            self.payload_mut(),
+            &ResetComponentHeader { intent, target },
+        )?;
+        let auth_len = auth_len as usize;
+        let payload_len = n + auth_len;
+        if auth_len > 0 {
+            auth.read_range(
+                0..auth_len,
+                &mut self.payload_mut()[n..payload_len],
+            )
+            .map_err(|_| SprotError::TaskRestart)?;
+        }
+        self.from_existing(MsgType::UpdResetComponentReq, payload_len)
             .map_err(|(_, e)| e)
     }
 

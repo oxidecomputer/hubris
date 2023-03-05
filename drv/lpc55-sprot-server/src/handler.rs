@@ -177,6 +177,30 @@ impl Handler {
                     .map_err(|e| e.into());
                 tx_buf.serialize(MsgType::UpdFinishImageUpdateRsp, rsp)
             }
+            MsgType::UpdResetComponentReq => {
+                match hubpack::deserialize::<drv_sprot_api::ResetComponentHeader>(
+                    rx_payload,
+                ) {
+                    Ok((header, auth_data)) => {
+                        let intent = header.intent;
+                        let target = header.target;
+                        let rsp: UpdateRspHeader = self
+                            .update
+                            .reset_component(
+                                intent,
+                                target,
+                                auth_data.len() as u16,
+                                &auth_data[..],
+                            )
+                            .map(|_| None)
+                            .map_err(|e| e.into());
+                        // TODO: Some sort of error if we didn't reset.
+
+                        tx_buf.serialize(MsgType::UpdResetComponentRsp, rsp)
+                    }
+                    Err(e) => Err((tx_buf, e.into())),
+                }
+            }
             MsgType::SinkReq => {
                 // The first two bytes of a SinkReq payload are the U16
                 // mod 2^16 sequence number.
@@ -218,6 +242,7 @@ impl Handler {
             | MsgType::UpdWriteOneBlockRsp
             | MsgType::UpdAbortUpdateRsp
             | MsgType::UpdFinishImageUpdateRsp
+            | MsgType::UpdResetComponentRsp
             | MsgType::IoStatsRsp
             | MsgType::DumpRsp
             | MsgType::Unknown => {

@@ -1136,6 +1136,7 @@ dependencies = [
  "sprockets-common",
  "sprockets-rot",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1851,10 +1852,12 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-caboose",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "serde",
  "serde_repr",
  "stage0-handoff",
@@ -2054,7 +2057,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#2dcc63c645005a7184ba754b5c42c341a0777c66"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=reset-component"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2569,6 +2572,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "stage0-handoff",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -3773,6 +3777,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -3966,6 +3971,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static-cell",
+ "unwrap-lite",
  "userlib",
  "zerocopy",
 ]
