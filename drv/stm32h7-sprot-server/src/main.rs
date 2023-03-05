@@ -84,6 +84,8 @@ const RETRY_TIMEOUT: u64 = 100;
 
 /// Timeout for status message
 const TIMEOUT_QUICK: u32 = 250;
+/// Default covers fail, pulse, retry
+const DEFAULT_ATTEMPTS: u16 = 3;
 /// Maximum timeout for an arbitrary message
 const TIMEOUT_MAX: u32 = 500;
 // XXX tune the RoT flash write timeout
@@ -452,6 +454,8 @@ impl<S: SpiServer> Io<S> {
                 // Nope, it didn't complete. Pulse CSn.
                 ringbuf_entry!(Trace::UnexpectedRotIrq);
                 self.stats.csn_pulses += self.stats.csn_pulses.wrapping_add(1);
+                // One sample of an LPC55S28 reacting to CSn deasserted
+                // in about 54us. So, 10ms is plenty.
                 if self.do_pulse_cs(10_u64, 10_u64)?.rot_irq_end == 1 {
                     // Did not clear ROT_IRQ
                     ringbuf_entry!(Trace::PulseFailed);
@@ -469,19 +473,20 @@ impl<S: SpiServer> Io<S> {
     /// ROT_IRQ before and after state is returned for testing.
     fn do_pulse_cs(
         &self,
-        delay: u64,
-        delay_after: u64,
+        assert_ms: u64,
+        delay_ms_after: u64,
     ) -> Result<PulseStatus, SprotError> {
         let rot_irq_begin = self.is_rot_irq_asserted();
-        let _lock = self
+        let lock = self
             .spi
             .lock_auto(CsState::Asserted)
             .map_err(|_| SprotError::CannotAssertCSn)?;
-        if delay != 0 {
-            hl::sleep_for(delay);
+        if assert_ms != 0 {
+            hl::sleep_for(assert_ms);
         }
-        if delay_after != 0 {
-            hl::sleep_for(delay_after);
+        drop(lock);
+        if delay_ms_after != 0 {
+            hl::sleep_for(delay_ms_after);
         }
         let rot_irq_end = self.is_rot_irq_asserted();
         let status = PulseStatus {
@@ -739,7 +744,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let txmsg =
             TxMsg::new(&mut self.tx_buf[..]).no_payload(MsgType::StatusReq);
         let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
-        let header = self.io.do_send_recv(&txmsg, &mut rxmsg, TIMEOUT_QUICK)?;
+        let header = self.io.do_send_recv_retries(
+            &txmsg,
+            &mut rxmsg,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         expect_msg(MsgType::StatusRsp, header.msgtype)?;
         let status = rxmsg
             .parse()
@@ -755,7 +765,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let txmsg =
             TxMsg::new(&mut self.tx_buf[..]).no_payload(MsgType::IoStatsReq);
         let mut rxmsg = RxMsg::new(&mut self.rx_buf[..]);
-        let header = self.io.do_send_recv(&txmsg, &mut rxmsg, TIMEOUT_QUICK)?;
+        let header = self.io.do_send_recv_retries(
+            &txmsg,
+            &mut rxmsg,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         expect_msg(MsgType::IoStatsRsp, header.msgtype)?;
         let rot_stats = rxmsg
             .parse()
@@ -779,7 +794,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             rxmsg,
             MsgType::UpdBlockSizeRsp,
             TIMEOUT_QUICK,
-            1,
+            DEFAULT_ATTEMPTS,
         )? {
             Some(block_size) => {
                 let bs = block_size as usize;
@@ -807,7 +822,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             rxmsg,
             MsgType::UpdPrepImageUpdateRsp,
             TIMEOUT_QUICK,
-            1,
+            DEFAULT_ATTEMPTS,
         )?;
         Ok(())
     }
@@ -848,7 +863,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             rxmsg,
             MsgType::UpdFinishImageUpdateRsp,
             TIMEOUT_QUICK,
-            1,
+            DEFAULT_ATTEMPTS,
         )?;
         Ok(())
     }
@@ -865,7 +880,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             rxmsg,
             MsgType::UpdAbortUpdateRsp,
             TIMEOUT_QUICK,
-            1,
+            DEFAULT_ATTEMPTS,
         )?;
         Ok(())
     }
