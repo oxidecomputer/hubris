@@ -116,7 +116,6 @@ cfg_if::cfg_if! {
             target_board = "gimlet-c",
             target_board = "sidecar-a",
             target_board = "sidecar-b",
-            target_board = "psc-a",
             target_board = "psc-b",
             target_board = "gemini-bu-1"
             ))] {

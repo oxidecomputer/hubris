@@ -371,7 +371,7 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
 ];
 
-#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+#[cfg(any(target_board = "psc-b"))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
     mwocp68_controller!(PowerShelf, v54_psu0, A2),
     mwocp68_controller!(PowerShelf, v12_psu0, A2),
@@ -474,11 +474,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(any(
-    target_board = "psc-a",
-    target_board = "psc-b",
-    target_board = "gimletlet-2",
-))]
+#[cfg(any(target_board = "psc-b", target_board = "gimletlet-2",))]
 fn get_state() -> PowerState {
     PowerState::A2
 }

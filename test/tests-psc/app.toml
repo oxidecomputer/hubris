@@ -1,7 +1,7 @@
 name = "tests-psc"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-board = "psc-a"
+board = "psc-b"
 stacksize = 896
 
 [kernel]
