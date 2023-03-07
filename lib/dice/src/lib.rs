@@ -4,13 +4,14 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use core::{mem, slice};
+use core::mem;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use hubpack::SerializedSize;
 use salty::constants::SECRETKEY_SEED_LENGTH;
 use serde::{Deserialize, Serialize};
 use sha3::Sha3_256;
+use vcell::VolatileCell;
 use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -39,22 +40,26 @@ mod trust_quorum_dhe_cert_tmpl;
 pub use crate::handoff::{AliasData, CertData, RngData, SpMeasureData};
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
-const REG_ADDR_NONSEC: u32 = 0x40000900;
 
-fn get_cdi_reg_slice() -> &'static mut [u32] {
-    // SAFETY: Dereferencing this raw pointer is necessary to read the CDI
-    // from the LPC55 DICE registers. This pointer will always reference a
-    // valid memory region as this is where the LPC55 maps the DICE
-    // registers. Support from the lpc55-pac would move the unsafe code
-    // into the pac library:
-    // https://github.com/lpc55/lpc55-pac/issues/15
-    // https://github.com/lpc55/lpc55-pac/pull/16
-    unsafe {
-        slice::from_raw_parts_mut(
-            REG_ADDR_NONSEC as *mut u32,
-            SEED_LENGTH / mem::size_of::<u32>(),
-        )
-    }
+/// Retrieves the bank of CDI registers from the SYSCON as a slice of volatile
+/// cells.
+fn get_cdi_reg_slice(
+    syscon: &lpc55_pac::syscon::RegisterBlock,
+) -> &[VolatileCell<u32>; 8] {
+    // The PAC doesn't correctly model the CDI registers in the SYSCON, so we
+    // need to resort to pointer arithmetic. The registers start at offset 0x900
+    // (in bytes) past the SYSCON.
+    let base = syscon as *const _ as *const u32;
+    // Safety: this is unsafe because the pointer calculation can wrap, but in
+    // our case, we know the SYSCON is much bigger than 0x900 bytes.
+    let cdi_addr = unsafe { base.add(0x900 / mem::size_of::<u32>()) };
+
+    // Safety: we're punning the raw pointer to an array reference here, which
+    // is ok only because we know this part of the syscon contains an 8-register
+    // array. Since the registers are modeled using VolatileCell, aliasing is
+    // acceptable, though the returned value of this function still borrows
+    // `syscon` just to keep the caller honest.
+    unsafe { &*(cdi_addr as *const [_; 8]) }
 }
 
 /// NXP LPC55 UM 11126 §4.5.74 states: "Once CDI is computed and consumed,
@@ -64,18 +69,32 @@ fn get_cdi_reg_slice() -> &'static mut [u32] {
 /// CDI). To ensure the DICE registers are cleared, this type derives the
 /// ZeroizeOnDrop trait. When an instance of this object goes out of scope
 /// the register is cleared through the slice held.
-#[derive(Zeroize, ZeroizeOnDrop)]
-struct CdiReg(&'static mut [u32]);
+struct CdiReg<'a>(&'a [VolatileCell<u32>; 8]);
 
-impl Default for CdiReg {
-    fn default() -> Self {
-        Self(get_cdi_reg_slice())
+// The zeroize crate knows nothing of the vcell crate, so we have to implement
+// all of this by hand. Note that it's _really easy_ to break this, be careful.
+impl Zeroize for CdiReg<'_> {
+    fn zeroize(&mut self) {
+        for register in self.0 {
+            register.set(0);
+        }
     }
 }
 
-impl CdiReg {
+impl Drop for CdiReg<'_> {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for CdiReg<'_> {}
+
+impl<'a> CdiReg<'a> {
+    fn from_syscon(syscon: &'a lpc55_pac::syscon::RegisterBlock) -> Self {
+        Self(get_cdi_reg_slice(syscon))
+    }
     fn is_clear(&self) -> bool {
-        self.0.iter().all(|&w| w == 0)
+        self.0.iter().all(|w| w.get() == 0)
     }
 }
 
@@ -102,11 +121,13 @@ impl Cdi {
     /// copies the contents of the DICE registers into a Cdi instance that's
     /// returned to the caller before clearing the DICE registers. This side
     /// effect causes subsequent calls to this function to return None.
-    pub fn from_reg() -> Option<Self> {
+    pub fn from_reg<'a>(
+        syscon: &'a lpc55_pac::syscon::RegisterBlock,
+    ) -> Option<Self> {
         let mut cdi = [0u8; SEED_LENGTH];
         // If the CDI register hasn't already been cleared it will be when
         // this instance goes out of scope.
-        let cdi_reg = CdiReg::default();
+        let cdi_reg = CdiReg::from_syscon(syscon);
 
         // When registers holding CDI have been cleared / zeroed return None
         // to prevent unsuspecting consumers from deriving keys from 0's.
@@ -118,7 +139,7 @@ impl Cdi {
             .chunks_exact_mut(mem::size_of::<u32>())
             .zip(cdi_reg.0.as_ref())
         {
-            dst.copy_from_slice(&src.to_ne_bytes());
+            dst.copy_from_slice(&src.get().to_ne_bytes());
         }
 
         Some(Self(cdi))
