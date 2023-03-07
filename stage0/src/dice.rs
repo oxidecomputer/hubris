@@ -220,7 +220,7 @@ pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
     // We get the CDI before mfg data to ensure that DICE is enabled. If
     // DICE has not been enabled we shouldn't do the mfg flows, but also
     // the PUF probably hasn't initialized by the ROM.
-    let cdi = match Cdi::from_reg() {
+    let cdi = match Cdi::from_reg(&peripherals.SYSCON) {
         Some(cdi) => cdi,
         None => return,
     };

@@ -682,6 +682,7 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "unwrap-lite",
+ "vcell",
  "zerocopy",
  "zeroize",
 ]
