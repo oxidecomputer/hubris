@@ -813,6 +813,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-caboose"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "tlvc",
+ "userlib",
+]
+
+[[package]]
 name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
@@ -3869,24 +3881,12 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-caboose",
  "idol",
  "idol-runtime",
  "num-traits",
- "task-caboose-reader-api",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "task-caboose-reader-api"
-version = "0.1.0"
-dependencies = [
- "derive-idol-err",
- "idol",
- "idol-runtime",
- "num-traits",
- "tlvc",
- "userlib",
 ]
 
 [[package]]

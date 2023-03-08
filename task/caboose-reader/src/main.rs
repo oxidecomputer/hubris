@@ -5,8 +5,8 @@
 #![no_std]
 #![no_main]
 
+use drv_caboose::{CabooseError, CabooseReader};
 use idol_runtime::{ClientError, Leased, RequestError, W};
-use task_caboose_reader_api::{CabooseError, CabooseReader};
 use userlib::*;
 
 #[export_name = "main"]

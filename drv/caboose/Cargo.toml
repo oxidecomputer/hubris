@@ -1,5 +1,5 @@
 [package]
-name = "task-caboose-reader-api"
+name = "drv-caboose"
 version = "0.1.0"
 edition = "2021"
 
