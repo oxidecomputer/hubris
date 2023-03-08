@@ -9,10 +9,6 @@ memory = "memory-large.toml"
 name = "sidecar"
 requires = {flash = 22776, ram = 6256}
 
-[caboose]
-region = "flash"
-size = 256
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
