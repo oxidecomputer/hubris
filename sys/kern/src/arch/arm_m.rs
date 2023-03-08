@@ -339,9 +339,6 @@ pub fn apply_memory_protection(task: &task::Task) {
     };
 
     for (i, region) in task.region_table().iter().enumerate() {
-        let rbar = (i as u32)  // region number
-            | (1 << 4)  // honor the region number
-            | region.base;
         let ratts = region.attributes;
         let xn = !ratts.contains(RegionAttributes::EXECUTE);
         // These AP encodings are chosen such that we never deny *privileged*
@@ -406,15 +403,17 @@ pub fn apply_memory_protection(task: &task::Task) {
         // with it.
         let l2size = 30 - region.size.leading_zeros();
 
-        let rasr = (xn as u32) << 28
-            | ap << 24
-            | tex << 19
-            | scb << 16
-            | l2size << 1
-            | (1 << 0); // enable
+        // Region attribute and size register; note that enable (bit 0) is not
+        // set here, because it's possible to hard-fault midway through region
+        // configuration if address and size are incompatible while the region
+        // is enabled.
+        let rasr =
+            (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1;
         unsafe {
-            mpu.rbar.write(rbar);
-            mpu.rasr.write(rasr);
+            mpu.rnr.write(i as u32); // Select the region
+            mpu.rasr.write(rasr); // configure, but leave disabled
+            mpu.rbar.write(region.base); // set region address
+            mpu.rasr.write(rasr | 1); // enable the region
         }
     }
 }
@@ -464,10 +463,11 @@ pub fn apply_memory_protection(task: &task::Task) {
             (0b0100_0100 | rw | rw << 4, 0b00)
         };
 
-        // RLAR = our upper bound
-        let rlar = (region.base + region.size - 32)
-                | (i as u32) << 1 // AttrIndx
-                | (1 << 0); // enable
+        // RLAR = our upper bound; note that enable (bit 0) is not set, because
+        // it's possible to hard-fault midway through region configuration if
+        // address and size are incompatible while the region is enabled.
+        let rlar = (region.base + region.size - 32) // upper bound
+            | (i as u32) << 1; // AttrIndx
 
         // RBAR = the base
         let rbar = (xn as u32)
@@ -477,6 +477,7 @@ pub fn apply_memory_protection(task: &task::Task) {
 
         unsafe {
             mpu.rnr.write(rnr);
+            mpu.rlar.write(rlar); // configure but leave disabled
             if rnr < 4 {
                 let mut mair0 = mpu.mair[0].read();
                 mair0 |= (mair as u32) << (rnr * 8);
@@ -487,7 +488,7 @@ pub fn apply_memory_protection(task: &task::Task) {
                 mpu.mair[1].write(mair1);
             }
             mpu.rbar.write(rbar);
-            mpu.rlar.write(rlar);
+            mpu.rlar.write(rlar | 1); // enable the region
         }
     }
 
