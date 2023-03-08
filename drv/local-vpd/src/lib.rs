@@ -82,6 +82,42 @@ pub fn read_config<V: AsBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
 ) -> Result<V, LocalVpdError> {
+    let mut out = V::new_zeroed();
+    let n = read_config_into(i2c_task, tag, out.as_bytes_mut())?;
+
+    // `read_config_into()` fails if the data is too large for `out`, but will
+    // succeed if it's less than out; we want to guarantee it's exactly the size
+    // of V.
+    if n != core::mem::size_of::<V>() {
+        return Err(LocalVpdError::InvalidChunkSize);
+    }
+
+    Ok(out)
+}
+
+/// Searches for the given TLV-C tag in the local VPD and reads it
+///
+/// Returns an error if the tag is not present, the data is too large to fit in
+/// `out`, or any checksum is corrupt.
+///
+/// The data in the EEPROM is assumed to be of the form
+/// ```ron
+/// ("FRU0", [
+///     ("TAG1", [ [...] ]),
+///     ("TAG2", [ [...] ]),
+///     ("TAG3", [ [...] ]),
+/// ])
+/// ```
+/// (where `TAG*` are example tags)
+///
+/// `read_config` should be called with a tag nested under `FRU0` (e.g. `TAG1`
+/// in the example above).  It will copy the raw byte array (shown as
+/// `[...]`) into `out`, returning the number of bytes written.
+pub fn read_config_into(
+    i2c_task: TaskId,
+    tag: [u8; 4],
+    out: &mut [u8],
+) -> Result<usize, LocalVpdError> {
     let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
         i2c_config::devices::at24csw080_local_vpd(i2c_task),
     );
@@ -102,15 +138,16 @@ pub fn read_config<V: AsBytes + FromBytes>(
                         .check_body_checksum(&mut scratch)
                         .map_err(|_| LocalVpdError::InvalidChecksum)?;
 
-                    if chunk.len() as usize != core::mem::size_of::<V>() {
+                    let chunk_len = chunk.len() as usize;
+
+                    if chunk_len > out.len() {
                         return Err(LocalVpdError::InvalidChunkSize);
                     }
 
-                    let mut out = V::new_zeroed();
                     chunk
-                        .read_exact(0, out.as_bytes_mut())
+                        .read_exact(0, &mut out[..chunk_len])
                         .map_err(|_| LocalVpdError::DeviceError)?;
-                    return Ok(out);
+                    return Ok(chunk_len);
                 }
             }
             return Err(LocalVpdError::NoSuchChunk);
