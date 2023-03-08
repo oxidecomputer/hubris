@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use abi::ImageHeader;
-
-// Filled with dummy data by the linker, then populated by the build system
-extern "C" {
-    pub static HEADER: ImageHeader;
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    idol::client::build_client_stub(
+        "../../idl/caboose.idol",
+        "client_stub.rs",
+    )?;
+    Ok(())
 }

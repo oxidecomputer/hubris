@@ -471,6 +471,13 @@ impl core::convert::TryFrom<u32> for Sysnum {
     }
 }
 
+/// A region to be dumped when a task faults
+#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct TaskDumpRegion {
+    pub base: u32,
+    pub size: u32,
+}
+
 /// Representation of kipc numbers
 pub enum Kipcnum {
     ReadTaskStatus = 1,
@@ -478,6 +485,8 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
+    ReadCaboosePos = 6,
+    ReadTaskDumpRegion = 7,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -490,6 +499,8 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
+            6 => Ok(Self::ReadCaboosePos),
+            7 => Ok(Self::ReadTaskDumpRegion),
             _ => Err(()),
         }
     }
@@ -503,6 +514,7 @@ pub struct SAUEntry {
 }
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
+pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block

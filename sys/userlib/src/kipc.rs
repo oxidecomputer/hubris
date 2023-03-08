@@ -24,6 +24,27 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
+pub fn read_task_dump_region(
+    task: usize,
+    region: usize,
+) -> Option<abi::TaskDumpRegion> {
+    // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
+    let msg = (task as u32, region as u32);
+    let mut buf = [0; core::mem::size_of::<(u32, u32)>()];
+    ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
+
+    let mut response = [0; core::mem::size_of::<Option<abi::TaskDumpRegion>>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadTaskDumpRegion as u16,
+        &buf,
+        &mut response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}
+
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
@@ -68,5 +89,19 @@ pub fn read_image_id() -> u64 {
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 8); // we *really* expect this to be a u64
+    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}
+
+pub fn read_caboose_pos() -> core::ops::Range<u32> {
+    let mut response = [0; core::mem::size_of::<core::ops::Range<u32>>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadCaboosePos as u16,
+        &[],
+        &mut response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 8); // we *really* expect this to be a (u32, u32)
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }

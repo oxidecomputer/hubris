@@ -215,6 +215,38 @@ you apply `fault_task` to an already-faulted task, the task will be marked as
 double-faulted and the previous fault will be replaced with the new injected
 fault.
 
+=== `read_image_id` (4)
+=== `reset` (5)
+=== `read_caboose_pos` (6)
+[source,rust]
+----
+struct ReadCaboosePos = ();
+----
+
+==== Preconditions
+
+None
+
+==== Response
+
+[source,rust]
+----
+type CaboosePos = core::ops::Range<u32>;
+----
+
+==== Notes
+
+`read_caboose_pos` allows tasks to get the location of <<caboose,the caboose>>
+at runtime. It is necessary because the caboose is positioned at the end of
+flash, so its location can only be known after an entire image is built.
+
+If the image does not include a caboose or the caboose does not contain the
+<<caboose-words,expected words>>, this call will return `(0, 0)`.
+
+Note that this call will return the caboose address even if a task is not
+configured for caboose access!  In that case, reading from the given memory
+range will cause a memory fault and the task will be killed.
+
 == Receiving from the kernel
 
 The kernel never sends messages to tasks. It's simply not equipped to do so.

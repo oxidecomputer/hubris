@@ -1,0 +1,43 @@
+// API for the Caboose reader task
+Interface(
+    name: "Caboose",
+    ops: {
+        "caboose_addr": (
+            doc: "reads the caboose address from the kernel",
+            reply: Result(
+                ok: "u32",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+
+        "get_key_by_tag": (
+            doc: "Scans the caboose for a key with the given tag",
+            args: {
+                "name": "[u8; 4]",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+        "get_key_by_u32": (
+            doc: "Scans the caboose for a key with the given tag",
+            args: {
+                "tag": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+    }
+)

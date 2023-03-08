@@ -256,8 +256,6 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     }
 }
 
-fn record_dump(base: u32, task: usize) {}
-
 /// Structure we use for tracking the state of the tasks we supervise. There is
 /// one of these per supervised task.
 #[derive(Copy, Clone, Debug, Default)]
@@ -303,9 +301,8 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         // Well! A fault we didn't know about.
                         log_fault(i, &fault);
 
-                        if let Some(areas) = self.dump_areas {
-                            record_dump(areas, i);
-                        }
+                        #[cfg(feature = "dump")]
+                        dump::dump_task(self.dump_areas, i);
 
                         if status.disposition == Disposition::Restart {
                             // Stand it back up

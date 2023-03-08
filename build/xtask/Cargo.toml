@@ -20,6 +20,7 @@ dunce = { workspace = true }
 filetime = { workspace = true }
 fnv = { workspace = true }
 goblin = { workspace = true }
+hubtools = { workspace = true }
 indexmap = { workspace = true }
 path-slash = { workspace = true }
 rangemap = { workspace = true }
@@ -29,16 +30,12 @@ scroll = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
-srec = { workspace = true }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
 toml = { workspace = true }
 walkdir = { workspace = true }
 zerocopy = { workspace = true }
-
-# a feature of zip we use is deprecated in 0.5.7, so let's make sure we stay
-# on the version that works for us
-zip = "=0.5.6"
+zip = { workspace = true }
 
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
 abi.path = "../../sys/abi"
