@@ -3873,7 +3873,6 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "task-caboose-reader-api",
- "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -3886,6 +3885,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "tlvc",
  "userlib",
 ]
 

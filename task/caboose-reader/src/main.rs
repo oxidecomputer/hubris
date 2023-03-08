@@ -6,8 +6,7 @@
 #![no_main]
 
 use idol_runtime::{ClientError, Leased, RequestError, W};
-use task_caboose_reader_api::CabooseError;
-use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
+use task_caboose_reader_api::{CabooseError, CabooseReader};
 use userlib::*;
 
 #[export_name = "main"]
@@ -24,31 +23,6 @@ fn main() -> ! {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-/// Simple handle which points to the beginning of the TLV-C region of the
-/// caboose and allows us to implement `TlvcRead`
-#[derive(Copy, Clone)]
-struct CabooseReader {
-    base: u32,
-    size: u32,
-}
-
-impl TlvcRead for CabooseReader {
-    fn extent(&self) -> Result<u64, TlvcReadError> {
-        Ok(self.size as u64)
-    }
-    fn read_exact(
-        &self,
-        offset: u64,
-        dest: &mut [u8],
-    ) -> Result<(), TlvcReadError> {
-        let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
-        for (i, out) in dest.iter_mut().enumerate() {
-            *out = unsafe { *((addr as usize + i) as *const u8) };
-        }
-        Ok(())
-    }
-}
 
 struct ServerImpl {
     pos: core::ops::Range<u32>,
@@ -72,33 +46,16 @@ impl idl::InOrderCabooseImpl for ServerImpl {
         name: [u8; 4],
         data: Leased<W, [u8]>,
     ) -> Result<u32, RequestError<CabooseError>> {
-        if self.pos.is_empty() {
-            return Err(CabooseError::MissingCaboose.into());
-        }
-        let reader = CabooseReader {
-            base: self.pos.start,
-            size: self.pos.len() as u32,
-        };
+        let reader = CabooseReader::new(self.pos.clone())?;
 
-        let mut reader = TlvcReader::begin(reader)
-            .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
-        while let Ok(Some(chunk)) = reader.next() {
-            if chunk.header().tag == name {
-                // TODO: verify checksum
-                // TODO: make this not one byte at a time
-                let mut buf = [0u8];
-                for i in 0..chunk.len() {
-                    chunk
-                        .read_exact(i, &mut buf)
-                        .map_err(|_| CabooseError::TlvcReadExactFailed)?;
-                    data.write_at(i as usize, buf[0]).map_err(|_| {
-                        RequestError::Fail(ClientError::BadLease)
-                    })?;
-                }
-                return Ok(chunk.len() as u32);
-            }
+        let chunk = reader.get(name)?;
+        if chunk.len() > data.len() {
+            return Err(RequestError::Fail(ClientError::BadLease))?;
         }
-        return Err(CabooseError::NoSuchTag.into());
+
+        data.write_range(0..chunk.len(), chunk)
+            .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
+        Ok(chunk.len() as u32)
     }
 
     fn get_key_by_u32(
