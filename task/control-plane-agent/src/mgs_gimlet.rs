@@ -969,7 +969,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        todo!()
+        self.common.get_caboose_value(key)
     }
 }
 

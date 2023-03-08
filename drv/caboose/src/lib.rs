@@ -28,11 +28,12 @@ pub struct CabooseReader {
 }
 
 impl CabooseReader {
-    pub fn new(region: core::ops::Range<u32>) -> Result<Self, CabooseError> {
-        if region.is_empty() {
-            Err(CabooseError::MissingCaboose)
+    /// Builds a new `CabooseReader`, returning `None` if there is no caboose
+    pub fn new(region: core::ops::Range<u32>) -> Option<Self> {
+        if region.start == 0 && region.end == 0 {
+            None
         } else {
-            Ok(Self {
+            Some(Self {
                 base: region.start,
                 size: region.len() as u32,
             })

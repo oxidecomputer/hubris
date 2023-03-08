@@ -2106,7 +2106,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=caboose-mgs-api#0ecbff2f49b081265a6df2e5f6e240aeeab82e2a"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=caboose-mgs-api#487df38e881a417a418e54d0384b87f49d9844cf"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -3908,6 +3908,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-auxflash-api",
+ "drv-caboose",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
