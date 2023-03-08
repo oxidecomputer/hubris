@@ -406,9 +406,17 @@ pub fn package(
         // Generate a RawHubrisImage, which is our source of truth for combined
         // images and is used to generate all outputs.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        let raw_output_sections = all_output_sections
+
+        let flash = cfg
+            .toml
+            .memories(image_name)?
+            .get(&"flash".to_string())
+            .ok_or_else(|| anyhow!("failed to get flash region"))?
+            .clone();
+        let raw_output_sections: BTreeMap<u32, Vec<u8>> = all_output_sections
             .into_iter()
             .map(|(k, v)| (k, v.data))
+            .filter(|(k, _v)| flash.contains(k))
             .collect();
         let raw_image = hubtools::RawHubrisImage::from_segments(
             &raw_output_sections,
@@ -467,7 +475,7 @@ pub fn package(
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
-            for ext in ["srec", "elf", "ihex", "bin"] {
+            for ext in ["elf", "bin"] {
                 let src = format!("combined.{}", ext);
                 let dst = format!("final.{}", ext);
                 std::fs::copy(
