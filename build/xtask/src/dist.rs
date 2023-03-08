@@ -680,7 +680,7 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     let img_dir = PathBuf::from("img");
 
     for f in ["combined", "final"] {
-        for ext in ["srec", "elf", "ihex", "bin"] {
+        for ext in ["elf", "bin"] {
             let name = format!("{}.{}", f, ext);
             archive
                 .copy(cfg.img_file(&name, image_name), img_dir.join(&name))?;

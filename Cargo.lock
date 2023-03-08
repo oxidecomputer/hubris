@@ -2351,12 +2351,10 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools?branch=bin-mode#629d26b51592946b6749a625ae1ad721780376cf"
+source = "git+https://github.com/oxidecomputer/hubtools?branch=bin-mode#7cef17cefe33e04371f9642662721caf3888004a"
 dependencies = [
- "ihex",
  "object",
  "path-slash",
- "srec",
  "thiserror",
  "tlvc",
  "tlvc-text",
@@ -2420,12 +2418,6 @@ name = "if_chain"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
-
-[[package]]
-name = "ihex"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "365a784774bb381e8c19edb91190a90d7f2625e057b55de2bc0f6b57bc779ff2"
 
 [[package]]
 name = "indexmap"
@@ -3692,12 +3684,6 @@ dependencies = [
  "sprockets-common",
  "tinyvec",
 ]
-
-[[package]]
-name = "srec"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17c3a0538ec242e3cd333cdcdc8b720faa2fa0a9d7f444cf1ff63e7d3303adfb"
 
 [[package]]
 name = "ssmarshal"
