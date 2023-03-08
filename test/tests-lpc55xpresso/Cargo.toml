@@ -17,8 +17,7 @@ kern = { path = "../../sys/kern" }
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "tests-lpc55"
-path = "../../app/lpc55xpresso/src/main.rs"
+name = "tests-lpc55xpresso"
 test = false
 bench = false
 
