@@ -5,7 +5,6 @@
 #![no_std]
 #![no_main]
 
-use drv_local_vpd::LocalVpdError;
 use gateway_messages::{
     sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
     UpdateId,
@@ -49,18 +48,30 @@ task_slot!(SYS, sys);
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
-    VpdReadError(LocalVpdError),
     BarcodeParseError(BarcodeParseError),
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),
-    UsartTxFull { remaining: usize },
+    UsartTxFull {
+        remaining: usize,
+    },
     UsartRxOverrun,
-    UsartRxBufferDataDropped { num_bytes: u64 },
-    SerialConsoleSend { buffered: usize },
-    UpdatePartial { bytes_written: u32 },
+    UsartRxBufferDataDropped {
+        num_bytes: u64,
+    },
+    SerialConsoleSend {
+        buffered: usize,
+    },
+    UpdatePartial {
+        bytes_written: u32,
+    },
     UpdateComplete,
-    HostFlashSectorsErased { num_sectors: usize },
+    HostFlashSectorsErased {
+        num_sectors: usize,
+    },
+
+    #[cfg(feature = "vpd-identity")]
+    VpdReadError(drv_local_vpd::LocalVpdError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
