@@ -14,7 +14,6 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
-use hubtools::LoadSegment;
 use indexmap::IndexMap;
 use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
@@ -404,18 +403,20 @@ pub fn package(
             );
         }
 
-        // Generate combined SREC, which is our source of truth for combined images.
+        // Generate a RawHubrisImage, which is our source of truth for combined
+        // images and is used to generate all outputs.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        hubtools::write_srec(
-            &all_output_sections,
+        let raw_output_sections = all_output_sections
+            .into_iter()
+            .map(|(k, v)| (k, v.data))
+            .collect();
+        let raw_image = hubtools::RawHubrisImage::from_segments(
+            &raw_output_sections,
             kentry,
-            &cfg.img_file("combined.srec", image_name),
+            0xFF,
         )?;
 
-        hubtools::translate_srec_to_other_formats(
-            &cfg.img_dir(image_name),
-            "combined",
-        )?;
+        raw_image.write_all(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             if cfg.toml.caboose.is_some() {
@@ -439,21 +440,18 @@ pub fn package(
             // We have to cheat a little for (re) generating the
             // srec after signing. The assumption is the binary starts
             // at the beginning of flash.
-            hubtools::binary_to_srec(
-                &cfg.img_file("combined.bin", image_name),
-                "signed",
-                cfg.toml
-                    .memories(image_name)?
-                    .get(&"flash".to_string())
-                    .ok_or_else(|| anyhow!("failed to get flash region"))?
-                    .start,
-                kentry,
-                &cfg.img_file("final.srec", image_name),
+            let image_bin =
+                std::fs::read(&cfg.img_file("combined.bin", image_name))?;
+            let start_addr = cfg
+                .toml
+                .memories(image_name)?
+                .get(&"flash".to_string())
+                .ok_or_else(|| anyhow!("failed to get flash region"))?
+                .start;
+            let raw_image = hubtools::RawHubrisImage::from_binary(
+                &image_bin, start_addr, kentry,
             )?;
-            hubtools::translate_srec_to_other_formats(
-                &cfg.img_dir(image_name),
-                "final",
-            )?;
+            raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
             let mut cmpa = signing.generate_cmpa(&rkth)?;
             let cmpa_bytes = cmpa.to_vec()?;
@@ -806,6 +804,12 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
+}
+
+#[derive(Debug, Hash)]
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
 }
 
 /// Builds a specific task
