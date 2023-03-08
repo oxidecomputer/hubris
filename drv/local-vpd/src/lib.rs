@@ -21,7 +21,7 @@ use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LocalVpdError {
     DeviceError,
     NoSuchChunk,

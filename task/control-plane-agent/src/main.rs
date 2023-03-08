@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use drv_local_vpd::LocalVpdError;
 use gateway_messages::{
     sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
     UpdateId,
@@ -17,7 +18,7 @@ use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
-    ControlPlaneAgentError, UartClient, VpdIdentity,
+    BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -48,6 +49,8 @@ task_slot!(SYS, sys);
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
+    VpdReadError(LocalVpdError),
+    BarcodeParseError(BarcodeParseError),
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),

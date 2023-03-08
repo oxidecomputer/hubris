@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use userlib::*;
 
 pub use host_sp_messages::HostStartupOptions;
+pub use oxide_barcode::ParseError as BarcodeParseError;
 pub use oxide_barcode::VpdIdentity;
 
 /// Maximum length (in bytes) allowed for installinator image ID blobs.
