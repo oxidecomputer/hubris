@@ -2351,7 +2351,7 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools?branch=bin-mode#7cef17cefe33e04371f9642662721caf3888004a"
+source = "git+https://github.com/oxidecomputer/hubtools#5ea3c2101882febad860d9cbdcf92c3936222de1"
 dependencies = [
  "object",
  "path-slash",

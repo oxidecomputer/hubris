@@ -451,7 +451,7 @@ pub fn package(
             let image_bin =
                 std::fs::read(&cfg.img_file("combined.bin", image_name))?;
             let raw_image = hubtools::RawHubrisImage::from_binary(
-                &image_bin,
+                image_bin,
                 raw_image.start_addr,
                 raw_image.kentry,
             )?;
