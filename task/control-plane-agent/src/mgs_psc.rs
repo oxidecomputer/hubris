@@ -553,4 +553,11 @@ impl SpHandler for MgsHandler {
         }));
         Err(SpError::RequestUnsupportedForSp)
     }
+
+    fn get_caboose_value(
+        &mut self,
+        key: [u8; 4],
+    ) -> Result<&'static [u8], SpError> {
+        self.common.get_caboose_value(key)
+    }
 }

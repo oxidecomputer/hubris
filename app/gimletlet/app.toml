@@ -11,11 +11,6 @@ version = 0
 name = "gimletlet"
 requires = {flash = 32768, ram = 8192}
 
-[caboose]
-region = "flash"
-size = 512
-tasks = ["control_plane_agent"]
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
