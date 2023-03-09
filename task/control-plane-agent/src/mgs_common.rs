@@ -126,7 +126,7 @@ impl MgsCommon {
         &self,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        let reader = userlib::hl::get_caboose()
+        let reader = userlib::kipc::get_caboose()
             .map(CabooseReader::new)
             .ok_or(SpError::NoCaboose)?;
         reader.get(key).map_err(|e| match e {

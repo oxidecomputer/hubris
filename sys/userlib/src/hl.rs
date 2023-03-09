@@ -462,20 +462,3 @@ pub fn sleep_for(ticks: u64) {
     // higher priority tasks, so at-least is generally the best we can do.
     sleep_until(sys_get_timer().now + ticks + 1)
 }
-
-/// Returns the caboose as a static slice, or `None` if no caboose is present
-pub fn get_caboose() -> Option<&'static [u8]> {
-    let region = crate::kipc::read_caboose_pos();
-    if region.start == 0 && region.end == 0 {
-        None
-    } else {
-        // SAFETY: these values are given to us by the kernel, and should point
-        // to a region in flash memory that does not exceed the bounds of flash.
-        unsafe {
-            Some(core::slice::from_raw_parts(
-                region.start as *const u8,
-                region.len(),
-            ))
-        }
-    }
-}
