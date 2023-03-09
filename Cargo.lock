@@ -2898,6 +2898,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
 
 [[package]]
+name = "oxide-barcode"
+version = "0.1.0"
+dependencies = [
+ "host-sp-messages",
+ "static_assertions",
+ "zerocopy",
+]
+
+[[package]]
 name = "p256"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3938,9 +3947,9 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "oxide-barcode",
  "serde",
  "ssmarshal",
- "static_assertions",
  "userlib",
  "zerocopy",
 ]

@@ -1,0 +1,10 @@
+[package]
+name = "oxide-barcode"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+static_assertions.workspace = true
+zerocopy.workspace = true
+
+host-sp-messages.path = "../host-sp-messages"
