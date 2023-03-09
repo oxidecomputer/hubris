@@ -445,19 +445,15 @@ pub fn package(
                 cfg.img_file("combined.bin", image_name),
             )?;
 
-            // We have to cheat a little for (re) generating the
-            // srec after signing. The assumption is the binary starts
-            // at the beginning of flash.
+            // We have to cheat a little for (re) generating the raw image after
+            // signing. The assumption is the binary has not moved, since
+            // signing only adds stuff to the end.
             let image_bin =
                 std::fs::read(&cfg.img_file("combined.bin", image_name))?;
-            let start_addr = cfg
-                .toml
-                .memories(image_name)?
-                .get(&"flash".to_string())
-                .ok_or_else(|| anyhow!("failed to get flash region"))?
-                .start;
             let raw_image = hubtools::RawHubrisImage::from_binary(
-                &image_bin, start_addr, kentry,
+                &image_bin,
+                raw_image.start_addr,
+                raw_image.kentry,
             )?;
             raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
