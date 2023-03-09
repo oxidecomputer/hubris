@@ -14,7 +14,6 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
-use hubtools::LoadSegment;
 use indexmap::IndexMap;
 use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
@@ -404,18 +403,28 @@ pub fn package(
             );
         }
 
-        // Generate combined SREC, which is our source of truth for combined images.
+        // Generate a RawHubrisImage, which is our source of truth for combined
+        // images and is used to generate all outputs.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        hubtools::write_srec(
-            &all_output_sections,
+
+        let flash = cfg
+            .toml
+            .memories(image_name)?
+            .get(&"flash".to_string())
+            .ok_or_else(|| anyhow!("failed to get flash region"))?
+            .clone();
+        let raw_output_sections: BTreeMap<u32, Vec<u8>> = all_output_sections
+            .into_iter()
+            .map(|(k, v)| (k, v.data))
+            .filter(|(k, _v)| flash.contains(k))
+            .collect();
+        let raw_image = hubtools::RawHubrisImage::from_segments(
+            &raw_output_sections,
             kentry,
-            &cfg.img_file("combined.srec", image_name),
+            0xFF,
         )?;
 
-        hubtools::translate_srec_to_other_formats(
-            &cfg.img_dir(image_name),
-            "combined",
-        )?;
+        raw_image.write_all(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             if cfg.toml.caboose.is_some() {
@@ -436,24 +445,17 @@ pub fn package(
                 cfg.img_file("combined.bin", image_name),
             )?;
 
-            // We have to cheat a little for (re) generating the
-            // srec after signing. The assumption is the binary starts
-            // at the beginning of flash.
-            hubtools::binary_to_srec(
-                &cfg.img_file("combined.bin", image_name),
-                "signed",
-                cfg.toml
-                    .memories(image_name)?
-                    .get(&"flash".to_string())
-                    .ok_or_else(|| anyhow!("failed to get flash region"))?
-                    .start,
-                kentry,
-                &cfg.img_file("final.srec", image_name),
+            // We have to cheat a little for (re) generating the raw image after
+            // signing. The assumption is the binary has not moved, since
+            // signing only adds stuff to the end.
+            let image_bin =
+                std::fs::read(&cfg.img_file("combined.bin", image_name))?;
+            let raw_image = hubtools::RawHubrisImage::from_binary(
+                image_bin,
+                raw_image.start_addr,
+                raw_image.kentry,
             )?;
-            hubtools::translate_srec_to_other_formats(
-                &cfg.img_dir(image_name),
-                "final",
-            )?;
+            raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
             let mut cmpa = signing.generate_cmpa(&rkth)?;
             let cmpa_bytes = cmpa.to_vec()?;
@@ -469,7 +471,7 @@ pub fn package(
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
-            for ext in ["srec", "elf", "ihex", "bin"] {
+            for ext in ["elf", "bin"] {
                 let src = format!("combined.{}", ext);
                 let dst = format!("final.{}", ext);
                 std::fs::copy(
@@ -674,7 +676,7 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     let img_dir = PathBuf::from("img");
 
     for f in ["combined", "final"] {
-        for ext in ["srec", "elf", "ihex", "bin"] {
+        for ext in ["elf", "bin"] {
             let name = format!("{}.{}", f, ext);
             archive
                 .copy(cfg.img_file(&name, image_name), img_dir.join(&name))?;
@@ -806,6 +808,12 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
+}
+
+#[derive(Debug, Hash)]
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
 }
 
 /// Builds a specific task
