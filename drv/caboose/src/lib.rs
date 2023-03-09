@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{FromPrimitive, UnwrapLite};
+use userlib::FromPrimitive;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum CabooseError {
@@ -22,26 +22,14 @@ pub enum CabooseError {
 /// Simple handle which points to the beginning of the TLV-C region of the
 /// caboose and allows us to implement `TlvcRead`
 #[derive(Copy, Clone)]
-pub struct CabooseReader {
-    base: u32,
-    size: u32,
-}
+pub struct CabooseReader<'a>(&'a [u8]);
 
-impl CabooseReader {
-    /// Builds a new `CabooseReader`, returning `None` if there is no caboose
-    pub fn new(region: core::ops::Range<u32>) -> Option<Self> {
-        if region.start == 0 && region.end == 0 {
-            None
-        } else {
-            Some(Self {
-                base: region.start,
-                size: region.len() as u32,
-            })
-        }
+impl<'a> CabooseReader<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Self(data)
     }
-
     /// Looks up the given key
-    pub fn get(&self, key: [u8; 4]) -> Result<&'static [u8], CabooseError> {
+    pub fn get(&self, key: [u8; 4]) -> Result<&'a [u8], CabooseError> {
         let mut reader = TlvcReader::begin(*self)
             .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
         while let Ok(Some(chunk)) = reader.next() {
@@ -62,17 +50,10 @@ impl CabooseReader {
                     - chunk.header().total_len_in_bytes() as u32
                     + core::mem::size_of::<tlvc::ChunkHeader>() as u32;
 
-                // SAFETY:
                 // The TLV-C reader guarantees that this chunk does not extend
-                // past the end of the medium.  The region is in flash, so no
-                // one should be making mutable references to it.
-                let slice = unsafe {
-                    core::slice::from_raw_parts(
-                        (self.base + data_start) as *const u8,
-                        data_len as usize,
-                    )
-                };
-                return Ok(slice);
+                // past the end of the medium, so making this slice should never
+                // panic.
+                return Ok(&self.0[data_start as usize..][..data_len as usize]);
             }
         }
 
@@ -80,9 +61,9 @@ impl CabooseReader {
     }
 }
 
-impl TlvcRead for CabooseReader {
+impl TlvcRead for CabooseReader<'_> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
-        Ok(self.size as u64)
+        Ok(self.0.len() as u64)
     }
 
     fn read_exact(
@@ -90,10 +71,7 @@ impl TlvcRead for CabooseReader {
         offset: u64,
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError> {
-        let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
-        for (i, out) in dest.iter_mut().enumerate() {
-            *out = unsafe { *((addr as usize + i) as *const u8) };
-        }
+        dest.copy_from_slice(&self.0[offset as usize..][..dest.len()]);
         Ok(())
     }
 }

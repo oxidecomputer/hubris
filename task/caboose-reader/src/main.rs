@@ -13,9 +13,9 @@ use userlib::*;
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
-    let pos = kipc::read_caboose_pos();
-
-    let mut server = ServerImpl { pos };
+    let mut server = ServerImpl {
+        caboose: hl::get_caboose(),
+    };
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -25,7 +25,7 @@ fn main() -> ! {
 ////////////////////////////////////////////////////////////////////////////////
 
 struct ServerImpl {
-    pos: core::ops::Range<u32>,
+    caboose: Option<&'static [u8]>,
 }
 
 impl idl::InOrderCabooseImpl for ServerImpl {
@@ -33,11 +33,11 @@ impl idl::InOrderCabooseImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<CabooseError>> {
-        if self.pos.is_empty() {
-            Err(CabooseError::MissingCaboose.into())
-        } else {
-            Ok(self.pos.start)
-        }
+        let addr = self
+            .caboose
+            .map(|c| c.as_ptr() as u32)
+            .ok_or(CabooseError::MissingCaboose)?;
+        Ok(addr)
     }
 
     fn get_key_by_tag(
@@ -46,7 +46,10 @@ impl idl::InOrderCabooseImpl for ServerImpl {
         name: [u8; 4],
         data: Leased<W, [u8]>,
     ) -> Result<u32, RequestError<CabooseError>> {
-        let reader = CabooseReader::new(self.pos.clone())?;
+        let reader = self
+            .caboose
+            .map(CabooseReader::new)
+            .ok_or(CabooseError::MissingCaboose)?;
 
         let chunk = reader.get(name)?;
         if chunk.len() > data.len() {

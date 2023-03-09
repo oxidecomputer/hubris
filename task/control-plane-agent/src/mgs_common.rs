@@ -126,9 +126,9 @@ impl MgsCommon {
         &self,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        let caboose_pos = userlib::kipc::read_caboose_pos();
-        let reader =
-            CabooseReader::new(caboose_pos).ok_or(SpError::NoCaboose)?;
+        let reader = userlib::hl::get_caboose()
+            .map(CabooseReader::new)
+            .ok_or(SpError::NoCaboose)?;
         reader.get(key).map_err(|e| match e {
             CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
             CabooseError::MissingCaboose => SpError::NoCaboose,
