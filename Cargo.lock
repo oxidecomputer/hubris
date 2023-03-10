@@ -813,6 +813,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-caboose"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "tlvc",
+ "userlib",
+]
+
+[[package]]
 name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
@@ -2094,7 +2106,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#5b61963cdc42b6a457329edac3180854e64d84db"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#a5d729f1236f61206977bf0f9479323ebbe52989"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -3869,24 +3881,12 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-caboose",
  "idol",
  "idol-runtime",
  "num-traits",
- "task-caboose-reader-api",
- "tlvc",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "task-caboose-reader-api"
-version = "0.1.0"
-dependencies = [
- "derive-idol-err",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
 ]
 
 [[package]]
@@ -3908,6 +3908,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-auxflash-api",
+ "drv-caboose",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
