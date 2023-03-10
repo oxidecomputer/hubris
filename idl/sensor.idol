@@ -20,7 +20,6 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("u32", None),
                 )
             },
             reply: Result(
