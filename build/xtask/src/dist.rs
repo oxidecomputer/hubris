@@ -487,7 +487,7 @@ pub fn package(
             if caboose.default {
                 let mut archive =
                     hubtools::RawHubrisArchive::load(&archive_name)?;
-                archive.write_default_caboose("0.0.0-git")?;
+                archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
                 archive.overwrite()?;
             }
         }
