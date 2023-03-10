@@ -755,6 +755,22 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
         Ok(())
     }
+
+    fn read_fpga_regs(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 64], RequestError<SeqError>> {
+        let mut buf = [0; 64];
+        let size = 8;
+
+        for i in (0..buf.len()).step_by(size) {
+            self.seq
+                .read_bytes(i as u16, &mut buf[i..i + size])
+                .map_err(|_| SeqError::ReadRegsFailed)?;
+        }
+
+        Ok(buf)
+    }
 }
 
 fn reprogram_fpga<S: SpiServer>(

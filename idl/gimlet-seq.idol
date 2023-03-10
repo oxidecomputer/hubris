@@ -48,5 +48,13 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+        "read_fpga_regs": (
+            doc: "Raw read of the FPGA registers",
+            args: {},
+            reply: Result(
+                ok: "[u8; 64]",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

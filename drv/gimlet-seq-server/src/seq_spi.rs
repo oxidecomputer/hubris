@@ -76,7 +76,7 @@ impl<S: SpiServer> SequencerFpga<S> {
     }
 
     /// Performs the READ command against `addr`. This can read as many bytes as
-    /// you like into `data_out`.
+    /// you like into `data_out`, limited by `raw_spi_read` buffer size
     pub fn read_bytes(
         &self,
         addr: impl Into<u16>,
@@ -141,6 +141,10 @@ impl<S: SpiServer> SequencerFpga<S> {
         let addr = U16::new(addr);
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
+
+        if data_out.len() > data.len() - header.len() {
+            return Err(spi_api::SpiError::BadTransferSize);
+        }
 
         data[..header.len()].copy_from_slice(header);
 

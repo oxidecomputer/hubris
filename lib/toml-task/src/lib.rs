@@ -30,6 +30,8 @@ pub struct Task<T = ordered_toml::Value> {
     pub features: Vec<String>,
     #[serde(default)]
     pub notifications: Vec<String>,
+    #[serde(default)]
+    pub copy_to_archive: Vec<String>,
 
     // Order matters here:
     // TOML serialization doesn't allow us to put a value type after any Table
