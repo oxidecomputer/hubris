@@ -2106,7 +2106,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=caboose-mgs-api#08eb48afd03b5678624ed928feaede953bfa5bbc"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=caboose-mgs-api#c9b70f723112e4739a238802c8a80bf7e9ed5adf"
 dependencies = [
  "bitflags",
  "hubpack",
