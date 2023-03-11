@@ -15,6 +15,7 @@ use userlib::*;
 static TZ_TABLE: SecureTable = SecureTable {
     magic: TABLE_MAGIC,
     write_to_flash: Some(write_to_flash),
+    erase_flash: Some(erase_flash),
 };
 
 #[export_name = "main"]
@@ -44,6 +45,32 @@ pub unsafe extern "C" fn write_to_flash(
         sg
         push {{lr}}
         bl __write_block
+        pop {{lr}}
+        bxns lr
+        ",
+        options(noreturn)
+    );
+}
+
+#[naked]
+#[no_mangle]
+#[link_section = ".nsc"]
+pub unsafe extern "C" fn erase_flash(
+    image_num: UpdateTarget,
+    page_num: u32,
+) -> HypoStatus {
+    // ARM really wants another function to branch to based on
+    // their secure docs. We also don't have full compiler support yet
+    // so for now just keep it simple and have a single function with
+    // the sg instruction
+    //
+    // The sg is a nop when not using TrustZone. This will need to be
+    // a bxns when we get full TrustZone support
+    core::arch::asm!(
+        "
+        sg
+        push {{lr}}
+        bl __erase_block
         pop {{lr}}
         bxns lr
         ",
