@@ -15,7 +15,7 @@ use drv_sidecar_front_io::{
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
-    ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
+    ModuleStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
     TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use hubpack::SerializedSize;
@@ -41,7 +41,8 @@ task_slot!(SENSOR, sensor);
 // Both incoming and outgoing messages use the Message type, so we use it to
 // size our Tx / Rx buffers.
 const MAX_UDP_MESSAGE_SIZE: usize =
-    transceiver_messages::message::Message::MAX_SIZE
+    transceiver_messages::message::Header::MAX_SIZE
+        + transceiver_messages::message::Message::MAX_SIZE
         + transceiver_messages::MAX_PAYLOAD_SIZE;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -164,7 +165,7 @@ impl ServerImpl {
         port: LogicalPort,
         reg: u8,
     ) -> Result<Celsius, FpgaError> {
-        self.transceivers.setup_i2c_read(reg, 2, port.as_mask())?;
+        self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
@@ -197,7 +198,7 @@ impl ServerImpl {
         &mut self,
         port: LogicalPort,
     ) -> Result<ManagementInterface, FpgaError> {
-        self.transceivers.setup_i2c_read(0, 1, port.as_mask())?;
+        self.transceivers.setup_i2c_read(0, 1, port.as_mask());
         let mut out = [0u8; 2]; // [status, SFF8024Identifier]
 
         // Wait for the I2C transaction to complete
@@ -257,6 +258,7 @@ impl ServerImpl {
     }
 
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
+
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
@@ -352,15 +354,17 @@ impl ServerImpl {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
-    fn get_modules_status(
+    fn get_module_status(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<ModulesStatus, idol_runtime::RequestError<TransceiversError>>
+    ) -> Result<ModuleStatus, idol_runtime::RequestError<TransceiversError>>
     {
-        Ok(self
-            .transceivers
-            .get_modules_status()
-            .map_err(TransceiversError::from)?)
+        let (mod_status, result) = self.transceivers.get_module_status();
+
+        match result.error.count() {
+            0 => Ok(mod_status),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_enable_power(
@@ -368,10 +372,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .enable_power(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .enable_power(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_disable_power(
@@ -379,10 +386,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .disable_power(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .disable_power(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_assert_reset(
@@ -390,10 +400,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .assert_reset(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .assert_reset(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_deassert_reset(
@@ -401,10 +414,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .deassert_reset(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .deassert_reset(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_assert_lpmode(
@@ -412,10 +428,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .assert_lpmode(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .assert_lpmode(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_deassert_lpmode(
@@ -423,10 +442,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .deassert_lpmode(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .deassert_lpmode(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn port_clear_fault(
@@ -434,10 +456,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .port_clear_fault(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self
+            .transceivers
+            .port_clear_fault(LogicalPortMask(logical_port_mask));
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn setup_i2c_read(
@@ -451,10 +476,15 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
 
-        self.transceivers
-            .setup_i2c_read(reg, num_bytes, LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self.transceivers.setup_i2c_read(
+            reg,
+            num_bytes,
+            LogicalPortMask(logical_port_mask),
+        );
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn setup_i2c_write(
@@ -468,10 +498,15 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
 
-        self.transceivers
-            .setup_i2c_write(reg, num_bytes, LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self.transceivers.setup_i2c_write(
+            reg,
+            num_bytes,
+            LogicalPortMask(logical_port_mask),
+        );
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 
     fn get_i2c_read_buffer(
@@ -514,10 +549,11 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         data.read_range(0..data.len(), &mut buf[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        self.transceivers
-            .set_i2c_write_buffer(&buf[..data.len()])
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self.transceivers.set_i2c_write_buffer(&buf[..data.len()]);
+        match result.error.count() {
+            0 => Ok(()),
+            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        }
     }
 }
 
@@ -550,10 +586,7 @@ impl NotificationHandler for ServerImpl {
             }
 
             // Query module presence and update LEDs accordingly
-            let status = match self.transceivers.get_modules_status() {
-                Ok(status) => status,
-                Err(_) => ModulesStatus::new_zeroed(),
-            };
+            let (status, _) = self.transceivers.get_module_status();
 
             let modules_present = !status.modprsl;
             if modules_present != self.modules_present {
@@ -658,7 +691,7 @@ pub fn claim_statics() -> (
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ModulesStatus, TransceiversError};
+    use super::{ModuleStatus, TransceiversError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

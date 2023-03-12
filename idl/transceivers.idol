@@ -3,10 +3,10 @@
 Interface(
     name: "Transceivers",
     ops: {
-        "get_modules_status": (
+        "get_module_status": (
             doc: "Collect the status of each modules control and status signals",
             reply: Result(
-                ok: "ModulesStatus",
+                ok: "ModuleStatus",
                 err: CLike("TransceiversError"),
             ),
         ),
