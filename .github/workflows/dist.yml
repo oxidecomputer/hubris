@@ -159,11 +159,7 @@ jobs:
             target: thumbv6m-none-eabi
             image: default
           - os: ubuntu-latest
-            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
           - os: windows-latest
-            deps: |
-              Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
-              echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
     env:
       VCPKGRS_DYNAMIC: 1
 
@@ -186,10 +182,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
             ${{ runner.os }}-vcpkg-download-
-
-      # install dependencies
-      - name: Install dependencies
-        run: '${{ matrix.deps }}'
 
       # invoke our build
       - uses: actions-rs/cargo@v1
