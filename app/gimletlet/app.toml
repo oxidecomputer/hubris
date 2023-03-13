@@ -11,6 +11,12 @@ version = 0
 name = "gimletlet"
 requires = {flash = 32768, ram = 8192}
 
+[caboose]
+tasks = ["control_plane_agent", "caboose_reader"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
@@ -239,6 +245,12 @@ max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
 start = true
 task-slots = ["i2c_driver"]
+
+[tasks.caboose_reader]
+name = "task-caboose-reader"
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+start = true
 
 [tasks.idle]
 name = "task-idle"

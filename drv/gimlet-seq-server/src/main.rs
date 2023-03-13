@@ -78,6 +78,7 @@ enum Trace {
     },
     PowerControl(u8),
     InterruptFlags(u8),
+    V3P3SysA0VOut(units::Volts),
     None,
 }
 
@@ -345,6 +346,7 @@ fn main() -> ! {
     jefe.set_state(PowerState::A2 as u32);
 
     ringbuf_entry!(Trace::ClockConfigSuccess);
+    ringbuf_entry_v3p3_sys_a0_vout();
     ringbuf_entry!(Trace::A2);
 
     // Turn on the chassis LED once we reach A2
@@ -490,6 +492,8 @@ impl<S: SpiServer> ServerImpl<S> {
     ) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::SetState(self.state, state));
 
+        ringbuf_entry_v3p3_sys_a0_vout();
+
         ringbuf_entry!(Trace::PGStatus {
             b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
             c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
@@ -623,7 +627,17 @@ impl<S: SpiServer> ServerImpl<S> {
                 }
 
                 self.update_state_internal(PowerState::A2);
+                ringbuf_entry_v3p3_sys_a0_vout();
                 ringbuf_entry!(Trace::A2);
+
+                //
+                // Our rails should be draining.  We'll take two additional
+                // measurements (for a total of three) each 100 ms apart.
+                //
+                for _i in 0..2 {
+                    hl::sleep_for(100);
+                    ringbuf_entry_v3p3_sys_a0_vout();
+                }
 
                 Ok(())
             }
@@ -740,6 +754,22 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         hl::sleep_for(25);
         self.sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
         Ok(())
+    }
+
+    fn read_fpga_regs(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 64], RequestError<SeqError>> {
+        let mut buf = [0; 64];
+        let size = 8;
+
+        for i in (0..buf.len()).step_by(size) {
+            self.seq
+                .read_bytes(i as u16, &mut buf[i..i + size])
+                .map_err(|_| SeqError::ReadRegsFailed)?;
+        }
+
+        Ok(buf)
     }
 }
 
@@ -899,6 +929,30 @@ cfg_if::cfg_if! {
 
             vdd_vcore.turn_on().unwrap();
             vddcr_soc.turn_on().unwrap();
+        }
+
+        //
+        // We have had issues whereby V3P3_SYS_A0 is inadvertently driven by a
+        // pin on the SP (e.g., a pin that is pulled up to V3P3_SYS_A0 being
+        // configured as a push/pull GPIO rather than open drain).  The side
+        // effects of this are nasty from the SP3 side, so to help debug any
+        // such inadvertent driving, we record the Vout of V3P3_SYS_A0 after
+        // arriving in A2 and then before starting any state transition; this
+        // convenience routine makes these recordings easy to sprinkle as
+        // needed.
+        //
+        fn ringbuf_entry_v3p3_sys_a0_vout() {
+            use drv_i2c_devices::tps546b24a::Tps546B24A;
+            use drv_i2c_devices::VoltageSensor;
+
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
+            let v3p3_sys_a0 = Tps546B24A::new(&device, rail);
+
+            ringbuf_entry!(
+                Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap())
+            );
         }
     } else {
         compile_error!("unsupported target board");

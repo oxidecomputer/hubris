@@ -9,6 +9,12 @@ memory = "memory-large.toml"
 name = "sidecar"
 requires = {flash = 22776, ram = 6256}
 
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0

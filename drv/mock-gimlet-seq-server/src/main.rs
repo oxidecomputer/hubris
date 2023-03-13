@@ -92,6 +92,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         Ok(())
     }
+
+    fn read_fpga_regs(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 64], RequestError<SeqError>> {
+        Ok([0; 64])
+    }
 }
 
 mod idl {

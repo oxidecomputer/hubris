@@ -14,7 +14,6 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
-use hubtools::LoadSegment;
 use indexmap::IndexMap;
 use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
@@ -404,18 +403,28 @@ pub fn package(
             );
         }
 
-        // Generate combined SREC, which is our source of truth for combined images.
+        // Generate a RawHubrisImage, which is our source of truth for combined
+        // images and is used to generate all outputs.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        hubtools::write_srec(
-            &all_output_sections,
+
+        let flash = cfg
+            .toml
+            .memories(image_name)?
+            .get(&"flash".to_string())
+            .ok_or_else(|| anyhow!("failed to get flash region"))?
+            .clone();
+        let raw_output_sections: BTreeMap<u32, Vec<u8>> = all_output_sections
+            .into_iter()
+            .map(|(k, v)| (k, v.data))
+            .filter(|(k, _v)| flash.contains(k))
+            .collect();
+        let raw_image = hubtools::RawHubrisImage::from_segments(
+            &raw_output_sections,
             kentry,
-            &cfg.img_file("combined.srec", image_name),
+            0xFF,
         )?;
 
-        hubtools::translate_srec_to_other_formats(
-            &cfg.img_dir(image_name),
-            "combined",
-        )?;
+        raw_image.write_all(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             if cfg.toml.caboose.is_some() {
@@ -436,24 +445,17 @@ pub fn package(
                 cfg.img_file("combined.bin", image_name),
             )?;
 
-            // We have to cheat a little for (re) generating the
-            // srec after signing. The assumption is the binary starts
-            // at the beginning of flash.
-            hubtools::binary_to_srec(
-                &cfg.img_file("combined.bin", image_name),
-                "signed",
-                cfg.toml
-                    .memories(image_name)?
-                    .get(&"flash".to_string())
-                    .ok_or_else(|| anyhow!("failed to get flash region"))?
-                    .start,
-                kentry,
-                &cfg.img_file("final.srec", image_name),
+            // We have to cheat a little for (re) generating the raw image after
+            // signing. The assumption is the binary has not moved, since
+            // signing only adds stuff to the end.
+            let image_bin =
+                std::fs::read(&cfg.img_file("combined.bin", image_name))?;
+            let raw_image = hubtools::RawHubrisImage::from_binary(
+                image_bin,
+                raw_image.start_addr,
+                raw_image.kentry,
             )?;
-            hubtools::translate_srec_to_other_formats(
-                &cfg.img_dir(image_name),
-                "final",
-            )?;
+            raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
             let mut cmpa = signing.generate_cmpa(&rkth)?;
             let cmpa_bytes = cmpa.to_vec()?;
@@ -469,7 +471,7 @@ pub fn package(
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
-            for ext in ["srec", "elf", "ihex", "bin"] {
+            for ext in ["elf", "bin"] {
                 let src = format!("combined.{}", ext);
                 let dst = format!("final.{}", ext);
                 std::fs::copy(
@@ -479,7 +481,18 @@ pub fn package(
             }
         }
         write_gdb_script(&cfg, image_name)?;
-        build_archive(&cfg, image_name)?;
+        let archive_name = build_archive(&cfg, image_name)?;
+
+        if let Some(caboose) = &cfg.toml.caboose {
+            if caboose.default {
+                let mut archive =
+                    hubtools::RawHubrisArchive::load(&archive_name)?;
+                // The Git hash is included in the default caboose under the key
+                // `GITC`, so we don't include it in the pseudo-version.
+                archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
+                archive.overwrite()?;
+            }
+        }
     }
     Ok(allocated)
 }
@@ -624,11 +637,11 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     Ok(())
 }
 
-fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
+fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
     // Bundle everything up into an archive.
-    let mut archive = Archive::new(
-        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name),
-    )?;
+    let archive_path =
+        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name);
+    let mut archive = Archive::new(&archive_path)?;
 
     archive.text(
         "README.TXT",
@@ -674,7 +687,7 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     let img_dir = PathBuf::from("img");
 
     for f in ["combined", "final"] {
-        for ext in ["srec", "elf", "ihex", "bin"] {
+        for ext in ["elf", "bin"] {
             let name = format!("{}.{}", f, ext);
             archive
                 .copy(cfg.img_file(&name, image_name), img_dir.join(&name))?;
@@ -735,8 +748,84 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         )?;
     }
 
+    let mut metadata = None;
+
+    //
+    // Iterate over tasks looking for elements that should be copied into
+    // the archive.  These are specified by the "copy-to-archive" array,
+    // which consists of keys into the config table; the values associated
+    // with these keys have the names of the files to add to the archive.
+    // All files added to the archive for a particular task will be in
+    // a directory dedicated to that task; all such directories will
+    // themselves be subdirectories in the "task" directory.
+    //
+    for (name, task) in &cfg.toml.tasks {
+        for c in &task.copy_to_archive {
+            match &task.config {
+                None => {
+                    bail!(
+                        "task {name}: {c} is specified to be copied \
+                        into archive, but config table is missing"
+                    );
+                }
+                Some(config) => match config.get(c) {
+                    Some(ordered_toml::Value::String(s)) => {
+                        //
+                        // This is a bit of a heavy hammer:  we need the
+                        // directory name for the task to find the file to be
+                        // copied into the archive, so we're going to iterate
+                        // over all packages to find the crate assocated with
+                        // this task.  (We cache the metadata itself, as it
+                        // takes on the order of ~150 ms to gather.)
+                        //
+                        use cargo_metadata::MetadataCommand;
+                        let metadata = match metadata.as_ref() {
+                            Some(m) => m,
+                            None => {
+                                let d = MetadataCommand::new()
+                                    .manifest_path("./Cargo.toml")
+                                    .exec()?;
+                                metadata.get_or_insert(d)
+                            }
+                        };
+
+                        let pkg = metadata
+                            .packages
+                            .iter()
+                            .find(|p| p.name == task.name)
+                            .unwrap();
+
+                        let dir = pkg.manifest_path.parent().unwrap();
+
+                        let f = dir.join(s);
+                        let task_dir = PathBuf::from("task").join(name).join(s);
+                        archive.copy(f, task_dir).with_context(|| {
+                            format!(
+                                "task {name}: failed to copy \"{s}\" in {} \
+                                into the archive",
+                                dir.display()
+                            )
+                        })?;
+                    }
+                    Some(_) => {
+                        bail!(
+                            "task {name}: {c} is specified to be copied into \
+                            the archive, but isn't a string in the config table"
+                        );
+                    }
+                    None => {
+                        bail!(
+                            "task {name}: {c} is specified to be copied into \
+                            the archive, but is missing in the config table"
+                        );
+                    }
+                },
+            }
+        }
+    }
+
     archive.finish()?;
-    Ok(())
+    Ok(archive_path)
 }
 
 fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
@@ -806,6 +895,12 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
+}
+
+#[derive(Debug, Hash)]
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
 }
 
 /// Builds a specific task

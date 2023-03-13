@@ -9,6 +9,12 @@ stacksize = 896
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
 
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
@@ -133,6 +139,7 @@ stacksize = 1600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
 notifications = ["timer"]
+copy-to-archive = ["register_defs"]
 
 [tasks.gimlet_seq.config]
 fpga_image = "fpga-b.bin"
