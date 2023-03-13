@@ -93,10 +93,9 @@ You will need:
 - [libfdti1](https://www.intra2net.com/en/developer/libftdi/), found
   as `libftdi1-dev` or similar.
 
-- `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`, typically from your system's
-  package manager using package names like
-  `arm-none-eabi-binutils`/`binutils-arm-none-eabi` and
-  `arm-none-eabi-gdb`/`gdb-multiarch`.  macOS users can run
+- If you will be running GDB, you should install `arm-none-eabi-gdb`.  This is
+  typically from your system's package manager with a package name like
+  `arm-none-eabi-gdb` or `gdb-multiarch`.  macOS users can run
   `brew install --cask gcc-arm-embedded` to install the
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 

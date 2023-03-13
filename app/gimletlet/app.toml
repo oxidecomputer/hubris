@@ -15,6 +15,7 @@ requires = {flash = 32768, ram = 8192}
 tasks = ["control_plane_agent", "caboose_reader"]
 region = "flash"
 size = 256
+default = true
 
 [tasks.jefe]
 name = "task-jefe"
