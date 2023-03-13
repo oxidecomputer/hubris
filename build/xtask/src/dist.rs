@@ -487,6 +487,8 @@ pub fn package(
             if caboose.default {
                 let mut archive =
                     hubtools::RawHubrisArchive::load(&archive_name)?;
+                // The Git hash is included in the default caboose under the key
+                // `GITC`, so we don't include it in the pseudo-version.
                 archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
                 archive.overwrite()?;
             }
