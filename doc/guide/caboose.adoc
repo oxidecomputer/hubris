@@ -68,10 +68,23 @@ presence and size can be determined as follows:
 
 Note that this procedure works both at runtime and from a binary file, with or
 without an associated Hubris archive.  In a live system, this logic is
-implemented by the <<_read_caboose_pos_6,`read_caboose_pos`>> kernel IPC call.
+implemented by the <<_read_caboose_pos_6,`read_caboose_pos`>> kernel IPC call,
+which is wrapped by `get_caboose` to yield an `Option<&'static [u8]>`.
 
 Other than reserving the two words above, the Hubris build system is
 _deliberately agnostic_ to the contents of the caboose; it is left to a separate
 release engineering process to decide what to store there.  The
 https://github.com/oxidecomputer/hubtools[`hubtools` repository] includes a
 library and CLI for modifying the caboose of a Hubris archive.
+
+However, for convenience, it's possible to enable a default caboose:
+```toml
+[caboose]
+region = "flash"
+size = 128
+tasks = ["caboose_reader"]
+default = true
+```
+
+If the `default` parameter is `true`, then Hubris will itself use `hubtools` to
+populate the caboose with default values.

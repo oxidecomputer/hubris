@@ -9,6 +9,12 @@ stacksize = 896
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
 
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
