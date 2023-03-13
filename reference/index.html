@@ -5425,7 +5425,8 @@ not present.</p>
 <div class="paragraph">
 <p>Note that this procedure works both at runtime and from a binary file, with or
 without an associated Hubris archive.  In a live system, this logic is
-implemented by the <a href="#_read_caboose_pos_6"><code>read_caboose_pos</code></a> kernel IPC call.</p>
+implemented by the <a href="#_read_caboose_pos_6"><code>read_caboose_pos</code></a> kernel IPC call,
+which is wrapped by <code>get_caboose</code> to yield an <code>Option&lt;&amp;'static [u8]&gt;</code>.</p>
 </div>
 <div class="paragraph">
 <p>Other than reserving the two words above, the Hubris build system is
@@ -5433,6 +5434,22 @@ implemented by the <a href="#_read_caboose_pos_6"><code>read_caboose_pos</code><
 release engineering process to decide what to store there.  The
 <a href="https://github.com/oxidecomputer/hubtools"><code>hubtools</code> repository</a> includes a
 library and CLI for modifying the caboose of a Hubris archive.</p>
+</div>
+<div class="paragraph">
+<p>However, for convenience, it&#8217;s possible to enable a default caboose:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="toml"><span class="nn">[caboose]</span>
+<span class="py">region</span> <span class="p">=</span> <span class="s">"flash"</span>
+<span class="py">size</span> <span class="p">=</span> <span class="mi">128</span>
+<span class="py">tasks</span> <span class="p">=</span> <span class="p">[</span><span class="s">"caboose_reader"</span><span class="p">]</span>
+<span class="py">default</span> <span class="p">=</span> <span class="kc">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the <code>default</code> parameter is <code>true</code>, then Hubris will itself use <code>hubtools</code> to
+populate the caboose with default values.</p>
 </div>
 </div>
 </div>
@@ -5468,7 +5485,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-02-28 21:52:41 UTC
+Last updated 2023-03-13 15:21:36 UTC
 </div>
 </div>
 </body>
