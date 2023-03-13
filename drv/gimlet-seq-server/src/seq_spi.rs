@@ -151,7 +151,6 @@ impl<S: SpiServer> SequencerFpga<S> {
         self.spi.exchange(&data, &mut rval)?;
 
         for i in 0..data_out.len() {
-            assert!(i + header.len() < data.len());
             data_out[i] = rval[i + header.len()];
         }
 
