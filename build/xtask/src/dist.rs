@@ -737,6 +737,8 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         )?;
     }
 
+    let mut metadata = None;
+
     //
     // Iterate over tasks looking for elements that should be copied into
     // the archive.  These are specified by the "copy-to-archive" array,
@@ -762,12 +764,19 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
                         // directory name for the task to find the file to be
                         // copied into the archive, so we're going to iterate
                         // over all packages to find the crate assocated with
-                        // this task.
+                        // this task.  (We cache the metadata itself, as it
+                        // takes on the order of ~150 ms to gather.)
                         //
                         use cargo_metadata::MetadataCommand;
-                        let metadata = MetadataCommand::new()
-                            .manifest_path("./Cargo.toml")
-                            .exec()?;
+                        let metadata = match metadata.as_ref() {
+                            Some(m) => m,
+                            None => {
+                                let d = MetadataCommand::new()
+                                    .manifest_path("./Cargo.toml")
+                                    .exec()?;
+                                metadata.get_or_insert(d)
+                            }
+                        };
 
                         let pkg = metadata
                             .packages
