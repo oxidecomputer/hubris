@@ -481,7 +481,18 @@ pub fn package(
             }
         }
         write_gdb_script(&cfg, image_name)?;
-        build_archive(&cfg, image_name)?;
+        let archive_name = build_archive(&cfg, image_name)?;
+
+        if let Some(caboose) = &cfg.toml.caboose {
+            if caboose.default {
+                let mut archive =
+                    hubtools::RawHubrisArchive::load(&archive_name)?;
+                // The Git hash is included in the default caboose under the key
+                // `GITC`, so we don't include it in the pseudo-version.
+                archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
+                archive.overwrite()?;
+            }
+        }
     }
     Ok(allocated)
 }
@@ -626,11 +637,11 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     Ok(())
 }
 
-fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
+fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
     // Bundle everything up into an archive.
-    let mut archive = Archive::new(
-        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name),
-    )?;
+    let archive_path =
+        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name);
+    let mut archive = Archive::new(&archive_path)?;
 
     archive.text(
         "README.TXT",
@@ -814,7 +825,7 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     }
 
     archive.finish()?;
-    Ok(())
+    Ok(archive_path)
 }
 
 fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
