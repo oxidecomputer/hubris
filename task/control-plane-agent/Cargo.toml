@@ -15,6 +15,7 @@ static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
+drv-caboose = { path = "../../drv/caboose" }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }

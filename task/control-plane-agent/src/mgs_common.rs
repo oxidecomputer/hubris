@@ -4,6 +4,7 @@
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use core::{cell::RefCell, convert::Infallible};
+use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::SpRot;
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
@@ -119,6 +120,22 @@ impl MgsCommon {
     #[inline(always)]
     pub(crate) fn inventory(&self) -> &Inventory {
         &self.inventory
+    }
+
+    pub(crate) fn get_caboose_value(
+        &self,
+        key: [u8; 4],
+    ) -> Result<&'static [u8], SpError> {
+        let reader = userlib::kipc::get_caboose()
+            .map(CabooseReader::new)
+            .ok_or(SpError::NoCaboose)?;
+        reader.get(key).map_err(|e| match e {
+            CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
+            CabooseError::MissingCaboose => SpError::NoCaboose,
+            CabooseError::TlvcReaderBeginFailed => SpError::CabooseReadError,
+            CabooseError::TlvcReadExactFailed => SpError::CabooseReadError,
+            CabooseError::BadChecksum => SpError::BadCabooseChecksum,
+        })
     }
 }
 

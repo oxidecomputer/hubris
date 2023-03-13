@@ -964,6 +964,13 @@ impl SpHandler for MgsHandler {
             }
         }
     }
+
+    fn get_caboose_value(
+        &mut self,
+        key: [u8; 4],
+    ) -> Result<&'static [u8], SpError> {
+        self.common.get_caboose_value(key)
+    }
 }
 
 struct UsartHandler {
