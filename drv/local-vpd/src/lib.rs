@@ -38,6 +38,7 @@ struct EepromReader<'a> {
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EepromError(drv_i2c_devices::at24csw080::Error),
+    Error(LocalVpdError),
     None,
 }
 
@@ -122,26 +123,32 @@ pub fn read_config_into(
         i2c_config::devices::at24csw080_local_vpd(i2c_task),
     );
     let eeprom_reader = EepromReader { eeprom: &eeprom };
+
+    let err = |e| {
+        ringbuf_entry!(Trace::Error(e));
+        e
+    };
+
     let mut reader = TlvcReader::begin(eeprom_reader)
-        .map_err(|_| LocalVpdError::DeviceError)?;
+        .map_err(|_| err(LocalVpdError::DeviceError))?;
 
     while let Ok(Some(chunk)) = reader.next() {
         let mut scratch = [0u8; 32];
         if chunk.header().tag == *b"FRU0" {
             chunk
                 .check_body_checksum(&mut scratch)
-                .map_err(|_| LocalVpdError::InvalidChecksum)?;
+                .map_err(|_| err(LocalVpdError::InvalidChecksum))?;
             let mut inner = chunk.read_as_chunks();
             while let Ok(Some(chunk)) = inner.next() {
                 if chunk.header().tag == tag {
                     chunk
                         .check_body_checksum(&mut scratch)
-                        .map_err(|_| LocalVpdError::InvalidChecksum)?;
+                        .map_err(|_| err(LocalVpdError::InvalidChecksum))?;
 
                     let chunk_len = chunk.len() as usize;
 
                     if chunk_len > out.len() {
-                        return Err(LocalVpdError::InvalidChunkSize);
+                        return Err(err(LocalVpdError::InvalidChunkSize));
                     }
 
                     chunk
@@ -150,10 +157,10 @@ pub fn read_config_into(
                     return Ok(chunk_len);
                 }
             }
-            return Err(LocalVpdError::NoSuchChunk);
+            return Err(err(LocalVpdError::NoSuchChunk));
         }
     }
-    Err(LocalVpdError::NoRootChunk)
+    Err(err(LocalVpdError::NoRootChunk))
 }
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

@@ -18,6 +18,7 @@ pub enum SeqError {
     MuxToHostCPUFailed,
     MuxToSPFailed,
     ClockConfigFailed,
+    ReadRegsFailed,
 
     #[idol(server_death)]
     ServerRestarted,

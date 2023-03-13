@@ -748,6 +748,82 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
         )?;
     }
 
+    let mut metadata = None;
+
+    //
+    // Iterate over tasks looking for elements that should be copied into
+    // the archive.  These are specified by the "copy-to-archive" array,
+    // which consists of keys into the config table; the values associated
+    // with these keys have the names of the files to add to the archive.
+    // All files added to the archive for a particular task will be in
+    // a directory dedicated to that task; all such directories will
+    // themselves be subdirectories in the "task" directory.
+    //
+    for (name, task) in &cfg.toml.tasks {
+        for c in &task.copy_to_archive {
+            match &task.config {
+                None => {
+                    bail!(
+                        "task {name}: {c} is specified to be copied \
+                        into archive, but config table is missing"
+                    );
+                }
+                Some(config) => match config.get(c) {
+                    Some(ordered_toml::Value::String(s)) => {
+                        //
+                        // This is a bit of a heavy hammer:  we need the
+                        // directory name for the task to find the file to be
+                        // copied into the archive, so we're going to iterate
+                        // over all packages to find the crate assocated with
+                        // this task.  (We cache the metadata itself, as it
+                        // takes on the order of ~150 ms to gather.)
+                        //
+                        use cargo_metadata::MetadataCommand;
+                        let metadata = match metadata.as_ref() {
+                            Some(m) => m,
+                            None => {
+                                let d = MetadataCommand::new()
+                                    .manifest_path("./Cargo.toml")
+                                    .exec()?;
+                                metadata.get_or_insert(d)
+                            }
+                        };
+
+                        let pkg = metadata
+                            .packages
+                            .iter()
+                            .find(|p| p.name == task.name)
+                            .unwrap();
+
+                        let dir = pkg.manifest_path.parent().unwrap();
+
+                        let f = dir.join(s);
+                        let task_dir = PathBuf::from("task").join(name).join(s);
+                        archive.copy(f, task_dir).with_context(|| {
+                            format!(
+                                "task {name}: failed to copy \"{s}\" in {} \
+                                into the archive",
+                                dir.display()
+                            )
+                        })?;
+                    }
+                    Some(_) => {
+                        bail!(
+                            "task {name}: {c} is specified to be copied into \
+                            the archive, but isn't a string in the config table"
+                        );
+                    }
+                    None => {
+                        bail!(
+                            "task {name}: {c} is specified to be copied into \
+                            the archive, but is missing in the config table"
+                        );
+                    }
+                },
+            }
+        }
+    }
+
     archive.finish()?;
     Ok(archive_path)
 }
