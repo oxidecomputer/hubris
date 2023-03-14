@@ -1600,6 +1600,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-exti"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32h7-exti-api",
+ "drv-stm32xx-gpio-common",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-exti-api"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "derive-idol-err",
+ "drv-stm32xx-gpio-common",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-exti-server"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32h7-exti",
+ "drv-stm32h7-exti-api",
+ "drv-stm32xx-gpio-common",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-hash"
 version = "0.1.0"
 dependencies = [

@@ -161,3 +161,11 @@ size = 0x8000
 address = 0x38000000
 size = 0x10000
 
+[exti]
+address = 0x58000000
+size = 1024
+interrupts = { exti0 = 6, exti1 = 7, exti2 = 8, exti3 = 9, exti4 = 10, exti9_5 = 23, exti15_10 = 40 }
+
+[syscfg]
+address = 0x58000400
+size = 1024
