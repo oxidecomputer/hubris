@@ -74,6 +74,10 @@ enum Log {
     VpdReadError(drv_local_vpd::LocalVpdError),
 }
 
+// This enum does not define the actual MGS protocol - it is only used in the
+// `Log` enum above (which itself is only used by our ringbuf logs). The MGS
+// protocol is defined in the `gateway-messages` crate (which is shared with
+// MGS proper and other tools like `sp-sim` in the omicron repository).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MgsMessage {
     Discovery,
