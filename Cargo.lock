@@ -2485,7 +2485,7 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools?branch=lpc55-tools#f29ce568a46c9866d652d471289e26663491a2ee"
+source = "git+https://github.com/oxidecomputer/hubtools?branch=lpc55-tools#fad977c6aa20802e65e4c740deee380ee86f6b27"
 dependencies = [
  "lpc55_areas",
  "lpc55_sign",
@@ -2764,7 +2764,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#f668c474c8d37523ca889f40497240e9722054f9"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#10f10ecfc844fb2ca3eba9e23a71e2aa553ebe94"
 dependencies = [
  "bitfield 0.14.0",
  "packed_struct",
@@ -2793,14 +2793,12 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#f668c474c8d37523ca889f40497240e9722054f9"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#10f10ecfc844fb2ca3eba9e23a71e2aa553ebe94"
 dependencies = [
  "byteorder",
  "clap 4.1.8",
  "colored",
  "crc-any",
- "ecdsa 0.16.1",
- "elliptic-curve 0.13.2",
  "env_logger",
  "hex",
  "log",
