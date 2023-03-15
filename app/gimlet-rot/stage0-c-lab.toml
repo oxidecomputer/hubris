@@ -18,6 +18,7 @@ priority = 0
 max-sizes = {flash = 256, ram = 256}
 stacksize = 256
 start = true
+boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
 
 [signing]
 enable-secure-boot = true

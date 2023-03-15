@@ -26,6 +26,7 @@ enable-dice = true
 dice-inc-nxp-cfg = false
 dice-cust-cfg = false
 dice-inc-sec-epoch = false
+boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

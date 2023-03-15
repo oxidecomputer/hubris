@@ -583,6 +583,14 @@ pub struct RoTMfgSettings {
     pub rotk3: ROTKeyStatus,
     #[serde(default = "DefaultIsp::auto")]
     pub default_isp: DefaultIsp,
+    pub boot_error_gpio: RoTBootErrorPin,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoTBootErrorPin {
+    pub port: u8,
+    pub pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
