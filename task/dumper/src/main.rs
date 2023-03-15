@@ -112,7 +112,7 @@ impl idl::InOrderDumperImpl for ServerImpl {
                 }
                 Ok(None)
             },
-            |addr, buf| {
+            |addr, buf, _meta| {
                 ringbuf_entry!(Trace::Reading(addr, buf.len(), nread));
                 nread += buf.len();
 

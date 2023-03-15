@@ -12,6 +12,23 @@ use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
 use core::convert::TryFrom;
 
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    EndOfStream,
+    InvalidRepresentation,
+    MoreElements,
+    TooManyVariants,
+    NotSupported,
+    Unknown,
+    BadIpc(u16),
+    ReadTask(u32),
+    TaskBlock,
+    Region(abi::TaskDumpRegion),
+    Compare(u32, u32),
+    Slice,
+}
+
 /// Message dispatcher.
 pub fn handle_kernel_message(
     tasks: &mut [Task],
@@ -36,8 +53,12 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadTaskDumpRegion) => {
             read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
+        Ok(Kipcnum::ReadTask) => {
+            read_task(tasks, caller, args.message?, args.response?)
+        }
         Err(_) => {
             // Task has sent an unknown message to the kernel. That's bad.
+            ringbuf_entry!(Trace::BadIpc(args.operation));
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
             )))
@@ -48,6 +69,10 @@ fn reset(_tasks: &mut [Task], _caller: usize, _message: USlice<u8>) -> ! {
     arch::reset()
 }
 
+use ringbuf::*;
+
+ringbuf!(Trace, 16, Trace::None);
+
 fn deserialize_message<T>(
     task: &Task,
     message: USlice<u8>,
@@ -55,8 +80,21 @@ fn deserialize_message<T>(
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
-        .map_err(|_| UsageError::BadKernelMessage)?;
+    let (msg, _) =
+        ssmarshal::deserialize(task.try_read(&message)?).map_err(|err| {
+            ringbuf_entry!(match err {
+                ssmarshal::Error::EndOfStream => Trace::EndOfStream,
+                ssmarshal::Error::EndOfStream => Trace::EndOfStream,
+                ssmarshal::Error::InvalidRepresentation =>
+                    Trace::InvalidRepresentation,
+                ssmarshal::Error::MoreElements => Trace::MoreElements,
+                ssmarshal::Error::TooManyVariants => Trace::TooManyVariants,
+                ssmarshal::Error::NotSupported => Trace::NotSupported,
+                _ => Trace::Unknown,
+            });
+            UsageError::BadKernelMessage
+        })?;
+
     Ok(msg)
 }
 
@@ -138,6 +176,87 @@ fn read_task_dump_region(
     };
 
     let response_len = serialize_response(&mut tasks[caller], response, &rval)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+fn read_task(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    mut response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    use crate::umem::safe_copy;
+
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
+    let (index, region): (u32, abi::TaskDumpRegion) =
+        deserialize_message(&tasks[caller], message)?;
+
+    if index as usize >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    //
+    // Check to see if we are being asked to copy out the target task
+    // structure.  In order for this to be the case XXX
+    //
+    let size: u32 = core::mem::size_of::<Task>() as u32;
+    let base = tasks.as_ptr() as u32 + index * size;
+
+    ringbuf_entry!(Trace::ReadTask(index));
+    ringbuf_entry!(Trace::Region(region));
+    ringbuf_entry!(Trace::Compare(base, size));
+
+    let response_len =
+        if region.base >= base && region.base + region.size <= base + size {
+            let ptr = region.base as *const _;
+            let size = region.size as usize;
+            let tcb = unsafe { core::slice::from_raw_parts(ptr, size) };
+
+            ringbuf_entry!(Trace::TaskBlock);
+            // We know that we can copy from region.base for region.size bytes
+            match tasks[caller].try_write(&mut response) {
+                Ok(to) => {
+                    let copy_len = to.len().min(tcb.len());
+                    to[..copy_len].copy_from_slice(&tcb[..copy_len]);
+                    copy_len
+                }
+                Err(err) => {
+                    return Err(UserError::Unrecoverable(err));
+                }
+            }
+        } else {
+            ringbuf_entry!(Trace::Slice);
+            let from = match USlice::<u8>::from_raw(
+                region.base as usize,
+                region.size as usize,
+            ) {
+                Ok(from) => from,
+                Err(err) => {
+                    return Err(UserError::Unrecoverable(
+                        FaultInfo::SyscallUsage(err),
+                    ));
+                }
+            };
+
+            match safe_copy(tasks, index as usize, from, caller, response) {
+                Err(interact) => {
+                    let wake_hint = interact.apply_to_dst(tasks, caller)?;
+                    return Ok(wake_hint);
+                }
+                Ok(len) => len,
+            }
+        };
+
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

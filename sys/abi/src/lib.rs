@@ -386,6 +386,7 @@ pub enum UsageError {
     NoIrq,
     BadKernelMessage,
     BadReplyFaultReason,
+    NotSupervisor,
 }
 
 /// Origin of a fault.
@@ -487,6 +488,7 @@ pub enum Kipcnum {
     Reset = 5,
     ReadCaboosePos = 6,
     ReadTaskDumpRegion = 7,
+    ReadTask = 8,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -501,6 +503,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             5 => Ok(Self::Reset),
             6 => Ok(Self::ReadCaboosePos),
             7 => Ok(Self::ReadTaskDumpRegion),
+            8 => Ok(Self::ReadTask),
             _ => Err(()),
         }
     }

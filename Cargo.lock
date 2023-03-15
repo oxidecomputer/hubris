@@ -2474,6 +2474,7 @@ dependencies = [
  "phash-gen",
  "proc-macro2",
  "quote",
+ "ringbuf",
  "ron",
  "serde",
  "ssmarshal",
