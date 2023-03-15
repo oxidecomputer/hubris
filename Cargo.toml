@@ -43,7 +43,7 @@ byteorder = { version = "1.3.4", default-features = false }
 cargo_metadata = { version = "0.12.0", default-features = false }
 cfg-if = { version = "1", default-features = false }
 chrono = { version = "0.4", default-features = false }
-clap = { version = "3.0.14", default-features = false, features = ["derive"] }
+clap = { version = "3.0.14", default-features = false, features = ["std", "derive"] }
 colored = { version = "2.0", default-features = false }
 convert_case = { version = "0.4", default-features = false }
 corncobs = { version = "0.1.1", default-features = false }
@@ -122,11 +122,11 @@ dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-fe
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
-hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, branch = "lpc55-tools" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
-lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
-lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
+lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false, branch = "library-ify" }
+lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false, branch = "library-ify" }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroize", default-features = false }

@@ -423,66 +423,12 @@ pub fn package(
             kentry,
             0xFF,
         )?;
+        raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
-        raw_image.write_all(&cfg.img_dir(image_name), "combined")?;
-
-        if let Some(signing) = &cfg.toml.signing {
-            if cfg.toml.caboose.is_some() {
-                bail!("cannot sign an image with a caboose");
-            }
-            let rkth = lpc55_sign::signed_image::sign_chain(
-                &cfg.img_file("combined.bin", image_name),
-                Some(&cfg.app_src_dir),
-                &signing.certs,
-                &cfg.img_file("combined_rsa.bin", image_name),
-            )?;
-            std::fs::copy(
-                cfg.img_file("combined.bin", image_name),
-                cfg.img_file("combined_original.bin", image_name),
-            )?;
-            std::fs::copy(
-                cfg.img_file("combined_rsa.bin", image_name),
-                cfg.img_file("combined.bin", image_name),
-            )?;
-
-            // We have to cheat a little for (re) generating the raw image after
-            // signing. The assumption is the binary has not moved, since
-            // signing only adds stuff to the end.
-            let image_bin =
-                std::fs::read(&cfg.img_file("combined.bin", image_name))?;
-            let raw_image = hubtools::RawHubrisImage::from_binary(
-                image_bin,
-                raw_image.start_addr,
-                raw_image.kentry,
-            )?;
-            raw_image.write_all(&cfg.img_dir(image_name), "final")?;
-
-            let mut cmpa = signing.generate_cmpa(&rkth)?;
-            let cmpa_bytes = cmpa.to_vec()?;
-            let mut cmpa_file =
-                File::create(Path::new(&cfg.img_file("CMPA.bin", image_name)))?;
-            cmpa_file.write(&cmpa_bytes)?;
-
-            let mut cfpa = signing.generate_cfpa()?;
-            let cfpa_bytes = cfpa.to_vec()?;
-            let mut cfpa_file =
-                File::create(Path::new(&cfg.img_file("CFPA.bin", image_name)))?;
-            cfpa_file.write(&cfpa_bytes)?;
-        } else {
-            // If there's no bootloader, the "combined" and "final" images are
-            // identical, so we copy from one to the other
-            for ext in ["elf", "bin"] {
-                let src = format!("combined.{}", ext);
-                let dst = format!("final.{}", ext);
-                std::fs::copy(
-                    cfg.img_file(src, image_name),
-                    cfg.img_file(dst, image_name),
-                )?;
-            }
-        }
         write_gdb_script(&cfg, image_name)?;
         let archive_name = build_archive(&cfg, image_name)?;
 
+        // Post-build modifications: populate a default caboose if requested
         if let Some(caboose) = &cfg.toml.caboose {
             if caboose.default {
                 let mut archive =
@@ -492,6 +438,58 @@ pub fn package(
                 archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
                 archive.overwrite()?;
             }
+        }
+
+        // Post-build modifications: sign the image if requested
+        if let Some(signing) = &cfg.toml.signing {
+            let mut archive = hubtools::RawHubrisArchive::load(&archive_name)?;
+            let private_key = std::fs::read_to_string(
+                cfg.app_src_dir.join(&signing.certs.private_key),
+            )
+            .with_context(|| {
+                format!(
+                    "could not read private key {:?}",
+                    signing.certs.private_key
+                )
+            })?;
+            let root_certs = signing
+                .certs
+                .root_certs
+                .iter()
+                .map(|c| {
+                    std::fs::read(cfg.app_src_dir.join(c))
+                        .context(format!("could not read root cert {c:?}",))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let signing_certs = signing
+                .certs
+                .signing_certs
+                .iter()
+                .map(|c| {
+                    std::fs::read(cfg.app_src_dir.join(c))
+                        .context(format!("could not read signing cert {c:?}",))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            archive.sign(
+                signing_certs,
+                root_certs.clone(),
+                &private_key,
+                0, // execution address (TODO)
+            )?;
+            archive.set_cmpa(
+                signing.dice.clone(),
+                signing.enable_secure_boot,
+                signing.cmpa_settings,
+                signing.default_isp,
+                lpc55_areas::BootSpeed::Fro96mhz,
+                root_certs,
+            )?;
+            archive.set_cfpa(
+                signing.cfpa_settings,
+                [signing.rotk0, signing.rotk1, signing.rotk2, signing.rotk3],
+            )?;
+            archive.overwrite()?;
         }
     }
     Ok(allocated)
@@ -734,19 +732,6 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
     }
     archive
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
-
-    if cfg.img_file("CMPA.bin", image_name).exists() {
-        archive.copy(
-            cfg.img_file("CMPA.bin", image_name),
-            img_dir.join("CMPA.bin"),
-        )?;
-    }
-    if cfg.img_file("CFPA.bin", image_name).exists() {
-        archive.copy(
-            cfg.img_file("CFPA.bin", image_name),
-            img_dir.join("CFPA.bin"),
-        )?;
-    }
 
     let mut metadata = None;
 
