@@ -95,7 +95,7 @@ serde = { version = "1.0.114", default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.4", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 serde_repr = { version = "0.1", default-features = false }
-sha2 = { version = "0.9", default-features = false }
+sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 smbus-pec = { version = "1.0.1", default-features = false }
 smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv6", "medium-ethernet", "socket-udp", "async"] }
