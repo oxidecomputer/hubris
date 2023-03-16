@@ -2763,8 +2763,8 @@ dependencies = [
 
 [[package]]
 name = "lpc55_areas"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#10f10ecfc844fb2ca3eba9e23a71e2aa553ebe94"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#b05eb24e4d424b43089004e6ab625c49b2295013"
 dependencies = [
  "bitfield 0.14.0",
  "packed_struct",
@@ -2792,8 +2792,8 @@ dependencies = [
 
 [[package]]
 name = "lpc55_sign"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#10f10ecfc844fb2ca3eba9e23a71e2aa553ebe94"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=library-ify#b05eb24e4d424b43089004e6ab625c49b2295013"
 dependencies = [
  "byteorder",
  "clap 4.1.8",
