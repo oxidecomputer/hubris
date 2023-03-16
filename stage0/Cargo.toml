@@ -13,11 +13,9 @@ cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 digest = { workspace = true, optional = false}
-ecdsa = { workspace = true }
 hubpack = { workspace = true, optional = false}
 lpc55-pac = { workspace = true, features = ["rt"] }
 nb = { workspace = true }
-p256 = { workspace = true }
 panic-halt = { workspace = true }
 panic-semihosting = { workspace = true }
 salty = { workspace = true, optional = true }
