@@ -1026,6 +1026,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-flash"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -2560,15 +2567,17 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-caboose",
+ "drv-lpc55-flash",
  "drv-update-api",
  "hubpack",
- "hypocalls",
  "idol",
  "idol-runtime",
+ "lpc55-pac",
  "num-traits",
  "ringbuf",
  "serde",
  "stage0-handoff",
+ "static_assertions",
  "userlib",
  "zerocopy",
 ]

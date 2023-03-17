@@ -68,7 +68,12 @@ size = 0x100
 address = 0x50000000
 size = 4096
 
-[flash]
+[flash_controller]
+address = 0x40034000
+size = 0x1000
+interrupts = { irq = 0 }
+
+[secure_flash_controller]
 address = 0x50034000
 size = 0x1000
 

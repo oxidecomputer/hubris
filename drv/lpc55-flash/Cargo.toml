@@ -1,0 +1,7 @@
+[package]
+name = "drv-lpc55-flash"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lpc55-pac = { workspace = true }
