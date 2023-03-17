@@ -104,6 +104,7 @@ enum MgsMessage {
         offset: u64,
         length: u16,
     },
+    SerialConsoleKeepAlive,
     SerialConsoleDetach,
     UpdatePrepare {
         component: SpComponent,

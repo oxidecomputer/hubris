@@ -9,6 +9,7 @@ use crate::{
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
+use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl::{
@@ -19,6 +20,7 @@ use gateway_messages::{
     Header, IgnitionCommand, IgnitionState, Message, MessageKind, MgsError,
     PowerState, SpComponent, SpError, SpPort, SpRequest, SpState,
     SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -87,6 +89,33 @@ userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
 
 type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
 
+struct AttachedSerialConsoleMgs {
+    address: SocketAddrV6,
+    port: SpPort,
+    // The timestamp of the most recent keepalive (which can be an actual
+    // keepalive packet or any other meaningful serial-console-related message:
+    // connection, write, break, keepalive).
+    last_keepalive_received: u64, // from sys_get_timer().now
+}
+
+impl AttachedSerialConsoleMgs {
+    /// If `sender` and `port` match `self.address` and `self.port`, updates
+    /// `self.last_keepalive_received` to `sys_get_timer().now`. Otherwise,
+    /// returns an error.
+    fn check_sender_and_update_keepalive(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+    ) -> Result<(), SpError> {
+        if (sender, port) != (self.address, self.port) {
+            return Err(SpError::SerialConsoleNotAttached);
+        }
+
+        self.last_keepalive_received = sys_get_timer().now;
+        Ok(())
+    }
+}
+
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
@@ -96,7 +125,7 @@ pub(crate) struct MgsHandler {
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
     startup_options: HostStartupOptions,
-    attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
+    attached_serial_console_mgs: Option<AttachedSerialConsoleMgs>,
     serial_console_write_offset: u64,
     next_message_id: u32,
     installinator_image_id: &'static mut InstallinatorImageIdBuf,
@@ -237,9 +266,22 @@ impl MgsHandler {
             return None;
         }
 
-        // Do we have an attached MGS instance?
-        let (mgs_addr, sp_port) = match self.attached_serial_console_mgs {
-            Some((mgs_addr, sp_port)) => (mgs_addr, sp_port),
+        // Do we have an attached MGS instance that hasn't gone stale?
+        let (mgs_addr, sp_port) = match &self.attached_serial_console_mgs {
+            Some(attached) => {
+                // Check whether we think this client has disappeared
+                let client_age_ms = sys_get_timer()
+                    .now
+                    .saturating_sub(attached.last_keepalive_received);
+                if Duration::from_millis(client_age_ms)
+                    > SERIAL_CONSOLE_IDLE_TIMEOUT
+                {
+                    self.usart.clear_rx_data();
+                    self.attached_serial_console_mgs = None;
+                    return None;
+                }
+                (attached.address, attached.port)
+            }
             None => {
                 // Discard any buffered data and reset any usart-related timers.
                 self.usart.clear_rx_data();
@@ -254,7 +296,7 @@ impl MgsHandler {
 
         let message = Message {
             header: Header {
-                version: gateway_messages::version::V2,
+                version: gateway_messages::version::CURRENT,
                 message_id: self.next_message_id(),
             },
             kind: MessageKind::SpRequest(SpRequest::SerialConsole {
@@ -672,7 +714,11 @@ impl SpHandler for MgsHandler {
 
         // TODO: Add some kind of auth check before allowing a serial console
         // attach. https://github.com/oxidecomputer/hubris/issues/723
-        self.attached_serial_console_mgs = Some((sender, port));
+        self.attached_serial_console_mgs = Some(AttachedSerialConsoleMgs {
+            address: sender,
+            port,
+            last_keepalive_received: sys_get_timer().now,
+        });
         self.serial_console_write_offset = 0;
         self.usart.from_rx_offset = 0;
 
@@ -702,9 +748,10 @@ impl SpHandler for MgsHandler {
         //
         // As a temporary measure, we can at least ensure that we only allow
         // writes from the attached console.
-        if Some((sender, port)) != self.attached_serial_console_mgs {
-            return Err(SpError::SerialConsoleNotAttached);
-        }
+        self.attached_serial_console_mgs
+            .as_mut()
+            .ok_or(SpError::SerialConsoleNotAttached)?
+            .check_sender_and_update_keepalive(sender, port)?;
 
         // Have we already received some or all of this data? (MGS may resend
         // packets that for which it hasn't received our ACK.)
@@ -728,6 +775,19 @@ impl SpHandler for MgsHandler {
         Ok(self.serial_console_write_offset)
     }
 
+    fn serial_console_keepalive(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleKeepAlive));
+        self.attached_serial_console_mgs
+            .as_mut()
+            .ok_or(SpError::SerialConsoleNotAttached)?
+            .check_sender_and_update_keepalive(sender, port)?;
+        Ok(())
+    }
+
     fn serial_console_detach(
         &mut self,
         _sender: SocketAddrV6,
@@ -745,9 +805,10 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         // TODO: same caveats as above!
-        if Some((sender, port)) != self.attached_serial_console_mgs {
-            return Err(SpError::SerialConsoleNotAttached);
-        }
+        self.attached_serial_console_mgs
+            .as_mut()
+            .ok_or(SpError::SerialConsoleNotAttached)?
+            .check_sender_and_update_keepalive(sender, port)?;
         self.usart.send_break();
         Ok(())
     }
