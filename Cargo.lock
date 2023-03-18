@@ -2369,6 +2369,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/humpty?branch=taskdumpy#aa0c374cfae8b772e21a23e8e3991a98a3046652"
 dependencies = [
  "hubpack",
  "lzss",
@@ -2474,7 +2475,6 @@ dependencies = [
  "phash-gen",
  "proc-macro2",
  "quote",
- "ringbuf",
  "ron",
  "serde",
  "ssmarshal",

@@ -7,7 +7,6 @@
 #![no_std]
 #![no_main]
 
-use core::mem::size_of;
 use dump_agent_api::*;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
@@ -176,7 +175,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl;
-    server.initialize();
+    server.initialize().unwrap_lite();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 
