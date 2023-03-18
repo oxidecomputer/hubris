@@ -13,7 +13,7 @@ pub use humpty::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum DumpAgentError {
-    Unsupported = 1,
+    DumpAgentUnsupported = 1,
     InvalidArea,
     BadOffset,
     UnalignedOffset,
