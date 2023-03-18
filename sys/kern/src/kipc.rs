@@ -58,10 +58,8 @@ fn deserialize_message<T>(
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let (msg, _) =
-        ssmarshal::deserialize(task.try_read(&message)?).map_err(|_| {
-            UsageError::BadKernelMessage
-        })?;
+    let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
+        .map_err(|_| UsageError::BadKernelMessage)?;
 
     Ok(msg)
 }
