@@ -43,7 +43,7 @@ byteorder = { version = "1.3.4", default-features = false }
 cargo_metadata = { version = "0.12.0", default-features = false }
 cfg-if = { version = "1", default-features = false }
 chrono = { version = "0.4", default-features = false }
-clap = { version = "3.0.14", default-features = false, features = ["derive"] }
+clap = { version = "3.0.14", default-features = false, features = ["std", "derive"] }
 colored = { version = "2.0", default-features = false }
 convert_case = { version = "0.4", default-features = false }
 corncobs = { version = "0.1.1", default-features = false }
@@ -55,7 +55,6 @@ ctrlc = { version = "3.1.5", default-features = false }
 derive_more = { version = "0.99", default-features = false, features = ["from", "into"] }
 digest = { version = "0.10", default-features = false }
 dunce = { version = "1.0.2", default-features = false }
-ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 embedded-hal = { version = "0.2", default-features = false }
 enum-map = { version = "2.4.1", default-features = false }
 filetime = { version = "0.2.12", default-features = false }
@@ -78,7 +77,6 @@ nb = { version = "1", default-features = false }
 num = { version = "0.4", default-features = false }
 num-derive = { version = "0.3.3", default-features = false, features = ["full-syntax"] }
 num-traits = { version = "0.2.12", default-features = false }
-p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 panic-halt = { version = "0.2.0", default-features = false }
 panic-itm = { version = "0.4.1", default-features = false }
 panic-semihosting = { version = "0.5.3", default-features = false }
@@ -97,7 +95,7 @@ serde = { version = "1.0.114", default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.4", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 serde_repr = { version = "0.1", default-features = false }
-sha2 = { version = "0.9", default-features = false }
+sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 smbus-pec = { version = "1.0.1", default-features = false }
 smoltcp = { version = "0.8.0", default-features = false, features = ["proto-ipv6", "medium-ethernet", "socket-udp", "async"] }

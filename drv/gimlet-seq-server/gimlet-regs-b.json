@@ -779,7 +779,29 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "TBD"
+                    "desc": "Nic SM Status",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "STAGE0",
+                            "value": 1
+                        },
+                        {
+                            "name": "STAGE0_PG",
+                            "value": 2
+                        },
+                        {
+                            "name": "DELAY",
+                            "value": 3
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 4
+                        }
+                    ]
                 }
             ]
         },

@@ -12,10 +12,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
-use lpc55_areas::{
-    BootSpeed, CFPAPage, CMPAPage, DebugSettings, DefaultIsp, RKTHRevoke,
-    ROTKeyStatus, SecureBootCfg,
-};
+use lpc55_areas::{DebugSettings, DefaultIsp, ROTKeyStatus};
 
 /// A `PatchedConfig` allows a minimal form of inheritance between TOML files
 /// Specifically, it allows you to **add features** to specific tasks; nothing
@@ -565,38 +562,13 @@ impl MpuAlignment {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SigningMethod {
-    Crc,
-    Rsa,
-    Ecc,
-}
-
-impl std::fmt::Display for SigningMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Crc => "crc",
-            Self::Rsa => "rsa",
-            Self::Ecc => "ecc",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct RoTMfgSettings {
-    pub certs: Vec<lpc55_sign::signed_image::CertChain>,
+    pub certs: lpc55_sign::signed_image::CertConfig,
     #[serde(default)]
     pub enable_secure_boot: bool,
-    #[serde(default)]
-    pub enable_dice: bool,
-    #[serde(default)]
-    pub dice_inc_nxp_cfg: bool,
-    #[serde(default)]
-    pub dice_cust_cfg: bool,
-    #[serde(default)]
-    pub dice_inc_sec_epoch: bool,
+    #[serde(default, flatten)]
+    pub dice: lpc55_sign::signed_image::DiceArgs,
     #[serde(default)]
     pub cmpa_settings: DebugSettings,
     #[serde(default)]
@@ -611,52 +583,14 @@ pub struct RoTMfgSettings {
     pub rotk3: ROTKeyStatus,
     #[serde(default = "DefaultIsp::auto")]
     pub default_isp: DefaultIsp,
+    pub boot_error_gpio: RoTBootErrorPin,
 }
 
-impl RoTMfgSettings {
-    pub fn generate_cmpa(&self, rkth: &[u8; 32]) -> Result<CMPAPage> {
-        let mut cmpa = CMPAPage::new();
-        let mut sec_boot = SecureBootCfg::new();
-
-        if self.enable_dice && !self.enable_secure_boot {
-            bail!("Must set secure boot to use DICE");
-        }
-
-        sec_boot.set_sec_boot(self.enable_secure_boot);
-        sec_boot.set_dice(self.enable_dice);
-        sec_boot.set_dice_inc_nxp_cfg(self.dice_inc_nxp_cfg);
-        sec_boot.set_dice_inc_cust_cfg(self.dice_cust_cfg);
-        sec_boot.set_dice_inc_sec_epoch(self.dice_inc_sec_epoch);
-
-        cmpa.set_secure_boot_cfg(sec_boot)?;
-
-        cmpa.set_rotkh(rkth);
-        cmpa.set_boot_cfg(self.default_isp, BootSpeed::Fro96mhz)?;
-
-        cmpa.set_debug_fields(self.cmpa_settings)?;
-
-        Ok(cmpa)
-    }
-
-    pub fn generate_cfpa(&self) -> Result<CFPAPage> {
-        let mut cfpa: CFPAPage = Default::default();
-
-        // We always need to bump the version
-        cfpa.update_version();
-
-        let mut rkth = RKTHRevoke::new();
-
-        rkth.rotk0 = self.rotk0.into();
-        rkth.rotk1 = self.rotk1.into();
-        rkth.rotk2 = self.rotk2.into();
-        rkth.rotk3 = self.rotk3.into();
-
-        cfpa.update_rkth_revoke(rkth)?;
-
-        cfpa.set_debug_fields(self.cfpa_settings)?;
-
-        Ok(cfpa)
-    }
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoTBootErrorPin {
+    pub port: u8,
+    pub pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -749,6 +683,7 @@ impl BuildConfig<'_> {
             "backtrace",
             "error_generic_member_access",
             "proc_macro_span",
+            "proc_macro_span_shrink",
             "provide_any",
         ]);
 
