@@ -387,6 +387,7 @@ pub enum UsageError {
     BadKernelMessage,
     BadReplyFaultReason,
     NotSupervisor,
+    UnsupportedFeature,
 }
 
 /// Origin of a fault.

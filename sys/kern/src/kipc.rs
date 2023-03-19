@@ -33,13 +33,16 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadCaboosePos) => {
             read_caboose_pos(tasks, caller, args.response?)
         }
+        #[cfg(not(feature = "no-dump"))]
         Ok(Kipcnum::ReadTaskDumpRegion) => {
             read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
+        #[cfg(not(feature = "no-dump"))]
         Ok(Kipcnum::ReadTask) => {
             read_task(tasks, caller, args.message?, args.response?)
         }
-        Err(_) => {
+
+        Err(_) | Ok(_) => {
             // Task has sent an unknown message to the kernel. That's bad.
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
@@ -107,6 +110,7 @@ fn read_task_status(
     Ok(NextTask::Same)
 }
 
+#[cfg(not(feature = "no-dump"))]
 fn read_task_dump_region(
     tasks: &mut [Task],
     caller: usize,
@@ -148,6 +152,7 @@ fn read_task_dump_region(
     Ok(NextTask::Same)
 }
 
+#[cfg(not(feature = "no-dump"))]
 fn read_task(
     tasks: &mut [Task],
     caller: usize,

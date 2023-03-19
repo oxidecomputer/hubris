@@ -32,6 +32,9 @@ build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 phash-gen = { path = "../../build/phash-gen" }
 
+[features]
+no-dump = []
+
 [lib]
 test = false
 bench = false
