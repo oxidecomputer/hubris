@@ -220,6 +220,9 @@ pub fn package(
 ) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
+    // Verify that our dump agent configuration is correct (or absent)
+    check_dump_agent(&cfg.toml)?;
+
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
     let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
@@ -376,8 +379,8 @@ pub fn package(
             None
         };
 
-        // If we've done a partial build (which may have included the kernel), bail
-        // out here before linking stuff.
+        // If we've done a partial build (which may have included the kernel),
+        // bail out here before linking stuff.
         if partial_build {
             return Ok(allocated);
         }
@@ -1261,6 +1264,45 @@ fn update_image_header(
     Ok(false)
 }
 
+/// Checks that if we have a dump agent, and that dump agent has a task slot
+/// for Jefe (denoting task dump support), that every memory that the dump
+/// agent is using it also being used by Jefe.  Yes, this is some grotty
+/// knowledge of the system to encode here, but we want to turn a preventable,
+/// high-consequence run-time error (namely, Jefe attempting accessing memory
+/// that it doesn't have access to) in to a compile-time one.  (This also
+/// serves to catch a lower-consequence error, whereby the XXX
+fn check_dump_agent(toml: &Config) -> Result<()> {
+    if let Some(task) = toml.tasks.get("dump_agent") {
+        if task.task_slots.get("jefe").is_some() {
+            //
+            // We have a dump agent, and it has a slot for Jefe, denoting
+            // that it is configured for task dumps; now
+            // we want to check that Jefe (1) has the dump feature enabled
+            // and (2) uses everything that the dump agent is using.
+            //
+            let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
+
+            if jefe.features.iter().find(|&f| f == "dump").is_none() {
+                bail!(
+                    "dump agent/jefe misconfiguration: dump agent depends \
+                    on jefe, but jefe does not have the dump feature enabled"
+                );
+            }
+
+            for u in &task.uses {
+                if jefe.uses.iter().find(|&j| j == u).is_none() {
+                    bail!(
+                        "dump agent/jefe misconfiguration: dump agent uses \
+                        {u} and depends on jefe, but jefe does not use {u}"
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Prints warning messages about priority inversions
 fn check_task_priorities(toml: &Config) -> Result<()> {
     let idle_priority = toml.tasks["idle"].priority;
@@ -1829,8 +1871,8 @@ pub fn allocate_all(
                 // - Kernel.
                 // - Task requests equal to or smaller than this alignment, in
                 //   descending order of size.
-                // - Task requests larger than this alignment, in ascending order of
-                //   size.
+                // - Task requests larger than this alignment, in ascending
+                //   order of size.
 
                 if let Some(&sz) = k_req.take() {
                     // The kernel wants in on this.

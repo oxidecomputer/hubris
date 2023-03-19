@@ -18,7 +18,7 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
 features = ["itm", "dump"]
 stacksize = 1536

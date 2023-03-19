@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 24000, ram = 5120}
 features = ["h743"]
 
 [tasks.jefe]
