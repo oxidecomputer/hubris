@@ -137,6 +137,7 @@ fn main() -> ! {
         deadline,
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
+        #[cfg(feature = "dump")]
         dump_areas: None,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
@@ -151,6 +152,7 @@ struct ServerImpl<'s> {
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
+    #[cfg(feature = "dump")]
     dump_areas: Option<u32>,
 }
 
@@ -236,21 +238,21 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 _msg: &userlib::RecvMessage,
                 _index: u8,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                Err(DumpAgentError::Unsupported.into())
+                Err(DumpAgentError::DumpAgentUnsupported.into())
             }
 
             fn claim_dump_area(
                 &mut self,
                 _msg: &userlib::RecvMessage,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                Err(DumpAgentError::Unsupported.into())
+                Err(DumpAgentError::DumpAgentUnsupported.into())
             }
 
             fn initialize_dump_areas(
                 &mut self,
                 _msg: &userlib::RecvMessage,
             ) -> Result<(), RequestError<DumpAgentError>> {
-                Err(DumpAgentError::Unsupported.into())
+                Err(DumpAgentError::DumpAgentUnsupported.into())
             }
         }
     }
