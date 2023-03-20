@@ -108,14 +108,14 @@ jobs:
             app_toml: app/sidecar/rev-c-lab.toml
             target: thumbv7em-none-eabihf
             image: default
-          - build: psc-a
-            app_name: psc-a
-            app_toml: app/psc/rev-a.toml
-            target: thumbv7em-none-eabihf
-            image: default
           - build: psc-b
             app_name: psc-b
             app_toml: app/psc/rev-b.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: psc-c
+            app_name: psc-c
+            app_toml: app/psc/rev-c.toml
             target: thumbv7em-none-eabihf
             image: default
           - build: gimlet-rot-b
