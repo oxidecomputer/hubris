@@ -96,8 +96,8 @@ pub fn dump_task(base: Option<u32>, task: usize) {
 
     //
     // We need to claim a dump area.  Once it's claimed, we have committed
-    // to dumping into it:  any failure will result in a partial or
-    // otherwise corrupted dump.
+    // to dumping into it:  any failure will result in a partial or otherwise
+    // corrupted dump.
     //
     let area = humpty::claim_dump_area(
         base,
@@ -116,7 +116,7 @@ pub fn dump_task(base: Option<u32>, task: usize) {
     let mut ndx = 0;
 
     loop {
-        match kipc::read_task_dump_region(task, ndx) {
+        match kipc::get_task_dump_region(task, ndx) {
             None => break,
             Some(region) => {
                 ringbuf_entry!(Trace::DumpRegion(region));
@@ -148,7 +148,7 @@ pub fn dump_task(base: Option<u32>, task: usize) {
             if meta {
                 humpty::from_mem(addr, buf, meta)
             } else {
-                let r = kipc::read_task(
+                let r = kipc::read_task_dump_region(
                     task,
                     TaskDumpRegion {
                         base: addr,

@@ -472,7 +472,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
     }
 }
 
-/// A region to be dumped when a task faults
+/// A region to be dumped from a task
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct TaskDumpRegion {
     pub base: u32,
@@ -487,8 +487,8 @@ pub enum Kipcnum {
     ReadImageId = 4,
     Reset = 5,
     ReadCaboosePos = 6,
-    ReadTaskDumpRegion = 7,
-    ReadTask = 8,
+    GetTaskDumpRegion = 7,
+    ReadTaskDumpRegion = 8,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -502,8 +502,8 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
             6 => Ok(Self::ReadCaboosePos),
-            7 => Ok(Self::ReadTaskDumpRegion),
-            8 => Ok(Self::ReadTask),
+            7 => Ok(Self::GetTaskDumpRegion),
+            8 => Ok(Self::ReadTaskDumpRegion),
             _ => Err(()),
         }
     }

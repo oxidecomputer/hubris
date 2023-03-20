@@ -24,7 +24,7 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
-pub fn read_task_dump_region(
+pub fn get_task_dump_region(
     task: usize,
     region: usize,
 ) -> Option<abi::TaskDumpRegion> {
@@ -35,7 +35,7 @@ pub fn read_task_dump_region(
     let mut response = [0; core::mem::size_of::<Option<abi::TaskDumpRegion>>()];
     let (rc, len) = sys_send(
         TaskId::KERNEL,
-        Kipcnum::ReadTaskDumpRegion as u16,
+        Kipcnum::GetTaskDumpRegion as u16,
         &buf,
         &mut response,
         &[],
@@ -44,7 +44,7 @@ pub fn read_task_dump_region(
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
-pub fn read_task(
+pub fn read_task_dump_region(
     task: usize,
     region: abi::TaskDumpRegion,
     response: &mut [u8],
@@ -55,7 +55,7 @@ pub fn read_task(
 
     let (rc, len) = sys_send(
         TaskId::KERNEL,
-        Kipcnum::ReadTask as u16,
+        Kipcnum::ReadTaskDumpRegion as u16,
         &buf,
         response,
         &[],

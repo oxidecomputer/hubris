@@ -34,12 +34,12 @@ pub fn handle_kernel_message(
             read_caboose_pos(tasks, caller, args.response?)
         }
         #[cfg(not(feature = "no-dump"))]
-        Ok(Kipcnum::ReadTaskDumpRegion) => {
-            read_task_dump_region(tasks, caller, args.message?, args.response?)
+        Ok(Kipcnum::GetTaskDumpRegion) => {
+            get_task_dump_region(tasks, caller, args.message?, args.response?)
         }
         #[cfg(not(feature = "no-dump"))]
-        Ok(Kipcnum::ReadTask) => {
-            read_task(tasks, caller, args.message?, args.response?)
+        Ok(Kipcnum::ReadTaskDumpRegion) => {
+            read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
 
         _ => {
@@ -111,7 +111,7 @@ fn read_task_status(
 }
 
 #[cfg(not(feature = "no-dump"))]
-fn read_task_dump_region(
+fn get_task_dump_region(
     tasks: &mut [Task],
     caller: usize,
     message: USlice<u8>,
@@ -153,7 +153,7 @@ fn read_task_dump_region(
 }
 
 #[cfg(not(feature = "no-dump"))]
-fn read_task(
+fn read_task_dump_region(
     tasks: &mut [Task],
     caller: usize,
     message: USlice<u8>,
@@ -177,19 +177,24 @@ fn read_task(
     }
 
     //
-    // Check to see if we are being asked to copy out the target task
-    // structure.  In order for this to be the case XXX
+    // If we are being asked to copy out the target task structure (and only
+    // a part of the target task structure), we will copy that directly.  (If
+    // this has been somehow malformed, we will fall into the `safe_copy`
+    // case, which will fail.)
     //
     let size: u32 = core::mem::size_of::<Task>() as u32;
     let base = tasks.as_ptr() as u32 + index * size;
 
     let response_len =
         if region.base >= base && region.base + region.size <= base + size {
+            //
+            // We have a valid part of the target task structure -- we know
+            // that we can simply copy it.
+            //
             let ptr = region.base as *const _;
             let size = region.size as usize;
             let tcb = unsafe { core::slice::from_raw_parts(ptr, size) };
 
-            // We know that we can copy from region.base for region.size bytes
             match tasks[caller].try_write(&mut response) {
                 Ok(to) => {
                     let copy_len = to.len().min(tcb.len());
@@ -201,6 +206,14 @@ fn read_task(
                 }
             }
         } else {
+            //
+            // We have memory that is not completely contained by the target
+            // task structure -- either because it is in the task's memory
+            // or because it is an invalid address/length (e.g., a part of
+            // the task structure that also overlaps with other kernel
+            // memory, or wholly bogus).  In all of these cases, we will
+            // rely on `safe_copy` to do the validation.
+            //
             let from = match USlice::<u8>::from_raw(
                 region.base as usize,
                 region.size as usize,

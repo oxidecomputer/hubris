@@ -1168,16 +1168,11 @@ fn update_image_header(
 
                 let mut sau_ranges = rangemap::RangeInclusiveMap::new();
 
-                //
-                // XXX it seems like all of these are pretty specific to
-                // NXP and the LPC55?
-                //
-
                 // Alias for the NS peripherals
                 sau_ranges.insert(0x4000_0000..=0x4fff_ffff, false);
 
-                // Alias for alternate SRAMs (sram2, sram3, sram4)
-                sau_ranges.insert(0x2002_0000..=0x2002_ffff, false);
+                // Alias for NS SRAMs
+                sau_ranges.insert(0x2002_0000..=0x2004_ffff, false);
 
                 // Alias for the BootRom
                 sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);
@@ -1274,19 +1269,19 @@ fn update_image_header(
 
 /// Checks that if we have a dump agent, and that dump agent has a task slot
 /// for Jefe (denoting task dump support), that every memory that the dump
-/// agent is using it also being used by Jefe.  Yes, this is some grotty
+/// agent is using it also being used by Jefe.  Yes, this is some specific
 /// knowledge of the system to encode here, but we want to turn a preventable,
 /// high-consequence run-time error (namely, Jefe attempting accessing memory
-/// that it doesn't have access to) in to a compile-time one.  (This also
-/// serves to catch a lower-consequence error, whereby the XXX
+/// that it doesn't have access to) into a compile-time one.  (Note that this
+/// will also be caught when Jefe generates its own code for dump areas.)
 fn check_dump_agent(toml: &Config) -> Result<()> {
     if let Some(task) = toml.tasks.get("dump_agent") {
         if task.task_slots.get("jefe").is_some() {
             //
-            // We have a dump agent, and it has a slot for Jefe, denoting
-            // that it is configured for task dumps; now
-            // we want to check that Jefe (1) has the dump feature enabled
-            // and (2) uses everything that the dump agent is using.
+            // We have a dump agent, and it has a slot for Jefe, denoting that
+            // it is configured for task dumps; now we want to check that Jefe
+            // (1) has the dump feature enabled and (2) uses everything that
+            // the dump agent is using.
             //
             let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
 
