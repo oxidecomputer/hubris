@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
@@ -78,6 +78,7 @@ struct Config {
     tasks_to_hold: BTreeSet<String>,
 }
 
+#[cfg(feature = "dump")]
 #[derive(Deserialize, Default, Debug)]
 #[serde(rename_all = "kebab-case")]
 struct Peripheral {
@@ -102,7 +103,7 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
         )?;
 
     if me.uses != dump_agent.uses {
-        bail!(
+        anyhow::bail!(
             "jefe is configured for task dumping, but peripherals used by \
              jefe ({:?}) do not match peripherals used by dump agent ({:?})",
             me.uses,
