@@ -32,23 +32,7 @@ ringbuf!(Trace, 8, Trace::None);
 
 pub fn initialize_dump_areas() -> Option<u32> {
     let areas = humpty::initialize_dump_areas(
-        &[
-            DumpArea {
-                address: 0x30020000,
-                length: 0x20000,
-                agent: DumpAgent::None,
-            },
-            DumpArea {
-                address: 0x30040000,
-                length: 0x8000,
-                agent: DumpAgent::None,
-            },
-            DumpArea {
-                address: 0x38000000,
-                length: 0x10000,
-                agent: DumpAgent::None,
-            },
-        ],
+        &crate::generated::DUMP_AREAS,
         Some(0x1000),
     );
 

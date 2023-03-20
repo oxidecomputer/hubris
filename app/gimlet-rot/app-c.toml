@@ -16,11 +16,12 @@ requires = {flash = 32768, ram = 4096}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+uses = [ "sram2" ]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -137,6 +138,16 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600
 task-slots = ["swd"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+features = ["no-rot"]
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["jefe"]
+stacksize = 1200
+uses = [ "sram2" ]
 
 # We intentionally do not start this task to avoid conflicts with the SP
 # debug connection.

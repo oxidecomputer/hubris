@@ -1,3 +1,7 @@
+[sram2]
+address = 0x20020000
+size = 0x10000
+
 [syscon]
 address = 0x40000000
 size = 4096

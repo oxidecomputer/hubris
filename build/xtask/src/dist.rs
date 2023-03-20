@@ -1168,8 +1168,16 @@ fn update_image_header(
 
                 let mut sau_ranges = rangemap::RangeInclusiveMap::new();
 
+                //
+                // XXX it seems like all of these are pretty specific to
+                // NXP and the LPC55?
+                //
+
                 // Alias for the NS peripherals
                 sau_ranges.insert(0x4000_0000..=0x4fff_ffff, false);
+
+                // Alias for alternate SRAMs (sram2, sram3, sram4)
+                sau_ranges.insert(0x2002_0000..=0x2002_ffff, false);
 
                 // Alias for the BootRom
                 sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);

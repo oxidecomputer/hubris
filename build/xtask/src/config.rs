@@ -422,6 +422,23 @@ impl Config {
         out.env
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
+        //
+        // Expose the peripherals that a task is using should the task
+        // wish to generate code around them.
+        //
+        let mut peripherals = IndexMap::new();
+
+        for u in &task_toml.uses {
+            if let Some(p) = self.peripherals.get(u) {
+                peripherals.insert(u, p);
+            }
+        }
+
+        out.env.insert(
+            "HUBRIS_TASK_PERIPHERALS".to_string(),
+            toml::to_string(&peripherals).unwrap(),
+        );
+
         Ok(out)
     }
 
@@ -624,7 +641,7 @@ pub struct Output {
     pub dma: bool,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Peripheral {
     pub address: u32,

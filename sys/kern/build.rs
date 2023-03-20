@@ -109,7 +109,9 @@ fn process_config() -> Result<Generated> {
             regions.push(
                 region_table
                     .get_index_of(&RegionKey::Shared(name.clone()))
-                    .unwrap(),
+                    .with_context(|| {
+                        format!("task {i} uses unknown device {name}")
+                    })?,
             );
         }
 

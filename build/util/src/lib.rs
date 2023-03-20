@@ -132,6 +132,14 @@ pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
     task_full_config()
 }
 
+/// Pulls the peripherals that the task is using
+pub fn task_peripherals<T: DeserializeOwned>() -> Result<IndexMap<String, T>> {
+    let t = toml_from_env::<IndexMap<String, T>>("HUBRIS_TASK_PERIPHERALS")?
+        .ok_or_else(|| anyhow!("HUBRIS_TASK_PERIPHERALS is not defined"))?;
+
+    Ok(t)
+}
+
 /// Pulls the full task configuration block of a different task
 pub fn other_task_full_config<T: DeserializeOwned>(
     name: &str,
