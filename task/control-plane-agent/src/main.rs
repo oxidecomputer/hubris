@@ -71,7 +71,7 @@ enum Log {
     },
 
     #[cfg(feature = "vpd-identity")]
-    VpdReadError(drv_local_vpd::LocalVpdError),
+    VpdReadError(drv_local_vpd::VpdIdentityError),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the

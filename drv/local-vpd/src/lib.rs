@@ -16,6 +16,7 @@
 //! to pick which EEPROM to read.
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
+use oxide_barcode::VpdIdentity;
 use ringbuf::*;
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
@@ -28,6 +29,24 @@ pub enum LocalVpdError {
     InvalidChecksum,
     InvalidChunkSize,
     NoRootChunk,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum VpdIdentityError {
+    LocalVpdError(LocalVpdError),
+    ParseError(oxide_barcode::ParseError),
+}
+
+impl From<LocalVpdError> for VpdIdentityError {
+    fn from(err: LocalVpdError) -> Self {
+        Self::LocalVpdError(err)
+    }
+}
+
+impl From<oxide_barcode::ParseError> for VpdIdentityError {
+    fn from(err: oxide_barcode::ParseError) -> Self {
+        Self::ParseError(err)
+    }
 }
 
 #[derive(Clone)]
@@ -161,6 +180,23 @@ pub fn read_config_into(
         }
     }
     Err(err(LocalVpdError::NoRootChunk))
+}
+
+/// Read the Oxide barcode tag and parse it.
+///
+/// Supports `0XV1` and `0XV2` formats.
+pub fn read_oxide_barcode(
+    i2c_task: TaskId,
+) -> Result<VpdIdentity, VpdIdentityError> {
+    // 0XV1 barcodes are 31 bytes and 0XV2 barcodes are 32 bytes; those are
+    // the only two version we know how to parse today, so we're safe with a
+    // 32-byte output buffer.
+    let mut barcode = [0; 32];
+
+    let n = read_config_into(i2c_task, *b"BARC", &mut barcode)?;
+    let identity = VpdIdentity::parse(&barcode[..n])?;
+
+    Ok(identity)
 }
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

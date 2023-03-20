@@ -186,28 +186,10 @@ impl From<RotImageDetailsConvert> for RotImageDetails {
 fn identity() -> VpdIdentity {
     #[cfg(feature = "vpd-identity")]
     fn identity_from_vpd() -> Option<VpdIdentity> {
-        // 0XV1 barcodes are 31 bytes and 0XV2 barcodes are 32 bytes; those are
-        // the only two version we know how to parse today, so we're safe with a
-        // 32-byte output buffer.
-        let mut barcode = [0; 32];
-
-        let i2c_task = I2C.get_task_id();
-        let barcode = match drv_local_vpd::read_config_into(
-            i2c_task,
-            *b"BARC",
-            &mut barcode,
-        ) {
-            Ok(n) => &barcode[..n],
-            Err(err) => {
-                ringbuf_entry!(Log::VpdReadError(err));
-                return None;
-            }
-        };
-
-        match VpdIdentity::parse(barcode) {
+        match drv_local_vpd::read_oxide_barcode(I2C.get_task_id()) {
             Ok(identity) => Some(identity),
             Err(err) => {
-                ringbuf_entry!(Log::BarcodeParseError(err));
+                ringbuf_entry!(Log::VpdReadError(err));
                 None
             }
         }
