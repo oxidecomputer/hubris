@@ -457,7 +457,11 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
     ltc4282_controller!(HotSwapQSFP, v12p0_front_io, A2, Ohms(0.001 / 2.0)),
 ];
 
-#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
+#[cfg(any(
+    target_board = "sidecar-a",
+    target_board = "sidecar-b",
+    target_board = "sidecar-c"
+))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
 
@@ -488,6 +492,7 @@ fn get_state() -> PowerState {
     target_board = "gimlet-c",
     target_board = "sidecar-a",
     target_board = "sidecar-b",
+    target_board = "sidecar-c",
     target_board = "gimletlet-2",
 ))]
 fn preinit() {

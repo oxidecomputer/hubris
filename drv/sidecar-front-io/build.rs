@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
     let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "sidecar-a" && board != "sidecar-b" {
+    if board != "sidecar-a" && board != "sidecar-b" && board != "sidecar-c" {
         panic!("unknown target board");
     }
 
