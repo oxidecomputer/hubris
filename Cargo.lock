@@ -4112,6 +4112,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-packrat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "cfg-if",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-packrat-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "oxide-barcode",
+ "task-net-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

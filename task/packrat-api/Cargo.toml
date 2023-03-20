@@ -1,0 +1,26 @@
+[package]
+name = "task-packrat-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+derive-idol-err.path = "../../lib/derive-idol-err"
+oxide-barcode.path = "../../lib/oxide-barcode"
+task-net-api.path = "../net-api"
+userlib.path = "../../sys/userlib"
+
+idol-runtime.workspace = true
+num-traits.workspace = true
+zerocopy.workspace = true
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false
+
+[build-dependencies]
+idol.workspace = true
