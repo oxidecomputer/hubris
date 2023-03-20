@@ -62,6 +62,8 @@ fn system_init() {
             let expected_rev = 0b111;
         } else if #[cfg(target_board = "psc-b")] {
             let expected_rev = 0b001;
+        } else if #[cfg(target_board = "psc-c")] {
+            let expected_rev = 0b010;
         } else {
             compile_error!("not a recognized psc board")
         }
