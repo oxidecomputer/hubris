@@ -132,7 +132,7 @@ impl bsp_support::Bsp for BspImpl {
         let mgmt = mgmt::Config {
             power_en: None,
             slow_power_en: false,
-            power_good: None,
+            power_good: &[],
             pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),

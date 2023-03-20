@@ -86,7 +86,7 @@ impl bsp_support::Bsp for BspImpl {
             // SP_TO_MGMT_PHY_A2_PWR_EN
             power_en: Some(Port::I.pin(10)),
             slow_power_en: false,
-            power_good: None, // TODO
+            power_good: &[], // TODO
             pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),

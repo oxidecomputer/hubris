@@ -47,7 +47,7 @@ pub struct Config {
     pub slow_power_en: bool,
 
     /// Goes high once power is good
-    pub power_good: Option<sys_api::PinSet>,
+    pub power_good: &'static [sys_api::PinSet],
 
     /// Goes high once the PLLs are locked
     pub pll_lock: Option<sys_api::PinSet>,
@@ -133,7 +133,10 @@ impl Config {
             );
         }
 
-        // TODO: sleep for PG lines going high here
+        // Wait for all PG lines to be set
+        while !self.power_good.iter().all(|p| sys.gpio_read(*p) != 0) {
+            sleep_for(1);
+        }
 
         sys.gpio_set(self.vsc85x2_nrst);
         sleep_for(120); // Wait for the chip to come out of reset
