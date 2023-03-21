@@ -105,7 +105,6 @@ name = "task-packrat"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
-features = ["vlan"]
 # task-slots is explicitly empty: packrat should send not send IPCs!
 task-slots = []
 
@@ -140,7 +139,7 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
-features = ["h753", "vlan"]
+features = ["h753"]
 priority = 4
 max-sizes = {flash = 65536, ram = 8192 }
 stacksize = 1600

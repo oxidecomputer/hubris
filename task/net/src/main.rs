@@ -115,7 +115,6 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<MacAddressBlock> {
     use task_packrat_api::Packrat;
-    let start = sys_get_timer().now;
     let packrat = Packrat::from(PACKRAT.get_task_id());
     packrat.get_mac_address_block().ok()
 }

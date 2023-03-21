@@ -8,9 +8,21 @@
 
 use derive_idol_err::IdolError;
 use userlib::*;
+use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
 pub use oxide_barcode::VpdIdentity;
-pub use task_net_api::MacAddressBlock;
+
+/// Represents a range of allocated MAC addresses, per RFD 320
+///
+/// The SP will claim the first `N` addresses based on VLAN configuration
+/// (typically either 1 or 2).
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
+#[repr(C)]
+pub struct MacAddressBlock {
+    pub base_mac: [u8; 6],
+    pub count: U16<LittleEndian>,
+    pub stride: u8,
+}
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum CacheGetError {

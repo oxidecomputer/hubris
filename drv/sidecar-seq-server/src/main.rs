@@ -12,6 +12,7 @@ use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_local_vpd::{BarcodeParseError, LocalVpdError, VpdIdentityError};
 use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
@@ -19,12 +20,14 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
+use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
 task_slot!(AUXFLASH, auxflash);
+task_slot!(PACKRAT, packrat);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -85,6 +88,10 @@ enum Trace {
         expected: [u8; 4],
     },
     FrontIOVsc8562Ready,
+    LocalVpdError(LocalVpdError),
+    BarcodeParseError(BarcodeParseError),
+    MacsAlreadySet(MacAddressBlock),
+    IdentityAlreadySet(VpdIdentity),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -573,6 +580,9 @@ fn main() -> ! {
     }
     ringbuf_entry!(Trace::ClockConfigurationComplete);
 
+    // Populate packrat with our mac address and identity.
+    read_vpd();
+
     // Initialize a connected Front IO board.
     if server.front_io_board.present() {
         ringbuf_entry!(Trace::FrontIOBoardPresent);
@@ -631,6 +641,63 @@ fn main() -> ! {
 
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
+    }
+}
+
+fn read_vpd() {
+    // How many times are we willing to try reading VPD if it fails, and how
+    // long do we wait between retries?
+    const MAX_ATTEMPTS: usize = 5;
+    const SLEEP_BETWEEN_RETRIES_MS: u64 = 500;
+
+    let mut read_macs = false;
+    let mut read_identity = false;
+    let i2c = I2C.get_task_id();
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+
+    for _ in 0..MAX_ATTEMPTS {
+        if !read_macs {
+            match drv_local_vpd::read_config(i2c, *b"MAC0") {
+                Ok(macs) => {
+                    match packrat.set_mac_address_block(macs) {
+                        Ok(()) => (),
+                        Err(CacheSetError::ValueAlreadySet) => {
+                            ringbuf_entry!(Trace::MacsAlreadySet(macs));
+                        }
+                    }
+                    read_macs = true;
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::LocalVpdError(err));
+                }
+            }
+        }
+
+        if !read_identity {
+            match drv_local_vpd::read_oxide_barcode(i2c) {
+                Ok(identity) => {
+                    match packrat.set_identity(identity) {
+                        Ok(()) => (),
+                        Err(CacheSetError::ValueAlreadySet) => {
+                            ringbuf_entry!(Trace::IdentityAlreadySet(identity));
+                        }
+                    }
+                    read_identity = true;
+                }
+                Err(VpdIdentityError::LocalVpdError(err)) => {
+                    ringbuf_entry!(Trace::LocalVpdError(err));
+                }
+                Err(VpdIdentityError::ParseError(err)) => {
+                    ringbuf_entry!(Trace::BarcodeParseError(err));
+                }
+            }
+        }
+
+        if read_macs && read_identity {
+            break;
+        }
+
+        hl::sleep_for(SLEEP_BETWEEN_RETRIES_MS);
     }
 }
 

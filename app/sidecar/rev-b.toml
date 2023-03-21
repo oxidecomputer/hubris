@@ -235,6 +235,14 @@ task-slots = [
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should send not send IPCs!
+task-slots = []
+
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
 priority = 4
@@ -244,6 +252,7 @@ task-slots = [
     "sys",
     "i2c_driver",
     "auxflash",
+    "packrat",
     {mainboard = "ecp5_mainboard"},
     {front_io = "ecp5_front_io"}]
 notifications = ["timer"]

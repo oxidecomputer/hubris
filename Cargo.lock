@@ -1425,6 +1425,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-local-vpd",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
@@ -1432,6 +1433,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]
@@ -4109,6 +4111,7 @@ dependencies = [
  "num-traits",
  "serde",
  "smoltcp",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]
@@ -4138,7 +4141,6 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "oxide-barcode",
- "task-net-api",
  "userlib",
  "zerocopy",
 ]
