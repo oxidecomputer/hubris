@@ -199,7 +199,7 @@ jobs:
 
       # upload the output of our build
       - name: Upload build archive
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
           path: target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip
