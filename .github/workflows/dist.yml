@@ -165,7 +165,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Cache vcpkg 
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: C:\vcpkg\downloads
           key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
