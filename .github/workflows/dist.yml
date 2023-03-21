@@ -191,13 +191,13 @@ jobs:
           target: "target/release/humility"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-   #  - name: Test Humility manifest
-   #    # we need to chmod because all artifacts are marked as non-executable
-   #    if: matrix.os == 'ubuntu-latest'
-   #    run: |
-   #      sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
-   #      sudo chmod +x target/release/humility
-   #      target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
+      - name: Test Humility manifest
+        # we need to chmod because all artifacts are marked as non-executable
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
+          sudo chmod +x target/release/humility
+          target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
 
       # upload the output of our build
       - name: Upload build archive
