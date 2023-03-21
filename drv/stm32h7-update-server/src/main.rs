@@ -10,12 +10,18 @@
 #![no_main]
 
 use core::convert::Infallible;
-use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
+use drv_update_api::stm32h7::{
+    BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
+};
 use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
 use userlib::*;
+use zerocopy::AsBytes;
+
+// Internally we deal with flash blocks in groups of u32 words.
+const FLASH_WORD_WORDS: usize = FLASH_WORD_BYTES / 4;
 
 // Keys constants are defined in RM0433 Rev 7
 // Section 4.9.2
@@ -153,7 +159,7 @@ impl<'a> ServerImpl<'a> {
     fn write_word(
         &mut self,
         word_number: usize,
-        bytes: &[u8],
+        words: &[u32; FLASH_WORD_WORDS],
     ) -> Result<(), RequestError<UpdateError>> {
         ringbuf_entry!(Trace::WriteStart);
 
@@ -163,36 +169,30 @@ impl<'a> ServerImpl<'a> {
 
         let start = BANK_ADDR + (word_number * FLASH_WORD_BYTES) as u32;
 
-        if bytes.len() != FLASH_WORD_BYTES {
+        if start + FLASH_WORD_BYTES as u32 > BANK_END {
             return Err(UpdateError::BadLength.into());
         }
 
-        if start + (bytes.len() as u32) > BANK_END {
-            return Err(UpdateError::BadLength.into());
-        }
+        let addresses = (start..start + FLASH_WORD_BYTES as u32).step_by(4);
 
         self.flash.bank2().cr.write(|w| {
             // SAFETY
             // The `psize().bits(_)` function is marked unsafe in the stm32
             // crate because it allows arbitrary bit patterns. `0b11`
-            // corresponds to 64-bit parallelism.
+            // corresponds to 64-bit internal parallelism during the write cycle
+            // (not to be confused with the actual write accesses below, which
+            // are 32-bit).
             unsafe { w.psize().bits(0b11) }.pg().set_bit()
         });
 
-        for (i, c) in bytes.chunks_exact(4).enumerate() {
-            let mut word: [u8; 4] = [0; 4];
-            word.copy_from_slice(c);
-
+        for (addr, &word) in addresses.zip(words) {
             // SAFETY
             // This code is running out of bank #1. The programming for bank #2
             // is completely separate so it will not affect running code.
             // The address is bounds checked against the start and end of
             // the bank limits.
             unsafe {
-                core::ptr::write_volatile(
-                    (start + (i * 4) as u32) as *mut u32,
-                    u32::from_le_bytes(word),
-                );
+                core::ptr::write_volatile(addr as *mut u32, word);
             }
         }
 
@@ -333,24 +333,33 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
 
         let len = block.len();
-        let mut flash_page: [u8; BLOCK_SIZE_BYTES] = [0; BLOCK_SIZE_BYTES];
+        // While our input arrives as unstructured borrowed bytes, we want to
+        // ensure that we've got it aligned to 32-bits for internal reasons, and
+        // we make the internal structure of the flash "page" apparent: from the
+        // hardware's perspective, it is actually an array of flash words,
+        // grouped (by our arbitrary choice) into units of
+        // FLASH_WORDS_PER_BLOCK.
+        let mut flash_page: [[u32; FLASH_WORD_WORDS]; FLASH_WORDS_PER_BLOCK] =
+            [[0; FLASH_WORD_WORDS]; FLASH_WORDS_PER_BLOCK];
 
-        block
-            .read_range(0..len, &mut flash_page)
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        {
+            // Write flash_page in terms of bytes:
+            let flash_bytes = flash_page.as_bytes_mut();
 
-        // If there is a write less than the block size zero out the trailing
-        // bytes
-        if len < BLOCK_SIZE_BYTES {
-            flash_page[len..].fill(0);
+            block
+                .read_range(0..len, flash_bytes)
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+            // If there is a write less than the block size zero out the
+            // trailing bytes
+            if len < BLOCK_SIZE_BYTES {
+                flash_bytes[len..].fill(0);
+            }
         }
 
         ringbuf_entry!(Trace::WriteBlock(block_num));
-        for (i, c) in flash_page.chunks(FLASH_WORD_BYTES).enumerate() {
-            const FLASH_WORDS_PER_BLOCK: usize =
-                BLOCK_SIZE_BYTES / FLASH_WORD_BYTES;
-
-            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, c)?;
+        for (i, fw) in flash_page.iter().enumerate() {
+            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, fw)?;
         }
 
         Ok(())
