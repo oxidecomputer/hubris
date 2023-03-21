@@ -174,12 +174,10 @@ jobs:
             ${{ runner.os }}-vcpkg-download-
 
       # invoke our build
-      - uses: actions-rs/cargo@v1
+      - name: cargo xtask dist
         env:
           RUST_BACKTRACE: 1
-        with:
-          command: xtask
-          args: dist ${{ matrix.app_toml}}
+        run: cargo xtask dist ${{ matrix.app_toml}}
 
       - name: Fetch Humility 
         uses: dsaltares/fetch-gh-release-asset@0.0.8

@@ -15,7 +15,5 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: cargo fmt 
+        run: cargo fmt --all -- --check
