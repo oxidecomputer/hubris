@@ -22,6 +22,8 @@ use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
+pub use oxide_barcode::ParseError as BarcodeParseError;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LocalVpdError {
     DeviceError,
@@ -34,7 +36,7 @@ pub enum LocalVpdError {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum VpdIdentityError {
     LocalVpdError(LocalVpdError),
-    ParseError(oxide_barcode::ParseError),
+    ParseError(BarcodeParseError),
 }
 
 impl From<LocalVpdError> for VpdIdentityError {
@@ -43,8 +45,8 @@ impl From<LocalVpdError> for VpdIdentityError {
     }
 }
 
-impl From<oxide_barcode::ParseError> for VpdIdentityError {
-    fn from(err: oxide_barcode::ParseError) -> Self {
+impl From<BarcodeParseError> for VpdIdentityError {
+    fn from(err: BarcodeParseError) -> Self {
         Self::ParseError(err)
     }
 }

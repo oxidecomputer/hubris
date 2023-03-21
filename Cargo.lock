@@ -891,6 +891,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
+ "drv-local-vpd",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
@@ -905,6 +906,7 @@ dependencies = [
  "sha2",
  "static_assertions",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]

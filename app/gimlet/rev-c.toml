@@ -100,6 +100,15 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 "i2c1.event" = "i2c1-irq"
 "i2c1.error" = "i2c1-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+features = ["vlan"]
+# task-slots is explicitly empty: packrat should send not send IPCs!
+task-slots = []
+
 [tasks.thermal]
 name = "task-thermal"
 features = ["itm", "gimlet"]
@@ -131,12 +140,12 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
-features = ["h753"]
+features = ["h753", "vlan"]
 priority = 4
-max-sizes = {flash = 65536, ram = 4096 }
+max-sizes = {flash = 65536, ram = 8192 }
 stacksize = 1600
 start = true
-task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
+task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe", "packrat"]
 notifications = ["timer"]
 copy-to-archive = ["register_defs"]
 
