@@ -44,7 +44,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
-task-slots = ["sys", "i2c_driver", { spi_driver = "spi2_driver" }, "jefe"]
+task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]

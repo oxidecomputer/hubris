@@ -20,7 +20,6 @@ vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
-drv-local-vpd = { path = "../../drv/local-vpd", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api", optional = true }
 drv-stm32h7-eth = { path = "../../drv/stm32h7-eth", features = ["ipv6"] }
@@ -34,13 +33,14 @@ mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
+task-packrat-api = { path = "../packrat-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 vsc85xx = { path = "../../drv/vsc85xx"}
 
 [features]
 use-spi-core = ["drv-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
-vpd-mac = ["drv-local-vpd"]
+vpd-mac = ["task-packrat-api"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-spi-server-core?/h743"]
