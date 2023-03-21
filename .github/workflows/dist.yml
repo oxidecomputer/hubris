@@ -180,7 +180,7 @@ jobs:
         run: cargo xtask dist ${{ matrix.app_toml}}
 
       - name: Fetch Humility 
-        uses: dsaltares/fetch-gh-release-asset@0.0.8
+        uses: dsaltares/fetch-gh-release-asset@master
         if: matrix.os == 'ubuntu-latest'
         with:
           repo: "oxidecomputer/humility"
