@@ -22,3 +22,9 @@ read = true
 write = true
 dma = true
 
+[[bank2]]
+address = 0x08100000
+size = 1048576
+read = true
+write = true
+execute = false

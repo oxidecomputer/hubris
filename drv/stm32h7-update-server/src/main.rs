@@ -36,6 +36,11 @@ const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
 const BANK_ADDR: u32 = 0x08100000;
 const BANK_END: u32 = 0x08200000;
 
+extern "C" {
+    pub static mut BANK2:
+        [u32; (BANK_END - BANK_ADDR) as usize / core::mem::size_of::<u32>()];
+}
+
 // Writes are indexed by flash words, BANK_ADDR is word 0,
 // BANK_ADDR + FLASH_WORD_BYTES is word 1 etc.
 const BANK_WORD_LIMIT: usize =
