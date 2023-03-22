@@ -2021,7 +2021,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=serial-console-keepalive#280b4cfbff2b5b270d92b05bf93a09b3240d6d8d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#84869ae87ddccc45b4500652fd1bc22841ae1dd3"
 dependencies = [
  "bitflags",
  "hubpack",
