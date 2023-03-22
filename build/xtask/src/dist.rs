@@ -2158,7 +2158,9 @@ pub fn make_kconfig(
             }
         }
 
+        let extern_regions = toml.extern_regions_for(name, image_name)?;
         let owned_regions = task_allocations[name].iter()
+            .chain(extern_regions.iter())
             .map(|(out_name, range)| {
                 // Look up region for this image
                 let mut regions = toml.outputs[out_name].iter()
