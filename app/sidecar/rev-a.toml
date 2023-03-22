@@ -92,6 +92,7 @@ task-slots = [
     "sensor",
     "sprot",
     "ignition",
+    "packrat",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 notifications = ["socket", "timer", "usart-irq"]

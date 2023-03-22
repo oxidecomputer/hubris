@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
-use core::{cell::RefCell, convert::Infallible};
+use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::SpRot;
 use gateway_messages::{
@@ -15,16 +15,15 @@ use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
 use task_net_api::MacAddress;
-use userlib::kipc;
+use task_packrat_api::Packrat;
+use userlib::{kipc, task_slot};
 
-#[cfg(feature = "vpd-identity")]
-userlib::task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
     reset_requested: bool,
     inventory: Inventory,
-    identity: RefCell<Option<VpdIdentity>>,
     base_mac_address: MacAddress,
 }
 
@@ -33,7 +32,6 @@ impl MgsCommon {
         Self {
             reset_requested: false,
             inventory: Inventory::new(),
-            identity: RefCell::new(None),
             base_mac_address,
         }
     }
@@ -47,14 +45,8 @@ impl MgsCommon {
     }
 
     pub(crate) fn identity(&self) -> VpdIdentity {
-        if let Some(identity) = *self.identity.borrow() {
-            return identity;
-        }
-
-        let id = identity();
-        let mut cached = self.identity.borrow_mut();
-        *cached = Some(id);
-        id
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+        packrat.get_identity().unwrap_or_default()
     }
 
     pub(crate) fn sp_state(
@@ -181,25 +173,4 @@ impl From<RotImageDetailsConvert> for RotImageDetails {
             },
         }
     }
-}
-
-fn identity() -> VpdIdentity {
-    #[cfg(feature = "vpd-identity")]
-    fn identity_from_vpd() -> Option<VpdIdentity> {
-        match drv_local_vpd::read_oxide_barcode(I2C.get_task_id()) {
-            Ok(identity) => Some(identity),
-            Err(err) => {
-                ringbuf_entry!(Log::VpdReadError(err));
-                None
-            }
-        }
-    }
-
-    #[cfg(feature = "vpd-identity")]
-    let id = identity_from_vpd().unwrap_or_default();
-
-    #[cfg(not(feature = "vpd-identity"))]
-    let id = VpdIdentity::default();
-
-    id
 }

@@ -19,7 +19,6 @@ drv-caboose = { path = "../../drv/caboose" }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
-drv-local-vpd = { path = "../../drv/local-vpd", optional = true }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
@@ -31,6 +30,7 @@ ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
+task-packrat-api = { path = "../packrat-api" }
 task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
 update-buffer = { path = "../../lib/update-buffer" }
@@ -51,4 +51,3 @@ usart1 = []
 usart1-gimletlet = []
 baud_rate_3M = []
 auxflash = ["drv-auxflash-api"]
-vpd-identity = ["drv-local-vpd"]

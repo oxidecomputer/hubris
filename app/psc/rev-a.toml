@@ -129,6 +129,7 @@ task-slots = [
     "validate",
     "sensor",
     "sprot",
+    "packrat",
 ]
 features = ["psc", "vlan"]
 notifications = ["usart-irq", "socket", "timer"]
