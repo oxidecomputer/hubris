@@ -1,0 +1,9 @@
+[package]
+name = "drv-psc-seq-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-traits.workspace = true
+
+userlib.path = "../../sys/userlib"

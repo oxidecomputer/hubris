@@ -1,0 +1,19 @@
+[package]
+name = "drv-psc-seq-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-local-vpd = { path = "../local-vpd" }
+drv-psc-seq-api = { path = "../psc-seq-api" }
+ringbuf = { path = "../../lib/ringbuf" }
+task-jefe-api = { path = "../../task/jefe-api" }
+task-packrat-api = { path = "../../task/packrat-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-psc-seq-server"
+test = false
+bench = false
