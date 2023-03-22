@@ -37,8 +37,8 @@ const BANK_ADDR: u32 = 0x08100000;
 const BANK_END: u32 = 0x08200000;
 
 extern "C" {
-    pub static mut BANK2:
-        [u32; (BANK_END - BANK_ADDR) as usize / core::mem::size_of::<u32>()];
+    pub static mut __REGION_BANK2_BASE: [u32; 0];
+    pub static mut __REGION_BANK2_END: [u32; 0];
 }
 
 // Writes are indexed by flash words, BANK_ADDR is word 0,
