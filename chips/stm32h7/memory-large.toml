@@ -30,3 +30,4 @@ size = 0x100000
 read = true
 write = true
 execute = false
+dma = true
