@@ -66,7 +66,7 @@ use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
 
-#[cfg(feature = "h753")]
+#[cfg(feature = "vpd-mac")]
 task_slot!(PACKRAT, packrat);
 
 /////////////////////////////////////////////////////////////////////////////
