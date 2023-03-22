@@ -34,6 +34,9 @@ const FLASH_OPT_KEY1: u32 = 0x0819_2A3B;
 const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
 
 extern "C" {
+    // Symbols injected by the linker.
+    //
+    // This requires adding `extern-regions = ["bank2"]` to the task config
     pub static mut __REGION_BANK2_BASE: [u32; 0];
     pub static mut __REGION_BANK2_END: [u32; 0];
 }
@@ -165,21 +168,18 @@ impl<'a> ServerImpl<'a> {
         // can't define them as `const` values.
         //
         // SAFETY: these are symbols populated by the linker.
-        #[allow(non_snake_case)]
-        let BANK_ADDR = unsafe { &__REGION_BANK2_BASE } as *const u32 as u32;
-        #[allow(non_snake_case)]
-        let BANK_END = unsafe { &__REGION_BANK2_END } as *const u32 as u32;
-        #[allow(non_snake_case)]
-        let BANK_WORD_LIMIT =
-            (BANK_END - BANK_ADDR) as usize / FLASH_WORD_BYTES;
+        let bank_addr = unsafe { __REGION_BANK2_BASE.as_ptr() } as u32;
+        let bank_end = unsafe { &__REGION_BANK2_END } as *const u32 as u32;
+        let bank_word_limit =
+            (bank_end - bank_addr) as usize / FLASH_WORD_BYTES;
 
-        if word_number > BANK_WORD_LIMIT {
+        if word_number > bank_word_limit {
             panic!();
         }
 
-        let start = BANK_ADDR + (word_number * FLASH_WORD_BYTES) as u32;
+        let start = bank_addr + (word_number * FLASH_WORD_BYTES) as u32;
 
-        if start + FLASH_WORD_BYTES as u32 > BANK_END {
+        if start + FLASH_WORD_BYTES as u32 > bank_end {
             return Err(UpdateError::BadLength.into());
         }
 

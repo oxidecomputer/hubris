@@ -304,6 +304,25 @@ pub fn package(
                 }
             }
         }
+        {
+            // Check that each external region is only used by one task
+            use std::collections::btree_map::Entry;
+            let mut seen = BTreeMap::new();
+            for (task_name, task) in cfg.toml.tasks.iter() {
+                for r in &task.extern_regions {
+                    match seen.entry(r) {
+                        Entry::Occupied(o) => bail!(
+                            "extern region '{r}' is used by multiple tasks \
+                             ('{}' and '{task_name}'); it should be exclusive",
+                            o.get(),
+                        ),
+                        Entry::Vacant(v) => {
+                            v.insert(task_name);
+                        }
+                    }
+                }
+            }
+        }
 
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
