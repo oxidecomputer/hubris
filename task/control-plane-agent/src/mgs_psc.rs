@@ -368,6 +368,15 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
+    fn serial_console_keepalive(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleKeepAlive));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
     fn serial_console_detach(
         &mut self,
         _sender: SocketAddrV6,
