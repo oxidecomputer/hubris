@@ -1301,9 +1301,9 @@ cleared by software when SP3 hotplug indicates enable
         <br>
         <br>
             IDLE = 0x0 <br>
-            STAGE0 = 0x1 <br>
-            STAGE0_PG = 0x2 <br>
-            DELAY = 0x3 <br>
+            PS_PG = 0x1 <br>
+            PG_DELAY = 0x2 <br>
+            EARLY_RESET = 0x3 <br>
             DONE = 0x4 
         </td>
     </tr>
@@ -1315,7 +1315,7 @@ cleared by software when SP3 hotplug indicates enable
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Board Rev straps</td>
+        <td class="Description" colspan="16">&nbsp;Board Ver straps</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat24" style="display: none">
@@ -1339,7 +1339,7 @@ cleared by software when SP3 hotplug indicates enable
         <td class="FieldDesc" colspan="1*">2:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
-        <td class="FieldDesc" colspan="14">0x7 or 0x0 = RevA. 0x1 = RevB
+        <td class="FieldDesc" colspan="14">0x7 or 0x0 = A. 0x1 = B, 0x2 = C, 0x3 = D, 0x4 = E
         </td>
     </tr>
     <tr class="Register">
@@ -2619,7 +2619,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">RevB-only nic ext rst output  ( inverted net)
+        <td class="FieldDesc" colspan="14">NIC's EXT_RST_L output (inverted).  Active when NIC internals in reset
         </td>
     </tr>
     <tr class="cat41" style="display: none">
@@ -2628,7 +2628,7 @@ SP3_VDD_VCORE_A0 and VDD_MEM_ABCD_A0
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">RevB-only PERST outptut (PERST_L inverted net)
+        <td class="FieldDesc" colspan="14">PERST outptut (PERST_L inverted net)
         </td>
     </tr>
     <tr class="cat41" style="display: none">
