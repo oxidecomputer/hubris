@@ -44,7 +44,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
-task-slots = ["sys", "i2c_driver", { spi_driver = "spi2_driver" }, "jefe"]
+task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]
@@ -100,6 +100,14 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 "i2c1.event" = "i2c1-irq"
 "i2c1.error" = "i2c1-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should send not send IPCs!
+task-slots = []
+
 [tasks.thermal]
 name = "task-thermal"
 features = ["itm", "gimlet"]
@@ -133,10 +141,10 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
 priority = 4
-max-sizes = {flash = 65536, ram = 4096 }
+max-sizes = {flash = 65536, ram = 8192 }
 stacksize = 1600
 start = true
-task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
+task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe", "packrat"]
 notifications = ["timer"]
 copy-to-archive = ["register_defs"]
 
