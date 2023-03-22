@@ -70,8 +70,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi3"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
-task-slots = ["sys", "i2c_driver",
-              { seq = "sequencer" }]
+task-slots = ["sys", "packrat", { seq = "sequencer" }]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"

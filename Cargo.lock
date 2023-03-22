@@ -1299,6 +1299,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-psc-seq-api"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-seq-server"
+version = "0.1.0"
+dependencies = [
+ "drv-local-vpd",
+ "drv-psc-seq-api",
+ "ringbuf",
+ "task-jefe-api",
+ "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-qspi-api"
 version = "0.1.0"
 
@@ -4062,6 +4082,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
+ "drv-psc-seq-api",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",

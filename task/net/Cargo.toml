@@ -20,6 +20,7 @@ vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-psc-seq-api = { path = "../../drv/psc-seq-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api", optional = true }
 drv-stm32h7-eth = { path = "../../drv/stm32h7-eth", features = ["ipv6"] }
@@ -43,6 +44,7 @@ mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["task-packrat-api"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
+psc = ["drv-psc-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-spi-server-core?/h743"]
 h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-spi-server-core?/h753"]
 vlan = ["task-net-api/vlan", "build-net/vlan", "drv-stm32h7-eth/vlan"]
