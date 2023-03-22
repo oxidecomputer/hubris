@@ -128,7 +128,7 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     humpty::DumpArea {{
         address: {address:#x},
         length: {length:#x},
-        agent: humpty::DumpAgent::None,
+        contents: humpty::DumpContents::Available,
     }},"##
         )?;
     }

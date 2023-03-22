@@ -50,11 +50,18 @@ impl ServerImpl {
     ) -> Result<(), DumpAgentError> {
         let area = self.dump_area(0)?;
 
-        if area.agent != humpty::DumpAgent::Task {
+        //
+        // If we haven't already claimed this area for purposes of dumping the
+        // entire system, we need to do so first. Claiming this area for
+        // [`DumpContents::WholeSystem`] will claim all dump areas or fail if
+        // any are unavailable.  (If we have already claimed this area, then
+        // we are here because we are adding a subsequent segment to dump.)
+        //
+        if area.contents != humpty::DumpContents::WholeSystem {
             self.claim_dump_area()?;
         }
 
-        humpty::add_dump_segment(
+        humpty::add_dump_segment_header(
             area.address,
             addr,
             length,
@@ -110,7 +117,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 
         let area = self.dump_area(0)?;
 
-        if area.agent != humpty::DumpAgent::Task {
+        if area.contents != humpty::DumpContents::WholeSystem {
             return Err(DumpAgentError::UnclaimedDumpArea.into());
         }
 

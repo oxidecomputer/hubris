@@ -4,7 +4,7 @@
 
 //! Dump support for Jefe
 
-use humpty::{DumpAgent, DumpArea};
+use humpty::{DumpArea, DumpContents};
 use ringbuf::*;
 use task_jefe_api::DumpAgentError;
 use userlib::*;
@@ -68,7 +68,7 @@ pub fn claim_dump_area(base: Option<u32>) -> Result<DumpArea, DumpAgentError> {
         ringbuf_entry!(Trace::Claiming);
         match humpty::claim_dump_area(
             base,
-            DumpAgent::Task,
+            DumpContents::WholeSystem,
             humpty::from_mem,
             humpty::to_mem,
         ) {
@@ -76,9 +76,7 @@ pub fn claim_dump_area(base: Option<u32>) -> Result<DumpArea, DumpAgentError> {
                 ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
                 Err(DumpAgentError::CannotClaimDumpArea)
             }
-
             Ok(None) => Err(DumpAgentError::DumpAreaInUse),
-
             Ok(Some(rval)) => Ok(rval),
         }
     } else {
@@ -101,7 +99,7 @@ pub fn dump_task(base: Option<u32>, task: usize) {
     //
     let area = humpty::claim_dump_area(
         base,
-        DumpAgent::Jefe,
+        DumpContents::SingleTask,
         humpty::from_mem,
         humpty::to_mem,
     );
@@ -121,7 +119,7 @@ pub fn dump_task(base: Option<u32>, task: usize) {
             Some(region) => {
                 ringbuf_entry!(Trace::DumpRegion(region));
 
-                if let Err(e) = humpty::add_dump_segment(
+                if let Err(e) = humpty::add_dump_segment_header(
                     base,
                     region.base,
                     region.size,
