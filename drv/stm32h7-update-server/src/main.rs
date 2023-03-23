@@ -10,6 +10,7 @@
 #![no_main]
 
 use core::convert::Infallible;
+use drv_caboose::{CabooseError, CabooseReader};
 use drv_update_api::stm32h7::{
     BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
@@ -421,6 +422,94 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // TODO(AJS): Return actual info about loaded images for the SP
         Ok(UpdateStatus::Sp)
     }
+
+    fn read_image_caboose(
+        &mut self,
+        _: &RecvMessage,
+        name: [u8; 4],
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<u32, RequestError<CabooseError>> {
+        // This code is very similar to `kipc::read_caboose_pos`, but it
+        // operates on the alternate flash bank rather than on the loaded image.
+        let image_start = unsafe { __REGION_BANK2_BASE.as_ptr() } as u32;
+
+        // If all is going according to plan, there will be a valid Hubris image
+        // flashed into the other slot, which is delimited by
+        // `__REGION_BANK2_BASE` and `__REGION_BASE2_END` (which are symbols
+        // injected by the linker).
+        //
+        // We'll first want to read the image header, which is at a fixed
+        // location at the end of the vector table.  However, the size of the
+        // vector table varies depending on PAC crate version, so we'll check
+        // two locations:
+        let mut found_header = None;
+        for header_offset in [0xbc, 0xc0] {
+            let header: ImageHeader = unsafe {
+                core::ptr::read_volatile(
+                    (image_start + header_offset) as *const ImageHeader,
+                )
+            };
+            if header.magic == HEADER_MAGIC {
+                found_header = Some(header);
+                break;
+            }
+        }
+
+        let Some(header) = found_header else
+            { return Err(CabooseError::NoImageHeader.into()) };
+
+        // Calculate where the image header implies that the image should end
+        //
+        // This is a one-past-the-end value.
+        let image_end = image_start + header.total_image_len;
+
+        // Then, check that value against the BANK2 bounds.
+        //
+        // SAFETY: populated by the linker, so this should be valid
+        if image_end > unsafe { __REGION_BANK2_END.as_ptr() } as u32 {
+            return Err(CabooseError::MissingCaboose.into());
+        }
+
+        let caboose_size: u32 =
+            unsafe { core::ptr::read_volatile((image_end - 4) as *const u32) };
+
+        let caboose_start = image_end.saturating_sub(caboose_size);
+        let caboose_range = if caboose_start < image_start {
+            // This branch will be encountered if there's no caboose, because
+            // then the nominal caboose size will be 0xFFFFFFFF, which will send
+            // us out of the bank2 region.
+            return Err(CabooseError::MissingCaboose.into());
+        } else {
+            // SAFETY: we know this pointer is within the bank2 flash region,
+            // since it's checked above.
+            let v = unsafe {
+                core::ptr::read_volatile(caboose_start as *const u32)
+            };
+            if v == CABOOSE_MAGIC {
+                caboose_start + 4..image_end - 4
+            } else {
+                return Err(CabooseError::MissingCaboose.into());
+            }
+        };
+
+        // SAFETY: this is a slice within the bank2 flash
+        let caboose: &'static [u8] = unsafe {
+            core::slice::from_raw_parts(
+                caboose_range.start as *const u8,
+                caboose_range.len(),
+            )
+        };
+        let reader = CabooseReader::new(caboose);
+
+        let chunk = reader.get(name)?;
+        if chunk.len() > data.len() {
+            return Err(RequestError::Fail(ClientError::BadLease))?;
+        }
+
+        data.write_range(0..chunk.len(), chunk)
+            .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
+        Ok(chunk.len() as u32)
+    }
 }
 
 #[export_name = "main"]
@@ -440,7 +529,9 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
+    use super::{
+        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

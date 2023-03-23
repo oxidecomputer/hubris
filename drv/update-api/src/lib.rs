@@ -5,6 +5,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use drv_caboose::CabooseError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};

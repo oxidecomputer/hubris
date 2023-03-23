@@ -11,9 +11,10 @@ serde.workspace = true
 serde_repr.workspace = true
 zerocopy.workspace = true
 
-derive-idol-err = { path = "../../lib/derive-idol-err"  }
-stage0-handoff = { path = "../../lib/stage0-handoff" }
-userlib = { path = "../../sys/userlib" }
+derive-idol-err.path = "../../lib/derive-idol-err"
+drv-caboose.path = "../../drv/caboose"
+stage0-handoff.path = "../../lib/stage0-handoff"
+userlib.path = "../../sys/userlib"
 
 [features]
 default = ["standalone"]
