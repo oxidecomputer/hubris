@@ -57,6 +57,7 @@
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
+use drv_caboose::CabooseReader;
 use drv_sprot_api::SpRot;
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateError, UpdateTarget};
@@ -523,11 +524,36 @@ impl AcceptingData {
 
         // Did we write the last block?
         if self.next_write_offset == sp_image_size {
-            match sp_task.finish_image_update() {
-                Ok(()) => (State::Complete, Ok(())),
-                Err(err) => {
-                    (State::Failed(err), Err(SpError::UpdateFailed(err as u32)))
+            // Confirm that the image written is targeting the same board as our
+            // current image.  If the current image doesn't have a caboose or a
+            // `BORD` key, then we'll accept anything, but the incoming image
+            // **must** have a valid caboose and `BORD`.
+            const BOARD_KEY: [u8; 4] = *b"BORD";
+            let ours = userlib::kipc::get_caboose()
+                .map(CabooseReader::new)
+                .and_then(|reader| reader.get(BOARD_KEY).ok());
+
+            let mut other = [0u8; 32];
+            if let Ok(n) = sp_task.read_image_caboose(BOARD_KEY, &mut other) {
+                if ours.map(|b| b == &other[..n as usize]).unwrap_or(true) {
+                    match sp_task.finish_image_update() {
+                        Ok(()) => (State::Complete, Ok(())),
+                        Err(err) => (
+                            State::Failed(err),
+                            Err(SpError::UpdateFailed(err as u32)),
+                        ),
+                    }
+                } else {
+                    (
+                        State::Failed(UpdateError::ImageBoardMismatch),
+                        Err(SpError::ImageBoardMismatch),
+                    )
                 }
+            } else {
+                (
+                    State::Failed(UpdateError::ImageBoardUnknown),
+                    Err(SpError::ImageBoardUnknown),
+                )
             }
         } else {
             (State::AcceptingData(self), Ok(()))

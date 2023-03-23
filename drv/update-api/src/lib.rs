@@ -52,6 +52,8 @@ pub enum UpdateStatus {
     Sp,
 }
 
+// These values are used as raw integers in the `State::Failed(UpdateError)`
+// variant.  To preserve compatibility, DO NOT REORDER THEM.
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum UpdateError {
@@ -78,6 +80,10 @@ pub enum UpdateError {
     InvalidHeaderBlock = 20,
     // Specific to RoT (LPC55)
     SpRotError = 21,
+
+    // Caboose checks
+    ImageBoardMismatch = 23,
+    ImageBoardUnknown = 24,
 
     #[idol(server_death)]
     ServerRestarted = 22,
