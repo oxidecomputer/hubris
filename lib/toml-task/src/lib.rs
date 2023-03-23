@@ -33,6 +33,10 @@ pub struct Task<T = ordered_toml::Value> {
     #[serde(default)]
     pub copy_to_archive: Vec<String>,
 
+    /// Memory regions which should be mapped as accessible to this task
+    #[serde(default)]
+    pub extern_regions: Vec<String>,
+
     // Order matters here:
     // TOML serialization doesn't allow us to put a value type after any Table
     // type, so we put all of our `IndexMap` (and `config`, which often contains

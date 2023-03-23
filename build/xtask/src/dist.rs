@@ -265,7 +265,7 @@ pub fn package(
         .keys()
         .map(|name| {
             let size = if tasks_to_build.contains(name.as_str()) {
-                link_dummy_task(&cfg, name)?;
+                link_dummy_task(&cfg, name, &cfg.toml.image_names[0])?;
                 task_size(&cfg, name)
             } else {
                 // Dummy allocations
@@ -289,6 +289,41 @@ pub fn package(
         let (allocs, memories) = allocated
             .get(image_name)
             .ok_or_else(|| anyhow!("failed to get image name"))?;
+
+        // Check external regions, which cannot be used for normal allocations
+        let alloc_regions = allocs.regions();
+        for (task_name, task) in cfg.toml.tasks.iter() {
+            for r in &task.extern_regions {
+                if let Some(v) = alloc_regions.get(r) {
+                    bail!(
+                        "cannot use region '{r}' as extern region in \
+                        '{task_name}' because it's used as a normal region by \
+                        [{}]",
+                        v.join(", ")
+                    );
+                }
+            }
+        }
+        {
+            // Check that each external region is only used by one task
+            use std::collections::btree_map::Entry;
+            let mut seen = BTreeMap::new();
+            for (task_name, task) in cfg.toml.tasks.iter() {
+                for r in &task.extern_regions {
+                    match seen.entry(r) {
+                        Entry::Occupied(o) => bail!(
+                            "extern region '{r}' is used by multiple tasks \
+                             ('{}' and '{task_name}'); it should be exclusive",
+                            o.get(),
+                        ),
+                        Entry::Vacant(v) => {
+                            v.insert(task_name);
+                        }
+                    }
+                }
+            }
+        }
+
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
@@ -931,6 +966,8 @@ fn link_task(
 ) -> Result<()> {
     println!("linking task '{}'", name);
     let task_toml = &cfg.toml.tasks[name];
+
+    let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
     generate_task_linker_script(
         "memory.x",
         &allocs.tasks[name],
@@ -939,6 +976,7 @@ fn link_task(
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
         &cfg.toml.all_regions("flash".to_string())?,
+        &extern_regions,
         image_name,
     )
     .context(format!("failed to generate linker script for {}", name))?;
@@ -957,8 +995,13 @@ fn link_task(
     )
 }
 
-/// Link a specific task using a dummy linker script that
-fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+/// Link a specific task using a dummy linker script that gives it all possible
+/// memory; this is used to determine its true size.
+fn link_dummy_task(
+    cfg: &PackageConfig,
+    name: &str,
+    image_name: &str,
+) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
 
     let memories = cfg
@@ -966,6 +1009,7 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
         .collect();
+    let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
 
     generate_task_linker_script(
         "memory.x",
@@ -975,6 +1019,7 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
         &cfg.toml.all_regions("flash".to_string())?,
+        &extern_regions,
         &cfg.toml.image_names[0],
     )
     .context(format!("failed to generate linker script for {}", name))?;
@@ -1299,6 +1344,7 @@ fn generate_task_linker_script(
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
+    extern_regions: &IndexMap<String, Range<u32>>,
     image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
@@ -1340,6 +1386,7 @@ fn generate_task_linker_script(
     }
     writeln!(linkscr, "}}")?;
     append_image_names(&mut linkscr, images, image_name)?;
+    append_extern_regions(&mut linkscr, extern_regions)?;
     append_task_sections(&mut linkscr, sections)?;
 
     Ok(())
@@ -1364,6 +1411,28 @@ fn append_image_names(
         writeln!(
             linkscr,
             "__IMAGE_{}_END = {:#010x};",
+            name.to_ascii_uppercase(),
+            out.end
+        )?;
+    }
+
+    Ok(())
+}
+
+fn append_extern_regions(
+    linkscr: &mut std::fs::File,
+    extern_regions: &IndexMap<String, Range<u32>>,
+) -> Result<()> {
+    for (name, out) in extern_regions {
+        writeln!(
+            linkscr,
+            "__REGION_{}_BASE = {:#010x};",
+            name.to_ascii_uppercase(),
+            out.start
+        )?;
+        writeln!(
+            linkscr,
+            "__REGION_{}_END = {:#010x};",
             name.to_ascii_uppercase(),
             out.end
         )?;
@@ -1719,6 +1788,27 @@ pub struct Allocations {
     pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
     /// Optional trailing caboose, located in the given region
     pub caboose: Option<(String, Range<u32>)>,
+}
+
+impl Allocations {
+    /// Returns the names of every region used in allocations
+    fn regions(&self) -> BTreeMap<String, Vec<String>> {
+        let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for (region, name) in self
+            .kernel
+            .keys()
+            .map(|k| (k, "kernel".to_owned()))
+            .chain(
+                self.tasks
+                    .iter()
+                    .flat_map(|(t, v)| v.keys().map(|k| (k, t.to_owned()))),
+            )
+            .chain(self.caboose.iter().map(|v| (&v.0, "caboose".to_owned())))
+        {
+            out.entry(region.to_owned()).or_default().push(name)
+        }
+        out
+    }
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -2087,7 +2177,9 @@ pub fn make_kconfig(
             }
         }
 
+        let extern_regions = toml.extern_regions_for(name, image_name)?;
         let owned_regions = task_allocations[name].iter()
+            .chain(extern_regions.iter())
             .map(|(out_name, range)| {
                 // Look up region for this image
                 let mut regions = toml.outputs[out_name].iter()
