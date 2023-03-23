@@ -299,10 +299,9 @@ impl Leds {
 
     /// Query device registers and return a summary of observed errors
     pub fn error_summary(&self) -> Result<FullErrorSummary, Error> {
-        let left_errs = self.controller(LedController::Left)
-                .check_errors()?;
-        let right_errs = self.controller(LedController::Right)
-                .check_errors()?;
+        let left_errs = self.controller(LedController::Left).check_errors()?;
+        let right_errs =
+            self.controller(LedController::Right).check_errors()?;
 
         let mut summary: FullErrorSummary = FullErrorSummary {
             overtemp_left: left_errs.overtemp,
