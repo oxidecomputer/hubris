@@ -11,6 +11,7 @@
 
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
+use drv_caboose::CabooseError;
 use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -223,6 +224,15 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         };
         Ok(status)
     }
+
+    fn read_image_caboose(
+        &mut self,
+        _: &RecvMessage,
+        _name: [u8; 4],
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<u32, RequestError<CabooseError>> {
+        Err(CabooseError::MissingCaboose.into()) // TODO
+    }
 }
 
 // Perform some sanity checking on the header block.
@@ -310,7 +320,9 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
+    use super::{
+        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

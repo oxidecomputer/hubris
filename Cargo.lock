@@ -2558,6 +2558,7 @@ dependencies = [
  "abi",
  "build-util",
  "cfg-if",
+ "drv-caboose",
  "drv-update-api",
  "hubpack",
  "hypocalls",
