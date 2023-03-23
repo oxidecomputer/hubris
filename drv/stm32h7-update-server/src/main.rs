@@ -168,8 +168,8 @@ impl<'a> ServerImpl<'a> {
         // can't define them as `const` values.
         //
         // SAFETY: these are symbols populated by the linker.
-        let bank_addr = unsafe { __REGION_BANK2_BASE.as_ptr() } as u32;
-        let bank_end = unsafe { __REGION_BANK2_END.as_ptr() } as u32;
+        let bank_addr = unsafe { __REGION_BANK2_BASE.as_ptr() } as usize;
+        let bank_end = unsafe { __REGION_BANK2_END.as_ptr() } as usize;
         let bank_word_limit =
             (bank_end - bank_addr) as usize / FLASH_WORD_BYTES;
 
@@ -177,13 +177,13 @@ impl<'a> ServerImpl<'a> {
             panic!();
         }
 
-        let start = bank_addr + (word_number * FLASH_WORD_BYTES) as u32;
+        let start = bank_addr + (word_number * FLASH_WORD_BYTES);
 
-        if start + FLASH_WORD_BYTES as u32 > bank_end {
+        if start + FLASH_WORD_BYTES > bank_end {
             return Err(UpdateError::BadLength.into());
         }
 
-        let addresses = (start..start + FLASH_WORD_BYTES as u32).step_by(4);
+        let addresses = (start..start + FLASH_WORD_BYTES).step_by(4);
 
         self.flash.bank2().cr.write(|w| {
             // SAFETY
