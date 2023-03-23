@@ -64,23 +64,6 @@ fn main() -> ! {
 
     // Determine the number of Ignition controllers available.
     server.port_count = server.controller.port_count().unwrap_lite();
-
-    // Starting with rev C the Ignition Controller has a 36th link to the Target
-    // on its own board, allowing the control plane to query for full rack
-    // presence via either Sidecar. The mainboard controller of rev B boards
-    // does implement the RTL for this, because differentiating between the two
-    // revs at that level involves some co-dependent templating shenanigans and
-    // a mismatch between the Controller logic and device pins. To avoid this
-    // additional complexity in the RTL the port count for rev B systems is
-    // adjusted down here, allowing anything querying a Sidecar can distinguish
-    // between a rev B and a rev C with a faulty local link.
-    //
-    // Methods provided by this server use the count as an upper bound when
-    // iterating over the ports, causing port 35 to be ignored on rev B systems.
-    if cfg!(target_board = "sidecar-b") && server.port_count == 36 {
-        server.port_count = 35;
-    }
-
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
     // Set a timer in the past causing the presence state to be polled and
@@ -205,9 +188,10 @@ impl ServerImpl {
         // Port 35 is connected to the local Target. Allowing a Controller to
         // send a SystemPowerReset to this port, effectively power resetting
         // itself, can make sense under some circumstances (e.g. autonomously
-        // updating VR configuration). But no other requests would make sense,
-        // so deny sending anything except a SystemPowerReset so as to not
-        // permanently turn off this system.
+        // updating VR configuration). But to avoid someone or something
+        // accidentally sending a SystemPowerOff request and potentially
+        // powering off the system until power to the bus bar is cycled any
+        // request other than a SystemPowerReset is rejected.
         if port == 35 && request != Request::SystemPowerReset {
             return Err(IgnitionError::RequestDiscarded);
         }

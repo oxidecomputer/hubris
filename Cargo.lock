@@ -1375,6 +1375,7 @@ dependencies = [
  "bitfield 0.13.2",
  "build-fpga-regmap",
  "build-util",
+ "cfg-if",
  "derive_more",
  "drv-auxflash-api",
  "drv-fpga-api",
