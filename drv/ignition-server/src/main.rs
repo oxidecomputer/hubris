@@ -68,19 +68,17 @@ fn main() -> ! {
     // Starting with rev C the Ignition Controller has a 36th link to the Target
     // on its own board, allowing the control plane to query for full rack
     // presence via either Sidecar. The mainboard controller of rev B boards
-    // does implement this 36th link but it is not actually connected to the
-    // Target. In order to make this explicit the port count is adjusted down to
-    // 35 so anything querying a Sidecar can distinguish between a rev B and a
-    // rev C with a faulty local link.
+    // does implement the RTL for this, because differentiating between the two
+    // revs at that level involves some co-dependent templating shenanigans and
+    // a mismatch between the Controller logic and device pins. To avoid this
+    // additional complexity in the RTL the port count for rev B systems is
+    // adjusted down here, allowing anything querying a Sidecar can distinguish
+    // between a rev B and a rev C with a faulty local link.
     //
     // Methods provided by this server use the count as an upper bound when
-    // iterating over the ports, causing port 35 to be ignored on rev B
-    // systems.
-    #[cfg(target_board = "sidecar-b")]
-    {
-        if server.port_count == 36 {
-            server.port_count = 35;
-        }
+    // iterating over the ports, causing port 35 to be ignored on rev B systems.
+    if cfg!(target_board = "sidecar-b") && server.port_count == 36 {
+        server.port_count = 35;
     }
 
     ringbuf_entry!(Trace::PortCount(server.port_count));
