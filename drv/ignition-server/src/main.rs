@@ -64,6 +64,25 @@ fn main() -> ! {
 
     // Determine the number of Ignition controllers available.
     server.port_count = server.controller.port_count().unwrap_lite();
+
+    // Starting with rev C the Ignition Controller has a 36th link to the Target
+    // on its own board, allowing the control plane to query for full rack
+    // presence via either Sidecar. The mainboard controller of rev B boards
+    // does implement this 36th link but it is not actually connected to the
+    // Target. In order to make this explicit the port count is adjusted down to
+    // 35 so anything querying a Sidecar can distinguish between a rev B and a
+    // rev C with a faulty local link.
+    //
+    // Methods provided by this server use the count as an upper bound when
+    // iterating over the ports, causing port 35 to be ignored on rev B
+    // systems.
+    #[cfg(target_board = "sidecar-b")]
+    {
+        if server.port_count == 36 {
+            server.port_count = 35;
+        }
+    }
+
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
     // Set a timer in the past causing the presence state to be polled and
@@ -183,6 +202,16 @@ impl ServerImpl {
     ) -> Result<(), IgnitionError> {
         if self.target(port)?.request_in_progress() {
             return Err(IgnitionError::RequestInProgress);
+        }
+
+        // Port 35 is connected to the local Target. Allowing a Controller to
+        // send a SystemPowerReset to this port, effectively power resetting
+        // itself, can make sense under some circumstances (e.g. autonomously
+        // updating VR configuration). But no other requests would make sense,
+        // so deny sending anything except a SystemPowerReset so as to not
+        // permanently turn off this system.
+        if port == 35 && request != Request::SystemPowerReset {
+            return Err(IgnitionError::RequestDiscarded);
         }
 
         self.controller

@@ -4,8 +4,10 @@
 
 use crate::*;
 
-#[cfg_attr(target_board = "sidecar-a", path = "clock_generator_payload_a.rs")]
-#[cfg_attr(target_board = "sidecar-b", path = "clock_generator_payload_b.rs")]
+#[cfg_attr(
+    any(target_board = "sidecar-b", target_board = "sidecar-c"),
+    path = "clock_generator_payload_bc.rs"
+)]
 mod payload;
 
 pub(crate) struct ClockGenerator {

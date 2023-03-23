@@ -1,5 +1,5 @@
-inherit = "rev-a.toml"
+inherit = "rev-c.toml"
 
 [patches]
-name = "sidecar-a-lab"
+name = "sidecar-c-lab"
 features.sequencer = ["stay-in-a2"]
