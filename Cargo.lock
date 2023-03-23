@@ -891,7 +891,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
- "drv-local-vpd",
+ "drv-packrat-vpd-loader",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
@@ -906,7 +906,6 @@ dependencies = [
  "sha2",
  "static_assertions",
  "task-jefe-api",
- "task-packrat-api",
  "userlib",
  "zerocopy",
 ]
@@ -1299,6 +1298,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-packrat-vpd-loader"
+version = "0.1.0"
+dependencies = [
+ "drv-local-vpd",
+ "ringbuf",
+ "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-psc-seq-api"
 version = "0.1.0"
 dependencies = [
@@ -1310,11 +1319,9 @@ dependencies = [
 name = "drv-psc-seq-server"
 version = "0.1.0"
 dependencies = [
- "drv-local-vpd",
+ "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
- "ringbuf",
  "task-jefe-api",
- "task-packrat-api",
  "userlib",
 ]
 
@@ -1445,7 +1452,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-local-vpd",
+ "drv-packrat-vpd-loader",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
@@ -1453,7 +1460,6 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "task-packrat-api",
  "userlib",
  "zerocopy",
 ]

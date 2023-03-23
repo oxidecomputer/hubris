@@ -15,14 +15,13 @@ use userlib::*;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
-use drv_local_vpd::{BarcodeParseError, LocalVpdError, VpdIdentityError};
+use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
-use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
@@ -82,10 +81,6 @@ enum Trace {
     PowerControl(u8),
     InterruptFlags(u8),
     V3P3SysA0VOut(units::Volts),
-    LocalVpdError(LocalVpdError),
-    BarcodeParseError(BarcodeParseError),
-    MacsAlreadySet(MacAddressBlock),
-    IdentityAlreadySet(VpdIdentity),
     None,
 }
 
@@ -351,7 +346,8 @@ fn main() -> ! {
     .unwrap();
 
     // Populate packrat with our mac address and identity.
-    read_vpd();
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
     jefe.set_state(PowerState::A2 as u32);
 
@@ -393,63 +389,6 @@ fn main() -> ! {
 
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
-    }
-}
-
-fn read_vpd() {
-    // How many times are we willing to try reading VPD if it fails, and how
-    // long do we wait between retries?
-    const MAX_ATTEMPTS: usize = 5;
-    const SLEEP_BETWEEN_RETRIES_MS: u64 = 500;
-
-    let mut read_macs = false;
-    let mut read_identity = false;
-    let i2c = I2C.get_task_id();
-    let packrat = Packrat::from(PACKRAT.get_task_id());
-
-    for _ in 0..MAX_ATTEMPTS {
-        if !read_macs {
-            match drv_local_vpd::read_config(i2c, *b"MAC0") {
-                Ok(macs) => {
-                    match packrat.set_mac_address_block(macs) {
-                        Ok(()) => (),
-                        Err(CacheSetError::ValueAlreadySet) => {
-                            ringbuf_entry!(Trace::MacsAlreadySet(macs));
-                        }
-                    }
-                    read_macs = true;
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::LocalVpdError(err));
-                }
-            }
-        }
-
-        if !read_identity {
-            match drv_local_vpd::read_oxide_barcode(i2c) {
-                Ok(identity) => {
-                    match packrat.set_identity(identity) {
-                        Ok(()) => (),
-                        Err(CacheSetError::ValueAlreadySet) => {
-                            ringbuf_entry!(Trace::IdentityAlreadySet(identity));
-                        }
-                    }
-                    read_identity = true;
-                }
-                Err(VpdIdentityError::LocalVpdError(err)) => {
-                    ringbuf_entry!(Trace::LocalVpdError(err));
-                }
-                Err(VpdIdentityError::ParseError(err)) => {
-                    ringbuf_entry!(Trace::BarcodeParseError(err));
-                }
-            }
-        }
-
-        if read_macs && read_identity {
-            break;
-        }
-
-        hl::sleep_for(SLEEP_BETWEEN_RETRIES_MS);
     }
 }
 
