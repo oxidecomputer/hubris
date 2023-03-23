@@ -439,24 +439,16 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // injected by the linker).
         //
         // We'll first want to read the image header, which is at a fixed
-        // location at the end of the vector table.  However, the size of the
-        // vector table varies depending on PAC crate version, so we'll check
-        // two locations:
-        let mut found_header = None;
-        for header_offset in [0xbc, 0xc0] {
-            let header: ImageHeader = unsafe {
-                core::ptr::read_volatile(
-                    (image_start + header_offset) as *const ImageHeader,
-                )
-            };
-            if header.magic == HEADER_MAGIC {
-                found_header = Some(header);
-                break;
-            }
+        // location at the end of the vector table.
+        const HEADER_OFFSET: u32 = 0x298;
+        let header: ImageHeader = unsafe {
+            core::ptr::read_volatile(
+                (image_start + HEADER_OFFSET) as *const ImageHeader,
+            )
+        };
+        if header.magic != HEADER_MAGIC {
+            return Err(CabooseError::NoImageHeader.into());
         }
-
-        let Some(header) = found_header else
-            { return Err(CabooseError::NoImageHeader.into()) };
 
         // Calculate where the image header implies that the image should end
         //
@@ -506,8 +498,22 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(RequestError::Fail(ClientError::BadLease))?;
         }
 
-        data.write_range(0..chunk.len(), chunk)
-            .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
+        // Note that we can't copy directly from the bank2 region into the
+        // leased buffer, because the kernel disallows using regions marked with
+        // the DMA attribute as a source when writing.
+        //
+        // See the detailed comment above `can_access` in `sys/kern/src/task.rs`
+        // for details!
+        const BUF_SIZE: usize = 16;
+        let mut buf = [0u8; BUF_SIZE];
+        let mut pos = 0;
+        for c in chunk.chunks(BUF_SIZE) {
+            let buf = &mut buf[..c.len()];
+            buf.copy_from_slice(c);
+            data.write_range(pos..pos + c.len(), buf)
+                .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
+            pos += c.len();
+        }
         Ok(chunk.len() as u32)
     }
 }
