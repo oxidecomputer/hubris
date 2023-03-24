@@ -5,6 +5,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
@@ -21,14 +22,14 @@ pub use vsc7448::{
 /// Maximum number of ports
 pub const PORT_COUNT: usize = vsc7448::PORT_COUNT;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, SerializedSize, Deserialize)]
 #[repr(C)]
 pub struct PortStatus {
     pub cfg: PortConfig,
     pub link_up: LinkStatus,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, SerializedSize, Deserialize)]
 #[repr(C)]
 pub struct PacketCount {
     pub multicast: u32,
@@ -36,7 +37,7 @@ pub struct PacketCount {
     pub broadcast: u32,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, SerializedSize, Deserialize)]
 #[repr(C)]
 pub struct PortCounters {
     pub rx: PacketCount,
@@ -187,7 +188,9 @@ impl From<VscError> for MonorailError {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, Eq, PartialEq,
+)]
 #[repr(C)]
 pub enum PhyType {
     Vsc8504,
@@ -211,7 +214,9 @@ impl PhyType {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, Eq, PartialEq,
+)]
 #[repr(C)]
 pub enum LinkStatus {
     /// MAC_SYNC_FAIL or MAC_CGBAD is set
@@ -220,7 +225,7 @@ pub enum LinkStatus {
     Up,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, SerializedSize, Deserialize)]
 #[repr(C)]
 pub struct PhyStatus {
     pub ty: PhyType,
