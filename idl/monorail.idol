@@ -12,7 +12,7 @@ Interface(
                 ok: "PortStatus",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
         "get_port_counters": (
             doc: "Reads the packet counters for a port",
@@ -23,7 +23,7 @@ Interface(
                 ok: "PortCounters",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
         "reset_port_counters": (
             doc: "Reads the packet counters for a port",
@@ -34,7 +34,7 @@ Interface(
                 ok: "()",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
         "get_phy_status": (
             doc: "Reads the state of the phy associated with a port",
@@ -45,7 +45,7 @@ Interface(
                 ok: "PhyStatus",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
+            encoding: Hubpack,
         ),
         "read_phy_reg": (
             doc: "Read a register from the PHY associated with a particular port",
