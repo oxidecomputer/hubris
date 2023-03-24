@@ -891,6 +891,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
+ "drv-packrat-vpd-loader",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
@@ -1296,6 +1297,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-packrat-vpd-loader"
+version = "0.1.0"
+dependencies = [
+ "drv-local-vpd",
+ "oxide-barcode",
+ "ringbuf",
+ "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-seq-api"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-seq-server"
+version = "0.1.0"
+dependencies = [
+ "drv-packrat-vpd-loader",
+ "drv-psc-seq-api",
+ "task-jefe-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-qspi-api"
 version = "0.1.0"
 
@@ -1423,6 +1453,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-packrat-vpd-loader",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
@@ -3820,7 +3851,6 @@ dependencies = [
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
- "drv-local-vpd",
  "drv-monorail-api",
  "drv-sidecar-seq-api",
  "drv-sprot-api",
@@ -3840,6 +3870,7 @@ dependencies = [
  "task-control-plane-agent-api",
  "task-jefe-api",
  "task-net-api",
+ "task-packrat-api",
  "task-sensor-api",
  "task-validate-api",
  "update-buffer",
@@ -4058,7 +4089,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
- "drv-local-vpd",
+ "drv-psc-seq-api",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
@@ -4086,6 +4117,7 @@ dependencies = [
  "syn",
  "task-jefe-api",
  "task-net-api",
+ "task-packrat-api",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
@@ -4107,6 +4139,36 @@ dependencies = [
  "num-traits",
  "serde",
  "smoltcp",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-packrat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "cfg-if",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-packrat-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "oxide-barcode",
  "userlib",
  "zerocopy",
 ]

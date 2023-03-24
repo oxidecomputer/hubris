@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
-use core::{cell::RefCell, convert::Infallible};
+use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::SpRot;
 use gateway_messages::{
@@ -15,16 +15,15 @@ use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
 use task_net_api::MacAddress;
-use userlib::kipc;
+use task_packrat_api::Packrat;
+use userlib::{kipc, task_slot};
 
-#[cfg(feature = "vpd-identity")]
-userlib::task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
     reset_requested: bool,
     inventory: Inventory,
-    identity: RefCell<Option<VpdIdentity>>,
     base_mac_address: MacAddress,
 }
 
@@ -33,7 +32,6 @@ impl MgsCommon {
         Self {
             reset_requested: false,
             inventory: Inventory::new(),
-            identity: RefCell::new(None),
             base_mac_address,
         }
     }
@@ -47,14 +45,13 @@ impl MgsCommon {
     }
 
     pub(crate) fn identity(&self) -> VpdIdentity {
-        if let Some(identity) = *self.identity.borrow() {
-            return identity;
-        }
-
-        let id = identity();
-        let mut cached = self.identity.borrow_mut();
-        *cached = Some(id);
-        id
+        // We don't need to wait for packrat to be loaded: the sequencer task
+        // for our board already does, and `net` waits for the sequencer before
+        // starting. If we've gotten here, we've received a packet on the
+        // network, which means `net` has started and the sequencer has already
+        // populated packrat with what it read from our VPD.
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+        packrat.get_identity().unwrap_or_default()
     }
 
     pub(crate) fn sp_state(
@@ -181,43 +178,4 @@ impl From<RotImageDetailsConvert> for RotImageDetails {
             },
         }
     }
-}
-
-fn identity() -> VpdIdentity {
-    #[cfg(feature = "vpd-identity")]
-    fn identity_from_vpd() -> Option<VpdIdentity> {
-        // 0XV1 barcodes are 31 bytes and 0XV2 barcodes are 32 bytes; those are
-        // the only two version we know how to parse today, so we're safe with a
-        // 32-byte output buffer.
-        let mut barcode = [0; 32];
-
-        let i2c_task = I2C.get_task_id();
-        let barcode = match drv_local_vpd::read_config_into(
-            i2c_task,
-            *b"BARC",
-            &mut barcode,
-        ) {
-            Ok(n) => &barcode[..n],
-            Err(err) => {
-                ringbuf_entry!(Log::VpdReadError(err));
-                return None;
-            }
-        };
-
-        match VpdIdentity::parse(barcode) {
-            Ok(identity) => Some(identity),
-            Err(err) => {
-                ringbuf_entry!(Log::BarcodeParseError(err));
-                None
-            }
-        }
-    }
-
-    #[cfg(feature = "vpd-identity")]
-    let id = identity_from_vpd().unwrap_or_default();
-
-    #[cfg(not(feature = "vpd-identity"))]
-    let id = VpdIdentity::default();
-
-    id
 }

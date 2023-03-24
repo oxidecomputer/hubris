@@ -52,26 +52,13 @@ enum Log {
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),
-    UsartTxFull {
-        remaining: usize,
-    },
+    UsartTxFull { remaining: usize },
     UsartRxOverrun,
-    UsartRxBufferDataDropped {
-        num_bytes: u64,
-    },
-    SerialConsoleSend {
-        buffered: usize,
-    },
-    UpdatePartial {
-        bytes_written: u32,
-    },
+    UsartRxBufferDataDropped { num_bytes: u64 },
+    SerialConsoleSend { buffered: usize },
+    UpdatePartial { bytes_written: u32 },
     UpdateComplete,
-    HostFlashSectorsErased {
-        num_sectors: usize,
-    },
-
-    #[cfg(feature = "vpd-identity")]
-    VpdReadError(drv_local_vpd::LocalVpdError),
+    HostFlashSectorsErased { num_sectors: usize },
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the

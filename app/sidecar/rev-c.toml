@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22880, ram = 6256}
+requires = {flash = 22980, ram = 6256}
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -70,8 +70,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi3"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
-task-slots = ["sys", "i2c_driver",
-              { seq = "sequencer" }]
+task-slots = ["sys", "packrat", { seq = "sequencer" }]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
@@ -97,9 +96,9 @@ task-slots = [
     "sensor",
     "sprot",
     "ignition",
-    "i2c_driver",
+    "packrat",
 ]
-features = ["sidecar", "vlan", "auxflash", "vpd-identity"]
+features = ["sidecar", "vlan", "auxflash"]
 notifications = ["socket", "usart-irq", "timer"]
 
 [tasks.sprot]
@@ -235,6 +234,14 @@ task-slots = [
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
 priority = 4
@@ -244,6 +251,7 @@ task-slots = [
     "sys",
     "i2c_driver",
     "auxflash",
+    "packrat",
     {mainboard = "ecp5_mainboard"},
     {front_io = "ecp5_front_io"}]
 notifications = ["timer"]

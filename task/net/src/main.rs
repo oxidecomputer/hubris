@@ -67,7 +67,7 @@ use crate::bsp_support::Bsp;
 task_slot!(SYS, sys);
 
 #[cfg(feature = "vpd-mac")]
-task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
@@ -114,8 +114,13 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<MacAddressBlock> {
-    let i2c_task = I2C.get_task_id();
-    drv_local_vpd::read_config(i2c_task, *b"MAC0").ok()
+    // The first nontrivial thing `main()` does is call `BspImpl::preinit()`,
+    // which waits for the sequencer task on all our major boards to progress to
+    // an appropriate point, which includes having read board VPD and loaded it
+    // into packrat, so we don't need to wait here.
+    use task_packrat_api::Packrat;
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    packrat.get_mac_address_block().ok()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
