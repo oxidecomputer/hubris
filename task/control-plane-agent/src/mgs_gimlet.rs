@@ -124,7 +124,6 @@ pub(crate) struct MgsHandler {
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
-    startup_options: HostStartupOptions,
     attached_serial_console_mgs: Option<AttachedSerialConsoleMgs>,
     serial_console_write_offset: u64,
     next_message_id: u32,
@@ -137,11 +136,6 @@ impl MgsHandler {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         let usart = UsartHandler::claim_static_resources();
 
-        // XXX For now, we want to default to these options.
-        let startup_options = HostStartupOptions::STARTUP_KMDB
-            | HostStartupOptions::STARTUP_PROM
-            | HostStartupOptions::STARTUP_VERBOSE;
-
         Self {
             common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
@@ -150,7 +144,6 @@ impl MgsHandler {
             rot_update: RotUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             usart,
-            startup_options,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
@@ -408,17 +401,19 @@ impl MgsHandler {
         self.host_phase2.get_data(image_hash, offset, data)
     }
 
-    pub(crate) fn startup_options(
+    pub(crate) fn startup_options_impl(
         &self,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
-        Ok(self.startup_options)
+        Ok(self.common.packrat().get_next_boot_host_startup_options())
     }
 
-    pub(crate) fn set_startup_options(
+    pub(crate) fn set_startup_options_impl(
         &mut self,
         startup_options: HostStartupOptions,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
-        self.startup_options = startup_options;
+        self.common
+            .packrat()
+            .set_next_boot_host_startup_options(startup_options);
         Ok(())
     }
 
@@ -848,7 +843,8 @@ impl SpHandler for MgsHandler {
     ) -> Result<gateway_messages::StartupOptions, SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::GetStartupOptions));
 
-        Ok(self.startup_options.into())
+        // Our `startup_options_impl` never fails, so is safe to unwrap.
+        Ok(self.startup_options_impl().unwrap_lite().into())
     }
 
     fn set_startup_options(
@@ -859,7 +855,8 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SetStartupOptions(options)));
 
-        self.startup_options = options.into();
+        // Our `set_startup_options_impl` never fails, so is safe to unwrap.
+        self.set_startup_options_impl(options.into()).unwrap_lite();
 
         Ok(())
     }

@@ -25,6 +25,7 @@ pub(crate) struct MgsCommon {
     reset_requested: bool,
     inventory: Inventory,
     base_mac_address: MacAddress,
+    packrat: Packrat,
 }
 
 impl MgsCommon {
@@ -33,7 +34,12 @@ impl MgsCommon {
             reset_requested: false,
             inventory: Inventory::new(),
             base_mac_address,
+            packrat: Packrat::from(PACKRAT.get_task_id()),
         }
+    }
+
+    pub(crate) fn packrat(&self) -> &Packrat {
+        &self.packrat
     }
 
     pub(crate) fn discover(
@@ -50,8 +56,7 @@ impl MgsCommon {
         // starting. If we've gotten here, we've received a packet on the
         // network, which means `net` has started and the sequencer has already
         // populated packrat with what it read from our VPD.
-        let packrat = Packrat::from(PACKRAT.get_task_id());
-        packrat.get_identity().unwrap_or_default()
+        self.packrat.get_identity().unwrap_or_default()
     }
 
     pub(crate) fn sp_state(
