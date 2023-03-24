@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 derive-idol-err.path = "../../lib/derive-idol-err"
+host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"
 userlib.path = "../../sys/userlib"
 

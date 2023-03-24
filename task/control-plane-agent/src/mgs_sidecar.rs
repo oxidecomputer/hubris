@@ -129,7 +129,7 @@ impl MgsHandler {
         Err(ControlPlaneAgentError::DataUnavailable.into())
     }
 
-    pub(crate) fn startup_options(
+    pub(crate) fn startup_options_impl(
         &self,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
         // We don't have a host to give startup options; no one should be
@@ -137,7 +137,7 @@ impl MgsHandler {
         Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
 
-    pub(crate) fn set_startup_options(
+    pub(crate) fn set_startup_options_impl(
         &mut self,
         _startup_options: HostStartupOptions,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {

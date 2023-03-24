@@ -237,7 +237,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
-        self.mgs_handler.startup_options()
+        self.mgs_handler.startup_options_impl()
     }
 
     fn set_startup_options(
@@ -248,7 +248,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         let startup_options = HostStartupOptions::from_bits(startup_options)
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
 
-        self.mgs_handler.set_startup_options(startup_options)
+        self.mgs_handler.set_startup_options_impl(startup_options)
     }
 
     fn identity(

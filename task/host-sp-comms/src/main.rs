@@ -28,6 +28,7 @@ use task_control_plane_agent_api::{
 };
 use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
+use task_packrat_api::Packrat;
 use userlib::{
     hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
 };
@@ -39,6 +40,7 @@ use tx_buf::TxBuf;
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
 task_slot!(GIMLET_SEQ, gimlet_seq);
 task_slot!(HOST_FLASH, hf);
+task_slot!(PACKRAT, packrat);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
 
@@ -161,6 +163,7 @@ struct ServerImpl {
     hf: HostFlash,
     net: Net,
     cp_agent: ControlPlaneAgent,
+    packrat: Packrat,
     reboot_state: Option<RebootState>,
 
     last_host_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
@@ -200,6 +203,7 @@ impl ServerImpl {
             cp_agent: ControlPlaneAgent::from(
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
+            packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
             last_host_boot_fail,
             last_host_panic,
@@ -634,7 +638,13 @@ impl ServerImpl {
                 Some(SpToHost::BootStorageUnit(bsu))
             }
             HostToSp::GetIdentity => {
-                let identity = self.cp_agent.identity();
+                // gimlet-seq populates packrat with our identity from VPD prior
+                // to transitioning to A2; if the host has requested that
+                // identity, we're already in A0 and therefore don't have to
+                // wait for packrat. If `get_identity()` fails, it means the
+                // sequencer failed to read our VPD; all we can really do is
+                // send the host a null (default) identity.
+                let identity = self.packrat.get_identity().unwrap_or_default();
                 Some(SpToHost::Identity(identity.into()))
             }
             HostToSp::GetMacAddresses => {
@@ -682,7 +692,7 @@ impl ServerImpl {
             }
             HostToSp::GetStatus => Some(SpToHost::Status {
                 status: self.status,
-                startup: self.cp_agent.get_startup_options().unwrap_lite(),
+                startup: self.packrat.get_next_boot_host_startup_options(),
             }),
             HostToSp::AckSpStart => {
                 action =

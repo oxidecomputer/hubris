@@ -29,10 +29,12 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
 use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_packrat_api::{
-    CacheGetError, CacheSetError, MacAddressBlock, VpdIdentity,
+    CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
+    VpdIdentity,
 };
 use userlib::RecvMessage;
 
@@ -41,6 +43,7 @@ enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<VpdIdentity>),
+    SetNextBootHostStartupOptions(HostStartupOptions),
 }
 
 impl From<TraceSet<MacAddressBlock>> for Trace {
@@ -68,10 +71,25 @@ enum TraceSet<T> {
 
 ringbuf!(Trace, 16, Trace::None);
 
-#[derive(Default)]
 struct ServerImpl {
     mac_address_block: Option<MacAddressBlock>,
     identity: Option<VpdIdentity>,
+    host_startup_options: HostStartupOptions,
+}
+
+impl Default for ServerImpl {
+    fn default() -> Self {
+        // XXX For now, we want to default to these options.
+        let host_startup_options = HostStartupOptions::STARTUP_KMDB
+            | HostStartupOptions::STARTUP_PROM
+            | HostStartupOptions::STARTUP_VERBOSE;
+
+        Self {
+            mac_address_block: None,
+            identity: None,
+            host_startup_options,
+        }
+    }
 }
 
 impl ServerImpl {
@@ -143,6 +161,25 @@ impl idl::InOrderPackratImpl for ServerImpl {
     ) -> Result<(), RequestError<CacheSetError>> {
         Self::set_once(&mut self.identity, identity).map_err(Into::into)
     }
+
+    fn get_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
+        Ok(self.host_startup_options)
+    }
+
+    fn set_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+        host_startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
+            host_startup_options
+        ));
+        self.host_startup_options = host_startup_options;
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -156,7 +193,10 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{CacheGetError, CacheSetError, MacAddressBlock, VpdIdentity};
+    use super::{
+        CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
+        VpdIdentity,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -41,6 +41,19 @@ Interface(
             ),
             idempotent: true,
         ),
+        "get_next_boot_host_startup_options": (
+            doc: "Get the value for host OS startup options we will give to the host the next time it requests them from us. This may or may not match the startup options used the most recent time the host OS boots, as the options may have changed in the meantime.",
+            reply: Simple("HostStartupOptions"),
+            idempotent: true,
+        ),
+        "set_next_boot_host_startup_options": (
+            doc: "Set the value for host OS startup options we will give to the host the next time it requests them from us.",
+            args: {
+                "startup_options": "HostStartupOptions",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )
 

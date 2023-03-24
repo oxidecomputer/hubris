@@ -10,6 +10,7 @@ use derive_idol_err::IdolError;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
+pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::VpdIdentity;
 
 /// Represents a range of allocated MAC addresses, per RFD 320

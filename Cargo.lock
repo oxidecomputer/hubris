@@ -3991,6 +3991,7 @@ dependencies = [
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "task-net-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]
@@ -4165,6 +4166,7 @@ name = "task-packrat-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "host-sp-messages",
  "idol",
  "idol-runtime",
  "num-traits",
