@@ -96,9 +96,16 @@ pub mod stm32h7 {
     // Total length of a word in bytes (i.e. our array size)
     pub const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
 
+    // This is arbitrarily chosen to determine how much data the server will
+    // process at a time, and is not dictated by the hardware.
+    pub const FLASH_WORDS_PER_BLOCK: usize = 32;
+
     // Block is an abstract concept here. It represents the size of data the
     // driver will process at a time.
-    pub const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * 32;
+    pub const BLOCK_SIZE_BYTES: usize =
+        FLASH_WORD_BYTES * FLASH_WORDS_PER_BLOCK;
+
+    pub const BLOCK_SIZE_WORDS: usize = BLOCK_SIZE_BYTES / 4;
 }
 
 pub mod lpc55 {

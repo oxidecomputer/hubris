@@ -269,7 +269,7 @@ pub fn build_notifications() -> Result<()> {
 
     for task in env_var("HUBRIS_TASKS")
         .expect("missing HUBRIS_TASKS")
-        .split(",")
+        .split(',')
     {
         let full_task_config = other_task_full_config_toml(task)?;
         writeln!(&mut out, "pub mod {task} {{")?;

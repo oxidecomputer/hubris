@@ -290,7 +290,8 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
-uses = ["flash_controller", "bank2"]
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
 notifications = ["flash-irq"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 

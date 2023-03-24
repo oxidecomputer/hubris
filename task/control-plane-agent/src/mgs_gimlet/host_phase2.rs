@@ -167,7 +167,7 @@ impl HostPhase2Requester {
 
         let message = Message {
             header: Header {
-                version: gateway_messages::version::V2,
+                version: gateway_messages::version::CURRENT,
                 message_id,
             },
             kind: MessageKind::SpRequest(SpRequest::HostPhase2Data {

@@ -786,15 +786,15 @@
                             "value": 0
                         },
                         {
-                            "name": "STAGE0",
+                            "name": "PS_PG",
                             "value": 1
                         },
                         {
-                            "name": "STAGE0_PG",
+                            "name": "PG_DELAY",
                             "value": 2
                         },
                         {
-                            "name": "DELAY",
+                            "name": "EARLY_RESET",
                             "value": 3
                         },
                         {
@@ -821,7 +821,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "0x7 or 0x0 = RevA. 0x1 = RevB"
+                    "desc": "0x7 or 0x0 = A. 0x1 = B, 0x2 = C, 0x3 = D, 0x4 = E"
                 }
             ]
         },
@@ -1909,7 +1909,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "RevB-only PERST outptut (PERST_L inverted net)"
+                    "desc": "PERST outptut (PERST_L inverted net)"
                 },
                 {
                     "type": "field",
@@ -1920,7 +1920,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "RevB-only nic ext rst output  ( inverted net)"
+                    "desc": "NIC's EXT_RST_L output (inverted).  Active when NIC internals in reset"
                 }
             ]
         },

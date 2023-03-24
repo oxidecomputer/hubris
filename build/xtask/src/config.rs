@@ -447,7 +447,7 @@ impl Config {
     /// This is useful when allocating memory for tasks
     pub fn memories(
         &self,
-        image_name: &String,
+        image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
         self.outputs
             .iter()
@@ -546,6 +546,36 @@ impl Config {
     pub fn need_tz_linker(&self, name: &str) -> bool {
         self.tasks[name].uses_secure_entry
             || self.secure_task.as_ref().map_or(false, |n| n == name)
+    }
+
+    pub fn extern_regions_for(
+        &self,
+        task: &str,
+        image_name: &str,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        self.tasks
+            .get(task)
+            .ok_or_else(|| anyhow!("no such task {task}"))?
+            .extern_regions
+            .iter()
+            .map(|r| {
+                let mut regions = self
+                    .outputs
+                    .get(r)
+                    .ok_or_else(|| anyhow!("invalid extern region {r}"))?
+                    .iter()
+                    .filter(|o| &o.name == image_name);
+                let out = regions.next().expect("no extern region for name");
+                if regions.next().is_some() {
+                    bail!(
+                        "multiple extern {} regions for name {}",
+                        r,
+                        image_name
+                    );
+                }
+                Ok((r.to_owned(), out.address..out.address + out.size))
+            })
+            .collect::<Result<IndexMap<String, Range<u32>>>>()
     }
 }
 

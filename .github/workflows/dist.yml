@@ -1,21 +1,11 @@
 name: dist
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [master]
 
 jobs:
-  skip_duplicate_jobs:
-    runs-on: ubuntu-latest
-    outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
-    steps:
-      - id: skip_check
-        uses: fkirc/skip-duplicate-actions@master
-        with:
-          concurrent_skipping: 'same_content'
-          skip_after_successful_duplicate: 'true'
-          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
   build:
-    needs: skip_duplicate_jobs
-    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
     name: dist
     runs-on: '${{ matrix.os }}'
     strategy:
@@ -165,17 +155,17 @@ jobs:
 
     steps:
       # check out our code
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       # install rust toolchain
       - name: Install Rust toolchain
         run: rustup show
 
       - name: Cache build output
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Cache vcpkg 
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: C:\vcpkg\downloads
           key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
@@ -184,15 +174,13 @@ jobs:
             ${{ runner.os }}-vcpkg-download-
 
       # invoke our build
-      - uses: actions-rs/cargo@v1
+      - name: cargo xtask dist
         env:
           RUST_BACKTRACE: 1
-        with:
-          command: xtask
-          args: dist ${{ matrix.app_toml}}
+        run: cargo xtask dist ${{ matrix.app_toml}}
 
       - name: Fetch Humility 
-        uses: dsaltares/fetch-gh-release-asset@0.0.8
+        uses: dsaltares/fetch-gh-release-asset@master
         if: matrix.os == 'ubuntu-latest'
         with:
           repo: "oxidecomputer/humility"
@@ -201,17 +189,17 @@ jobs:
           target: "target/release/humility"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-   #  - name: Test Humility manifest
-   #    # we need to chmod because all artifacts are marked as non-executable
-   #    if: matrix.os == 'ubuntu-latest'
-   #    run: |
-   #      sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
-   #      sudo chmod +x target/release/humility
-   #      target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
+      - name: Test Humility manifest
+        # we need to chmod because all artifacts are marked as non-executable
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
+          sudo chmod +x target/release/humility
+          target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
 
       # upload the output of our build
       - name: Upload build archive
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
           path: target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip
