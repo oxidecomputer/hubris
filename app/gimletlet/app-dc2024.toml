@@ -129,7 +129,7 @@ notifications = [
     "multitimer",
     "control-plane-agent"
 ]
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -165,6 +165,14 @@ uses = ["hash"]
 notifications = ["hash-irq"]
 interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
 
 [tasks.net]
 name = "task-net"

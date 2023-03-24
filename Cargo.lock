@@ -3991,6 +3991,7 @@ dependencies = [
  "task-control-plane-agent-api",
  "task-host-sp-comms-api",
  "task-net-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]
