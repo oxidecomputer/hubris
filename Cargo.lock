@@ -4165,6 +4165,7 @@ name = "task-packrat-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "host-sp-messages",
  "idol",
  "idol-runtime",
  "num-traits",
