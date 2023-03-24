@@ -185,6 +185,17 @@ impl ServerImpl {
             return Err(IgnitionError::RequestInProgress);
         }
 
+        // Port 35 is connected to the local Target. Allowing a Controller to
+        // send a SystemPowerReset to this port, effectively power resetting
+        // itself, can make sense under some circumstances (e.g. autonomously
+        // updating VR configuration). But to avoid someone or something
+        // accidentally sending a SystemPowerOff request and potentially
+        // powering off the system until power to the bus bar is cycled any
+        // request other than a SystemPowerReset is rejected.
+        if port == 35 && request != Request::SystemPowerReset {
+            return Err(IgnitionError::RequestDiscarded);
+        }
+
         self.controller
             .set_request(port, request)
             .map_err(IgnitionError::from)?;

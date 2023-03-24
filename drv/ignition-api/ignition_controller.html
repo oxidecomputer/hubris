@@ -280,8 +280,9 @@
         <td class="FieldDesc" colspan="2*">TARGET_PRESENT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="1">CONTROLLER_LINK_STATUS</a></td>
@@ -316,24 +317,27 @@
         <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted
+        </td>
     </tr>
     <tr class="cat1" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters
+        </td>
     </tr>
     <tr class="cat1" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="2">TARGET_SYSTEM_TYPE</a></td>
@@ -365,8 +369,9 @@
         <td class="FieldDesc" colspan="2*">SYSTEM_TYPE</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">The system type as advertised by the Target</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">The system type as advertised by the Target
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="3">TARGET_SYSTEM_STATUS</a></td>
@@ -402,32 +407,36 @@
         <td class="FieldDesc" colspan="2*">SYSTEM_POWER_ABORT</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating system power was turned off due to power fault</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating system power was turned off due to power fault
+        </td>
     </tr>
     <tr class="cat3" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SYSTEM_POWER_ENABLED</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating system power of the Target system is enabled</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating system power of the Target system is enabled
+        </td>
     </tr>
     <tr class="cat3" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CONTROLLER1_DETECTED</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 1</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 1
+        </td>
     </tr>
     <tr class="cat3" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CONTROLLER0_DETECTED</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 0</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the Target has observed a Controller on link 0
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="4">TARGET_SYSTEM_FAULTS</a></td>
@@ -465,48 +474,54 @@
         <td class="FieldDesc" colspan="2*">ROT_FAULT</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the RoT</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the RoT
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SP_FAULT</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the SP</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an unrecoverable fault was detected by the SP
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED2</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Reserved fault flag</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Reserved fault flag
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RESERVED1</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Reserved fault flag</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Reserved fault flag
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">POWER_FAULT_A2</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A2</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A2
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">POWER_FAULT_A3</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A3</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power fault in A3
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="5">TARGET_REQUEST_STATUS</a></td>
@@ -541,24 +556,27 @@
         <td class="FieldDesc" colspan="2*">SYSTEM_RESET_IN_PROGRESS</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a system reset request is in progress</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a system reset request is in progress
+        </td>
     </tr>
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">POWER_ON_IN_PROGRESS</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a power on request is in progress</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power on request is in progress
+        </td>
     </tr>
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">POWER_OFF_IN_PROGRESS</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a power off request is in progress</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a power off request is in progress
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="6">TARGET_LINK0_STATUS</a></td>
@@ -593,24 +611,27 @@
         <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted
+        </td>
     </tr>
     <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters
+        </td>
     </tr>
     <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="7">TARGET_LINK1_STATUS</a></td>
@@ -645,24 +666,27 @@
         <td class="FieldDesc" colspan="2*">POLARITY_INVERTED</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the polarity of the link is inverted
+        </td>
     </tr>
     <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_LOCKED</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is receiving valid characters
+        </td>
     </tr>
     <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">RECEIVER_ALIGNED</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver is aligned to the clock
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="8">TARGET_REQUEST</a></td>
@@ -696,16 +720,18 @@
         <td class="FieldDesc" colspan="2*">PENDING</td>
         <td class="FieldDesc" colspan="1*">7</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a request is (still) pending</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a request is (still) pending
+        </td>
     </tr>
     <tr class="cat8" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">KIND</td>
         <td class="FieldDesc" colspan="1*">1:0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Value indicating the kind of request</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Value indicating the kind of request
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="9">CONTROLLER_STATUS_RECEIVED_COUNT</a></td>
@@ -737,8 +763,9 @@
         <td class="FieldDesc" colspan="2*">COUNT</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">The number of Status messages received by the Controller since last reset</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">The number of Status messages received by the Controller since last reset
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="10">CONTROLLER_HELLO_SENT_COUNT</a></td>
@@ -770,8 +797,9 @@
         <td class="FieldDesc" colspan="2*">COUNT</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">The number of hello messages sent by the Controller since last reset</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">The number of hello messages sent by the Controller since last reset
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="11">CONTROLLER_REQUEST_SENT_COUNT</a></td>
@@ -803,8 +831,9 @@
         <td class="FieldDesc" colspan="2*">COUNT</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">The number of request messages sent by the Controller since last reset</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">The number of request messages sent by the Controller since last reset
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">CONTROLLER_MESSAGE_DROPPED_COUNT</a></td>
@@ -836,8 +865,9 @@
         <td class="FieldDesc" colspan="2*">COUNT</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">The number of messages dropped by the Controller since last reset</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">The number of messages dropped by the Controller since last reset
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">CONTROLLER_LINK_EVENTS_SUMMARY</a></td>
@@ -875,48 +905,54 @@
         <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received
+        </td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received
+        </td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received
+        </td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received
+        </td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character
+        </td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">TARGET_LINK0_EVENTS_SUMMARY</a></td>
@@ -954,48 +990,54 @@
         <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received
+        </td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received
+        </td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received
+        </td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received
+        </td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character
+        </td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value
+        </td>
     </tr>
     <tr class="Register">
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">TARGET_LINK1_EVENTS_SUMMARY</a></td>
@@ -1033,48 +1075,54 @@
         <td class="FieldDesc" colspan="2*">MESSAGE_CHECKSUM_INVALID</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid checksum was received
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_TYPE_INVALID</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid type was received
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">MESSAGE_VERSION_INVALID</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating a message with invalid version was received
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ORDERED_SET_INVALID</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating an invalid ordered set was received
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DECODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the receiver encountered an invalid character
+        </td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ENCODING_ERROR</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Flag indicating the transmitter encountered an invalid value
+        </td>
     </tr>
     </table>
     </body>

@@ -1,13 +1,13 @@
-name = "sidecar-a"
+name = "sidecar-c"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-a"
+board = "sidecar-c"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 6256}
+requires = {flash = 22880, ram = 6256}
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -45,8 +45,8 @@ stacksize = 2048
 start = true
 uses = ["flash_controller"]
 extern-regions = ["bank2"]
-interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
@@ -55,10 +55,10 @@ max-sizes = {flash = 32768, ram = 4096}
 features = ["h753"]
 uses = ["quadspi"]
 start = true
+notifications = ["qspi-irq"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
 stacksize = 3504
 task-slots = ["sys"]
-notifications = ["qspi-irq"]
 
 [tasks.net]
 name = "task-net"
@@ -69,9 +69,14 @@ max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi3"]
 start = true
-notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "spi-irq"]
-interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq", "spi3.irq" = "spi-irq"}
-task-slots = ["sys", "i2c_driver", { seq = "sequencer" }]
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
+task-slots = ["sys", "i2c_driver",
+              { seq = "sequencer" }]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi3.irq" = "spi-irq"
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -92,10 +97,10 @@ task-slots = [
     "sensor",
     "sprot",
     "ignition",
+    "i2c_driver",
 ]
-features = ["sidecar", "vlan", "auxflash"]
-notifications = ["socket", "timer", "usart-irq"]
-# usart-irq isn't actually used, but the code expects it
+features = ["sidecar", "vlan", "auxflash", "vpd-identity"]
+notifications = ["socket", "usart-irq", "timer"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -146,7 +151,7 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["sys", "net", "ecp5_front_io", { seq = "sequencer" }]
+task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
@@ -157,9 +162,9 @@ features = ["h753", "itm"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 start = true
 task-slots = ["sys"]
-notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 
 [tasks.i2c_driver.interrupts]
 "i2c1.event" = "i2c1-irq"
@@ -173,12 +178,12 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1024
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -281,6 +286,14 @@ start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 notifications = ["timer"]
 
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 5
@@ -356,7 +369,7 @@ controller = 3
 
 #
 # I2C_NORTH_WEST0_SCL
-# I2C_NORTH_WEST0_SDL
+# I2C_NORTH_WEST0_SDA
 #
 [config.i2c.controllers.ports.C]
 name = "northwest0"
@@ -374,7 +387,7 @@ af = 4
 
 #
 # I2C_NORTH_WEST1_SCL
-# I2C_NORTH_WEST1_SDL
+# I2C_NORTH_WEST1_SDA
 #
 [config.i2c.controllers.ports.H]
 name = "northwest1"
@@ -587,10 +600,6 @@ device = "pca9545"
 description = "Northwest fan mux"
 refdes = "U90"
 
-#
-# U29: DNI ADM1272
-#
-
 [[config.i2c.devices]]
 bus = "south0"
 address = 0b1100_010
@@ -599,6 +608,15 @@ description = "VDD[A]18 rail"
 power = { rails = [ "V1P8_TF2_VDDA", "V1P8_TF2_VDD" ] }
 sensors = { temperature = 2, voltage = 2, current = 2 }
 refdes = "U33"
+
+[[config.i2c.devices]]
+bus = "south0"
+address = 0b1010_100
+device = "ltc4282"
+description = "Front I/O hotswap controller"
+power = { rails = [ "V12P0_FRONT_IO" ], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U647"
 
 [[config.i2c.devices]]
 bus = "south0"
@@ -663,24 +681,6 @@ name = "vsc7448"
 description = "VSC7448 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U65"
-
-# [[config.i2c.devices]]
-# bus = "south1"
-# address = ??
-# device = "ecp5"
-# refdes = "U43"
-
-# [[config.i2c.devices]]
-# device = "at24csw080"
-# bus = "northeast0"
-# address = 0b1010_0**
-# description = ""
-
-# [[config.i2c.devices]]
-# bus = "northwest1"
-# address = 0b1010_0**
-# device = "at24csw080"
-# description = ""
 
 [[config.i2c.devices]]
 bus = "south2"
@@ -955,10 +955,10 @@ controller = 1
 
 [config.spi.spi1.mux_options.port_adg]
 outputs = [
-    {port = "A", pins = [5], af = 5}, # FRONT_IO_SCK
-    {port = "D", pins = [7], af = 5}, # FRONT_IO_COPI
+    {port = "A", pins = [5], af = 5}, # SPI_SP_TO_FRONT_IO_SCK
+    {port = "D", pins = [7], af = 5}, # SPI_SP_TO_FRONT_IO_MOSI
 ]
-input = {port = "G", pin = 9, af = 5} # FRONT_IO_CIPO
+input = {port = "G", pin = 9, af = 5} # SPI_SP_TO_FRONT_IO_MISO
 
 [config.spi.spi1.devices.ecp5_front_io_fpga]
 mux = "port_adg"
@@ -973,26 +973,28 @@ controller = 2
 
 [config.spi.spi2.mux_options.port_i]
 outputs = [
+    # SPI_SP_TO_MGMT_SCK, SPI_SP_TO_MGMT_MOSI
     {port = "I", pins = [1, 3], af = 5},
 ]
-input = {port = "I", pin = 2, af = 5}
+input = {port = "I", pin = 2, af = 5} # SPI_SP_TO_MGMT_MISO
 
 [config.spi.spi2.devices.vsc7448]
 mux = "port_i"
-cs = [{port = "I", pin = 0}]
+cs = [{port = "I", pin = 0}] # SPI_SP_TO_MGMT_CS_L
 
 [config.spi.spi3]
 controller = 3
 
 [config.spi.spi3.mux_options.port_c]
 outputs = [
+    # SPI_SP_TO_EPE_SCK, SPI_SP_TO_EPE_MOSI
     {port = "C", pins = [10, 12], af = 6},
 ]
-input = {port = "C", pin = 11, af = 6}
+input = {port = "C", pin = 11, af = 6} # SPI_SP_TO_EPE_MISO
 
 [config.spi.spi3.devices.ksz8463]
 mux = "port_c"
-cs = [{port = "A", pin = 4}, {port = "B", pin = 13}]
+cs = [{port = "A", pin = 4}] # SPI_SP_TO_EPE_CS_L
 
 [config.spi.spi4]
 controller = 4
@@ -1008,24 +1010,23 @@ outputs = [
 ]
 input = {port = "E", pin = 5, af = 5}
 
-
 [config.spi.spi5]
 controller = 5
 
 [config.spi.spi5.mux_options.port_jk]
 outputs = [
-    {port = "J", pins = [10], af = 5},
-    {port = "K", pins = [0], af = 5},
+    {port = "J", pins = [10], af = 5}, # SPI_SP_TO_FPGA_MOSI
+    {port = "K", pins = [0], af = 5},  # SPI_SP_TO_FPGA_SCK
 ]
-input = {port = "J", pin = 11, af = 5}
+input = {port = "J", pin = 11, af = 5} # SPI_SP_TO_FPGA_MISO
 
 [config.spi.spi5.devices.ecp5_mainboard_fpga]
 mux = "port_jk"
-cs = [{port = "K", pin = 1}]
+cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
 
 [config.spi.spi5.devices.ecp5_mainboard_user_design]
 mux = "port_jk"
-cs = [{port = "J", pin = 6}]
+cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
@@ -1066,15 +1067,15 @@ tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.auxflash]
-memory-size = 16_777_216 # 16 MiB
-slot-count = 8
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_a.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_c.bit"
 compress = true
 tag = "FPGA"
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_a.bit"
+file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b.bit"
 compress = true
 tag = "QSFP"

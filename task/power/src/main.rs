@@ -418,26 +418,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(target_board = "sidecar-a")]
-const CONTROLLER_CONFIG: [PowerControllerConfig; 15] = [
-    rail_controller!(IBC, bmr491, v12p0_sys, A2),
-    adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
-    rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
-    rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
-    rail_controller!(Sys, tps546B24A, v5p0_sys, A2),
-    rail_controller!(Core, raa229618, v1p5_tf2_vdda, A0),
-    rail_controller!(Core, raa229618, v0p9_tf2_vddt, A0),
-    rail_controller!(SerDes, isl68224, v1p8_tf2_vdda, A0),
-    rail_controller!(SerDes, isl68224, v1p8_tf2_vdd, A0),
-    rail_controller!(Sys, tps546B24A, v1p0_mgmt, A2),
-    rail_controller!(Sys, tps546B24A, v1p8_sys, A2),
-];
-
-#[cfg(target_board = "sidecar-b")]
+#[cfg(any(target_board = "sidecar-b", target_board = "sidecar-c"))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
     adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
@@ -457,7 +438,7 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
     ltc4282_controller!(HotSwapQSFP, v12p0_front_io, A2, Ohms(0.001 / 2.0)),
 ];
 
-#[cfg(any(target_board = "sidecar-a", target_board = "sidecar-b"))]
+#[cfg(any(target_board = "sidecar-b", target_board = "sidecar-c"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
 
@@ -486,8 +467,8 @@ fn get_state() -> PowerState {
 #[cfg(any(
     target_board = "gimlet-b",
     target_board = "gimlet-c",
-    target_board = "sidecar-a",
     target_board = "sidecar-b",
+    target_board = "sidecar-c",
     target_board = "gimletlet-2",
 ))]
 fn preinit() {
