@@ -17,7 +17,7 @@ start = true
 features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-uses = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -186,7 +186,7 @@ max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
-uses = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [config]
 [[config.i2c.controllers]]

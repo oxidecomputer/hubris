@@ -21,7 +21,7 @@ start = true
 features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-uses = [ "sram2" ]
+extern-regions = [ "sram2" ]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -147,7 +147,7 @@ max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
-uses = [ "sram2" ]
+extern-regions = [ "sram2" ]
 
 # We intentionally do not start this task to avoid conflicts with the SP
 # debug connection.

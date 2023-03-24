@@ -1312,12 +1312,19 @@ fn update_image_header(
 /// will also be caught when Jefe generates its own code for dump areas.)
 fn check_dump_agent(toml: &Config) -> Result<()> {
     if let Some(task) = toml.tasks.get("dump_agent") {
+        if task.extern_regions.is_empty() {
+            bail!(
+                "dump agent misconfiguration: dump agent is present \
+                but does not any external regions for dumping"
+            );
+        }
+
         if task.task_slots.get("jefe").is_some() {
             //
             // We have a dump agent, and it has a slot for Jefe, denoting that
             // it is configured for task dumps; now we want to check that Jefe
-            // (1) has the dump feature enabled and (2) uses everything that
-            // the dump agent is using.
+            // (1) has the dump feature enabled (2) has extern regions and
+            // (3) uses everything that the dump agent is using.
             //
             let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
 
@@ -1328,7 +1335,7 @@ fn check_dump_agent(toml: &Config) -> Result<()> {
                 );
             }
 
-            for u in &task.uses {
+            for u in &task.extern_regions {
                 if jefe.extern_regions.iter().find(|&j| j == u).is_none() {
                     bail!(
                         "dump agent/jefe misconfiguration: dump agent has \

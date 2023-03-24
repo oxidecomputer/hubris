@@ -465,7 +465,11 @@ impl Config {
                     |o| o.name == *image_name
                 ).collect();
                 if region.len() > 1 {
-                    bail!("Multiple regions defined for image {}", image_name);
+                    bail!("Multiple regions defined for image {image_name}");
+                }
+
+                if region.is_empty() {
+                    bail!("Missing region for {name} in image {image_name}");
                 }
 
                 let r = region[0];

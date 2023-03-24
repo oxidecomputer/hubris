@@ -51,6 +51,33 @@ read = true
 write = true
 execute = false
 
+[[sram2]]
+name = "a"
+address = 0x20020000
+size = 0x10000
+read = true
+write = true
+execute = false
+dma = true
+
+[[sram2]]
+name = "b"
+address = 0x20020000
+size = 0x10000
+read = true
+write = true
+execute = false
+dma = true
+
+[[sram2]]
+name = "stage0"
+address = 0x20020000
+size = 0x10000
+read = true
+write = true
+execute = false
+dma = true
+
 # Info about the images loaded into flash and dumped by stage0 into USB SRAM
 # for hubris use.
 [[sram3]]
