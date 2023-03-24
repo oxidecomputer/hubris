@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 drv-local-vpd.path = "../local-vpd"
+oxide-barcode.path = "../../lib/oxide-barcode"
 ringbuf.path = "../../lib/ringbuf"
 task-packrat-api.path = "../../task/packrat-api"
 userlib.path = "../../sys/userlib"
