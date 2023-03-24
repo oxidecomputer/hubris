@@ -45,6 +45,11 @@ impl MgsCommon {
     }
 
     pub(crate) fn identity(&self) -> VpdIdentity {
+        // We don't need to wait for packrat to be loaded: the sequencer task
+        // for our board already does, and `net` waits for the sequencer before
+        // starting. If we've gotten here, we've received a packet on the
+        // network, which means `net` has started and the sequencer has already
+        // populated packrat with what it read from our VPD.
         let packrat = Packrat::from(PACKRAT.get_task_id());
         packrat.get_identity().unwrap_or_default()
     }

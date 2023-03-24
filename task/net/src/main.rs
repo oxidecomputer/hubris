@@ -114,6 +114,10 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<MacAddressBlock> {
+    // The first nontrivial thing `main()` does is call `BspImpl::preinit()`,
+    // which waits for the sequencer task on all our major boards to progress to
+    // an appropriate point, which includes having read board VPD and loaded it
+    // into packrat, so we don't need to wait here.
     use task_packrat_api::Packrat;
     let packrat = Packrat::from(PACKRAT.get_task_id());
     packrat.get_mac_address_block().ok()
