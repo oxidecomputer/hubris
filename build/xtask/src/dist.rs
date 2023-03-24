@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
+use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
 
@@ -307,23 +308,11 @@ pub fn package(
                 }
             }
         }
-        {
-            // Check that each external region is only used by one task
-            use std::collections::btree_map::Entry;
-            let mut seen = BTreeMap::new();
-            for (task_name, task) in cfg.toml.tasks.iter() {
-                for r in &task.extern_regions {
-                    match seen.entry(r) {
-                        Entry::Occupied(o) => bail!(
-                            "extern region '{r}' is used by multiple tasks \
-                             ('{}' and '{task_name}'); it should be exclusive",
-                            o.get(),
-                        ),
-                        Entry::Vacant(v) => {
-                            v.insert(task_name);
-                        }
-                    }
-                }
+
+        let mut extern_regions = MultiMap::new();
+        for (task_name, task) in cfg.toml.tasks.iter() {
+            for r in &task.extern_regions {
+                extern_regions.insert(r, task_name.clone());
             }
         }
 
@@ -430,15 +419,17 @@ pub fn package(
         }
         println!("Used:");
         for (name, new_range) in memories {
-            let orig_range = &starting_memories[name];
-            let size = new_range.start - orig_range.start;
-            let percent = size * 100 / (orig_range.end - orig_range.start);
-            println!(
-                "  {:<6} {:#x} ({}%)",
-                format!("{}:", name),
-                size,
-                percent
-            );
+            print!("  {:<6} ", format!("{name}:"));
+
+            if let Some(tasks) = extern_regions.get_vec(name) {
+                println!("extern region for {}", tasks.join(", "));
+            } else {
+                let orig_range = &starting_memories[name];
+                let size = new_range.start - orig_range.start;
+                let percent = size * 100 / (orig_range.end - orig_range.start);
+
+                println!("{size:#x} ({percent}%)");
+            }
         }
 
         // Generate a RawHubrisImage, which is our source of truth for combined
@@ -1338,10 +1329,11 @@ fn check_dump_agent(toml: &Config) -> Result<()> {
             }
 
             for u in &task.uses {
-                if jefe.uses.iter().find(|&j| j == u).is_none() {
+                if jefe.extern_regions.iter().find(|&j| j == u).is_none() {
                     bail!(
-                        "dump agent/jefe misconfiguration: dump agent uses \
-                        {u} and depends on jefe, but jefe does not use {u}"
+                        "dump agent/jefe misconfiguration: dump agent has \
+                        {u} as an extern-region and depends on jefe, but jefe \
+                        does not have {u} as an extern-region"
                     );
                 }
             }

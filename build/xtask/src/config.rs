@@ -423,20 +423,29 @@ impl Config {
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
         //
-        // Expose the peripherals that a task is using should the task
-        // wish to generate code around them.
+        // Expose any external memories that a task is using should the
+        // task wish to generate code around them.
         //
-        let mut peripherals = IndexMap::new();
+        let mut extern_regions = IndexMap::new();
 
-        for u in &task_toml.uses {
-            if let Some(p) = self.peripherals.get(u) {
-                peripherals.insert(u, p);
+        for name in &task_toml.extern_regions {
+            if let Some(r) = self.outputs.get(name) {
+                let region = (r[0].address, r[0].size);
+
+                if !r.iter().all(|r| (r.address, r.size) == region) {
+                    return Err(format!(
+                        "extern region {name} has inconsistent \
+                        address/size across images: {r:?}"
+                    ));
+                }
+
+                extern_regions.insert(name, region);
             }
         }
 
         out.env.insert(
-            "HUBRIS_TASK_PERIPHERALS".to_string(),
-            toml::to_string(&peripherals).unwrap(),
+            "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
+            toml::to_string(&extern_regions).unwrap(),
         );
 
         Ok(out)
@@ -452,7 +461,9 @@ impl Config {
         self.outputs
             .iter()
             .map(|(name, out)| {
-                let region : Vec<&Output>= out.iter().filter(|o| o.name == *image_name).collect();
+                let region : Vec<&Output>= out.iter().filter(
+                    |o| o.name == *image_name
+                ).collect();
                 if region.len() > 1 {
                     bail!("Multiple regions defined for image {}", image_name);
                 }

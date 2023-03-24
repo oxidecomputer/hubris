@@ -2281,7 +2281,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty?branch=taskdumpy#78af963e75b53599287218159e1b703ba1ac3138"
+source = "git+https://github.com/oxidecomputer/humpty?branch=taskdumpy#7b61f294cf7fd7b8a727a646d1414f7a1c0496bf"
 dependencies = [
  "hubpack",
  "lzss",
@@ -5115,6 +5115,7 @@ dependencies = [
  "lpc55_areas",
  "lpc55_sign",
  "memchr",
+ "multimap",
  "ordered-toml",
  "path-slash",
  "rangemap",

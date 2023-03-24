@@ -81,7 +81,7 @@ struct Config {
 #[cfg(feature = "dump")]
 #[derive(Deserialize, Default, Debug)]
 #[serde(rename_all = "kebab-case")]
-struct Peripheral {
+struct DumpRegion {
     pub address: u32,
     pub size: u32,
 }
@@ -94,7 +94,7 @@ struct Peripheral {
 ///
 #[cfg(feature = "dump")]
 fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
-    let peripherals = build_util::task_peripherals::<Peripheral>()?;
+    let dump_regions = build_util::task_extern_regions::<DumpRegion>()?;
 
     let me = build_util::task_full_config_toml()?;
     let dump_agent = build_util::other_task_full_config_toml("dump_agent")
@@ -102,24 +102,24 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
             "jefe is configured for task dumping, but can't find dump_agent",
         )?;
 
-    if me.uses != dump_agent.uses {
+    if me.extern_regions != dump_agent.extern_regions {
         anyhow::bail!(
-            "jefe is configured for task dumping, but peripherals used by \
-             jefe ({:?}) do not match peripherals used by dump agent ({:?})",
-            me.uses,
-            dump_agent.uses
+            "jefe is configured for task dumping, but extern regions for \
+             jefe ({:?}) do not match extern regions for dump agent ({:?})",
+            me.extern_regions,
+            dump_agent.extern_regions
         );
     }
 
     write!(
         out,
         "pub(crate) const DUMP_AREAS: [humpty::DumpArea; {}] = [",
-        peripherals.len(),
+        dump_regions.len(),
     )?;
 
-    for (name, peripheral) in &peripherals {
-        let address = peripheral.address;
-        let length = peripheral.size;
+    for (name, region) in &dump_regions {
+        let address = region.address;
+        let length = region.size;
 
         writeln!(
             out,

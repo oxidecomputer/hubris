@@ -144,15 +144,3 @@ interrupts = { irq = 117 }
 #[cryp]
 #address = 0x48021000
 #size = 4096
-
-[sram2]
-address = 0x30020000
-size = 0x20000
-
-[sram3]
-address = 0x30040000
-size = 0x8000
-
-[sram4]
-address = 0x38000000
-size = 0x10000
