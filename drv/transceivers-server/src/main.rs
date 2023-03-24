@@ -107,27 +107,6 @@ struct ThermalModel {
 ///   their temperature and send it to the `thermal` task.
 const TIMER_INTERVAL: u64 = 500;
 
-// Errors are being suppressed here due to a miswiring of the I2C bus at the
-// LED controller parts. They will not be accessible without rework to older
-// hardware, and newer (correct) hardware will be replacing the old stuff
-// very soon.
-//
-// TODO: remove conditional compilation path once sidecar-a is sunset
-#[cfg(target_board = "sidecar-a")]
-impl ServerImpl {
-    fn led_init(&mut self) {
-        let _ = self.leds.initialize_current();
-        let _ = self.leds.turn_on_system_led();
-        self.leds_initialized = true;
-        ringbuf_entry!(Trace::LEDInitComplete);
-    }
-
-    fn led_update(&self, presence: u32) {
-        let _ = self.leds.update_led_state(presence);
-    }
-}
-
-#[cfg(not(target_board = "sidecar-a"))]
 impl ServerImpl {
     fn led_init(&mut self) {
         match self

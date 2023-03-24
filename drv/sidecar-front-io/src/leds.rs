@@ -299,24 +299,9 @@ impl Leds {
 
     /// Query device registers and return a summary of observed errors
     pub fn error_summary(&self) -> Result<FullErrorSummary, Error> {
-        // Errors are being suppressed here due to a miswiring of the I2C bus at
-        // the LED controller parts. They will not be accessible without rework
-        // to older hardware, and newer (correct) hardware will be replacing the
-        // hold stuff very soon.
-        // TODO: remove conditional compilation path once sidecar-a is sunset
-        cfg_if::cfg_if! {
-            if #[cfg(target_board = "sidecar-a")] {
-                let left_errs = self.controller(LedController::Left)
-                        .check_errors().unwrap_or_default();
-                let right_errs = self.controller(LedController::Right)
-                        .check_errors().unwrap_or_default();
-            } else {
-                let left_errs = self.controller(LedController::Left)
-                        .check_errors()?;
-                let right_errs = self.controller(LedController::Right)
-                        .check_errors()?;
-            }
-        }
+        let left_errs = self.controller(LedController::Left).check_errors()?;
+        let right_errs =
+            self.controller(LedController::Right).check_errors()?;
 
         let mut summary: FullErrorSummary = FullErrorSummary {
             overtemp_left: left_errs.overtemp,

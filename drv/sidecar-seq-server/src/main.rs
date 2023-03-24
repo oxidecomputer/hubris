@@ -554,6 +554,10 @@ fn main() -> ! {
     ringbuf_entry!(Trace::MainboardControllerSha(ident.sha.into()));
     ringbuf_entry!(Trace::FpgaInitComplete);
 
+    // Populate packrat with our mac address and identity.
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
+
     // The sequencer for the clock generator currently does not have a feedback
     // mechanism/register we can read. Sleeping a short while seems to be
     // sufficient for now.
@@ -574,10 +578,6 @@ fn main() -> ! {
         panic!()
     }
     ringbuf_entry!(Trace::ClockConfigurationComplete);
-
-    // Populate packrat with our mac address and identity.
-    let packrat = Packrat::from(PACKRAT.get_task_id());
-    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
     // Initialize a connected Front IO board.
     if server.front_io_board.present() {

@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 6256}
+requires = {flash = 22980, ram = 6256}
 
 [caboose]
 tasks = ["control_plane_agent"]
