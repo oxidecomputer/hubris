@@ -80,26 +80,30 @@ dma = true
 
 # Info about the images loaded into flash and dumped by stage0 into USB SRAM
 # for hubris use.
-[[sram3]]
+[[usbsram]]
 name = "a"
 address = 0x40102000
 size = 0x1000
 read = true
 write = false
 execute = false
+dma = true
 
-[[sram3]]
+[[usbsram]]
 name = "b"
 address = 0x40102000
 size = 0x1000
 read = true
 write = false
 execute = false
+dma = true
 
-[[sram3]]
+[[usbsram]]
 name = "stage0"
 address = 0x40102000
 size = 0x1000
 read = true
 write = false
 execute = false
+dma = true
+

@@ -16,12 +16,11 @@ requires = {flash = 32768, ram = 4096}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 8192, ram = 2048}
 start = true
-features = ["itm", "dump"]
+features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = [ "sram2" ]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -48,11 +47,11 @@ stacksize = 256
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096, sram3 = 4096}
+max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2048
 start = true
 uses = ["rom", "secure_syscon", "syscon", "flash"]
-sections = {bootstate = "sram3"}
+sections = {bootstate = "usbsram"}
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
@@ -138,16 +137,6 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600
 task-slots = ["swd"]
-
-[tasks.dump_agent]
-name = "task-dump-agent"
-features = ["no-rot"]
-priority = 5
-max-sizes = {flash = 8192, ram = 2048 }
-start = true
-task-slots = ["jefe"]
-stacksize = 1200
-extern-regions = [ "sram2" ]
 
 # We intentionally do not start this task to avoid conflicts with the SP
 # debug connection.

@@ -413,13 +413,13 @@ pub fn package(
         let starting_memories = cfg.toml.memories(image_name)?;
         for (name, range) in &starting_memories {
             println!(
-                "{:<5} = {:#010x}..{:#010x}",
+                "{:<7} = {:#010x}..{:#010x}",
                 name, range.start, range.end
             );
         }
         println!("Used:");
         for (name, new_range) in memories {
-            print!("  {:<6} ", format!("{name}:"));
+            print!("  {:<8} ", format!("{name}:"));
 
             if let Some(tasks) = extern_regions.get_vec(name) {
                 println!("extern region ({})", tasks.join(", "));

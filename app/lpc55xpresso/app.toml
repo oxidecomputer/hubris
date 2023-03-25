@@ -14,11 +14,12 @@ requires = {flash = 32768, ram = 4096}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = [ "sram2" ]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -129,4 +130,14 @@ start = true
 stacksize = 1000
 notifications = ["timer"]
 task-slots = ["user_leds"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+features = ["no-rot"]
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["jefe"]
+stacksize = 1200
+extern-regions = [ "sram2" ]
 
