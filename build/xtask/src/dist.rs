@@ -422,7 +422,7 @@ pub fn package(
             print!("  {:<6} ", format!("{name}:"));
 
             if let Some(tasks) = extern_regions.get_vec(name) {
-                println!("extern region for {}", tasks.join(", "));
+                println!("extern region ({})", tasks.join(", "));
             } else {
                 let orig_range = &starting_memories[name];
                 let size = new_range.start - orig_range.start;
