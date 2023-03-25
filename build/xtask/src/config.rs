@@ -20,10 +20,10 @@ use lpc55_areas::{DebugSettings, DefaultIsp, ROTKeyStatus};
 ///
 /// Here's an example:
 /// ```toml
-/// name = "sidecar-a-lab"
+/// name = "sidecar-c-lab"
 ///
 /// [patches]
-/// inherit = "rev-a.toml"
+/// inherit = "rev-c.toml"
 /// features.sequencer = ["stay-in-a2"]
 /// ```
 #[derive(Clone, Debug, Deserialize)]

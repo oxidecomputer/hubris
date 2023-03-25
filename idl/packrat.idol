@@ -1,0 +1,59 @@
+// Packrat server IPC interface
+
+Interface(
+    name: "Packrat",
+    ops: {
+        "get_mac_address_block": (
+            doc: "Get the cached MAC address block",
+            reply: Result(
+                ok: "MacAddressBlock",
+                err: CLike("CacheGetError"),
+            ),
+            idempotent: true,
+        ),
+        "set_mac_address_block": (
+            doc: "Set the cached MAC address block",
+            args: {
+                "macs": "MacAddressBlock",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+        "get_identity": (
+            doc: "Get the cached board identity",
+            reply: Result(
+                ok: "VpdIdentity",
+                err: CLike("CacheGetError"),
+            ),
+            idempotent: true,
+        ),
+        "set_identity": (
+            doc: "Set the cached board identity",
+            args: {
+                "macs": "VpdIdentity",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+        "get_next_boot_host_startup_options": (
+            doc: "Get the value for host OS startup options we will give to the host the next time it requests them from us. This may or may not match the startup options used the most recent time the host OS boots, as the options may have changed in the meantime.",
+            reply: Simple("HostStartupOptions"),
+            idempotent: true,
+        ),
+        "set_next_boot_host_startup_options": (
+            doc: "Set the value for host OS startup options we will give to the host the next time it requests them from us.",
+            args: {
+                "startup_options": "HostStartupOptions",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    },
+)
+

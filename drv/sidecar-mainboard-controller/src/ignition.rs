@@ -58,8 +58,26 @@ impl IgnitionController {
     /// Return the number of ports exposed by the Controller.
     #[inline]
     pub fn port_count(&self) -> Result<u8, FpgaError> {
-        self.fpga
-            .read(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)
+        let count = self
+            .fpga
+            .read(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)?;
+
+        // Starting with rev C the Ignition Controller has a 36th link to the
+        // Target on its own board, allowing the control plane to query for full
+        // rack presence via either Sidecar. The mainboard controller of rev B
+        // boards does implement the RTL for this, because differentiating
+        // between the two revs at that level involves some co-dependent
+        // templating shenanigans and a mismatch between the Controller logic
+        // and device pins.
+        //
+        // To avoid this additional complexity in the RTL the port count for
+        // rev B systems is adjusted here, allowing anything querying a Sidecar
+        // can distinguish between a rev B and a rev C with a faulty local link.
+        if cfg!(target_board = "sidecar-b") && count == 36 {
+            Ok(35)
+        } else {
+            Ok(count)
+        }
     }
 
     /// Return a bit-vector indicating Target presence on each of the Controller

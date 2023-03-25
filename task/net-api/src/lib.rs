@@ -10,7 +10,9 @@ use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
+use zerocopy::{AsBytes, FromBytes};
+
+pub use task_packrat_api::MacAddressBlock;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
@@ -100,18 +102,6 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
 #[derive(Copy, Clone, Debug, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct MacAddress(pub [u8; 6]);
-
-/// Represents a range of allocated MAC addresses, per RFD 320
-///
-/// The SP will claim the first `N` addresses based on VLAN configuration
-/// (typically either 1 or 2).
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
-#[repr(C)]
-pub struct MacAddressBlock {
-    pub base_mac: [u8; 6],
-    pub count: U16<LittleEndian>,
-    pub stride: u8,
-}
 
 #[derive(
     Copy, Clone, Debug, Default, Serialize, SerializedSize, Deserialize,

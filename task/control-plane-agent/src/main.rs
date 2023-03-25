@@ -52,26 +52,13 @@ enum Log {
     Rx(UdpMetadata),
     SendError(SendError),
     MgsMessage(MgsMessage),
-    UsartTxFull {
-        remaining: usize,
-    },
+    UsartTxFull { remaining: usize },
     UsartRxOverrun,
-    UsartRxBufferDataDropped {
-        num_bytes: u64,
-    },
-    SerialConsoleSend {
-        buffered: usize,
-    },
-    UpdatePartial {
-        bytes_written: u32,
-    },
+    UsartRxBufferDataDropped { num_bytes: u64 },
+    SerialConsoleSend { buffered: usize },
+    UpdatePartial { bytes_written: u32 },
     UpdateComplete,
-    HostFlashSectorsErased {
-        num_sectors: usize,
-    },
-
-    #[cfg(feature = "vpd-identity")]
-    VpdReadError(drv_local_vpd::LocalVpdError),
+    HostFlashSectorsErased { num_sectors: usize },
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -250,7 +237,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
-        self.mgs_handler.startup_options()
+        self.mgs_handler.startup_options_impl()
     }
 
     fn set_startup_options(
@@ -261,7 +248,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         let startup_options = HostStartupOptions::from_bits(startup_options)
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
 
-        self.mgs_handler.set_startup_options(startup_options)
+        self.mgs_handler.set_startup_options_impl(startup_options)
     }
 
     fn identity(

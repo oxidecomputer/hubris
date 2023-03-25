@@ -4,17 +4,22 @@
 
 //! High-level configuration abstraction for the VSC7448
 use crate::PORT_COUNT;
+use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
 /// Port speed
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, SerializedSize, Deserialize,
+)]
 pub enum Speed {
     Speed100M,
     Speed1G,
     Speed10G,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, SerializedSize, Deserialize,
+)]
 pub enum PortMode {
     Sfi,
     BaseKr,
@@ -31,21 +36,25 @@ impl PortMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, SerializedSize, Deserialize,
+)]
 pub enum PortDev {
     Dev1g,
     Dev2g5,
     Dev10g,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Serialize, SerializedSize, Deserialize,
+)]
 pub enum PortSerdes {
     Serdes1g,
     Serdes6g,
     Serdes10g,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, SerializedSize, Deserialize)]
 pub struct PortConfig {
     pub mode: PortMode,
     pub dev: (PortDev, u8),

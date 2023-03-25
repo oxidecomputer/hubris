@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if cfg!(feature = "bitstream") {
         // Check that a valid bitstream is available for this board.
         let board = build_util::env_var("HUBRIS_BOARD")?;
-        if board != "sidecar-a" && board != "sidecar-b" {
+        if board != "sidecar-b" && board != "sidecar-c" {
             panic!("unknown target board");
         }
 

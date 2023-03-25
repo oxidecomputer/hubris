@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, lpc55-stage0, stm32h743, stm32h753, gemini, rot-carrier, rot-carrier-stage0, gimletlet, gimlet-b, gimlet-b-lab, gimlet-c, gimlet-c-lab, sidecar-a, sidecar-b, sidecar-b-lab, psc-a, psc-b, stm32g0, gimlet-rot-b, gimlet-rot-b-stage0, gimlet-rot-b-stage0-lab, gimlet-rot-c, gimlet-rot-c-stage0, gimlet-rot-c-stage0-lab, donglet-g031]
+        build: [stm32f3, stm32f4, lpc55, lpc55-stage0, stm32h743, stm32h753, gemini, rot-carrier, rot-carrier-stage0, gimletlet, gimlet-b, gimlet-b-lab, gimlet-c, gimlet-c-lab, sidecar-b, sidecar-b-lab, sidecar-c, sidecar-c-lab, psc-a, psc-b, stm32g0, gimlet-rot-b, gimlet-rot-b-stage0, gimlet-rot-b-stage0-lab, gimlet-rot-c, gimlet-rot-c-stage0, gimlet-rot-c-stage0-lab, donglet-g031]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -88,11 +88,6 @@ jobs:
             app_toml: app/gimlet/rev-c-lab.toml
             target: thumbv7em-none-eabihf
             image: default
-          - build: sidecar-a
-            app_name: sidecar-a
-            app_toml: app/sidecar/rev-a.toml
-            target: thumbv7em-none-eabihf
-            image: default
           - build: sidecar-b
             app_name: sidecar-b
             app_toml: app/sidecar/rev-b.toml
@@ -101,6 +96,16 @@ jobs:
           - build: sidecar-b-lab
             app_name: sidecar-b-lab
             app_toml: app/sidecar/rev-b-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: sidecar-c
+            app_name: sidecar-c
+            app_toml: app/sidecar/rev-c.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: sidecar-c-lab
+            app_name: sidecar-c-lab
+            app_toml: app/sidecar/rev-c-lab.toml
             target: thumbv7em-none-eabihf
             image: default
           - build: psc-a
@@ -164,7 +169,7 @@ jobs:
       - name: Cache build output
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache vcpkg 
+      - name: Cache vcpkg
         uses: actions/cache@v3
         with:
           path: C:\vcpkg\downloads
@@ -179,7 +184,7 @@ jobs:
           RUST_BACKTRACE: 1
         run: cargo xtask dist ${{ matrix.app_toml}}
 
-      - name: Fetch Humility 
+      - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
         if: matrix.os == 'ubuntu-latest'
         with:

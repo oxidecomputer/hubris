@@ -12,6 +12,7 @@ use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
@@ -25,6 +26,7 @@ task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
 task_slot!(AUXFLASH, auxflash);
+task_slot!(PACKRAT, packrat);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -551,6 +553,10 @@ fn main() -> ! {
     ringbuf_entry!(Trace::MainboardControllerVersion(ident.version.into()));
     ringbuf_entry!(Trace::MainboardControllerSha(ident.sha.into()));
     ringbuf_entry!(Trace::FpgaInitComplete);
+
+    // Populate packrat with our mac address and identity.
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
     // The sequencer for the clock generator currently does not have a feedback
     // mechanism/register we can read. Sleeping a short while seems to be

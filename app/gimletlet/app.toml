@@ -61,6 +61,14 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.event" = "i2c4-irq"
 "i2c4.error" = "i2c4-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
@@ -105,7 +113,7 @@ priority = 8
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
 notifications = [
     "jefe-state-change",
      "usart-irq",
@@ -212,6 +220,7 @@ task-slots = [
     "validate",
     "sensor",
     "sprot",
+    "packrat",
 ]
 features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
 notifications = ["usart-irq", "socket", "timer"]

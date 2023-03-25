@@ -25,6 +25,9 @@ stacksize = 1536
 notifications = ["fault", "timer"]
 extern-regions = [ "sram2", "sram3", "sram4" ]
 
+[tasks.jefe.config.on-state-change]
+net = "jefe-state-change"
+
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
@@ -53,6 +56,21 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 "i2c2.error" = "i2c2-irq"
 "i2c3.event" = "i2c3-irq"
 "i2c3.error" = "i2c3-irq"
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
+[tasks.sequencer]
+name = "drv-psc-seq-server"
+priority = 4
+stacksize = 4096
+start = true
+task-slots = ["jefe", "packrat", "i2c_driver"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -85,8 +103,8 @@ task-slots = ["i2c_driver"]
 [tasks.net]
 name = "task-net"
 stacksize = 6040
-priority = 3
-features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core", "spi2"]
+priority = 4
+features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi2"]
@@ -95,9 +113,10 @@ notifications = [
     "eth-irq",
     "mdio-timer-irq",
     "wake-timer",
-    "spi-irq"
+    "spi-irq",
+    "jefe-state-change",
 ]
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys", "packrat", "jefe"]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
@@ -106,7 +125,7 @@ task-slots = ["sys", "i2c_driver"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 4
+priority = 5
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
@@ -120,8 +139,9 @@ task-slots = [
     "validate",
     "sensor",
     "sprot",
+    "packrat",
 ]
-features = ["psc", "vlan", "vpd-identity"]
+features = ["psc", "vlan"]
 notifications = ["usart-irq", "socket", "timer"]
 # usart-irq is unused but present in the code
 
@@ -139,7 +159,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -149,7 +169,7 @@ notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -159,7 +179,7 @@ notifications = ["socket"]
 
 [tasks.udprpc]
 name = "task-udprpc"
-priority = 4
+priority = 5
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true

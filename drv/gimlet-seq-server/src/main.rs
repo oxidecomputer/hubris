@@ -15,6 +15,7 @@ use userlib::*;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
+use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -27,6 +28,7 @@ task_slot!(SPI, spi_driver);
 task_slot!(I2C, i2c_driver);
 task_slot!(HF, hf);
 task_slot!(JEFE, jefe);
+task_slot!(PACKRAT, packrat);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -342,6 +344,10 @@ fn main() -> ! {
         }
     })
     .unwrap();
+
+    // Populate packrat with our mac address and identity.
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
     jefe.set_state(PowerState::A2 as u32);
 

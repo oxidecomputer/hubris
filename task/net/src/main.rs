@@ -17,8 +17,8 @@ mod server;
     any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
     path = "bsp/nucleo_h7.rs"
 )]
-#[cfg_attr(target_board = "sidecar-a", path = "bsp/sidecar_a.rs")]
-#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_b.rs")]
+#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
+#[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
 #[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_bc.rs")]
 #[cfg_attr(target_board = "gimlet-c", path = "bsp/gimlet_bc.rs")]
 #[cfg_attr(target_board = "psc-a", path = "bsp/psc_a.rs")]
@@ -67,7 +67,7 @@ use crate::bsp_support::Bsp;
 task_slot!(SYS, sys);
 
 #[cfg(feature = "vpd-mac")]
-task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
@@ -114,8 +114,13 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 
 #[cfg(feature = "vpd-mac")]
 fn mac_address_from_vpd() -> Option<MacAddressBlock> {
-    let i2c_task = I2C.get_task_id();
-    drv_local_vpd::read_config(i2c_task, *b"MAC0").ok()
+    // The first nontrivial thing `main()` does is call `BspImpl::preinit()`,
+    // which waits for the sequencer task on all our major boards to progress to
+    // an appropriate point, which includes having read board VPD and loaded it
+    // into packrat, so we don't need to wait here.
+    use task_packrat_api::Packrat;
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    packrat.get_mac_address_block().ok()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
