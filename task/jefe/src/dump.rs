@@ -18,7 +18,7 @@ enum Trace {
     GetDumpAreaFailed(humpty::DumpError<()>),
     ClaimDumpAreaFailed(humpty::DumpError<()>),
     Claiming,
-    Dumping(usize, Option<u32>),
+    Dumping(usize, u32),
     DumpArea(Result<Option<DumpArea>, humpty::DumpError<()>>),
     DumpRegion(abi::TaskDumpRegion),
     DumpRegionsFailed(humpty::DumpError<()>),
@@ -30,11 +30,11 @@ enum Trace {
 
 ringbuf!(Trace, 8, Trace::None);
 
-pub fn initialize_dump_areas() -> Option<u32> {
+pub fn initialize_dump_areas() -> u32 {
     let areas = humpty::initialize_dump_areas(
         &crate::generated::DUMP_AREAS,
         Some(0x1000),
-    );
+    ).unwrap_lite();
 
     ringbuf_entry!(Trace::Initialized);
 
@@ -42,55 +42,41 @@ pub fn initialize_dump_areas() -> Option<u32> {
 }
 
 pub fn get_dump_area(
-    base: Option<u32>,
+    base: u32,
     index: u8,
 ) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::GetDumpArea(index));
+    ringbuf_entry!(Trace::Base(base));
 
-    if let Some(base) = base {
-        ringbuf_entry!(Trace::Base(base));
-
-        match humpty::get_dump_area(base, index, humpty::from_mem) {
-            Err(e) => {
-                ringbuf_entry!(Trace::GetDumpAreaFailed(e));
-                Err(DumpAgentError::InvalidArea)
-            }
-
-            Ok(rval) => Ok(rval),
+    match humpty::get_dump_area(base, index, humpty::from_mem) {
+        Err(e) => {
+            ringbuf_entry!(Trace::GetDumpAreaFailed(e));
+            Err(DumpAgentError::InvalidArea)
         }
-    } else {
-        Err(DumpAgentError::NoDumpAreas)
+
+        Ok(rval) => Ok(rval),
     }
 }
 
-pub fn claim_dump_area(base: Option<u32>) -> Result<DumpArea, DumpAgentError> {
-    if let Some(base) = base {
-        ringbuf_entry!(Trace::Claiming);
-        match humpty::claim_dump_area(
-            base,
-            DumpContents::WholeSystem,
-            humpty::from_mem,
-            humpty::to_mem,
-        ) {
-            Err(e) => {
-                ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
-                Err(DumpAgentError::CannotClaimDumpArea)
-            }
-            Ok(None) => Err(DumpAgentError::DumpAreaInUse),
-            Ok(Some(rval)) => Ok(rval),
+pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
+    ringbuf_entry!(Trace::Claiming);
+    match humpty::claim_dump_area(
+        base,
+        DumpContents::WholeSystem,
+        humpty::from_mem,
+        humpty::to_mem,
+    ) {
+        Err(e) => {
+            ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
+            Err(DumpAgentError::CannotClaimDumpArea)
         }
-    } else {
-        Err(DumpAgentError::NoDumpAreas)
+        Ok(None) => Err(DumpAgentError::DumpAreaInUse),
+        Ok(Some(rval)) => Ok(rval),
     }
 }
 
-pub fn dump_task(base: Option<u32>, task: usize) {
+pub fn dump_task(base: u32, task: usize) {
     ringbuf_entry!(Trace::Dumping(task, base));
-
-    let base = match base {
-        Some(base) => base,
-        None => return,
-    };
 
     //
     // We need to claim a dump area.  Once it's claimed, we have committed

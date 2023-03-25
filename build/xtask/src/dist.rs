@@ -1315,7 +1315,7 @@ fn check_dump_agent(toml: &Config) -> Result<()> {
         if task.extern_regions.is_empty() {
             bail!(
                 "dump agent misconfiguration: dump agent is present \
-                but does not any external regions for dumping"
+                but does not have any external regions for dumping"
             );
         }
 

@@ -16,7 +16,7 @@ cortex-m-rt = { workspace = true }
 cfg-if = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt"] }
 
-kern = { path = "../../sys/kern", features = ["no-dump"] }
+kern = { path = "../../sys/kern", default-features = false }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

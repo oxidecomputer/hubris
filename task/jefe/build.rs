@@ -87,14 +87,21 @@ struct DumpRegion {
 }
 
 ///
-/// Output our dump areas, making the assumption that any peripherals in use
+/// Output our dump areas, making the assumption that any extern regions in use
 /// by Jefe are in fact alternate RAMs for dump areas.  Because this assumption
-/// is a tad aggressive, we also make sure that the peripheral areas match
+/// is a tad aggressive, we also make sure that those extern regions match
 /// exactly what the dump agent itself is using.
 ///
 #[cfg(feature = "dump")]
 fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     let dump_regions = build_util::task_extern_regions::<DumpRegion>()?;
+
+    if dump_regions.len() == 0 {
+        anyhow::bail!(
+            "jefe is configured for dumping, but no dump regions have been \
+            specified via extern_regions"
+        )
+    }
 
     let me = build_util::task_full_config_toml()?;
     let dump_agent = build_util::other_task_full_config_toml("dump_agent")

@@ -20,7 +20,9 @@ use userlib::*;
 const_assert!(DUMP_READ_SIZE & (DUMP_READ_SIZE - 1) == 0);
 const_assert!(DUMP_READ_SIZE <= 1024);
 
-struct ServerImpl;
+struct ServerImpl {
+    jefe: Jefe,
+}
 
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
@@ -29,18 +31,15 @@ task_slot!(JEFE, jefe);
 
 impl ServerImpl {
     fn initialize(&self) -> Result<(), DumpAgentError> {
-        let jefe = Jefe::from(JEFE.get_task_id());
-        jefe.initialize_dump_areas()
+        self.jefe.reinitialize_dump_areas()
     }
 
     fn dump_area(&self, index: u8) -> Result<DumpArea, DumpAgentError> {
-        let jefe = Jefe::from(JEFE.get_task_id());
-        jefe.get_dump_area(index)
+        self.jefe.get_dump_area(index)
     }
 
     fn claim_dump_area(&self) -> Result<DumpArea, DumpAgentError> {
-        let jefe = Jefe::from(JEFE.get_task_id());
-        jefe.claim_dump_area()
+        self.jefe.claim_dump_area()
     }
 
     fn add_dump_segment(
@@ -181,8 +180,9 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut server = ServerImpl;
-    server.initialize().unwrap_lite();
+    let mut server = ServerImpl {
+        jefe: Jefe::from(JEFE.get_task_id())
+    };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 

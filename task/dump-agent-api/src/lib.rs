@@ -21,7 +21,6 @@ pub enum DumpAgentError {
     UnalignedSegmentLength,
     DumpFailed,
     NotSupported,
-    NoDumpAreas,
     DumpPresent,
     UnclaimedDumpArea,
     CannotClaimDumpArea,

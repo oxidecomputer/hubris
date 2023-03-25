@@ -33,7 +33,7 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
-        "initialize_dump_areas": (
+        "reinitialize_dump_areas": (
             reply: Result(
                 ok: "()",
                 err: CLike("DumpAgentError"),
