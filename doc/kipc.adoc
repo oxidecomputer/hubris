@@ -45,7 +45,9 @@ The `userlib::kipc` module provides wrapper functions for these IPCs for
 programs written in Rust.
 
 NOTE: It is our intent to restrict kernel IPC sends to "`privileged`" tasks --
-likely just the supervisor task. We haven't implemented this yet.
+likely just the supervisor task. We haven't implemented this yet for every
+entry point, though some IPC entry points explicitly limit themselves
+to the supervisor.
 
 === `read_task_status` (1)
 
@@ -246,6 +248,77 @@ If the image does not include a caboose or the caboose does not contain the
 Note that this call will return the caboose address even if a task is not
 configured for caboose access!  In that case, reading from the given memory
 range will cause a memory fault and the task will be killed.
+
+=== `get_task_dump_region` (7)
+
+A dump region is an area of memory for a specified task that can be
+read by the supervisor for purpose of creating a memory dump for debugging.
+For a specified task and region index, `get_task_dump_region`
+will return the details of the dump region, if any.  This entry point
+is only present if the kernel's `dump` feature is enabled.
+
+==== Request
+
+[source,rust]
+----
+type GetTaskDumpRegionRequest = (u32, u32);
+----
+
+==== Preconditions
+
+The task index (`GetTaskDumpRegionRequest.0`) must be a valid task index.  The
+dump region index (`GetTaskDumpRegionRequest.1`) should denote the region of
+interest.
+
+==== Response
+
+[source,rust]
+----
+struct TaskDumpRegion {
+    base: u32,
+    size: u32,
+}
+
+type GetTaskDumpRegionResponse = Option<TaskDumpRegion>;
+----
+
+==== Notes
+
+For the specified task index, this will return the dump region specified by
+the dump region index.  If the dump region index is equal to or greater
+than the number of dump regions for the specified task, `None` will
+be returned.
+
+=== `read_task_dump_region` (8)
+
+For a given task and task dump region, this will read the specified region and
+return its contents.  The region should be entirely contained by a region that
+has been returned by a call to `get_task_dump_region` but is otherwise
+unconstrained.  This entry point is only present if the kernel's `dump`
+feature is enabled.
+
+==== Request
+
+[source,rust]
+----
+struct TaskDumpRegion {
+    base: u32,
+    size: u32,
+}
+
+type ReadTaskDumpRegionRequest = (u32, TaskDumpRegion);
+----
+
+==== Preconditions
+
+The task index (`ReadTaskDumpRegionRequest.0`) must be a valid task index.
+The dump region should be entirely contained by a region that has been
+returned by a call to `get_task_dump_region` for the specified task.
+
+==== Response
+
+A copy of the memory referred to by the specified region, starting
+at `base` and running for `size` bytes.
 
 == Receiving from the kernel
 
