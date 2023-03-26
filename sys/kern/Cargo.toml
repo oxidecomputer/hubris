@@ -33,7 +33,6 @@ call_rustfmt = { path = "../../build/call_rustfmt" }
 phash-gen = { path = "../../build/phash-gen" }
 
 [features]
-default = ["dump"]
 dump = []
 
 [lib]

@@ -221,8 +221,8 @@ pub fn package(
 ) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
-    // Verify that our dump agent configuration is correct (or absent)
-    check_dump_agent(&cfg.toml)?;
+    // Verify that our dump configuration is correct (or absent)
+    check_dump_config(&cfg.toml)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
@@ -1303,14 +1303,18 @@ fn update_image_header(
     Ok(false)
 }
 
-/// Checks that if we have a dump agent, and that dump agent has a task slot
-/// for Jefe (denoting task dump support), that every memory that the dump
-/// agent is using it also being used by Jefe.  Yes, this is some specific
-/// knowledge of the system to encode here, but we want to turn a preventable,
-/// high-consequence run-time error (namely, Jefe attempting accessing memory
-/// that it doesn't have access to) into a compile-time one.  (Note that this
-/// will also be caught when Jefe generates its own code for dump areas.)
-fn check_dump_agent(toml: &Config) -> Result<()> {
+/// Checks our dump config:  that if we have a dump agent, it has a task slot
+/// for Jefe (denoting task dump support); that every memory that the dump
+/// agent is using it also being used by Jefe; that if dumps are enabled, the
+/// support has been properly enabled in the kernel.  (Conversely, we assure
+/// that if dump support is enabled, the other components are properly
+/// configured.)  Yes, this is some specific knowledge of the system to encode
+/// here, but we want to turn a preventable, high-consequence run-time error
+/// (namely, Jefe attempting accessing memory that it doesn't have access to
+/// or making a system call that is unsupported) into a compile-time one.
+fn check_dump_config(toml: &Config) -> Result<()> {
+    let dump_support = toml.kernel.features.iter().find(|&f| f == "dump");
+
     if let Some(task) = toml.tasks.get("dump_agent") {
         if task.extern_regions.is_empty() {
             bail!(
@@ -1319,31 +1323,48 @@ fn check_dump_agent(toml: &Config) -> Result<()> {
             );
         }
 
-        if task.task_slots.get("jefe").is_some() {
-            //
-            // We have a dump agent, and it has a slot for Jefe, denoting that
-            // it is configured for task dumps; now we want to check that Jefe
-            // (1) has the dump feature enabled (2) has extern regions and
-            // (3) uses everything that the dump agent is using.
-            //
-            let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
+        if task.task_slots.get("jefe").is_none() {
+            bail!(
+                "dump agent misconfiguration: dump agent is present \
+                but has not been configured to depend on jefe"
+            );
+        }
 
-            if jefe.features.iter().find(|&f| f == "dump").is_none() {
+        //
+        // We have a dump agent, and it has a slot for Jefe, denoting that
+        // it is configured for task dumps; now we want to check that Jefe
+        // (1) has the dump feature enabled (2) has extern regions and
+        // (3) uses everything that the dump agent is using.
+        //
+        let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
+
+        if jefe.features.iter().find(|&f| f == "dump").is_none() {
+            bail!(
+                "dump agent/jefe misconfiguration: dump agent depends \
+                on jefe, but jefe does not have the dump feature enabled"
+            );
+        }
+
+        if dump_support.is_none() {
+            bail!(
+                "dump agent is present and system is otherwise configured \
+                for dumping, but kernel does not have the dump feature enabled
+            "
+            );
+        }
+
+        for u in &task.extern_regions {
+            if jefe.extern_regions.iter().find(|&j| j == u).is_none() {
                 bail!(
-                    "dump agent/jefe misconfiguration: dump agent depends \
-                    on jefe, but jefe does not have the dump feature enabled"
+                    "dump agent/jefe misconfiguration: dump agent has \
+                    {u} as an extern-region and depends on jefe, but jefe \
+                    does not have {u} as an extern-region"
                 );
             }
-
-            for u in &task.extern_regions {
-                if jefe.extern_regions.iter().find(|&j| j == u).is_none() {
-                    bail!(
-                        "dump agent/jefe misconfiguration: dump agent has \
-                        {u} as an extern-region and depends on jefe, but jefe \
-                        does not have {u} as an extern-region"
-                    );
-                }
-            }
+        }
+    } else {
+        if dump_support.is_some() {
+            bail!("kernel dump support is enabled, but dump agent is missing");
         }
     }
 

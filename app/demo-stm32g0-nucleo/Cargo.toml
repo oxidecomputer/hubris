@@ -9,6 +9,7 @@ g030 = ["stm32g0/stm32g030"]
 g031 = ["stm32g0/stm32g031"]
 g070 = ["stm32g0/stm32g070"]
 g0b1 = ["stm32g0/stm32g0b1"]
+dump = ["kern/dump"]
 
 [dependencies]
 cortex-m = { workspace = true }
@@ -16,7 +17,7 @@ cortex-m-rt = { workspace = true }
 cfg-if = { workspace = true }
 stm32g0 = { workspace = true, features = ["rt"] }
 
-kern = { path = "../../sys/kern", default-features = false }
+kern = { path = "../../sys/kern" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

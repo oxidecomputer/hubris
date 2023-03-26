@@ -5,6 +5,7 @@ name = "demo-stm32f4-discovery"
 version = "0.1.0"
 
 [features]
+dump = ["kern/dump"]
 
 [dependencies]
 cortex-m = { workspace = true }

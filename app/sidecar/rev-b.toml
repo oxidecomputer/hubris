@@ -8,6 +8,7 @@ memory = "memory-large.toml"
 [kernel]
 name = "sidecar"
 requires = {flash = 24400, ram = 6256}
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]

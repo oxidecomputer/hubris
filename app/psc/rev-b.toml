@@ -8,6 +8,7 @@ stacksize = 896
 [kernel]
 name = "psc"
 requires = {flash = 32768, ram = 4800}
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]
