@@ -181,7 +181,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl {
-        jefe: Jefe::from(JEFE.get_task_id())
+        jefe: Jefe::from(JEFE.get_task_id()),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];

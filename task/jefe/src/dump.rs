@@ -34,17 +34,15 @@ pub fn initialize_dump_areas() -> u32 {
     let areas = humpty::initialize_dump_areas(
         &crate::generated::DUMP_AREAS,
         Some(0x1000),
-    ).unwrap_lite();
+    )
+    .unwrap_lite();
 
     ringbuf_entry!(Trace::Initialized);
 
     areas
 }
 
-pub fn get_dump_area(
-    base: u32,
-    index: u8,
-) -> Result<DumpArea, DumpAgentError> {
+pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::GetDumpArea(index));
     ringbuf_entry!(Trace::Base(base));
 
