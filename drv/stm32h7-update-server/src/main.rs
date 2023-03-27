@@ -462,6 +462,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(CabooseError::MissingCaboose.into());
         }
 
+        // By construction, the last word of the caboose is its size as a `u32`
         let caboose_size: u32 =
             unsafe { core::ptr::read_volatile((image_end - 4) as *const u32) };
 
@@ -485,7 +486,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         };
 
         // SAFETY: this is a slice within the bank2 flash
-        let caboose: &'static [u8] = unsafe {
+        let caboose: &[u8] = unsafe {
             core::slice::from_raw_parts(
                 caboose_range.start as *const u8,
                 caboose_range.len(),
@@ -493,7 +494,11 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         };
         let reader = CabooseReader::new(caboose);
 
+        // Get the specific chunk of caboose memory that contains the requested
+        // key.  This is simply a static slice within the `caboose` slice.
         let chunk = reader.get(name)?;
+
+        // Early exit if the caller didn't provide enough space in the lease
         if chunk.len() > data.len() {
             return Err(RequestError::Fail(ClientError::BadLease))?;
         }
@@ -511,7 +516,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             let buf = &mut buf[..c.len()];
             buf.copy_from_slice(c);
             data.write_range(pos..pos + c.len(), buf)
-                .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             pos += c.len();
         }
         Ok(chunk.len() as u32)
