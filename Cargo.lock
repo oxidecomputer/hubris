@@ -2054,7 +2054,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=image-board-check#2cb7f7ffc9636d1a562b363201b33c1205451982"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#2dcc63c645005a7184ba754b5c42c341a0777c66"
 dependencies = [
  "bitflags",
  "hubpack",
