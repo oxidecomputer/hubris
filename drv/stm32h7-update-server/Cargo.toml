@@ -11,8 +11,9 @@ serde = { workspace = true }
 stm32h7 = { workspace = true, features = ["stm32h753"] }
 zerocopy = { workspace = true }
 
-drv-update-api = { path = "../update-api/" }
-ringbuf = { path = "../../lib/ringbuf" }
+drv-caboose.path = "../../drv/caboose"
+drv-update-api.path = "../update-api/"
+ringbuf.path = "../../lib/ringbuf"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

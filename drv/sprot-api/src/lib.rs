@@ -178,7 +178,9 @@ impl From<UpdateError> for SprotError {
                 SprotError::UpdateInvalidHeaderBlock
             }
             UpdateError::ServerRestarted => SprotError::UpdateServerRestarted,
-            UpdateError::Unknown => SprotError::UpdateUnknown,
+            UpdateError::Unknown
+            | UpdateError::ImageBoardMismatch // TODO add new error codes here
+            | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
         }
     }
 }

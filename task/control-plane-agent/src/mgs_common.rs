@@ -137,6 +137,10 @@ impl MgsCommon {
             CabooseError::TlvcReaderBeginFailed => SpError::CabooseReadError,
             CabooseError::TlvcReadExactFailed => SpError::CabooseReadError,
             CabooseError::BadChecksum => SpError::BadCabooseChecksum,
+
+            // NoImageHeader is only returned when reading the caboose of the
+            // bank2 slot; it shouldn't ever be returned by the local reader.
+            CabooseError::NoImageHeader => panic!(),
         })
     }
 }

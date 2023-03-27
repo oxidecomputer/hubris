@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-abi = { path = "../../sys/abi" }
-drv-update-api = {  path = "../update-api/"  }
-hypocalls = { path = "../../lib/hypocalls" }
-ringbuf = { path = "../../lib/ringbuf" }
-stage0-handoff = { path = "../../lib/stage0-handoff" }
+abi.path = "../../sys/abi"
+drv-caboose.path = "../../drv/caboose"
+drv-update-api.path = "../update-api/"
+hypocalls.path = "../../lib/hypocalls"
+ringbuf.path = "../../lib/ringbuf"
+stage0-handoff.path = "../../lib/stage0-handoff"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
 cfg-if = { workspace = true }

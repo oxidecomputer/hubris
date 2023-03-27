@@ -121,15 +121,5 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
-        "get_blob_by_u32": (
-            doc: "Scans the active slot for a blob with the given tag, as a u32",
-            args: {
-                "name": "u32",
-            },
-            reply: Result(
-                ok: "AuxFlashBlob",
-                err: CLike("AuxFlashError"),
-            ),
-        ),
     }
 )
