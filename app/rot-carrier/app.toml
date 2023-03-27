@@ -34,10 +34,11 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2048
 start = true
-uses = ["flash_controller"]
 sections = {bootstate = "usbsram"}
-notifications = ["flash-irq"]
-interrupts = {"flash_controller.irq" = "flash-irq"}
+uses = ["flash_controller", "hash_crypt"]
+notifications = ["flash-irq", "hashcrypt-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
+task-slots = [{"syscon" = "syscon_driver"}]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"

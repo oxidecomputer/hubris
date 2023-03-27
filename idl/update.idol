@@ -81,5 +81,18 @@ Interface(
             ),
             idempotent: true,
         ),
-    }
+        "switch_default_image": (
+            doc: "Prefer a specific image slot for one or many boots",
+            args: {
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply : Result(
+                ok: "()",
+                err: CLike("UpdateError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+    },
 )

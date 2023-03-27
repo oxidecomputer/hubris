@@ -11,6 +11,8 @@ ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 drv-lpc55-flash.path = "../lpc55-flash"
+drv-lpc55-sha256.path = "../lpc55-sha256"
+drv-lpc55-syscon-api.path = "../lpc55-syscon-api"
 
 cfg-if = { workspace = true }
 hubpack = { workspace = true }

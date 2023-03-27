@@ -65,56 +65,6 @@ const WORDS_PER_HASH: usize = 256 / 32; // which is to say, 8
 // It's also convenient to have one as Wrapping u64:
 const WORDS_PER_BLOCK64: Wrapping<u64> = Wrapping(WORDS_PER_BLOCK as u64);
 
-/// Computes an HMAC-SHA256, a kind of keyed hash, over `data` using `key`.
-///
-/// The `key` is fixed at 256 bits, and both `key` and `data` must consist of a
-/// whole number of 32-bit words. See the module docs for more information about
-/// these limitations.
-///
-/// HMAC is specified in RFC 2104.
-///
-/// `notification_mask` is the notification mask corresponding to the HASHCRYPT
-/// IRQ in your task. If you'd rather busywait, pass 0.
-#[inline(never)]
-pub fn hmac(
-    engine: &lpc55_pac::HASHCRYPT,
-    notification_mask: u32,
-    key: &[u32; WORDS_PER_HASH],
-    data: &[u32],
-) -> [u32; WORDS_PER_HASH] {
-    // We assume that the key is 8 words, i.e. 256 bits. This is smaller than
-    // the SHA256 block size of 512 bits. HMAC specifies that if the key is
-    // smaller than a block size, we must pad it with zeros. So, we'll feed in
-    // the key, followed by some zeros, each time.
-
-    // HMAC has us whiten the key in two different ways for the two hash phases,
-    // inner and outer. The two differ in the value that gets XOR'd in. Those
-    // constants are called ipad and opad, respectively, in the RFC.
-    const IPAD: u32 = 0x36363636;
-    const OPAD: u32 = 0x5c5c5c5c;
-    let zeros = [0; WORDS_PER_BLOCK - WORDS_PER_HASH];
-
-    // Compute the inner result: H((k ^ ipad) || data)
-    let inner_hash = {
-        let mut h = Hasher::begin(engine, notification_mask);
-        h.update(key, IPAD);
-        h.update(&zeros, IPAD);
-        h.update(data, 0);
-        h.finish()
-    };
-
-    // Compute the outer result: H((k ^ opad) || inner)
-    let outer_result = {
-        let mut h = Hasher::begin(engine, notification_mask);
-        h.update(key, OPAD);
-        h.update(&zeros, OPAD);
-        h.update(&inner_hash, 0);
-        h.finish()
-    };
-
-    outer_result
-}
-
 /// State we maintain for an ongoing hash operation.
 pub struct Hasher<'a> {
     engine: &'a lpc55_pac::hashcrypt::RegisterBlock,
@@ -178,7 +128,7 @@ impl<'a> Hasher<'a> {
     /// `data` may cross block boundaries, be a partial block, etc. It will be
     /// concatenated with the `data` passed to any other `update` call.
     ///
-    /// In most cases you want a `mask` of 0, the parameter is provided because
+    /// In most cases you want a `mask` of 0; the parameter is provided because
     /// it's useful in certain HMAC operations and using the same routine for
     /// both cases saves some space.
     #[inline(never)]
@@ -194,7 +144,7 @@ impl<'a> Hasher<'a> {
     /// reset after calling this, to avoid leaking data about
     /// whatever-it-was-you-were-just-doing. Or don't; we're not the cops.
     #[inline(never)]
-    pub fn finish(mut self) -> [u32; 8] {
+    pub fn finish(mut self) -> [u32; WORDS_PER_HASH] {
         // The SHA-256 hardware works in units of 16 words / 64 bytes / 512
         // bits, called blocks. After the actual `data` goes into the hardware,
         // we have to finish it off with something called Merkle-Damgård (MD)
@@ -265,8 +215,8 @@ impl<'a> Hasher<'a> {
         // The result arrives in registers called digest0..digest7, which the
         // PAC calls digest0[0] .. digest0[7] for some reason.
         let mut result = [0; WORDS_PER_HASH];
-        for (i, dest) in result.iter_mut().enumerate() {
-            *dest = self.engine.digest0[i].read().bits().swap_bytes();
+        for (dest, reg) in result.iter_mut().zip(&self.engine.digest0) {
+            *dest = reg.read().bits().swap_bytes();
         }
 
         result

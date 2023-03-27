@@ -14,7 +14,10 @@ use drv_caboose::{CabooseError, CabooseReader};
 use drv_update_api::stm32h7::{
     BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
-use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    ImageVersion, SlotId, SwitchDuration, UpdateError, UpdateStatus,
+    UpdateTarget,
+};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -521,6 +524,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
         Ok(chunk.len() as u32)
     }
+
+    fn switch_default_image(
+        &mut self,
+        _: &userlib::RecvMessage,
+        _slot: SlotId,
+        _duration: SwitchDuration,
+    ) -> Result<(), RequestError<UpdateError>> {
+        Err(UpdateError::Unknown.into())
+    }
 }
 
 #[export_name = "main"]
@@ -543,6 +555,7 @@ mod idl {
     use super::{
         CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
     };
+    use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

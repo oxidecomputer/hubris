@@ -13,10 +13,13 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseError;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
-use drv_update_api::{UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    SlotId, SwitchDuration, UpdateError, UpdateStatus, UpdateTarget,
+};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
+use zerocopy::AsBytes;
 
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
@@ -41,10 +44,14 @@ enum UpdateState {
     Finished,
 }
 
-struct ServerImpl {
+struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
     image: Option<UpdateTarget>,
+
+    flash: drv_lpc55_flash::Flash<'a>,
+    hashcrypt: &'a lpc55_pac::hashcrypt::RegisterBlock,
+    syscon: drv_lpc55_syscon_api::Syscon,
 }
 
 // TODO: This is the size of the vector table on the LPC55. We should
@@ -57,7 +64,7 @@ const BLOCK_SIZE_BYTES: usize = BYTES_PER_FLASH_PAGE;
 const MAX_LEASE: usize = 1024;
 const HEADER_BLOCK: usize = 0;
 
-impl idl::InOrderUpdateImpl for ServerImpl {
+impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
         &mut self,
         _: &RecvMessage,
@@ -152,7 +159,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
             flash_page[len..].fill(0);
         }
 
-        do_block_write(target, block_num, &mut flash_page)?;
+        do_block_write(&mut self.flash, target, block_num, &flash_page)?;
 
         Ok(())
     }
@@ -176,9 +183,10 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         }
 
         do_block_write(
+            &mut self.flash,
             self.image.unwrap_lite(),
             HEADER_BLOCK,
-            self.header_block.as_mut().unwrap_lite(),
+            self.header_block.as_ref().unwrap_lite(),
         )?;
 
         self.state = UpdateState::Finished;
@@ -226,6 +234,208 @@ impl idl::InOrderUpdateImpl for ServerImpl {
     ) -> Result<u32, RequestError<CabooseError>> {
         Err(CabooseError::MissingCaboose.into()) // TODO
     }
+
+    fn switch_default_image(
+        &mut self,
+        _: &userlib::RecvMessage,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), RequestError<UpdateError>> {
+        match duration {
+            SwitchDuration::Once => {
+                // TODO deposit command token into buffer
+                return Err(UpdateError::Unknown.into());
+            }
+            SwitchDuration::Forever => {
+                // There are two "official" copies of the CFPA, referred to as
+                // ping and pong. One of them will supercede the other, based on
+                // a monotonic version field at offset 4. We'll take the
+                // contents of whichever one is most recent, alter them, and
+                // then write them into the _third_ copy, called the scratch
+                // page.
+                //
+                // At reset, the boot ROM will inspect the scratch page, check
+                // invariants, and copy it to overwrite the older of the ping
+                // and pong pages if it approves.
+                //
+                // That means you can apply this operation several times before
+                // resetting without burning many monotonic versions, if you
+                // want to do that for some reason.
+                //
+                // The addresses of these pages are as follows (see Figure 13,
+                // "Protected Flash Region," in UM11126 rev 2.4, or the NXP
+                // flash layout spreadsheet):
+                //
+                // Page     Addr        16-byte word number
+                // Scratch  0x9_DE00    0x9DE0
+                // Ping     0x9_E000    0x9E00
+                // Pong     0x9_E200    0x9E20
+
+                let cfpa_word_number = {
+                    // Read the two versions. We do this with smaller buffers so
+                    // we don't need 2x 512B buffers to read the entire CFPAs.
+                    let mut ping_header = [0u32; 4];
+                    let mut pong_header = [0u32; 4];
+
+                    indirect_flash_read(
+                        &mut self.flash,
+                        0x9E00,
+                        core::slice::from_mut(&mut ping_header),
+                    )?;
+                    indirect_flash_read(
+                        &mut self.flash,
+                        0x9E20,
+                        core::slice::from_mut(&mut pong_header),
+                    )?;
+
+                    // Work out where to read the authoritative contents from.
+                    if ping_header[1] >= pong_header[1] {
+                        0x9E00
+                    } else {
+                        0x9E20
+                    }
+                };
+
+                // Read current CFPA contents.
+                let mut cfpa = [[0u32; 4]; 512 / 16];
+                indirect_flash_read(
+                    &mut self.flash,
+                    cfpa_word_number,
+                    &mut cfpa,
+                )?;
+
+                // Increment the monotonic version. The manual doesn't specify
+                // how the version numbers are compared or what happens if they
+                // wrap, so, we'll treat wrapping as an error and report it for
+                // now. (Note that getting this version to wrap _should_ require
+                // more write cycles than the flash can take.)
+                let new_version =
+                    cfpa[0][1].checked_add(1).ok_or(UpdateError::SecureErr)?;
+                cfpa[0][1] = new_version;
+                // Alter the boot setting. The boot setting (per RFD 374) is in
+                // the lowest bit of the 32-bit word starting at (byte) offset
+                // 0x100. This is flash word offset 0x10.
+                //
+                // Leave remaining bits undisturbed; they are currently
+                // reserved.
+                cfpa[0x10][0] &= !1;
+                cfpa[0x10][0] |= if slot == SlotId::A { 0 } else { 1 };
+                // The last two flash words are a SHA256 hash of the preceding
+                // data. This means we need to compute a SHA256 hash of the
+                // preceding data -- meaning flash words 0 thru 29 inclusive.
+                let cfpa_hash = {
+                    // We leave the hashcrypt unit in reset when unused,
+                    // starting in the `main` function, so we only need to bring
+                    // it _out of_ reset here.
+                    self.syscon
+                        .leave_reset(drv_lpc55_syscon_api::Peripheral::HashAes);
+                    let mut h = drv_lpc55_sha256::Hasher::begin(
+                        self.hashcrypt,
+                        notifications::HASHCRYPT_IRQ_MASK,
+                    );
+                    for chunk in &cfpa[..30] {
+                        h.update(chunk, 0);
+                    }
+                    let hash = h.finish();
+
+                    // Put it back.
+                    self.syscon
+                        .enter_reset(drv_lpc55_syscon_api::Peripheral::HashAes);
+
+                    hash
+                };
+                cfpa[30] = cfpa_hash[..4].try_into().unwrap_lite();
+                cfpa[31] = cfpa_hash[4..].try_into().unwrap_lite();
+
+                // Recast that as a page-sized byte array because that's what
+                // the update side of the machinery wants. The try_into on the
+                // second line can't fail at runtime, but there's no good
+                // support for casting between fixed-size arrays in zerocopy
+                // yet.
+                let cfpa_bytes: &[u8] = cfpa.as_bytes();
+                let cfpa_bytes: &[u8; BLOCK_SIZE_BYTES] =
+                    cfpa_bytes.try_into().unwrap_lite();
+
+                // Erase and program the scratch page. Note that because the
+                // scratch page is _not_ the authoritative copy, and because the
+                // ROM will check its contents before making it authoritative,
+                // we can fail during this operation without corrupting anything
+                // permanent. Yay!
+                //
+                // Note that the page write machinery uses page numbers. This
+                // should probably change. But, for now, we must divide our word
+                // number by 32.
+                do_raw_page_write(&mut self.flash, 0x9DE0 / 32, &cfpa_bytes)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Reads an arbitrary contiguous set of flash words from flash, indirectly,
+/// using the flash controller interface. This allows access to sections of
+/// flash that are not direct-mapped into our task's memory, saving MPU regions.
+///
+/// `flash_word_number` is (as its name suggests) a _word number,_ a 0-based
+/// index of a 16-byte word within flash where reading should begin.
+///
+/// `output` implies the length to read.
+///
+/// The main way this can fail is by ECC error; currently, if this occurs, no
+/// feedback is provided as to _where_ in the region the error occurred. We may
+/// wish to fix this.
+///
+/// This API produces flash words in the form of `[u32; 4]`, because that's how
+/// the hardware produces them. Elements of the array are in ascending address
+/// order when the flash is viewed as bytes. The easiest way to view the
+/// corresponding block of 16 bytes is using `zerocopy::AsBytes` to reinterpret
+/// the array in place.
+fn indirect_flash_read(
+    flash: &mut drv_lpc55_flash::Flash<'_>,
+    flash_word_number: u32,
+    output: &mut [[u32; 4]],
+) -> Result<(), UpdateError> {
+    use drv_lpc55_flash::ReadError;
+
+    for (wn, dest) in (flash_word_number..).zip(output) {
+        flash.start_read(wn);
+        loop {
+            // Reading is relatively fast; this loop will most likely not sleep,
+            // most of the time.
+            if let Some(result) = flash.poll_read_result() {
+                match result {
+                    Ok(data) => {
+                        *dest = data;
+                        break;
+                    }
+                    Err(ReadError::IllegalOperation) => {
+                        return Err(UpdateError::Unknown);
+                    }
+                    Err(ReadError::Ecc) => {
+                        return Err(UpdateError::EccDoubleErr);
+                    }
+                    Err(ReadError::Fail) => {
+                        return Err(UpdateError::Unknown);
+                    }
+                }
+            }
+
+            // But just in case it needs to:
+
+            flash.enable_interrupt_sources();
+            sys_irq_control(notifications::FLASH_IRQ_MASK, true);
+            // RECV from the kernel cannot produce an error, so ignore it.
+            let _ = sys_recv_closed(
+                &mut [],
+                notifications::FLASH_IRQ_MASK,
+                TaskId::KERNEL,
+            );
+            flash.disable_interrupt_sources();
+        }
+    }
+
+    Ok(())
 }
 
 // Perform some sanity checking on the header block.
@@ -280,16 +490,14 @@ fn validate_header_block(
 /// Performs an erase-write sequence to a single page within a given target
 /// image.
 fn do_block_write(
+    flash: &mut drv_lpc55_flash::Flash<'_>,
     img: UpdateTarget,
     block_num: usize,
-    flash_page: &mut [u8; BLOCK_SIZE_BYTES],
+    flash_page: &[u8; BLOCK_SIZE_BYTES],
 ) -> Result<(), UpdateError> {
     // The update.idol definition uses usize; our hardware uses u32; convert
     // here so we don't have to cast everywhere.
     let page_num = block_num as u32;
-
-    let flash = unsafe { &*lpc55_pac::FLASH::ptr() };
-    let mut flash = drv_lpc55_flash::Flash::new(flash);
 
     // Can only update opposite image
     if same_image(img) {
@@ -301,29 +509,43 @@ fn do_block_write(
         None => return Err(UpdateError::OutOfBounds),
     };
 
-    // Step one: erase the page.
+    // write_addr is a byte address; convert it back to a page number, but this
+    // time, an absolute page number in the flash device.
+    let page_num = write_addr / BYTES_PER_FLASH_PAGE as u32;
 
-    // write_addr is a byte address; page_num is a page index; but the actual
-    // erase machinery operates in terms of flash words. A flash word is 16
-    // bytes in length. So, we need to convert.
-    //
-    // Note that the range used here is _inclusive._
-    //
-    // We wind up needing this in u32 form a lot, so let's cast once and reuse.
-    const WORDSZ: u32 = BYTES_PER_FLASH_WORD as u32;
+    do_raw_page_write(flash, page_num, flash_page)
+}
+
+/// Performs an erase-write sequence to a single page within the raw flash
+/// device. This function is capable of writing outside of any image slot, which
+/// is important for doing CFPA updates. If you're writing to an image slot, use
+/// `do_block_write`.
+fn do_raw_page_write(
+    flash: &mut drv_lpc55_flash::Flash<'_>,
+    page_num: u32,
+    flash_page: &[u8; BYTES_PER_FLASH_PAGE],
+) -> Result<(), UpdateError> {
+    // We regularly need the number of flash words per flash page below, and
+    // specifically as a u32, so:
     static_assertions::const_assert_eq!(
-        BLOCK_SIZE_BYTES % BYTES_PER_FLASH_WORD,
+        BYTES_PER_FLASH_PAGE % BYTES_PER_FLASH_WORD,
         0
     );
+    const WORDS_PER_PAGE: u32 =
+        (BYTES_PER_FLASH_PAGE / BYTES_PER_FLASH_WORD) as u32;
 
-    flash.start_erase_range(
-        write_addr / WORDSZ
-            ..=(write_addr + BLOCK_SIZE_BYTES as u32 - 1) / WORDSZ,
-    );
-    wait_for_erase_or_program(&mut flash)?;
+    // The hardware operates in terms of word numbers, never page numbers.
+    // Convert the page number to the number of the first word in that page.
+    // (This is equivalent to multiplying by 32 but named constants are nice.)
+    let word_num = page_num * WORDS_PER_PAGE;
 
-    // Transfer each 16-byte flash word (page row) into the write registers in
-    // the flash controller.
+    // Step one: erase the page. Note that this range is INCLUSIVE. The hardware
+    // will happily erase multiple pages if you let it. We don't want that here.
+    flash.start_erase_range(word_num..=word_num + (WORDS_PER_PAGE - 1));
+    wait_for_erase_or_program(flash)?;
+
+    // Step two: Transfer each 16-byte flash word (page row) into the write
+    // registers in the flash controller.
     for (i, row) in flash_page.chunks_exact(BYTES_PER_FLASH_WORD).enumerate() {
         // TODO: this will be unnecessary if array_chunks stabilizes
         let row: &[u8; BYTES_PER_FLASH_WORD] = row.try_into().unwrap_lite();
@@ -334,10 +556,11 @@ fn do_block_write(
         }
     }
 
-    // Now, program the whole page into non-volatile storage. This again uses
-    // page indices, requiring a divide-by-16.
-    flash.start_program(write_addr / WORDSZ);
-    wait_for_erase_or_program(&mut flash)?;
+    // Step three: program the whole page into non-volatile storage by naming
+    // the first word in the target page. (Any word in the page will do,
+    // actually, but we've conveniently got the first word available.)
+    flash.start_program(word_num);
+    wait_for_erase_or_program(flash)?;
 
     Ok(())
 }
@@ -345,7 +568,7 @@ fn do_block_write(
 /// Utility function that does an interrupt-driven poll and sleep while the
 /// flash controller finishes a write or erase.
 fn wait_for_erase_or_program(
-    flash: &mut drv_lpc55_flash::Flash,
+    flash: &mut drv_lpc55_flash::Flash<'_>,
 ) -> Result<(), UpdateError> {
     loop {
         if let Some(result) = flash.poll_erase_or_program_result() {
@@ -414,12 +637,24 @@ fn target_addr(image_target: UpdateTarget, page_num: u32) -> Option<u32> {
     Some(addr)
 }
 
+task_slot!(SYSCON, syscon);
+
 #[export_name = "main"]
 fn main() -> ! {
+    let syscon = drv_lpc55_syscon_api::Syscon::from(SYSCON.get_task_id());
+
+    // Go ahead and put the HASHCRYPT unit into reset.
+    syscon.enter_reset(drv_lpc55_syscon_api::Peripheral::HashAes);
     let mut server = ServerImpl {
         header_block: None,
         state: UpdateState::NoUpdate,
         image: None,
+
+        flash: drv_lpc55_flash::Flash::new(unsafe {
+            &*lpc55_pac::FLASH::ptr()
+        }),
+        hashcrypt: unsafe { &*lpc55_pac::HASHCRYPT::ptr() },
+        syscon,
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
 
@@ -434,6 +669,7 @@ mod idl {
     use super::{
         CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
     };
+    use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
