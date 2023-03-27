@@ -33,7 +33,10 @@ task_slot!(PACKRAT, packrat);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[cfg_attr(target_board = "gimlet-b", path = "payload_b.rs")]
-#[cfg_attr(target_board = "gimlet-c", path = "payload_c.rs")]
+#[cfg_attr(
+    any(target_board = "gimlet-c", target_board = "gimlet-d"),
+    path = "payload_cd.rs"
+)]
 mod payload;
 
 #[derive(Copy, Clone, PartialEq)]

@@ -116,6 +116,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(
             target_board = "gimlet-b",
             target_board = "gimlet-c",
+            target_board = "gimlet-d",
             target_board = "sidecar-b",
             target_board = "sidecar-c",
             target_board = "psc-a",
