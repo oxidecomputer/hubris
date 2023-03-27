@@ -2580,6 +2580,8 @@ dependencies = [
  "cfg-if",
  "drv-caboose",
  "drv-lpc55-flash",
+ "drv-lpc55-sha256",
+ "drv-lpc55-syscon-api",
  "drv-update-api",
  "hubpack",
  "idol",

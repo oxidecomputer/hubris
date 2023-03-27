@@ -95,6 +95,31 @@ impl hubpack::SerializedSize for UpdateError {
     const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
 }
 
+/// When booting into an alternate image, specifies how "sticky" that decision
+/// is.
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+pub enum SwitchDuration {
+    /// Choice applies once. Resetting the processor will return to the original
+    /// image. Useful when provisionally testing an update, but only available
+    /// on certain implementations.
+    Once,
+    /// Choice is permanent until changed. This is more dangerous, but is also
+    /// universally available.
+    Forever,
+}
+
+/// Designates a firmware image slot in parts that have fixed slots (rather than
+/// bank remapping).
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+pub enum SlotId {
+    A,
+    B,
+}
+
 pub mod stm32h7 {
     // RM0433 Rev 7 section 4.3.9
     // Flash word is defined as 256 bits
