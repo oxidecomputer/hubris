@@ -60,15 +60,6 @@ impl idl::InOrderCabooseImpl for ServerImpl {
             .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
         Ok(chunk.len() as u32)
     }
-
-    fn get_key_by_u32(
-        &mut self,
-        msg: &userlib::RecvMessage,
-        tag: u32,
-        data: Leased<W, [u8]>,
-    ) -> Result<u32, RequestError<CabooseError>> {
-        self.get_key_by_tag(msg, tag.to_le_bytes(), data)
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

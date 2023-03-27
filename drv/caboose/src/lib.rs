@@ -17,6 +17,7 @@ pub enum CabooseError {
     TlvcReadExactFailed,
     NoSuchTag,
     BadChecksum,
+    NoImageHeader,
 }
 
 /// Simple handle which points to the beginning of the TLV-C region of the

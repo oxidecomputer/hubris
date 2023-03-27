@@ -4,18 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = { workspace = true }
-serde = { workspace = true }
-vsc7448-pac = { workspace = true }
+cfg-if.workspace = true
+hubpack.workspace = true
+serde.workspace = true
+vsc7448-pac.workspace = true
 
-drv-spi-api = { path = "../../drv/spi-api" }
-ringbuf = { path = "../../lib/ringbuf"  }
-userlib = { path = "../../sys/userlib"  }
-vsc-err = { path = "../vsc-err" }
-vsc85xx = { path = "../vsc85xx" }
+drv-spi-api.path = "../../drv/spi-api"
+ringbuf.path = "../../lib/ringbuf"
+userlib.path = "../../sys/userlib"
+vsc-err.path = "../vsc-err"
+vsc85xx.path = "../vsc85xx"
 
 [build-dependencies]
-build-util = { path = "../../build/util" }
+build-util.path = "../../build/util"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

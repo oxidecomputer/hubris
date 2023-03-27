@@ -431,16 +431,6 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             .get_blob_by_tag(active_slot, tag)
             .map_err(RequestError::from)
     }
-
-    fn get_blob_by_u32(
-        &mut self,
-        msg: &RecvMessage,
-        tag: u32,
-    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
-        // This is so that we can call this function from `humility hiffy`,
-        // which doesn't know how to send arrays as arguments.
-        self.get_blob_by_tag(msg, tag.to_be_bytes())
-    }
 }
 
 fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
