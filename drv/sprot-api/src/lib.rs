@@ -137,9 +137,6 @@ pub enum SprotError {
 
     #[idol(server_death)]
     ServerRestarted,
-
-    /// Unknown Errors are mapped to 0xff
-    Unknown = 0xff,
 }
 
 impl From<SpiError> for SprotError {
@@ -179,17 +176,10 @@ impl From<UpdateError> for SprotError {
                 SprotError::UpdateInvalidHeaderBlock
             }
             UpdateError::ServerRestarted => SprotError::UpdateServerRestarted,
-            UpdateError::Unknown
-            | UpdateError::ImageBoardMismatch // TODO add new error codes here
+            UpdateError::ImageBoardMismatch // TODO add new error codes here
             | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
             UpdateError::NotImplemented => SprotError::NotImplemented,
         }
-    }
-}
-
-impl From<u8> for SprotError {
-    fn from(byte: u8) -> SprotError {
-        Self::from_u8(byte).unwrap_or(SprotError::Unknown)
     }
 }
 

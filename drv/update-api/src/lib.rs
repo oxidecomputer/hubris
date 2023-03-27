@@ -95,8 +95,6 @@ pub enum UpdateError {
     ImageBoardUnknown = 24,
 
     NotImplemented = 25,
-
-    Unknown = 0xff, // XXX With Hubpack encoding, inserting a new code above this will change the deserializer's notion of Unknown.
 }
 
 impl hubpack::SerializedSize for UpdateError {
