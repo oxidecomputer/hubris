@@ -51,6 +51,14 @@ task-slots = ["sys"]
 "i2c4.event" = "i2c4-irq"
 "i2c4.error" = "i2c4-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 2
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -115,7 +123,7 @@ priority = 3
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
-task-slots = ["net"]
+task-slots = ["net", "packrat"]
 notifications = ["socket"]
 
 [tasks.udprpc]
