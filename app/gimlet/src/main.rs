@@ -111,7 +111,7 @@ fn system_init() {
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-a")] {
-            let expected_rev = 0b111;
+            compile_error!("gimlet-a is deprecated and no image for it exists");
         } else if #[cfg(target_board = "gimlet-b")] {
             let expected_rev = 0b001;
         } else if #[cfg(target_board = "gimlet-c")] {

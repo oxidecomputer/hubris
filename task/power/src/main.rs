@@ -330,7 +330,11 @@ macro_rules! mwocp68_controller {
     };
 }
 
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d"
+))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
     rail_controller!(Core, raa229618, vdd_vcore, A0),
@@ -398,7 +402,11 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 1] = [
     ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
 ];
 
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d"
+))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 
@@ -472,6 +480,7 @@ fn get_state() -> PowerState {
 #[cfg(any(
     target_board = "gimlet-b",
     target_board = "gimlet-c",
+    target_board = "gimlet-d",
     target_board = "sidecar-b",
     target_board = "sidecar-c",
     target_board = "gimletlet-2",

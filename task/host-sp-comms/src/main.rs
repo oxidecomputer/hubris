@@ -1092,9 +1092,9 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
 
 cfg_if::cfg_if! {
     if #[cfg(any(
-        target_board = "gimlet-a",
         target_board = "gimlet-b",
         target_board = "gimlet-c",
+        target_board = "gimlet-d",
     ))] {
         const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
     } else if #[cfg(target_board = "gimletlet-2")] {
