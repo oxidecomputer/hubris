@@ -47,6 +47,11 @@ pub struct I2cPin {
     pub function: sys_api::Alternate,
 }
 
+/// Single GPIO pin, which is never dynamically remapped
+pub struct I2cGpio {
+    pub gpio_pins: sys_api::PinSet,
+}
+
 pub struct I2cController<'a> {
     pub controller: drv_i2c_api::Controller,
     pub peripheral: sys_api::Peripheral,
@@ -108,7 +113,13 @@ pub struct I2cMux<'a> {
     pub port: drv_i2c_api::PortIndex,
     pub id: drv_i2c_api::Mux,
     pub driver: &'a dyn I2cMuxDriver,
-    pub enable: Option<I2cPin>,
+
+    /// Optional enable / reset line
+    ///
+    /// When this is high, the chip is enabled; when it is low, the chip is held
+    /// in reset. On the LTC4306, this is an active-high ENABLE; on the PCA954x,
+    /// it's an active-low RESET.
+    pub nreset: Option<I2cGpio>,
     pub address: u8,
 }
 
@@ -176,7 +187,7 @@ impl I2cMux<'_> {
         &self,
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        if let Some(pin) = &self.enable {
+        if let Some(pin) = &self.nreset {
             // Set the pins to high _before_ switching to output to avoid
             // glitching.
             sys.gpio_set(pin.gpio_pins);
@@ -196,7 +207,7 @@ impl I2cMux<'_> {
         &self,
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        if let Some(pin) = &self.enable {
+        if let Some(pin) = &self.nreset {
             sys.gpio_reset(pin.gpio_pins);
             sys.gpio_set(pin.gpio_pins);
         }
