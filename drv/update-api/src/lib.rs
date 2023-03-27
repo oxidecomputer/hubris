@@ -101,6 +101,7 @@ impl hubpack::SerializedSize for UpdateError {
     const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
 }
 
+/// Request component to reset and optionally modify boot image selection policy.
 #[repr(u8)]
 #[derive(
     Eq,
@@ -114,10 +115,15 @@ impl hubpack::SerializedSize for UpdateError {
     SerializedSize,
 )]
 pub enum ResetIntent {
+    /// Just reset the component
     Normal = 1,
+    /// The firmware image specified elsewhere in the message
+    /// should be set as the persistently preferred image.
     Persistent,
+    /// The firmware image specified elsewhere in the message
+    /// should be set as the preferred image for this reset only.
+    /// A transient preference overrides any persistent preference.
     Transient,
-    ExpensiveAndIrrevocableProdToDev = 86,
 }
 
 impl From<gateway_messages::ResetIntent> for crate::ResetIntent {
