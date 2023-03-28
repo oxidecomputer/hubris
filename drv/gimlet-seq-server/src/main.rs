@@ -348,6 +348,10 @@ fn main() -> ! {
     // After declaring A2 but before transitioning to A0 (either automatically o
     // or in response to an IPC), populate packrat with EEPROM contents for use
     // by the SPD task.
+    //
+    // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
+    // sending the first SPD command.
+    hl::sleep_for(10);
     read_spd_data_and_load_packrat(&packrat, I2C.get_task_id());
 
     // Turn on the chassis LED once we reach A2
