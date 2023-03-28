@@ -189,8 +189,6 @@ impl Handler {
                             .reset_component(intent, target)
                             .map(|_| None)
                             .map_err(|e| e.into());
-                        // TODO: Some sort of error if we didn't reset.
-
                         tx_buf.serialize(MsgType::UpdResetComponentRsp, rsp)
                     }
                     Err(e) => Err((tx_buf, e.into())),

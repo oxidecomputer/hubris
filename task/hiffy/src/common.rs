@@ -741,28 +741,7 @@ pub(crate) fn sprot_reset_component(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    if stack.len() < 3 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let fp = stack.len() - 3;
-    let intent: drv_update_api::ResetIntent = match stack[fp + 0] {
-        // Some(intent) => match drv_update_api::ResetIntent::try_from(intent as u8) {
-        Some(intent) => {
-            match drv_update_api::ResetIntent::from_u8(intent as u8) {
-                Some(intent) => intent,
-                None => return Err(Failure::Fault(Fault::BadParameter(0))),
-            }
-        }
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-    let target: drv_update_api::UpdateTarget = match stack[fp + 1] {
-        Some(target) => match drv_update_api::UpdateTarget::from_u32(target) {
-            Some(target) => target,
-            None => return Err(Failure::Fault(Fault::BadParameter(1))),
-        },
-        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
-    };
-
+    let (intent, target) = reset_component_args(stack)?;
     func_err(
         drv_sprot_api::SpRot::from(SPROT.get_task_id())
             .reset_component(intent, target),
@@ -1247,16 +1226,14 @@ pub(crate) fn block_size(
     Ok(4)
 }
 
-#[cfg(feature = "update")]
-pub(crate) fn reset_component(
+#[cfg(any(feature = "sprot", feature = "update"))]
+fn reset_component_args(
     stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.len() < 3 {
+    ) -> Result<(drv_update_api::ResetIntent, drv_update_api::UpdateTarget), Failure> {
+    if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
-    let fp = stack.len() - 3;
+    let fp = stack.len() - 2;
     let intent: drv_update_api::ResetIntent = match stack[fp + 0] {
         Some(intent) => {
             match drv_update_api::ResetIntent::from_u8(intent as u8) {
@@ -1273,6 +1250,17 @@ pub(crate) fn reset_component(
         },
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
+    Ok((intent, target))
+}
+
+#[cfg(feature = "update")]
+pub(crate) fn reset_component(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (intent, target) = reset_component_args(stack)?;
+
     func_err(
         drv_update_api::Update::from(UPDATE.get_task_id())
             .reset_component(intent, target),
