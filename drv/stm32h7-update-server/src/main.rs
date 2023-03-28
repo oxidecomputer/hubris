@@ -16,7 +16,6 @@ use drv_update_api::stm32h7::{
 };
 use drv_update_api::{
     ImageVersion, ResetIntent, UpdateError, UpdateStatus, UpdateTarget,
-    AUTH_MAX_SZ,
 };
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
@@ -532,8 +531,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
         intent: ResetIntent,
         _target: UpdateTarget,
-        auth_len: u16,
-        _auth: LenLimit<Leased<R, [u8]>, AUTH_MAX_SZ>,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::NoUpdate => (),
@@ -541,11 +538,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::UpdateInProgress.into())
             }
             UpdateState::Finished => (),
-        }
-
-        let auth_len = auth_len as usize;
-        if auth_len > 0 {
-            return Err(UpdateError::NotImplemented.into());
         }
 
         match intent {

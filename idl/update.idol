@@ -92,10 +92,6 @@ Interface(
                     type: "UpdateTarget",
                     recv: FromPrimitive("u8"),
                 },
-                "auth_len": "u16"
-            },
-            leases : {
-                "auth": (type: "[u8]", read: true, max_len: Some(768)),
             },
             reply: Result (
                 ok: "()",

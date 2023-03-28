@@ -12,9 +12,7 @@
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseError;
-use drv_update_api::{
-    ResetIntent, UpdateError, UpdateStatus, UpdateTarget, AUTH_MAX_SZ,
-};
+use drv_update_api::{ResetIntent, UpdateError, UpdateStatus, UpdateTarget};
 use hypocalls::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
@@ -52,14 +50,15 @@ enum UpdateState {
     Finished,
 }
 
-// TODO: Cache the full stage0 image before flashing it.
+// Note that we could cache the full stage0 image before flashing it.
+// That would reduce our time window of having a partially written stage0.
 struct ServerImpl {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
     image: Option<UpdateTarget>,
 }
 
-// TODO: This is the size of the vector table on the LPC55. We should
+// This is the size of the vector table on the LPC55. We should
 // probably  get it from somewhere else directly.
 const MAGIC_OFFSET: usize = 0x130;
 const RESET_VECTOR_OFFSET: usize = 4;
@@ -247,13 +246,7 @@ impl idl::InOrderUpdateImpl for ServerImpl {
         _: &RecvMessage,
         intent: ResetIntent,
         _target: UpdateTarget,
-        auth_len: u16,
-        data: LenLimit<Leased<R, [u8]>, AUTH_MAX_SZ>,
     ) -> Result<(), RequestError<UpdateError>> {
-        let mut auth = [0u8; AUTH_MAX_SZ];
-        let auth_len = auth_len as usize;
-        data.read_range(0..auth_len, &mut auth[..auth_len])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         match self.state {
             UpdateState::NoUpdate => (),
             UpdateState::Finished => (),
@@ -284,7 +277,8 @@ impl idl::InOrderUpdateImpl for ServerImpl {
                 //
                 // If we are prefering ourselves, that's always ok.
                 // (is it?)
-                // TODO: Disallow prefering an image with a lower epoch.
+                // A policy is needed to disallow prefering an image with
+                // a lower epoch.
                 // We didn't allow overwriting ourselves.
                 // So we still know our own epoch and version without asking.
                 // The other bank may have been rewritten.
@@ -299,9 +293,6 @@ impl idl::InOrderUpdateImpl for ServerImpl {
                 // self.header_block = None;
                 Err(UpdateError::NotImplemented.into())
             }
-            ResetIntent::ExpensiveAndIrrevocableProdToDev => {
-                Err(UpdateError::NotImplemented.into())
-            }
         }
     }
 }
@@ -311,8 +302,8 @@ fn validate_header_block(
     target: UpdateTarget,
     block: &[u8; BLOCK_SIZE_BYTES],
 ) -> Result<(), UpdateError> {
-    // TODO: Do some actual checks for stage0. This will likely change
-    // with Cliff's bootloader.
+    // Some actual checks are needed for stage0.
+    // This will likely change with Cliff's bootloader.
     if target == UpdateTarget::Bootloader {
         return Ok(());
     }

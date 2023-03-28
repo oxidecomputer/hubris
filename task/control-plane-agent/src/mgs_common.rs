@@ -152,9 +152,6 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ResetPrepare));
         self.reset_component_requested = component;
         Ok(())
     }
@@ -165,10 +162,7 @@ impl MgsCommon {
         component: SpComponent,
         slot: Option<u16>,
         intent: ResetIntent,
-        auth_data: &[u8],
     ) -> Result<(), SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
         if self.reset_component_requested != component {
             return Err(SpError::ResetComponentTriggerWithoutPrepare);
         }
@@ -200,54 +194,38 @@ impl MgsCommon {
                 _ => return Err(SpError::RequestUnsupportedForComponent),
             }
         } else {
-            // TODO: This value is ignored when intent is Normal or Expensive*
+            // target ignored when intent is not Transient or Persistent.
             UpdateTarget::ImageA
         };
-        match update.sprot_task().reset_component(
-            intent.into(),
-            target,
-            auth_data.len() as u16,
-            auth_data,
-        ) {
+        match update.sprot_task().reset_component(intent.into(), target) {
             Err(SprotError::RspTimeout) => {
                 // This is the expected error if the reset was successful.
                 // It could be that the RoT is out-to-lunch for some other
                 // reason though.
                 // Things for upper layers to do:
-                // TODO: Check boot nonce to see if we are in a new session.
-                // TODO: Check that the expected image is now running.
-                // (Management plane should do that.)
-                // TODO: Enable staged updates where we don't automatically
-                // reset after writing an image.
+                //   - Check a boot nonce type thing to see if we are in a
+                //     new session.
+                //   - Check that the expected image is now running.
+                //     (Management plane should do that.)
+                //   - Enable staged updates where we don't automatically
+                //     reset after writing an image.
                 ringbuf_entry!(Log::RotReset {
                     err: SprotError::RspTimeout
                 });
+                Ok(())
             }
             Err(err) => {
                 // Some other error occurred.
-                // TODO: Update is all-or-nothing at the moment.
+                // Update is all-or-nothing at the moment.
                 // The control plane can try to reset the RoT again or it
                 // can start the update process all over again.  We should
                 // be able to make incremental progress if there is some
                 // bug/condition that is degrading SpRot communications.
                 ringbuf_entry!(Log::RotReset { err });
-                // TODO: send an error back. However, changes need to be
-                // made to the management plane for it to understand that
-                // the write was successful but the new image is not yet
-                // running.
+                Err(SpError::ComponentOperationFailed(err.into()))
             }
-            _ => {
-                // We cannot get here given the RoT's current
-                // implementation. It will either
-                // reset, forgetting about our request,
-                // or reject our request with an error.
-                // TODO: Similar to RoT's transient boot selection,
-                // we could leave a reminder to the next RoT session
-                // to send a response to the reset request.
-                panic!()
-            }
+            Ok(()) => Ok(()),
         }
-        Ok(())
     }
 }
 

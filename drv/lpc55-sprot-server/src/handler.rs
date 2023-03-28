@@ -181,17 +181,12 @@ impl Handler {
                 match hubpack::deserialize::<drv_sprot_api::ResetComponentHeader>(
                     rx_payload,
                 ) {
-                    Ok((header, auth_data)) => {
+                    Ok((header, _trailing_data)) => {
                         let intent = header.intent;
                         let target = header.target;
                         let rsp: UpdateRspHeader = self
                             .update
-                            .reset_component(
-                                intent,
-                                target,
-                                auth_data.len() as u16,
-                                &auth_data[..],
-                            )
+                            .reset_component(intent, target)
                             .map(|_| None)
                             .map_err(|e| e.into());
                         // TODO: Some sort of error if we didn't reset.
@@ -231,7 +226,7 @@ impl Handler {
             }
 
             // All of the unexpected messages
-            MsgType::Invalid
+            MsgType::_Invalid
             | MsgType::EchoRsp
             | MsgType::ErrorRsp
             | MsgType::SinkRsp

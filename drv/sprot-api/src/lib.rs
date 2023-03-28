@@ -21,7 +21,7 @@ use derive_idol_err::IdolError;
 use drv_spi_api::SpiError;
 pub use drv_update_api::{
     HandoffDataLoadError, ResetComponentHeader, ResetIntent, RotBootState,
-    UpdateError, UpdateTarget, AUTH_MAX_SZ,
+    UpdateError, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
@@ -33,12 +33,14 @@ use zerocopy::{ByteOrder, LittleEndian};
 
 /// The canonical SpRot protocol error returned by this API
 //
-// TODO: Audit that each MsgError is used and has some reasonable action.
+// Audit that each MsgError is used and has some reasonable action.
 // While a diverse set of error codes may be useful for debugging it
 // clutters code that just has to deal with the error.
 // then consider adding a function that translates an error code
 // into the desired action, e.g. InvalidCrc and FlowError should both
 // result in a retry on the SP side and an ErrorRsp on the RoT side.
+// Note: Variant order must be maintained to stay compatible due to SP/RoT
+// version skew during update.
 #[derive(
     Copy,
     Clone,
@@ -137,6 +139,9 @@ pub enum SprotError {
 
     #[idol(server_death)]
     ServerRestarted,
+
+    // Used if no explicit error code is available.
+    Unknown,
 }
 
 impl From<SpiError> for SprotError {
@@ -176,9 +181,10 @@ impl From<UpdateError> for SprotError {
                 SprotError::UpdateInvalidHeaderBlock
             }
             UpdateError::ServerRestarted => SprotError::UpdateServerRestarted,
-            UpdateError::ImageBoardMismatch // TODO add new error codes here
+            UpdateError::ImageBoardMismatch
             | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
             UpdateError::NotImplemented => SprotError::NotImplemented,
+            UpdateError::Unknown => SprotError::Unknown,
         }
     }
 }
@@ -235,8 +241,6 @@ pub struct SinkStatus {
 /// This is meant to be a forward compatible, insecure, informational
 /// structure used to facilitate manufacturing workflows and diagnosis
 /// of problems before trusted communications can be established.
-///
-/// TODO: Finalize this structure before first customer ship.
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct SprotStatus {
     /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
@@ -245,7 +249,7 @@ pub struct SprotStatus {
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
-    /// TODO: This should live in the stage0 handoff info
+    /// This should live in the stage0 handoff info.
     pub bootrom_crc32: u32,
 
     /// Maxiumum message size that the RoT can handle.
@@ -389,6 +393,20 @@ impl From<u8> for Protocol {
 // pub const VERSION_BUSY: u8 = 0xB2;
 
 /// SPI Message types will allow for multiplexing and forward compatibility.
+// The value of MsgType is seen on the wire.
+// The explicit value assignments are to aid lookup when debugging.
+//
+// The current on-the-wire format is:
+//
+//   {Protocol::V1, MsgType, Length, Payload, CRC}
+//
+// It has been suggested that the MsgType could be folded into the
+// hubpack encoded payload so the message would then be:
+//
+//   {Protocol::V2, Length, Payload{MsgType, msg-specific-payload}, CRC}
+//
+// In that case, hubpack would control the on-the-wire encoding of MsgType
+// and the explicit assignments below could be misleading.
 #[derive(
     Copy,
     Clone,
@@ -403,7 +421,7 @@ impl From<u8> for Protocol {
 #[repr(u8)]
 pub enum MsgType {
     /// A reserved value.
-    Invalid = 0,
+    _Invalid = 0,
     /// A response to a message that was not valid.
     ErrorRsp = 1,
     /// Request that the RoT send back the message payload in an EchoRsp
@@ -413,7 +431,6 @@ pub enum MsgType {
     /// Request RoT status.
     StatusReq = 4,
     /// Supply RoT status.
-    // TODO: decide on appropriate content for the StatusRsp message payload.
     StatusRsp = 5,
     /// Payload contains a sprockets request.
     SprocketsReq = 6,
@@ -449,41 +466,7 @@ pub enum MsgType {
     UpdResetComponentRsp = 25,
 
     // Reserved value.
-    Unknown = 0xff,
-}
-
-impl From<u8> for MsgType {
-    fn from(value: u8) -> MsgType {
-        match value {
-            0 => MsgType::Invalid,
-            1 => MsgType::ErrorRsp,
-            2 => MsgType::EchoReq,
-            3 => MsgType::EchoRsp,
-            4 => MsgType::StatusReq,
-            5 => MsgType::StatusRsp,
-            6 => MsgType::SprocketsReq,
-            7 => MsgType::SprocketsRsp,
-            8 => MsgType::SinkReq,
-            9 => MsgType::SinkRsp,
-            10 => MsgType::UpdBlockSizeReq,
-            11 => MsgType::UpdBlockSizeRsp,
-            12 => MsgType::UpdPrepImageUpdateReq,
-            13 => MsgType::UpdPrepImageUpdateRsp,
-            14 => MsgType::UpdWriteOneBlockReq,
-            15 => MsgType::UpdWriteOneBlockRsp,
-            16 => MsgType::UpdAbortUpdateReq,
-            17 => MsgType::UpdAbortUpdateRsp,
-            18 => MsgType::UpdFinishImageUpdateReq,
-            19 => MsgType::UpdFinishImageUpdateRsp,
-            20 => MsgType::IoStatsReq,
-            21 => MsgType::IoStatsRsp,
-            22 => MsgType::DumpReq,
-            23 => MsgType::DumpRsp,
-            24 => MsgType::UpdResetComponentReq,
-            25 => MsgType::UpdResetComponentRsp,
-            _ => MsgType::Unknown,
-        }
-    }
+    Unknown = 0x25,
 }
 
 /// A builder/serializer for messages that wraps the transmit buffer
@@ -603,31 +586,15 @@ impl<'a> TxMsg<'a> {
     }
 
     /// Serialize a reset component request
-    ///
-    /// There is an optional authorization blob.
     pub fn reset_component(
         mut self,
         intent: ResetIntent,
         target: UpdateTarget,
-        auth_len: u16,
-        auth: idol_runtime::LenLimit<
-            idol_runtime::Leased<idol_runtime::R, [u8]>,
-            AUTH_MAX_SZ,
-        >,
     ) -> Result<VerifiedTxMsg<'a>, SprotError> {
-        let n = hubpack::serialize(
+        let payload_len = hubpack::serialize(
             self.payload_mut(),
             &ResetComponentHeader { intent, target },
         )?;
-        let auth_len = auth_len as usize;
-        let payload_len = n + auth_len;
-        if auth_len > 0 {
-            auth.read_range(
-                0..auth_len,
-                &mut self.payload_mut()[n..payload_len],
-            )
-            .map_err(|_| SprotError::TaskRestart)?;
-        }
         self.from_existing(MsgType::UpdResetComponentReq, payload_len)
             .map_err(|(_, e)| e)
     }

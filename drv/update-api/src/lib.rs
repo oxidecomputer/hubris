@@ -11,12 +11,6 @@ use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
-// This is the maximum size for the authorization blob
-// for ResetComponent::IrrevocableAndExpensive
-// The size is somewhat arbitrary but would allow an RSA 4906 signature
-// plus other data. Presumably, something more efficient could be implemented.
-pub const AUTH_MAX_SZ: usize = 768;
-
 // Re-export
 pub use stage0_handoff::{
     HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
@@ -60,41 +54,45 @@ pub enum UpdateStatus {
 
 // These values are used as raw integers in the `State::Failed(UpdateError)`
 // variant.  To preserve compatibility, DO NOT REORDER THEM.
+// N.B These varients must be kept in order to maintain compatibility between
+// skewed versions of SP and RoT during updates.
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,
-    UpdateInProgress = 2,
-    OutOfBounds = 3,
-    Timeout = 4,
+    UpdateInProgress,
+    OutOfBounds,
+    Timeout,
     // Specific to STM32H7
-    EccDoubleErr = 5,
-    EccSingleErr = 6,
-    SecureErr = 7,   // If we get this something has gone very wrong
-    ReadProtErr = 8, // If we get this something has gone very wrong
-    WriteEraseErr = 9,
-    InconsistencyErr = 10,
-    StrobeErr = 11,
-    ProgSeqErr = 12,
-    WriteProtErr = 13,
-    BadImageType = 14,
-    UpdateAlreadyFinished = 15,
-    UpdateNotStarted = 16,
-    RunningImage = 17,
-    FlashError = 18,
-    MissingHeaderBlock = 19,
-    InvalidHeaderBlock = 20,
+    EccDoubleErr,
+    EccSingleErr,
+    SecureErr,   // If we get this something has gone very wrong
+    ReadProtErr, // If we get this something has gone very wrong
+    WriteEraseErr,
+    InconsistencyErr,
+    StrobeErr,
+    ProgSeqErr,
+    WriteProtErr,
+    BadImageType,
+    UpdateAlreadyFinished,
+    UpdateNotStarted,
+    RunningImage,
+    FlashError,
+    MissingHeaderBlock,
+    InvalidHeaderBlock,
     // Specific to RoT (LPC55)
-    SpRotError = 21,
+    SpRotError,
 
     #[idol(server_death)]
-    ServerRestarted = 22,
+    ServerRestarted,
 
     // Caboose checks
-    ImageBoardMismatch = 23,
-    ImageBoardUnknown = 24,
+    ImageBoardMismatch,
+    ImageBoardUnknown,
 
-    NotImplemented = 25,
+    NotImplemented,
+
+    Unknown, // In cases of version skew during updates
 }
 
 impl hubpack::SerializedSize for UpdateError {
@@ -132,9 +130,6 @@ impl From<gateway_messages::ResetIntent> for crate::ResetIntent {
             gateway_messages::ResetIntent::Normal => Self::Normal,
             gateway_messages::ResetIntent::Persistent => Self::Persistent,
             gateway_messages::ResetIntent::Transient => Self::Transient,
-            gateway_messages::ResetIntent::ExpensiveAndIrrevocableProdToDev => {
-                Self::ExpensiveAndIrrevocableProdToDev
-            }
         }
     }
 }

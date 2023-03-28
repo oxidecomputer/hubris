@@ -25,11 +25,12 @@
 //! is deasserted.
 //!
 //! ROT_IRQ is intended to be an edge triggered interrupt on the SP.
-//! TODO: ROT_IRQ is currently sampled by the SP.
+//!
+//! ROT_IRQ is currently sampled by the SP.
 //! ROT_IRQ is de-asserted only after CSn is deasserted.
 //!
-//! TODO: SP RESET needs to be monitored, otherwise, any
-//! forced looping here could be a denial of service attack against
+//! SP RESET is not currently monitored.
+//! Any forced looping here could be a denial of service attack against
 //! observation of SP resetting. SP resetting without invalidating
 //! security related state means a compromised SP could operate using
 //! the trust gained in the previous session.
@@ -78,7 +79,7 @@ fn configure_spi() -> Io {
     let gpio_driver = GPIO.get_task_id();
     setup_pins(gpio_driver).unwrap_lite();
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
-    // TODO: It should never happen but, initialization should be able to deal
+    // It should never happen but, initialization should be able to deal
     // with CSn being asserted at init time.
 
     // Configure ROT_IRQ
@@ -293,7 +294,7 @@ impl Io {
                 // potentially throttle sends in the future.
                 self.spi.rxerr_clear();
                 self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                // TODO: If we were just sending our response, and SP was
+                // If we were just sending our response, and SP was
                 // just sending zeros and we received the first byte
                 // correctly and that first byte was zero, then
                 // our Rx overrun is inconsequential and does not

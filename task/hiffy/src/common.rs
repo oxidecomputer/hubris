@@ -552,12 +552,14 @@ pub(crate) fn sprot_send_recv(
             &data[0..len],
             &mut *rval,
         ))?;
-    match drv_sprot_api::MsgType::from(result.msgtype) {
+    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
+        .ok_or(hif::Failure::FunctionError(1))?;
+    match msgtype {
         drv_sprot_api::MsgType::EchoRsp
         | drv_sprot_api::MsgType::StatusRsp
         | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
         _ => {
-            // TODO: Deliver a more useful error derived from the RoT response.
+            // There should be a more useful error derived from the RoT response.
             Err(hif::Failure::FunctionError(1))
         }
     }
@@ -596,12 +598,14 @@ pub(crate) fn sprot_send_recv_retries(
             &mut *rval,
         ),
     )?;
-    match drv_sprot_api::MsgType::from(result.msgtype) {
+    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
+        .ok_or(hif::Failure::FunctionError(1))?;
+    match msgtype {
         drv_sprot_api::MsgType::EchoRsp
         | drv_sprot_api::MsgType::StatusRsp
         | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
         _ => {
-            // TODO: Deliver a more useful error derived from the RoT response.
+            // There should be a more useful error derived from the RoT response.
             Err(hif::Failure::FunctionError(1))
         }
     }
@@ -734,7 +738,7 @@ pub(crate) fn sprot_block_size(
 #[cfg(feature = "sprot")]
 pub(crate) fn sprot_reset_component(
     stack: &[Option<u32>],
-    data: &[u8],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     if stack.len() < 3 {
@@ -758,25 +762,10 @@ pub(crate) fn sprot_reset_component(
         },
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
-    let auth_len: usize = match stack[fp + 2] {
-        Some(auth_len) => auth_len as usize,
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-
-    if auth_len > data.len().min(drv_update_api::AUTH_MAX_SZ) {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let mut auth_data = [0u8; drv_update_api::AUTH_MAX_SZ];
-    auth_data[..auth_len].copy_from_slice(&data[..auth_len]);
 
     func_err(
-        drv_sprot_api::SpRot::from(SPROT.get_task_id()).reset_component(
-            intent,
-            target,
-            (auth_len as u32).try_into().unwrap_lite(),
-            &auth_data[..],
-        ),
+        drv_sprot_api::SpRot::from(SPROT.get_task_id())
+            .reset_component(intent, target),
     )?;
     Ok(0)
 }
@@ -1258,11 +1247,10 @@ pub(crate) fn block_size(
     Ok(4)
 }
 
-// intent, auth_len, auth_data(Lease)
 #[cfg(feature = "update")]
 pub(crate) fn reset_component(
     stack: &[Option<u32>],
-    data: &[u8],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     if stack.len() < 3 {
@@ -1285,25 +1273,9 @@ pub(crate) fn reset_component(
         },
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
-    let auth_len: usize = match stack[fp + 2] {
-        Some(auth_len) => auth_len as usize,
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-
-    if auth_len > data.len().min(drv_update_api::AUTH_MAX_SZ) {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let mut auth_data = [0u8; drv_update_api::AUTH_MAX_SZ];
-    auth_data[..auth_len].copy_from_slice(&data[..auth_len]);
-
     func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id()).reset_component(
-            intent,
-            target,
-            (auth_len as u32).try_into().unwrap_lite(),
-            &data[..],
-        ),
+        drv_update_api::Update::from(UPDATE.get_task_id())
+            .reset_component(intent, target),
     )?;
     Ok(0)
 }

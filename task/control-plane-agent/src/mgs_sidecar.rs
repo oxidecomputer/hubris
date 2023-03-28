@@ -686,14 +686,12 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         slot: Option<u16>,
         intent: ResetIntent,
-        auth_data: &[u8],
     ) -> Result<(), SpError> {
         self.common.reset_component_trigger(
             &self.sp_update,
             component,
             slot,
             intent,
-            auth_data,
         )
     }
 }
