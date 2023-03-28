@@ -85,10 +85,6 @@ impl Raa229618 {
         })
     }
 
-    pub fn device(&self) -> I2cDevice {
-        self.device
-    }
-
     pub fn turn_off(&mut self) -> Result<(), Error> {
         let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
         op.set_on_off_state(OPERATION::OnOffState::Off);
