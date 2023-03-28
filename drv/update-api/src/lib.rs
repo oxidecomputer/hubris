@@ -38,8 +38,6 @@ pub enum UpdateTarget {
     ImageA = 2,
     ImageB = 3,
     Bootloader = 4,
-    // For testing
-    DevNull = 0xff,
 }
 
 #[derive(
@@ -100,6 +98,10 @@ impl hubpack::SerializedSize for UpdateError {
 }
 
 /// Request component to reset and optionally modify boot image selection policy.
+/// Policies may be implemented that disallow some requests. For example,
+/// if it is known that stage0 will reject an image for being corrupted, unsigned,
+/// signed improperly, etc., a request to reset and change boot policy may be
+/// rejected.
 #[repr(u8)]
 #[derive(
     Eq,
@@ -114,13 +116,18 @@ impl hubpack::SerializedSize for UpdateError {
 )]
 pub enum ResetIntent {
     /// Just reset the component
-    Normal = 1,
-    /// The firmware image specified elsewhere in the message
-    /// should be set as the persistently preferred image.
+    Normal,
+    /// The firmware image specified in the reset_component message
+    /// will be set as the persistently preferred image.
     Persistent,
-    /// The firmware image specified elsewhere in the message
-    /// should be set as the preferred image for this reset only.
+    /// The firmware image specified in the reset_component message
+    /// will be set as the preferred image for this reset only.
     /// A transient preference overrides any persistent preference.
+    ///
+    /// Note that implementing a transient image selection for the
+    /// SP would be fairly involved but possible.
+    /// The RoT might have to effect the SP bank switch if a way cannot
+    /// be found to have the SP do it.
     Transient,
 }
 

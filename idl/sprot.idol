@@ -132,19 +132,14 @@ Interface(
         "reset_component": (
             doc: "Just reset, or also update boot image select policy.",
             args: {
-                "intent": (
-                    type: "ResetIntent",
-                    recv: FromPrimitive("u8"),
-                ),
-                "target":  {
-                    type: "UpdateTarget",
-                    recv: FromPrimitive("u8"),
-                },
+                "intent": "ResetIntent",
+                "target": "UpdateTarget",
             },
             reply: Result (
                 ok: "()",
                 err: CLike("SprotError"),
             ),
+            encoding: Hubpack, 
         ),
     }
 )

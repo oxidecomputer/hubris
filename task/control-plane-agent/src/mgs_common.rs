@@ -101,6 +101,12 @@ impl MgsCommon {
         Ok(state)
     }
 
+    /// The SP, having reset itself, will not be able to respond to
+    /// the later reset_trigger message.
+    ///
+    /// So, after getting an ACK for the prepare message, MGS will send and
+    /// retry the reset_trigger message until it gets rejected for lack of
+    /// a corresponding prepare message.
     pub(crate) fn reset_prepare(&mut self) -> Result<(), SpError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
@@ -148,6 +154,18 @@ impl MgsCommon {
         })
     }
 
+    /// If the targeted component is the SP_ITSELF, then having reset itself,
+    /// it will not be able to respond to the later reset_trigger message.
+    ///
+    /// So, after getting an ACK for the prepare message, MGS will send and
+    /// retry the reset_trigger message until it gets rejected for lack of
+    /// a corresponding prepare message.
+    ///
+    /// If the targeted component is not the SP_ITSELF, it may still have impact
+    /// on the SP if reset, either now or in a future implementation.
+    /// However, for some components, the SP will be able to send an
+    /// acknowledgement and retrying the trigger message will not be effective.
+    /// The implementation in the control plane should handle both cases.
     pub(crate) fn reset_component_prepare(
         &mut self,
         component: SpComponent,
@@ -156,6 +174,17 @@ impl MgsCommon {
         Ok(())
     }
 
+    /// ResetComponent is used in the context of the management plane
+    /// driving a firmware update.
+    ///
+    /// When an update is complete, or perhaps for handling update errors,
+    /// the management plane will need to reset a component or change
+    /// boot image selection policy and reset that component.
+    ///
+    /// The target of the operation is the management plane's SpComponent
+    /// and firmware slot.
+    /// For the RoT, that is SpComponent::ROT and slot 0(ImageA) or 1(ImageB)
+    /// or SpComponent::STATE0 and slot 0.
     pub(crate) fn reset_component_trigger(
         &mut self,
         update: &SpUpdate,
@@ -166,37 +195,63 @@ impl MgsCommon {
         if self.reset_component_requested != component {
             return Err(SpError::ResetComponentTriggerWithoutPrepare);
         }
-        // If we are not resetting the SP_ITSELF, then we may come back here.
+        // If we are not resetting the SP_ITSELF, then we may come back here
+        // to reset something else or to run another prepare/trigger on
+        // the same component.
         self.reset_component_requested.id.fill(0);
 
-        // For now, resetting the SP through reset_component() is
-        // the same as through reset()
-        if component == SpComponent::SP_ITSELF {
-            task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
-                .request_reset();
-            // If `request_reset()` returns,
-            // something has gone very wrong.
-            panic!();
-        }
-
-        // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
-        // reset strategy. Here we take care of common SP and RoT cases.
-        let target = if matches!(
-            intent,
-            ResetIntent::Persistent | ResetIntent::Transient
-        ) {
-            match component {
-                SpComponent::ROT => match slot {
-                    Some(0) => UpdateTarget::ImageA,
-                    Some(1) => UpdateTarget::ImageB,
-                    _ => return Err(SpError::RequestUnsupportedForComponent),
-                },
-                _ => return Err(SpError::RequestUnsupportedForComponent),
+        // Resetting the SP through reset_component() is
+        // the same as through reset() until transient bank selection is
+        // figured out for the SP.
+        let target = match component {
+            SpComponent::SP_ITSELF => {
+                if intent != ResetIntent::Normal || !slot.is_none() {
+                    // A scheme for STM32 transient image selection and
+                    // richer behavior for the persistent image selection
+                    // will require a development of a bootloader for the
+                    // STM32 and/or intervention by the RoT using the sp-ctrl
+                    // API.
+                    //
+                    // If a scheme is worked out to do a transient selection
+                    // of an SP image, then code to call that can be
+                    // located here.
+                    // For persistent image selection, the SP update currently
+                    // calls swap_banks() during finish_image_update().
+                    return Err(SpError::RequestUnsupportedForComponent);
+                }
+                task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
+                    .request_reset();
+                // If `request_reset()` returns,
+                // something has gone very wrong.
+                panic!();
             }
-        } else {
-            // target ignored when intent is not Transient or Persistent.
-            UpdateTarget::ImageA
+            SpComponent::ROT => {
+                // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
+                // reset strategy. Here we take care of common SP and RoT cases.
+                if matches!(
+                    intent,
+                    ResetIntent::Persistent | ResetIntent::Transient
+                ) {
+                    match slot {
+                        Some(0) => UpdateTarget::ImageA,
+                        Some(1) => UpdateTarget::ImageB,
+                        _ => {
+                            return Err(SpError::RequestUnsupportedForComponent)
+                        }
+                    }
+                } else {
+                    // target ignored when intent is not Transient or Persistent.
+                    UpdateTarget::ImageA
+                }
+            }
+            SpComponent::STAGE0 => match slot {
+                Some(0) => UpdateTarget::Bootloader,
+                _ => return Err(SpError::RequestUnsupportedForComponent),
+            },
+            // Other components could be covered by this message in the future.
+            _ => return Err(SpError::RequestUnsupportedForComponent),
         };
+        // We're dealing with  RoT targets at this point.
         match update.sprot_task().reset_component(intent.into(), target) {
             Err(SprotError::RspTimeout) => {
                 // This is the expected error if the reset was successful.

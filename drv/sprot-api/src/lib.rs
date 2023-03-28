@@ -261,9 +261,7 @@ pub struct SprotStatus {
 /// Stats from the RoT side of sprot
 ///
 /// All of the counters will wrap around.
-#[derive(
-    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
+#[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct RotIoStats {
     /// Number of messages received
     pub rx_received: u32,
@@ -325,9 +323,7 @@ pub struct SpIoStats {
 }
 
 /// Sprot related stats
-#[derive(
-    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
+#[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct IoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,

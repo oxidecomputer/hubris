@@ -1229,7 +1229,8 @@ pub(crate) fn block_size(
 #[cfg(any(feature = "sprot", feature = "update"))]
 fn reset_component_args(
     stack: &[Option<u32>],
-    ) -> Result<(drv_update_api::ResetIntent, drv_update_api::UpdateTarget), Failure> {
+) -> Result<(drv_update_api::ResetIntent, drv_update_api::UpdateTarget), Failure>
+{
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
