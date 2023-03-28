@@ -70,6 +70,10 @@ impl Isl68224 {
         }
     }
 
+    pub fn device(&self) -> I2cDevice {
+        self.device
+    }
+
     pub fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
         Ok(match self.mode.get() {
             None => {

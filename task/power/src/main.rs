@@ -22,6 +22,7 @@ use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
+use zerocopy::AsBytes;
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
@@ -760,6 +761,88 @@ impl idl::InOrderPowerImpl for ServerImpl {
             pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
         )?;
         Ok(out)
+    }
+
+    fn rendmp_blackbox_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        req_dev: task_power_api::Device,
+        req_index: u32,
+        out: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        if out.len() != 400 {
+            return Err(idol_runtime::RequestError::Fail(
+                idol_runtime::ClientError::BadLease,
+            ));
+        }
+
+        use task_power_api::Device;
+        if !matches!(req_dev, Device::Raa229618 | Device::Isl68224) {
+            return Err(ResponseCode::OperationNotSupported.into());
+        }
+
+        let dev = CONTROLLER_CONFIG
+            .iter()
+            .filter_map(|dev| match (req_dev, dev.device) {
+                (Device::Raa229618, DeviceType::Core | DeviceType::Mem) => {
+                    Some((dev.builder)(self.i2c_task).0)
+                }
+                (Device::Isl68224, DeviceType::MemVpp) => {
+                    Some((dev.builder)(self.i2c_task).0)
+                }
+                _ => None,
+            })
+            .nth(req_index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        // The isl68224 and raa229618 have identical DMAADDR / DMAFIX / DMASEQ
+        // command codes, which we'll check with a static assertion here.
+        static_assertions::const_assert_eq!(
+            pmbus::commands::isl68224::CommandCode::DMAADDR as u8,
+            pmbus::commands::raa229618::CommandCode::DMAADDR as u8
+        );
+        static_assertions::const_assert_eq!(
+            pmbus::commands::isl68224::CommandCode::DMAFIX as u8,
+            pmbus::commands::raa229618::CommandCode::DMAFIX as u8
+        );
+        static_assertions::const_assert_eq!(
+            pmbus::commands::isl68224::CommandCode::DMASEQ as u8,
+            pmbus::commands::raa229618::CommandCode::DMASEQ as u8
+        );
+
+        // Now that we've proven equivalence, let's import this namespace
+        use pmbus::commands::isl68224::CommandCode;
+
+        // Step 2a - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0xC4, 0x00])?;
+        // Step 2b - Read DMA Data Register
+        let r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        // Step 2c - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0x58, 0xEC])?;
+        // Step 2d - Write to DMA Data Register
+        let mut v = [CommandCode::DMAFIX as u8, 0, 0, 0, 0];
+        v[1..].copy_from_slice(r.as_bytes());
+        dev.write(&v)?;
+        // Step 2e - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0x59, 0xEC])?;
+        // Step 2f - Write to DMA Data Register
+        dev.write(&[CommandCode::DMAFIX as u8, 0x00, 0x14, 0x00, 0x00])?;
+        // Step 2g - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0x5B, 0xEC])?;
+        // Step 2h - Write to DMA Data Register
+        dev.write(&[CommandCode::DMAFIX as u8, 0x90, 0x01, 0x48, 0x0C])?;
+        // Step 2i - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0x5C, 0xEC])?;
+        // Step 2j - Write to DMA Data Register
+        dev.write(&[CommandCode::DMAFIX as u8, 0x01, 0x00, 0x00, 0x00])?;
+
+        // Step 3a - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, 0x00, 0x05])?;
+        for i in 0..400 {
+            let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
+        }
+
+        Ok(())
     }
 }
 

@@ -4209,6 +4209,7 @@ dependencies = [
  "pmbus",
  "ringbuf",
  "serde",
+ "static_assertions",
  "task-power-api",
  "task-sensor-api",
  "userlib",
