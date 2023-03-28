@@ -684,7 +684,6 @@ impl idl::InOrderPowerImpl for ServerImpl {
         // Step 3a - Write to DMA Address Register
         dev.write(&[CommandCode::DMAADDR as u8, 0x00, 0x05])?;
         // Step 3b - Read Black Box Data
-        static_assertions::const_assert_eq!(RENDMP_BLACKBOX_BUF_SIZE, 400);
         for i in 0..RENDMP_BLACKBOX_BUF_SIZE {
             let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
             self.blackbox_buf[i] = r;
