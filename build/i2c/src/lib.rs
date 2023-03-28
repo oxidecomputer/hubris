@@ -675,6 +675,7 @@ impl ConfigGenerator {
         writeln!(
             &mut s,
             r##"
+    #[allow(unused_imports)]
     use drv_stm32xx_i2c::{{I2cPin, I2cGpio}};
 
     pub fn pins() -> [I2cPin; {}] {{"##,
