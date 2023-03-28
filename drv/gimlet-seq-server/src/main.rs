@@ -392,8 +392,8 @@ fn main() -> ! {
 }
 
 fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
-    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
     use drv_gimlet_seq_api::NUM_SPD_BANKS;
+    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
 
     type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
 
@@ -497,8 +497,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            spd.read_reg_into::<u8>(0, &mut tmp[..chunk])
-                .unwrap();
+            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap();
 
             spd.read_into(&mut tmp[chunk..]).unwrap();
 

@@ -193,7 +193,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 
     #[cfg(feature = "gimlet")]
@@ -215,7 +217,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         _host_startup_options: HostStartupOptions,
     ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 
     #[cfg(feature = "gimlet")]
@@ -239,7 +243,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _offset: u8,
         _data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
     ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 
     #[cfg(feature = "gimlet")]
@@ -257,7 +263,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         _index: usize,
     ) -> Result<bool, RequestError<Infallible>> {
-        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 
     #[cfg(feature = "gimlet")]
@@ -275,7 +283,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         _index: usize,
     ) -> Result<u8, RequestError<Infallible>> {
-        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 }
 
