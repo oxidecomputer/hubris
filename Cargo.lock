@@ -888,6 +888,7 @@ dependencies = [
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-gimlet-state",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
