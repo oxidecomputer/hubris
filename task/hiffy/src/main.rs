@@ -55,9 +55,9 @@ cfg_if::cfg_if! {
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 64;
     } else if #[cfg(any(
-        target_board = "gimlet-a",
         target_board = "gimlet-b",
         target_board = "gimlet-c",
+        target_board = "gimlet-d",
         target_board = "sidecar-a",
         target_board = "sidecar-b",
         target_board = "gimletlet-2",

@@ -19,8 +19,14 @@ mod server;
 )]
 #[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
 #[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
-#[cfg_attr(target_board = "gimlet-b", path = "bsp/gimlet_bc.rs")]
-#[cfg_attr(target_board = "gimlet-c", path = "bsp/gimlet_bc.rs")]
+#[cfg_attr(
+    any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d"
+    ),
+    path = "bsp/gimlet_bcd.rs"
+)]
 #[cfg_attr(target_board = "psc-a", path = "bsp/psc_a.rs")]
 #[cfg_attr(
     any(target_board = "psc-b", target_board = "psc-c"),

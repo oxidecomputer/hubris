@@ -197,7 +197,7 @@ af = 4
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "ltc4306"
 address = 0x44
-enable = { gpio_port = "G", pins = [ 0 ], af = 0 }
+enable = { port = "G", pin = 0 }
 
 [[config.i2c.controllers.ports.H.pins]]
 pins = [ 11, 12 ]
