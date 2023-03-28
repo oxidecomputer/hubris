@@ -158,7 +158,7 @@ struct I2cGpio {
 struct I2cMux {
     driver: String,
     address: u8,
-    enable: Option<I2cGpio>,
+    #[serde(alias = "enable")]
     nreset: Option<I2cGpio>,
 }
 
@@ -789,15 +789,9 @@ impl ConfigGenerator {
         for c in &self.controllers {
             for (index, port) in c.ports.values().enumerate() {
                 for (mindex, mux) in port.muxes.iter().enumerate() {
-                    if mux.enable.is_some() && mux.nreset.is_some() {
-                        bail!(
-                            "cannot specify both enable and nreset in {mux:?}"
-                        );
-                    }
                     let nreset = mux
-                        .enable
+                        .nreset
                         .as_ref()
-                        .or(mux.nreset.as_ref())
                         .map(|enable| {
                             format!(
                                 r##"Some(I2cGpio {{
