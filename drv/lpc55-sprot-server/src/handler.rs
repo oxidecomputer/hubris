@@ -113,7 +113,7 @@ impl Handler {
                 UpdateStatus::Sp => Err((tx_buf, SprotError::UpdateBadStatus)),
             },
             MsgType::IoStatsReq => {
-                tx_buf.serialize(MsgType::IoStatsRsp, *stats)
+                tx_buf.serialize(MsgType::IoStatsRsp, stats.clone())
             }
             MsgType::SprocketsReq => {
                 let tx_payload = tx_buf.payload_mut();
@@ -237,8 +237,7 @@ impl Handler {
             | MsgType::UpdFinishImageUpdateRsp
             | MsgType::UpdResetComponentRsp
             | MsgType::IoStatsRsp
-            | MsgType::DumpRsp
-            | MsgType::Unknown => {
+            | MsgType::DumpRsp => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 return Some(tx_buf.error_rsp(SprotError::BadMessageType));
             }

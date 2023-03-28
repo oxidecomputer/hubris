@@ -91,7 +91,6 @@ pub enum SprotError {
     BadResponse,
     RotBusy,
 
-    /// Feature is not implemented
     NotImplemented,
     /// An error code reserved for the SP was used by the Rot
     NonRotError,
@@ -104,6 +103,11 @@ pub enum SprotError {
     Serialization,
     /// Sequence number mismatch in Sink test
     Sequence,
+
+    /// Transient boot image selection not implemented for component
+    TransientNotImplemented,
+    /// Persistent boot image selection not implemented for component
+    PersistentNotImplemented,
 
     //
     // Update Related Errors
@@ -142,6 +146,9 @@ pub enum SprotError {
 
     // Used if no explicit error code is available.
     Unknown,
+
+    // Rot sink test not configured
+    RotSinkTestNotConfigured,
 }
 
 impl From<SpiError> for SprotError {
@@ -183,7 +190,13 @@ impl From<UpdateError> for SprotError {
             UpdateError::ServerRestarted => SprotError::UpdateServerRestarted,
             UpdateError::ImageBoardMismatch
             | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
-            UpdateError::NotImplemented => SprotError::NotImplemented,
+            UpdateError::TransientNotImplemented => {
+                SprotError::TransientNotImplemented
+            }
+            UpdateError::PersistentNotImplemented => {
+                SprotError::PersistentNotImplemented
+            }
+            // Version skew means that one side may not know about new variants
             UpdateError::Unknown => SprotError::Unknown,
         }
     }
@@ -460,9 +473,6 @@ pub enum MsgType {
     // Reset
     UpdResetComponentReq = 24,
     UpdResetComponentRsp = 25,
-
-    // Reserved value.
-    Unknown = 0x25,
 }
 
 /// A builder/serializer for messages that wraps the transmit buffer

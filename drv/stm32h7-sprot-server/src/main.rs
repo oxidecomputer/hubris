@@ -753,7 +753,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _count: u16,
         _size: u16,
     ) -> Result<SinkStatus, RequestError<SprotError>> {
-        Err(RequestError::Runtime(SprotError::NotImplemented))
+        Err(RequestError::Runtime(SprotError::RotSinkTestNotConfigured))
     }
 
     /// Retrieve status from the RoT.

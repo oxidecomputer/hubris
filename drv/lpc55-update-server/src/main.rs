@@ -257,41 +257,55 @@ impl idl::InOrderUpdateImpl for ServerImpl {
 
         match intent {
             ResetIntent::Normal => {
-                // MRB (Transient Image Selection) won't be set for next boot.
-                // CFPA (Persistent Image Selection) won't be altered.
+                // Transient Image Selection won't be set for next boot.
+                // (Clear it before performing reset.)
+                // Persistent Image Selection won't be altered.
                 //
                 // Note that epoch is not part of the boot-time image
                 // selection policy.
-                // If we are running the current image only because of
-                // `Once{A,B}` and the current image is failing/undesired,
-                // and the current image is in a higher epoch than the
-                // preferred image, then a normal boot will bring us back
-                // to the old image from which we can recover.
+                //
+                // If we are running the current image _only_ because of
+                // a transient selection and it is in a higher epoch than the
+                // other, then a normal boot will bring us back
+                // to the old image in the old epoch.
                 do_reset();
             }
-            ResetIntent::Transient | ResetIntent::Persistent => {
-                // Though stage0 doesn't have an A and a B, some
-                // stage0 updates may need a coordinated image selection
-                // if the new stage0 is not backward compatible with
-                // the old Hypo+Hubris.
-                //
-                // If we are prefering ourselves, that's always ok.
-                // (is it?)
-                // A policy is needed to disallow prefering an image with
-                // a lower epoch.
-                // We didn't allow overwriting ourselves.
-                // So we still know our own epoch and version without asking.
-                // The other bank may have been rewritten.
-                // Ask hypovisor what it sees in other bank right now, not
-                // what it saw on boot.
-                //   Validity:
-                //   - integrity check would be great.
-                //   - signature check would be best.
-                //   Version:
-                //   - epoch and version (required)
-                // Is the header block still valid?
-                // self.header_block = None;
-                Err(UpdateError::NotImplemented.into())
+            // Note that though stage0 doesn't have an A and a B, some
+            // stage0 updates may need a coordinated image selection.
+            // The new stage0 is not necessarily compatible with the
+            // the old Stage1+Hubris by policy or due to changes in
+            // interfaces. Code will be needed here if such a case arises.
+            //
+            // Enforcing epoch policy can be done in a couple ways;
+            // The update_server can refuse to install an image with
+            // an epoch lower than the current image.
+            // Epoch can also be enforced here by not allowing selection
+            // of a boot image with a lower epoch.
+            // In any case, since RoT must boot to allow recovery and
+            // fallback to the other image is always possible, transition to a
+            // new epoch is not finished until both A and B images are at
+            // the same epoch.
+            //
+            // Hubris images are XIP and updating the current image is
+            // rejected.
+            // At the time of this request, the other bank may have been
+            // rewritten and the image information collected at boot can
+            // be stale.
+            //
+            // Ask hypovisor what it sees in other bank right now, not
+            // what it saw on boot.
+            //   Validity:
+            //   - integrity check would be great.
+            //   - signature check would be best.
+            //   Version:
+            //   - epoch and version (required)
+            // Is the header block still valid?
+            // self.header_block = None;
+            ResetIntent::Transient => {
+                Err(UpdateError::TransientNotImplemented.into())
+            }
+            ResetIntent::Persistent => {
+                Err(UpdateError::PersistentNotImplemented.into())
             }
         }
     }

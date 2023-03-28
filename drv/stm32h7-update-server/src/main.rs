@@ -546,7 +546,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 jefe.request_reset();
                 panic!()
             }
-            _ => return Err(UpdateError::NotImplemented.into()),
+            ResetIntent::Transient => {
+                Err(UpdateError::TransientNotImplemented.into())
+            }
+            ResetIntent::Persistent => {
+                Err(UpdateError::PersistentNotImplemented.into())
+            }
         }
     }
 }

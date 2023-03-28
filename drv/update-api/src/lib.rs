@@ -88,9 +88,14 @@ pub enum UpdateError {
     ImageBoardMismatch,
     ImageBoardUnknown,
 
-    NotImplemented,
+    // Transient boot image selection with reset not implemented for component.
+    TransientNotImplemented,
+    // Persistent boot image selection with reset not implemented for component.
+    PersistentNotImplemented,
 
-    Unknown, // In cases of version skew during updates
+    // During update when there may be version skew, the RoT may produce an
+    // error that the SP doesn't know about.
+    Unknown,
 }
 
 impl hubpack::SerializedSize for UpdateError {
@@ -141,8 +146,12 @@ impl From<gateway_messages::ResetIntent> for crate::ResetIntent {
     }
 }
 
+/// This is a mapping from the control-plane/faux-mgs update parameters.
+/// As such, it expresses the product of all reset types and all firmware
+/// storage targets. Only a few of those products would apply to any component.
+/// The translation of what the control plane wants and what an
+/// embedded device should do should be handled at a higher layer.
 #[derive(Clone, Copy, SerializedSize, Serialize, Deserialize)]
-#[repr(C)]
 pub struct ResetComponentHeader {
     pub intent: ResetIntent,
     pub target: UpdateTarget,

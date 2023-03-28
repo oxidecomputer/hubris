@@ -29,7 +29,7 @@ net = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "update_server"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -81,6 +81,7 @@ uses = ["flash_controller"]
 extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
+task-slots = ["jefe"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -444,4 +445,3 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
-
