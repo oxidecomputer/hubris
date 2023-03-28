@@ -22,8 +22,8 @@ use vsc7448_pac::types::PhyRegisterAddress;
 pub struct BspImpl(mgmt::Bsp);
 
 const PG_PINS: [drv_stm32xx_sys_api::PinSet; 2] = [
-    Port::C.pin(11), // V2P5_MGMT_PHY_A2_LDO_PG
-    Port::C.pin(12), // V1P0_MGMT_PHY_A2_DC_DC_PG
+    Port::C.pin(11), // V1P0_MGMT_PHY_A2_DC_DC_PG
+    Port::C.pin(12), // V2P5_MGMT_PHY_A2_LDO_PG
 ];
 
 impl bsp_support::Bsp for BspImpl {
