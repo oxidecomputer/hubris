@@ -329,6 +329,9 @@ macro_rules! mwocp68_controller {
     };
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Board-specific behavior is isolated into a `bsp` module, which is picked
+// based on the target_board name.
 #[cfg_attr(
     any(
         target_board = "gimlet-b",
@@ -351,6 +354,8 @@ macro_rules! mwocp68_controller {
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
 mod bsp;
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[export_name = "main"]
 fn main() -> ! {
