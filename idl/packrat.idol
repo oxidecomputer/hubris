@@ -54,6 +54,19 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "set_spd_eeprom": (
+            doc: "Record SPD EEPROM data",
+            args: {
+                "index": "u8",
+                "page1": "bool",
+                "offset": "u8",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )
 
