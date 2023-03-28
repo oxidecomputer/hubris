@@ -1,0 +1,447 @@
+name = "psc-c"
+target = "thumbv7em-none-eabihf"
+board = "psc-c"
+chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
+stacksize = 896
+
+[kernel]
+name = "psc"
+requires = {flash = 32768, ram = 4800}
+
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+default = true
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+[tasks.jefe.config.on-state-change]
+net = "jefe-state-change"
+
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy", "control_plane_agent"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753"]
+priority = 1
+max-sizes = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
+start = true
+task-slots = ["jefe"]
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+features = ["h753", "itm"]
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+uses = ["i2c2", "i2c3"]
+start = true
+task-slots = ["sys"]
+notifications = ["i2c2-irq", "i2c3-irq"]
+
+[tasks.i2c_driver.interrupts]
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
+[tasks.sequencer]
+name = "drv-psc-seq-server"
+priority = 4
+stacksize = 4096
+start = true
+task-slots = ["jefe", "packrat", "i2c_driver"]
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
+priority = 5
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 1024
+start = true
+task-slots = ["sys", "i2c_driver", "sprot"]
+
+[tasks.validate]
+name = "task-validate"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 6040
+priority = 4
+features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
+max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "tim16", "spi2"]
+start = true
+notifications = [
+    "eth-irq",
+    "mdio-timer-irq",
+    "wake-timer",
+    "spi-irq",
+    "jefe-state-change",
+]
+task-slots = ["sys", "packrat", "jefe"]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi2.irq" = "spi-irq"
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 5
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+uses = []
+task-slots = [
+    "i2c_driver",
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "validate",
+    "sensor",
+    "sprot",
+    "packrat",
+]
+features = ["psc", "vlan"]
+notifications = ["usart-irq", "socket", "timer"]
+# usart-irq is unused but present in the code
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+uses = ["spi4"]
+features = ["sink_test", "use-spi-core", "h753", "spi4"]
+notifications = ["spi-irq"]
+interrupts = {"spi4.irq" = "spi-irq"}
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 5
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 5
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 5
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.eeprom]
+name = "drv-eeprom"
+priority = 3
+max-sizes = {flash = 2048, ram = 256}
+stacksize = 256
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
+[tasks.power]
+name = "task-power"
+priority = 4
+max-sizes = {flash = 32768, ram = 4096}
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver", "sensor", "sys"]
+features = ["psc"]
+notifications = ["timer"]
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 3
+max-sizes = {flash = 8192, ram = 4096 }
+stacksize = 1024
+start = true
+notifications = ["timer"]
+
+[tasks.sensor_polling]
+name = "task-sensor-polling"
+priority = 4
+max-sizes = {flash = 16384, ram = 2048 }
+start = true
+task-slots = ["i2c_driver", "sensor"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["sprot"]
+stacksize = 1200
+uses = [ "sram2", "sram3", "sram4" ]
+
+[tasks.idle]
+name = "task-idle"
+priority = 6
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[config]
+#
+# I2C2: Local bus
+#
+[[config.i2c.controllers]]
+controller = 2
+
+#
+# I2C_SP_TO_LOCAL_SDA
+# I2C_SP_TO_LOCAL_SCL
+#
+[config.i2c.controllers.ports.F]
+name = "local"
+description = "Local bus"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
+
+#
+# I2C3: Backplane bus
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# I2C_SP_TO_PS_SCL
+# I2C_SP_TO_PS_SDA
+#
+[config.i2c.controllers.ports.H]
+name = "backplane"
+description = "Backplane bus"
+pins = [ { pins = [ 7, 8 ], af = 4 } ]
+
+[[config.i2c.devices]]
+bus = "local"
+address = 0b1001_000
+device = "tmp116"
+description = "Temperature sensor"
+refdes = "U31"
+
+[[config.i2c.devices]]
+bus = "local"
+address = 0b1010_000
+device = "at24csw080"
+name = "local_vpd"
+description = "FRU ID EEPROM"
+refdes = "U32"
+
+# NOTE: the schematic labels the PSUs as 1-6 (matching Murata's numbering
+# scheme), but they are 0-indexed in user-facing markings (RFD 200)
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0eeprom"
+address = 0b1010_000
+device = "m24c02"
+description = "PSU 0 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu0mcu"
+address = 0b1011_000
+device = "mwocp68"
+description = "PSU 0 MCU"
+power = { rails = [ "V54_PSU0", "V12_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1eeprom"
+address = 0b1010_001
+device = "m24c02"
+description = "PSU 1 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu1mcu"
+address = 0b1011_001
+device = "mwocp68"
+description = "PSU 1 MCU"
+power = { rails = [ "V54_PSU1", "V12_PSU1" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2eeprom"
+address = 0b1010_010
+device = "m24c02"
+description = "PSU 2 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu2mcu"
+address = 0b1011_010
+device = "mwocp68"
+description = "PSU 2 MCU"
+power = { rails = [ "V54_PSU2", "V12_PSU2" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3eeprom"
+address = 0b1010_011
+device = "m24c02"
+description = "PSU 3 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu3mcu"
+address = 0b1011_011
+device = "mwocp68"
+description = "PSU 3 MCU"
+power = { rails = [ "V54_PSU3", "V12_PSU3" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4eeprom"
+address = 0b1010_100
+device = "m24c02"
+description = "PSU 4 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu4mcu"
+address = 0b1011_100
+device = "mwocp68"
+description = "PSU 4 MCU"
+power = { rails = [ "V54_PSU4", "V12_PSU4" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5eeprom"
+address = 0b1010_101
+device = "m24c02"
+description = "PSU 5 EEPROM"
+
+[[config.i2c.devices]]
+bus = "backplane"
+name = "psu5mcu"
+address = 0b1011_101
+device = "mwocp68"
+description = "PSU 5 MCU"
+power = { rails = [ "V54_PSU5", "V12_PSU5" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
+sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+
+[config.spi.spi2]
+controller = 2
+
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5}
+
+[config.spi.spi2.devices.ksz8463]
+mux = "port_i"
+cs = [{port = "I", pin = 0}]
+
+[config.spi.spi4]
+controller = 4
+
+[config.spi.spi4.mux_options.rot]
+outputs = [
+    {port = "E", pins = [2, 6], af = 5},
+]
+input = {port = "E", pin = 5, af = 5}
+
+[config.spi.spi4.devices.rot]
+mux = "rot"
+cs = [{port = "E", pin = 4}]
+clock_divider = "DIV256"
+
+[config.net]
+vlan = { start = 0x301, count = 2 }
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = "socket"}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+

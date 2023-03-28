@@ -87,7 +87,7 @@ impl bsp_support::Bsp for BspImpl {
             // (note that the latter also enables the MGMT_PHY_REFCLK)
             power_en: Some(Port::I.pin(10).and_pin(12)),
             slow_power_en: true,
-            power_good: None, // TODO
+            power_good: &[], // TODO
             pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),
