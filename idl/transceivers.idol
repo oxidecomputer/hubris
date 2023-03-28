@@ -77,7 +77,7 @@ Interface(
             ),
         ),
 
-        "port_clear_fault": (
+        "clear_power_fault": (
             doc: "Clear the fault for each port in the mask",
             args: {
                 "logical_port_mask": "u32",

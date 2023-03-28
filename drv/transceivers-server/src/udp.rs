@@ -51,9 +51,9 @@ enum Trace {
     GotError(ProtocolError),
     SizeUnderflowError,
     ResponseSize(ResponseSize),
-    ResponseDataSize(ResponseDataSize),
     UnexpectedFailure(ModuleId),
     OperationResult(ModuleResult),
+    ClearPowerFault(ModuleId),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -64,12 +64,6 @@ struct ResponseSize {
     header_length: u8,
     message_length: u8,
     data_length: u16,
-}
-
-#[derive(Copy, Clone, PartialEq)]
-struct ResponseDataSize {
-    success_length: u16,
-    error_length: u8,
 }
 
 impl ServerImpl {
@@ -313,11 +307,6 @@ impl ServerImpl {
                     out,
                 );
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: num_status_bytes as u16,
-                    error_length: (final_payload_len - num_status_bytes) as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Status {
                         modules: success,
@@ -351,11 +340,6 @@ impl ServerImpl {
                     out,
                 );
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: read_bytes as u16,
-                    error_length: (final_payload_len - read_bytes) as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Read {
                         modules: success,
@@ -388,11 +372,6 @@ impl ServerImpl {
                     out,
                 );
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Write {
                         modules: success,
@@ -411,11 +390,6 @@ impl ServerImpl {
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
                         modules: success,
@@ -432,11 +406,6 @@ impl ServerImpl {
                 let success = ModuleId(result.success.0 as u64);
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
-
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -455,11 +424,6 @@ impl ServerImpl {
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
                         modules: success,
@@ -476,11 +440,6 @@ impl ServerImpl {
                 let success = ModuleId(result.success.0 as u64);
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
-
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -499,11 +458,6 @@ impl ServerImpl {
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
                         modules: success,
@@ -521,11 +475,6 @@ impl ServerImpl {
                 let (num_err_bytes, failed_modules) =
                     self.handle_errors(modules, result, None, 0, out);
 
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: num_err_bytes as u8
-                }));
-
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
                         modules: success,
@@ -540,18 +489,10 @@ impl ServerImpl {
             } => {
                 // TODO: Implement this
                 ringbuf_entry!(Trace::ManagementInterface(i));
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: 0
-                }));
                 (MessageBody::Error(ProtocolError::NotSupported), 0)
             }
             HostRequest::MacAddrs => {
                 ringbuf_entry!(Trace::MacAddrs);
-                ringbuf_entry!(Trace::ResponseDataSize(ResponseDataSize {
-                    success_length: 0,
-                    error_length: 0
-                }));
                 let b = self.net.get_spare_mac_addresses();
                 match MacAddrs::new(b.base_mac, b.count.get(), b.stride) {
                     Ok(out) => (
@@ -568,11 +509,30 @@ impl ServerImpl {
                     ),
                 }
             }
+            HostRequest::ClearPowerFault(modules) => {
+                ringbuf_entry!(Trace::ClearPowerFault(modules));
+                let mask = LogicalPortMask(modules.0 as u32);
+                let result = self.transceivers.clear_power_fault(mask);
+                ringbuf_entry!(Trace::OperationResult(result));
+                let success = ModuleId(result.success.0 as u64);
+                let (num_err_bytes, failed_modules) =
+                    self.handle_errors(modules, result, None, 0, out);
+
+                (
+                    MessageBody::SpResponse(SpResponse::Ack {
+                        modules: success,
+                        failed_modules: failed_modules,
+                    }),
+                    num_err_bytes,
+                )
+            }
         }
     }
 
     /// This should be called as the last operation before sending the response
-    /// since error details is the last of the trailing data.
+    /// since error details is the last of the trailing data. This function
+    /// panics if `None` is the supplied `failure_type` and the `result`
+    /// contains any bits set in the failure mask.
     fn handle_errors(
         &mut self,
         modules: ModuleId,
@@ -600,6 +560,7 @@ impl ServerImpl {
                             ringbuf_entry!(Trace::UnexpectedFailure(ModuleId(
                                 module.0 as u64
                             )));
+                            panic!();
                         }
                     }
                 } else if result.error.is_set(module) {

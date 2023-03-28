@@ -7,6 +7,9 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, NUM_PORTS};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
+// The transceiver modules are split across two FPGAs on the QSFP Front IO
+// board, so while we present the modules as a unit, the communication is
+// actually biforcated.
 pub struct Transceivers {
     fpgas: [FpgaUserDesign; 2],
 }
@@ -131,6 +134,8 @@ impl LogicalPortMask {
     }
 }
 
+// It is convenient to have the ergonomics for a LogicalPortMask resemble the
+// bitwise mask that it represents, so we implement some bitwise operations.
 impl core::ops::BitOr for LogicalPortMask {
     type Output = Self;
 
@@ -219,8 +224,8 @@ impl From<LogicalPortMask> for FpgaPortMasks {
 /// the FPGAs share code, resulting in each one reporting in terms of ports
 /// 0-15.
 ///
-/// This is the FPGA -> logical mapping.
-const PORT_MAP: [PortLocation; 32] = [
+/// This is the logical -> physical mapping.
+const PORT_MAP: [PortLocation; NUM_PORTS as usize] = [
     // Port 0
     PortLocation {
         controller: FpgaController::Left,
@@ -383,6 +388,9 @@ const PORT_MAP: [PortLocation; 32] = [
     },
 ];
 
+// These constants represent which logical locations are covered by each FPGA.
+// This is convienient in the event that we cannot talk to one of the FPGAs as
+// we can know which modules may be impacted.
 const LEFT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0x00ff00ff);
 const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 
@@ -540,7 +548,7 @@ impl Transceivers {
 
     /// Get the current status of all low speed signals for all ports. This is
     /// Enable, Reset, LpMode/TxDis, Power Good, Power Good Timeout, Present,
-    /// and IRQ/RxLos. he meaning of the returned `ModuleResult`:
+    /// and IRQ/RxLos. The meaning of the returned `ModuleResult`:
     /// success: we were able to read from the FPGA
     /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
@@ -567,8 +575,6 @@ impl Transceivers {
         };
         result.error = !result.success;
 
-        // Philosophically, this should be a [LogicalPort; 8], but we don't
-        // expose that type in the transceivers API.
         let mut status_masks: [u32; 8] = [0; 8];
 
         // loop through each logical port
@@ -605,8 +611,12 @@ impl Transceivers {
         )
     }
 
-    /// Clear a fault for each port per the specified `mask`
-    pub fn port_clear_fault(&self, mask: LogicalPortMask) -> ModuleResult {
+    /// Clear a fault for each port per the specified `mask`. The meaning of the
+    /// returned `ModuleResult`:
+    /// success: we were able to write to the FPGA
+    /// failure: none for this operation as there is no polling/verification
+    /// error: an `FpgaError` occurred
+    pub fn clear_power_fault(&self, mask: LogicalPortMask) -> ModuleResult {
         let mut result = ModuleResult::default();
         // map the logical mask into the physical one
         let fpga_masks: FpgaPortMasks = mask.into();
@@ -648,7 +658,11 @@ impl Transceivers {
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
     ///
-    /// The maximum value of `num_bytes` is 128.
+    /// The maximum value of `num_bytes` is 128.The meaning of the returned
+    /// `ModuleResult`:
+    /// success: we were able to write to the FPGA
+    /// failure: none for this operation as there is no polling/verification
+    /// error: an `FpgaError` occurred
     pub fn setup_i2c_read(
         &self,
         reg: u8,
@@ -660,7 +674,11 @@ impl Transceivers {
 
     /// Initiate an I2C write on all ports per the specified `mask`.
     ///
-    /// The maximum value of `num_bytes` is 128.
+    /// The maximum value of `num_bytes` is 128. The meaning of the
+    /// returned `ModuleResult`:
+    /// success: we were able to write to the FPGA
+    /// failure: none for this operation as there is no polling/verification
+    /// error: an `FpgaError` occurred
     pub fn setup_i2c_write(
         &self,
         reg: u8,
@@ -672,7 +690,11 @@ impl Transceivers {
 
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
-    /// read. The maximum value of `num_bytes` is 128.
+    /// read. The maximum value of `num_bytes` is 128. The meaning of the
+    /// returned `ModuleResult`:
+    /// success: we were able to write to the FPGA
+    /// failure: none for this operation as there is no polling/verification
+    /// error: an `FpgaError` occurred
     fn setup_i2c_op(
         &self,
         is_read: bool,
@@ -778,6 +800,10 @@ impl Transceivers {
     /// them all individually. In the event of an error during FPGA
     /// communication, a `LogicalPortMask` representing the affected ports is
     /// included.
+    /// The meaning of the returned `ModuleResult`:
+    /// success: we were able to write to the FPGA
+    /// failure: none for this operation as there is no polling/verification
+    /// error: an `FpgaError` occurred
     pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> ModuleResult {
         let mut result = ModuleResult::default();
         if self
@@ -886,7 +912,11 @@ impl Transceivers {
     /// Waits for all of the I2C busy bits to go low
     ///
     /// Returns a set of masks indicating which channels (among the ones active
-    /// in the input mask) have recorded FPGA errors.
+    /// in the input mask) have recorded FPGA errors. The meaning of the
+    /// returned `ModuleResult`:
+    /// success: the desired I2C transaction completed successfully
+    /// failure: there was an I2C error
+    /// error: an `FpgaError` occurred
     pub fn wait_and_check_i2c(
         &mut self,
         mask: LogicalPortMask,

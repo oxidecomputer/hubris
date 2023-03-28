@@ -451,14 +451,14 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         }
     }
 
-    fn port_clear_fault(
+    fn clear_power_fault(
         &mut self,
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let result = self
             .transceivers
-            .port_clear_fault(LogicalPortMask(logical_port_mask));
+            .clear_power_fault(LogicalPortMask(logical_port_mask));
         match result.error.count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
