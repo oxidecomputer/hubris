@@ -73,3 +73,5 @@ pub(crate) fn get_state() -> PowerState {
 pub fn preinit() {
     // Nothing to do here
 }
+
+pub const HAS_RENDMP_BLACKBOX: bool = true;

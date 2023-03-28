@@ -43,3 +43,5 @@ pub fn preinit() {
         Pull::None,
     );
 }
+
+pub const HAS_RENDMP_BLACKBOX: bool = false;

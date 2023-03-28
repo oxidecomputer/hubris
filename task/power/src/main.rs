@@ -18,6 +18,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use idol_runtime::{ClientError, RequestError};
 use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
@@ -367,6 +368,7 @@ fn main() -> ! {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
+        blackbox_buf: claim_blackbox(),
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -383,6 +385,7 @@ struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG.len()],
+    blackbox_buf: &'static mut [u32],
 }
 
 impl ServerImpl {
@@ -609,21 +612,17 @@ impl idl::InOrderPowerImpl for ServerImpl {
         Ok(out)
     }
 
-    fn rendmp_blackbox_read(
+    fn rendmp_blackbox_dump(
         &mut self,
         _msg: &userlib::RecvMessage,
         req_dev: task_power_api::Device,
         req_index: u32,
-        out: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
-        if out.len() != 400 {
-            return Err(idol_runtime::RequestError::Fail(
-                idol_runtime::ClientError::BadLease,
-            ));
-        }
-
         use task_power_api::Device;
-        if !matches!(req_dev, Device::Raa229618 | Device::Isl68224) {
+
+        if !bsp::HAS_RENDMP_BLACKBOX {
+            return Err(ResponseCode::OperationNotSupported.into());
+        } else if !matches!(req_dev, Device::Raa229618 | Device::Isl68224) {
             return Err(ResponseCode::OperationNotSupported.into());
         }
 
@@ -633,7 +632,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
                 (Device::Raa229618, DeviceType::Core | DeviceType::Mem) => {
                     Some((dev.builder)(self.i2c_task).0)
                 }
-                (Device::Isl68224, DeviceType::MemVpp) => {
+                (Device::Isl68224, DeviceType::MemVpp | DeviceType::SerDes) => {
                     Some((dev.builder)(self.i2c_task).0)
                 }
                 _ => None,
@@ -684,10 +683,34 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
         // Step 3a - Write to DMA Address Register
         dev.write(&[CommandCode::DMAADDR as u8, 0x00, 0x05])?;
-        for i in 0..400 {
+        static_assertions::const_assert_eq!(RENDMP_BLACKBOX_BUF_SIZE, 400);
+        for i in 0..RENDMP_BLACKBOX_BUF_SIZE {
             let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
+            self.blackbox_buf[i] = r;
         }
 
+        Ok(())
+    }
+
+    fn rendmp_blackbox_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        out: idol_runtime::Leased<idol_runtime::W, [u32]>,
+    ) -> Result<(), RequestError<ResponseCode>> {
+        if !bsp::HAS_RENDMP_BLACKBOX {
+            return Err(ResponseCode::OperationNotSupported.into());
+        } else if out.len() != RENDMP_BLACKBOX_SLOT_SIZE {
+            return Err(RequestError::Fail(ClientError::BadLease.into()));
+        } else if index as usize >= RENDMP_BLACKBOX_SLOT_COUNT {
+            return Err(RequestError::Runtime(ResponseCode::BadArg));
+        }
+        out.write_range(
+            0..RENDMP_BLACKBOX_SLOT_SIZE,
+            &self.blackbox_buf[index as usize * RENDMP_BLACKBOX_SLOT_SIZE..]
+                [..RENDMP_BLACKBOX_SLOT_SIZE],
+        )
+        .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         Ok(())
     }
 }
@@ -705,6 +728,22 @@ fn claim_devices(
     );
     dev
 }
+
+fn claim_blackbox() -> &'static mut [u32; RENDMP_BLACKBOX_BUF_SIZE] {
+    let dev = mutable_statics::mutable_statics!(
+        static mut RENDMP_BLACKBOX_BUF: [u32; RENDMP_BLACKBOX_BUF_SIZE] =
+            [|| 0; _];
+    );
+    dev
+}
+
+const RENDMP_BLACKBOX_SLOT_SIZE: usize = 40;
+const RENDMP_BLACKBOX_SLOT_COUNT: usize = 10;
+const RENDMP_BLACKBOX_BUF_SIZE: usize = if bsp::HAS_RENDMP_BLACKBOX {
+    RENDMP_BLACKBOX_SLOT_SIZE * RENDMP_BLACKBOX_SLOT_COUNT
+} else {
+    0
+};
 
 mod idl {
     use task_power_api::*;
