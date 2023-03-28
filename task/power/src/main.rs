@@ -45,8 +45,6 @@ task_slot!(SENSOR, sensor);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-use i2c_config::sensors;
-
 #[allow(dead_code, clippy::upper_case_acronyms)]
 #[derive(Clone, Copy)]
 enum DeviceType {
@@ -331,191 +329,32 @@ macro_rules! mwocp68_controller {
     };
 }
 
-#[cfg(any(
-    target_board = "gimlet-b",
-    target_board = "gimlet-c",
-    target_board = "gimlet-d"
-))]
-const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
-    rail_controller!(IBC, bmr491, v12_sys_a2, A2),
-    rail_controller!(Core, raa229618, vdd_vcore, A0),
-    rail_controller!(Core, raa229618, vddcr_soc, A0),
-    rail_controller!(Mem, raa229618, vdd_mem_abcd, A0),
-    rail_controller!(Mem, raa229618, vdd_mem_efgh, A0),
-    rail_controller_notemp!(MemVpp, isl68224, vpp_abcd, A0),
-    rail_controller_notemp!(MemVpp, isl68224, vpp_efgh, A0),
-    rail_controller_notemp!(MemVpp, isl68224, v1p8_sp3, A0),
-    rail_controller!(Sys, tps546B24A, v3p3_sp_a2, A2),
-    rail_controller!(Sys, tps546B24A, v3p3_sys_a0, A0),
-    rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
-    rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
-    rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
-    adm1272_controller!(HotSwap, v54_hs_output, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan, A2, Ohms(0.002)),
-    max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
-    max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.004)),
-    max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
-    max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
-];
-
-#[cfg(any(
-    target_board = "psc-a",
-    target_board = "psc-b",
-    target_board = "psc-c"
-))]
-const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
-    mwocp68_controller!(PowerShelf, v54_psu0, A2),
-    mwocp68_controller!(PowerShelf, v12_psu0, A2),
-    mwocp68_controller!(PowerShelf, v54_psu1, A2),
-    mwocp68_controller!(PowerShelf, v12_psu1, A2),
-    mwocp68_controller!(PowerShelf, v54_psu2, A2),
-    mwocp68_controller!(PowerShelf, v12_psu2, A2),
-    mwocp68_controller!(PowerShelf, v54_psu3, A2),
-    mwocp68_controller!(PowerShelf, v12_psu3, A2),
-    mwocp68_controller!(PowerShelf, v54_psu4, A2),
-    mwocp68_controller!(PowerShelf, v12_psu4, A2),
-    mwocp68_controller!(PowerShelf, v54_psu5, A2),
-    mwocp68_controller!(PowerShelf, v12_psu5, A2),
-];
-
-#[cfg(target_board = "gimletlet-2")]
-const CONTROLLER_CONFIG: [PowerControllerConfig; 1] = [
-    // The DC2024 has 10 3mΩ current sense resistors in parallel (5 on each
-    // channel), given a total current sense resistance of 300µΩ
-    ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
-];
-
-#[cfg(any(
-    target_board = "gimlet-b",
-    target_board = "gimlet-c",
-    target_board = "gimlet-d"
-))]
-fn get_state() -> PowerState {
-    task_slot!(SEQUENCER, gimlet_seq);
-
-    use drv_gimlet_seq_api as seq_api;
-
-    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
-
-    //
-    // We deliberately enumerate all power states to force the addition of
-    // new ones to update this code.
-    //
-    match sequencer.get_state().unwrap() {
-        seq_api::PowerState::A0
-        | seq_api::PowerState::A0PlusHP
-        | seq_api::PowerState::A0Thermtrip
-        | seq_api::PowerState::A0Reset => PowerState::A0,
-        seq_api::PowerState::A1
-        | seq_api::PowerState::A2
-        | seq_api::PowerState::A2PlusMono
-        | seq_api::PowerState::A2PlusFans => PowerState::A2,
-    }
-}
-
-#[cfg(any(target_board = "sidecar-b", target_board = "sidecar-c"))]
-const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
-    rail_controller!(IBC, bmr491, v12p0_sys, A2),
-    adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
-    rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
-    rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
-    rail_controller!(Sys, tps546B24A, v5p0_sys, A2),
-    rail_controller!(Core, raa229618, v1p5_tf2_vdda, A0),
-    rail_controller!(Core, raa229618, v0p9_tf2_vddt, A0),
-    rail_controller!(SerDes, isl68224, v1p8_tf2_vdda, A0),
-    rail_controller!(SerDes, isl68224, v1p8_tf2_vdd, A0),
-    rail_controller!(Sys, tps546B24A, v1p0_mgmt, A2),
-    rail_controller!(Sys, tps546B24A, v1p8_sys, A2),
-    ltc4282_controller!(HotSwapQSFP, v12p0_front_io, A2, Ohms(0.001 / 2.0)),
-];
-
-#[cfg(any(target_board = "sidecar-b", target_board = "sidecar-c"))]
-fn get_state() -> PowerState {
-    task_slot!(SEQUENCER, sequencer);
-
-    use drv_sidecar_seq_api as seq_api;
-
-    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
-
-    match sequencer.tofino_seq_state() {
-        Ok(seq_api::TofinoSeqState::A0) => PowerState::A0,
-        Ok(seq_api::TofinoSeqState::A2) => PowerState::A2,
-        _ => {
-            panic!("bad state");
-        }
-    }
-}
-
-#[cfg(any(
-    target_board = "psc-a",
-    target_board = "psc-b",
-    target_board = "psc-c",
-    target_board = "gimletlet-2",
-))]
-fn get_state() -> PowerState {
-    PowerState::A2
-}
-
-#[cfg(any(
-    target_board = "gimlet-b",
-    target_board = "gimlet-c",
-    target_board = "gimlet-d",
-    target_board = "sidecar-b",
-    target_board = "sidecar-c",
-    target_board = "gimletlet-2",
-))]
-fn preinit() {
-    // Nothing to do here
-}
-
-#[cfg(any(
-    target_board = "psc-a",
-    target_board = "psc-b",
-    target_board = "psc-c"
-))]
-fn preinit() {
-    // Before talking to the power shelves, we have to enable an I2C buffer
-    task_slot!(SYS, sys);
-    use drv_stm32xx_sys_api::*;
-
-    let sys_task = SYS.get_task_id();
-    let sys = Sys::from(sys_task);
-
-    let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
-    sys.gpio_set(i2c_en);
-    sys.gpio_configure_output(
-        i2c_en,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-    );
-}
+#[cfg_attr(
+    any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d"
+    ),
+    path = "bsp/gimlet_bcd.rs"
+)]
+#[cfg_attr(
+    any(
+        target_board = "psc-a",
+        target_board = "psc-b",
+        target_board = "psc-c"
+    ),
+    path = "bsp/psc_abc.rs"
+)]
+#[cfg_attr(
+    any(target_board = "sidecar-b", target_board = "sidecar-c",),
+    path = "bsp/sidecar_bc.rs"
+)]
+#[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
+mod bsp;
 
 #[export_name = "main"]
 fn main() -> ! {
-    preinit();
+    bsp::preinit();
 
     let i2c_task = I2C.get_task_id();
 
@@ -538,15 +377,17 @@ fn main() -> ! {
 struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
-    devices: &'static mut [Device; CONTROLLER_CONFIG.len()],
+    devices: &'static mut [Device; bsp::CONTROLLER_CONFIG.len()],
 }
 
 impl ServerImpl {
     fn handle_timer_fired(&mut self) {
-        let state = get_state();
+        let state = bsp::get_state();
         let sensor = &self.sensor;
 
-        for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
+        for (c, dev) in
+            bsp::CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut())
+        {
             if c.state == PowerState::A0 && state != PowerState::A0 {
                 let now = sys_get_timer().now;
                 sensor.nodata(c.voltage, NoData::DeviceOff, now).unwrap();
@@ -618,7 +459,7 @@ impl ServerImpl {
     /// need to be special-cased for SPs without a BMR491 (and it's the first
     /// item in the list anyways).
     fn bmr491(&self) -> Result<I2cDevice, ResponseCode> {
-        let device = CONTROLLER_CONFIG
+        let device = bsp::CONTROLLER_CONFIG
             .iter()
             .find(|dev| matches!(dev.device, DeviceType::IBC))
             .ok_or(ResponseCode::NoDevice)?;
@@ -635,7 +476,7 @@ impl ServerImpl {
         use task_power_api::Device;
 
         // Skim through `CONTROLLER_CONFIG` looking for the requested device.
-        CONTROLLER_CONFIG
+        bsp::CONTROLLER_CONFIG
             .iter()
             .filter_map(|dev| {
                 match (dev.device, req_dev) {
@@ -781,7 +622,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
             return Err(ResponseCode::OperationNotSupported.into());
         }
 
-        let dev = CONTROLLER_CONFIG
+        let dev = bsp::CONTROLLER_CONFIG
             .iter()
             .filter_map(|dev| match (req_dev, dev.device) {
                 (Device::Raa229618, DeviceType::Core | DeviceType::Mem) => {
@@ -851,10 +692,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
 /// This function can only be called once, and will panic otherwise!
 fn claim_devices(
     i2c_task: TaskId,
-) -> &'static mut [Device; CONTROLLER_CONFIG.len()] {
-    let mut iter = CONTROLLER_CONFIG.iter();
+) -> &'static mut [Device; bsp::CONTROLLER_CONFIG.len()] {
+    let mut iter = bsp::CONTROLLER_CONFIG.iter();
     let dev = mutable_statics::mutable_statics!(
-        static mut DEVICES: [Device; CONTROLLER_CONFIG.len()] =
+        static mut DEVICES: [Device; bsp::CONTROLLER_CONFIG.len()] =
             [|| iter.next().unwrap().get_device(i2c_task); _];
     );
     dev
