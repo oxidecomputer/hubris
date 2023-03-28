@@ -241,6 +241,42 @@ impl idl::InOrderPackratImpl for ServerImpl {
     ) -> Result<(), RequestError<Infallible>> {
         Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
     }
+
+    #[cfg(feature = "gimlet")]
+    fn get_spd_present(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<bool, RequestError<Infallible>> {
+        self.gimlet_data.get_spd_present(index)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_spd_present(
+        &mut self,
+        _: &RecvMessage,
+        _index: usize,
+    ) -> Result<bool, RequestError<Infallible>> {
+        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<u8, RequestError<Infallible>> {
+        self.gimlet_data.get_spd_data(index)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        _index: usize,
+    ) -> Result<u8, RequestError<Infallible>> {
+        Err(RequestError::Fail(idol_runtime::ClientError::BadMessageContents))
+    }
 }
 
 mod idl {

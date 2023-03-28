@@ -67,6 +67,22 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "get_spd_present": (
+            doc: "Return whether the device at `index` is present. Return value is dependent on prior calls to `set_spd_eeprom`.",
+            args: {
+                "index": "usize",
+            },
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+        "get_spd_data": (
+            doc: "Return the value of the SPD data byte at `index`. Return value is dependent on prior calls to `set_spd_eeprom`.",
+            args: {
+                "index": "usize",
+            },
+            reply: Simple("u8"),
+            idempotent: true,
+        ),
     },
 )
 

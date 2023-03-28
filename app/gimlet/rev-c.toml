@@ -95,7 +95,7 @@ priority = 2
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
-task-slots = ["sys", "i2c_driver", "jefe"]
+task-slots = ["sys", "packrat", "jefe"]
 notifications = ["i2c1-irq", "jefe-state-change"]
 
 [tasks.spd.interrupts]

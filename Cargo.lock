@@ -4376,6 +4376,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "drv-gimlet-seq-api",
  "drv-gimlet-state",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
@@ -4385,6 +4386,7 @@ dependencies = [
  "spd",
  "stm32h7",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
 ]
 
