@@ -757,7 +757,7 @@ impl<'a> RxMsg<'a> {
     /// This should only be used after a successful non-consuming parse, or
     /// else the data will be meaningless.
     pub fn payload_error_byte(&self) -> u8 {
-        assert!(self.len >= MIN_MSG_SIZE + 1);
+        assert!(self.len > MIN_MSG_SIZE);
         self.buf[HEADER_SIZE]
     }
 
@@ -795,7 +795,7 @@ impl<'a> RxMsg<'a> {
         if self.len < HEADER_SIZE {
             return Err(SprotError::Incomplete);
         }
-        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
+        let (header, _) = hubpack::deserialize::<MsgHeader>(self.buf)?;
         if header.payload_len as usize > PAYLOAD_SIZE_MAX {
             return Err(SprotError::BadMessageLength);
         }
@@ -814,7 +814,7 @@ impl<'a> RxMsg<'a> {
             return Err((self.header_bytes(), SprotError::Incomplete));
         }
 
-        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])
+        let (header, _) = hubpack::deserialize::<MsgHeader>(self.buf)
             .map_err(|e| (self.header_bytes(), e.into()))?;
         if header.payload_len as usize > PAYLOAD_SIZE_MAX {
             return Err((self.header_bytes(), SprotError::BadMessageLength));

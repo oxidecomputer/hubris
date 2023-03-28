@@ -1269,10 +1269,8 @@ impl UsartHandler {
             });
         }
 
-        if n_received > 0 {
-            if self.from_rx_flush_deadline.is_none() {
-                self.set_from_rx_flush_deadline();
-            }
+        if n_received > 0 && self.from_rx_flush_deadline.is_none() {
+            self.set_from_rx_flush_deadline();
         }
 
         // Re-enable USART interrupts.

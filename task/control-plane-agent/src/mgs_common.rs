@@ -205,7 +205,7 @@ impl MgsCommon {
         // figured out for the SP.
         let target = match component {
             SpComponent::SP_ITSELF => {
-                if intent != ResetIntent::Normal || !slot.is_none() {
+                if intent != ResetIntent::Normal || slot.is_some() {
                     // A scheme for STM32 transient image selection and
                     // richer behavior for the persistent image selection
                     // will require a development of a bootloader for the
