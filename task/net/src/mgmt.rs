@@ -134,6 +134,9 @@ impl Config {
         }
 
         // Wait for all PG lines to be set
+        for p in self.power_good {
+            sys.gpio_configure_input(*p, Pull::None);
+        }
         while !self.power_good.iter().all(|p| sys.gpio_read(*p) != 0) {
             sleep_for(1);
         }
