@@ -50,7 +50,9 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
-uses-secure-entry = true
+uses = ["flash_controller"]
+notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"

@@ -43,8 +43,10 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2048
 start = true
-uses = ["rom", "secure_syscon", "syscon", "flash"]
+uses = ["flash_controller"]
 sections = {bootstate = "usbsram"}
+notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
@@ -158,7 +160,3 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-b/dist/default/final.bin"
-
-[extratext.rom]
-address = 0x13000000
-size = 0x20000
