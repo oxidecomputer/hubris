@@ -35,7 +35,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// is later than its defined version, so this version number should be
 /// be used to enforce flag days across Hubris and Humility.  Be sure
 /// to bump the corresponding `MAX_HUBRIS_VERSION` version in Humility!
-const HUBRIS_ARCHIVE_VERSION: u32 = 8;
+const HUBRIS_ARCHIVE_VERSION: u32 = 7;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch

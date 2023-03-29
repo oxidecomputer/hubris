@@ -98,6 +98,19 @@ pub fn dump_task(base: u32, task: usize) {
     let mut ndx = 0;
 
     loop {
+        //
+        // We need to ask the kernel which regions we should dump for this
+        // task, which we do by asking for each dump region by index.  Note
+        // that get_task_dump_region is O(#regions) -- which makes this loop
+        // quadratic: O(#regions * #dumpable).  Fortunately, these numbers are
+        // very small: the number of regions is generally 3 or less (and -- as
+        // of this writing -- tops out at 7), and the number of dumpable
+        // regions is generally just one (two when including the task TCB, but
+        // that's constant time to extract).  So this isn't as bad as it
+        // potentially looks (and boils down to two iterations over all
+        // regions in a task) -- but could become so if these numbers become
+        // larger.
+        //
         match kipc::get_task_dump_region(task, ndx) {
             None => break,
             Some(region) => {
@@ -121,6 +134,9 @@ pub fn dump_task(base: u32, task: usize) {
 
     ringbuf_entry!(Trace::DumpStart(base));
 
+    //
+    // The humpty dance is your chance... to do the dump!
+    //
     let r = humpty::dump::<(), 512, { humpty::DUMPER_JEFE }>(
         base,
         Some(humpty::DumpTask::new(task as u16, sys_get_timer().now)),
