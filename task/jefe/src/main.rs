@@ -333,7 +333,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use humpty::DumpArea;
     use task_jefe_api::{DumpAgentError, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

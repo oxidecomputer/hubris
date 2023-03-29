@@ -8,7 +8,6 @@
 
 use derive_idol_err::IdolError;
 pub use dump_agent_api::DumpAgentError;
-use humpty::DumpArea;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 

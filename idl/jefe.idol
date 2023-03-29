@@ -46,7 +46,7 @@ Interface(
                 "index": "u8",
             },
             reply: Result(
-                ok: "DumpArea",
+                ok: "humpty::DumpArea",
                 err: CLike("DumpAgentError"),
             ),
             encoding: Hubpack,
@@ -54,7 +54,7 @@ Interface(
         ),
         "claim_dump_area": (
             reply: Result(
-                ok: "DumpArea",
+                ok: "humpty::DumpArea",
                 err: CLike("DumpAgentError"),
             ),
             encoding: Hubpack,

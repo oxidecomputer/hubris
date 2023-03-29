@@ -31,6 +31,12 @@ use crate::{
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
+/// Humility will (gracefully) refuse to load an archive version that
+/// is later than its defined version, so this version number should be
+/// be used to enforce flag days across Hubris and Humility.  Be sure
+/// to bump the corresponding `MAX_HUBRIS_VERSION` version in Humility!
+const HUBRIS_ARCHIVE_VERSION: u32 = 8;
+
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
 /// of individual arguments to functions.
@@ -2470,7 +2476,9 @@ impl Archive {
 
         let archive = File::create(&tmp_path)?;
         let mut inner = zip::ZipWriter::new(archive);
-        inner.set_comment("hubris build archive v7");
+        inner.set_comment(format!(
+            "hubris build archive v{HUBRIS_ARCHIVE_VERSION}"
+        ));
         Ok(Self {
             final_path,
             tmp_path,
