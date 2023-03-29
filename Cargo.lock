@@ -3102,6 +3102,7 @@ name = "psc"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -4423,10 +4424,13 @@ dependencies = [
 name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
+ "hubpack",
  "num-traits",
  "serde",
  "ssmarshal",
+ "static_assertions",
  "task-net-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy",
 ]

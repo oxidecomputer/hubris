@@ -13,8 +13,12 @@
 #![no_main]
 
 #[cfg_attr(
-    any(target_board = "gimlet-b", target_board = "gimlet-c"),
-    path = "bsp/gimlet_bc.rs"
+    any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d"
+    ),
+    path = "bsp/gimlet_bcd.rs"
 )]
 #[cfg_attr(
     any(target_board = "sidecar-b", target_board = "sidecar-c"),

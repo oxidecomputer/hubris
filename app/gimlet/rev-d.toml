@@ -1,6 +1,6 @@
-name = "gimlet-b"
+name = "gimlet-d"
 target = "thumbv7em-none-eabihf"
-board = "gimlet-b"
+board = "gimlet-d"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
@@ -8,7 +8,6 @@ stacksize = 896
 [kernel]
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
-features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -19,12 +18,11 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 8192, ram = 2048}
 start = true
-features = ["itm", "dump"]
+features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -310,9 +308,9 @@ name = "task-dump-agent"
 priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
-task-slots = ["sprot", "jefe"]
+task-slots = ["sprot"]
 stacksize = 1200
-extern-regions = [ "sram2", "sram3", "sram4" ]
+uses = [ "sram2", "sram3", "sram4" ]
 
 [tasks.sbrmi]
 name = "drv-sbrmi"
@@ -361,7 +359,11 @@ controller = 2
 name = "m2"
 description = "M.2 bus"
 pins = [ { pins = [ 10, 11 ], af = 4 } ]
-muxes = [ { driver = "pca9548", address = 0x73 } ]
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9548"
+address = 0x73
+nreset = { port = "E", pin = 15 } # SP_TO_I2C_SW_M2_A2_V3P3
 
 #
 # SMBUS_SP_TO_LVL_FRONT_SMDAT
@@ -378,14 +380,17 @@ pins = [ { pins = [ 0, 1 ], af = 4 } ]
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x70
+nreset = { port = "E", pin = 12 } # SP_TO_I2C_SW_CEMABCD_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x71
+nreset = { port = "E", pin = 14 } # SP_TO_I2C_SW_CEMEFGH_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x72
+nreset = { port = "E" , pin = 13 } # SP_TO_I2C_SW_CEMIJ_FRU_A2_V3P3
 
 #
 # I2C3: Mid bus
@@ -820,6 +825,15 @@ name = "local_vpd"
 description = "Gimlet VPD"
 refdes = "U615"
 
+#
+# M.2 NVMe bus mux. Segments:
+#
+# SEG  CLOCK                              DATA
+#   1  SMBUS_SP_TO_M2A_SMCLK_A2_V3P3      SMBUS_SP_TO_M2A_SMDAT_A2_V3P3
+#   2  SMBUS_SP_TO_M2B_SMCLK_A2_V3P3      SMBUS_SP_TO_M2B_SMDAT_A2_V3P3
+#   3  SMBUS_SP_TO_FAN_FRU_SMCLK_A2_V3P3  SMBUS_SP_TO_FAN_FRU_SMDAT_A2_V3P3
+#   4  SMBUS_SP_TO_NIC_TEMP_SMCLK_A2_V3P3 SMBUS_SP_TO_NIC_TEMP_SMCDAT_A2_V3P3
+#
 [[config.i2c.devices]]
 bus = "m2"
 address = 0x73
@@ -1221,6 +1235,9 @@ outputs = [
 ]
 input = {port = "B", pin = 14, af = 5}
 
+#
+# SP_TO_SEQ_SPI_SS
+#
 [config.spi.spi2.devices.sequencer]
 mux = "port_b"
 cs = [{port = "B", pin = 5}]
@@ -1229,10 +1246,16 @@ cs = [{port = "B", pin = 5}]
 mux = "port_b"
 cs = [{port = "B", pin = 5}]
 
+#
+# SPI_SP_TO_MGMT_MUX_CSN
+#
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
 cs = [{port = "I", pin = 0}]
 
+#
+# SP_TO_FLASH_SPI_CS
+# 
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
 cs = [{port = "B", pin = 12}]
@@ -1246,6 +1269,9 @@ outputs = [
 ]
 input = {port = "E", pin = 5, af = 5}
 
+#
+# SPI_SP_TO_ROT_CS_R_L
+#
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]

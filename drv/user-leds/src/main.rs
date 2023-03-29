@@ -67,6 +67,7 @@ cfg_if::cfg_if! {
         target_board = "donglet-g031",
         target_board = "gimlet-b",
         target_board = "gimlet-c",
+        target_board = "gimlet-d",
     ))] {
         #[derive(FromPrimitive)]
         enum Led {
@@ -403,6 +404,7 @@ cfg_if::cfg_if! {
                 ];
             } else if #[cfg(any(target_board = "gimlet-b",
                                 target_board = "gimlet-c",
+                                target_board = "gimlet-d",
             ))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),

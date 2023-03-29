@@ -330,7 +330,11 @@ macro_rules! mwocp68_controller {
     };
 }
 
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d"
+))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
     rail_controller!(Core, raa229618, vdd_vcore, A0),
@@ -371,7 +375,11 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
 ];
 
-#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+#[cfg(any(
+    target_board = "psc-a",
+    target_board = "psc-b",
+    target_board = "psc-c"
+))]
 const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
     mwocp68_controller!(PowerShelf, v54_psu0, A2),
     mwocp68_controller!(PowerShelf, v12_psu0, A2),
@@ -394,7 +402,11 @@ const CONTROLLER_CONFIG: [PowerControllerConfig; 1] = [
     ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
 ];
 
-#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d"
+))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 
@@ -458,6 +470,7 @@ fn get_state() -> PowerState {
 #[cfg(any(
     target_board = "psc-a",
     target_board = "psc-b",
+    target_board = "psc-c",
     target_board = "gimletlet-2",
 ))]
 fn get_state() -> PowerState {
@@ -467,6 +480,7 @@ fn get_state() -> PowerState {
 #[cfg(any(
     target_board = "gimlet-b",
     target_board = "gimlet-c",
+    target_board = "gimlet-d",
     target_board = "sidecar-b",
     target_board = "sidecar-c",
     target_board = "gimletlet-2",
@@ -475,7 +489,11 @@ fn preinit() {
     // Nothing to do here
 }
 
-#[cfg(any(target_board = "psc-a", target_board = "psc-b"))]
+#[cfg(any(
+    target_board = "psc-a",
+    target_board = "psc-b",
+    target_board = "psc-c"
+))]
 fn preinit() {
     // Before talking to the power shelves, we have to enable an I2C buffer
     task_slot!(SYS, sys);

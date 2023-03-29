@@ -33,7 +33,10 @@ task_slot!(PACKRAT, packrat);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[cfg_attr(target_board = "gimlet-b", path = "payload_b.rs")]
-#[cfg_attr(target_board = "gimlet-c", path = "payload_c.rs")]
+#[cfg_attr(
+    any(target_board = "gimlet-c", target_board = "gimlet-d"),
+    path = "payload_cd.rs"
+)]
 mod payload;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -209,27 +212,6 @@ fn main() -> ! {
     // Sequencer FPGA power supply sequencing (meta-sequencing?) is complete.
 
     // Now, let's find out if we need to program the sequencer.
-
-    if let Some(hacks) = FPGA_HACK_PINS {
-        // Some boards require certain pins to be put in certain states before
-        // we can perform SPI communication with the design (rather than the
-        // programming port). If this is such a board, apply those changes:
-        for &(pin, is_high) in hacks {
-            if is_high {
-                sys.gpio_set(pin);
-            } else {
-                sys.gpio_reset(pin);
-            }
-
-            sys.gpio_configure_output(
-                pin,
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
-                sys_api::Pull::None,
-            );
-        }
-    }
-
     if let Some(pin) = GLOBAL_RESET {
         // Also configure our design reset net -- the signal that resets the
         // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
@@ -806,9 +788,9 @@ static COMPRESSED_BITSTREAM: &[u8] =
 
 cfg_if::cfg_if! {
     if #[cfg(any(
-        target_board = "gimlet-a",
         target_board = "gimlet-b",
         target_board = "gimlet-c",
+        target_board = "gimlet-d",
     ))] {
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
@@ -824,20 +806,6 @@ cfg_if::cfg_if! {
 
         const SP_TO_SP3_NMI_SYNC_FLOOD_L: sys_api::PinSet =
             sys_api::Port::J.pin(2);
-
-        // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
-        // of circuit to be able to program the FPGA, because we accidentally
-        // share a CS net between Flash and the iCE40.
-        //
-        // (port, mask, high_flag)
-        #[cfg(target_board = "gimlet-a")]
-        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = Some(&[
-            // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
-            (sys_api::Port::I.pin(8), false),
-        ]);
-
-        #[cfg(not(target_board = "gimlet-a"))]
-        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = None;
 
         //
         // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission

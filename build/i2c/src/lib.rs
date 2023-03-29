@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -147,11 +147,19 @@ struct I2cPinSet {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct I2cGpio {
+    port: String,
+    pin: u8,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cMux {
     driver: String,
     address: u8,
-    enable: Option<I2cPinSet>,
+    #[serde(alias = "enable")]
+    nreset: Option<I2cGpio>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -667,7 +675,8 @@ impl ConfigGenerator {
         writeln!(
             &mut s,
             r##"
-    use drv_stm32xx_i2c::I2cPin;
+    #[allow(unused_imports)]
+    use drv_stm32xx_i2c::{{I2cPin, I2cGpio}};
 
     pub fn pins() -> [I2cPin; {}] {{"##,
             len
@@ -779,37 +788,21 @@ impl ConfigGenerator {
         )?;
 
         for c in &self.controllers {
-            for (index, (p, port)) in c.ports.iter().enumerate() {
+            for (index, port) in c.ports.values().enumerate() {
                 for (mindex, mux) in port.muxes.iter().enumerate() {
-                    let enablestr = if let Some(enable) = &mux.enable {
-                        let mut enablestr = String::new();
-                        write!(
-                            &mut enablestr,
-                            r##"Some(I2cPin {{
-                    controller: Controller::I2C{controller},
-                    port: PortIndex({port}),
+                    let nreset = mux
+                        .nreset
+                        .as_ref()
+                        .map(|enable| {
+                            format!(
+                                r##"Some(I2cGpio {{
                     gpio_pins: gpio_api::Port::{gpio_port}.pin({gpio_pin}),
-                    function: Alternate::AF{af},
                 }})"##,
-                            controller = c.controller,
-                            port = index,
-                            gpio_port = match enable.gpio_port {
-                                Some(ref port) => port,
-                                None => bail!(
-                                    "missing pin port on mux enable \
-                                    on I2C{}, port {}, mux {}",
-                                    c.controller,
-                                    p,
-                                    mindex + 1
-                                ),
-                            },
-                            gpio_pin = enable.pins[0],
-                            af = enable.af
-                        )?;
-                        enablestr
-                    } else {
-                        "None".to_string()
-                    };
+                                gpio_port = enable.port,
+                                gpio_pin = enable.pin,
+                            )
+                        })
+                        .unwrap_or_else(|| "None".to_string());
 
                     let driver_struct = format!(
                         "{}{}",
@@ -825,7 +818,7 @@ impl ConfigGenerator {
                 port: PortIndex({i2c_port}),
                 id: Mux::M{mindex},
                 driver: &drv_stm32xx_i2c::{driver}::{driver_struct},
-                enable: {enable},
+                nreset: {nreset},
                 address: {address:#x},
             }},"##,
                         controller = c.controller,
@@ -833,7 +826,6 @@ impl ConfigGenerator {
                         mindex = mindex + 1,
                         driver = mux.driver,
                         driver_struct = driver_struct,
-                        enable = enablestr,
                         address = mux.address,
                     )?;
                 }

@@ -7,12 +7,15 @@ edition = "2021"
 vlan = ["task-net-api/vlan"]
 
 [dependencies]
+hubpack = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
+static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
 task-net-api = { path = "../net-api" }
+task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

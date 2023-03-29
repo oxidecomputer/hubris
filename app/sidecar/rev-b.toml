@@ -132,7 +132,7 @@ priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
-task-slots = ["net"]
+task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 

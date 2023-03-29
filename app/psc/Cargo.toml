@@ -8,6 +8,7 @@ version = "0.1.0"
 dump = ["kern/dump"]
 
 [dependencies]
+cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }
