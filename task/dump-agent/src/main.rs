@@ -64,8 +64,8 @@ impl ServerImpl {
             area.address,
             addr,
             length,
-            humpty::from_mem,
-            humpty::to_mem,
+            |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+            |addr, buf| unsafe { humpty::to_mem(addr, buf) },
         )
         .map_err(|_| DumpAgentError::BadSegmentAdd)
     }

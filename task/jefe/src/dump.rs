@@ -46,7 +46,9 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::GetDumpArea(index));
     ringbuf_entry!(Trace::Base(base));
 
-    match humpty::get_dump_area(base, index, humpty::from_mem) {
+    match humpty::get_dump_area(base, index, |addr, buf, _| unsafe {
+        humpty::from_mem(addr, buf)
+    }) {
         Err(e) => {
             ringbuf_entry!(Trace::GetDumpAreaFailed(e));
             Err(DumpAgentError::InvalidArea)
@@ -61,8 +63,8 @@ pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
     match humpty::claim_dump_area(
         base,
         DumpContents::WholeSystem,
-        humpty::from_mem,
-        humpty::to_mem,
+        |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+        |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     ) {
         Err(e) => {
             ringbuf_entry!(Trace::ClaimDumpAreaFailed(e));
@@ -84,8 +86,8 @@ pub fn dump_task(base: u32, task: usize) {
     let area = humpty::claim_dump_area(
         base,
         DumpContents::SingleTask,
-        humpty::from_mem,
-        humpty::to_mem,
+        |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+        |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
 
     ringbuf_entry!(Trace::DumpArea(area));
@@ -120,8 +122,8 @@ pub fn dump_task(base: u32, task: usize) {
                     base,
                     region.base,
                     region.size,
-                    humpty::from_mem,
-                    humpty::to_mem,
+                    |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+                    |addr, buf| unsafe { humpty::to_mem(addr, buf) },
                 ) {
                     ringbuf_entry!(Trace::DumpRegionsFailed(e));
                     return;
@@ -144,7 +146,7 @@ pub fn dump_task(base: u32, task: usize) {
         |addr, buf, meta| {
             ringbuf_entry!(Trace::DumpReading(addr, buf.len(), meta));
             if meta {
-                humpty::from_mem(addr, buf, meta)
+                unsafe { humpty::from_mem(addr, buf) }
             } else {
                 let r = kipc::read_task_dump_region(
                     task,
@@ -159,7 +161,7 @@ pub fn dump_task(base: u32, task: usize) {
                 Ok(())
             }
         },
-        humpty::to_mem,
+        |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
 
     ringbuf_entry!(Trace::DumpDone(r));
