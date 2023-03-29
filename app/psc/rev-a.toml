@@ -24,7 +24,7 @@ start = true
 features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = [ "sram2", "sram3", "sram4" ]
+extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -227,7 +227,7 @@ max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["sprot", "jefe"]
 stacksize = 1200
-extern-regions = [ "sram2", "sram3", "sram4" ]
+extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.idle]
 name = "task-idle"

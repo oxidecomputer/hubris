@@ -20,7 +20,7 @@ start = true
 features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = [ "sram2" ]
+extern-regions = ["sram2"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -140,5 +140,5 @@ max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
-extern-regions = [ "sram2" ]
+extern-regions = ["sram2"]
 
