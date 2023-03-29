@@ -1091,6 +1091,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-sha256"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "userlib",
+]
+
+[[package]]
 name = "drv-lpc55-spi"
 version = "0.1.0"
 dependencies = [
