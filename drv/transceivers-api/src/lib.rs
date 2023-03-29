@@ -18,6 +18,7 @@ pub enum TransceiversError {
     InvalidPortNumber,
     InvalidNumberOfBytes,
     InvalidPowerState,
+    InvalidModuleResult,
 
     #[idol(server_death)]
     ServerRestarted,

@@ -4,7 +4,7 @@
 
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use drv_transceivers_api::{ModuleStatus, NUM_PORTS};
+use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -403,33 +403,67 @@ const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 /// - The module could not be interacted with due to an FPGA communication error
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct ModuleResult {
-    pub success: LogicalPortMask,
-    pub failure: LogicalPortMask,
-    pub error: LogicalPortMask,
+    success: LogicalPortMask,
+    failure: LogicalPortMask,
+    error: LogicalPortMask,
 }
 
 impl ModuleResult {
+    /// Create a new ModuleResult which enforces no overlap in the success,
+    /// failure, and error masks.
+    pub fn new(
+        success: LogicalPortMask,
+        failure: LogicalPortMask,
+        error: LogicalPortMask,
+    ) -> Result<Self, TransceiversError> {
+        if (success.0 & failure.0 != 0)
+            || (success.0 & error.0 != 0)
+            || (failure.0 & error.0 != 0)
+        {
+            return Err(TransceiversError::InvalidModuleResult);
+        }
+        Ok(Self {
+            success,
+            failure,
+            error,
+        })
+    }
+
+    pub fn success(&self) -> LogicalPortMask {
+        self.success
+    }
+
+    pub fn failure(&self) -> LogicalPortMask {
+        self.failure
+    }
+
+    pub fn error(&self) -> LogicalPortMask {
+        self.error
+    }
+
     /// This is a helper function to combine two sets of results for when there
     /// is a sequence of `ModuleResult` yielding function calls. Building such a
     /// sequence is generally done with the following form (where `modules` is
     /// a `LogicalPortMask` of requested modules):
     ///
-    /// let mut result = some_result_fn(modules);
-    /// result.chain(another_result_fn(result.success))
+    /// let result = some_result_fn(modules);
+    /// let next_result = result.chain(another_result_fn(result.success))
     ///
     /// So the initial result includes some set of success, failure, and error
     /// masks which then need to be reconciled with a new set of masks, generally
     /// a subset of the success mask of the initial result. Notably, there
     /// cannot be overlap between these masks, which this function enforces.
-    pub fn chain(&mut self, next: ModuleResult) {
+    pub fn chain(&self, next: ModuleResult) -> Self {
         // success mask is just what the success of the next step is
-        self.success = next.success;
+        let success = next.success;
         // combine any new errors with the existing error mask
-        self.error |= next.error;
+        let error = self.error() | next.error();
         // combine any new failures with the existing failure mask. Errors
         // supercede failures, so make sure to clear any failures where an error
         // has subsequently occurred.
-        self.failure = (self.failure | next.failure) & !self.error;
+        let failure = (self.failure() | next.failure()) & !self.error();
+
+        Self::new(success, failure, error).unwrap()
     }
 }
 
@@ -459,7 +493,7 @@ impl Transceivers {
         mask: LogicalPortMask,
         addr: Addr,
     ) -> ModuleResult {
-        let mut result = ModuleResult::default();
+        let mut error = LogicalPortMask(0);
         // map the logical mask into a physical one
         let fpga_masks: FpgaPortMasks = mask.into();
         // talk to both FPGAs
@@ -474,20 +508,20 @@ impl Transceivers {
                 // mark that an error occurred so we can modify the success mask
                 if fpga.write(op, addr, wdata).is_err() {
                     match fpga_index {
-                        FpgaController::Left => {
-                            result.error.merge(LEFT_LOGICAL_MASK)
-                        }
-                        FpgaController::Right => {
-                            result.error.merge(RIGHT_LOGICAL_MASK)
-                        }
+                        FpgaController::Left => error |= LEFT_LOGICAL_MASK,
+                        FpgaController::Right => error |= RIGHT_LOGICAL_MASK,
                     }
                 }
             }
         }
         // success is wherever we did not encounter an `FpgaError`
-        result.success = mask & !result.error;
+        let success = mask & !error;
+        // this function does not have a "failure" during operation
+        let failure = LogicalPortMask(0);
+        // only have an error where there was a requested module in mask
+        error &= mask;
 
-        result
+        ModuleResult::new(success, failure, error).unwrap()
     }
 
     /// Set power enable bits per the specified `mask`. Controls whether or not
@@ -564,17 +598,6 @@ impl Transceivers {
                 Err(_) => None,
             };
 
-        let mut result = ModuleResult::default();
-        match (ldata, rdata) {
-            (None, None) => result.success = LogicalPortMask(0),
-            (Some(_), None) => result.success = LEFT_LOGICAL_MASK,
-            (None, Some(_)) => result.success = RIGHT_LOGICAL_MASK,
-            (Some(_), Some(_)) => {
-                result.success = LEFT_LOGICAL_MASK | RIGHT_LOGICAL_MASK
-            }
-        };
-        result.error = !result.success;
-
         let mut status_masks: [u32; 8] = [0; 8];
 
         // loop through each logical port
@@ -605,9 +628,18 @@ impl Transceivers {
             }
         }
 
+        let success = match (ldata, rdata) {
+            (None, None) => LogicalPortMask(0),
+            (Some(_), None) => LEFT_LOGICAL_MASK,
+            (None, Some(_)) => RIGHT_LOGICAL_MASK,
+            (Some(_), Some(_)) => LEFT_LOGICAL_MASK | RIGHT_LOGICAL_MASK,
+        };
+        let failure = LogicalPortMask(0);
+        let error = !success;
+
         (
             ModuleStatus::read_from(status_masks.as_bytes()).unwrap(),
-            result,
+            ModuleResult::new(success, failure, error).unwrap(),
         )
     }
 
@@ -617,7 +649,7 @@ impl Transceivers {
     /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     pub fn clear_power_fault(&self, mask: LogicalPortMask) -> ModuleResult {
-        let mut result = ModuleResult::default();
+        let mut error = LogicalPortMask(0);
         // map the logical mask into the physical one
         let fpga_masks: FpgaPortMasks = mask.into();
         // talk to both FPGAs
@@ -641,19 +673,24 @@ impl Transceivers {
                     {
                         match fpga_index {
                             FpgaController::Left => {
-                                result.error.merge(LEFT_LOGICAL_MASK);
+                                error |= LEFT_LOGICAL_MASK;
                             }
                             FpgaController::Right => {
-                                result.error.merge(RIGHT_LOGICAL_MASK);
+                                error |= RIGHT_LOGICAL_MASK;
                             }
                         }
                     }
                 }
             }
         }
-        result.success = mask & !result.error;
+        // success is wherever we did not encounter an `FpgaError`
+        let success = mask & !error;
+        // this function does not have a "failure" during operation
+        let failure = LogicalPortMask(0);
+        // only have an error where there was a requested module in mask
+        error &= mask;
 
-        result
+        ModuleResult::new(success, failure, error).unwrap()
     }
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
@@ -703,7 +740,7 @@ impl Transceivers {
         mask: LogicalPortMask,
     ) -> ModuleResult {
         let fpga_masks: FpgaPortMasks = mask.into();
-        let mut result = ModuleResult::default();
+        let mut success = LogicalPortMask(0);
 
         let i2c_op = if is_read {
             // Defaulting to RandomRead, rather than Read, because RandomRead
@@ -728,7 +765,7 @@ impl Transceivers {
                 .write(WriteOp::Write, Addr::QSFP_I2C_REG_ADDR, request)
                 .is_ok()
             {
-                result.success |= mask & LEFT_LOGICAL_MASK;
+                success |= LEFT_LOGICAL_MASK;
             }
         }
 
@@ -744,13 +781,15 @@ impl Transceivers {
                 .write(WriteOp::Write, Addr::QSFP_I2C_REG_ADDR, request)
                 .is_ok()
             {
-                result.success |= mask & RIGHT_LOGICAL_MASK;
+                success |= RIGHT_LOGICAL_MASK;
             }
         }
 
-        result.error = mask & !result.success;
+        success &= mask;
+        let failure = LogicalPortMask(0);
+        let error = mask & !success;
 
-        result
+        ModuleResult::new(success, failure, error).unwrap()
     }
 
     /// Read the value of the QSFP_PORTx_STATUS. This contains information on if
@@ -805,24 +844,25 @@ impl Transceivers {
     /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> ModuleResult {
-        let mut result = ModuleResult::default();
+        let mut success = LogicalPortMask(0);
         if self
             .fpga(FpgaController::Left)
             .write_bytes(WriteOp::Write, Addr::QSFP_WRITE_BUFFER, buf)
             .is_ok()
         {
-            result.success |= LEFT_LOGICAL_MASK;
+            success |= LEFT_LOGICAL_MASK;
         }
         if self
             .fpga(FpgaController::Right)
             .write_bytes(WriteOp::Write, Addr::QSFP_WRITE_BUFFER, buf)
             .is_ok()
         {
-            result.success |= RIGHT_LOGICAL_MASK;
+            success |= RIGHT_LOGICAL_MASK;
         }
-        result.error = !result.success;
+        let failure = LogicalPortMask(0);
+        let error = !success;
 
-        result
+        ModuleResult::new(success, failure, error).unwrap()
     }
 
     /// For a given `local_port`, return the Addr where its read buffer begins
@@ -987,11 +1027,7 @@ impl Transceivers {
         let error = mask & LogicalPortMask::from(physical_error);
         let failure = mask & LogicalPortMask::from(physical_failure);
         let success = mask & !(error | failure);
-        ModuleResult {
-            success,
-            failure,
-            error,
-        }
+        ModuleResult::new(success, failure, error).unwrap()
     }
 }
 

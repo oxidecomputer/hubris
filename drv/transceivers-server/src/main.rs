@@ -361,7 +361,7 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     {
         let (mod_status, result) = self.transceivers.get_module_status();
 
-        match result.error.count() {
+        match result.error().count() {
             0 => Ok(mod_status),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -375,7 +375,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .enable_power(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -389,7 +390,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .disable_power(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -403,7 +405,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .assert_reset(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -417,7 +420,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .deassert_reset(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -431,7 +435,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .assert_lpmode(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -445,7 +450,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .deassert_lpmode(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -459,7 +465,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         let result = self
             .transceivers
             .clear_power_fault(LogicalPortMask(logical_port_mask));
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -475,13 +482,9 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
-
-        let result = self.transceivers.setup_i2c_read(
-            reg,
-            num_bytes,
-            LogicalPortMask(logical_port_mask),
-        );
-        match result.error.count() {
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.setup_i2c_read(reg, num_bytes, mask);
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -497,13 +500,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
-
+        let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.setup_i2c_write(
             reg,
             num_bytes,
             LogicalPortMask(logical_port_mask),
         );
-        match result.error.count() {
+        match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
@@ -550,7 +553,7 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         let result = self.transceivers.set_i2c_write_buffer(&buf[..data.len()]);
-        match result.error.count() {
+        match result.error().count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
         }
