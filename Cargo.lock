@@ -2303,7 +2303,7 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools#3aa711b26fc179c130986bf41c13445a984e8adb"
+source = "git+https://github.com/oxidecomputer/hubtools#c07c7664996d4d0f8fe70ae7f457131d920e2390"
 dependencies = [
  "lpc55_areas",
  "lpc55_sign",
