@@ -673,8 +673,6 @@ pre.rouge .gs {
 <li><a href="#_read_image_id_4">8.1.4. <code>read_image_id</code> (4)</a></li>
 <li><a href="#_reset_5">8.1.5. <code>reset</code> (5)</a></li>
 <li><a href="#_read_caboose_pos_6">8.1.6. <code>read_caboose_pos</code> (6)</a></li>
-<li><a href="#_get_task_dump_region_7">8.1.7. <code>get_task_dump_region</code> (7)</a></li>
-<li><a href="#_read_task_dump_region_8">8.1.8. <code>read_task_dump_region</code> (8)</a></li>
 </ul>
 </li>
 <li><a href="#_receiving_from_the_kernel">8.2. Receiving from the kernel</a></li>
@@ -3899,9 +3897,7 @@ programs written in Rust.</p>
 <i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
-It is our intent to restrict kernel IPC sends to &#8220;privileged&#8221; tasks&#8201;&#8212;&#8201;likely just the supervisor task. We haven&#8217;t implemented this yet for every
-entry point, though some IPC entry points explicitly limit themselves
-to the supervisor.
+It is our intent to restrict kernel IPC sends to &#8220;privileged&#8221; tasks&#8201;&#8212;&#8201;likely just the supervisor task. We haven&#8217;t implemented this yet.
 </td>
 </tr>
 </table>
@@ -4156,92 +4152,6 @@ flash, so its location can only be known after an entire image is built.</p>
 <p>Note that this call will return the caboose address even if a task is not
 configured for caboose access!  In that case, reading from the given memory
 range will cause a memory fault and the task will be killed.</p>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_get_task_dump_region_7">8.1.7. <code>get_task_dump_region</code> (7)</h4>
-<div class="paragraph">
-<p>A dump region is an area of memory for a specified task that can be
-read by the supervisor for purpose of creating a memory dump for debugging.
-For a specified task and region index, <code>get_task_dump_region</code>
-will return the details of the dump region, if any.  This entry point
-is only present if the kernel&#8217;s <code>dump</code> feature is enabled.</p>
-</div>
-<div class="sect4">
-<h5 id="_request_4">Request</h5>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">type</span> <span class="n">GetTaskDumpRegionRequest</span> <span class="o">=</span> <span class="p">(</span><span class="nb">u32</span><span class="p">,</span> <span class="nb">u32</span><span class="p">);</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_preconditions_5">Preconditions</h5>
-<div class="paragraph">
-<p>The task index (<code>GetTaskDumpRegionRequest.0</code>) must be a valid task index.  The
-dump region index (<code>GetTaskDumpRegionRequest.1</code>) should denote the region of
-interest.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_response_5">Response</h5>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">TaskDumpRegion</span> <span class="p">{</span>
-    <span class="n">base</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
-    <span class="n">size</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
-<span class="p">}</span>
-
-<span class="k">type</span> <span class="n">GetTaskDumpRegionResponse</span> <span class="o">=</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="n">TaskDumpRegion</span><span class="o">&gt;</span><span class="p">;</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_notes_16">Notes</h5>
-<div class="paragraph">
-<p>For the specified task index, this will return the dump region specified by
-the dump region index.  If the dump region index is equal to or greater
-than the number of dump regions for the specified task, <code>None</code> will
-be returned.</p>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_read_task_dump_region_8">8.1.8. <code>read_task_dump_region</code> (8)</h4>
-<div class="paragraph">
-<p>For a given task and task dump region, this will read the specified region and
-return its contents.  The region should be entirely contained by a region that
-has been returned by a call to <code>get_task_dump_region</code> but is otherwise
-unconstrained.  This entry point is only present if the kernel&#8217;s <code>dump</code>
-feature is enabled.</p>
-</div>
-<div class="sect4">
-<h5 id="_request_5">Request</h5>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">TaskDumpRegion</span> <span class="p">{</span>
-    <span class="n">base</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
-    <span class="n">size</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
-<span class="p">}</span>
-
-<span class="k">type</span> <span class="n">ReadTaskDumpRegionRequest</span> <span class="o">=</span> <span class="p">(</span><span class="nb">u32</span><span class="p">,</span> <span class="n">TaskDumpRegion</span><span class="p">);</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_preconditions_6">Preconditions</h5>
-<div class="paragraph">
-<p>The task index (<code>ReadTaskDumpRegionRequest.0</code>) must be a valid task index.
-The dump region should be entirely contained by a region that has been
-returned by a call to <code>get_task_dump_region</code> for the specified task.</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_response_6">Response</h5>
-<div class="paragraph">
-<p>A copy of the memory referred to by the specified region, starting
-at <code>base</code> and running for <code>size</code> bytes.</p>
 </div>
 </div>
 </div>
@@ -5575,7 +5485,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-03-29 20:17:54 UTC
+Last updated 2023-03-29 20:37:16 UTC
 </div>
 </div>
 </body>
