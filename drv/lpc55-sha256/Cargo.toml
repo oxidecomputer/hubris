@@ -1,0 +1,8 @@
+[package]
+name = "drv-lpc55-sha256"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib.path = "../../sys/userlib"
+lpc55-pac.workspace = true
