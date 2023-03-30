@@ -230,8 +230,15 @@ impl ServerImpl {
                 && (status.resetl & mask) != 0;
 
             // A wild transceiver just appeared!  Read it to decide whether it's
-            // using SFF-8636 or CMIS.
-            if operational && self.thermal_models[i].is_none() {
+            // using SFF-8636 or CMIS.  We'll *also* try to read it here if
+            // we've currently got it recorded as ManagementInterface::Unknown,
+            // in the hopes of converting it into a known transceiver type.
+            let wants_scan = self.thermal_models[i]
+                .map(|m| {
+                    matches!(m.interface, ManagementInterface::Unknown(..))
+                })
+                .unwrap_or(true);
+            if operational && wants_scan {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
                         ringbuf_entry!(Trace::GotInterface(i, interface));
