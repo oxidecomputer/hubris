@@ -289,7 +289,6 @@ fn get_task_dump_region(
     }
 
     let rval = if rindex == 0 {
-
         Some(abi::TaskDumpRegion {
             base: &tasks[index as usize] as *const _ as u32,
             size: core::mem::size_of::<Task>() as u32,
