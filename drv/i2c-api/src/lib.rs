@@ -591,6 +591,52 @@ impl I2cDevice {
         }
     }
 
+    ///
+    /// Writes one buffer to a device, and then another, and then performs a
+    /// register read.  As with [`write_read_reg`] and [`write_write`], these
+    /// are not performed as a single I2C transaction, but the effect is the
+    /// same in that the server does these operations without an intervening
+    /// receive.  This is to accommodate devices that have multiple axes of
+    /// configuration (e.g., regulators that have both rail and phase).
+    ///
+    pub fn write_write_read_reg<R: AsBytes, V: AsBytes + FromBytes>(
+        &self,
+        reg: R,
+        first: &[u8],
+        second: &[u8],
+    ) -> Result<V, ResponseCode> {
+        let mut val = V::new_zeroed();
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[
+                Lease::from(first),
+                Lease::read_only(&[]),
+                Lease::from(second),
+                Lease::read_only(&[]),
+                Lease::from(reg.as_bytes()),
+                Lease::from(val.as_bytes_mut()),
+            ],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(val)
+        }
+    }
+
+
     pub fn selected_mux_segment(
         &self,
     ) -> Result<Option<(Mux, Segment)>, ResponseCode> {

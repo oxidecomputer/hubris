@@ -108,6 +108,16 @@ impl Raa229618 {
             pmbus_rail_write!(self.device, self.rail, VOUT_COMMAND, vout)
         }
     }
+
+    pub fn read_phase_current(&mut self, phase: Phase) -> Result<Amperes, Error> {
+        let vout = pmbus_rail_write_read!(
+            self.device,
+            self.rail,
+            PHASE,
+
+             READ_VOUT)?;
+
+    }
 }
 
 impl Validate<Error> for Raa229618 {

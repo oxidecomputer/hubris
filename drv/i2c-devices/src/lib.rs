@@ -135,6 +135,29 @@ macro_rules! pmbus_rail_write {
     }};
 }
 
+macro_rules! pmbus_rail_write {
+    ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
+        let rpayload = [PAGE::CommandData::code(), $rail];
+
+        let mut payload = [0u8; $cmd::CommandData::len() + 1];
+        payload[0] = $cmd::CommandData::code();
+        $data.to_slice(&mut payload[1..]);
+
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
+        use $dev::{$cmd, PAGE};
+        pmbus_rail_write!($device, $rail, $cmd, $data)
+    }};
+}
+
 struct BadValidation {
     cmd: u8,
     code: ResponseCode,
