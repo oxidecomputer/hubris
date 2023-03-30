@@ -33,5 +33,31 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "reinitialize_dump_areas": (
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "get_dump_area": (
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "humpty::DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "claim_dump_area": (
+            reply: Result(
+                ok: "humpty::DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
     },
 )

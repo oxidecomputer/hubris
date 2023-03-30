@@ -132,6 +132,15 @@ pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
     task_full_config()
 }
 
+/// Pulls the external regions that the task is using
+pub fn task_extern_regions<T: DeserializeOwned>() -> Result<IndexMap<String, T>>
+{
+    let t = toml_from_env::<IndexMap<String, T>>("HUBRIS_TASK_EXTERN_REGIONS")?
+        .ok_or_else(|| anyhow!("HUBRIS_TASK_EXTERN_REGIONS is not defined"))?;
+
+    Ok(t)
+}
+
 /// Pulls the full task configuration block of a different task
 pub fn other_task_full_config<T: DeserializeOwned>(
     name: &str,

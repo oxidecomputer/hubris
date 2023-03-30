@@ -5,6 +5,7 @@ name = "rot-carrier"
 version = "0.1.0"
 
 [features]
+dump = ["kern/dump"]
 
 [dependencies]
 cortex-m = {version = "0.7"}

@@ -7,10 +7,10 @@
 #![no_std]
 #![no_main]
 
-use core::mem::size_of;
 use dump_agent_api::*;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
+use task_jefe_api::Jefe;
 use userlib::*;
 
 //
@@ -21,45 +21,25 @@ const_assert!(DUMP_READ_SIZE & (DUMP_READ_SIZE - 1) == 0);
 const_assert!(DUMP_READ_SIZE <= 1024);
 
 struct ServerImpl {
-    areas: [DumpArea; 3],
+    jefe: Jefe,
 }
 
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
 
+task_slot!(JEFE, jefe);
+
 impl ServerImpl {
-    fn initialize(&self) {
-        let mut next = 0;
+    fn initialize(&self) -> Result<(), DumpAgentError> {
+        self.jefe.reinitialize_dump_areas()
+    }
 
-        for area in self.areas.iter().rev() {
-            unsafe {
-                let header = area.address as *mut DumpAreaHeader;
+    fn dump_area(&self, index: u8) -> Result<DumpArea, DumpAgentError> {
+        self.jefe.get_dump_area(index)
+    }
 
-                //
-                // We initialize our dump header with deliberately bad magic
-                // to prevent any dumps until we have everything initialized
-                //
-                (*header) = DumpAreaHeader {
-                    magic: DUMP_UNINITIALIZED,
-                    address: area.address,
-                    nsegments: 0,
-                    written: size_of::<DumpAreaHeader>() as u32,
-                    length: area.length,
-                    agent_version: DUMP_AGENT_VERSION,
-                    dumper_version: DUMPER_NONE,
-                    next,
-                }
-            }
-
-            next = area.address;
-        }
-
-        for area in &self.areas {
-            unsafe {
-                let header = area.address as *mut DumpAreaHeader;
-                (*header).magic = DUMP_MAGIC;
-            }
-        }
+    fn claim_dump_area(&self) -> Result<DumpArea, DumpAgentError> {
+        self.jefe.claim_dump_area()
     }
 
     fn add_dump_segment(
@@ -67,36 +47,27 @@ impl ServerImpl {
         addr: u32,
         length: u32,
     ) -> Result<(), DumpAgentError> {
-        let area = self.areas[0];
+        let area = self.dump_area(0)?;
 
-        unsafe {
-            let header = area.address as *mut DumpAreaHeader;
-
-            if (*header).magic != DUMP_MAGIC {
-                panic!("bad dump magic!");
-            }
-
-            let nsegments = (*header).nsegments;
-
-            let offset = size_of::<DumpAreaHeader>()
-                + (nsegments as usize) * size_of::<DumpSegmentHeader>();
-            let need = (offset + size_of::<DumpSegmentHeader>()) as u32;
-
-            if need > (*header).length {
-                return Err(DumpAgentError::OutOfSpaceForSegments);
-            }
-
-            let saddr = area.address as usize + offset;
-            let segment = saddr as *mut DumpSegmentHeader;
-
-            (*segment).address = addr;
-            (*segment).length = length;
-
-            (*header).nsegments = nsegments + 1;
-            (*header).written = need;
+        //
+        // If we haven't already claimed this area for purposes of dumping the
+        // entire system, we need to do so first. Claiming this area for
+        // [`DumpContents::WholeSystem`] will claim all dump areas or fail if
+        // any are unavailable.  (If we have already claimed this area, then
+        // we are here because we are adding a subsequent segment to dump.)
+        //
+        if area.contents != humpty::DumpContents::WholeSystem {
+            self.claim_dump_area()?;
         }
 
-        Ok(())
+        humpty::add_dump_segment_header(
+            area.address,
+            addr,
+            length,
+            |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+            |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+        )
+        .map_err(|_| DumpAgentError::BadSegmentAdd)
     }
 }
 
@@ -106,19 +77,14 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         _msg: &RecvMessage,
         index: u8,
     ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-        if index as usize >= self.areas.len() {
-            Err(DumpAgentError::InvalidArea.into())
-        } else {
-            Ok(self.areas[index as usize])
-        }
+        self.dump_area(index).map_err(|e| e.into())
     }
 
     fn initialize_dump(
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
-        self.initialize();
-        Ok(())
+        self.initialize().map_err(|e| e.into())
     }
 
     fn add_dump_segment(
@@ -148,9 +114,15 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
         let mut buf = [0u8; 4];
 
+        let area = self.dump_area(0)?;
+
+        if area.contents != humpty::DumpContents::WholeSystem {
+            return Err(DumpAgentError::UnclaimedDumpArea.into());
+        }
+
         match sprot.send_recv(
             drv_sprot_api::MsgType::DumpReq,
-            &self.areas[0].address.to_le_bytes(),
+            &area.address.to_le_bytes(),
             &mut buf,
         ) {
             Err(_) => Err(DumpAgentError::DumpFailed.into()),
@@ -183,10 +155,7 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnalignedOffset.into());
         }
 
-        let area = self
-            .areas
-            .get(index as usize)
-            .ok_or(DumpAgentError::InvalidArea)?;
+        let area = self.dump_area(index)?;
 
         let written = unsafe {
             let header = area.address as *mut DumpAreaHeader;
@@ -212,23 +181,8 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl {
-        areas: [
-            DumpArea {
-                address: 0x30020000,
-                length: 0x20000,
-            },
-            DumpArea {
-                address: 0x30040000,
-                length: 0x8000,
-            },
-            DumpArea {
-                address: 0x38000000,
-                length: 0x10000,
-            },
-        ],
+        jefe: Jefe::from(JEFE.get_task_id()),
     };
-
-    server.initialize();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 

@@ -14,11 +14,13 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 hubpack = { workspace = true }
 serde = { workspace = true }
+humpty = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf"  }
 dump-agent-api = { path = "../dump-agent-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static_assertions = { workspace = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
+task-jefe-api = { path = "../../task/jefe-api" }
 
 [features]
 # Disable the SP-ROT communication, e.g. to run dump-agent on a Gimletlet

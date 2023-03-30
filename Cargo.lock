@@ -888,6 +888,7 @@ dependencies = [
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-gimlet-state",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
@@ -1260,6 +1261,7 @@ name = "drv-mock-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
  "drv-gimlet-seq-api",
+ "drv-gimlet-state",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -2321,9 +2323,11 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#bcb02bd530beadd296a3a80b0ec2c4dbc00403c1"
+source = "git+https://github.com/oxidecomputer/humpty#70c646c4a9f31120fe4b39928580ce9f90358bfb"
 dependencies = [
+ "hubpack",
  "lzss",
+ "serde",
  "static_assertions",
  "zerocopy",
 ]
@@ -3917,12 +3921,14 @@ dependencies = [
  "drv-sprot-api",
  "dump-agent-api",
  "hubpack",
+ "humpty",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
  "serde",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -4039,9 +4045,13 @@ dependencies = [
  "anyhow",
  "armv6m-atomic-hack",
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-semihosting 0.5.0",
+ "dump-agent-api",
+ "hubpack",
  "hubris-num-tasks",
+ "humpty",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -4058,6 +4068,9 @@ name = "task-jefe-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "dump-agent-api",
+ "hubpack",
+ "humpty",
  "idol",
  "num-traits",
  "serde",
@@ -5186,6 +5199,7 @@ dependencies = [
  "lpc55_areas",
  "lpc55_sign",
  "memchr",
+ "multimap",
  "ordered-toml",
  "path-slash",
  "rangemap",

@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
+use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
 
@@ -29,6 +30,16 @@ use crate::{
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
+
+/// Humility will (gracefully) refuse to load an archive version that is later
+/// than its defined version, so this version number should be be used to
+/// enforce flag days across Hubris and Humility.  To increase this version,
+/// be sure to *first* bump the corresponding `MAX_HUBRIS_VERSION` version in
+/// Humility.  Integrate that change into Humlity and be sure that the job
+/// that generates the Humility binary necessary for Hubris's CI has run.
+/// Once that binary is in place, you should be able to bump this version
+/// without breaking CI.
+const HUBRIS_ARCHIVE_VERSION: u32 = 8;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
@@ -220,6 +231,9 @@ pub fn package(
 ) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
+    // Verify that our dump configuration is correct (or absent)
+    check_dump_config(&cfg.toml)?;
+
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
     let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
@@ -304,23 +318,11 @@ pub fn package(
                 }
             }
         }
-        {
-            // Check that each external region is only used by one task
-            use std::collections::btree_map::Entry;
-            let mut seen = BTreeMap::new();
-            for (task_name, task) in cfg.toml.tasks.iter() {
-                for r in &task.extern_regions {
-                    match seen.entry(r) {
-                        Entry::Occupied(o) => bail!(
-                            "extern region '{r}' is used by multiple tasks \
-                             ('{}' and '{task_name}'); it should be exclusive",
-                            o.get(),
-                        ),
-                        Entry::Vacant(v) => {
-                            v.insert(task_name);
-                        }
-                    }
-                }
+
+        let mut extern_regions = MultiMap::new();
+        for (task_name, task) in cfg.toml.tasks.iter() {
+            for r in &task.extern_regions {
+                extern_regions.insert(r, task_name.clone());
             }
         }
 
@@ -411,8 +413,8 @@ pub fn package(
             None
         };
 
-        // If we've done a partial build (which may have included the kernel), bail
-        // out here before linking stuff.
+        // If we've done a partial build (which may have included the kernel),
+        // bail out here before linking stuff.
         if partial_build {
             return Ok(allocated);
         }
@@ -421,21 +423,23 @@ pub fn package(
         let starting_memories = cfg.toml.memories(image_name)?;
         for (name, range) in &starting_memories {
             println!(
-                "{:<5} = {:#010x}..{:#010x}",
+                "{:<7} = {:#010x}..{:#010x}",
                 name, range.start, range.end
             );
         }
         println!("Used:");
         for (name, new_range) in memories {
-            let orig_range = &starting_memories[name];
-            let size = new_range.start - orig_range.start;
-            let percent = size * 100 / (orig_range.end - orig_range.start);
-            println!(
-                "  {:<6} {:#x} ({}%)",
-                format!("{}:", name),
-                size,
-                percent
-            );
+            print!("  {:<8} ", format!("{name}:"));
+
+            if let Some(tasks) = extern_regions.get_vec(name) {
+                println!("extern region ({})", tasks.join(", "));
+            } else {
+                let orig_range = &starting_memories[name];
+                let size = new_range.start - orig_range.start;
+                let percent = size * 100 / (orig_range.end - orig_range.start);
+
+                println!("{size:#x} ({percent}%)");
+            }
         }
 
         // Generate a RawHubrisImage, which is our source of truth for combined
@@ -1221,6 +1225,9 @@ fn update_image_header(
                 // Alias for the NS peripherals
                 sau_ranges.insert(0x4000_0000..=0x4fff_ffff, false);
 
+                // Alias for NS SRAMs
+                sau_ranges.insert(0x2002_0000..=0x2004_ffff, false);
+
                 // Alias for the BootRom
                 sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);
 
@@ -1312,6 +1319,72 @@ fn update_image_header(
     }
 
     Ok(false)
+}
+
+/// Checks our dump config:  that if we have a dump agent, it has a task slot
+/// for Jefe (denoting task dump support); that every memory that the dump
+/// agent is using it also being used by Jefe; that if dumps are enabled, the
+/// support has been properly enabled in the kernel.  (Conversely, we assure
+/// that if dump support is enabled, the other components are properly
+/// configured.)  Yes, this is some specific knowledge of the system to encode
+/// here, but we want to turn a preventable, high-consequence run-time error
+/// (namely, Jefe attempting accessing memory that it doesn't have access to
+/// or making a system call that is unsupported) into a compile-time one.
+fn check_dump_config(toml: &Config) -> Result<()> {
+    let dump_support = toml.kernel.features.iter().find(|&f| f == "dump");
+
+    if let Some(task) = toml.tasks.get("dump_agent") {
+        if task.extern_regions.is_empty() {
+            bail!(
+                "dump agent misconfiguration: dump agent is present \
+                but does not have any external regions for dumping"
+            );
+        }
+
+        if task.task_slots.get("jefe").is_none() {
+            bail!(
+                "dump agent misconfiguration: dump agent is present \
+                but has not been configured to depend on jefe"
+            );
+        }
+
+        //
+        // We have a dump agent, and it has a slot for Jefe, denoting that
+        // it is configured for task dumps; now we want to check that Jefe
+        // (1) has the dump feature enabled (2) has extern regions and
+        // (3) uses everything that the dump agent is using.
+        //
+        let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
+
+        if !jefe.features.iter().any(|f| f == "dump") {
+            bail!(
+                "dump agent/jefe misconfiguration: dump agent depends \
+                on jefe, but jefe does not have the dump feature enabled"
+            );
+        }
+
+        if dump_support.is_none() {
+            bail!(
+                "dump agent is present and system is otherwise configured \
+                for dumping, but kernel does not have the dump feature enabled
+            "
+            );
+        }
+
+        for u in &task.extern_regions {
+            if !jefe.extern_regions.iter().any(|j| j == u) {
+                bail!(
+                    "dump agent/jefe misconfiguration: dump agent has \
+                    {u} as an extern-region and depends on jefe, but jefe \
+                    does not have {u} as an extern-region"
+                );
+            }
+        }
+    } else if dump_support.is_some() {
+        bail!("kernel dump support is enabled, but dump agent is missing");
+    }
+
+    Ok(())
 }
 
 /// Prints warning messages about priority inversions
@@ -1927,8 +2000,8 @@ pub fn allocate_all(
                 // - Kernel.
                 // - Task requests equal to or smaller than this alignment, in
                 //   descending order of size.
-                // - Task requests larger than this alignment, in ascending order of
-                //   size.
+                // - Task requests larger than this alignment, in ascending
+                //   order of size.
 
                 if let Some(&sz) = k_req.take() {
                     // The kernel wants in on this.
@@ -2413,7 +2486,9 @@ impl Archive {
 
         let archive = File::create(&tmp_path)?;
         let mut inner = zip::ZipWriter::new(archive);
-        inner.set_comment("hubris build archive v7");
+        inner.set_comment(format!(
+            "hubris build archive v{HUBRIS_ARCHIVE_VERSION}"
+        ));
         Ok(Self {
             final_path,
             tmp_path,

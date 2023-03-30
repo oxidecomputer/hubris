@@ -6,17 +6,18 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 22000, ram = 5120}
-features = ["h753"]
+requires = {flash = 24000, ram = 5120}
+features = ["h753", "dump"]
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -191,8 +192,9 @@ features = ["no-rot"]
 priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
+task-slots = ["jefe"]
 stacksize = 1200
-uses = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [config]
 [[config.i2c.controllers]]

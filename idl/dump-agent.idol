@@ -15,7 +15,7 @@ Interface(
             ),
         ),
         "get_dump_area": (
-            doc: "Return information associated with the specified dump area. This only exists to support Humility dumper emulation.",
+            doc: "Return information associated with the specified dump area.",
             args: {
                 "index": "u8",
             },

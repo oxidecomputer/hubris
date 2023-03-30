@@ -7,7 +7,7 @@ Interface(
             doc: "Return the power state",
             reply: Result(
                 ok: (
-                    type: "PowerState",
+                    type: "drv_gimlet_state::PowerState",
                     recv: FromPrimitive("u8"),
                 ),
                 err: CLike("SeqError"),
@@ -17,7 +17,7 @@ Interface(
             doc: "Set the power state",
             args: {
                 "state": (
-                    type: "PowerState",
+                    type: "drv_gimlet_state::PowerState",
                     recv: FromPrimitive("u8"),
                 )
             },

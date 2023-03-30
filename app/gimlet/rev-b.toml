@@ -8,6 +8,7 @@ stacksize = 896
 [kernel]
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -18,11 +19,12 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -308,9 +310,9 @@ name = "task-dump-agent"
 priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
-task-slots = ["sprot"]
+task-slots = ["sprot", "jefe"]
 stacksize = 1200
-uses = [ "sram2", "sram3", "sram4" ]
+extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.sbrmi]
 name = "drv-sbrmi"

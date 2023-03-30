@@ -33,7 +33,16 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadCaboosePos) => {
             read_caboose_pos(tasks, caller, args.response?)
         }
-        Err(_) => {
+        #[cfg(feature = "dump")]
+        Ok(Kipcnum::GetTaskDumpRegion) => {
+            get_task_dump_region(tasks, caller, args.message?, args.response?)
+        }
+        #[cfg(feature = "dump")]
+        Ok(Kipcnum::ReadTaskDumpRegion) => {
+            read_task_dump_region(tasks, caller, args.message?, args.response?)
+        }
+
+        _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
@@ -54,6 +63,7 @@ where
 {
     let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
         .map_err(|_| UsageError::BadKernelMessage)?;
+
     Ok(msg)
 }
 
@@ -257,6 +267,138 @@ fn read_caboose_pos(
     };
 
     let response_len = serialize_response(&mut tasks[caller], response, &out)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+#[cfg(feature = "dump")]
+fn get_task_dump_region(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let (index, rindex): (u32, u32) =
+        deserialize_message(&tasks[caller], message)?;
+    if index as usize >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    let rval = if rindex == 0 {
+        Some(abi::TaskDumpRegion {
+            base: &tasks[index as usize] as *const _ as u32,
+            size: core::mem::size_of::<Task>() as u32,
+        })
+    } else {
+        tasks[index as usize]
+            .region_table()
+            .iter()
+            .filter(|r| r.dumpable())
+            .nth(rindex as usize - 1)
+            .map(|r| abi::TaskDumpRegion {
+                base: r.base,
+                size: r.size,
+            })
+    };
+
+    let response_len = serialize_response(&mut tasks[caller], response, &rval)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+#[cfg(feature = "dump")]
+fn read_task_dump_region(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    mut response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    use crate::umem::safe_copy;
+
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
+    let (index, region): (u32, abi::TaskDumpRegion) =
+        deserialize_message(&tasks[caller], message)?;
+
+    //
+    // In addition to assuring that the task index isn't out of range, we do
+    // not allow the supervisor to dump itself.
+    //
+    if index == 0 || index as usize >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    //
+    // If we are being asked to copy out the target task structure (and only
+    // a part of the target task structure), we will copy that directly.  (If
+    // this has been somehow malformed, we will fall into the `safe_copy`
+    // case, which will fail.)
+    //
+    let size: u32 = core::mem::size_of::<Task>() as u32;
+    let base = tasks.as_ptr() as u32 + index * size;
+
+    let response_len =
+        if region.base >= base && region.base + region.size <= base + size {
+            //
+            // We have a valid part of the target task structure -- we know
+            // that we can simply copy it.
+            //
+            let ptr = region.base as *const _;
+            let size = region.size as usize;
+            let tcb = unsafe { core::slice::from_raw_parts(ptr, size) };
+
+            match tasks[caller].try_write(&mut response) {
+                Ok(to) => {
+                    let copy_len = to.len().min(tcb.len());
+                    to[..copy_len].copy_from_slice(&tcb[..copy_len]);
+                    copy_len
+                }
+                Err(err) => {
+                    return Err(UserError::Unrecoverable(err));
+                }
+            }
+        } else {
+            //
+            // We have memory that is not completely contained by the target
+            // task structure -- either because it is in the task's memory
+            // or because it is an invalid address/length (e.g., a part of
+            // the task structure that also overlaps with other kernel
+            // memory, or wholly bogus).  In all of these cases, we will
+            // rely on `safe_copy` to do the validation.
+            //
+            let from = match USlice::<u8>::from_raw(
+                region.base as usize,
+                region.size as usize,
+            ) {
+                Ok(from) => from,
+                Err(err) => {
+                    return Err(UserError::Unrecoverable(
+                        FaultInfo::SyscallUsage(err),
+                    ));
+                }
+            };
+
+            match safe_copy(tasks, index as usize, from, caller, response) {
+                Err(interact) => {
+                    let wake_hint = interact.apply_to_dst(tasks, caller)?;
+                    return Ok(wake_hint);
+                }
+                Ok(len) => len,
+            }
+        };
+
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

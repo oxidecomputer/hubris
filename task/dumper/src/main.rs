@@ -40,13 +40,6 @@ task_slot!(SP_CTRL, swd);
 
 const READ_SIZE: usize = 256;
 
-//
-// This version can be bumped pretty liberally; it is only informative.  (It
-// just can't be humpty::DUMPER_NONE or humpty::DUMPER_EMULATED, both of which
-// must regrettably be enforced at run-time.)
-//
-const DUMPER_VERSION: u8 = 1;
-
 ringbuf!(Trace, 16, Trace::None);
 
 struct ServerImpl;
@@ -99,8 +92,9 @@ impl idl::InOrderDumperImpl for ServerImpl {
         let mut nwritten = 0;
         let mut reg = 0;
 
-        let r = humpty::dump::<DumperError, 512, DUMPER_VERSION>(
+        let r = humpty::dump::<DumperError, 512, { humpty::DUMPER_EXTERNAL }>(
             header.address,
+            None,
             || {
                 for r in reg..=31 {
                     ringbuf_entry!(Trace::ReadingRegister(r));
@@ -118,7 +112,7 @@ impl idl::InOrderDumperImpl for ServerImpl {
                 }
                 Ok(None)
             },
-            |addr, buf| {
+            |addr, buf, _meta| {
                 ringbuf_entry!(Trace::Reading(addr, buf.len(), nread));
                 nread += buf.len();
 
