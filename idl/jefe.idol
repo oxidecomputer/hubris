@@ -58,7 +58,6 @@ Interface(
                 err: CLike("DumpAgentError"),
             ),
             encoding: Hubpack,
-            idempotent: true,
         ),
     },
 )
