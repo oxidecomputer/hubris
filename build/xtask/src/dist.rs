@@ -31,11 +31,15 @@ use crate::{
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
-/// Humility will (gracefully) refuse to load an archive version that
-/// is later than its defined version, so this version number should be
-/// be used to enforce flag days across Hubris and Humility.  Be sure
-/// to bump the corresponding `MAX_HUBRIS_VERSION` version in Humility!
-const HUBRIS_ARCHIVE_VERSION: u32 = 7;
+/// Humility will (gracefully) refuse to load an archive version that is later
+/// than its defined version, so this version number should be be used to
+/// enforce flag days across Hubris and Humility.  To increase this version,
+/// be sure to *first* bump the corresponding `MAX_HUBRIS_VERSION` version in
+/// Humility.  Integrate that change into Humlity and be sure that the job
+/// that generates the Humility binary necessary for Hubris's CI has run.
+/// Once that binary is in place, you should be able to bump this version
+/// without breaking CI.
+const HUBRIS_ARCHIVE_VERSION: u32 = 8;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
