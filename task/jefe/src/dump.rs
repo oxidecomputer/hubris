@@ -145,6 +145,12 @@ pub fn dump_task(base: u32, task: usize) {
         || Ok(None),
         |addr, buf, meta| {
             ringbuf_entry!(Trace::DumpReading(addr, buf.len(), meta));
+
+            //
+            // If meta is set, this read is metadata from within the dump
+            // regions (e.g., a dump header or dump segment header), and we'll
+            // read it directly -- otherwise, we'll ask the kernel.
+            //
             if meta {
                 unsafe { humpty::from_mem(addr, buf) }
             } else {

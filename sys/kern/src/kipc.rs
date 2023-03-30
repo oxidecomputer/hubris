@@ -289,20 +289,18 @@ fn get_task_dump_region(
     }
 
     let rval = if rindex == 0 {
-        let size: u32 = core::mem::size_of::<Task>() as u32;
 
         Some(abi::TaskDumpRegion {
-            base: tasks.as_ptr() as u32 + index * size,
-            size: size,
+            base: &tasks[index as usize] as *const _ as u32,
+            size: core::mem::size_of::<Task>() as u32,
         })
     } else {
         tasks[index as usize]
             .region_table()
             .iter()
             .filter(|r| r.dumpable())
-            .enumerate()
-            .find(|(ndx, _)| *ndx + 1 == rindex as usize)
-            .map(|(_, r)| abi::TaskDumpRegion {
+            .nth(rindex as usize - 1)
+            .map(|r| abi::TaskDumpRegion {
                 base: r.base,
                 size: r.size,
             })

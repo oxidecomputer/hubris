@@ -1348,7 +1348,7 @@ fn check_dump_config(toml: &Config) -> Result<()> {
         //
         let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
 
-        if jefe.features.iter().find(|&f| f == "dump").is_none() {
+        if !jefe.features.iter().any(|f| f == "dump") {
             bail!(
                 "dump agent/jefe misconfiguration: dump agent depends \
                 on jefe, but jefe does not have the dump feature enabled"
@@ -1364,7 +1364,7 @@ fn check_dump_config(toml: &Config) -> Result<()> {
         }
 
         for u in &task.extern_regions {
-            if jefe.extern_regions.iter().find(|&j| j == u).is_none() {
+            if !jefe.extern_regions.iter().any(|j| j == u) {
                 bail!(
                     "dump agent/jefe misconfiguration: dump agent has \
                     {u} as an extern-region and depends on jefe, but jefe \
@@ -1372,10 +1372,8 @@ fn check_dump_config(toml: &Config) -> Result<()> {
                 );
             }
         }
-    } else {
-        if dump_support.is_some() {
-            bail!("kernel dump support is enabled, but dump agent is missing");
-        }
+    } else if dump_support.is_some() {
+        bail!("kernel dump support is enabled, but dump agent is missing");
     }
 
     Ok(())
