@@ -462,10 +462,9 @@ pub fn package(
             kentry,
             0xFF,
         )?;
-        raw_image.write_all(&cfg.img_dir(image_name), "final")?;
 
         write_gdb_script(&cfg, image_name)?;
-        let archive_name = build_archive(&cfg, image_name)?;
+        let archive_name = build_archive(&cfg, image_name, raw_image)?;
 
         // Post-build modifications: populate a default caboose if requested
         if let Some(caboose) = &cfg.toml.caboose {
@@ -538,6 +537,14 @@ pub fn package(
                 [signing.rotk0, signing.rotk1, signing.rotk2, signing.rotk3],
             )?;
             archive.overwrite()?;
+        }
+
+        // Unzip the signed + caboose'd images into our build directory
+        let archive = hubtools::RawHubrisArchive::load(&archive_name)?;
+        for ext in ["elf", "bin"] {
+            let name = format!("final.{}", ext);
+            let file_data = archive.extract_file(&format!("img/{name}"))?;
+            std::fs::write(cfg.img_file(&name, image_name), file_data)?;
         }
     }
     Ok(allocated)
@@ -683,7 +690,11 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     Ok(())
 }
 
-fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
+fn build_archive(
+    cfg: &PackageConfig,
+    image_name: &str,
+    raw_image: hubtools::RawHubrisImage,
+) -> Result<PathBuf> {
     // Bundle everything up into an archive.
     let archive_path =
         cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name);
@@ -731,11 +742,8 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<PathBuf> {
     archive.copy(cfg.img_file("kernel", image_name), elf_dir.join("kernel"))?;
 
     let img_dir = PathBuf::from("img");
-
-    for ext in ["elf", "bin"] {
-        let name = format!("final.{}", ext);
-        archive.copy(cfg.img_file(&name, image_name), img_dir.join(&name))?;
-    }
+    archive.binary(img_dir.join("final.elf"), raw_image.to_elf()?)?;
+    archive.binary(img_dir.join("final.bin"), raw_image.to_binary()?)?;
 
     //
     // To allow for the image to be flashed based only on the archive (e.g.,
@@ -2512,6 +2520,18 @@ impl Archive {
         self.inner
             .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
         self.inner.write_all(contents.as_ref().as_bytes())?;
+        Ok(())
+    }
+
+    /// Creates a binary file in the archive at `zip_path` with `contents`.
+    fn binary(
+        &mut self,
+        zip_path: impl AsRef<Path>,
+        contents: impl AsRef<[u8]>,
+    ) -> Result<()> {
+        self.inner
+            .start_file(zip_path.as_ref().to_slash().unwrap(), self.opts)?;
+        self.inner.write_all(contents.as_ref())?;
         Ok(())
     }
 
