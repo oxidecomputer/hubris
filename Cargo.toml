@@ -9,8 +9,6 @@ members = [
     "task/*",
     "drv/*",
     "test/*",
-
-    "stage0",
 ]
 default-members = []
 resolver = "2"
