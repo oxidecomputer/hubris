@@ -71,7 +71,7 @@ name = "drv-psc-seq-server"
 priority = 4
 stacksize = 4096
 start = true
-task-slots = ["jefe", "packrat", "i2c_driver"]
+task-slots = ["jefe", "packrat", "i2c_driver", "sys"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -203,6 +203,14 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
 
 [tasks.power]
 name = "task-power"
