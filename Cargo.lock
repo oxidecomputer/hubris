@@ -1153,6 +1153,7 @@ dependencies = [
  "sprockets-common",
  "sprockets-rot",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1870,10 +1871,12 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-caboose",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "serde",
  "serde_repr",
  "stage0-handoff",
@@ -2073,7 +2076,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#2dcc63c645005a7184ba754b5c42c341a0777c66"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=plumb-switch-default-image"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2333,7 +2336,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#70c646c4a9f31120fe4b39928580ce9f90358bfb"
+source = "git+https://github.com/oxidecomputer/humpty#448435605eaa076a57e0b7f78837602b5dd1deef"
 dependencies = [
  "hubpack",
  "lzss",
@@ -2594,6 +2597,7 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -3797,6 +3801,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
