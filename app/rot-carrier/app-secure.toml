@@ -43,7 +43,7 @@ uses = ["flash_controller", "hash_crypt"]
 sections = {bootstate = "usbsram"}
 notifications = ["flash-irq", "hashcrypt-irq"]
 interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
-task-slots = [{"syscon" = "syscon_driver"}]
+task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"

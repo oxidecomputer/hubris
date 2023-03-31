@@ -550,12 +550,14 @@ pub(crate) fn sprot_send_recv(
             &data[0..len],
             &mut *rval,
         ))?;
-    match drv_sprot_api::MsgType::from(result.msgtype) {
+    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
+        .ok_or(hif::Failure::FunctionError(1))?;
+    match msgtype {
         drv_sprot_api::MsgType::EchoRsp
         | drv_sprot_api::MsgType::StatusRsp
         | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
         _ => {
-            // TODO: Deliver a more useful error derived from the RoT response.
+            // There should be a more useful error derived from the RoT response.
             Err(hif::Failure::FunctionError(1))
         }
     }
@@ -594,12 +596,14 @@ pub(crate) fn sprot_send_recv_retries(
             &mut *rval,
         ),
     )?;
-    match drv_sprot_api::MsgType::from(result.msgtype) {
+    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
+        .ok_or(hif::Failure::FunctionError(1))?;
+    match msgtype {
         drv_sprot_api::MsgType::EchoRsp
         | drv_sprot_api::MsgType::StatusRsp
         | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
         _ => {
-            // TODO: Deliver a more useful error derived from the RoT response.
+            // There should be a more useful error derived from the RoT response.
             Err(hif::Failure::FunctionError(1))
         }
     }
@@ -727,6 +731,30 @@ pub(crate) fn sprot_block_size(
 
     rval[..4].copy_from_slice(&bytes);
     Ok(4)
+}
+
+#[cfg(feature = "sprot")]
+pub(crate) fn sprot_switch_default_image(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (slot, duration) = switch_default_image_args(stack)?;
+    func_err(
+        drv_sprot_api::SpRot::from(SPROT.get_task_id())
+            .switch_default_image(slot, duration),
+    )?;
+    Ok(0)
+}
+
+#[cfg(feature = "sprot")]
+pub(crate) fn sprot_reset(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    func_err(drv_sprot_api::SpRot::from(SPROT.get_task_id()).reset())?;
+    Ok(0)
 }
 
 #[cfg(feature = "qspi")]
@@ -1204,4 +1232,56 @@ pub(crate) fn block_size(
     rval[..4].copy_from_slice(&bytes);
 
     Ok(4)
+}
+
+#[cfg(any(feature = "sprot", feature = "update"))]
+fn switch_default_image_args(
+    stack: &[Option<u32>],
+) -> Result<(drv_update_api::SlotId, drv_update_api::SwitchDuration), Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let fp = stack.len() - 2;
+    let slot: drv_update_api::SlotId = match stack[fp + 0] {
+        Some(slot) => match drv_update_api::SlotId::from_u8(slot as u8) {
+            Some(slot) => slot,
+            None => return Err(Failure::Fault(Fault::BadParameter(0))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+    let duration: drv_update_api::SwitchDuration = match stack[fp + 1] {
+        Some(duration) => {
+            match drv_update_api::SwitchDuration::from_u32(duration) {
+                Some(target) => target,
+                None => return Err(Failure::Fault(Fault::BadParameter(1))),
+            }
+        }
+        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
+    };
+    Ok((slot, duration))
+}
+
+#[cfg(feature = "update")]
+pub(crate) fn switch_default_image(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (slot, duration) = switch_default_image_args(stack)?;
+
+    func_err(
+        drv_update_api::Update::from(UPDATE.get_task_id())
+            .switch_default_image(slot, duration),
+    )?;
+    Ok(0)
+}
+
+#[cfg(feature = "update")]
+pub(crate) fn reset(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    func_err(drv_update_api::Update::from(UPDATE.get_task_id()).reset())?;
+    Ok(0)
 }

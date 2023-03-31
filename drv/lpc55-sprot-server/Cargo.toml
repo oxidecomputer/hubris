@@ -21,6 +21,7 @@ drv-lpc55-spi = { path = "../lpc55-spi" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 drv-sprot-api = { path = "../sprot-api" }
 drv-update-api = { path = "../update-api" }
+task-jefe-api = { path="../../task/jefe-api" }
 dumper-api = { path = "../../task/dumper-api" }
 lpc55_romapi = { path = "../../lib/lpc55-romapi" }
 ringbuf = { path = "../../lib/ringbuf" }

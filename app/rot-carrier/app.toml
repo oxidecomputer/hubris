@@ -21,6 +21,9 @@ features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 
+[tasks.jefe.config.allowed-callers]
+request_reset = ["hiffy", "update_server"]
+
 [tasks.idle]
 name = "task-idle"
 priority = 9
@@ -38,7 +41,7 @@ sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
 notifications = ["flash-irq", "hashcrypt-irq"]
 interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
-task-slots = [{"syscon" = "syscon_driver"}]
+task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"

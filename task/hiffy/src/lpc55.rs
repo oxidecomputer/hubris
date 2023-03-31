@@ -83,6 +83,13 @@ pub enum Functions {
     FinishUpdate((), drv_update_api::UpdateError),
     #[cfg(feature = "update")]
     BlockSize((), drv_update_api::UpdateError),
+    #[cfg(feature = "update")]
+    SwitchDefaultImage(
+        (drv_update_api::SlotId, drv_update_api::SwitchDuration),
+        drv_update_api::UpdateError,
+    ),
+    #[cfg(feature = "update")]
+    Reset((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -389,6 +396,10 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::finish_update,
     #[cfg(feature = "update")]
     crate::common::block_size,
+    #[cfg(feature = "update")]
+    crate::common::switch_default_image,
+    #[cfg(feature = "update")]
+    crate::common::reset,
 ];
 
 //

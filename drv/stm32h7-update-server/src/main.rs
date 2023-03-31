@@ -45,6 +45,8 @@ extern "C" {
     pub static mut __REGION_BANK2_END: [u32; 0];
 }
 
+task_slot!(JEFE, jefe);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EraseStart,
@@ -527,11 +529,23 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
     fn switch_default_image(
         &mut self,
-        _: &userlib::RecvMessage,
+        _: &RecvMessage,
         _slot: SlotId,
         _duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
-        Err(UpdateError::Unknown.into())
+        Err(UpdateError::NotImplemented.into())
+    }
+
+    fn reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<UpdateError>> {
+        // There is already an implementation for SP reset.
+        // This is here to satisfy update-api.
+        // It may be desireable to put a check it to
+        // reject the reset request if an update is
+        // in progress.
+        Err(UpdateError::NotImplemented.into())
     }
 }
 
@@ -553,9 +567,9 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+        CabooseError, ImageVersion, SlotId, SwitchDuration, UpdateError,
+        UpdateStatus, UpdateTarget,
     };
-    use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

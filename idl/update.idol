@@ -94,5 +94,14 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "reset": (
+            doc: "Reset unless an update is in progress.",
+            reply : Result(
+                ok: "()",
+                err: CLike("UpdateError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     },
 )

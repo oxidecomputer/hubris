@@ -129,5 +129,27 @@ Interface(
                 err: CLike("SprotError"),
             ),
         ),
+        "switch_default_image": (
+            doc: "Prefer a specific image slot for one or many boots",
+            args: {
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply : Result(
+                ok: "()",
+                err: CLike("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "reset": (
+            doc: "Reset",
+            reply : Result(
+                ok: "()",
+                err: CLike("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )

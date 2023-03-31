@@ -18,8 +18,8 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
     Header, IgnitionCommand, IgnitionState, Message, MessageKind, MgsError,
-    PowerState, SpComponent, SpError, SpPort, SpRequest, SpState,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    PowerState, SlotId, SpComponent, SpError, SpPort, SpRequest, SpState,
+    SpUpdatePrepare, SwitchDuration, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -1029,6 +1029,49 @@ impl SpHandler for MgsHandler {
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
     }
+
+    fn switch_default_image(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), SpError> {
+        match component {
+            SpComponent::ROT | SpComponent::SP_ITSELF => {}
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        }
+        self.common.switch_default_image(
+            &self.sp_update,
+            component,
+            slot,
+            duration,
+        )
+    }
+
+    fn reset_component_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        match component {
+            SpComponent::ROT | SpComponent::SP_ITSELF => {}
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        }
+        self.common.reset_component_prepare(component)
+    }
+
+    fn reset_component_trigger(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger(&self.sp_update, component)
+    }
 }
 
 struct UsartHandler {
@@ -1240,10 +1283,8 @@ impl UsartHandler {
             });
         }
 
-        if n_received > 0 {
-            if self.from_rx_flush_deadline.is_none() {
-                self.set_from_rx_flush_deadline();
-            }
+        if n_received > 0 && self.from_rx_flush_deadline.is_none() {
+            self.set_from_rx_flush_deadline();
         }
 
         // Re-enable USART interrupts.
