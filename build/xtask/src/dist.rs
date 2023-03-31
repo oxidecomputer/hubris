@@ -461,7 +461,8 @@ pub fn package(
             &raw_output_sections,
             kentry,
             0xFF,
-        )?;
+        )
+        .context("constructing image from segments with hubtools")?;
 
         write_gdb_script(&cfg, image_name)?;
         let archive_name = build_archive(&cfg, image_name, raw_image)?;
@@ -470,17 +471,21 @@ pub fn package(
         if let Some(caboose) = &cfg.toml.caboose {
             if caboose.default {
                 let mut archive =
-                    hubtools::RawHubrisArchive::load(&archive_name)?;
+                    hubtools::RawHubrisArchive::load(&archive_name)
+                        .context("loading archive with hubtools")?;
                 // The Git hash is included in the default caboose under the key
                 // `GITC`, so we don't include it in the pseudo-version.
-                archive.write_default_caboose(Some(&"0.0.0-git".to_owned()))?;
-                archive.overwrite()?;
+                archive
+                    .write_default_caboose(Some(&"0.0.0-git".to_owned()))
+                    .context("writing caboose into archive")?;
+                archive.overwrite().context("overwriting archive")?;
             }
         }
 
         // Post-build modifications: sign the image if requested
         if let Some(signing) = &cfg.toml.signing {
-            let mut archive = hubtools::RawHubrisArchive::load(&archive_name)?;
+            let mut archive = hubtools::RawHubrisArchive::load(&archive_name)
+                .context("loading archive with hubtools")?;
             let private_key = std::fs::read_to_string(
                 cfg.app_src_dir.join(&signing.certs.private_key),
             )
@@ -540,10 +545,13 @@ pub fn package(
         }
 
         // Unzip the signed + caboose'd images into our build directory
-        let archive = hubtools::RawHubrisArchive::load(&archive_name)?;
+        let archive = hubtools::RawHubrisArchive::load(&archive_name)
+            .context("loading archive with hubtools")?;
         for ext in ["elf", "bin"] {
             let name = format!("final.{}", ext);
-            let file_data = archive.extract_file(&format!("img/{name}"))?;
+            let file_data = archive
+                .extract_file(&format!("img/{name}"))
+                .context("extracting signed file from archive")?;
             std::fs::write(cfg.img_file(&name, image_name), file_data)?;
         }
     }
