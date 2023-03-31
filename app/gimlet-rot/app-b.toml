@@ -161,3 +161,16 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-b/dist/default/final.bin"
+
+[signing]
+enable-secure-boot = true
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
+boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
+
+[signing.certs]
+signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+private-key = "../../support/fake_certs/fake_private_key.pem"
