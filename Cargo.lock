@@ -1413,6 +1413,7 @@ dependencies = [
  "gnarle",
  "num-traits",
  "ringbuf",
+ "transceiver-messages",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",

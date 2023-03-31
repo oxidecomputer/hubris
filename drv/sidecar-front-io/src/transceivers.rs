@@ -5,11 +5,12 @@
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
+use transceiver_messages::ModuleId;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
 // board, so while we present the modules as a unit, the communication is
-// actually biforcated.
+// actually bifurcated.
 pub struct Transceivers {
     fpgas: [FpgaUserDesign; 2],
 }
@@ -131,6 +132,18 @@ impl LogicalPortMask {
     }
     pub fn to_indices(&self) -> impl Iterator<Item = u8> + '_ {
         (0..32).filter(|i| self.is_set(LogicalPort(*i)))
+    }
+}
+
+impl From<ModuleId> for LogicalPortMask {
+    fn from(v: ModuleId) -> Self {
+        Self(v.0 as u32)
+    }
+}
+
+impl From<LogicalPortMask> for ModuleId {
+    fn from(v: LogicalPortMask) -> Self {
+        Self(v.0 as u64)
     }
 }
 
@@ -447,15 +460,27 @@ impl ModuleResult {
     /// a `LogicalPortMask` of requested modules):
     ///
     /// let result = some_result_fn(modules);
-    /// let next_result = result.chain(another_result_fn(result.success))
+    /// let next_result = result.chain(another_result_fn(result.success()))
     ///
     /// So the initial result includes some set of success, failure, and error
     /// masks which then need to be reconciled with a new set of masks, generally
     /// a subset of the success mask of the initial result. Notably, there
     /// cannot be overlap between these masks, which this function enforces.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the `next.success` mask is not a subset of
+    /// self.success. Additionally, it will panic if any of the success,
+    /// failure, or error masks overlap with one another.
     pub fn chain(&self, next: ModuleResult) -> Self {
-        // success mask is just what the success of the next step is
-        let success = next.success;
+        // success mask is just what the success of the next step is as long
+        // as next.success is a subset of self.success, ensuring the semantics
+        // of "chaining"
+        assert!(next
+            .success()
+            .to_indices()
+            .all(|idx| self.success().is_set(LogicalPort(idx))));
+        let success = next.success();
         // combine any new errors with the existing error mask
         let error = self.error() | next.error();
         // combine any new failures with the existing failure mask. Errors

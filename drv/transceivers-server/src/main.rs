@@ -18,14 +18,13 @@ use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
     TRANSCEIVER_TEMPERATURE_SENSORS,
 };
-use hubpack::SerializedSize;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
 use task_sensor_api::{NoData, Sensor, SensorError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
-use transceiver_messages::mgmt::ManagementInterface;
+use transceiver_messages::{mgmt::ManagementInterface, MAX_PACKET_SIZE};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -37,13 +36,6 @@ task_slot!(SEQ, seq);
 task_slot!(NET, net);
 task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
-
-// Both incoming and outgoing messages use the Message type, so we use it to
-// size our Tx / Rx buffers.
-const MAX_UDP_MESSAGE_SIZE: usize =
-    transceiver_messages::message::Header::MAX_SIZE
-        + transceiver_messages::message::Message::MAX_SIZE
-        + transceiver_messages::MAX_PAYLOAD_SIZE;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -372,10 +364,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .enable_power(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.enable_power(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -387,10 +377,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .disable_power(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.disable_power(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -402,10 +390,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .assert_reset(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.assert_reset(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -417,10 +403,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .deassert_reset(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.deassert_reset(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -432,10 +416,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .assert_lpmode(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.assert_lpmode(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -447,10 +429,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .deassert_lpmode(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.deassert_lpmode(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -462,10 +442,8 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        let result = self
-            .transceivers
-            .clear_power_fault(LogicalPortMask(logical_port_mask));
         let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.clear_power_fault(mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -501,11 +479,7 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
         let mask = LogicalPortMask(logical_port_mask);
-        let result = self.transceivers.setup_i2c_write(
-            reg,
-            num_bytes,
-            LogicalPortMask(logical_port_mask),
-        );
+        let result = self.transceivers.setup_i2c_write(reg, num_bytes, mask);
         match (result.error() & mask).count() {
             0 => Ok(()),
             _ => Err(RequestError::from(TransceiversError::FpgaError)),
@@ -682,10 +656,10 @@ fn main() -> ! {
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
 pub fn claim_statics() -> (
-    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
-    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
+    &'static mut [u8; MAX_PACKET_SIZE],
+    &'static mut [u8; MAX_PACKET_SIZE],
 ) {
-    const S: usize = MAX_UDP_MESSAGE_SIZE;
+    const S: usize = MAX_PACKET_SIZE;
     mutable_statics::mutable_statics! {
         static mut TX_BUF: [u8; S] = [|| 0u8; _];
         static mut RX_BUF: [u8; S] = [|| 0u8; _];
