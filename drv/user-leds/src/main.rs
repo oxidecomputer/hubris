@@ -68,6 +68,9 @@ cfg_if::cfg_if! {
         target_board = "gimlet-b",
         target_board = "gimlet-c",
         target_board = "gimlet-d",
+        target_board = "psc-a",
+        target_board = "psc-b",
+        target_board = "psc-c",
     ))] {
         #[derive(FromPrimitive)]
         enum Led {
@@ -405,6 +408,9 @@ cfg_if::cfg_if! {
             } else if #[cfg(any(target_board = "gimlet-b",
                                 target_board = "gimlet-c",
                                 target_board = "gimlet-d",
+                                target_board = "psc-a",
+                                target_board = "psc-b",
+                                target_board = "psc-c",
             ))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),

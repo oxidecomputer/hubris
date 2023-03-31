@@ -1338,6 +1338,7 @@ version = "0.1.0"
 dependencies = [
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
+ "drv-stm32xx-sys-api",
  "task-jefe-api",
  "userlib",
 ]
