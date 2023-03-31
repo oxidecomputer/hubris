@@ -3,9 +3,7 @@ target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-c"
 chip = "../../chips/lpc55"
 stacksize = 1024
-secure-separation = true
 image-names = ["a", "b"]
-secure-task = "secure"
 epoch = 0
 version = 0
 
@@ -37,12 +35,6 @@ priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-
-[tasks.secure]
-name = "task-secure"
-priority = 5
-max-sizes = {flash = 8192, ram = 512}
-stacksize = 256
 
 [tasks.update_server]
 name = "lpc55-update-server"
@@ -152,3 +144,16 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-c/dist/default/final.bin"
+
+[signing]
+enable-secure-boot = true
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
+boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
+
+[signing.certs]
+signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+private-key = "../../support/fake_certs/fake_private_key.pem"

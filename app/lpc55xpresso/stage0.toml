@@ -2,7 +2,6 @@ name = "lpc55xpresso"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
-secure-separation = true
 image-names = ["stage0"]
 external-images = ["a", "b"]
 

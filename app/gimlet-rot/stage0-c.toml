@@ -2,7 +2,6 @@ name = "gimlet-rot-c"
 target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-c"
 chip = "../../chips/lpc55"
-secure-separation = true
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
