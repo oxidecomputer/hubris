@@ -79,7 +79,6 @@ pub fn run(
                 &allocs.tasks,
                 &entry_points,
                 &toml.image_names[0],
-                &None,
             )?;
             let kconfig = ron::ser::to_string(&kconfig)?;
 

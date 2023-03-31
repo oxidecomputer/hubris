@@ -213,12 +213,6 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct SecureData {
-    secure: Range<u32>,
-    nsc: Range<u32>,
-}
-
 /// Represents allocations and free spaces for a particular image
 type AllocationMap = (Allocations, IndexMap<String, Range<u32>>);
 
@@ -353,9 +347,6 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        let s =
-            secure_update(&cfg, allocs, &mut all_output_sections, image_name)?;
-
         // Add an empty output section for the caboose
         //
         // This has to be done before building the kernel, because the caboose
@@ -407,7 +398,6 @@ pub fn package(
                 &cfg.toml.memories(image_name)?,
                 &entry_points,
                 image_name,
-                &s,
             )?)
         } else {
             None
@@ -556,112 +546,6 @@ pub fn package(
         }
     }
     Ok(allocated)
-}
-
-fn secure_update(
-    cfg: &PackageConfig,
-    allocs: &Allocations,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-    image_name: &str,
-) -> Result<Option<SecureData>> {
-    if let Some(secure) = &cfg.toml.secure_task {
-        if !cfg.toml.tasks.contains_key(secure) {
-            bail!("secure task named {} not found!", secure);
-        }
-        // The secure task is our designated TrustZone region. We expect
-        // this to have a non-secure callable (NSC) region for entry
-        // pointers and a .tz_table of entry points
-        let secure_bin = std::fs::read(&cfg.img_file(&secure, image_name))?;
-        let secure_elf = goblin::elf::Elf::parse(&secure_bin)?;
-
-        let nsc = match elf::get_section_by_name(&secure_elf, ".nsc") {
-            Some(s) => s,
-            _ => bail!("Couldn't find the nsc region in the secure task"),
-        };
-
-        if nsc.sh_size == 0 {
-            bail!("nsc region is zero?");
-        }
-
-        let tz_table = match elf::get_section_by_name(&secure_elf, ".tz_table")
-        {
-            Some(s) => s,
-            _ => bail!("Couldn't find the TZ table in the secure task"),
-        };
-
-        if tz_table.sh_size == 0 {
-            bail!("tz_table is zero. This does not seem correct.");
-        }
-
-        let flash = &allocs.tasks[secure]["flash"];
-
-        for (name, t) in &cfg.toml.tasks {
-            // Any task listed as using secure needs to have an appropriately
-            // sized .tz_table section which will get updated
-            if t.uses_secure_entry {
-                if t.name == *secure {
-                    bail!("Secure task is selecting the secure region! This is wrong!");
-                }
-
-                let mut bin = std::fs::read(&cfg.img_file(name, image_name))?;
-                let elf = goblin::elf::Elf::parse(&bin)?;
-
-                let s = match elf::get_section_by_name(&elf, ".tz_table") {
-                    Some(s) => s,
-                    _ => bail!("task {} wants to use the secure region but doesn't have a slot for the TZ table", name),
-                };
-
-                if s.sh_size != tz_table.sh_size {
-                    bail!("task {} has table size {:x} but secure table size is {:x}",
-                            name, s.sh_size, tz_table.sh_size);
-                }
-
-                let target_start = s.sh_offset as usize;
-                let target_end = (s.sh_offset + s.sh_size) as usize;
-
-                let table_start = tz_table.sh_offset as usize;
-                let table_end =
-                    (tz_table.sh_offset + tz_table.sh_size) as usize;
-
-                bin[target_start..target_end]
-                    .clone_from_slice(&secure_bin[table_start..table_end]);
-
-                std::fs::write(
-                    &cfg.img_file(format!("{}.modified", name), image_name),
-                    &bin,
-                )?;
-                std::fs::copy(
-                    &cfg.img_file(format!("{}.modified", name), image_name),
-                    &cfg.img_file(name, image_name),
-                )?;
-
-                let mut symbol_table = BTreeMap::default();
-                let _ = load_elf(
-                    &cfg.img_file(name, image_name),
-                    all_output_sections,
-                    &mut symbol_table,
-                )?;
-            }
-        }
-
-        let start = nsc.sh_addr as u32;
-        let end = (nsc.sh_addr + nsc.sh_size) as u32;
-
-        Ok(Some(SecureData {
-            secure: flash.start..flash.end,
-            nsc: start..end,
-        }))
-    } else {
-        if cfg
-            .toml
-            .tasks
-            .iter()
-            .any(|(_, task)| task.uses_secure_entry)
-        {
-            bail!("task is using secure entry but no secure task is found!");
-        }
-        Ok(None)
-    }
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
@@ -963,12 +847,6 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
     }
 
-    if cfg.toml.need_tz_linker(name) {
-        fs::copy("build/trustzone.x", "target/trustzone.x")?;
-    } else {
-        File::create(Path::new("target/trustzone.x"))?;
-    }
-
     let build_config = cfg
         .toml
         .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
@@ -1001,11 +879,6 @@ fn link_task(
     )
     .context(format!("failed to generate linker script for {}", name))?;
     fs::copy("build/task-link.x", "target/link.x")?;
-    if cfg.toml.need_tz_linker(name) {
-        fs::copy("build/trustzone.x", "target/trustzone.x")?;
-    } else {
-        File::create(Path::new("target/trustzone.x"))?;
-    }
 
     // Link the static archive
     link(
@@ -1044,11 +917,6 @@ fn link_dummy_task(
     )
     .context(format!("failed to generate linker script for {}", name))?;
     fs::copy("build/task-tlink.x", "target/link.x")?;
-    if cfg.toml.need_tz_linker(name) {
-        fs::copy("build/trustzone.x", "target/trustzone.x")?;
-    } else {
-        File::create(Path::new("target/trustzone.x"))?;
-    }
 
     // Link the static archive
     link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
@@ -1101,19 +969,13 @@ fn build_kernel(
     all_memories: &IndexMap<String, Range<u32>>,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
-    secure: &Option<SecureData>,
 ) -> Result<(u32, BTreeMap<String, u32>)> {
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_kconfig(
-        &cfg.toml,
-        &allocs.tasks,
-        entry_points,
-        image_name,
-        secure,
-    )?;
+    let kconfig =
+        make_kconfig(&cfg.toml, &allocs.tasks, entry_points, image_name)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -1147,7 +1009,6 @@ fn build_kernel(
         &cfg.img_file("kernel.modified", image_name),
         all_memories,
         all_output_sections,
-        secure,
     )? {
         std::fs::copy(
             &cfg.dist_file("kernel"),
@@ -1182,7 +1043,6 @@ fn update_image_header(
     output: &Path,
     map: &IndexMap<String, Range<u32>>,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-    secure: &Option<SecureData>,
 ) -> Result<bool> {
     use goblin::container::Container;
 
@@ -1240,58 +1100,7 @@ fn update_image_header(
                 sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);
 
                 for (_, range) in map.iter() {
-                    match secure {
-                        Some(s) if range.contains(&s.secure.start) => {
-                            // Our memory layout with a secure task looks like the
-                            // following:
-                            // +---------------+
-                            // |               |
-                            // |   Task        |
-                            // | (Non-secure)  |
-                            // |               |
-                            // |               |
-                            // +---------------+
-                            // |               |
-                            // |   Task        |
-                            // | (Non-secure)  |
-                            // |               |
-                            // |               |
-                            // +---------------+
-                            // |               |
-                            // |   Task        |
-                            // | (Secure)      |
-                            // +---------------+
-                            // |    NSC        |
-                            // +---------------+
-                            // |               |
-                            // |   Task        |
-                            // | (Non-secure)  |
-                            // |               |
-                            // |               |
-                            // +---------------+
-                            //
-                            // The entries in the SAU specify regions that are
-                            // non-secure OR non-secure callable (NSC).
-                            // This means the entry for our flash gets broken
-                            // down into three entries:
-                            // 1) Non-secure range before the secure task
-                            // 2) non-secure range after the secure task
-                            // 3) NSC region in the secure task
-                            sau_ranges.insert(
-                                range.start..=s.secure.start - 1,
-                                false,
-                            );
-                            sau_ranges
-                                .insert(s.secure.end..=range.end - 1, false);
-
-                            sau_ranges
-                                .insert(s.nsc.start..=s.nsc.end - 1, true);
-                        }
-                        _ => {
-                            sau_ranges
-                                .insert(range.start..=range.end - 1, false);
-                        }
-                    }
+                    sau_ranges.insert(range.start..=range.end - 1, false);
                 }
 
                 // These values correspond to SAU_RBAR and
@@ -1835,7 +1644,7 @@ fn link(
     // We expect the caller to set up our linker scripts, but copy them into
     // our working directory here
     let working_dir = &cfg.dist_dir;
-    for f in ["link.x", "memory.x", "trustzone.x"] {
+    for f in ["link.x", "memory.x"] {
         std::fs::copy(format!("target/{}", f), working_dir.join(f))
             .context(format!("Could not copy {} to link dir", f))?;
     }
@@ -2145,7 +1954,6 @@ pub fn make_kconfig(
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
-    secure: &Option<SecureData>,
 ) -> Result<build_kconfig::KernelConfig> {
     let mut tasks = vec![];
     let mut irqs = BTreeMap::new();
@@ -2191,22 +1999,6 @@ pub fn make_kconfig(
             build_kconfig::RegionConfig {
                 base: p.address,
                 size: p.size,
-                attributes: build_kconfig::RegionAttributes {
-                    read: true,
-                    write: false,
-                    execute: true,
-                    special_role: None,
-                },
-            },
-        );
-    }
-
-    if let Some(s) = secure {
-        flat_shared.insert(
-            "secure".to_string(),
-            build_kconfig::RegionConfig {
-                base: s.nsc.start,
-                size: s.nsc.end - s.nsc.start,
                 attributes: build_kconfig::RegionAttributes {
                     read: true,
                     write: false,
