@@ -10,7 +10,6 @@ use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
-use crate::util::index2_distinct;
 use core::convert::TryFrom;
 use core::mem::size_of;
 
@@ -322,6 +321,7 @@ fn read_task_dump_region(
     mut response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
     use crate::umem::safe_copy;
+    use crate::util::index2_distinct;
 
     if caller != 0 {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
