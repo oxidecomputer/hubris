@@ -7,7 +7,7 @@ stacksize = 896
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4800}
+requires = {flash = 32768, ram = 4880}
 features = ["dump"]
 
 [caboose]
