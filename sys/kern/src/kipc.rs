@@ -455,7 +455,9 @@ fn read_task_dump_region(
                     // at first glance since it's backwards from every other
                     // routine in the kernel -- but its shape is deliberate! We
                     // really do want to apply the SRC fault to the caller,
-                    // followed by any remaining DST fault.
+                    // followed by any remaining DST fault (by returning it from
+                    // this function, which means it'll be applied by the
+                    // generic syscall error handler).
                     //
                     // Note that if the supervisor is _really_ misbehaving, this
                     // can result in the delivery of two faults to it (the SRC
