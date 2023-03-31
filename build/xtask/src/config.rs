@@ -62,14 +62,12 @@ struct RawConfig {
     external_images: Vec<String>,
     #[serde(default)]
     signing: Option<RoTMfgSettings>,
-    secure_separation: Option<bool>,
     stacksize: Option<u32>,
     kernel: Kernel,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
     config: Option<ordered_toml::Value>,
-    secure_task: Option<String>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
 }
@@ -85,7 +83,6 @@ pub struct Config {
     pub image_names: Vec<String>,
     pub external_images: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
-    pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
@@ -96,7 +93,6 @@ pub struct Config {
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
     pub patches: Option<ConfigPatches>,
-    pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
     pub caboose: Option<CabooseConfig>,
@@ -226,7 +222,6 @@ impl Config {
             epoch: toml.epoch,
             version: toml.version,
             signing: toml.signing,
-            secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
             kernel: toml.kernel,
             outputs,
@@ -238,7 +233,6 @@ impl Config {
             buildhash,
             app_toml_path: cfg.to_owned(),
             patches: None,
-            secure_task: toml.secure_task,
             dice_mfg,
             caboose: toml.caboose,
         })
@@ -326,21 +320,6 @@ impl Config {
                     format!("{:?}", checksum),
                 );
             }
-        }
-
-        // secure_separation indicates that we have TrustZone enabled.
-        // When TrustZone is enabled, the bootloader is secure and hubris is
-        // not secure.
-        // When TrustZone is not enabled, both the bootloader and Hubris are
-        // secure.
-        if let Some(s) = self.secure_separation {
-            if s {
-                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
-            } else {
-                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-            }
-        } else {
-            env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
         }
 
         if let Some(app_config) = &self.config {
@@ -558,11 +537,6 @@ impl Config {
         self.image_names.contains(name)
     }
 
-    pub fn need_tz_linker(&self, name: &str) -> bool {
-        self.tasks[name].uses_secure_entry
-            || self.secure_task.as_ref().map_or(false, |n| n == name)
-    }
-
     pub fn extern_regions_for(
         &self,
         task: &str,
@@ -736,7 +710,6 @@ impl BuildConfig<'_> {
         nightly_features.extend([
             "array_methods",
             "asm_const",
-            "cmse_nonsecure_entry",
             "naked_functions",
             "named-profiles",
         ]);

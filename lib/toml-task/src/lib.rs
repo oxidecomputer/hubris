@@ -20,8 +20,6 @@ pub struct Task<T = ordered_toml::Value> {
     pub priority: u8,
     pub stacksize: Option<u32>,
     #[serde(default)]
-    pub uses_secure_entry: bool,
-    #[serde(default)]
     pub start: bool,
 
     #[serde(default)]

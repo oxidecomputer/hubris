@@ -13,8 +13,6 @@ SECTIONS
     __etext = .;
   }
 
-  INCLUDE trustzone.x
-
   /* ### .rodata */
   .rodata : ALIGN(4)
   {
