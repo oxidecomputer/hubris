@@ -285,9 +285,13 @@ impl ServerImpl {
             };
 
             // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.
-            if let Err(e) = self.thermal_api.update_dynamic_input(i, m.model) {
-                ringbuf_entry!(Trace::ThermalError(i, e));
+            // the thermal task still has it in case of restart.  This will
+            // return a `NotInAutoMode` error if the thermal loop is in manual
+            // mode; this is harmless and will be ignored (instead of cluttering
+            // up the logs).
+            match self.thermal_api.update_dynamic_input(i, m.model) {
+                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
             }
 
             let temperature = match m.interface {
