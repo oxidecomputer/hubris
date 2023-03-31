@@ -2,7 +2,6 @@ name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
 board = "rot-carrier-1"
 chip = "../../chips/lpc55"
-memory = "256k.toml"
 stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0
@@ -10,7 +9,8 @@ version = 0
 
 [kernel]
 name = "rot-carrier"
-requires = {flash = 21504, ram = 4096}
+features = ["dice-self"]
+requires = {flash = 52032, ram = 4096}
 
 [tasks.jefe]
 name = "task-jefe"
