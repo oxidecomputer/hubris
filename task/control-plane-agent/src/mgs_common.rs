@@ -38,6 +38,7 @@ impl MgsCommon {
         }
     }
 
+    #[allow(dead_code)] // This function is only used by Gimlet right now
     pub(crate) fn packrat(&self) -> &Packrat {
         &self.packrat
     }

@@ -259,6 +259,7 @@ task-slots = [
     "sprot",
     "i2c_driver",
     "packrat",
+    "user_leds",
 ]
 features = [
     "gimlet",
