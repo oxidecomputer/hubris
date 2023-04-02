@@ -46,7 +46,7 @@ use drv_sprot_api::{
     HEADER_SIZE,
 };
 use lpc55_pac as device;
-use ringbuf::ringbuf;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
@@ -61,8 +61,15 @@ pub(crate) enum Trace {
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
     Dump(u32),
+    Fifostat(u32),
+    CsnDeasserted(bool),
+    CsnDeassertedBreak,
+    FlowError(Option<Protocol>, usize),
+    Stat(u32),
+    Replying(bool),
+    ReadRemainingFromFifo,
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -108,16 +115,12 @@ fn configure_spi() -> Io {
     // Set SPI mode for Flexcomm
     flexcomm.pselid.write(|w| w.persel().spi());
 
-    // Drain and configure FIFOs
-    spi.enable();
-
     // We only want interrupts on CSn assert
     // Once we see that interrupt we enter polling mode
     // and check the registers manually.
     spi.ssa_enable();
-
-    // Probably not necessary, drain Rx and Tx after config.
-    spi.drain();
+    spi.ssd_disable();
+    spi.mstidle_disable();
 
     // Disable the interrupts triggered by the `self.spi.drain_tx()`, which
     // unneccessarily causes spurious interrupts. We really only need to to
@@ -125,6 +128,9 @@ fn configure_spi() -> Io {
     // tight loop.
     spi.disable_tx();
     spi.disable_rx();
+
+    // Drain and configure FIFOs
+    spi.enable();
 
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
@@ -204,27 +210,21 @@ impl Io {
     ) -> Result<(), IoError> {
         let mut tx_iter = tx_buf.iter();
         self.prime_tx_fifo(&mut tx_iter);
-        let result = loop {
-            sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            if signal_reply {
-                self.assert_rot_irq();
-            }
+        sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            sys_recv_closed(
-                &mut [],
-                notifications::SPI_IRQ_MASK,
-                TaskId::KERNEL,
-            )
+        if signal_reply {
+            self.assert_rot_irq();
+        }
+
+        sys_recv_closed(&mut [], notifications::SPI_IRQ_MASK, TaskId::KERNEL)
             .unwrap_lite();
 
-            // Is CSn asserted by the SP?
-            let intstat = self.spi.intstat();
-            if intstat.ssa().bit() {
-                self.spi.ssa_clear();
-                break self.tight_loop(&mut tx_iter, rx_msg);
-            }
-        };
+        let result = self.tight_loop(&mut tx_iter, rx_msg, signal_reply);
+
+        // We delay clearing until after the tight loop returns
+        let _intstat = self.spi.intstat();
+        self.spi.ssa_clear();
 
         if signal_reply {
             self.deassert_rot_irq();
@@ -244,98 +244,86 @@ impl Io {
         &mut self,
         tx_iter: &mut dyn Iterator<Item = &u8>,
         rx_msg: &mut RxMsg<'a>,
+        replying: bool,
     ) -> Result<(), IoError> {
-        let mut err = None;
-
-        let mut csn_deasserted = false;
         let mut too_many_bytes_received = false;
 
-        loop {
-            // Let's exchange some bytes
-            let mut io = true;
-            while io {
-                io = false;
-                if self.spi.can_tx() {
-                    io = true;
-                    if let Some(b) = tx_iter.next().copied() {
-                        self.spi.send_u8(b);
-                    } else {
-                        // Just clock out zeros and prevent an unnecessary underrun
-                        self.spi.send_u8(0);
-                    }
-                }
+        // If we read fifostat twice without having to read or write any data
+        // we may be done.
 
-                if self.spi.has_byte() {
-                    io = true;
-                    let b = self.spi.read_u8();
-                    if rx_msg.push(b).is_err() {
-                        too_many_bytes_received = true;
-                    }
-                }
-            }
-
-            // Let's check for any problems
+        while !self.spi.ssd() {
             let fifostat = self.spi.fifostat();
-
-            if fifostat.txerr().bit() {
-                // We don't do anything with tx errors other than record them
-                // The SP will see a checksum error if this is a reply, or the
-                // underrun happened after the number of reply bytes and it
-                // doesn't matter.
-                self.spi.txerr_clear();
-                self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
-            }
-
-            if fifostat.rxerr().bit() {
-                // Rx errors are more important. They mean we're missing
-                // data. We should report this to the SP. This can be used to
-                // potentially throttle sends in the future.
-                self.spi.rxerr_clear();
-                self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                // If we were just sending our response, and SP was
-                // just sending zeros and we received the first byte
-                // correctly and that first byte was zero, then
-                // our Rx overrun is inconsequential and does not
-                // need to be reported as a message.
-                if err.is_none()
-                    && rx_msg.len() > 0
-                    && rx_msg.protocol() != Some(0.into())
-                {
-                    // This error matters
-                    err = Some(IoError::Flow);
+            for _ in fifostat.txlvl().bits()..8u8 {
+                if let Some(b) = tx_iter.next().copied() {
+                    self.spi.send_u8(b);
+                } else {
+                    // Just clock out zeros and prevent an unnecessary underrun
+                    self.spi.send_u8(0);
                 }
             }
-
-            // Are we done?
-            if csn_deasserted {
-                self.spi.ssd_clear();
-
-                if rx_msg.is_empty() {
-                    // This was a CSn pulse
-                    self.stats.csn_pulses =
-                        self.stats.csn_pulses.wrapping_add(1);
-                    err = Some(IoError::Flush);
-                }
-
-                break;
+            for _ in 0..fifostat.rxlvl().bits() {
+                let b = self.spi.read_u8();
+                rx_msg.push(b);
             }
-
-            // Read the CSn flag *after* checking if CSn is deasserted.
-            //
-            // This ordering allows us to loop one more time to exchange data
-            // and empty our fifos. Putting the check at the end also minimizes
-            // the time to access the fifos the first time through the loop.
-            // The goal here is to reduce overrun/underrun after already
-            // waiting for the CSn asserted interrupt to fire.
-            csn_deasserted = self.spi.ssd();
         }
 
+        // Read any remaining data
+        while self.spi.has_byte() {
+            ringbuf_entry!(Trace::ReadRemainingFromFifo);
+            let b = self.spi.read_u8();
+            if rx_msg.push(b).is_err() {
+                too_many_bytes_received = true;
+            }
+        }
+
+        // Clear ssd
+        self.spi.ssd_clear();
+
+        // Keep track of some stats
         if too_many_bytes_received {
             self.stats.rx_protocol_error_too_many_bytes =
                 self.stats.rx_protocol_error_too_many_bytes.wrapping_add(1);
         }
 
-        err.map_or(Ok(()), |e| Err(e))
+        // Let's check for any problems
+        let fifostat = self.spi.fifostat();
+        if fifostat.txerr().bit() {
+            // We don't do anything with tx errors other than record them
+            // The SP will see a checksum error if this is a reply, or the
+            // underrun happened after the number of reply bytes and it
+            // doesn't matter.
+            self.spi.txerr_clear();
+            self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+        }
+
+        if fifostat.rxerr().bit() {
+            // Rx errors are more important. They mean we're missing
+            // data. We should report this to the SP. This can be used to
+            // potentially throttle sends in the future.
+            self.spi.rxerr_clear();
+            self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
+            // If we were just sending our response, and SP was
+            // just sending zeros and we received the first byte
+            // correctly and that first byte was zero, then
+            // our Rx overrun is inconsequential and does not
+            // need to be reported as a message.
+            if rx_msg.len() > 0 && rx_msg.protocol() != Some(Protocol::Ignore) {
+                // This error matters
+                ringbuf_entry!(Trace::FlowError(
+                    rx_msg.protocol(),
+                    rx_msg.len()
+                ));
+                return Err(IoError::Flow);
+            }
+        }
+
+        if rx_msg.is_empty() {
+            // This was a CSn pulse
+            self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
+            return Err(IoError::Flush);
+        }
+
+        Ok(())
     }
 
     // Prime the fifo with the first part of the response to prevent

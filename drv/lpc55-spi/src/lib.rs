@@ -148,6 +148,9 @@ impl Spi {
     pub fn ssd(&self) -> bool {
         (self.reg.stat.read().bits() >> 5) & 0x01 != 0
     }
+    pub fn ssa(&self) -> bool {
+        (self.reg.stat.read().bits() >> 4) & 0x01 != 0
+    }
 
     pub fn can_tx(&self) -> bool {
         self.reg.fifostat.read().txnotfull().bit_is_set()
@@ -223,8 +226,8 @@ impl Spi {
                 // 0xF = Data transfer is 16 bits in length.
                 .bits(7)
                 // Don't wait for RX while we're TX (may need to change)
-                .rxignore()
-                .read()
+                //.rxignore()
+                //.read()
                 .txdata()
                 .bits(byte as u16)
         });
@@ -265,8 +268,12 @@ impl Spi {
         });
     }
 
-    pub fn get_fifostat(&self) -> u32 {
+    pub fn get_fifointstat(&self) -> u32 {
         self.reg.fifointstat.read().bits()
+    }
+
+    pub fn get_fifotrig(&self) -> u32 {
+        self.reg.fifotrig.read().bits()
     }
 
     /// Destructive read of SPI Interrupt Status Register.

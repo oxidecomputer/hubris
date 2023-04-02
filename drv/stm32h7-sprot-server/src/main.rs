@@ -93,10 +93,10 @@ ringbuf!(Trace, 64, Trace::None);
 // All timeouts are in 'ticks'
 
 /// Retry timeout for send_recv_retries
-const RETRY_TIMEOUT: u64 = 100;
+const RETRY_TIMEOUT: u64 = 20;
 
 /// Timeout for status message
-const TIMEOUT_QUICK: u32 = 250;
+const TIMEOUT_QUICK: u32 = 10;
 /// Default covers fail, pulse, retry
 const DEFAULT_ATTEMPTS: u16 = 3;
 /// Maximum timeout for an arbitrary message
@@ -106,14 +106,16 @@ const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
 
 // Delay between asserting CSn and sending the portion of a message
 // that fits entierly in the RoT's FIFO.
-const PART1_DELAY: u64 = 1;
+//const PART1_DELAY: u64 = 1;
+const PART1_DELAY: u64 = 2;
 
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
 // sprot task to respond to its interrupt.
-const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
+const PART2_DELAY: u64 = 0; // Observed to be at least 2ms on gimletlet
 
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "sink_test")] {
         const MAX_SINKREQ_ATTEMPTS: u16 = 3; // TODO parameterize
@@ -316,23 +318,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART1_DELAY);
         }
 
-        // If we read out the full fifo, we end up with an underrun situation
-        // periodically. This happens after the part2 delay, and the length of
-        // that delay doesn't matter. The interrupt fires quickly and we keep
-        // looping waiting to read bytes. I noticed hundreds of iterations
-        // without any data transferred with a ringbuf message inside the
-        // tightloop in `Io::write_respsonse` on the RoT. Then all of a
-        // sudden, the first data transfer occurs (~1 byte read/written) and
-        // an underrun occurs. We seem to be able to prevent this leaving a
-        // partially full TxBuf on the receiver. We want to retrieve a full
-        // header, but other than that, we don't need to retrieve the full fifo
-        // at once.
-        //
-        // In short, we set `part1_len = MIN_MSG_SIZE` instead of
-        // `part1_len = ROT_FIFO_SIZE`.
-        //
-        // In the case that there is no payload, this still reads in one round.
-        let part1_len = MIN_MSG_SIZE;
+        let part1_len = ROT_FIFO_SIZE;
         ringbuf_entry!(Trace::RxPart1(part1_len));
 
         // Read part one
@@ -346,10 +332,11 @@ impl<S: SpiServer> Io<S> {
             }
         };
 
-        if part1_len < MIN_MSG_SIZE + (header.payload_len as usize) {
+        let total_size = MIN_MSG_SIZE + (header.payload_len as usize);
+
+        if part1_len < total_size {
             // We haven't read the complete message yet.
-            let part2_len =
-                MIN_MSG_SIZE + (header.payload_len as usize) - part1_len;
+            let part2_len = total_size - part1_len;
             ringbuf_entry!(Trace::RxPart2(part2_len));
 
             // Allow RoT time to rouse itself.

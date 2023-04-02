@@ -749,10 +749,10 @@ impl<'a> RxMsg<'a> {
     }
 
     pub fn push(&mut self, b: u8) -> Result<(), BufFull> {
-        if self.is_full() {
-            return Err(BufFull);
+        match self.buf.get_mut(self.len) {
+            Some(x) => *x = b,
+            None => return Err(BufFull),
         }
-        self.buf[self.len] = b;
         self.len += 1;
         Ok(())
     }
