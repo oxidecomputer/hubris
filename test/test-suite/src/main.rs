@@ -27,6 +27,11 @@ use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
 
+/// A constant that is known to be in a region we can't access to induce a
+/// memory fault. (Note that if TZ is enabled, this will in fact induce a
+/// secure fault, and a different constant will be required.)
+const BAD_ADDRESS: u32 = 0x0;
+
 /// Helper macro for building a list of functions with their names.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
@@ -1494,5 +1499,3 @@ fn main() -> ! {
         )
     }
 }
-
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
