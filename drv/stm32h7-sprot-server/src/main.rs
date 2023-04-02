@@ -93,7 +93,7 @@ ringbuf!(Trace, 64, Trace::None);
 // All timeouts are in 'ticks'
 
 /// Retry timeout for send_recv_retries
-const RETRY_TIMEOUT: u64 = 20;
+const RETRY_TIMEOUT: u64 = 10;
 
 /// Timeout for status message
 const TIMEOUT_QUICK: u32 = 10;

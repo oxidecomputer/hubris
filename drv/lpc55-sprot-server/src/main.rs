@@ -253,23 +253,30 @@ impl Io {
 
         while !self.spi.ssd() {
             let fifostat = self.spi.fifostat();
-            for _ in fifostat.txlvl().bits()..8u8 {
-                if let Some(b) = tx_iter.next().copied() {
-                    self.spi.send_u8(b);
-                } else {
-                    // Just clock out zeros and prevent an unnecessary underrun
-                    self.spi.send_u8(0);
+
+            if replying {
+                for _ in fifostat.txlvl().bits()..8u8 {
+                    if let Some(b) = tx_iter.next().copied() {
+                        self.spi.send_u8(b);
+                    } else {
+                        // Just clock out zeros and prevent an unnecessary underrun
+                        self.spi.send_u8(0);
+                    }
                 }
             }
-            for _ in 0..fifostat.rxlvl().bits() {
+            while self.spi.has_byte() {
                 let b = self.spi.read_u8();
-                rx_msg.push(b);
+                let _ = rx_msg.push(b);
             }
         }
 
         // Read any remaining data
         while self.spi.has_byte() {
             ringbuf_entry!(Trace::ReadRemainingFromFifo);
+            let b = self.spi.read_u8();
+            if rx_msg.push(b).is_err() {
+                too_many_bytes_received = true;
+            }
             let b = self.spi.read_u8();
             if rx_msg.push(b).is_err() {
                 too_many_bytes_received = true;
@@ -293,7 +300,12 @@ impl Io {
             // underrun happened after the number of reply bytes and it
             // doesn't matter.
             self.spi.txerr_clear();
-            self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+            // We let the fifo send 0s by default for speed when not replying.
+            // We'll always end up with an underrun in this case. It's not
+            // worth tracking.
+            if replying {
+                self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+            }
         }
 
         if fifostat.rxerr().bit() {

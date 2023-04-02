@@ -958,6 +958,6 @@ const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
 pub const BUF_SIZE: usize = HEADER_SIZE + PAYLOAD_SIZE_MAX + CRC_SIZE;
 pub const MIN_MSG_SIZE: usize = HEADER_SIZE + CRC_SIZE;
 // XXX ROT FIFO size should be discovered.
-pub const ROT_FIFO_SIZE: usize = 8;
+pub const ROT_FIFO_SIZE: usize = 16;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
