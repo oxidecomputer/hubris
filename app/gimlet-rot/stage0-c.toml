@@ -8,7 +8,7 @@ external-images = ["a", "b"]
 [kernel]
 name = "stage0"
 requires = {flash = 0x9000, ram = 16000}
-features = ["tz_support", "dice-mfg"]
+features = ["dice-mfg"]
 stacksize = 14000
 
 [tasks.idle]
