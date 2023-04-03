@@ -14,7 +14,6 @@ fn triples(triples: &[u8]) {
         gpio.set[0].write(|w| unsafe { w.bits(1 << 21) });
 
         // Set I/Os
-        let mut bits = bits;
         for pin in [22, 25, 4] {
             if bits & 1 == 0 {
                 gpio.clr[0].write(|w| unsafe { w.bits(1 << pin) });
@@ -52,10 +51,10 @@ enum SubKind {
     SystickEnter = 1,
 
     PendSvExit = 0b001_000,
-    SystickExit = 0x001_001,
+    SystickExit = 0b001_001,
 
-    SyscallExit = 0x001_101,
-    IrqExit = 0x001_111,
+    SyscallExit = 0b001_101,
+    IrqExit = 0b001_111,
 }
 
 fn syscall_enter(nr: u32) {
@@ -74,8 +73,8 @@ fn secondary_syscall_exit() {
     evt(SubKind::PendSvExit);
 }
 
-fn isr_enter() {
-    msg(MsgKind::Irq, 0);
+fn isr_enter(n: u32) {
+    msg(MsgKind::Irq, n as u16);
 }
 
 fn isr_exit() {

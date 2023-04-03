@@ -56,7 +56,7 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 /// event, the simplest method is:
 ///
 /// ```ignore
-///   isr_enter: || (),
+///   isr_enter: |_| (),
 /// ```
 pub struct EventsTable {
     /// Called on entry to the kernel syscall handler, in response to a task
@@ -71,7 +71,7 @@ pub struct EventsTable {
     pub secondary_syscall_exit: fn(),
     /// Called on entry to any kernel-managed peripheral interrupt service
     /// routine.
-    pub isr_enter: fn(),
+    pub isr_enter: fn(u32),
     /// Called on exit from any kernel-managed peripheral interrupt service
     /// routine.
     pub isr_exit: fn(),
@@ -143,9 +143,9 @@ pub(crate) fn event_secondary_syscall_exit() {
 
 /// Signals entry to an ISR. This is `pub` in case you write your own
 /// non-kernel-managed ISR but you'd like to include it in ISR statistics.
-pub fn event_isr_enter() {
+pub fn event_isr_enter(n: u32) {
     if let Some(t) = table() {
-        (t.isr_enter)()
+        (t.isr_enter)(n)
     }
 }
 

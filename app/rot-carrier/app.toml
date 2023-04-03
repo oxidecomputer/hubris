@@ -67,22 +67,6 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
 
-[tasks.usart_driver]
-name = "drv-lpc55-usart"
-priority = 5
-max-sizes = {flash = 8192, ram = 2048}
-uses = ["flexcomm0"]
-start = true
-notifications = ["usart-irq"]
-interrupts = {"flexcomm0.irq" = "usart-irq"}
-task-slots = ["gpio_driver", "syscon_driver"]
-
-[tasks.usart_driver.config]
-pins = [
-    { pin = { port = 0, pin = 29}, alt = 1},
-    { pin = { port = 0, pin = 30}, alt = 1}
-]
-
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
 priority = 5
@@ -160,14 +144,6 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600
 task-slots = ["swd"]
-
-[tasks.ping]
-name = "task-ping"
-features = ["uart"]
-priority = 8
-max-sizes = {flash = 8192, ram = 2048}
-start = true
-task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 name = "task-pong"
