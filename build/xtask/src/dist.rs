@@ -1079,6 +1079,8 @@ fn update_image_header(
                 let len = end - flash.start;
 
                 let header = abi::ImageHeader {
+                    version: cfg.toml.version,
+                    epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
                     total_image_len: len as u32,
                     ..Default::default()
