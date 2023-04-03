@@ -509,13 +509,6 @@ impl core::convert::TryFrom<u16> for Kipcnum {
     }
 }
 
-#[repr(C)]
-#[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
-pub struct SAUEntry {
-    pub rbar: u32,
-    pub rlar: u32,
-}
-
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
 pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 
@@ -526,7 +519,7 @@ pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
-    pub sau_entries: [SAUEntry; 8],
+    pub _pad: [u32; 16], // previous location of SAU entries
     pub version: u32,
     pub epoch: u32,
 }
