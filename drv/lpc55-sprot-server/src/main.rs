@@ -299,7 +299,7 @@ impl Io {
                 // need to be reported as a message.
                 if err.is_none()
                     && rx_msg.len() > 0
-                    && rx_msg.protocol() != Some(0.into())
+                    && rx_msg.protocol() != Some(Protocol::Ignore)
                 {
                     // This error matters
                     err = Some(IoError::Flow);

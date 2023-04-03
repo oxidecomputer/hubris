@@ -3801,7 +3801,6 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
- "task-jefe-api",
  "userlib",
  "zerocopy",
 ]

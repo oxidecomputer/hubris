@@ -224,7 +224,7 @@ impl Handler {
             MsgType::UpdResetReq => {
                 let rsp: UpdateRspHeader =
                     self.update.reset().map(|_| None).map_err(|e| e.into());
-                tx_buf.serialize(MsgType::UpdSwitchDefaultImageRsp, rsp)
+                tx_buf.serialize(MsgType::UpdResetRsp, rsp)
             }
 
             // All of the unexpected messages

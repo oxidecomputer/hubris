@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent", "update_server"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
@@ -188,7 +188,6 @@ uses = ["flash_controller"]
 extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
-task-slots = ["jefe"]
 
 [tasks.sensor]
 name = "task-sensor"

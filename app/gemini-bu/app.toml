@@ -19,7 +19,7 @@ notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "update_server"]
+request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -156,7 +156,6 @@ uses = ["flash_controller"]
 extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
-task-slots = ["jefe"]
 
 [config]
 [[config.i2c.controllers]]

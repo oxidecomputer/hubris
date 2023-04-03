@@ -45,8 +45,6 @@ extern "C" {
     pub static mut __REGION_BANK2_END: [u32; 0];
 }
 
-task_slot!(JEFE, jefe);
-
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EraseStart,

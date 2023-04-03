@@ -31,7 +31,7 @@ net = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent", "update_server"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -83,7 +83,6 @@ uses = ["flash_controller"]
 extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
-task-slots = ["jefe"]
 
 [tasks.hiffy]
 name = "task-hiffy"

@@ -15,7 +15,6 @@ drv-caboose.path = "../../drv/caboose"
 drv-update-api.path = "../update-api/"
 ringbuf.path = "../../lib/ringbuf"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-task-jefe-api = { path = "../../task/jefe-api" }
 
 [build-dependencies]
 idol = { workspace = true }

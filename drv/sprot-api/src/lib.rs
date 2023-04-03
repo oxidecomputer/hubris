@@ -401,20 +401,13 @@ impl From<u8> for Protocol {
 // pub const VERSION_BUSY: u8 = 0xB2;
 
 /// SPI Message types will allow for multiplexing and forward compatibility.
-// The value of MsgType is seen on the wire.
-// The explicit value assignments are to aid lookup when debugging.
-//
-// The current on-the-wire format is:
-//
-//   {Protocol::V1, MsgType, Length, Payload, CRC}
-//
-// It has been suggested that the MsgType could be folded into the
-// hubpack encoded payload so the message would then be:
-//
-//   {Protocol::V2, Length, Payload{MsgType, msg-specific-payload}, CRC}
-//
-// In that case, hubpack would control the on-the-wire encoding of MsgType
-// and the explicit assignments below could be misleading.
+/// The value of MsgType is seen on the wire.
+/// The explicit value assignments are to aid lookup when debugging.
+///
+/// The current on-the-wire format is:
+///
+///   {Protocol::V1, MsgType, Length, Payload, CRC}
+///
 #[derive(
     Copy,
     Clone,

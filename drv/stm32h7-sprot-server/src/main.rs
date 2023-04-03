@@ -106,7 +106,7 @@ const TIMEOUT_WRITE_ONE_BLOCK: u32 = 500;
 
 // Delay between asserting CSn and sending the portion of a message
 // that fits entierly in the RoT's FIFO.
-const PART1_DELAY: u64 = 1;
+const PART1_DELAY: u64 = 0;
 
 // Delay between sending the portion of a message that fits entirely in the
 // RoT's FIFO and the remainder of the message. This gives time for the RoT
