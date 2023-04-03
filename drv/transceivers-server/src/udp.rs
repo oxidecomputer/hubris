@@ -558,8 +558,9 @@ impl ServerImpl {
                 if result.failure().is_set(module) {
                     match failure_type {
                         Some(e) => {
-                            let err_size = hubpack::serialize(&mut out[error_idx..], &e)
-                                .unwrap();
+                            let err_size =
+                                hubpack::serialize(&mut out[error_idx..], &e)
+                                    .unwrap();
                             error_idx += err_size;
                         }
                         None => {
@@ -620,32 +621,32 @@ impl ServerImpl {
         let mut count = 0;
         for mask in modules
             .to_indices()
-            .map(|i| 1 << i)
-            .filter(|&m| desired_result.success().0 & m != 0)
+            .map(|p| p.as_mask())
+            .filter(|&m| !(desired_result.success() & m).is_empty())
         {
             let mut status = Status::empty();
-            if (mod_status.power_enable & mask) != 0 {
+            if (mod_status.power_enable & mask.0) != 0 {
                 status |= Status::ENABLED;
             }
-            if (!mod_status.resetl & mask) != 0 {
+            if (!mod_status.resetl & mask.0) != 0 {
                 status |= Status::RESET;
             }
-            if (mod_status.lpmode_txdis & mask) != 0 {
+            if (mod_status.lpmode_txdis & mask.0) != 0 {
                 status |= Status::LOW_POWER_MODE;
             }
-            if (!mod_status.modprsl & mask) != 0 {
+            if (!mod_status.modprsl & mask.0) != 0 {
                 status |= Status::PRESENT;
             }
-            if (!mod_status.intl_rxlosl & mask) != 0 {
+            if (!mod_status.intl_rxlosl & mask.0) != 0 {
                 status |= Status::INTERRUPT;
             }
-            if (mod_status.power_good & mask) != 0 {
+            if (mod_status.power_good & mask.0) != 0 {
                 status |= Status::POWER_GOOD;
             }
-            if (mod_status.power_good_timeout & mask) != 0 {
+            if (mod_status.power_good_timeout & mask.0) != 0 {
                 status |= Status::FAULT_POWER_TIMEOUT;
             }
-            if (mod_status.power_good_fault & mask) != 0 {
+            if (mod_status.power_good_fault & mask.0) != 0 {
                 status |= Status::FAULT_POWER_LOST;
             }
             // Convert from Status -> u8 and write to the output buffer
@@ -728,7 +729,7 @@ impl ServerImpl {
         let mut idx = 0;
         let buf_len = mem.len() as usize;
 
-        for port in result.success().to_indices().map(LogicalPort) {
+        for port in result.success().to_indices() {
             // The status register is contiguous with the output buffer, so
             // we'll read them all in a single pass.  This should normally
             // terminate with a single read, since I2C is faster than Hubris
@@ -788,7 +789,7 @@ impl ServerImpl {
 
         // Copy data into the FPGA write buffer
         self.transceivers
-                .set_i2c_write_buffer(&data[..mem.len() as usize]);
+            .set_i2c_write_buffer(&data[..mem.len() as usize]);
 
         // Trigger a multicast write to all transceivers in the mask
         result = result.chain(self.transceivers.setup_i2c_write(

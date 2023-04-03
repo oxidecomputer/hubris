@@ -352,10 +352,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<ModuleStatus, idol_runtime::RequestError<TransceiversError>>
     {
         let (mod_status, result) = self.transceivers.get_module_status();
-
-        match result.error().count() {
-            0 => Ok(mod_status),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(mod_status)
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -366,9 +366,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.enable_power(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -379,9 +380,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.disable_power(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -392,9 +394,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.assert_reset(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -405,9 +408,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.deassert_reset(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -418,9 +422,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.assert_lpmode(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -431,9 +436,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.deassert_lpmode(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -444,9 +450,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.clear_power_fault(mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -462,9 +469,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         }
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.setup_i2c_read(reg, num_bytes, mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -480,9 +488,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         }
         let mask = LogicalPortMask(logical_port_mask);
         let result = self.transceivers.setup_i2c_write(reg, num_bytes, mask);
-        match (result.error() & mask).count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 
@@ -527,9 +536,10 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         let result = self.transceivers.set_i2c_write_buffer(&buf[..data.len()]);
-        match result.error().count() {
-            0 => Ok(()),
-            _ => Err(RequestError::from(TransceiversError::FpgaError)),
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
 }

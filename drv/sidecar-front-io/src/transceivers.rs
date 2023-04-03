@@ -32,7 +32,7 @@ pub struct PortLocation {
 
 impl From<LogicalPort> for PortLocation {
     fn from(port: LogicalPort) -> PortLocation {
-        PORT_MAP[port.0 as usize]
+        PORT_MAP[port]
     }
 }
 
@@ -88,6 +88,20 @@ impl FpgaPortMasks {
         ];
         out.into_iter().flatten()
     }
+
+    fn get(&self, fpga: FpgaController) -> PhysicalPortMask {
+        match fpga {
+            FpgaController::Left => self.left,
+            FpgaController::Right => self.right,
+        }
+    }
+
+    fn get_mut(&mut self, fpga: FpgaController) -> &mut PhysicalPortMask {
+        match fpga {
+            FpgaController::Left => &mut self.left,
+            FpgaController::Right => &mut self.right,
+        }
+    }
 }
 
 /// Represents a single logical port (0-31)
@@ -99,7 +113,7 @@ impl LogicalPort {
     }
 
     pub fn get_physical_location(&self) -> PortLocation {
-        PORT_MAP[self.0 as usize]
+        PortLocation::from(*self)
     }
 }
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
@@ -113,28 +127,31 @@ impl LogicalPortMask {
         self.0
     }
     pub fn set(&mut self, index: LogicalPort) {
-        self.0 |= index.as_mask().0
+        *self |= index
     }
     pub fn clear(&mut self, index: LogicalPort) {
-        self.0 &= !index.as_mask().0
+        *self &= !index.as_mask()
     }
     pub fn merge(&mut self, other: LogicalPortMask) {
-        self.0 |= other.0
+        *self |= other
     }
     pub fn count(&self) -> usize {
         self.0.count_ones() as _
     }
     pub fn is_set(&self, index: LogicalPort) -> bool {
-        self.0 & index.as_mask().0 != 0
+        !(*self & index).is_empty()
     }
     pub fn is_empty(&self) -> bool {
         self.0 == 0
     }
-    pub fn to_indices(&self) -> impl Iterator<Item = u8> + '_ {
-        (0..32).filter(|i| self.is_set(LogicalPort(*i)))
+    pub fn to_indices(&self) -> impl Iterator<Item = LogicalPort> + '_ {
+        (0..32).map(LogicalPort).filter(|p| self.is_set(*p))
     }
 }
 
+// `ModuleId` is a 64-bit logical port mask. The choice of u64 was to provide
+// future flexibility, but currently we only support 32 distinct ports, so we
+// ignore the upper 32 bits of `ModuleId` when constructing a `LogicalPortMask`.
 impl From<ModuleId> for LogicalPortMask {
     fn from(v: ModuleId) -> Self {
         Self(v.0 as u32)
@@ -157,8 +174,22 @@ impl core::ops::BitOr for LogicalPortMask {
     }
 }
 
+impl core::ops::BitOr<LogicalPort> for LogicalPortMask {
+    type Output = Self;
+
+    fn bitor(self, rhs: LogicalPort) -> Self {
+        LogicalPortMask(self.0 | rhs.as_mask().0)
+    }
+}
+
 impl core::ops::BitOrAssign for LogicalPortMask {
     fn bitor_assign(&mut self, rhs: Self) {
+        *self = *self | rhs
+    }
+}
+
+impl core::ops::BitOrAssign<LogicalPort> for LogicalPortMask {
+    fn bitor_assign(&mut self, rhs: LogicalPort) {
         *self = *self | rhs
     }
 }
@@ -171,8 +202,22 @@ impl core::ops::BitAnd for LogicalPortMask {
     }
 }
 
+impl core::ops::BitAnd<LogicalPort> for LogicalPortMask {
+    type Output = Self;
+
+    fn bitand(self, rhs: LogicalPort) -> Self {
+        LogicalPortMask(self.0 & rhs.as_mask().0)
+    }
+}
+
 impl core::ops::BitAndAssign for LogicalPortMask {
     fn bitand_assign(&mut self, rhs: Self) {
+        *self = *self & rhs
+    }
+}
+
+impl core::ops::BitAndAssign<LogicalPort> for LogicalPortMask {
+    fn bitand_assign(&mut self, rhs: LogicalPort) {
         *self = *self & rhs
     }
 }
@@ -188,22 +233,15 @@ impl core::ops::Not for LogicalPortMask {
 // Maps physical port `mask` to a logical port mask
 impl From<FpgaPortMasks> for LogicalPortMask {
     fn from(mask: FpgaPortMasks) -> LogicalPortMask {
-        let mut logical_mask: u32 = 0;
-        for port in 0..NUM_PORTS {
-            let logical_port = PORT_MAP[port as usize];
-            let bits = match logical_port.controller {
-                FpgaController::Left => mask.left,
-                FpgaController::Right => mask.right,
-            };
-            let port_mask = logical_port.port.as_mask();
-            if bits.is_set(logical_port.port)
-                && port_mask.is_set(logical_port.port)
-            {
-                logical_mask |= 1 << port;
+        let mut logical_mask = LogicalPortMask(0);
+        for logical_port in (0..NUM_PORTS).map(LogicalPort) {
+            let port_location = PortLocation::from(logical_port);
+            let bits = mask.get(port_location.controller);
+            if bits.is_set(port_location.port) {
+                logical_mask |= logical_port;
             }
         }
-
-        LogicalPortMask(logical_mask)
+        logical_mask
     }
 }
 
@@ -211,17 +249,11 @@ impl From<FpgaPortMasks> for LogicalPortMask {
 impl From<LogicalPortMask> for FpgaPortMasks {
     fn from(mask: LogicalPortMask) -> FpgaPortMasks {
         let mut fpga_port_masks = FpgaPortMasks::default();
-        for (i, port_loc) in PORT_MAP.iter().enumerate() {
-            let port_mask: u32 = 1 << i;
-            if (mask.0 & port_mask) != 0 {
-                match port_loc.controller {
-                    FpgaController::Left => {
-                        fpga_port_masks.left.set(port_loc.port);
-                    }
-                    FpgaController::Right => {
-                        fpga_port_masks.right.set(port_loc.port);
-                    }
-                }
+        for (i, port_loc) in PORT_MAP.enumerate() {
+            if mask.is_set(i) {
+                fpga_port_masks
+                    .get_mut(port_loc.controller)
+                    .set(port_loc.port);
             }
         }
         fpga_port_masks
@@ -238,7 +270,35 @@ impl From<LogicalPortMask> for FpgaPortMasks {
 /// 0-15.
 ///
 /// This is the logical -> physical mapping.
-const PORT_MAP: [PortLocation; NUM_PORTS as usize] = [
+struct PortMap([PortLocation; NUM_PORTS as usize]);
+
+impl core::ops::Index<LogicalPort> for PortMap {
+    type Output = PortLocation;
+
+    fn index(&self, i: LogicalPort) -> &Self::Output {
+        &self.0[i.0 as usize]
+    }
+}
+
+impl<'a> IntoIterator for &'a PortMap {
+    type Item = &'a PortLocation;
+    type IntoIter = core::slice::Iter<'a, PortLocation>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().iter()
+    }
+}
+
+impl PortMap {
+    fn enumerate(&self) -> impl Iterator<Item = (LogicalPort, &PortLocation)> {
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (LogicalPort(i as u8), v))
+    }
+}
+
+const PORT_MAP: PortMap = PortMap([
     // Port 0
     PortLocation {
         controller: FpgaController::Left,
@@ -399,7 +459,7 @@ const PORT_MAP: [PortLocation; NUM_PORTS as usize] = [
         controller: FpgaController::Right,
         port: PhysicalPort(15),
     },
-];
+]);
 
 // These constants represent which logical locations are covered by each FPGA.
 // This is convienient in the event that we cannot talk to one of the FPGAs as
@@ -429,9 +489,9 @@ impl ModuleResult {
         failure: LogicalPortMask,
         error: LogicalPortMask,
     ) -> Result<Self, TransceiversError> {
-        if (success.0 & failure.0 != 0)
-            || (success.0 & error.0 != 0)
-            || (failure.0 & error.0 != 0)
+        if !(success & failure).is_empty()
+            || !(success & error).is_empty()
+            || !(failure & error).is_empty()
         {
             return Err(TransceiversError::InvalidModuleResult);
         }
@@ -479,7 +539,7 @@ impl ModuleResult {
         assert!(next
             .success()
             .to_indices()
-            .all(|idx| self.success().is_set(LogicalPort(idx))));
+            .all(|idx| self.success().is_set(idx)));
         let success = next.success();
         // combine any new errors with the existing error mask
         let error = self.error() | next.error();
@@ -523,18 +583,15 @@ impl Transceivers {
         let fpga_masks: FpgaPortMasks = mask.into();
         // talk to both FPGAs
         for fpga_index in fpga_masks.iter_fpgas() {
-            let mask = match fpga_index {
-                FpgaController::Left => fpga_masks.left,
-                FpgaController::Right => fpga_masks.right,
-            };
+            let mask = fpga_masks.get(fpga_index);
             if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
                 let wdata: U16<byteorder::LittleEndian> = U16::new(mask.get());
                 // mark that an error occurred so we can modify the success mask
                 if fpga.write(op, addr, wdata).is_err() {
-                    match fpga_index {
-                        FpgaController::Left => error |= LEFT_LOGICAL_MASK,
-                        FpgaController::Right => error |= RIGHT_LOGICAL_MASK,
+                    error |= match fpga_index {
+                        FpgaController::Left => LEFT_LOGICAL_MASK,
+                        FpgaController::Right => RIGHT_LOGICAL_MASK,
                     }
                 }
             }
@@ -612,16 +669,14 @@ impl Transceivers {
     /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     pub fn get_module_status(&self) -> (ModuleStatus, ModuleResult) {
-        let ldata: Option<[U16<byteorder::LittleEndian>; 8]> =
-            match self.fpga(FpgaController::Left).read(Addr::QSFP_POWER_EN0) {
-                Ok(data) => Some(data),
-                Err(_) => None,
-            };
-        let rdata: Option<[U16<byteorder::LittleEndian>; 8]> =
-            match self.fpga(FpgaController::Right).read(Addr::QSFP_POWER_EN0) {
-                Ok(data) => Some(data),
-                Err(_) => None,
-            };
+        let ldata: Option<[U16<byteorder::LittleEndian>; 8]> = self
+            .fpga(FpgaController::Left)
+            .read(Addr::QSFP_POWER_EN0)
+            .ok();
+        let rdata: Option<[U16<byteorder::LittleEndian>; 8]> = self
+            .fpga(FpgaController::Right)
+            .read(Addr::QSFP_POWER_EN0)
+            .ok();
 
         let mut status_masks: [u32; 8] = [0; 8];
 
@@ -632,15 +687,10 @@ impl Transceivers {
 
             // get the relevant data from the correct FPGA
             let local_data = match port_loc.controller {
-                FpgaController::Left => match ldata {
-                    Some(data) => data,
-                    None => continue,
-                },
-                FpgaController::Right => match rdata {
-                    Some(data) => data,
-                    None => continue,
-                },
+                FpgaController::Left => ldata,
+                FpgaController::Right => rdata,
             };
+            let Some(local_data) = local_data else { continue };
 
             // loop through the 8 different fields we need to map
             for (word, out) in local_data.iter().zip(status_masks.iter_mut()) {
@@ -679,10 +729,7 @@ impl Transceivers {
         let fpga_masks: FpgaPortMasks = mask.into();
         // talk to both FPGAs
         for fpga_index in fpga_masks.iter_fpgas() {
-            let mask = match fpga_index {
-                FpgaController::Left => fpga_masks.left,
-                FpgaController::Right => fpga_masks.right,
-            };
+            let mask = fpga_masks.get(fpga_index);
             if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
                 for port in 0..16 {
@@ -696,13 +743,9 @@ impl Transceivers {
                             )
                             .is_err()
                     {
-                        match fpga_index {
-                            FpgaController::Left => {
-                                error |= LEFT_LOGICAL_MASK;
-                            }
-                            FpgaController::Right => {
-                                error |= RIGHT_LOGICAL_MASK;
-                            }
+                        error |= match fpga_index {
+                            FpgaController::Left => LEFT_LOGICAL_MASK,
+                            FpgaController::Right => RIGHT_LOGICAL_MASK,
                         }
                     }
                 }
@@ -986,8 +1029,8 @@ impl Transceivers {
         &mut self,
         mask: LogicalPortMask,
     ) -> ModuleResult {
-        let mut physical_failure: FpgaPortMasks = FpgaPortMasks::default();
-        let mut physical_error: FpgaPortMasks = FpgaPortMasks::default();
+        let mut physical_failure = FpgaPortMasks::default();
+        let mut physical_error = FpgaPortMasks::default();
         let phys_mask: FpgaPortMasks = mask.into();
 
         #[derive(AsBytes, Default, FromBytes)]
@@ -1006,14 +1049,8 @@ impl Transceivers {
                     // If there is an FPGA communication error, mark that as an
                     // error on all of that FPGA's ports
                     Err(_) => {
-                        match fpga_index {
-                            FpgaController::Left => {
-                                physical_error.left = PhysicalPortMask(0xffff)
-                            }
-                            FpgaController::Right => {
-                                physical_error.right = PhysicalPortMask(0xffff)
-                            }
-                        };
+                        *physical_error.get_mut(fpga_index) =
+                            PhysicalPortMask(0xffff);
                         StatusAndErr::default()
                     }
                 };
@@ -1040,12 +1077,7 @@ impl Transceivers {
                 // reporting the details.
                 let has_err = (err & 0b1000) != 0;
                 if has_err {
-                    match fpga_index {
-                        FpgaController::Left => physical_failure.left.set(port),
-                        FpgaController::Right => {
-                            physical_failure.right.set(port)
-                        }
-                    }
+                    physical_failure.get_mut(fpga_index).set(port);
                 }
             }
         }
