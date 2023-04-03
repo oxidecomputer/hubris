@@ -602,7 +602,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
                 }
                 Ok(Received {
                     length: u16::try_from(payload.len()).unwrap_lite(),
-                    msgtype: msgtype as u8,
+                    msgtype: verified_rxmsg.header().msgtype as u8,
                 })
             }
             Err(err) => Err(idol_runtime::RequestError::Runtime(err)),

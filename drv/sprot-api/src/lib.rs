@@ -480,6 +480,8 @@ impl From<u8> for MsgType {
             19 => MsgType::UpdFinishImageUpdateRsp,
             20 => MsgType::IoStatsReq,
             21 => MsgType::IoStatsRsp,
+            22 => MsgType::DumpReq,
+            23 => MsgType::DumpRsp,
             _ => MsgType::Unknown,
         }
     }
