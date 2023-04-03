@@ -179,14 +179,6 @@ impl Image {
             version: header.version,
         }
     }
-
-    #[cfg(feature = "tz_support")]
-    pub fn get_sau_entry<'a>(&self, i: usize) -> Option<&'a abi::SAUEntry> {
-        // SAFETY: We checked this previously
-        let header = unsafe { &*self.get_header() };
-
-        header.sau_entries.get(i)
-    }
 }
 
 pub fn select_image_to_boot() -> (Image, RotSlot) {

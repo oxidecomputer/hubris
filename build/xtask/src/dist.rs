@@ -1080,49 +1080,13 @@ fn update_image_header(
 
                 let len = end - flash.start;
 
-                let mut header = abi::ImageHeader {
+                let header = abi::ImageHeader {
                     version: cfg.toml.version,
                     epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
                     total_image_len: len as u32,
                     ..Default::default()
                 };
-
-                let mut sau_ranges = rangemap::RangeInclusiveMap::new();
-
-                // Alias for the NS peripherals
-                sau_ranges.insert(0x4000_0000..=0x4fff_ffff, false);
-
-                // Alias for NS SRAMs
-                sau_ranges.insert(0x2002_0000..=0x2004_ffff, false);
-
-                // Alias for the BootRom
-                sau_ranges.insert(0x0300_0000..=0x03ff_ffff, false);
-
-                for (_, range) in map.iter() {
-                    sau_ranges.insert(range.start..=range.end - 1, false);
-                }
-
-                // These values correspond to SAU_RBAR and
-                // SAU_RLAR which are defined in D1.2.221 and
-                // D1.2.222 of the ARMv8m manual
-                //
-                // Bit0 of RLAR indicates a region is valid,
-                // Bit1 indicates that the region is NSC
-                // All entries much be 32-byte aligned
-                println!("SAU:");
-                for (i, (range, &nsc)) in sau_ranges.iter().enumerate() {
-                    println!(
-                        "  0x{:x}..=0x{:x} {}",
-                        range.start(),
-                        range.end(),
-                        if nsc { "(NSC)" } else { "" }
-                    );
-
-                    let nsc = if nsc { 1 << 1 } else { 0 };
-                    header.sau_entries[i].rbar = *range.start();
-                    header.sau_entries[i].rlar = *range.end() & !0x1f | nsc | 1;
-                }
 
                 header
                     .write_to_prefix(
