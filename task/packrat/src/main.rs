@@ -185,7 +185,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.gimlet_data.host_startup_options)
+        Ok(self.gimlet_data.host_startup_options())
     }
 
     #[cfg(not(feature = "gimlet"))]
@@ -207,7 +207,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
         ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
             host_startup_options
         ));
-        self.gimlet_data.host_startup_options = host_startup_options;
+        self.gimlet_data
+            .set_host_startup_options(host_startup_options);
         Ok(())
     }
 

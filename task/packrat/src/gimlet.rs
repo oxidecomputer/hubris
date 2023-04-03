@@ -17,32 +17,48 @@ const SPD_DATA_LEN: usize =
 static_assertions::const_assert_eq!(SPD_DATA_LEN, 8192);
 
 pub(crate) struct GimletData {
-    pub(crate) host_startup_options: HostStartupOptions,
+    host_startup_options: &'static mut HostStartupOptions,
     spd_present: &'static mut [bool; NUM_SPD_BANKS * spd::MAX_DEVICES as usize],
     spd_data: &'static mut [u8; SPD_DATA_LEN],
+}
+
+fn default_host_startup_options() -> HostStartupOptions {
+    // XXX For now, we want to default to these options.
+    HostStartupOptions::STARTUP_KMDB
+        | HostStartupOptions::STARTUP_PROM
+        | HostStartupOptions::STARTUP_VERBOSE
 }
 
 impl GimletData {
     // Panics if called more than once.
     pub(crate) fn claim_static_resources() -> Self {
-        // XXX For now, we want to default to these options.
-        let host_startup_options = HostStartupOptions::STARTUP_KMDB
-            | HostStartupOptions::STARTUP_PROM
-            | HostStartupOptions::STARTUP_VERBOSE;
-
-        let (spd_present, spd_data) = mutable_statics! {
+        let (spd_present, spd_data, host_startup_options) = mutable_statics! {
             static mut SPD_PRESENT:
                 [bool; NUM_SPD_BANKS * spd::MAX_DEVICES as usize]
                     = [|| false; _];
 
             static mut SPD_DATA: [u8; SPD_DATA_LEN] = [|| 0; _];
+
+            static mut HOST_STARTUP_OPTIONS: [HostStartupOptions; 1] =
+                [default_host_startup_options; _];
         };
 
         Self {
-            host_startup_options,
+            host_startup_options: &mut host_startup_options[0],
             spd_present,
             spd_data,
         }
+    }
+
+    pub(crate) fn host_startup_options(&self) -> HostStartupOptions {
+        *self.host_startup_options
+    }
+
+    pub(crate) fn set_host_startup_options(
+        &mut self,
+        options: HostStartupOptions,
+    ) {
+        *self.host_startup_options = options;
     }
 
     pub(crate) fn set_spd_eeprom(
