@@ -224,8 +224,9 @@ impl ServerImpl {
 
     /// Converts from a `ManagementInterface` to a `ThermalModel`
     ///
-    /// The port is also passed into this function so that it can log debug
-    /// information to our local ringbuf.
+    /// If the management interface is unknown, returns `None` instead
+    ///
+    /// Logs debug information to our ringbuf, tagged with the logical port.
     fn decode_interface(
         &mut self,
         p: LogicalPort,
@@ -246,9 +247,8 @@ impl ServerImpl {
                 })
             }
             ManagementInterface::Unknown(..) => {
-                // We won't load Unknown transceivers into the
-                // thermal loop; otherwise, the fans would spin
-                // up.
+                // We won't load Unknown transceivers into the thermal loop;
+                // otherwise, the fans would spin up.
                 ringbuf_entry!(Trace::UnknownInterface(p.0, interface));
                 None
             }
