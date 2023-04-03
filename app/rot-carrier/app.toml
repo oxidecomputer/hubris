@@ -10,7 +10,7 @@ version = 0
 
 [kernel]
 name = "rot-carrier"
-requires = {flash = 21504, ram = 4096}
+requires = {flash = 22504, ram = 4096}
 
 [tasks.jefe]
 name = "task-jefe"

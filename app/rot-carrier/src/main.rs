@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+mod tracing;
+
 use cortex_m_rt::entry;
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
@@ -42,6 +44,8 @@ fn get_clock_speed() -> (u32, u8) {
 #[entry]
 fn main() -> ! {
     let (cycles_per_ms, _div) = get_clock_speed();
+
+    kern::profiling::configure_events_table(tracing::setup());
 
     unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }
