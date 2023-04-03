@@ -318,7 +318,9 @@ impl ServerImpl {
                     self.read_sff8636_temperature(port)
                 }
                 ManagementInterface::Unknown(..) => {
-                    // TODO: what should we do here?
+                    // We should never get here, because we only assign
+                    // `self.thermal_models[i]` if the management interface is
+                    // known.
                     continue;
                 }
             };
