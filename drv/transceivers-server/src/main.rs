@@ -62,7 +62,8 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
-    GotInterface(usize, ManagementInterface),
+    GotInterface(u8, ManagementInterface),
+    UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     TemperatureReadError(usize, FpgaError),
     SensorError(usize, SensorError),
@@ -221,6 +222,39 @@ impl ServerImpl {
         }
     }
 
+    /// Converts from a `ManagementInterface` to a `ThermalModel`
+    ///
+    /// The port is also passed into this function so that it can log debug
+    /// information to our local ringbuf.
+    fn decode_interface(
+        &mut self,
+        p: LogicalPort,
+        interface: ManagementInterface,
+    ) -> Option<ThermalModel> {
+        match interface {
+            ManagementInterface::Sff8636 | ManagementInterface::Cmis => {
+                ringbuf_entry!(Trace::GotInterface(p.0, interface));
+                // TODO: this is made up
+                Some(ThermalModel {
+                    interface,
+                    model: ThermalProperties {
+                        target_temperature: Celsius(65.0),
+                        critical_temperature: Celsius(70.0),
+                        power_down_temperature: Celsius(80.0),
+                        temperature_slew_deg_per_sec: 0.5,
+                    },
+                })
+            }
+            ManagementInterface::Unknown(..) => {
+                // We won't load Unknown transceivers into the
+                // thermal loop; otherwise, the fans would spin
+                // up.
+                ringbuf_entry!(Trace::UnknownInterface(p.0, interface));
+                None
+            }
+        }
+    }
+
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
@@ -230,28 +264,12 @@ impl ServerImpl {
                 && (status.resetl & mask) != 0;
 
             // A wild transceiver just appeared!  Read it to decide whether it's
-            // using SFF-8636 or CMIS.  We'll *also* try to read it here if
-            // we've currently got it recorded as ManagementInterface::Unknown,
-            // in the hopes of converting it into a known transceiver type.
-            let wants_scan = self.thermal_models[i]
-                .map(|m| {
-                    matches!(m.interface, ManagementInterface::Unknown(..))
-                })
-                .unwrap_or(true);
-            if operational && wants_scan {
+            // using SFF-8636 or CMIS.
+            if operational && self.thermal_models[i].is_none() {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
-                        ringbuf_entry!(Trace::GotInterface(i, interface));
-                        // TODO: this is made up
-                        self.thermal_models[i] = Some(ThermalModel {
-                            interface,
-                            model: ThermalProperties {
-                                target_temperature: Celsius(65.0),
-                                critical_temperature: Celsius(70.0),
-                                power_down_temperature: Celsius(80.0),
-                                temperature_slew_deg_per_sec: 0.5,
-                            },
-                        });
+                        self.thermal_models[i] =
+                            self.decode_interface(port, interface)
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
