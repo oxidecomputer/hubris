@@ -62,7 +62,8 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
-    GotInterface(usize, ManagementInterface),
+    GotInterface(u8, ManagementInterface),
+    UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     TemperatureReadError(usize, FpgaError),
     SensorError(usize, SensorError),
@@ -221,6 +222,39 @@ impl ServerImpl {
         }
     }
 
+    /// Converts from a `ManagementInterface` to a `ThermalModel`
+    ///
+    /// If the management interface is unknown, returns `None` instead
+    ///
+    /// Logs debug information to our ringbuf, tagged with the logical port.
+    fn decode_interface(
+        &mut self,
+        p: LogicalPort,
+        interface: ManagementInterface,
+    ) -> Option<ThermalModel> {
+        match interface {
+            ManagementInterface::Sff8636 | ManagementInterface::Cmis => {
+                ringbuf_entry!(Trace::GotInterface(p.0, interface));
+                // TODO: this is made up
+                Some(ThermalModel {
+                    interface,
+                    model: ThermalProperties {
+                        target_temperature: Celsius(65.0),
+                        critical_temperature: Celsius(70.0),
+                        power_down_temperature: Celsius(80.0),
+                        temperature_slew_deg_per_sec: 0.5,
+                    },
+                })
+            }
+            ManagementInterface::Unknown(..) => {
+                // We won't load Unknown transceivers into the thermal loop;
+                // otherwise, the fans would spin up.
+                ringbuf_entry!(Trace::UnknownInterface(p.0, interface));
+                None
+            }
+        }
+    }
+
     fn update_thermal_loop(&mut self, status: ModulesStatus) {
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
@@ -234,17 +268,8 @@ impl ServerImpl {
             if operational && self.thermal_models[i].is_none() {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
-                        ringbuf_entry!(Trace::GotInterface(i, interface));
-                        // TODO: this is made up
-                        self.thermal_models[i] = Some(ThermalModel {
-                            interface,
-                            model: ThermalProperties {
-                                target_temperature: Celsius(65.0),
-                                critical_temperature: Celsius(70.0),
-                                power_down_temperature: Celsius(80.0),
-                                temperature_slew_deg_per_sec: 0.5,
-                            },
-                        });
+                        self.thermal_models[i] =
+                            self.decode_interface(port, interface)
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
@@ -278,9 +303,13 @@ impl ServerImpl {
             };
 
             // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.
-            if let Err(e) = self.thermal_api.update_dynamic_input(i, m.model) {
-                ringbuf_entry!(Trace::ThermalError(i, e));
+            // the thermal task still has it in case of restart.  This will
+            // return a `NotInAutoMode` error if the thermal loop is in manual
+            // mode; this is harmless and will be ignored (instead of cluttering
+            // up the logs).
+            match self.thermal_api.update_dynamic_input(i, m.model) {
+                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
             }
 
             let temperature = match m.interface {
@@ -289,7 +318,9 @@ impl ServerImpl {
                     self.read_sff8636_temperature(port)
                 }
                 ManagementInterface::Unknown(..) => {
-                    // TODO: what should we do here?
+                    // We should never get here, because we only assign
+                    // `self.thermal_models[i]` if the management interface is
+                    // known.
                     continue;
                 }
             };
