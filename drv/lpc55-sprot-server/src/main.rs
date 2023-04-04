@@ -77,8 +77,6 @@ fn configure_spi() -> Io {
     let gpio_driver = GPIO.get_task_id();
     setup_pins(gpio_driver).unwrap_lite();
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
-    // It should never happen but, initialization should be able to deal
-    // with CSn being asserted at init time.
 
     // Configure ROT_IRQ
     // Ensure that ROT_IRQ is not asserted
@@ -292,11 +290,11 @@ impl Io {
                 // potentially throttle sends in the future.
                 self.spi.rxerr_clear();
                 self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                // If we were just sending our response, and SP was
-                // just sending zeros and we received the first byte
-                // correctly and that first byte was zero, then
-                // our Rx overrun is inconsequential and does not
-                // need to be reported as a message.
+                // If we were just sending our response, and SP was just
+                // sending zeros and we received the first byte correctly and
+                // that first byte was `Protocol::Ignore`, then our Rx overrun
+                // is inconsequential and does not need to be reported as
+                // a message.
                 if err.is_none()
                     && rx_msg.len() > 0
                     && rx_msg.protocol() != Some(Protocol::Ignore)
