@@ -2076,7 +2076,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=plumb-switch-default-image#d5aacdbaa6d6fed3425b925e87e49ff7aa305eea"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#cf6bf75986289892eccd562231afea197539a30b"
 dependencies = [
  "bitflags",
  "hubpack",
