@@ -38,6 +38,7 @@ extern "C" {
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
+#[derive(PartialEq)]
 enum UpdateState {
     NoUpdate,
     InProgress,
@@ -375,12 +376,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     }
 
     /// Reset.
-    /// Should we protect against reset during update?
     fn reset(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<UpdateError>> {
-        do_reset();
+        if self.state == UpdateState::InProgress {
+            return Err(UpdateError::UpdateInProgress.into());
+        }
+        task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
+        panic!()
     }
 }
 
@@ -646,11 +650,6 @@ fn target_addr(image_target: UpdateTarget, page_num: u32) -> Option<u32> {
     }
 
     Some(addr)
-}
-
-fn do_reset() -> ! {
-    task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
-    panic!()
 }
 
 task_slot!(SYSCON, syscon);
