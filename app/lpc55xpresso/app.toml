@@ -21,7 +21,7 @@ notifications = ["fault", "timer"]
 extern-regions = ["sram2"]
 
 [tasks.jefe.config.allowed-callers]
-request_reset = ["hiffy", "update_server"]
+request_reset = ["update_server"]
 
 [tasks.hiffy]
 name = "task-hiffy"
