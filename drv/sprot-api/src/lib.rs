@@ -33,7 +33,7 @@ use zerocopy::{ByteOrder, LittleEndian};
 
 /// The canonical SpRot protocol error returned by this API
 //
-// Audit that each MsgError is used and has some reasonable action.
+// TODO: Audit that each MsgError is used and has some reasonable action.
 // While a diverse set of error codes may be useful for debugging it
 // clutters code that just has to deal with the error.
 // then consider adding a function that translates an error code
@@ -254,7 +254,7 @@ pub struct SprotStatus {
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
-    /// This should live in the stage0 handoff info.
+    /// TODO: This should live in the stage0 handoff info.
     pub bootrom_crc32: u32,
 
     /// Maxiumum message size that the RoT can handle.

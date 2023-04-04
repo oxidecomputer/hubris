@@ -450,7 +450,7 @@ impl<S: SpiServer> Io<S> {
         Err(errcode.unwrap_lite())
     }
 
-    // Move README.md to RFD 317 and discuss:
+    // TODO: Move README.md to RFD 317 and discuss:
     //   - Unsolicited messages from RoT to SP.
     //   - Ignoring message from RoT to SP.
     //   - Should we send a message telling RoT that SP has booted?
@@ -459,7 +459,7 @@ impl<S: SpiServer> Io<S> {
     // But it would be ok to overlap our new request with receiving
     // of a previous response.
     //
-    // The RoT must be able to observe SP resets. During the
+    // TODO: The RoT must be able to observe SP resets. During the
     // normal start-up seqeunce, the RoT is controlling the SP's boot
     // up sequence. However, the SP can reset itself and individual
     // Hubris tasks may fail and be restarted.
