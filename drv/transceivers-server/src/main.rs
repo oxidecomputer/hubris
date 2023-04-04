@@ -157,7 +157,10 @@ impl ServerImpl {
         port: LogicalPort,
         reg: u8,
     ) -> Result<Celsius, FpgaError> {
-        self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
+        let result = self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
+        if !result.error().is_empty() {
+            return Err(FpgaError::ImplError(port.0));
+        }
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
@@ -190,7 +193,11 @@ impl ServerImpl {
         &mut self,
         port: LogicalPort,
     ) -> Result<ManagementInterface, FpgaError> {
-        self.transceivers.setup_i2c_read(0, 1, port.as_mask());
+        let result = self.transceivers.setup_i2c_read(0, 1, port.as_mask());
+        if !result.error().is_empty() {
+            return Err(FpgaError::ImplError(port.0));
+        }
+
         let mut out = [0u8; 2]; // [status, SFF8024Identifier]
 
         // Wait for the I2C transaction to complete

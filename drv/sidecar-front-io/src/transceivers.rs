@@ -467,12 +467,14 @@ const PORT_MAP: PortMap = PortMap([
 const LEFT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0x00ff00ff);
 const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 
-/// A type to consolidate per-module success/failure information
+/// A type to consolidate per-module success/failure/error information. For
+/// operations which have no failure path, just success or error, make use of
+/// the `ModuleResultNoFailure` type.
 ///
 /// Since multiple modules can be accessed in parallel, we need to be able to
 /// handle a mix of the following cases on a per-module basis:
-/// - The module interaction succeeded
-/// - The module interaction failed
+/// - The module operation succeeded
+/// - The module operation failed
 /// - The module could not be interacted with due to an FPGA communication error
 #[derive(Copy, Clone, Default, PartialEq)]
 pub struct ModuleResult {
@@ -550,6 +552,78 @@ impl ModuleResult {
 
         Self::new(success, failure, error).unwrap()
     }
+
+    /// This is a helper function to combine a `ModuleResult` with a
+    /// `ModuleResultNoFailure` yielding function call. Building such a
+    /// sequence is generally done with the following form (where `modules` is
+    /// a `LogicalPortMask` of requested modules):
+    ///
+    /// let result = some_result_fn(modules);
+    /// let next_result =
+    ///     result.chain_with_nofail(a_nofail_result_fn(result.success()))
+    ///
+    /// So the initial result includes some set of success, failure, and error
+    /// masks which then need to be reconciled with a new set of masks, generally
+    /// a subset of the success mask of the initial result. Notably, there
+    /// cannot be overlap between these masks, which this function enforces.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the `next.success` mask is not a subset of
+    /// self.success. Additionally, it will panic if any of the success,
+    /// failure, or error masks overlap with one another.
+    pub fn chain_with_nofail(&self, next: ModuleResultNoFailure) -> Self {
+        // success mask is just what the success of the next step is as long
+        // as next.success is a subset of self.success, ensuring the semantics
+        // of "chaining"
+        assert!(next
+            .success()
+            .to_indices()
+            .all(|idx| self.success().is_set(idx)));
+        let success = next.success();
+        // combine any new errors with the existing error mask
+        let error = self.error() | next.error();
+        // there are no new failures, so we keep the existing failure mask.
+        // Errors supercede failures, so make sure to clear any failures where
+        // an error has subsequently occurred.
+        let failure = self.failure() & !self.error();
+
+        Self::new(success, failure, error).unwrap()
+    }
+}
+
+/// A type to consolidate per-module success/error information.
+///
+/// Since multiple modules can be accessed in parallel, we need to be able to
+/// handle a mix of the following cases on a per-module basis:
+/// - The module operation succeeded
+/// - The module could not be interacted with due to an FPGA communication error
+#[derive(Copy, Clone, Default, PartialEq)]
+pub struct ModuleResultNoFailure {
+    success: LogicalPortMask,
+    error: LogicalPortMask,
+}
+
+impl ModuleResultNoFailure {
+    /// Create a new ModuleResultNoFailure which enforces no overlap in the
+    /// success and error masks.
+    pub fn new(
+        success: LogicalPortMask,
+        error: LogicalPortMask,
+    ) -> Result<Self, TransceiversError> {
+        if !(success & error).is_empty() {
+            return Err(TransceiversError::InvalidModuleResult);
+        }
+        Ok(Self { success, error })
+    }
+
+    pub fn success(&self) -> LogicalPortMask {
+        self.success
+    }
+
+    pub fn error(&self) -> LogicalPortMask {
+        self.error
+    }
 }
 
 impl Transceivers {
@@ -568,16 +642,15 @@ impl Transceivers {
     }
 
     /// Executes a specified WriteOp (`op`) at `addr` for all ports specified by
-    /// the `mask`. The meaning of the returned `ModuleResult`:
+    /// the `mask`. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     fn masked_port_op(
         &self,
         op: WriteOp,
         mask: LogicalPortMask,
         addr: Addr,
-    ) -> ModuleResult {
+    ) -> ModuleResultNoFailure {
         let mut error = LogicalPortMask(0);
         // map the logical mask into a physical one
         let fpga_masks: FpgaPortMasks = mask.into();
@@ -598,67 +671,71 @@ impl Transceivers {
         }
         // success is wherever we did not encounter an `FpgaError`
         let success = mask & !error;
-        // this function does not have a "failure" during operation
-        let failure = LogicalPortMask(0);
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResult::new(success, failure, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap()
     }
 
     /// Set power enable bits per the specified `mask`. Controls whether or not
     /// a module's hot swap control will be turned on by the FPGA upon module
-    /// insertion. The meaning of the returned `ModuleResult`:
+    /// insertion. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn enable_power(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn enable_power(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN0)
     }
 
     /// Clear power enable bits per the specified `mask`. Controls whether or
     /// not a module's hot swap control will be turned on by the FPGA upon
-    /// module insertion. The meaning of the returned `ModuleResult`:
+    /// module insertion. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn disable_power(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn disable_power(
+        &self,
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN0)
     }
 
     /// Set ResetL bits per the specified `mask`. This directly controls the
-    /// ResetL signal to the module.The meaning of the returned `ModuleResult`:
+    /// ResetL signal to the module.The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn deassert_reset(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn deassert_reset(
+        &self,
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_RESETL0)
     }
 
     /// Clear ResetL bits per the specified `mask`. This directly controls the
-    /// ResetL signal to the module. The meaning of the returned `ModuleResult`:
+    /// ResetL signal to the module. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn assert_reset(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn assert_reset(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL0)
     }
 
     /// Set LpMode bits per the specified `mask`. This directly controls the
-    /// LpMode signal to the module. The meaning of the returned `ModuleResult`:
+    /// LpMode signal to the module. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn assert_lpmode(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn assert_lpmode(
+        &self,
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_LPMODE0)
     }
 
     /// Clear LpMode bits per the specified `mask`. This directly controls the
-    /// LpMode signal to the module. The meaning of the returned `ModuleResult`:
+    /// LpMode signal to the module. The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn deassert_lpmode(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn deassert_lpmode(
+        &self,
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
         self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE0)
     }
 
@@ -666,9 +743,8 @@ impl Transceivers {
     /// Enable, Reset, LpMode/TxDis, Power Good, Power Good Timeout, Present,
     /// and IRQ/RxLos. The meaning of the returned `ModuleResult`:
     /// success: we were able to read from the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn get_module_status(&self) -> (ModuleStatus, ModuleResult) {
+    pub fn get_module_status(&self) -> (ModuleStatus, ModuleResultNoFailure) {
         let ldata: Option<[U16<byteorder::LittleEndian>; 8]> = self
             .fpga(FpgaController::Left)
             .read(Addr::QSFP_POWER_EN0)
@@ -709,21 +785,22 @@ impl Transceivers {
             (None, Some(_)) => RIGHT_LOGICAL_MASK,
             (Some(_), Some(_)) => LEFT_LOGICAL_MASK | RIGHT_LOGICAL_MASK,
         };
-        let failure = LogicalPortMask(0);
         let error = !success;
 
         (
             ModuleStatus::read_from(status_masks.as_bytes()).unwrap(),
-            ModuleResult::new(success, failure, error).unwrap(),
+            ModuleResultNoFailure::new(success, error).unwrap(),
         )
     }
 
     /// Clear a fault for each port per the specified `mask`. The meaning of the
-    /// returned `ModuleResult`:
+    /// returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn clear_power_fault(&self, mask: LogicalPortMask) -> ModuleResult {
+    pub fn clear_power_fault(
+        &self,
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
         let mut error = LogicalPortMask(0);
         // map the logical mask into the physical one
         let fpga_masks: FpgaPortMasks = mask.into();
@@ -753,52 +830,47 @@ impl Transceivers {
         }
         // success is wherever we did not encounter an `FpgaError`
         let success = mask & !error;
-        // this function does not have a "failure" during operation
-        let failure = LogicalPortMask(0);
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResult::new(success, failure, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap()
     }
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
     ///
     /// The maximum value of `num_bytes` is 128.The meaning of the returned
-    /// `ModuleResult`:
+    /// `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     pub fn setup_i2c_read(
         &self,
         reg: u8,
         num_bytes: u8,
         mask: LogicalPortMask,
-    ) -> ModuleResult {
+    ) -> ModuleResultNoFailure {
         self.setup_i2c_op(true, reg, num_bytes, mask)
     }
 
     /// Initiate an I2C write on all ports per the specified `mask`.
     ///
     /// The maximum value of `num_bytes` is 128. The meaning of the
-    /// returned `ModuleResult`:
+    /// returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     pub fn setup_i2c_write(
         &self,
         reg: u8,
         num_bytes: u8,
         mask: LogicalPortMask,
-    ) -> ModuleResult {
+    ) -> ModuleResultNoFailure {
         self.setup_i2c_op(false, reg, num_bytes, mask)
     }
 
     /// Initiate an I2C operation on all ports per the specified `mask`. When
     /// `is_read` is true, the operation will be a random-read, not a pure I2C
     /// read. The maximum value of `num_bytes` is 128. The meaning of the
-    /// returned `ModuleResult`:
+    /// returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
     fn setup_i2c_op(
         &self,
@@ -806,7 +878,7 @@ impl Transceivers {
         reg: u8,
         num_bytes: u8,
         mask: LogicalPortMask,
-    ) -> ModuleResult {
+    ) -> ModuleResultNoFailure {
         let fpga_masks: FpgaPortMasks = mask.into();
         let mut success = LogicalPortMask(0);
 
@@ -854,10 +926,9 @@ impl Transceivers {
         }
 
         success &= mask;
-        let failure = LogicalPortMask(0);
         let error = mask & !success;
 
-        ModuleResult::new(success, failure, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap()
     }
 
     /// Read the value of the QSFP_PORTx_STATUS. This contains information on if
@@ -907,11 +978,10 @@ impl Transceivers {
     /// them all individually. In the event of an error during FPGA
     /// communication, a `LogicalPortMask` representing the affected ports is
     /// included.
-    /// The meaning of the returned `ModuleResult`:
+    /// The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
-    /// failure: none for this operation as there is no polling/verification
     /// error: an `FpgaError` occurred
-    pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> ModuleResult {
+    pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> ModuleResultNoFailure {
         let mut success = LogicalPortMask(0);
         if self
             .fpga(FpgaController::Left)
@@ -927,10 +997,9 @@ impl Transceivers {
         {
             success |= RIGHT_LOGICAL_MASK;
         }
-        let failure = LogicalPortMask(0);
         let error = !success;
 
-        ModuleResult::new(success, failure, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap()
     }
 
     /// For a given `local_port`, return the Addr where its read buffer begins

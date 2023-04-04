@@ -12,7 +12,9 @@
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
 use crate::ServerImpl;
 use drv_sidecar_front_io::{
-    transceivers::{LogicalPort, LogicalPortMask, ModuleResult},
+    transceivers::{
+        LogicalPort, LogicalPortMask, ModuleResult, ModuleResultNoFailure,
+    },
     Reg,
 };
 use hubpack::SerializedSize;
@@ -49,10 +51,9 @@ enum Trace {
     WrongVersion(u8),
     MacAddrs,
     GotError(ProtocolError),
-    TruncatedPacketError,
     ResponseSize(ResponseSize),
-    UnexpectedFailure(ModuleId),
     OperationResult(ModuleResult),
+    OperationNoFailResult(ModuleResultNoFailure),
     ClearPowerFault(ModuleId),
 }
 
@@ -95,26 +96,20 @@ impl ServerImpl {
     ) {
         let out_len =
             // attempt to deserialize the header
-            match hubpack::deserialize::<Header>(rx_data_buf) {
-                Ok((header, data)) => {
+            match hubpack::deserialize::<Header>(&rx_data_buf[..meta.size as usize]) {
+                Ok((header, request)) => {
                     // header deserialized successfully, so now attempt to
                     // deserialize the remaining message
-                    match (meta.size as usize).checked_sub(Header::MAX_SIZE) {
-                        Some(msg_size) => match hubpack::deserialize::<Message>(&data[0..msg_size]) {
-                            // handle the message
-                            Ok((msg, data)) => {
-                                self.handle_message(msg, header.message_id, data, tx_data_buf)
-                            },
-                            // try to tell the host something useful about what happened
-                            Err(e) => {
-                                ringbuf_entry!(Trace::DeserializeError(e));
-                                self.handle_deserialization_error(header, tx_data_buf)
-                            },
+                    match hubpack::deserialize::<Message>(request) {
+                        // handle the message
+                        Ok((msg, data)) => {
+                            self.handle_message(msg, header.message_id, data, tx_data_buf)
                         },
-                        None => {
-                            ringbuf_entry!(Trace::TruncatedPacketError);
-                            None
-                        }
+                        // try to tell the host something useful about what happened
+                        Err(e) => {
+                            ringbuf_entry!(Trace::DeserializeError(e));
+                            self.handle_deserialization_error(header, tx_data_buf, request)
+                        },
                     }
                 }
 
@@ -155,14 +150,15 @@ impl ServerImpl {
     }
 
     /// At this point, Message deserialization has failed, so we can't handle
-    /// the packet.  We'll look at *just the header* (which should
-    /// never change), in the hopes of logging a more detailed error message
-    /// about a version mismatch.  We'll also return a `ProtocolError` message
-    /// to the host (since we've got a packet number).
+    /// the packet. We'll look at *just the header* (which should never change),
+    /// in the hopes of logging a more detailed error message about a version
+    /// mismatch. We'll also return a `ProtocolError` message to the host
+    /// (since we've got a packet number).
     fn handle_deserialization_error(
         &mut self,
         header: Header,
         tx_data_buf: &mut [u8],
+        request: &[u8]
     ) -> Option<u32> {
         // This message comes from a host implementation older than the
         // minimum committed version of the protocol. We really can't do
@@ -178,15 +174,16 @@ impl ServerImpl {
         // implementation of the protocol.
         //
         // Check that implication by ensuring that the host version is
-        // after our own CURRENT.
-        } else if header.version() > version::outer::CURRENT {
+        // after our own CURRENT. To do this, we use our knowledge that version
+        // field is the next byte in the request.
+        } else if request[0] > version::inner::CURRENT {
             let header_size = hubpack::serialize(
                 tx_data_buf,
                 &Header::new(header.message_id, header.message_kind),
             )
             .unwrap();
             let message_size = hubpack::serialize(
-                tx_data_buf,
+                &mut tx_data_buf[header_size..],
                 &Message::new(MessageBody::Error(
                     ProtocolError::VersionMismatch {
                         expected: version::outer::CURRENT,
@@ -276,9 +273,10 @@ impl ServerImpl {
         }));
 
         // At this point, any supplementary data was written to
-        // `tx_data_buf[Message::MAX_SIZE..]`, so it's not necessarily tightly
-        // packed against the end of the `Message`.  Let's shift it backwards
-        // based on the size of the leading `Message`:
+        // `tx_data_buf[Header::MAX_SIZE + Message::MAX_SIZE..]`, so it's not
+        // necessarily tightly packed against the end of the `Header` and
+        // `Message`. Let's shift it backwards based on the size of that leading
+        // data.
         tx_data_buf.copy_within(
             reserved_framing..(reserved_framing + data_len),
             hdr_len + msg_len,
@@ -297,29 +295,30 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::Status(modules));
                 let mask = LogicalPortMask::from(modules);
                 let (num_status_bytes, result) = self.get_status(mask, out);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (final_payload_len, failed_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    None,
-                    num_status_bytes,
-                    out,
-                );
+                let (final_payload_len, errored_modules) =
+                    self.handle_errors(modules, result, num_status_bytes, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Status {
                         modules: success,
-                        failed_modules,
+                        failed_modules: errored_modules,
                     }),
                     final_payload_len,
                 )
             }
             HostRequest::Read { modules, read } => {
                 ringbuf_entry!(Trace::Read(modules, read));
+                // The host is not setting the the upper 32 bits at this time,
+                // but should that happen we need to know how many HwErrors we
+                // will serialize due to invalid modules being specified.
+                let num_invalid = ModuleId(modules.0 & 0xffffffff00000000)
+                    .selected_transceiver_count();
                 let mask = LogicalPortMask::from(modules);
-                let request_size = read.len() as u32 * mask.0.count_ones();
-                if request_size as usize
+                let read_data = read.len() as usize * mask.count();
+                let invalid_module_err = HwError::MAX_SIZE * num_invalid;
+                if read_data + invalid_module_err
                     > transceiver_messages::MAX_PAYLOAD_SIZE
                 {
                     return (
@@ -332,13 +331,14 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let read_bytes = result.success().count() * read.len() as usize;
-                let (final_payload_len, failed_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    Some(HwError::I2cError),
-                    read_bytes,
-                    out,
-                );
+                let (final_payload_len, failed_modules) = self
+                    .handle_errors_and_failures(
+                        modules,
+                        result,
+                        HwError::I2cError,
+                        read_bytes,
+                        out,
+                    );
 
                 (
                     MessageBody::SpResponse(SpResponse::Read {
@@ -364,13 +364,14 @@ impl ServerImpl {
                 let result = self.write(write, mask, data);
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
-                let (num_err_bytes, failed_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    Some(HwError::I2cError),
-                    0,
-                    out,
-                );
+                let (num_err_bytes, failed_modules) = self
+                    .handle_errors_and_failures(
+                        modules,
+                        result,
+                        HwError::I2cError,
+                        0,
+                        out,
+                    );
 
                 (
                     MessageBody::SpResponse(SpResponse::Write {
@@ -385,10 +386,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertReset(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.assert_reset(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -402,10 +403,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertReset(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.deassert_reset(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -419,10 +420,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertLpMode(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.assert_lpmode(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -436,10 +437,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertLpMode(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.deassert_lpmode(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -453,10 +454,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::EnablePower(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.enable_power(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -470,10 +471,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DisablePower(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.disable_power(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -513,10 +514,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::ClearPowerFault(modules));
                 let mask = LogicalPortMask::from(modules);
                 let result = self.transceivers.clear_power_fault(mask);
-                ringbuf_entry!(Trace::OperationResult(result));
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, None, 0, out);
+                    self.handle_errors(modules, result, 0, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -529,20 +530,15 @@ impl ServerImpl {
         }
     }
 
-    /// This should be called as the last operation before sending the response
-    /// since error details is the last of the trailing data. This function
-    ///
-    /// Panics
-    ///
-    /// This function panics if `None` is the supplied `failure_type` and the
-    /// `result` contains any  bits set in the failure mask as the programmer
-    /// must supply a `HwError` when calling this function on a `result` which
-    /// may have a non-zero failure mask.
-    fn handle_errors(
+    /// This function reads a `ModuleResult` and populates and failure or error
+    /// information at the end of the trailing data buffer. This means it should
+    /// be called as the last operation before sending the response. For results
+    /// where a `ModuleResultNoFailure` is returned, use handle_errors instead.
+    fn handle_errors_and_failures(
         &mut self,
         modules: ModuleId,
         result: ModuleResult,
-        failure_type: Option<HwError>,
+        failure_type: HwError,
         data_idx: usize,
         out: &mut [u8],
     ) -> (usize, ModuleId) {
@@ -550,27 +546,18 @@ impl ServerImpl {
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
         let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
-        // iterate through the results and populate errors in the response buffer
-        // failure: whatever `HwError` specified by `failure_type`
-        // error: fpga communication issue
         for module in modules.to_indices().map(LogicalPort) {
             if module <= LogicalPortMask::MAX_PORT_INDEX {
                 if result.failure().is_set(module) {
-                    match failure_type {
-                        Some(e) => {
-                            let err_size =
-                                hubpack::serialize(&mut out[error_idx..], &e)
-                                    .unwrap();
-                            error_idx += err_size;
-                        }
-                        None => {
-                            ringbuf_entry!(Trace::UnexpectedFailure(
-                                ModuleId::from(module.as_mask())
-                            ));
-                            unreachable!();
-                        }
-                    }
+                    // failure: whatever `HwError` specified by `failure_type`
+                    let err_size = hubpack::serialize(
+                        &mut out[error_idx..],
+                        &failure_type,
+                    )
+                    .unwrap();
+                    error_idx += err_size;
                 } else if result.error().is_set(module) {
+                    // error: fpga communication issue
                     let err_size = hubpack::serialize(
                         &mut out[error_idx..],
                         &HwError::FpgaError,
@@ -579,6 +566,7 @@ impl ServerImpl {
                     error_idx += err_size;
                 }
             } else if requested_invalid_modules.is_set(module.0).unwrap() {
+                // let the host know it requested unsupported modules
                 let err_size = hubpack::serialize(
                     &mut out[error_idx..],
                     &HwError::InvalidModuleIndex,
@@ -594,9 +582,55 @@ impl ServerImpl {
             error_idx,
             ModuleId(
                 requested_invalid_modules.0
-                    | result.error().0 as u64
-                    | result.failure().0 as u64,
+                    | result.failure().0 as u64
+                    | result.error().0 as u64,
             ),
+        )
+    }
+
+    /// This function reads a `ModuleResultNoFailure` and populates error
+    /// information at the end of the trailing data buffer. This means it should
+    /// be called as the last operation before sending the response. For results
+    /// where a `ModuleResult` is returned, use handle_errors_and_failures
+    /// instead.
+    fn handle_errors(
+        &mut self,
+        modules: ModuleId,
+        result: ModuleResultNoFailure,
+        data_idx: usize,
+        out: &mut [u8],
+    ) -> (usize, ModuleId) {
+        let mut error_idx: usize = data_idx;
+        // any modules at index 32->63 are not currently supported.
+        let invalid_modules = ModuleId(0xffffffff00000000);
+        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        for module in modules.to_indices().map(LogicalPort) {
+            if module <= LogicalPortMask::MAX_PORT_INDEX
+                && result.error().is_set(module)
+            {
+                // error: fpga communication issue
+                let err_size = hubpack::serialize(
+                    &mut out[error_idx..],
+                    &HwError::FpgaError,
+                )
+                .unwrap();
+                error_idx += err_size;
+            } else if requested_invalid_modules.is_set(module.0).unwrap() {
+                // let the host know it requested unsupported modules
+                let err_size = hubpack::serialize(
+                    &mut out[error_idx..],
+                    &HwError::InvalidModuleIndex,
+                )
+                .unwrap();
+                error_idx += err_size;
+            }
+        }
+
+        // let the caller know how many error bytes we appended and which
+        // modules had problems
+        (
+            error_idx,
+            ModuleId(requested_invalid_modules.0 | result.error().0 as u64),
         )
     }
 
@@ -604,15 +638,14 @@ impl ServerImpl {
         &mut self,
         modules: LogicalPortMask,
         out: &mut [u8],
-    ) -> (usize, ModuleResult) {
+    ) -> (usize, ModuleResultNoFailure) {
         // This will get the status of every module, so we will have to only
         // select the data which was requested.
         let (mod_status, full_result) = self.transceivers.get_module_status();
         // adjust the result success mask to be only our requested modules
-        let desired_result = ModuleResult::new(
+        let desired_result = ModuleResultNoFailure::new(
             full_result.success() & modules,
-            full_result.failure(),
-            full_result.error(),
+            full_result.error() & modules,
         )
         .unwrap();
 
@@ -621,8 +654,8 @@ impl ServerImpl {
         let mut count = 0;
         for mask in modules
             .to_indices()
+            .filter(|&p| desired_result.success().is_set(p))
             .map(|p| p.as_mask())
-            .filter(|&m| !(desired_result.success() & m).is_empty())
         {
             let mut status = Status::empty();
             if (mod_status.power_enable & mask.0) != 0 {
@@ -673,11 +706,9 @@ impl ServerImpl {
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
             self.transceivers.set_i2c_write_buffer(&[page]);
-            result = result.chain(self.transceivers.setup_i2c_write(
-                PAGE_SELECT,
-                1,
-                mask,
-            ));
+            result = result.chain_with_nofail(
+                self.transceivers.setup_i2c_write(PAGE_SELECT, 1, mask),
+            );
             result = result.chain(self.wait_and_check_i2c(result.success()));
         } else {
             // If the request is to the lower page it is always successful
@@ -688,11 +719,12 @@ impl ServerImpl {
 
         if let Some(bank) = page.bank() {
             self.transceivers.set_i2c_write_buffer(&[bank]);
-            result = result.chain(self.transceivers.setup_i2c_write(
-                BANK_SELECT,
-                1,
-                result.success(),
-            ));
+            result =
+                result.chain_with_nofail(self.transceivers.setup_i2c_write(
+                    BANK_SELECT,
+                    1,
+                    result.success(),
+                ));
             result = result.chain(self.wait_and_check_i2c(result.success()));
         }
         result
@@ -717,7 +749,7 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Ask the FPGA to start the read
-        result = result.chain(self.transceivers.setup_i2c_read(
+        result = result.chain_with_nofail(self.transceivers.setup_i2c_read(
             mem.offset(),
             mem.len(),
             result.success(),
@@ -792,7 +824,7 @@ impl ServerImpl {
             .set_i2c_write_buffer(&data[..mem.len() as usize]);
 
         // Trigger a multicast write to all transceivers in the mask
-        result = result.chain(self.transceivers.setup_i2c_write(
+        result = result.chain_with_nofail(self.transceivers.setup_i2c_write(
             mem.offset(),
             mem.len(),
             result.success(),
