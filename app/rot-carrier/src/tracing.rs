@@ -26,6 +26,9 @@ fn triples(triples: &[u8]) {
 
         // Lower clock.
         gpio.clr[0].write(|w| unsafe { w.bits(1 << 21) });
+        for pin in [22, 25, 4] {
+            gpio.clr[0].write(|w| unsafe { w.bits(1 << pin) });
+        }
     }
 }
 
