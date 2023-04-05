@@ -257,7 +257,6 @@ impl ServerImpl {
     }
 
     fn update_thermal_loop(&mut self, status: ModuleStatus) {
-
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;

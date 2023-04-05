@@ -158,7 +158,7 @@ impl ServerImpl {
         &mut self,
         header: Header,
         tx_data_buf: &mut [u8],
-        request: &[u8]
+        request: &[u8],
     ) -> Option<u32> {
         // This message comes from a host implementation older than the
         // minimum committed version of the protocol. We really can't do
