@@ -60,6 +60,7 @@ enum Log {
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
     RotReset { err: drv_sprot_api::SprotError },
+    ExpectedRspTimeout,
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the

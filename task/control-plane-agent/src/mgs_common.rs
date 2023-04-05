@@ -178,40 +178,43 @@ impl MgsCommon {
                 panic!();
             }
             SpComponent::ROT => {
-                // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
-                // reset strategy. Here we take care of common SP and RoT cases.
+                // We're dealing with RoT targets at this point.
+                match update.sprot_task().reset() {
+                    Err(SprotError::RspTimeout) => {
+                        // This is the expected error if the reset was successful.
+                        // It could be that the RoT is out-to-lunch for some other
+                        // reason though.
+                        // Things for upper layers to do:
+                        //   - Check a boot nonce type thing to see if we are in a
+                        //     new session.
+                        //   - Check that the expected image is now running.
+                        //     (Management plane should do that.)
+                        //   - Enable staged updates where we don't automatically
+                        //     reset after writing an image.
+                        ringbuf_entry!(Log::RotReset {
+                            err: SprotError::RspTimeout
+                        });
+                        Ok(())
+                    }
+                    Err(err) => {
+                        // Some other error occurred.
+                        // Update is all-or-nothing at the moment.
+                        // The control plane can try to reset the RoT again or it
+                        // can start the update process all over again.  We should
+                        // be able to make incremental progress if there is some
+                        // bug/condition that is degrading SpRot communications.
+                        ringbuf_entry!(Log::RotReset { err });
+                        Err(SpError::ComponentOperationFailed(err.into()))
+                    }
+                    Ok(()) => {
+                        ringbuf_entry!(Log::ExpectedRspTimeout);
+                        Ok(())
+                    }
+                }
             }
-            _ => return Err(SpError::RequestUnsupportedForComponent),
-        };
-        // We're dealing with  RoT targets at this point.
-        match update.sprot_task().reset() {
-            Err(SprotError::RspTimeout) => {
-                // This is the expected error if the reset was successful.
-                // It could be that the RoT is out-to-lunch for some other
-                // reason though.
-                // Things for upper layers to do:
-                //   - Check a boot nonce type thing to see if we are in a
-                //     new session.
-                //   - Check that the expected image is now running.
-                //     (Management plane should do that.)
-                //   - Enable staged updates where we don't automatically
-                //     reset after writing an image.
-                ringbuf_entry!(Log::RotReset {
-                    err: SprotError::RspTimeout
-                });
-                Ok(())
-            }
-            Err(err) => {
-                // Some other error occurred.
-                // Update is all-or-nothing at the moment.
-                // The control plane can try to reset the RoT again or it
-                // can start the update process all over again.  We should
-                // be able to make incremental progress if there is some
-                // bug/condition that is degrading SpRot communications.
-                ringbuf_entry!(Log::RotReset { err });
-                Err(SpError::ComponentOperationFailed(err.into()))
-            }
-            Ok(()) => Ok(()),
+            // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
+            // reset strategy. Here we take care of common SP and RoT cases.
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -239,12 +242,6 @@ impl MgsCommon {
             SpComponent::ROT => {
                 match update.sprot_task().switch_default_image(slot, duration) {
                     Err(err) => {
-                        // Some other error occurred.
-                        // Update is all-or-nothing at the moment.
-                        // The control plane can try to reset the RoT again or it
-                        // can start the update process all over again.  We should
-                        // be able to make incremental progress if there is some
-                        // bug/condition that is degrading SpRot communications.
                         Err(SpError::ComponentOperationFailed(err.into()))
                     }
                     Ok(()) => Ok(()),
