@@ -534,7 +534,8 @@ impl ModuleResult {
     /// This function panics if the `next.success` mask is not a subset of
     /// self.success. Additionally, it will panic if any of the success,
     /// failure, or error masks overlap with one another.
-    pub fn chain(&self, next: ModuleResult) -> Self {
+    pub fn chain<R: Into<ModuleResult>>(&self, next: R) -> Self {
+        let next: ModuleResult = next.into();
         // success mask is just what the success of the next step is as long
         // as next.success is a subset of self.success, ensuring the semantics
         // of "chaining"
@@ -552,44 +553,6 @@ impl ModuleResult {
 
         Self::new(success, failure, error).unwrap()
     }
-
-    /// This is a helper function to combine a `ModuleResult` with a
-    /// `ModuleResultNoFailure` yielding function call. Building such a
-    /// sequence is generally done with the following form (where `modules` is
-    /// a `LogicalPortMask` of requested modules):
-    ///
-    /// let result = some_result_fn(modules);
-    /// let next_result =
-    ///     result.chain_with_nofail(a_nofail_result_fn(result.success()))
-    ///
-    /// So the initial result includes some set of success, failure, and error
-    /// masks which then need to be reconciled with a new set of masks, generally
-    /// a subset of the success mask of the initial result. Notably, there
-    /// cannot be overlap between these masks, which this function enforces.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if the `next.success` mask is not a subset of
-    /// self.success. Additionally, it will panic if any of the success,
-    /// failure, or error masks overlap with one another.
-    pub fn chain_with_nofail(&self, next: ModuleResultNoFailure) -> Self {
-        // success mask is just what the success of the next step is as long
-        // as next.success is a subset of self.success, ensuring the semantics
-        // of "chaining"
-        assert!(next
-            .success()
-            .to_indices()
-            .all(|idx| self.success().is_set(idx)));
-        let success = next.success();
-        // combine any new errors with the existing error mask
-        let error = self.error() | next.error();
-        // there are no new failures, so we keep the existing failure mask.
-        // Errors supercede failures, so make sure to clear any failures where
-        // an error has subsequently occurred.
-        let failure = self.failure() & !self.error();
-
-        Self::new(success, failure, error).unwrap()
-    }
 }
 
 /// A type to consolidate per-module success/error information.
@@ -602,6 +565,13 @@ impl ModuleResult {
 pub struct ModuleResultNoFailure {
     success: LogicalPortMask,
     error: LogicalPortMask,
+}
+
+impl Into<ModuleResult> for ModuleResultNoFailure {
+    fn into(self) -> ModuleResult {
+        ModuleResult::new(self.success(), LogicalPortMask(0), self.error())
+            .unwrap()
+    }
 }
 
 impl ModuleResultNoFailure {

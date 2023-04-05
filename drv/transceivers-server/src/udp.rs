@@ -706,9 +706,11 @@ impl ServerImpl {
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
             self.transceivers.set_i2c_write_buffer(&[page]);
-            result = result.chain_with_nofail(
-                self.transceivers.setup_i2c_write(PAGE_SELECT, 1, mask),
-            );
+            result = result.chain(self.transceivers.setup_i2c_write(
+                PAGE_SELECT,
+                1,
+                mask,
+            ));
             result = result.chain(self.wait_and_check_i2c(result.success()));
         } else {
             // If the request is to the lower page it is always successful
@@ -719,12 +721,11 @@ impl ServerImpl {
 
         if let Some(bank) = page.bank() {
             self.transceivers.set_i2c_write_buffer(&[bank]);
-            result =
-                result.chain_with_nofail(self.transceivers.setup_i2c_write(
-                    BANK_SELECT,
-                    1,
-                    result.success(),
-                ));
+            result = result.chain(self.transceivers.setup_i2c_write(
+                BANK_SELECT,
+                1,
+                result.success(),
+            ));
             result = result.chain(self.wait_and_check_i2c(result.success()));
         }
         result
@@ -749,7 +750,7 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Ask the FPGA to start the read
-        result = result.chain_with_nofail(self.transceivers.setup_i2c_read(
+        result = result.chain(self.transceivers.setup_i2c_read(
             mem.offset(),
             mem.len(),
             result.success(),
@@ -824,7 +825,7 @@ impl ServerImpl {
             .set_i2c_write_buffer(&data[..mem.len() as usize]);
 
         // Trigger a multicast write to all transceivers in the mask
-        result = result.chain_with_nofail(self.transceivers.setup_i2c_write(
+        result = result.chain(self.transceivers.setup_i2c_write(
             mem.offset(),
             mem.len(),
             result.success(),
