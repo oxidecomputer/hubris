@@ -73,7 +73,7 @@ impl Handler {
             Ok(rxmsg) => rxmsg,
             Err((header_bytes, msgerr)) => {
                 if msgerr == SprotError::NoMessage {
-                    // We were just returning a reply, so clocked out zeros
+                    // We were just returning a reply, so clocked in zeros
                     // from the SP.
                     return None;
                 }

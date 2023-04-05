@@ -46,7 +46,7 @@ use drv_sprot_api::{
     HEADER_SIZE,
 };
 use lpc55_pac as device;
-use ringbuf::ringbuf;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
@@ -61,6 +61,7 @@ pub(crate) enum Trace {
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
     Dump(u32),
+    RotIrq(bool),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -106,16 +107,10 @@ fn configure_spi() -> Io {
     // Set SPI mode for Flexcomm
     flexcomm.pselid.write(|w| w.persel().spi());
 
-    // Drain and configure FIFOs
-    spi.enable();
-
     // We only want interrupts on CSn assert
     // Once we see that interrupt we enter polling mode
     // and check the registers manually.
     spi.ssa_enable();
-
-    // Probably not necessary, drain Rx and Tx after config.
-    spi.drain();
 
     // Disable the interrupts triggered by the `self.spi.drain_tx()`, which
     // unneccessarily causes spurious interrupts. We really only need to to
@@ -124,7 +119,8 @@ fn configure_spi() -> Io {
     spi.disable_tx();
     spi.disable_rx();
 
-    let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
+    // Drain and configure FIFOs
+    spi.enable();
 
     Io {
         spi,
@@ -155,11 +151,19 @@ fn main() -> ! {
     let mut handler = Handler::new();
     let mut signal_reply = false;
 
+    let mut rot_irq_asserted = false;
+
     loop {
         // Every time through the io loop we receive a fresh request
         let mut rx_msg = RxMsg::new(&mut rx_buf[..]);
 
-        let reply = match io.next(signal_reply, &tx_buf[..], &mut rx_msg) {
+        ringbuf_entry!(Trace::RotIrq(rot_irq_asserted));
+        let reply = match io.next(
+            signal_reply,
+            &tx_buf[..],
+            &mut rx_msg,
+            &mut rot_irq_asserted,
+        ) {
             Ok(()) => {
                 // Put a busy byte in the tx_fifo before we handle the result,
                 // which may take some time.
@@ -199,13 +203,20 @@ impl Io {
         signal_reply: bool,
         tx_buf: &[u8],
         rx_msg: &mut RxMsg<'a>,
+        rot_irq_asserted: &mut bool,
     ) -> Result<(), IoError> {
         let mut tx_iter = tx_buf.iter();
         self.prime_tx_fifo(&mut tx_iter);
-        let result = loop {
+        if *rot_irq_asserted {
+            self.deassert_rot_irq();
+            *rot_irq_asserted = false;
+        }
+
+        loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            if signal_reply {
+            if signal_reply && !*rot_irq_asserted {
+                *rot_irq_asserted = true;
                 self.assert_rot_irq();
             }
 
@@ -220,15 +231,9 @@ impl Io {
             let intstat = self.spi.intstat();
             if intstat.ssa().bit() {
                 self.spi.ssa_clear();
-                break self.tight_loop(&mut tx_iter, rx_msg);
+                return self.tight_loop(&mut tx_iter, rx_msg);
             }
-        };
-
-        if signal_reply {
-            self.deassert_rot_irq();
         }
-
-        result
     }
 
     // Read data in a tight loop until we see CSn de-asserted
