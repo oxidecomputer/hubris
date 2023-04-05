@@ -342,7 +342,7 @@ impl ServerImpl {
                         HwError::I2cError,
                         &mut out[read_bytes..],
                     );
-                let final_payload_len = num_status_bytes + err_len;
+                let final_payload_len = read_bytes + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Read {
