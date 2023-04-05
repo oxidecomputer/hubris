@@ -22,8 +22,7 @@ task_slot!(PACKRAT, packrat);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
-    reset_requested: bool,
-    reset_component_requested: SpComponent,
+    reset_component_requested: Option<SpComponent>,
     inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
@@ -32,10 +31,7 @@ pub(crate) struct MgsCommon {
 impl MgsCommon {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
-            reset_requested: false,
-            reset_component_requested: SpComponent {
-                id: [0; SpComponent::MAX_ID_LENGTH],
-            },
+            reset_component_requested: None,
             inventory: Inventory::new(),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
@@ -142,7 +138,7 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        self.reset_component_requested = component;
+        self.reset_component_requested = Some(component);
         Ok(())
     }
 
@@ -162,13 +158,13 @@ impl MgsCommon {
         update: &SpUpdate,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        if self.reset_component_requested != component {
+        if self.reset_component_requested != Some(component) {
             return Err(SpError::ResetComponentTriggerWithoutPrepare);
         }
         // If we are not resetting the SP_ITSELF, then we may come back here
         // to reset something else or to run another prepare/trigger on
         // the same component.
-        self.reset_component_requested.id.fill(0);
+        self.reset_component_requested = None;
 
         // Resetting the SP through reset_component() is
         // the same as through reset() until transient bank selection is
