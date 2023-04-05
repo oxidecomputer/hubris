@@ -683,7 +683,7 @@ dependencies = [
  "nb 1.0.0",
  "salty",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "sha3",
  "stage0-handoff",
  "static_assertions",
@@ -701,7 +701,7 @@ dependencies = [
  "corncobs",
  "hubpack",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "zerocopy",
 ]
 
@@ -1965,7 +1965,7 @@ version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9c280362032ea4203659fc489832d0204ef09f247a0506f170dafcac08c369"
 dependencies = [
- "signature 1.3.2",
+ "signature",
 ]
 
 [[package]]
@@ -2289,7 +2289,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
  "unwrap-lite",
@@ -2345,11 +2345,11 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#448435605eaa076a57e0b7f78837602b5dd1deef"
 dependencies = [
  "hubpack",
  "lzss",
  "serde",
+ "serde-big-array 0.5.1",
  "static_assertions",
  "zerocopy",
 ]
@@ -3317,7 +3317,7 @@ dependencies = [
  "pkcs8",
  "rand_core",
  "sha2",
- "signature 2.0.0",
+ "signature",
  "subtle",
  "zeroize",
 ]
@@ -3479,6 +3479,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3579,12 +3588,6 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2807892cfa58e081aa1f1111391c7a0649d4fa127a4ffbe34bcbfb35a1171a4"
-
-[[package]]
-name = "signature"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fe458c98333f9c8152221191a77e2a44e8325d0193484af2e9421a53019e57d"
@@ -3661,7 +3664,7 @@ dependencies = [
  "hubpack",
  "salty",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
 ]
 
 [[package]]
@@ -3941,6 +3944,7 @@ name = "task-dump-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-util",
  "cfg-if",
  "cortex-m",
  "drv-sprot-api",
@@ -3950,11 +3954,13 @@ dependencies = [
  "humpty",
  "idol",
  "idol-runtime",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
  "static_assertions",
  "task-jefe-api",
+ "task-net-api",
  "userlib",
  "zerocopy",
 ]

@@ -59,6 +59,42 @@ impl From<DumperError> for DumpAgentError {
     }
 }
 
+impl From<DumpAgentError> for humpty::udp::Error {
+    fn from(d: DumpAgentError) -> Self {
+        use humpty::udp::Error;
+        match d {
+            DumpAgentError::DumpAgentUnsupported => Error::DumpAgentUnsupported,
+            DumpAgentError::InvalidArea => Error::InvalidArea,
+            DumpAgentError::BadOffset => Error::BadOffset,
+            DumpAgentError::UnalignedOffset => Error::UnalignedOffset,
+            DumpAgentError::UnalignedSegmentAddress => {
+                Error::UnalignedSegmentAddress
+            }
+            DumpAgentError::UnalignedSegmentLength => {
+                Error::UnalignedSegmentLength
+            }
+            DumpAgentError::DumpFailed => Error::DumpFailed,
+            DumpAgentError::NotSupported => Error::NotSupported,
+            DumpAgentError::DumpPresent => Error::DumpPresent,
+            DumpAgentError::UnclaimedDumpArea => Error::UnclaimedDumpArea,
+            DumpAgentError::CannotClaimDumpArea => Error::CannotClaimDumpArea,
+            DumpAgentError::DumpAreaInUse => Error::DumpAreaInUse,
+            DumpAgentError::BadSegmentAdd => Error::BadSegmentAdd,
+            DumpAgentError::ServerRestarted => Error::ServerRestarted,
+            DumpAgentError::BadDumpResponse => Error::BadDumpResponse,
+            DumpAgentError::DumpMessageFailed => Error::DumpMessageFailed,
+            DumpAgentError::DumpFailedSetup => Error::DumpFailedSetup,
+            DumpAgentError::DumpFailedRead => Error::DumpFailedRead,
+            DumpAgentError::DumpFailedWrite => Error::DumpFailedWrite,
+            DumpAgentError::DumpFailedControl => Error::DumpFailedControl,
+            DumpAgentError::DumpFailedUnknown => Error::DumpFailedUnknown,
+            DumpAgentError::DumpFailedUnknownError => {
+                Error::DumpFailedUnknownError
+            }
+        }
+    }
+}
+
 pub const DUMP_READ_SIZE: usize = 256;
 
 //
