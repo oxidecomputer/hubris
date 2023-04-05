@@ -113,7 +113,6 @@ enum MgsMessage {
     },
     GetPowerState,
     SetPowerState(PowerState),
-    ResetPrepare,
     Inventory,
     HostPhase2Data {
         hash: [u8; 32],

@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
-use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{SpRot, SprotError};
 use gateway_messages::{
