@@ -563,10 +563,6 @@ impl SpHandler for MgsHandler {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), SpError> {
-        match component {
-            SpComponent::ROT | SpComponent::SP_ITSELF => {}
-            _ => return Err(SpError::RequestUnsupportedForComponent),
-        }
         self.common.switch_default_image(
             &self.sp_update,
             component,
@@ -581,10 +577,6 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        match component {
-            SpComponent::ROT | SpComponent::SP_ITSELF => {}
-            _ => return Err(SpError::RequestUnsupportedForComponent),
-        }
         self.common.reset_component_prepare(component)
     }
 
