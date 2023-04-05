@@ -531,6 +531,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _slot: SlotId,
         _duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
+        // The SP does automatic bank switching upon update, and there is no
+        // need to do anything else at this point.
         Err(UpdateError::NotImplemented.into())
     }
 
