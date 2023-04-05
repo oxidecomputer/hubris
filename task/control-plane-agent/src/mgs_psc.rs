@@ -396,22 +396,6 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn reset_prepare(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<(), SpError> {
-        self.common.reset_prepare()
-    }
-
-    fn reset_trigger(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<Infallible, SpError> {
-        self.common.reset_trigger()
-    }
-
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32

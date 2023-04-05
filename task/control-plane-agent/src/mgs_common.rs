@@ -101,34 +101,6 @@ impl MgsCommon {
         Ok(state)
     }
 
-    /// The SP, having reset itself, will not be able to respond to
-    /// the later reset_trigger message.
-    ///
-    /// So, after getting an ACK for the prepare message, MGS will send and
-    /// retry the reset_trigger message until it gets rejected for lack of
-    /// a corresponding prepare message.
-    pub(crate) fn reset_prepare(&mut self) -> Result<(), SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ResetPrepare));
-        self.reset_requested = true;
-        Ok(())
-    }
-
-    pub(crate) fn reset_trigger(&mut self) -> Result<Infallible, SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
-        if !self.reset_requested {
-            return Err(SpError::ResetTriggerWithoutPrepare);
-        }
-
-        let jefe = task_jefe_api::Jefe::from(crate::JEFE.get_task_id());
-        jefe.request_reset();
-
-        // If `request_reset()` returns, something has gone very wrong.
-        panic!()
-    }
-
     #[inline(always)]
     pub(crate) fn inventory(&self) -> &Inventory {
         &self.inventory
