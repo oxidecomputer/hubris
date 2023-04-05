@@ -483,6 +483,12 @@ pub struct ModuleResult {
     error: LogicalPortMask,
 }
 
+impl From<ModuleResultNoFailure> for ModuleResult {
+    fn from(r: ModuleResultNoFailure) -> Self {
+        ModuleResult::new(r.success(), LogicalPortMask(0), r.error()).unwrap()
+    }
+}
+
 impl ModuleResult {
     /// Create a new ModuleResult which enforces no overlap in the success,
     /// failure, and error masks.
@@ -565,13 +571,6 @@ impl ModuleResult {
 pub struct ModuleResultNoFailure {
     success: LogicalPortMask,
     error: LogicalPortMask,
-}
-
-impl Into<ModuleResult> for ModuleResultNoFailure {
-    fn into(self) -> ModuleResult {
-        ModuleResult::new(self.success(), LogicalPortMask(0), self.error())
-            .unwrap()
-    }
 }
 
 impl ModuleResultNoFailure {

@@ -297,8 +297,11 @@ impl ServerImpl {
                 let (num_status_bytes, result) = self.get_status(mask, out);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (final_payload_len, errored_modules) =
-                    self.handle_errors(modules, result, num_status_bytes, out);
+                let (final_payload_len, errored_modules) = self.handle_errors(
+                    modules,
+                    result,
+                    &mut out[num_status_bytes..],
+                );
 
                 (
                     MessageBody::SpResponse(SpResponse::Status {
@@ -336,8 +339,7 @@ impl ServerImpl {
                         modules,
                         result,
                         HwError::I2cError,
-                        read_bytes,
-                        out,
+                        &mut out[read_bytes..],
                     );
 
                 (
@@ -369,7 +371,6 @@ impl ServerImpl {
                         modules,
                         result,
                         HwError::I2cError,
-                        0,
                         out,
                     );
 
@@ -389,7 +390,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -406,7 +407,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -423,7 +424,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -440,7 +441,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -457,7 +458,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -474,7 +475,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -517,7 +518,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, 0, out);
+                    self.handle_errors(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -539,10 +540,9 @@ impl ServerImpl {
         modules: ModuleId,
         result: ModuleResult,
         failure_type: HwError,
-        data_idx: usize,
         out: &mut [u8],
     ) -> (usize, ModuleId) {
-        let mut error_idx: usize = data_idx;
+        let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
         let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
@@ -597,10 +597,9 @@ impl ServerImpl {
         &mut self,
         modules: ModuleId,
         result: ModuleResultNoFailure,
-        data_idx: usize,
         out: &mut [u8],
     ) -> (usize, ModuleId) {
-        let mut error_idx: usize = data_idx;
+        let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
         let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
