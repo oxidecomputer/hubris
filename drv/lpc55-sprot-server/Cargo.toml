@@ -24,6 +24,7 @@ drv-update-api = { path = "../update-api" }
 dumper-api = { path = "../../task/dumper-api" }
 lpc55_romapi = { path = "../../lib/lpc55-romapi" }
 ringbuf = { path = "../../lib/ringbuf" }
+task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]

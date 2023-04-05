@@ -71,10 +71,9 @@ impl ComponentUpdater for RotUpdate {
             }
         }
         // Can we lock the update buffer?
-        let buffer =
-            buffer.borrow(update.component, Self::BLOCK_SIZE).map_err(
-                |component| SpError::OtherComponentUpdateInProgress(component),
-            )?;
+        let buffer = buffer
+            .borrow(update.component, Self::BLOCK_SIZE)
+            .map_err(SpError::OtherComponentUpdateInProgress)?;
 
         // Which target are we updating?
         let target = match (update.component, update.slot) {

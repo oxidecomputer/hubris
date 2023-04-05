@@ -38,12 +38,15 @@ extern "C" {
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
+#[derive(PartialEq)]
 enum UpdateState {
     NoUpdate,
     InProgress,
     Finished,
 }
 
+// Note that we could cache the full stage0 image before flashing it.
+// That would reduce our time window of having a partially written stage0.
 struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
@@ -125,7 +128,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         // The max lease length is longer than our block size, double
         // check that here. We share the API with other targets and there isn't
-        // a nice way to define the least length based on a constant.
+        // a nice way to define the lease length based on a constant.
         if len > BLOCK_SIZE_BYTES {
             return Err(UpdateError::BadLength.into());
         }
@@ -137,10 +140,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             let header_block =
                 self.header_block.get_or_insert([0u8; BLOCK_SIZE_BYTES]);
             block
-                .read_range(0..len as usize, &mut header_block[..])
+                .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             header_block[len..].fill(0);
-            if let Err(e) = validate_header_block(target, &header_block) {
+            if let Err(e) = validate_header_block(target, header_block) {
                 self.header_block = None;
                 return Err(e.into());
             }
@@ -153,7 +156,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::MissingHeaderBlock.into());
             }
             block
-                .read_range(0..len as usize, &mut flash_page)
+                .read_range(0..len, &mut flash_page)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             flash_page[len..].fill(0);
@@ -370,6 +373,18 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
 
         Ok(())
+    }
+
+    /// Reset.
+    fn reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<UpdateError>> {
+        if self.state == UpdateState::InProgress {
+            return Err(UpdateError::UpdateInProgress.into());
+        }
+        task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
+        panic!()
     }
 }
 
@@ -638,6 +653,7 @@ fn target_addr(image_target: UpdateTarget, page_num: u32) -> Option<u32> {
 }
 
 task_slot!(SYSCON, syscon);
+task_slot!(JEFE, jefe);
 
 #[export_name = "main"]
 fn main() -> ! {

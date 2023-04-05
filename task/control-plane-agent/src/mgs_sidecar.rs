@@ -15,8 +15,9 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    IgnitionCommand, IgnitionState, MgsError, PowerState, SlotId, SpComponent,
+    SpError, SpPort, SpState, SpUpdatePrepare, SwitchDuration, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -452,22 +453,6 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn reset_prepare(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<(), SpError> {
-        self.common.reset_prepare()
-    }
-
-    fn reset_trigger(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<Infallible, SpError> {
-        self.common.reset_trigger()
-    }
-
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32
@@ -663,6 +648,41 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
+    }
+
+    fn switch_default_image(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), SpError> {
+        self.common.switch_default_image(
+            &self.sp_update,
+            component,
+            slot,
+            duration,
+        )
+    }
+
+    fn reset_component_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.reset_component_prepare(component)
+    }
+
+    fn reset_component_trigger(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger(&self.sp_update, component)
     }
 }
 
