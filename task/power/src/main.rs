@@ -19,6 +19,7 @@ use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use idol_runtime::{ClientError, RequestError};
+use ringbuf::*;
 use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
@@ -30,6 +31,15 @@ use drv_i2c_devices::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, TempSensor,
     VoltageSensor,
 };
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    GotVersion(u32),
+    GotAddr(u32),
+    None,
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 use sensor_api::{NoData, SensorId};
 
@@ -658,35 +668,41 @@ impl idl::InOrderPowerImpl for ServerImpl {
         // Now that we've proven equivalence, let's import this namespace
         use pmbus::commands::isl68224::CommandCode;
 
-        // Step 2a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0xC4, 0x00])?;
-        // Step 2b - Read DMA Data Register
-        let r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
-        // Step 2c - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0x58, 0xEC])?;
-        // Step 2d - Write to DMA Data Register
-        let mut v = [CommandCode::DMAFIX as u8, 0, 0, 0, 0];
-        v[1..].copy_from_slice(r.as_bytes());
-        dev.write(&v)?;
-        // Step 2e - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0x59, 0xEC])?;
-        // Step 2f - Write to DMA Data Register
-        dev.write(&[CommandCode::DMAFIX as u8, 0x00, 0x14, 0x00, 0x00])?;
-        // Step 2g - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0x5B, 0xEC])?;
-        // Step 2h - Write to DMA Data Register
-        dev.write(&[CommandCode::DMAFIX as u8, 0x90, 0x01, 0x48, 0x0C])?;
-        // Step 2i - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0x5C, 0xEC])?;
-        // Step 2j - Write to DMA Data Register
-        dev.write(&[CommandCode::DMAFIX as u8, 0x01, 0x00, 0x00, 0x00])?;
+        // Step 1 - Verify Part Revision
+        let mut id = 0u32;
+        dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_bytes_mut())?;
+        ringbuf_entry!(Trace::GotVersion(id));
+        if id >= 0x03000000 {
+            return Err(ResponseCode::OperationNotSupported.into());
+        } else if id >= 0x02000000 {
+            // Step 2a - Write to DMA Address Register
+            dev.write(&[CommandCode::DMAADDR as u8, 0xC5, 0x00])?;
+            // Step 2b - Read DMA Data Register
+            let mut r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+            ringbuf_entry!(Trace::GotAddr(r));
 
-        // Step 3a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, 0x00, 0x05])?;
-        // Step 3b - Read Black Box Data
-        for i in 0..RENDMP_BLACKBOX_BUF_SIZE {
-            let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
-            self.blackbox_buf[i] = r;
+            // "Divide this value by 4 to determine the starting address of the
+            //  Black Box data."
+            r /= 4;
+
+            // This address is written as a 2-byte value, so I'm assuming
+            // something has gone wrong if our result doesn't fit.
+            if r > u16::MAX as u32 {
+                // TODO: this shouldn't be necessary
+                r = 0x04cf;
+                //return Err(ResponseCode::BadResponse.into());
+            }
+
+            // Step 3a - Write to DMA Address Register
+            dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
+
+            // Step 3b - Read Black Box Data
+            for i in 0..RENDMP_BLACKBOX_BUF_SIZE {
+                let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
+                self.blackbox_buf[i] = r;
+            }
+        } else {
+            return Err(ResponseCode::OperationNotSupported.into());
         }
 
         Ok(())
@@ -737,8 +753,8 @@ fn claim_blackbox() -> &'static mut [u32; RENDMP_BLACKBOX_BUF_SIZE] {
     dev
 }
 
-const RENDMP_BLACKBOX_SLOT_SIZE: usize = 40;
-const RENDMP_BLACKBOX_SLOT_COUNT: usize = 10;
+const RENDMP_BLACKBOX_SLOT_SIZE: usize = 38;
+const RENDMP_BLACKBOX_SLOT_COUNT: usize = 1;
 const RENDMP_BLACKBOX_BUF_SIZE: usize = if bsp::HAS_RENDMP_BLACKBOX {
     RENDMP_BLACKBOX_SLOT_SIZE * RENDMP_BLACKBOX_SLOT_COUNT
 } else {
