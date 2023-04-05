@@ -141,9 +141,6 @@ pub enum SprotError {
     #[idol(server_death)]
     ServerRestarted,
 
-    // Used if no explicit error code is available.
-    Unknown,
-
     // Rot sink test not configured
     RotSinkTestNotConfigured,
     UpdateNotImplemented,
