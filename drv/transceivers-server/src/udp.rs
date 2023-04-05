@@ -297,11 +297,12 @@ impl ServerImpl {
                 let (num_status_bytes, result) = self.get_status(mask, out);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (final_payload_len, errored_modules) = self.handle_errors(
+                let (err_len, errored_modules) = self.handle_errors(
                     modules,
                     result,
                     &mut out[num_status_bytes..],
                 );
+                let final_payload_len = num_status_bytes + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Status {
@@ -334,13 +335,14 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let read_bytes = result.success().count() * read.len() as usize;
-                let (final_payload_len, failed_modules) = self
+                let (err_len, failed_modules) = self
                     .handle_errors_and_failures(
                         modules,
                         result,
                         HwError::I2cError,
                         &mut out[read_bytes..],
                     );
+                let final_payload_len = num_status_bytes + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Read {
