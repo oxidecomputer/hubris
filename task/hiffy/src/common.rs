@@ -518,117 +518,9 @@ pub(crate) fn spi_write(
     Ok(0)
 }
 
+/*
 #[cfg(feature = "sprot")]
 task_slot!(SPROT, sprot);
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_send_recv(
-    stack: &[Option<u32>],
-    data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    // send_recv( msgtype, len ) leases{message[u8; 256], response[u8; 256]
-    // returns [u32; 2] a type and a length or an error. data in response lease
-    if rval.len() < core::mem::size_of::<[u32; 2]>() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let frame = &stack[stack.len() - 2..];
-    let msgtype = drv_sprot_api::MsgType::from_u8(
-        frame[0].ok_or(Failure::Fault(Fault::BadParameter(0)))? as u8,
-    )
-    .ok_or(Failure::Fault(Fault::BadParameter(0)))?;
-    let len: usize =
-        frame[1].ok_or(Failure::Fault(Fault::BadParameter(1)))? as usize;
-    let result =
-        func_err(drv_sprot_api::SpRot::from(SPROT.get_task_id()).send_recv(
-            msgtype,
-            &data[0..len],
-            &mut *rval,
-        ))?;
-    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
-        .ok_or(hif::Failure::FunctionError(1))?;
-    match msgtype {
-        drv_sprot_api::MsgType::EchoRsp
-        | drv_sprot_api::MsgType::StatusRsp
-        | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
-        _ => {
-            // There should be a more useful error derived from the RoT response.
-            Err(hif::Failure::FunctionError(1))
-        }
-    }
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_send_recv_retries(
-    stack: &[Option<u32>],
-    data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    // send_recv( msgtype, len ) leases{message[u8; 256], response[u8; 256]
-    // returns [u32; 2] a type and a length or an error. data in response lease
-    if rval.len() < core::mem::size_of::<[u32; 2]>() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    if stack.len() < 3 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let frame = &stack[stack.len() - 2..];
-    let msgtype = drv_sprot_api::MsgType::from_u8(
-        frame[0].ok_or(Failure::Fault(Fault::BadParameter(0)))? as u8,
-    )
-    .ok_or(Failure::Fault(Fault::BadParameter(0)))?;
-    let attempts =
-        frame[1].ok_or(Failure::Fault(Fault::BadParameter(1)))? as u16;
-    let len: usize =
-        frame[2].ok_or(Failure::Fault(Fault::BadParameter(1)))? as usize;
-    let result = func_err(
-        drv_sprot_api::SpRot::from(SPROT.get_task_id()).send_recv_retries(
-            msgtype,
-            attempts,
-            &data[0..len],
-            &mut *rval,
-        ),
-    )?;
-    let msgtype = drv_sprot_api::MsgType::from_u8(result.msgtype)
-        .ok_or(hif::Failure::FunctionError(1))?;
-    match msgtype {
-        drv_sprot_api::MsgType::EchoRsp
-        | drv_sprot_api::MsgType::StatusRsp
-        | drv_sprot_api::MsgType::SprocketsRsp => Ok(result.length.into()),
-        _ => {
-            // There should be a more useful error derived from the RoT response.
-            Err(hif::Failure::FunctionError(1))
-        }
-    }
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_rot_sink(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let frame = &stack[stack.len() - 2..];
-    let count: u16 =
-        frame[0].ok_or(Failure::Fault(Fault::BadParameter(0)))? as u16;
-    let size: u16 =
-        frame[1].ok_or(Failure::Fault(Fault::BadParameter(1)))? as u16;
-    let server = drv_sprot_api::SpRot::from(SPROT.get_task_id());
-    let sink_status = func_err(server.rot_sink(count, size))?;
-    let len = sink_status.as_bytes().len();
-    rval[..len].copy_from_slice(sink_status.as_bytes());
-    Ok(len)
-}
 
 #[cfg(feature = "sprot")]
 pub(crate) fn sprot_pulse_cs(
@@ -756,6 +648,7 @@ pub(crate) fn sprot_reset(
     func_err(drv_sprot_api::SpRot::from(SPROT.get_task_id()).reset())?;
     Ok(0)
 }
+*/
 
 #[cfg(feature = "qspi")]
 task_slot!(HF, hf);

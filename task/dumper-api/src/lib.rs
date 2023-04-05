@@ -7,9 +7,22 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IdolError,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 pub enum DumperError {
     SetupFailed = 1,
     UnalignedAddress,
