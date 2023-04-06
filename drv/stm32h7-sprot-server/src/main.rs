@@ -207,7 +207,7 @@ fn main() -> ! {
 
 impl<S: SpiServer> ServerImpl<S> {
     /// Handle the mechanics of sending a message and waiting for a response.
-    pub fn do_send_recv(
+    fn do_send_recv(
         &mut self,
         tx_size: usize,
         timeout: u32,
