@@ -1558,7 +1558,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1578,7 +1578,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1598,7 +1598,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1618,7 +1618,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1638,7 +1638,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1658,7 +1658,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1678,7 +1678,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1698,7 +1698,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1718,7 +1718,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1738,7 +1738,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1758,7 +1758,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1778,7 +1778,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1798,7 +1798,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1818,7 +1818,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1838,7 +1838,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },
@@ -1858,7 +1858,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Setting this bit will clear a fault state. This bit auto-clears."
+                            "desc": "Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears."
                         }
                     ]
                 },

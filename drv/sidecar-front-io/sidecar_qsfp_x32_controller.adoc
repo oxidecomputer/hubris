@@ -495,7 +495,7 @@ CONTROL_PORT0
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT1
@@ -505,7 +505,7 @@ CONTROL_PORT1
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT2
@@ -515,7 +515,7 @@ CONTROL_PORT2
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT3
@@ -525,7 +525,7 @@ CONTROL_PORT3
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT4
@@ -535,7 +535,7 @@ CONTROL_PORT4
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT5
@@ -545,7 +545,7 @@ CONTROL_PORT5
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT6
@@ -555,7 +555,7 @@ CONTROL_PORT6
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT7
@@ -565,7 +565,7 @@ CONTROL_PORT7
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT8
@@ -575,7 +575,7 @@ CONTROL_PORT8
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT9
@@ -585,7 +585,7 @@ CONTROL_PORT9
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT10
@@ -595,7 +595,7 @@ CONTROL_PORT10
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT11
@@ -605,7 +605,7 @@ CONTROL_PORT11
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT12
@@ -615,7 +615,7 @@ CONTROL_PORT12
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT13
@@ -625,7 +625,7 @@ CONTROL_PORT13
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT14
@@ -635,7 +635,7 @@ CONTROL_PORT14
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 CONTROL_PORT15
@@ -645,7 +645,7 @@ CONTROL_PORT15
 |===
 | Bits | SW Access | Name | Function
 |[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
 Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
