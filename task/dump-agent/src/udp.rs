@@ -93,7 +93,7 @@ impl ServerImpl {
     /// Handles a single message
     fn handle_message(
         &mut self,
-        header: humpty::udp::Header,
+        _header: humpty::udp::Header,
         data: &[u8],
     ) -> Result<humpty::udp::Response, humpty::udp::Error> {
         use humpty::udp::{Request, Response};
