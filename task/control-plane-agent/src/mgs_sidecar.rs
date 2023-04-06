@@ -14,10 +14,10 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SlotId, SpComponent,
-    SpError, SpPort, SpState, SpUpdatePrepare, SwitchDuration, UpdateChunk,
-    UpdateId, UpdateStatus,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SlotId, SpComponent, SpError, SpPort, SpState, SpUpdatePrepare,
+    SwitchDuration, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -310,6 +310,21 @@ impl SpHandler for MgsHandler {
         match update.component {
             SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_action(
+        &mut self,
+        _sender: SocketAddrV6,
+        component: SpComponent,
+        action: ComponentAction,
+    ) -> Result<(), SpError> {
+        match (component, action) {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+                // TODO: implement this
+                Err(SpError::RequestUnsupportedForComponent)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }

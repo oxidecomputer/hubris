@@ -8,14 +8,15 @@ use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
     update::ComponentUpdater, Log, MgsMessage,
 };
+use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SlotId, SpComponent,
-    SpError, SpPort, SpState, SpUpdatePrepare, SwitchDuration, UpdateChunk,
-    UpdateId, UpdateStatus,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SlotId, SpComponent, SpError, SpPort, SpState, SpUpdatePrepare,
+    SwitchDuration, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -27,6 +28,8 @@ use userlib::sys_get_timer;
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks for now, no other updateable components.
 const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
+
+userlib::task_slot!(USER_LEDS, user_leds);
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).
@@ -45,6 +48,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sp_update: SpUpdate,
     rot_update: RotUpdate,
+    user_leds: UserLeds,
 }
 
 impl MgsHandler {
@@ -55,6 +59,7 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
+            user_leds: UserLeds::from(USER_LEDS.get_task_id()),
         }
     }
 
@@ -261,6 +266,31 @@ impl SpHandler for MgsHandler {
         match update.component {
             SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn component_action(
+        &mut self,
+        _sender: SocketAddrV6,
+        component: SpComponent,
+        action: ComponentAction,
+    ) -> Result<(), SpError> {
+        match (component, action) {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+                use gateway_messages::LedComponentAction;
+                // Setting the LED should be infallible, because we know that
+                // this board supports LED 0 as the system LED.
+                match action {
+                    LedComponentAction::TurnOn => self.user_leds.led_on(0),
+                    LedComponentAction::TurnOff => self.user_leds.led_off(0),
+                    LedComponentAction::Blink => {
+                        return Err(SpError::RequestUnsupportedForComponent)
+                    }
+                }
+                .unwrap();
+                Ok(())
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }

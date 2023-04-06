@@ -304,6 +304,15 @@ mod devices_with_static_validation {
             // to MGS messages anyway!
             presence: DevicePresence::Present,
         },
+        #[cfg(any(feature = "gimlet", feature = "psc"))]
+        DeviceDescription {
+            component: SpComponent::SYSTEM_LED,
+            device: SpComponent::SYSTEM_LED.const_as_str(),
+            description: "System attention LED",
+            capabilities: DeviceCapabilities::IS_LED,
+            // The LED is soldered to the board
+            presence: DevicePresence::Present,
+        },
     ];
 
     pub(super) static OUR_DEVICES: &[DeviceDescription<'static>] =
