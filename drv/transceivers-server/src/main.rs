@@ -68,6 +68,7 @@ enum Trace {
     TemperatureReadError(usize, FpgaError),
     SensorError(usize, SensorError),
     ThermalError(usize, ThermalError),
+    GetInterfaceError(usize, FpgaError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -273,7 +274,7 @@ impl ServerImpl {
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
-                        ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                        ringbuf_entry!(Trace::GetInterfaceError(i, e));
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
