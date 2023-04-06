@@ -17,13 +17,219 @@ pub use drv_update_api::{
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
+use sprockets_common::msgs::{
+    RotError as SprocketsError, RotRequestV1 as SprocketsReq,
+    RotResponseV1 as SprocketsRsp,
+};
 use userlib::{sys_send, FromPrimitive};
+
+const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
+const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
+// XXX ROT FIFO size should be discovered.
+pub const ROT_FIFO_SIZE: usize = 8;
+
+/// A sprot request from the SP to the RoT
+pub struct Request {
+    protocol: Protocol,
+    body: ReqBody,
+    crc: u16,
+}
+
+impl Request {
+    /// Create a `Request` with `Protocol::V2` header, calculate a CRC16 over
+    // the `protocol` and `body` fields, then serialize it into `buf` with
+    // hubpack, returning the serialized size.
+    pub fn pack(
+        body: &ReqBody,
+        buf: &mut [u8],
+    ) -> Result<size, hubpack::Error> {
+        buf[0] = Protocol::V2;
+        let mut crc_start = buf.len() - CRC_SIZE;
+        // Leave room for the Protocol byte  and CRC
+        let size = hubpack::serialize(body, &mut buf[1..crc_start])?;
+        crc_start = size + 1;
+        let crc = CRC16.checksum(&buf[..crc_start]);
+        let crc_buf = &mut buf[crc_start..][..2];
+        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
+        Ok(size + 1 + CRC_SIZE)
+    }
+
+    /// Deserialize a Request and validate its CRC
+    pub fn unpack(buf: &[u8]) -> Result<Request, SprotProtocolError> {
+        let protocol = Protocol::V2;
+        if buf[0] != protocol {
+            return Err(SprotProtocolError::UnsupportedProtocol);
+        }
+        let crc_start = buf.len() - 2;
+        let (body, rest) = hubpack::deserialize(&buf[1..crc_start])?;
+        let (crc, _) = hubpack::deserialize(rest)?;
+        let computed = CRC16.checksum(&self.buf[..crc_start]);
+        if computed == crc {
+            Ok(Request {
+                protocol,
+                body,
+                crc,
+            })
+        } else {
+            Err(SprotProtocolError::InvalidCrc)
+        }
+    }
+}
+
+/// Protocol version
+/// This is the first byte of any Sprot request or response
+#[derive(
+    Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize,
+)]
+#[repr(u8)]
+pub enum Protocol {
+    /// Indicates that no message is present.
+    Ignore,
+    /// The first sprot format with hand-rolled serialization.
+    V1,
+    /// The second format, using hubpack
+    V2,
+}
+
+/// A sprot response from the RoT to the SP
+pub struct Response {
+    protocol: Protocol,
+    // The SP needs to know how many bytes to clock in
+    body_len: u16,
+    body: Result<RspBody, SprotError>,
+    crc: u16,
+}
+
+impl Response {
+    /// Create a `Response` with `Protocol::V2` header, calculate a CRC16 over
+    // the `length`, `protocol` and `body` fields, then serialize it into `buf` with
+    // hubpack, returning the serialized size.
+    pub fn pack(
+        body: &RspBody,
+        buf: &mut [u8],
+    ) -> Result<size, hubpack::Error> {
+        buf[0] = Protocol::V2;
+        let mut crc_start = buf.len() - CRC_SIZE;
+        // Protocol byte + u16 length
+        let body_start = 3;
+
+        // Serialize the body
+        // Leave room for the Protocol byte, u16 length, and CRC
+        let size = hubpack::serialize(body, &mut buf[body_start..crc_start])?;
+
+        // Serialize the length of the body
+        let _ = hubpack::serialize(
+            &mut buf[1..body_start],
+            &u16::try_from(size).unwrap_lite(),
+        );
+        crc_start = body_start + size;
+        let crc = CRC16.checksum(&buf[..crc_start]);
+        let crc_buf = &mut buf[crc_start..][..2];
+        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
+        Ok(body_start + size + CRC_SIZE)
+    }
+
+    /// Return the length of the entire serialized request, given a buffer of
+    /// at least 3 bytes of the serialized request.
+    pub fn parse_body_len(buf: &[u8]) -> Result<u16, SprotProtocolError> {
+        assert!(buf.len() >= 3);
+        if buf[0] != Protocol::V2 {
+            return Err(SprotProtocolError::UnsupportedProtocol);
+        }
+        let (body_len, _) = hubpack::deserialize(&buf[1..])?;
+
+        Ok(body_len)
+    }
+
+    /// Return the total size of a serialized response given its body length
+    pub fn total_len(body_len: u16) -> usize {
+        // 5 = protocol byte + u16 length + u16 crc
+        body_len as usize + 5
+    }
+
+    /// Deserialize a Response and validate its CRC.
+    ///
+    /// The buffer passed in must be the exact buffer size of the received message.
+    ///
+    /// This operates on the whole buffer in order to validate the CRC, but
+    /// does not reparse the protocol byte or body length as those were already
+    /// parsed.
+    pub fn unpack_remaining(
+        buf: &[u8],
+        body_len: u16,
+    ) -> Result<Response, SprotProtocolError> {
+        // Protocol byte + u16 length + u16 CRC
+        assert!(buf.len() == body_len + 5);
+        // Protocol byte + u16 length
+        let body_start = 3;
+        let crc_start = buf.len() - 2;
+        let (body, rest) = hubpack::deserialize(&buf[body_start..])?;
+        let (crc, _) = hubpack::deserialize(rest)?;
+        let computed = CRC16.checksum(&self.buf[..crc_start]);
+        if computed == crc {
+            Ok(Response {
+                protocol,
+                body_len,
+                body,
+                crc,
+            })
+        } else {
+            Err(SprotProtocolError::InvalidCrc)
+        }
+    }
+}
+
+/// The body of a sprot request
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum ReqBody {
+    Status,
+    IoStats,
+    Sprockets(SprocketsReq),
+    Update(UpdateReq),
+    Dump(DumpReq),
+}
+
+/// A request used for RoT updates
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum UpdateReq {
+    GetBlockSize,
+    Prep(SlotId),
+    WriteBlock { block_num: u32, block: [u8; 512] },
+    Finish,
+    Abort,
+}
+
+/// A response used for RoT updates
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum UpdateRsp {
+    BlockSize(usize),
+}
+
+/// The body of a sprot request
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum RspBody {
+    // General Ok status shared among response variants
+    Ok,
+    Status(SprotStatus),
+    IoStats(IoStats),
+    Sprockets(SprocketsRsp),
+    Update(UpdateRsp),
+}
+
+/// An error returned from a sprot request
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, SerializedSize)]
+pub enum SprotError {
+    Protocol(SprotProtocolError),
+    Spi(SpiError),
+    Update(UpdateError),
+    Sprockets(SprocketsError),
+}
 
 /// Sprot protocol specific errors
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-pub enum SprotError {
+pub enum SprotProtocolError {
     /// CRC check failed.
     InvalidCrc,
     /// FIFO overflow/underflow
@@ -173,108 +379,5 @@ pub struct SwitchDefaultImageHeader {
     pub slot: SlotId,
     pub duration: SwitchDuration,
 }
-
-/// Protocol version
-/// This is the first byte of any Sprot request or response
-#[derive(
-    Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize,
-)]
-#[repr(u8)]
-pub enum Protocol {
-    /// Indicates that no message is present.
-    Ignore = 0x00,
-    /// The first sprot format with hand-rolled serialization.
-    V1 = 0x01,
-    /// The second format, using hubpack
-    V2 = 0x02,
-    /// Never to be seen. Queued by RoT when not ready.
-    ///
-    /// SPI has no flow control, i.e. the RoT has no busy state indication
-    /// visible to the SP.
-    /// In future designs, we could consider adding a "ROT_READY" in addition
-    /// to ROT_IRQ or use an interconect that does have flow control.
-    ///
-    /// The RoT places 0xB2 (Busy -> "B" "Z" -> 0xB2) in its transmit FIFO when
-    /// it is not prepared to service SPI IO. If the SP ever clocks out
-    /// data before the RoT is ready, the SP will read 0xB2.
-    /// This code should never be seen on the SPI bus. If seen as the first
-    /// byte in a message or on the SPI bus with a logic analyzer, that needs
-    /// to be investigated and fixed.
-    ///
-    /// It may mean that the two parties are out of phase, some RoT task
-    /// is hampering the sprot task from meeting its realtime requirements,
-    /// or there is some other bug.
-    Busy = 0xb2,
-}
-
-/// A sprot request from the SP to the RoT
-#[derive(Serialize, Deserialize, SerializedSize)]
-pub struct Request {
-    protocol: Protocol,
-    body: ReqBody,
-    crc: u16,
-}
-
-impl Request {
-    /// Create a `Request` with `Protocol::V2` header, calculate a CRC16 over
-    // the `length`, `protocol` and `body` fields, then serialize it into `buf` with
-    // hubpack, returning the serialized size.
-    pub fn pack(body: ReqBody, buf: &mut [u8]) -> Result<size, hubpack::Error> {
-        buf[0] = Protocol::V2;
-        let mut crc_start = buf.len() - CRC_SIZE;
-        // Leave room for the Protocol byte  and CRC
-        let size = hubpack::serialize(body, &mut buf[1..crc_start])?;
-        crc_start = size + 1;
-        let crc = CRC16.checksum(&buf[..crc_start]);
-        let crc_buf = &mut buf[crc_start..][..2];
-        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        Ok(size + 1 + CRC_SIZE)
-    }
-
-    /// Deserialize a Request and validate its CRC
-    pub fn unpack(buf: &[u8]) -> Result<Request, SprotError> {
-        let protocol = Protocol::V2;
-        if buf[0] != protocol {
-            return Err(SprotError::UnsupportedProtocol);
-        }
-        let crc_start = buf.len() - 2;
-        let (body, _) = hubpack::deserialize(&buf[1..crc_start])?;
-        let (crc, _) = hubpack::deserialize(&buf[crc_start..][..2])?;
-        let computed = CRC16.checksum(&self.buf[..crc_start]);
-        if computed == crc {
-            Ok(Request {
-                protocol,
-                body,
-                crc,
-            })
-        } else {
-            Err(SprotError::InvalidCrc)
-        }
-    }
-}
-
-/// The body of a sprot request
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
-pub enum ReqBody {
-    Error(ReqError),
-    Status,
-    IoStats,
-    Sprockets(SprocketsReq),
-    Update(UpdateReq),
-    Dump(DumpReq),
-}
-
-/// An error returned from a sprot request
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, SerializedSize)]
-pub enum ReqError {
-    SprotError(SprotError),
-    SpiError(SpiError),
-    UpdateError(UpdateError),
-}
-
-const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
-const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
-// XXX ROT FIFO size should be discovered.
-pub const ROT_FIFO_SIZE: usize = 8;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
