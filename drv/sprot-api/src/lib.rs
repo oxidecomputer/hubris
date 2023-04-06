@@ -194,9 +194,17 @@ pub enum ReqBody {
 pub enum UpdateReq {
     GetBlockSize,
     Prep(SlotId),
-    WriteBlock { block_num: u32, block: [u8; 512] },
+    WriteBlock {
+        block_num: u32,
+        block: [u8; 512],
+    },
+    SwitchDefaultImage {
+        slot: SlotId,
+        duration: SwitchDuration,
+    },
     Finish,
     Abort,
+    Reset,
 }
 
 /// A response used for RoT updates
@@ -252,6 +260,10 @@ pub enum SprotProtocolError {
     RotIrqRemainsAsserted,
     // An explicit busy signal on the wire as the protocol byte
     RotBusy,
+    // An unexpected response was received.
+    // This should basically be impossible. We only include it so we can
+    // return this error when unpacking a RspBody in idol calls.
+    UnexpectedResponse,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -371,13 +383,6 @@ pub struct SpIoStats {
 pub struct IoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,
-}
-
-/// Switch Default Image payload
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
-pub struct SwitchDefaultImageHeader {
-    pub slot: SlotId,
-    pub duration: SwitchDuration,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
