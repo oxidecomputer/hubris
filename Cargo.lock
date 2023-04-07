@@ -1919,6 +1919,7 @@ name = "dump-agent-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "dumper-api",
  "hubpack",
  "humpty",
  "idol",
@@ -3936,6 +3937,7 @@ dependencies = [
  "cortex-m",
  "drv-sprot-api",
  "dump-agent-api",
+ "dumper-api",
  "hubpack",
  "humpty",
  "idol",

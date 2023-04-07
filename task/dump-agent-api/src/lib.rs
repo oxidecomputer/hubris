@@ -7,6 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use dumper_api::DumperError;
 use userlib::*;
 
 pub use humpty::*;
@@ -19,7 +20,7 @@ pub enum DumpAgentError {
     UnalignedOffset,
     UnalignedSegmentAddress,
     UnalignedSegmentLength,
-    DumpFailed,
+    BadDumpResponse,
     NotSupported,
     DumpPresent,
     UnclaimedDumpArea,
@@ -27,8 +28,35 @@ pub enum DumpAgentError {
     DumpAreaInUse,
     BadSegmentAdd,
 
+    DumpMessageFailed,
+    DumpFailed,
+    DumpFailedSetup,
+    DumpFailedRead,
+    DumpFailedWrite,
+    DumpFailedControl,
+    DumpFailedUnknown,
+    DumpFailedUnknownError,
+
     #[idol(server_death)]
     ServerRestarted,
+}
+
+impl From<DumperError> for DumpAgentError {
+    fn from(err: DumperError) -> DumpAgentError {
+        match err {
+            DumperError::SetupFailed => DumpAgentError::DumpFailedSetup,
+            DumperError::UnalignedAddress
+            | DumperError::StartReadFailed
+            | DumperError::ReadFailed
+            | DumperError::BadDumpAreaHeader
+            | DumperError::HeaderReadFailed => DumpAgentError::DumpFailedRead,
+            DumperError::WriteFailed => DumpAgentError::DumpFailedWrite,
+            DumperError::FailedToHalt
+            | DumperError::FailedToResumeAfterFailure
+            | DumperError::FailedToResume => DumpAgentError::DumpFailedControl,
+            _ => DumpAgentError::DumpFailedUnknown,
+        }
+    }
 }
 
 pub const DUMP_READ_SIZE: usize = 256;

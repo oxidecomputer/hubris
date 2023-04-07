@@ -21,6 +21,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static_assertions = { workspace = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 task-jefe-api = { path = "../../task/jefe-api" }
+dumper-api = { path = "../dumper-api" }
 
 [features]
 # Disable the SP-ROT communication, e.g. to run dump-agent on a Gimletlet
