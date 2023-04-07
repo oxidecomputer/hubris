@@ -12,15 +12,16 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
+use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    Header, IgnitionCommand, IgnitionState, Message, MessageKind, MgsError,
-    PowerState, SpComponent, SpError, SpPort, SpRequest, SpState,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    SERIAL_CONSOLE_IDLE_TIMEOUT,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
+    MessageKind, MgsError, PowerState, SlotId, SpComponent, SpError, SpPort,
+    SpRequest, SpState, SpUpdatePrepare, SwitchDuration, UpdateChunk, UpdateId,
+    UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -86,6 +87,7 @@ const SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS: u64 = 500;
 
 userlib::task_slot!(HOST_FLASH, hf);
 userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
+userlib::task_slot!(USER_LEDS, user_leds);
 
 type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
 
@@ -124,6 +126,7 @@ pub(crate) struct MgsHandler {
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
+    user_leds: UserLeds,
     attached_serial_console_mgs: Option<AttachedSerialConsoleMgs>,
     serial_console_write_offset: u64,
     next_message_id: u32,
@@ -143,6 +146,7 @@ impl MgsHandler {
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
+            user_leds: UserLeds::from(USER_LEDS.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
@@ -580,6 +584,31 @@ impl SpHandler for MgsHandler {
         }
     }
 
+    fn component_action(
+        &mut self,
+        _sender: SocketAddrV6,
+        component: SpComponent,
+        action: ComponentAction,
+    ) -> Result<(), SpError> {
+        match (component, action) {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+                use gateway_messages::LedComponentAction;
+                // Setting the LED should be infallible, because we know that
+                // this board supports LED 0 as the system LED.
+                match action {
+                    LedComponentAction::TurnOn => self.user_leds.led_on(0),
+                    LedComponentAction::TurnOff => self.user_leds.led_off(0),
+                    LedComponentAction::Blink => {
+                        return Err(SpError::RequestUnsupportedForComponent)
+                    }
+                }
+                .unwrap();
+                Ok(())
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
     fn update_chunk(
         &mut self,
         _sender: SocketAddrV6,
@@ -808,22 +837,6 @@ impl SpHandler for MgsHandler {
         Ok(())
     }
 
-    fn reset_prepare(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<(), SpError> {
-        self.common.reset_prepare()
-    }
-
-    fn reset_trigger(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<Infallible, SpError> {
-        self.common.reset_trigger()
-    }
-
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32
@@ -1028,6 +1041,41 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
+    }
+
+    fn switch_default_image(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), SpError> {
+        self.common.switch_default_image(
+            &self.sp_update,
+            component,
+            slot,
+            duration,
+        )
+    }
+
+    fn reset_component_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.reset_component_prepare(component)
+    }
+
+    fn reset_component_trigger(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger(&self.sp_update, component)
     }
 }
 
@@ -1240,10 +1288,8 @@ impl UsartHandler {
             });
         }
 
-        if n_received > 0 {
-            if self.from_rx_flush_deadline.is_none() {
-                self.set_from_rx_flush_deadline();
-            }
+        if n_received > 0 && self.from_rx_flush_deadline.is_none() {
+            self.set_from_rx_flush_deadline();
         }
 
         // Re-enable USART interrupts.

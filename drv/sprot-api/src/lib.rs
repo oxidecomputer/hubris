@@ -19,8 +19,9 @@ extern crate memoffset;
 use crc::{Crc, CRC_16_XMODEM};
 use derive_idol_err::IdolError;
 use drv_spi_api::SpiError;
-use drv_update_api::{
-    HandoffDataLoadError, RotBootState, UpdateError, UpdateTarget,
+pub use drv_update_api::{
+    HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
+    UpdateError, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
@@ -38,6 +39,8 @@ use zerocopy::{ByteOrder, LittleEndian};
 // then consider adding a function that translates an error code
 // into the desired action, e.g. InvalidCrc and FlowError should both
 // result in a retry on the SP side and an ErrorRsp on the RoT side.
+// Note: Variant order must be maintained to stay compatible due to SP/RoT
+// version skew during update.
 #[derive(
     Copy,
     Clone,
@@ -84,6 +87,7 @@ pub enum SprotError {
     SpiServerReadPart2Error,
     CannotAssertCSn,
     RotNotReady,
+    // SP initiated RoT reset request should timeout.
     RspTimeout,
     BadResponse,
     RotBusy,
@@ -137,8 +141,9 @@ pub enum SprotError {
     #[idol(server_death)]
     ServerRestarted,
 
-    /// Unknown Errors are mapped to 0xff
-    Unknown = 0xff,
+    // Rot sink test not configured
+    RotSinkTestNotConfigured,
+    UpdateNotImplemented,
 }
 
 impl From<SpiError> for SprotError {
@@ -181,13 +186,8 @@ impl From<UpdateError> for SprotError {
             UpdateError::Unknown
             | UpdateError::ImageBoardMismatch // TODO add new error codes here
             | UpdateError::ImageBoardUnknown => SprotError::UpdateUnknown,
+            UpdateError::NotImplemented => SprotError::UpdateNotImplemented,
         }
-    }
-}
-
-impl From<u8> for SprotError {
-    fn from(byte: u8) -> SprotError {
-        Self::from_u8(byte).unwrap_or(SprotError::Unknown)
     }
 }
 
@@ -211,6 +211,7 @@ pub fn is_recoverable_error(err: SprotError) -> bool {
             | SprotError::EmptyMessage
             | SprotError::RotNotReady
             | SprotError::RotBusy
+            | SprotError::RspTimeout
             | SprotError::FlowError
             | SprotError::UnsupportedProtocol
             | SprotError::BadMessageLength
@@ -242,8 +243,6 @@ pub struct SinkStatus {
 /// This is meant to be a forward compatible, insecure, informational
 /// structure used to facilitate manufacturing workflows and diagnosis
 /// of problems before trusted communications can be established.
-///
-/// TODO: Finalize this structure before first customer ship.
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct SprotStatus {
     /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
@@ -252,7 +251,7 @@ pub struct SprotStatus {
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
-    /// TODO: This should live in the stage0 handoff info
+    /// TODO: This should live in the stage0 handoff info.
     pub bootrom_crc32: u32,
 
     /// Maxiumum message size that the RoT can handle.
@@ -264,9 +263,7 @@ pub struct SprotStatus {
 /// Stats from the RoT side of sprot
 ///
 /// All of the counters will wrap around.
-#[derive(
-    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
+#[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct RotIoStats {
     /// Number of messages received
     pub rx_received: u32,
@@ -328,12 +325,17 @@ pub struct SpIoStats {
 }
 
 /// Sprot related stats
-#[derive(
-    Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
-)]
+#[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct IoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,
+}
+
+/// Switch Default Image payload
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub struct SwitchDefaultImageHeader {
+    pub slot: SlotId,
+    pub duration: SwitchDuration,
 }
 
 #[derive(
@@ -396,6 +398,13 @@ impl From<u8> for Protocol {
 // pub const VERSION_BUSY: u8 = 0xB2;
 
 /// SPI Message types will allow for multiplexing and forward compatibility.
+/// The value of MsgType is seen on the wire.
+/// The explicit value assignments are to aid lookup when debugging.
+///
+/// The current on-the-wire format is:
+///
+///   {Protocol::V1, MsgType, Length, Payload, CRC}
+///
 #[derive(
     Copy,
     Clone,
@@ -420,7 +429,6 @@ pub enum MsgType {
     /// Request RoT status.
     StatusReq = 4,
     /// Supply RoT status.
-    // TODO: decide on appropriate content for the StatusRsp message payload.
     StatusRsp = 5,
     /// Payload contains a sprockets request.
     SprocketsReq = 6,
@@ -451,40 +459,16 @@ pub enum MsgType {
     DumpReq = 22,
     DumpRsp = 23,
 
+    // Switch Default Image
+    UpdSwitchDefaultImageReq = 24,
+
+    // Reset
+    UpdSwitchDefaultImageRsp = 25,
+    UpdResetReq = 26,
+    UpdResetRsp = 27,
+
     // Reserved value.
     Unknown = 0xff,
-}
-
-impl From<u8> for MsgType {
-    fn from(value: u8) -> MsgType {
-        match value {
-            0 => MsgType::Invalid,
-            1 => MsgType::ErrorRsp,
-            2 => MsgType::EchoReq,
-            3 => MsgType::EchoRsp,
-            4 => MsgType::StatusReq,
-            5 => MsgType::StatusRsp,
-            6 => MsgType::SprocketsReq,
-            7 => MsgType::SprocketsRsp,
-            8 => MsgType::SinkReq,
-            9 => MsgType::SinkRsp,
-            10 => MsgType::UpdBlockSizeReq,
-            11 => MsgType::UpdBlockSizeRsp,
-            12 => MsgType::UpdPrepImageUpdateReq,
-            13 => MsgType::UpdPrepImageUpdateRsp,
-            14 => MsgType::UpdWriteOneBlockReq,
-            15 => MsgType::UpdWriteOneBlockRsp,
-            16 => MsgType::UpdAbortUpdateReq,
-            17 => MsgType::UpdAbortUpdateRsp,
-            18 => MsgType::UpdFinishImageUpdateReq,
-            19 => MsgType::UpdFinishImageUpdateRsp,
-            20 => MsgType::IoStatsReq,
-            21 => MsgType::IoStatsRsp,
-            22 => MsgType::DumpReq,
-            23 => MsgType::DumpRsp,
-            _ => MsgType::Unknown,
-        }
-    }
 }
 
 /// A builder/serializer for messages that wraps the transmit buffer
@@ -600,6 +584,20 @@ impl<'a> TxMsg<'a> {
             .map_err(|_| SprotError::TaskRestart)?;
         let payload_len = n + block.len();
         self.from_existing(MsgType::UpdWriteOneBlockReq, payload_len)
+            .map_err(|(_, e)| e)
+    }
+
+    /// Serialize a SwitchDefaultImage request
+    pub fn switch_default_image(
+        mut self,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<VerifiedTxMsg<'a>, SprotError> {
+        let payload_len = hubpack::serialize(
+            self.payload_mut(),
+            &SwitchDefaultImageHeader { slot, duration },
+        )?;
+        self.from_existing(MsgType::UpdSwitchDefaultImageReq, payload_len)
             .map_err(|(_, e)| e)
     }
 
@@ -765,7 +763,7 @@ impl<'a> RxMsg<'a> {
     /// This should only be used after a successful non-consuming parse, or
     /// else the data will be meaningless.
     pub fn payload_error_byte(&self) -> u8 {
-        assert!(self.len >= MIN_MSG_SIZE + 1);
+        assert!(self.len > MIN_MSG_SIZE);
         self.buf[HEADER_SIZE]
     }
 
@@ -803,7 +801,7 @@ impl<'a> RxMsg<'a> {
         if self.len < HEADER_SIZE {
             return Err(SprotError::Incomplete);
         }
-        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])?;
+        let (header, _) = hubpack::deserialize::<MsgHeader>(self.buf)?;
         if header.payload_len as usize > PAYLOAD_SIZE_MAX {
             return Err(SprotError::BadMessageLength);
         }
@@ -822,7 +820,7 @@ impl<'a> RxMsg<'a> {
             return Err((self.header_bytes(), SprotError::Incomplete));
         }
 
-        let (header, _) = hubpack::deserialize::<MsgHeader>(&self.buf[..])
+        let (header, _) = hubpack::deserialize::<MsgHeader>(self.buf)
             .map_err(|e| (self.header_bytes(), e.into()))?;
         if header.payload_len as usize > PAYLOAD_SIZE_MAX {
             return Err((self.header_bytes(), SprotError::BadMessageLength));

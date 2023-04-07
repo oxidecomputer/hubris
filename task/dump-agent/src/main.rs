@@ -125,12 +125,11 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             &area.address.to_le_bytes(),
             &mut buf,
         ) {
-            Err(err) => Err(DumpAgentError::DumpMessageFailed.into()),
-
+            Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
             Ok(result) => {
-                let response: drv_sprot_api::MsgType = result.msgtype.into();
+                let response = drv_sprot_api::MsgType::from_u8(result.msgtype);
 
-                if response != drv_sprot_api::MsgType::DumpRsp {
+                if response != Some(drv_sprot_api::MsgType::DumpRsp) {
                     Err(DumpAgentError::BadDumpResponse.into())
                 } else {
                     let val = u32::from_le_bytes(buf);

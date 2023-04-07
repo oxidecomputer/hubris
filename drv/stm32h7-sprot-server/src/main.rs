@@ -9,7 +9,7 @@ use core::convert::Into;
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::{UpdateError, UpdateTarget};
+use drv_update_api::{SlotId, SwitchDuration, UpdateError, UpdateTarget};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use ringbuf::*;
 use userlib::*;
@@ -46,11 +46,13 @@ enum Trace {
     BlockSize(usize),
     Debug(bool),
     Error(SprotError),
-    FailedRetries { retries: u16, errcode: SprotError },
+    FailedRetries {
+        retries: u16,
+        last_errcode: SprotError,
+    },
     SprotError(SprotError),
     PulseFailed,
     RotNotReady,
-    RotReadyTimeout,
     RxParseError(u8, u8, u8, u8),
     RxSpiError(drv_spi_api::SpiError),
     RxPart1(usize),
@@ -72,6 +74,17 @@ enum Trace {
     Recoverable(SprotError),
     Header(MsgHeader),
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
+    Upd {
+        rsp: MsgType,
+        timeout: u32,
+        attempts: u16,
+    },
+    RotReady {
+        slept: u32,
+        desired: bool,
+    },
+    RotReadyTimeout,
+    RspTimeout,
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -231,8 +244,8 @@ impl<S: SpiServer> Io<S> {
         self.do_send_request(txmsg)?;
 
         if !self.wait_rot_irq(true, timeout) {
-            ringbuf_entry!(Trace::RotNotReady);
-            return Err(SprotError::RotNotReady);
+            ringbuf_entry!(Trace::RspTimeout);
+            return Err(SprotError::RspTimeout);
         }
 
         // Fill in rx_buf with a complete message and validate its crc
@@ -266,7 +279,9 @@ impl<S: SpiServer> Io<S> {
         }
         self.spi.write(part1)?;
         if !part2.is_empty() {
-            hl::sleep_for(PART2_DELAY);
+            if PART2_DELAY != 0 {
+                hl::sleep_for(PART2_DELAY);
+            }
             self.spi.write(part2)?;
         }
         // Remove the error that we added at the beginning of this function
@@ -360,29 +375,15 @@ impl<S: SpiServer> Io<S> {
         retries: u16,
     ) -> Result<MsgHeader, SprotError> {
         let mut attempts_left = retries;
-        let mut errcode = SprotError::Unknown;
         loop {
-            if attempts_left == 0 {
-                ringbuf_entry!(Trace::FailedRetries { retries, errcode });
-                break;
-            }
-
-            if attempts_left != retries {
-                self.stats.retries = self.stats.retries.wrapping_add(1);
-                rxmsg.clear();
-            }
-
-            attempts_left -= 1;
-
-            match self.do_send_recv(txmsg, rxmsg, timeout) {
+            let recoverable_err = match self.do_send_recv(txmsg, rxmsg, timeout)
+            {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
                 Err(err) => {
                     ringbuf_entry!(Trace::SprotError(err));
                     if is_recoverable_error(err) {
-                        errcode = err;
-                        hl::sleep_for(RETRY_TIMEOUT);
-                        continue;
+                        err
                     } else {
                         return Err(err);
                     }
@@ -400,33 +401,50 @@ impl<S: SpiServer> Io<S> {
                                     header.payload_len
                                 ));
                                 // Treat this as a recoverable error
-                                hl::sleep_for(RETRY_TIMEOUT);
                                 ringbuf_entry!(Trace::ErrRespNoPayload);
-                                continue;
+                                SprotError::BadMessageLength
+                            } else {
+                                let err = SprotError::from_u8(
+                                    rxmsg.payload_error_byte(),
+                                )
+                                .unwrap_or(SprotError::BadResponse);
+                                ringbuf_entry!(Trace::SprotError(err));
+                                if is_recoverable_error(err) {
+                                    // There is no "RoT ready to receive" signal.
+                                    // There could be relative timing issues between the SP and RoT
+                                    // tasks that result in the RoT not being ready to
+                                    // receive the first byte of a message from the SP.
+                                    // The CRC on the message will catch the case.
+                                    ringbuf_entry!(Trace::Recoverable(err));
+                                    err
+                                } else {
+                                    // Other errors from RoT are not recoverable with
+                                    // a retry.
+                                    return Err(err);
+                                }
                             }
-                            errcode =
-                                SprotError::from(rxmsg.payload_error_byte());
-                            ringbuf_entry!(Trace::SprotError(errcode));
-                            if is_recoverable_error(errcode) {
-                                // TODO: There are rare cases where
-                                // the RoT dose not receive
-                                // a 0x01 as the first byte in a message.
-                                // See issue #929.
-                                hl::sleep_for(RETRY_TIMEOUT);
-                                ringbuf_entry!(Trace::Recoverable(errcode));
-                                continue;
-                            }
-                            // Other errors from RoT are not recoverable with
-                            // a retry.
-                            return Err(errcode);
                         }
                         // All of the non-error message types are ok here.
                         _ => return Ok(header),
                     }
                 }
+            };
+
+            self.stats.retries = self.stats.retries.wrapping_add(1);
+            rxmsg.clear();
+
+            attempts_left -= 1;
+
+            if attempts_left == 0 {
+                ringbuf_entry!(Trace::FailedRetries {
+                    retries,
+                    last_errcode: recoverable_err
+                });
+                return Err(recoverable_err);
             }
+
+            hl::sleep_for(RETRY_TIMEOUT);
         }
-        Err(errcode)
     }
 
     // TODO: Move README.md to RFD 317 and discuss:
@@ -447,7 +465,7 @@ impl<S: SpiServer> Io<S> {
     // response is still in the RoT's transmit FIFO, then we can also see
     // ROT_IRQ asserted when not expected.
     //
-    // TODO: configuration parameters for delays below
+    // Consider making configuration parameters for delays below
     fn handle_rot_irq(&mut self) -> Result<(), SprotError> {
         if self.is_rot_irq_asserted() {
             // See if the ROT_IRQ completes quickly.
@@ -698,9 +716,10 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
                                             SprotError::BadMessageLength,
                                         );
                                     }
-                                    break Err(SprotError::from(
+                                    break Err(SprotError::from_u8(
                                         verified_rxmsg.payload()[0],
-                                    ));
+                                    )
+                                    .unwrap_or(SprotError::BadResponse));
                                 }
                                 _ => {
                                     // Other non-SinkRsp messages from the RoT
@@ -730,7 +749,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _count: u16,
         _size: u16,
     ) -> Result<SinkStatus, RequestError<SprotError>> {
-        Err(RequestError::Runtime(SprotError::NotImplemented))
+        Err(RequestError::Runtime(SprotError::RotSinkTestNotConfigured))
     }
 
     /// Retrieve status from the RoT.
@@ -886,12 +905,49 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         )?;
         Ok(())
     }
+
+    fn switch_default_image(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let txmsg = TxMsg::new(&mut self.tx_buf[..])
+            .switch_default_image(slot, duration)?;
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
+            MsgType::UpdSwitchDefaultImageRsp,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        Ok(())
+    }
+
+    fn reset(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let txmsg =
+            TxMsg::new(&mut self.tx_buf[..]).no_payload(MsgType::UpdResetReq);
+        let rxmsg = RxMsg::new(&mut self.rx_buf[..]);
+        // If successful, upd() will return RspTimeout
+        let _ = self.io.upd(
+            &txmsg,
+            rxmsg,
+            MsgType::UpdResetRsp,
+            TIMEOUT_QUICK,
+            1,
+        )?;
+        Ok(())
+    }
 }
 
 mod idl {
     use super::{
-        IoStats, MsgType, PulseStatus, Received, SinkStatus, SprotError,
-        SprotStatus, UpdateTarget,
+        IoStats, MsgType, PulseStatus, Received, SinkStatus, SlotId,
+        SprotError, SprotStatus, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

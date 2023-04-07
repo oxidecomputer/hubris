@@ -1153,6 +1153,7 @@ dependencies = [
  "sprockets-common",
  "sprockets-rot",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1870,10 +1871,12 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-caboose",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "serde",
  "serde_repr",
  "stage0-handoff",
@@ -2074,7 +2077,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#2dcc63c645005a7184ba754b5c42c341a0777c66"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#76c227f97ba23a197b09d4b5fb2b11f7a7e20c34"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2334,7 +2337,7 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#70c646c4a9f31120fe4b39928580ce9f90358bfb"
+source = "git+https://github.com/oxidecomputer/humpty#448435605eaa076a57e0b7f78837602b5dd1deef"
 dependencies = [
  "hubpack",
  "lzss",
@@ -2364,8 +2367,8 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idol"
-version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/idolatry.git#61d63774ab43c5f704bc955a06951ad47dee5fdb"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f2396893e786d4bfa75212312908198b8d6a5310"
 dependencies = [
  "indexmap",
  "quote",
@@ -2377,7 +2380,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#61d63774ab43c5f704bc955a06951ad47dee5fdb"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f2396893e786d4bfa75212312908198b8d6a5310"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -2595,6 +2598,7 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "static_assertions",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -3885,6 +3889,7 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32h7-usart",
  "drv-update-api",
+ "drv-user-leds-api",
  "gateway-messages",
  "heapless",
  "host-sp-messages",

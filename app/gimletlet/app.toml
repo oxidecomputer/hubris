@@ -221,6 +221,7 @@ task-slots = [
     "sensor",
     "sprot",
     "packrat",
+    "user_leds",
 ]
 features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
 notifications = ["usart-irq", "socket", "timer"]

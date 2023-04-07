@@ -46,7 +46,7 @@ use drv_sprot_api::{
     HEADER_SIZE,
 };
 use lpc55_pac as device;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::ringbuf;
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
@@ -60,7 +60,6 @@ pub(crate) enum Trace {
     None,
     ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
     ErrWithTypedHeader(SprotError, MsgHeader),
-    Stats(RotIoStats),
     Dump(u32),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -78,8 +77,6 @@ fn configure_spi() -> Io {
     let gpio_driver = GPIO.get_task_id();
     setup_pins(gpio_driver).unwrap_lite();
     let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
-    // TODO: It should never happen but, initialization should be able to deal
-    // with CSn being asserted at init time.
 
     // Configure ROT_IRQ
     // Ensure that ROT_IRQ is not asserted
@@ -159,8 +156,6 @@ fn main() -> ! {
     let mut signal_reply = false;
 
     loop {
-        ringbuf_entry!(Trace::Stats(io.stats));
-
         // Every time through the io loop we receive a fresh request
         let mut rx_msg = RxMsg::new(&mut rx_buf[..]);
 
@@ -256,7 +251,7 @@ impl Io {
         loop {
             // Let's exchange some bytes
             let mut io = true;
-            while io == true {
+            while io {
                 io = false;
                 if self.spi.can_tx() {
                     io = true;
@@ -295,7 +290,18 @@ impl Io {
                 // potentially throttle sends in the future.
                 self.spi.rxerr_clear();
                 self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                err = Some(IoError::Flow);
+                // If we were just sending our response, and SP was just
+                // sending zeros and we received the first byte correctly and
+                // that first byte was `Protocol::Ignore`, then our Rx overrun
+                // is inconsequential and does not need to be reported as
+                // a message.
+                if err.is_none()
+                    && rx_msg.len() > 0
+                    && rx_msg.protocol() != Some(Protocol::Ignore)
+                {
+                    // This error matters
+                    err = Some(IoError::Flow);
+                }
             }
 
             // Are we done?
