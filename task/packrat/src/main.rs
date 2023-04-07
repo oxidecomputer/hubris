@@ -30,7 +30,8 @@
 #![no_main]
 
 use core::convert::Infallible;
-use idol_runtime::RequestError;
+use idol_runtime::{Leased, LenLimit, RequestError};
+use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
@@ -38,12 +39,22 @@ use task_packrat_api::{
 };
 use userlib::RecvMessage;
 
+#[cfg(feature = "gimlet")]
+mod gimlet;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<VpdIdentity>),
     SetNextBootHostStartupOptions(HostStartupOptions),
+    SpdDataUpdate {
+        index: u8,
+        page1: bool,
+        offset: u8,
+        len: u8,
+    },
 }
 
 impl From<TraceSet<MacAddressBlock>> for Trace {
@@ -71,25 +82,32 @@ enum TraceSet<T> {
 
 ringbuf!(Trace, 16, Trace::None);
 
-struct ServerImpl {
-    mac_address_block: Option<MacAddressBlock>,
-    identity: Option<VpdIdentity>,
-    host_startup_options: HostStartupOptions,
+#[export_name = "main"]
+fn main() -> ! {
+    let (mac_address_block, identity) = mutable_statics! {
+        static mut MAC_ADDRESS_BLOCK: [Option<MacAddressBlock>; 1]
+            = [|| None; _];
+        static mut IDENTITY: [Option<VpdIdentity>; 1] = [|| None; _];
+    };
+
+    let mut server = ServerImpl {
+        mac_address_block: &mut mac_address_block[0],
+        identity: &mut identity[0],
+        #[cfg(feature = "gimlet")]
+        gimlet_data: gimlet::GimletData::claim_static_resources(),
+    };
+
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    loop {
+        idol_runtime::dispatch(&mut buffer, &mut server);
+    }
 }
 
-impl Default for ServerImpl {
-    fn default() -> Self {
-        // XXX For now, we want to default to these options.
-        let host_startup_options = HostStartupOptions::STARTUP_KMDB
-            | HostStartupOptions::STARTUP_PROM
-            | HostStartupOptions::STARTUP_VERBOSE;
-
-        Self {
-            mac_address_block: None,
-            identity: None,
-            host_startup_options,
-        }
-    }
+struct ServerImpl {
+    mac_address_block: &'static mut Option<MacAddressBlock>,
+    identity: &'static mut Option<VpdIdentity>,
+    #[cfg(feature = "gimlet")]
+    gimlet_data: gimlet::GimletData,
 }
 
 impl ServerImpl {
@@ -162,13 +180,25 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Self::set_once(&mut self.identity, identity).map_err(Into::into)
     }
 
+    #[cfg(feature = "gimlet")]
     fn get_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Ok(self.host_startup_options)
+        Ok(self.gimlet_data.host_startup_options())
     }
 
+    #[cfg(not(feature = "gimlet"))]
+    fn get_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    #[cfg(feature = "gimlet")]
     fn set_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
@@ -177,18 +207,86 @@ impl idl::InOrderPackratImpl for ServerImpl {
         ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
             host_startup_options
         ));
-        self.host_startup_options = host_startup_options;
+        self.gimlet_data
+            .set_host_startup_options(host_startup_options);
         Ok(())
     }
-}
 
-#[export_name = "main"]
-fn main() -> ! {
-    let mut server = ServerImpl::default();
-    let mut buffer = [0; idl::INCOMING_SIZE];
+    #[cfg(not(feature = "gimlet"))]
+    fn set_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+        _host_startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 
-    loop {
-        idol_runtime::dispatch(&mut buffer, &mut server);
+    #[cfg(feature = "gimlet")]
+    fn set_spd_eeprom(
+        &mut self,
+        _: &RecvMessage,
+        index: u8,
+        page1: bool,
+        offset: u8,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
+    ) -> Result<(), RequestError<Infallible>> {
+        self.gimlet_data.set_spd_eeprom(index, page1, offset, data)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn set_spd_eeprom(
+        &mut self,
+        _: &RecvMessage,
+        _index: u8,
+        _page1: bool,
+        _offset: u8,
+        _data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
+    ) -> Result<(), RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_spd_present(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<bool, RequestError<Infallible>> {
+        self.gimlet_data.get_spd_present(index)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_spd_present(
+        &mut self,
+        _: &RecvMessage,
+        _index: usize,
+    ) -> Result<bool, RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn get_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<u8, RequestError<Infallible>> {
+        self.gimlet_data.get_spd_data(index)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        _index: usize,
+    ) -> Result<u8, RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 }
 

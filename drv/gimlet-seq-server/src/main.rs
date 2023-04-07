@@ -84,6 +84,14 @@ enum Trace {
     PowerControl(u8),
     InterruptFlags(u8),
     V3P3SysA0VOut(units::Volts),
+
+    SpdPresent(u8, u8, u8),
+    SpdBankAbsent(u8),
+    SpdAbsent(u8, u8, u8),
+    SpdReadTop(u8),
+    SpdReadBottom(u8),
+    SpdDimmsFound(usize),
+
     None,
 }
 
@@ -337,6 +345,15 @@ fn main() -> ! {
     ringbuf_entry_v3p3_sys_a0_vout();
     ringbuf_entry!(Trace::A2);
 
+    // After declaring A2 but before transitioning to A0 (either automatically o
+    // or in response to an IPC), populate packrat with EEPROM contents for use
+    // by the SPD task.
+    //
+    // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
+    // sending the first SPD command.
+    hl::sleep_for(10);
+    read_spd_data_and_load_packrat(&packrat, I2C.get_task_id());
+
     // Turn on the chassis LED once we reach A2
     sys.gpio_set(CHASSIS_LED);
 
@@ -372,6 +389,123 @@ fn main() -> ! {
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
+}
+
+fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
+    use drv_gimlet_seq_api::NUM_SPD_BANKS;
+    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
+
+    type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
+
+    cfg_if::cfg_if! {
+        if #[cfg(any(
+            target_board = "gimlet-b",
+            target_board = "gimlet-c",
+            target_board = "gimlet-d",
+        ))] {
+            //
+            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+            //
+            // - ABCD DIMMs are on the mid bus (I2C3, port H)
+            // - EFGH DIMMS are on the rear bus (I2C4, port F)
+            //
+            // It should go without saying that the ordering here is essential
+            // to assure that the SPD data that we return for a DIMM corresponds
+            // to the correct DIMM from the SoC's perspective.
+            //
+            const BANKS: [SpdBank; NUM_SPD_BANKS] = [
+                (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
+                (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
+            ];
+        } else {
+            compile_error!("I2C target unsupported for this board");
+        }
+    }
+
+    let mut npresent = 0;
+    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
+    let mut tmp = [0u8; 256];
+
+    // For each bank, we're going to iterate over each device, reading all 512
+    // bytes of SPD data from each.
+    for nbank in 0..BANKS.len() as u8 {
+        let (controller, port, mux) = BANKS[nbank as usize];
+
+        let addr = spd::Function::PageAddress(spd::Page(0))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        if page.write(&[0]).is_err() {
+            // If our operation fails, we are going to assume that there
+            // are no DIMMs on this bank.
+            ringbuf_entry!(Trace::SpdBankAbsent(nbank));
+            continue;
+        }
+
+        for i in 0..spd::MAX_DEVICES {
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            // Try reading the first byte; if this fails, we will assume
+            // the device isn't present.
+            let first = match spd.read_reg::<u8, u8>(0) {
+                Ok(val) => {
+                    ringbuf_entry!(Trace::SpdPresent(nbank, i, ndx));
+                    present[usize::from(ndx)] = true;
+                    npresent += 1;
+                    val
+                }
+                Err(_) => {
+                    ringbuf_entry!(Trace::SpdAbsent(nbank, i, ndx));
+                    continue;
+                }
+            };
+
+            ringbuf_entry!(Trace::SpdReadBottom(ndx));
+
+            // We'll store that byte and then read 255 more.
+            tmp[0] = first;
+
+            spd.read_into(&mut tmp[1..]).unwrap();
+
+            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+        }
+
+        // Now flip over to the top page.
+        let addr = spd::Function::PageAddress(spd::Page(1))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        // We really don't expect this to fail, and if it does, tossing here
+        // seems to be best option:  things are pretty wrong.
+        page.write(&[0]).unwrap();
+
+        // ...and two more reads for each (present) device.
+        for i in 0..spd::MAX_DEVICES {
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            if !present[usize::from(ndx)] {
+                continue;
+            }
+
+            ringbuf_entry!(Trace::SpdReadTop(ndx));
+
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+
+            let chunk = 128;
+            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap();
+
+            spd.read_into(&mut tmp[chunk..]).unwrap();
+
+            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
+        }
+    }
+
+    ringbuf_entry!(Trace::SpdDimmsFound(npresent));
 }
 
 struct ServerImpl<S: SpiServer> {
