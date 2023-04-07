@@ -8,7 +8,6 @@
 extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
-use derive_idol_err::IdolError;
 use drv_spi_api::SpiError;
 pub use drv_update_api::{
     HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
@@ -16,24 +15,35 @@ pub use drv_update_api::{
 };
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
-use idol_runtime::{Leased, R};
+use idol_runtime::{Leased, LenLimit, R};
 use serde::{Deserialize, Serialize};
 use sprockets_common::msgs::{
     RotError as SprocketsError, RotRequestV1 as SprocketsReq,
     RotResponseV1 as SprocketsRsp,
 };
-use userlib::{sys_send, FromPrimitive};
+use userlib::sys_send;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
 const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
 // XXX ROT FIFO size should be discovered.
 pub const ROT_FIFO_SIZE: usize = 8;
+pub const MAX_BLOB_SIZE: usize = 512;
+pub const MAX_REQUEST_SIZE: usize =
+    <Request as SerializedSize>::MAX_SIZE + MAX_BLOB_SIZE;
+pub const MAX_RESPONSE_SIZE: usize = <Response as SerializedSize>::MAX_SIZE;
 
 /// A sprot request from the SP to the RoT
+#[derive(SerializedSize)]
 pub struct Request {
-    protocol: Protocol,
-    body: ReqBody,
-    crc: u16,
+    pub protocol: Protocol,
+    pub body: ReqBody,
+    // Optional binary data is stored after the CRC in the buffer. We can read
+    // it directly out of the buffer without enlarging the size of ReqBody for
+    // all variants and inducing an extra copy of the binary data.
+    //
+    // The blob is covered by the CRC if it exists
+    pub blob_size: Option<u16>,
+    pub crc: u16,
 }
 
 impl Request {
@@ -43,34 +53,98 @@ impl Request {
     pub fn pack(
         body: &ReqBody,
         buf: &mut [u8],
-    ) -> Result<size, hubpack::Error> {
-        buf[0] = Protocol::V2;
-        let mut crc_start = buf.len() - CRC_SIZE;
-        // Leave room for the Protocol byte  and CRC
-        let size = hubpack::serialize(body, &mut buf[1..crc_start])?;
-        crc_start = size + 1;
-        let crc = CRC16.checksum(&buf[..crc_start]);
-        let crc_buf = &mut buf[crc_start..][..2];
-        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        Ok(size + 1 + CRC_SIZE)
+    ) -> Result<usize, hubpack::Error> {
+        buf[0] = Protocol::V2 as u8;
+
+        // `protocol` byte
+        let mut size = 1;
+
+        // Serialize `body`
+        size += hubpack::serialize(&mut buf[size..], body)?;
+
+        // Serialize `blob_size`
+        let blob_size: Option<u16> = None;
+        size += hubpack::serialize(&mut buf[size..], &blob_size)?;
+
+        // Calculate the CRC
+        let crc = CRC16.checksum(&buf[..size]);
+
+        // Serialize the CRC
+        size += hubpack::serialize(&mut buf[size..], &crc).unwrap_lite();
+
+        Ok(size)
+    }
+
+    pub fn pack_with_blob(
+        body: &ReqBody,
+        buf: &mut [u8],
+        blob: LenLimit<Leased<R, [u8]>, MAX_BLOB_SIZE>,
+    ) -> Result<usize, SprotProtocolError> {
+        buf[0] = Protocol::V2 as u8;
+
+        // `protocol` byte
+        let mut size = 1;
+
+        // Serialize `body`
+        size += hubpack::serialize(&mut buf[size..], body)?;
+
+        // Serialize `blob_size`
+        size += hubpack::serialize(&mut buf[size..], &Some(blob.len()))?;
+
+        // Leave room for the CRC
+        let blob_start = size + 2;
+        let blob_end = blob_start + blob.len();
+
+        // Copy the blob into the buffer
+        blob.read_range(0..blob.len(), &mut buf[blob_start..])
+            .map_err(|_| SprotProtocolError::ServerRestarted)?;
+
+        // Calculate the CRC
+        let mut digest = CRC16.digest();
+        digest.update(&buf[..size]);
+        digest.update(&buf[blob_start..blob_end]);
+        let crc = digest.finalize();
+
+        // Serialize the CRC
+        size += hubpack::serialize(&mut buf[size..], &crc).unwrap_lite();
+
+        Ok(size + blob.len())
     }
 
     /// Deserialize a Request and validate its CRC
-    pub fn unpack(buf: &[u8]) -> Result<Request, SprotProtocolError> {
+    /// Return an offset to the start of the blob from `buf`, if a blob exists.
+    pub fn unpack(
+        buf: &[u8],
+    ) -> Result<(Request, Option<usize>), SprotProtocolError> {
         let protocol = Protocol::V2;
-        if buf[0] != protocol {
+        if buf[0] != protocol as u8 {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
-        let crc_start = buf.len() - 2;
-        let (body, rest) = hubpack::deserialize(&buf[1..crc_start])?;
-        let (crc, _) = hubpack::deserialize(rest)?;
-        let computed = CRC16.checksum(&self.buf[..crc_start]);
+        let (body, rest) = hubpack::deserialize(&buf[1..])?;
+        let (blob_size, crc_start) = hubpack::deserialize(rest)?;
+        let (crc, blob_start) = hubpack::deserialize(crc_start)?;
+
+        let crc_offset = buf.len() - crc_start.len();
+
+        let (computed, blob_offset) = if let Some(size) = blob_size {
+            let mut digest = CRC16.digest();
+            digest.update(&buf[..crc_offset]);
+            digest.update(&blob_start[..size as usize]);
+            let crc = digest.finalize();
+            let blob_offset = buf.len() - blob_start.len();
+            (crc, Some(blob_offset))
+        } else {
+            (CRC16.checksum(&buf[..crc_offset]), None)
+        };
+
         if computed == crc {
-            Ok(Request {
+            let request = Request {
                 protocol,
                 body,
+                blob_size,
                 crc,
-            })
+            };
+            Ok((request, blob_offset))
         } else {
             Err(SprotProtocolError::InvalidCrc)
         }
@@ -93,12 +167,13 @@ pub enum Protocol {
 }
 
 /// A sprot response from the RoT to the SP
+#[derive(SerializedSize)]
 pub struct Response {
-    protocol: Protocol,
+    pub protocol: Protocol,
     // The SP needs to know how many bytes to clock in
-    body_len: u16,
-    body: Result<RspBody, SprotError>,
-    crc: u16,
+    pub body_len: u16,
+    pub body: Result<RspBody, SprotError>,
+    pub crc: u16,
 }
 
 impl Response {
@@ -106,7 +181,7 @@ impl Response {
     // the `length`, `protocol` and `body` fields, then serialize it into `buf` with
     // hubpack, returning the serialized size.
     pub fn pack(body: Result<RspBody, SprotError>, buf: &mut [u8]) -> usize {
-        buf[0] = Protocol::V2;
+        buf[0] = Protocol::V2 as u8;
         let mut crc_start = buf.len() - CRC_SIZE;
         // Protocol byte + u16 length
         let body_start = 3;
@@ -115,7 +190,7 @@ impl Response {
         // Leave room for the Protocol byte, u16 length, and CRC
         // We treat failure as a programmer error, as the buffer should
         // always be sized large enough.
-        let size = hubpack::serialize(body, &mut buf[body_start..crc_start])
+        let size = hubpack::serialize(&mut buf[body_start..crc_start], &body)
             .unwrap_lite();
 
         // Serialize the length of the body
@@ -134,7 +209,7 @@ impl Response {
     /// at least 3 bytes of the serialized request.
     pub fn parse_body_len(buf: &[u8]) -> Result<u16, SprotProtocolError> {
         assert!(buf.len() >= 3);
-        if buf[0] != Protocol::V2 {
+        if buf[0] != Protocol::V2 as u8 {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
         let (body_len, _) = hubpack::deserialize(&buf[1..])?;
@@ -160,16 +235,16 @@ impl Response {
         body_len: u16,
     ) -> Result<Response, SprotProtocolError> {
         // Protocol byte + u16 length + u16 CRC
-        assert!(buf.len() == body_len + 5);
+        assert!(buf.len() == body_len as usize + 5);
         // Protocol byte + u16 length
         let body_start = 3;
         let crc_start = buf.len() - 2;
         let (body, rest) = hubpack::deserialize(&buf[body_start..])?;
         let (crc, _) = hubpack::deserialize(rest)?;
-        let computed = CRC16.checksum(&self.buf[..crc_start]);
+        let computed = CRC16.checksum(&buf[..crc_start]);
         if computed == crc {
             Ok(Response {
-                protocol,
+                protocol: Protocol::V2,
                 body_len,
                 body,
                 crc,
@@ -197,7 +272,6 @@ pub enum UpdateReq {
     Prep(UpdateTarget),
     WriteBlock {
         block_num: u32,
-        block: [u8; 512],
     },
     SwitchDefaultImage {
         slot: SlotId,
@@ -211,7 +285,7 @@ pub enum UpdateReq {
 /// A response used for RoT updates
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum UpdateRsp {
-    BlockSize(usize),
+    BlockSize(u32),
 }
 
 /// The body of a sprot request
@@ -226,13 +300,19 @@ pub enum RspBody {
 }
 
 /// An error returned from a sprot request
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, SerializedSize)]
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum SprotError {
     Protocol(SprotProtocolError),
     Spi(SpiError),
     Update(UpdateError),
     Sprockets(SprocketsError),
     Dump(DumperError),
+}
+
+impl From<idol_runtime::ServerDeath> for SprotError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        SprotError::Protocol(SprotProtocolError::ServerRestarted)
+    }
 }
 
 /// Sprot protocol specific errors
@@ -260,8 +340,6 @@ pub enum SprotProtocolError {
     Serialization,
     // The RoT has not de-asserted ROT_IRQ
     RotIrqRemainsAsserted,
-    // An explicit busy signal on the wire as the protocol byte
-    RotBusy,
     // An unexpected response was received.
     // This should basically be impossible. We only include it so we can
     // return this error when unpacking a RspBody in idol calls.
@@ -270,22 +348,27 @@ pub enum SprotProtocolError {
     // Failed to load update status
     BadUpdateStatus,
 
-    #[idol(server_death)]
+    // Used for mapping From<idol_runtime::ServerDeath>
     ServerRestarted,
 }
 
-impl From<hubpack::Error> for SprotError {
+impl From<hubpack::Error> for SprotProtocolError {
     fn from(_: hubpack::Error) -> Self {
-        SprotError::Deserialization
+        SprotProtocolError::Deserialization
     }
 }
 
 impl SprotError {
     pub fn is_recoverable(&self) -> bool {
-        use SprotError::*;
-        match self {
-            UnsupportedProtocol | CannotAssertCSn => false,
-            _ => true,
+        match *self {
+            SprotError::Protocol(err) => {
+                use SprotProtocolError::*;
+                match err {
+                    InvalidCrc | FlowError | Timeout | ServerRestarted => true,
+                    _ => false,
+                }
+            }
+            _ => false,
         }
     }
 }

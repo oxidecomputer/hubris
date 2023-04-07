@@ -59,7 +59,6 @@ enum Log {
     UpdatePartial { bytes_written: u32 },
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
-    RotReset { err: drv_sprot_api::SprotError },
     ExpectedRspTimeout,
 }
 

@@ -36,7 +36,7 @@ Interface(
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
             args: { },
             reply: Result(
-                ok: "usize",
+                ok: "u32",
                 err: Complex("SprotError"),
             ),
             encoding: Hubpack, 
@@ -59,7 +59,7 @@ Interface(
                 "block_num" : "u32",
             },
             leases : {
-                "block": (type: "[u8]", read: true, max_len: Some(1024)),
+                "block": (type: "[u8]", read: true, max_len: Some(512)),
             },
             reply: Result (
                 ok: "()",

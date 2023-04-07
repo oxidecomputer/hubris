@@ -147,8 +147,8 @@ enum IoError {
 fn main() -> ! {
     let mut io = configure_spi();
 
-    let mut rx_buf = [0u8; Request::MAX_SIZE];
-    let mut tx_buf = [0u8; Response::MAX_SIZE];
+    let mut rx_buf = [0u8; MAX_REQUEST_SIZE];
+    let mut tx_buf = [0u8; MAX_RESPONSE_SIZE];
 
     let mut handler = Handler::new();
 
