@@ -5,11 +5,11 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    MsgType, Protocol, ReqBody, RotIoStats, RspBody, RxMsg, SprotError,
-    SprotProtocolError, SprotStatus, TxMsg, UpdateReq, UpdateRsp,
-    VerifiedTxMsg, BUF_SIZE,
+    Protocol, ReqBody, Request, Response, RotIoStats, RspBody, SprotError,
+    SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp, MAX_REQUEST_SIZE,
+    MAX_RESPONSE_SIZE,
 };
-use drv_update_api::{Update, UpdateStatus, UpdateTarget};
+use drv_update_api::{Update, UpdateStatus};
 use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -35,8 +35,11 @@ pub struct StartupState {
     /// TODO: This should live in the stage0 handoff info
     pub bootrom_crc32: u32,
 
-    /// Maxiumum message size that the RoT can handle.
-    pub buffer_size: u32,
+    /// Maxiumum request size that the RoT can handle.
+    pub max_request_size: u32,
+
+    /// Maximum response size returned from the RoT to the SP
+    pub max_response_size: u32,
 }
 
 pub struct Handler {
@@ -53,7 +56,8 @@ impl Handler {
             startup_state: StartupState {
                 supported: 1_u32 << (Protocol::V1 as u8 - 1),
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-                buffer_size: BUF_SIZE as u32,
+                max_request_size: MAX_REQUEST_SIZE.try_into().unwrap_lite(),
+                max_response_size: MAX_RESPONSE_SIZE.try_into().unwrap_lite(),
             },
         }
     }
@@ -71,7 +75,7 @@ impl Handler {
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
-        let req = match Request::unpack(rx_buf) {
+        let (req, blob_offset) = match Request::unpack(rx_buf) {
             Ok(req) => req,
             Err(e) => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
@@ -79,31 +83,32 @@ impl Handler {
             }
         };
 
-        let rsp_body = self.handle_req_body(req.body, stats);
+        let rsp_body = self.handle_request(rx_buf, req, blob_offset, stats);
         Response::pack(rsp_body, tx_buf)
     }
 
-    pub fn handle_req_body(
+    pub fn handle_request(
         &mut self,
-        req: ReqBody,
+        rx_buf: &[u8],
+        req: Request,
+        blob_offset: Option<usize>,
         stats: &mut RotIoStats,
-    ) -> Result<Response, SprotError> {
+    ) -> Result<RspBody, SprotError> {
         match req.body {
             ReqBody::Status => match self.update.status() {
                 UpdateStatus::Rot(rot_updates) => {
                     let msg = SprotStatus {
                         supported: self.startup_state.supported,
                         bootrom_crc32: self.startup_state.bootrom_crc32,
-                        buffer_size: self.startup_state.buffer_size,
+                        max_request_size: self.startup_state.max_request_size,
+                        max_response_size: self.startup_state.max_response_size,
                         rot_updates,
                     };
                     Ok(RspBody::Status(msg))
                 }
                 _ => {
                     stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                    Err(SprotError::Protocol(
-                        SprotProtocolError::BadUpdateStatus,
-                    ))
+                    Err(SprotProtocolError::BadUpdateStatus)?
                 }
             },
             ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
@@ -118,19 +123,29 @@ impl Handler {
                 let dumper = Dumper::from(DUMPER.get_task_id());
                 match dumper.dump(addr) {
                     Ok(()) => Ok(RspBody::Ok),
-                    Err(e) => SprotError::Dump(e),
+                    Err(e) => Err(SprotError::Dump(e)),
                 }
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
                 let size = self.update.block_size()?;
-                Ok(RspBody::Update(UpdateRsp::BlockSize(size)))
+                // Block size will always fit in a u32 on these MCUs
+                Ok(RspBody::Update(UpdateRsp::BlockSize(
+                    size.try_into().unwrap(),
+                )))
             }
             ReqBody::Update(UpdateReq::Prep(target)) => {
                 self.update.prep_image_update(target)?;
                 Ok(RspBody::Ok)
             }
-            ReqBody::Update(UpdateReq::WriteBlock { block_num, block }) => {
-                self.update.write_one_block(block_num, &block)?;
+            ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
+                match (blob_offset, req.blob_size) {
+                    (Some(offset), Some(size)) => {
+                        let block = &rx_buf[offset..offset + size as usize];
+                        self.update
+                            .write_one_block(block_num as usize, &block)?;
+                    }
+                    _ => return Err(SprotProtocolError::MissingBlob)?,
+                }
                 Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::Abort) => {

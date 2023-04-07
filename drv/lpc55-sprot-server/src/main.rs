@@ -41,8 +41,7 @@
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
-use drv_sprot_api::{Protocol, Request, Response, RotIoStats, SprotError};
-use hubpack::SerializedSize;
+use drv_sprot_api::{RotIoStats, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE};
 use lpc55_pac as device;
 use ringbuf::ringbuf;
 use userlib::{
@@ -56,8 +55,6 @@ use handler::Handler;
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
     None,
-    ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
-    ErrWithTypedHeader(SprotError, MsgHeader),
     Dump(u32),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -190,12 +187,12 @@ impl Io {
         // Go into a tight loop receiving as many bytes as we can until we see
         // CSn de-asserted.
         let mut bytes_received = 0;
-        let rx = rx_buf.iter_mut();
+        let mut rx = rx_buf.iter_mut();
         while !self.spi.ssd() {
             while self.spi.has_byte() {
                 bytes_received += 1;
                 let read = self.spi.read_u8();
-                rx.next().map(|&b| b = read);
+                rx.next().map(|b| *b = read);
             }
         }
 
@@ -203,7 +200,7 @@ impl Io {
         while self.spi.has_byte() {
             bytes_received += 1;
             let read = self.spi.read_u8();
-            rx.next().map(|&b| b = read);
+            rx.next().map(|b| *b = read);
         }
 
         if bytes_received == 0 {
@@ -218,9 +215,11 @@ impl Io {
     }
 
     fn reply(&mut self, tx_buf: &[u8]) {
+        let mut tx = tx_buf.iter();
+
         // Fill in the fifo before we assert ROT_IRQ
         if self.spi.can_tx() {
-            let b = tx.next().unwrap_or(0);
+            let b = tx.next().copied().unwrap_or(0);
             self.spi.send_u8(b);
         }
 
@@ -244,12 +243,11 @@ impl Io {
             }
         }
 
-        let bytes_sent = false;
-        let tx = tx_buf.iter();
+        let mut bytes_sent = false;
         while !self.spi.ssd() {
             if self.spi.can_tx() {
                 bytes_sent = true;
-                let b = tx.next().unwrap_or(0);
+                let b = tx.next().copied().unwrap_or(0);
                 self.spi.send_u8(b);
             }
         }
@@ -266,7 +264,7 @@ impl Io {
         self.deassert_rot_irq();
     }
 
-    fn check_for_overrun(&self) -> Result<(), IoError> {
+    fn check_for_overrun(&mut self) -> Result<(), IoError> {
         let fifostat = self.spi.fifostat();
         if fifostat.rxerr().bit() {
             self.spi.rxerr_clear();
@@ -279,7 +277,7 @@ impl Io {
 
     // We don't actually want to return an error here.
     // The SP will detect an underrun via a CRC error
-    fn check_for_underrun(&self) {
+    fn check_for_underrun(&mut self) {
         let fifostat = self.spi.fifostat();
 
         if fifostat.txerr().bit() {

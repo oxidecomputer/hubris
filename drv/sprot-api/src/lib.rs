@@ -348,6 +348,12 @@ pub enum SprotProtocolError {
     // return this error when unpacking a RspBody in idol calls.
     UnexpectedResponse,
 
+    // Unexpected binary blob trailer received wtih message
+    UnexpectedBlob,
+
+    // Missing expected binary blob trailer received wtih message
+    MissingBlob,
+
     // Failed to load update status
     BadUpdateStatus,
 
@@ -411,8 +417,11 @@ pub struct SprotStatus {
     /// TODO: This should live in the stage0 handoff info.
     pub bootrom_crc32: u32,
 
-    /// Maxiumum message size that the RoT can handle.
-    pub buffer_size: u32,
+    /// Maxiumum request size that the RoT can handle.
+    pub max_request_size: u32,
+
+    /// Maximum response size returned from the RoT to the SP
+    pub max_response_size: u32,
 
     pub rot_updates: RotBootState,
 }

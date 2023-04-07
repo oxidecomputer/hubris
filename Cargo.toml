@@ -130,7 +130,7 @@ pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = fal
 salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroize", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false, branch = "no-salty-by-default-in-common" }
-sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
+sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false, branch = "no-salty-by-default-in-common" }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
