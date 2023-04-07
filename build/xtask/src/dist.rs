@@ -13,7 +13,6 @@ use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
-use colored::*;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
@@ -1179,11 +1178,11 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
                 .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
                 .priority;
             if p >= task.priority && name != callee {
-                // TODO: once all priority inversions are fixed, return an
-                // error so no more can be introduced
-                eprint!("{}", "Priority inversion: ".red());
-                eprintln!(
-                    "task {} (priority {}) calls into {} (priority {})",
+                bail!(
+                    concat!(
+                        "Priority inversion: ",
+                        "task {} (priority {}) calls into {} (priority {})",
+                    ),
                     name, task.priority, callee, p
                 );
             }
