@@ -466,9 +466,6 @@ pub enum MsgType {
     UpdSwitchDefaultImageRsp = 25,
     UpdResetReq = 26,
     UpdResetRsp = 27,
-
-    // Reserved value.
-    Unknown = 0xff,
 }
 
 /// A builder/serializer for messages that wraps the transmit buffer
