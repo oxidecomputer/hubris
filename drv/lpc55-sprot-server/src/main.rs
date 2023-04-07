@@ -154,7 +154,9 @@ fn main() -> ! {
 
     loop {
         let rsp_len = match io.wait_for_request(&mut rx_buf) {
-            Ok(request) => handler.handle(&request, &mut io.stats),
+            Ok(rx_len) => {
+                handler.handle(&rx_buf[..rx_len], &mut tx_buf, &mut io.stats)
+            }
             Err(IoError::Flush) => continue,
             Err(IoError::Flow) => handler.flow_error(&mut tx_buf),
         };

@@ -17,15 +17,3 @@ pub fn init() -> RotSprocket {
     );
     RotSprocket::new(config)
 }
-
-// Serialize an Error response for a poorly encoded request
-//
-// Return the number of bytes written to `buf`.
-pub fn bad_encoding_rsp(buf: &mut [u8]) -> usize {
-    let rsp = RotResponseV1 {
-        version: 1,
-        id: 0,
-        result: RotResultV1::Err(RotError::BadEncoding),
-    };
-    serialize(buf, &rsp).unwrap()
-}

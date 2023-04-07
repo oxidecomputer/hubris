@@ -14,6 +14,7 @@ pub use drv_update_api::{
     HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
     UpdateError, UpdateTarget,
 };
+use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, R};
 use serde::{Deserialize, Serialize};
@@ -104,10 +105,7 @@ impl Response {
     /// Create a `Response` with `Protocol::V2` header, calculate a CRC16 over
     // the `length`, `protocol` and `body` fields, then serialize it into `buf` with
     // hubpack, returning the serialized size.
-    pub fn pack(
-        body: &RspBody,
-        buf: &mut [u8],
-    ) -> Result<size, hubpack::Error> {
+    pub fn pack(body: Result<RspBody, SprotError>, buf: &mut [u8]) -> usize {
         buf[0] = Protocol::V2;
         let mut crc_start = buf.len() - CRC_SIZE;
         // Protocol byte + u16 length
@@ -115,7 +113,10 @@ impl Response {
 
         // Serialize the body
         // Leave room for the Protocol byte, u16 length, and CRC
-        let size = hubpack::serialize(body, &mut buf[body_start..crc_start])?;
+        // We treat failure as a programmer error, as the buffer should
+        // always be sized large enough.
+        let size = hubpack::serialize(body, &mut buf[body_start..crc_start])
+            .unwrap_lite();
 
         // Serialize the length of the body
         let _ = hubpack::serialize(
@@ -126,7 +127,7 @@ impl Response {
         let crc = CRC16.checksum(&buf[..crc_start]);
         let crc_buf = &mut buf[crc_start..][..2];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        Ok(body_start + size + CRC_SIZE)
+        body_start + size + CRC_SIZE
     }
 
     /// Return the length of the entire serialized request, given a buffer of
@@ -186,7 +187,7 @@ pub enum ReqBody {
     IoStats,
     Sprockets(SprocketsReq),
     Update(UpdateReq),
-    Dump(DumpReq),
+    Dump { addr: u32 },
 }
 
 /// A request used for RoT updates
@@ -231,6 +232,7 @@ pub enum SprotError {
     Spi(SpiError),
     Update(UpdateError),
     Sprockets(SprocketsError),
+    Dump(DumperError),
 }
 
 /// Sprot protocol specific errors
@@ -264,6 +266,9 @@ pub enum SprotProtocolError {
     // This should basically be impossible. We only include it so we can
     // return this error when unpacking a RspBody in idol calls.
     UnexpectedResponse,
+
+    // Failed to load update status
+    BadUpdateStatus,
 
     #[idol(server_death)]
     ServerRestarted,
