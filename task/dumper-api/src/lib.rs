@@ -9,19 +9,24 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
+///
+/// These constitute an interface between the RoT and the SP in that the
+/// error codes are interpreted by the dump agent and turned into dump agent
+/// failures.
+///
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum DumperError {
     SetupFailed = 1,
-    UnalignedAddress,
-    StartReadFailed,
-    ReadFailed,
-    BadDumpAreaHeader,
-    WriteFailed,
-    HeaderReadFailed,
-    FailedToHalt,
-    FailedToResume,
-    FailedToResumeAfterFailure,
-    RegisterReadFailed,
+    UnalignedAddress = 2,
+    StartReadFailed = 3,
+    ReadFailed = 4,
+    BadDumpAreaHeader = 5,
+    WriteFailed = 6,
+    HeaderReadFailed = 7,
+    FailedToHalt = 8,
+    FailedToResume = 9,
+    FailedToResumeAfterFailure = 10,
+    RegisterReadFailed = 11,
 
     #[idol(server_death)]
     ServerRestarted,

@@ -32,6 +32,8 @@ pub enum DumpAgentError {
     DumpFailed,
     DumpFailedSetup,
     DumpFailedRead,
+    DumpFailedWrite,
+    DumpFailedControl,
     DumpFailedUnknown,
     DumpFailedUnknownError,
 
@@ -43,7 +45,15 @@ impl From<DumperError> for DumpAgentError {
     fn from(err: DumperError) -> DumpAgentError {
         match err {
             DumperError::SetupFailed => DumpAgentError::DumpFailedSetup,
-            DumperError::UnalignedAddress => DumpAgentError::DumpFailedRead,
+            DumperError::UnalignedAddress
+            | DumperError::StartReadFailed
+            | DumperError::ReadFailed
+            | DumperError::BadDumpAreaHeader
+            | DumperError::HeaderReadFailed => DumpAgentError::DumpFailedRead,
+            DumperError::WriteFailed => DumpAgentError::DumpFailedWrite,
+            DumperError::FailedToHalt
+            | DumperError::FailedToResumeAfterFailure
+            | DumperError::FailedToResume => DumpAgentError::DumpFailedControl,
             _ => DumpAgentError::DumpFailedUnknown,
         }
     }

@@ -9,7 +9,6 @@
 
 use dump_agent_api::*;
 use idol_runtime::RequestError;
-use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 use userlib::*;
@@ -29,18 +28,6 @@ struct ServerImpl {
 task_slot!(SPROT, sprot);
 
 task_slot!(JEFE, jefe);
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    SystemDump,
-    DumpMessage(u8, drv_sprot_api::MsgType),
-    DumpResponse(u32),
-    DumpMessageError(drv_sprot_api::SprotError),
-    DumperError(dumper_api::DumperError),
-}
-
-ringbuf!(Trace, 2, Trace::None);
 
 impl ServerImpl {
     fn initialize(&self) -> Result<(), DumpAgentError> {
@@ -133,37 +120,25 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             return Err(DumpAgentError::UnclaimedDumpArea.into());
         }
 
-        ringbuf_entry!(Trace::SystemDump);
-
         match sprot.send_recv(
             drv_sprot_api::MsgType::DumpReq,
             &area.address.to_le_bytes(),
             &mut buf,
         ) {
-            Err(err) => {
-                ringbuf_entry!(Trace::DumpMessageError(err));
-                Err(DumpAgentError::DumpMessageFailed.into())
-            }
+            Err(err) => Err(DumpAgentError::DumpMessageFailed.into()),
 
             Ok(result) => {
                 let response: drv_sprot_api::MsgType = result.msgtype.into();
 
                 if response != drv_sprot_api::MsgType::DumpRsp {
-                    ringbuf_entry!(Trace::DumpMessage(
-                        result.msgtype,
-                        response
-                    ));
                     Err(DumpAgentError::BadDumpResponse.into())
                 } else {
                     let val = u32::from_le_bytes(buf);
-
-                    ringbuf_entry!(Trace::DumpResponse(val));
 
                     if val != 0 {
                         if let Some(err) =
                             dumper_api::DumperError::from_u32(val)
                         {
-                            ringbuf_entry!(Trace::DumperError(err));
                             Err(DumpAgentError::from(err).into())
                         } else {
                             Err(DumpAgentError::DumpFailedUnknownError.into())
