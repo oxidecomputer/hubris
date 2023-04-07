@@ -1183,7 +1183,10 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
                         "Priority inversion: ",
                         "task {} (priority {}) calls into {} (priority {})",
                     ),
-                    name, task.priority, callee, p
+                    name,
+                    task.priority,
+                    callee,
+                    p
                 );
             }
         }
