@@ -12,7 +12,10 @@ use userlib::*;
 ///
 /// These constitute an interface between the RoT and the SP in that the
 /// error codes are interpreted by the dump agent and turned into dump agent
-/// failures.
+/// failures.  Ultimately, these error conditions are merely informative,
+/// but it is important that a particular error condition not be falsely
+/// reported; error conditions can be added to or eliminated from this enum,
+/// but the values for extant conditions should not be altered.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum DumperError {

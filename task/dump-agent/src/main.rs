@@ -8,6 +8,7 @@
 #![no_main]
 
 use dump_agent_api::*;
+use dumper_api::DumperError;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -134,16 +135,17 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
                 } else {
                     let val = u32::from_le_bytes(buf);
 
-                    if val != 0 {
-                        if let Some(err) =
-                            dumper_api::DumperError::from_u32(val)
-                        {
-                            Err(DumpAgentError::from(err).into())
-                        } else {
-                            Err(DumpAgentError::DumpFailedUnknownError.into())
-                        }
-                    } else {
+                    //
+                    // A dump response value of 0 denotes success -- anything
+                    // else denotes a failure, and we want to decode and
+                    // translate the error condition if we can.
+                    //
+                    if val == 0 {
                         Ok(())
+                    } else if let Some(err) = DumperError::from_u32(val) {
+                        Err(DumpAgentError::from(err).into())
+                    } else {
+                        Err(DumpAgentError::DumpFailedUnknownError.into())
                     }
                 }
             }
