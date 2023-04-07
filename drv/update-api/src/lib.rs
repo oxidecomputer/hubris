@@ -54,7 +54,9 @@ pub enum UpdateStatus {
 // variant.  To preserve compatibility, DO NOT REORDER THEM.
 // N.B These varients must be kept in order to maintain compatibility between
 // skewed versions of SP and RoT during updates.
-#[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize, PartialEq,
+)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,

@@ -1520,6 +1520,7 @@ version = "0.1.0"
 dependencies = [
  "crc",
  "derive-idol-err",
+ "derive_more",
  "drv-spi-api",
  "drv-update-api",
  "dumper-api",

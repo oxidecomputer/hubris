@@ -83,9 +83,10 @@ impl ComponentUpdater for RotUpdate {
             _ => return Err(SpError::InvalidSlotForComponent),
         };
 
+        // TODO(AJS): Expose real error
         self.task
             .prep_image_update(target)
-            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+            .map_err(|err| SpError::UpdateFailed(9999))?;
 
         self.current = Some(CurrentUpdate::new(
             update.id,
@@ -126,9 +127,10 @@ impl ComponentUpdater for RotUpdate {
             }),
             State::Complete => UpdateStatus::Complete(current.id()),
             State::Aborted => UpdateStatus::Aborted(current.id()),
+            // TODO(AJS): Expose real error
             State::Failed(err) => UpdateStatus::Failed {
                 id: current.id(),
-                code: *err as u32,
+                code: 9999,
             },
         }
     }
@@ -160,7 +162,8 @@ impl ComponentUpdater for RotUpdate {
                 return Err(SpError::UpdateNotPrepared)
             }
             State::Failed(err) => {
-                return Err(SpError::UpdateFailed(*err as u32))
+                // TODO(AJS): Expose real error
+                return Err(SpError::UpdateFailed(9999));
             }
         };
 
@@ -200,7 +203,9 @@ impl ComponentUpdater for RotUpdate {
                 ));
                 if let Err(err) = self.task.write_one_block(block_num, buffer) {
                     *current.state_mut() = State::Failed(err);
-                    return Err(SpError::UpdateFailed(err as u32));
+
+                    // TODO(AJS): Expose real error
+                    return Err(SpError::UpdateFailed(9999));
                 }
 
                 *next_write_offset += buffer.len() as u32;
@@ -212,7 +217,8 @@ impl ComponentUpdater for RotUpdate {
         if *next_write_offset == total_size {
             if let Err(err) = self.task.finish_image_update() {
                 *current.state_mut() = State::Failed(err);
-                return Err(SpError::UpdateFailed(err as u32));
+                // TODO(AJS): Expose real error
+                return Err(SpError::UpdateFailed(9999));
             }
             *current.state_mut() = State::Complete;
         }
@@ -235,11 +241,17 @@ impl ComponentUpdater for RotUpdate {
                 match self.task.abort_update() {
                     // Aborting an update that hasn't started yet is fine;
                     // either way our caller is clear to start a new update.
-                    Ok(()) | Err(SprotError::UpdateNotStarted) => {
+                    Ok(())
+                    | Err(SprotError::Update(
+                        drv_sprot_api::UpdateError::UpdateNotStarted,
+                    )) => {
                         *current.state_mut() = State::Aborted;
                         Ok(())
                     }
-                    Err(other) => Err(SpError::UpdateFailed(other as u32)),
+                    Err(other) => {
+                        // TODO(AJS): Expose real error
+                        Err(SpError::UpdateFailed(9999))
+                    }
                 }
             }
             // Update already aborted - aborting it again is a no-op.

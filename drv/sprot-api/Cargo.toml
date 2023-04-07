@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 crc = { workspace = true }
+derive_more = { workspace = true }
 hubpack = { workspace = true }
 idol-runtime = { workspace = true }
 if_chain = { workspace = true }

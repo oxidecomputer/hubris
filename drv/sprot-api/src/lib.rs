@@ -8,6 +8,7 @@
 extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
+use derive_more::From;
 use drv_spi_api::SpiError;
 pub use drv_update_api::{
     HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
@@ -15,7 +16,7 @@ pub use drv_update_api::{
 };
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
-use idol_runtime::{Leased, LenLimit, R};
+use idol_runtime::{Leased, LenLimit, RequestError, R};
 use serde::{Deserialize, Serialize};
 use sprockets_common::msgs::{
     RotError as SprocketsError, RotRequestV1 as SprocketsReq,
@@ -53,7 +54,7 @@ impl Request {
     pub fn pack(
         body: &ReqBody,
         buf: &mut [u8],
-    ) -> Result<usize, hubpack::Error> {
+    ) -> Result<usize, SprotProtocolError> {
         buf[0] = Protocol::V2 as u8;
 
         // `protocol` byte
@@ -294,13 +295,15 @@ pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
     Status(SprotStatus),
-    IoStats(IoStats),
+    IoStats(RotIoStats),
     Sprockets(SprocketsRsp),
     Update(UpdateRsp),
 }
 
 /// An error returned from a sprot request
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
+)]
 pub enum SprotError {
     Protocol(SprotProtocolError),
     Spi(SpiError),
@@ -319,6 +322,8 @@ impl From<idol_runtime::ServerDeath> for SprotError {
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+// Used by control-plane-agent
+#[repr(u32)]
 pub enum SprotProtocolError {
     /// CRC check failed.
     InvalidCrc,
@@ -334,9 +339,7 @@ pub enum SprotProtocolError {
     CannotAssertCSn,
     // The request timed out
     Timeout,
-    // Hubpack error
-    Deserialization,
-    // Hubpack error
+    // Hubpack error: Used for both serialization and deserialization
     Serialization,
     // The RoT has not de-asserted ROT_IRQ
     RotIrqRemainsAsserted,
@@ -352,9 +355,21 @@ pub enum SprotProtocolError {
     ServerRestarted,
 }
 
+impl From<SprotProtocolError> for RequestError<SprotError> {
+    fn from(err: SprotProtocolError) -> Self {
+        SprotError::from(err).into()
+    }
+}
+
+impl From<hubpack::Error> for SprotError {
+    fn from(_: hubpack::Error) -> Self {
+        SprotProtocolError::Serialization.into()
+    }
+}
+
 impl From<hubpack::Error> for SprotProtocolError {
     fn from(_: hubpack::Error) -> Self {
-        SprotProtocolError::Deserialization
+        SprotProtocolError::Serialization
     }
 }
 

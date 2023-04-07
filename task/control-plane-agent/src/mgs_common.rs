@@ -4,7 +4,7 @@
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_sprot_api::{SpRot, SprotError};
+use drv_sprot_api::{SpRot, SprotError, SprotProtocolError};
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
     RotImageDetails, RotSlot, RotState, RotUpdateDetails, SlotId, SpComponent,
@@ -180,7 +180,7 @@ impl MgsCommon {
             SpComponent::ROT => {
                 // We're dealing with RoT targets at this point.
                 match update.sprot_task().reset() {
-                    Err(SprotError::RspTimeout) => {
+                    Err(SprotError::Protocol(SprotProtocolError::Timeout)) => {
                         // This is the expected error if the reset was successful.
                         // It could be that the RoT is out-to-lunch for some other
                         // reason though.
@@ -191,20 +191,21 @@ impl MgsCommon {
                         //     (Management plane should do that.)
                         //   - Enable staged updates where we don't automatically
                         //     reset after writing an image.
-                        ringbuf_entry!(Log::RotReset {
-                            err: SprotError::RspTimeout
-                        });
+                        ringbuf_entry!(Log::RotReset);
                         Ok(())
                     }
-                    Err(err) => {
+                    Err(_) => {
                         // Some other error occurred.
                         // Update is all-or-nothing at the moment.
                         // The control plane can try to reset the RoT again or it
                         // can start the update process all over again.  We should
                         // be able to make incremental progress if there is some
                         // bug/condition that is degrading SpRot communications.
-                        ringbuf_entry!(Log::RotReset { err });
-                        Err(SpError::ComponentOperationFailed(err.into()))
+
+                        // TODO(AJS): We need to be able to expose all SprotErrors directly
+                        // and not just as u32s
+                        //ringbuf_entry!(Log::RotReset { err });
+                        Err(SpError::ComponentOperationFailed(9999))
                     }
                     Ok(()) => {
                         ringbuf_entry!(Log::ExpectedRspTimeout);
@@ -242,7 +243,8 @@ impl MgsCommon {
             SpComponent::ROT => {
                 match update.sprot_task().switch_default_image(slot, duration) {
                     Err(err) => {
-                        Err(SpError::ComponentOperationFailed(err.into()))
+                        // TODO(AJS): Expose the real error
+                        Err(SpError::ComponentOperationFailed(9999))
                     }
                     Ok(()) => Ok(()),
                 }
@@ -283,9 +285,11 @@ fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
 
 pub(crate) struct SprotErrorConvert(pub drv_sprot_api::SprotError);
 
+// TODO(AJS): Expose the real error
 impl From<SprotErrorConvert> for RotError {
     fn from(err: SprotErrorConvert) -> Self {
-        RotError::MessageError { code: err.0 as u32 }
+        // RotError::MessageError { code: err.0 as u32 }
+        RotError::MessageError { code: 9999 }
     }
 }
 
