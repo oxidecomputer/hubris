@@ -194,7 +194,7 @@ pub enum ReqBody {
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum UpdateReq {
     GetBlockSize,
-    Prep(SlotId),
+    Prep(UpdateTarget),
     WriteBlock {
         block_num: u32,
         block: [u8; 512],

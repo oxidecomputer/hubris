@@ -11,8 +11,7 @@ if_chain = { workspace = true }
 memoffset = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
-ssmarshal = { workspace = true }
-zerocopy = { workspace = true }
+sprockets-common = { workspace = true }
 
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-spi-api = { path = "../../drv/spi-api" }

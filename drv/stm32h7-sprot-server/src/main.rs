@@ -525,10 +525,10 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     fn prep_image_update(
         &mut self,
         _msg: &userlib::RecvMessage,
-        slot: SlotId,
+        target: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let rsp = self.do_send_recv_retries(
-            &ReqBody::Update(UpdateReq::Prep(slot)),
+            &ReqBody::Update(UpdateReq::Prep(target)),
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;

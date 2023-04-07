@@ -125,8 +125,8 @@ impl Handler {
                 let size = self.update.block_size()?;
                 Ok(RspBody::Update(UpdateRsp::BlockSize(size)))
             }
-            ReqBody::Update(UpdateReq::Prep(slot_id)) => {
-                self.update.prep_image_update(slot_id)?;
+            ReqBody::Update(UpdateReq::Prep(target)) => {
+                self.update.prep_image_update(target)?;
                 Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num, block }) => {

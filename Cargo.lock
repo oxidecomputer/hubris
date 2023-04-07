@@ -1528,10 +1528,9 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
- "ssmarshal",
+ "sprockets-common",
  "unwrap-lite",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
