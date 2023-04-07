@@ -132,18 +132,23 @@ impl SpUpdate {
     ) -> Result<(), SpError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(|c| c.state()) {
+            // These states are obviously "update in progress":
             Some(State::AuxFlash(_))
             | Some(State::FoundMatchingAuxFlashChck { .. })
-            | Some(State::AcceptingData { .. }) => {
+            | Some(State::AcceptingData { .. })
+            // These states are _not_ obviously "in progress", but the current
+            // update-server implementation will not allow a new update to begin
+            // if we're in any of these states, so we'll still return an error
+            // and require our caller to transition out of this state (either by
+            // explicitly aborting the update if we're in `Failed` or by
+            // resetting if we're in `Complete`). This should change if
+            // update-server becomes more flexible.
+            | Some(State::Complete)
+            | Some(State::Failed(_)) => {
                 return Err(SpError::UpdateInProgress(self.status()));
             }
-            Some(State::Complete)
-            | Some(State::Aborted)
-            | Some(State::Failed(_))
-            | None => {
-                // All of these states are "done", and we're fine to start a new
-                // update.
-            }
+            // These states are clear to start a new update.
+            Some(State::Aborted) | None => (),
         }
 
         // Can we lock the update buffer?
