@@ -461,6 +461,7 @@ pub enum MsgType {
 
     // Switch Default Image
     UpdSwitchDefaultImageReq = 24,
+
     // Reset
     UpdSwitchDefaultImageRsp = 25,
     UpdResetReq = 26,

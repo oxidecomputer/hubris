@@ -8,6 +8,7 @@
 #![no_main]
 
 use dump_agent_api::*;
+use dumper_api::DumperError;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -125,8 +126,29 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
             &area.address.to_le_bytes(),
             &mut buf,
         ) {
-            Err(_) => Err(DumpAgentError::DumpFailed.into()),
-            Ok(_) => Ok(()),
+            Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
+            Ok(result) => {
+                let response = drv_sprot_api::MsgType::from_u8(result.msgtype);
+
+                if response != Some(drv_sprot_api::MsgType::DumpRsp) {
+                    Err(DumpAgentError::BadDumpResponse.into())
+                } else {
+                    let val = u32::from_le_bytes(buf);
+
+                    //
+                    // A dump response value of 0 denotes success -- anything
+                    // else denotes a failure, and we want to decode and
+                    // translate the error condition if we can.
+                    //
+                    if val == 0 {
+                        Ok(())
+                    } else if let Some(err) = DumperError::from_u32(val) {
+                        Err(DumpAgentError::from(err).into())
+                    } else {
+                        Err(DumpAgentError::DumpFailedUnknownError.into())
+                    }
+                }
+            }
         }
     }
 
