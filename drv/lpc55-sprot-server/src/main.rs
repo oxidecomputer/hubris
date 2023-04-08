@@ -185,6 +185,9 @@ impl Io {
         &mut self,
         rx_buf: &mut [u8],
     ) -> Result<usize, IoError> {
+        // We don't bother receiving bytes when sending. So we must clear
+        // the overrun error condition.
+        self.spi.rxerr_clear();
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
             sys_recv_closed(
@@ -237,6 +240,9 @@ impl Io {
     }
 
     fn reply(&mut self, tx_buf: &[u8]) {
+        // We don't bother sending bytes when receiving. So we must clear
+        // the underrun error condition.
+        self.spi.txerr_clear();
         ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
 
         let mut tx = tx_buf.iter();
