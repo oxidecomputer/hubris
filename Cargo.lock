@@ -3650,7 +3650,7 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git?branch=no-salty-by-default-in-common#b5bc65a84edb325e262f8faa2868a201eac5767f"
+source = "git+https://github.com/oxidecomputer/sprockets.git#7c9bcb262cb117795976056a9102b96c9971d80b"
 dependencies = [
  "derive_more",
  "hubpack",
@@ -3662,7 +3662,7 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git?branch=no-salty-by-default-in-common#b5bc65a84edb325e262f8faa2868a201eac5767f"
+source = "git+https://github.com/oxidecomputer/sprockets.git#7c9bcb262cb117795976056a9102b96c9971d80b"
 dependencies = [
  "corncobs",
  "derive_more",

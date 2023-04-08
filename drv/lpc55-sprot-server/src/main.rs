@@ -43,7 +43,7 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{RotIoStats, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE};
 use lpc55_pac as device;
-use ringbuf::ringbuf;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
@@ -56,6 +56,14 @@ use handler::Handler;
 pub(crate) enum Trace {
     None,
     Dump(u32),
+    Req { protocol: u8, body_type: u8 },
+    ReceivedBytes(usize),
+    SentBytes(usize),
+    Flush,
+    FlowError,
+    StatusReq,
+    ReplyLen(usize),
+    Underrun,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -119,8 +127,6 @@ fn configure_spi() -> Io {
     spi.disable_tx();
     spi.disable_rx();
 
-    let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
-
     Io {
         spi,
         gpio,
@@ -149,13 +155,25 @@ fn main() -> ! {
 
     let mut handler = Handler::new();
 
+    // Prime our write fifo, so we clock out zero bytes on the next receive
+    io.spi.drain_tx();
+    while io.spi.can_tx() {
+        io.spi.send_u8(0);
+    }
+
     loop {
         let rsp_len = match io.wait_for_request(&mut rx_buf) {
             Ok(rx_len) => {
                 handler.handle(&rx_buf[..rx_len], &mut tx_buf, &mut io.stats)
             }
-            Err(IoError::Flush) => continue,
-            Err(IoError::Flow) => handler.flow_error(&mut tx_buf),
+            Err(IoError::Flush) => {
+                ringbuf_entry!(Trace::Flush);
+                continue;
+            }
+            Err(IoError::Flow) => {
+                ringbuf_entry!(Trace::FlowError);
+                handler.flow_error(&mut tx_buf)
+            }
         };
 
         io.reply(&tx_buf[..rsp_len]);
@@ -196,6 +214,8 @@ impl Io {
             }
         }
 
+        self.spi.ssd_clear();
+
         // There may be bytes left in the rx fifo after CSn is de-asserted
         while self.spi.has_byte() {
             bytes_received += 1;
@@ -209,24 +229,32 @@ impl Io {
             return Err(IoError::Flush);
         }
 
+        ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
         self.check_for_overrun()?;
 
         Ok(bytes_received)
     }
 
     fn reply(&mut self, tx_buf: &[u8]) {
+        ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
+
         let mut tx = tx_buf.iter();
 
         // Fill in the fifo before we assert ROT_IRQ
-        if self.spi.can_tx() {
+        self.spi.drain_tx();
+        while self.spi.can_tx() {
             let b = tx.next().copied().unwrap_or(0);
             self.spi.send_u8(b);
         }
 
+        let mut rot_irq_asserted = false;
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            self.assert_rot_irq();
+            if !rot_irq_asserted {
+                rot_irq_asserted = true;
+                self.assert_rot_irq();
+            }
 
             sys_recv_closed(
                 &mut [],
@@ -243,23 +271,33 @@ impl Io {
             }
         }
 
-        let mut bytes_sent = false;
+        let mut bytes_sent = 0;
         while !self.spi.ssd() {
-            if self.spi.can_tx() {
-                bytes_sent = true;
+            while self.spi.can_tx() {
+                bytes_sent += 1;
                 let b = tx.next().copied().unwrap_or(0);
                 self.spi.send_u8(b);
             }
         }
 
+        self.spi.ssd_clear();
+
         // We clocked out at least an existing byte in the fifo, as we fill it on entry to
         // this function.
-        if bytes_sent || self.spi.can_tx() {
+        if (bytes_sent == 0) || self.spi.can_tx() {
             // This was a CSn pulse
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
         } else {
             self.check_for_underrun();
         }
+
+        // Prime our write fifo, so we clock out zero bytes on the next receive
+        self.spi.drain_tx();
+        while self.spi.can_tx() {
+            self.spi.send_u8(0);
+        }
+
+        ringbuf_entry!(Trace::SentBytes(bytes_sent));
 
         self.deassert_rot_irq();
     }
@@ -287,6 +325,7 @@ impl Io {
             // doesn't matter.
             self.spi.txerr_clear();
             self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+            ringbuf_entry!(Trace::Underrun);
         }
     }
 

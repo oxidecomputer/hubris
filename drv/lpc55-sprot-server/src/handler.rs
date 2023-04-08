@@ -23,7 +23,7 @@ task_slot!(UPDATE_SERVER, update_server);
 task_slot!(DUMPER, dumper);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
-const_assert!(Protocol::V1 as u8 > 0 && (Protocol::V1 as u8) < 32);
+const_assert!(Protocol::V2 as u8 == 2);
 
 /// State that is set once at the start of the driver
 pub struct StartupState {
@@ -54,7 +54,7 @@ impl Handler {
             sprocket: crate::handler::sprockets::init(),
             update: Update::from(UPDATE_SERVER.get_task_id()),
             startup_state: StartupState {
-                supported: 1_u32 << (Protocol::V1 as u8 - 1),
+                supported: 1_u32 << (Protocol::V2 as u8 - 1),
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
                 max_request_size: MAX_REQUEST_SIZE.try_into().unwrap_lite(),
                 max_response_size: MAX_RESPONSE_SIZE.try_into().unwrap_lite(),
@@ -76,7 +76,13 @@ impl Handler {
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
         let (req, blob_offset) = match Request::unpack(rx_buf) {
-            Ok(req) => req,
+            Ok(req) => {
+                ringbuf_entry!(Trace::Req {
+                    protocol: rx_buf[0],
+                    body_type: rx_buf[1]
+                });
+                req
+            }
             Err(e) => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 return Response::pack(Err(e.into()), tx_buf);
@@ -95,22 +101,29 @@ impl Handler {
         stats: &mut RotIoStats,
     ) -> Result<RspBody, SprotError> {
         match req.body {
-            ReqBody::Status => match self.update.status() {
-                UpdateStatus::Rot(rot_updates) => {
-                    let msg = SprotStatus {
-                        supported: self.startup_state.supported,
-                        bootrom_crc32: self.startup_state.bootrom_crc32,
-                        max_request_size: self.startup_state.max_request_size,
-                        max_response_size: self.startup_state.max_response_size,
-                        rot_updates,
-                    };
-                    Ok(RspBody::Status(msg))
+            ReqBody::Status => {
+                ringbuf_entry!(Trace::StatusReq);
+                match self.update.status() {
+                    UpdateStatus::Rot(rot_updates) => {
+                        let msg = SprotStatus {
+                            supported: self.startup_state.supported,
+                            bootrom_crc32: self.startup_state.bootrom_crc32,
+                            max_request_size: self
+                                .startup_state
+                                .max_request_size,
+                            max_response_size: self
+                                .startup_state
+                                .max_response_size,
+                            rot_updates,
+                        };
+                        Ok(RspBody::Status(msg))
+                    }
+                    _ => {
+                        stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
+                        Err(SprotProtocolError::BadUpdateStatus)?
+                    }
                 }
-                _ => {
-                    stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                    Err(SprotProtocolError::BadUpdateStatus)?
-                }
-            },
+            }
             ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
             ReqBody::Sprockets(req) => {
                 // TODO: Don't unwrap!

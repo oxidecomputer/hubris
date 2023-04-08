@@ -40,6 +40,7 @@ task_slot!(SYS, sys);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    StatusReq,
     BlockSize(usize),
     Debug(bool),
     Error(SprotError),
@@ -217,7 +218,9 @@ impl<S: SpiServer> ServerImpl<S> {
 
         let part1_len = ROT_FIFO_SIZE.min(tx_size);
         let part1 = &self.tx_buf[..part1_len];
-        let part2 = &self.tx_buf[part1_len..];
+
+        let part2_len = tx_size - part1_len;
+        let part2 = &self.tx_buf[part1_len..part1_len + part2_len];
 
         let _lock = self.spi.lock_auto(CsState::Asserted)?;
         if PART1_DELAY != 0 {
@@ -261,7 +264,7 @@ impl<S: SpiServer> ServerImpl<S> {
         let body_len = Response::parse_body_len(&self.rx_buf)?;
         let total_len = Response::total_len(body_len);
 
-        if total_len < ROT_FIFO_SIZE {
+        if total_len > ROT_FIFO_SIZE {
             // Allow RoT time to rouse itself.
             hl::sleep_for(PART2_DELAY);
 
@@ -444,6 +447,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<SprotStatus, RequestError<SprotError>> {
+        ringbuf_entry!(Trace::StatusReq);
         let tx_size = Request::pack(&ReqBody::Status, &mut self.tx_buf)?;
         let rsp = self.do_send_recv_retries(
             tx_size,

@@ -183,7 +183,6 @@ impl Response {
     // hubpack, returning the serialized size.
     pub fn pack(body: Result<RspBody, SprotError>, buf: &mut [u8]) -> usize {
         buf[0] = Protocol::V2 as u8;
-        let mut crc_start = buf.len() - CRC_SIZE;
         // Protocol byte + u16 length
         let body_start = 3;
 
@@ -191,17 +190,17 @@ impl Response {
         // Leave room for the Protocol byte, u16 length, and CRC
         // We treat failure as a programmer error, as the buffer should
         // always be sized large enough.
-        let size = hubpack::serialize(&mut buf[body_start..crc_start], &body)
-            .unwrap_lite();
+        let size =
+            hubpack::serialize(&mut buf[body_start..], &body).unwrap_lite();
 
         // Serialize the length of the body
         let _ = hubpack::serialize(
-            &mut buf[1..body_start],
+            &mut buf[1..],
             &u16::try_from(size).unwrap_lite(),
         );
-        crc_start = body_start + size;
+        let crc_start = body_start + size;
         let crc = CRC16.checksum(&buf[..crc_start]);
-        let crc_buf = &mut buf[crc_start..][..2];
+        let crc_buf = &mut buf[crc_start..];
         let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
         body_start + size + CRC_SIZE
     }
