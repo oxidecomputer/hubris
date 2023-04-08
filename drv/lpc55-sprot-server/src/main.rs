@@ -223,6 +223,8 @@ impl Io {
             rx.next().map(|b| *b = read);
         }
 
+        self.check_for_overrun()?;
+
         if bytes_received == 0 {
             // This was a CSn pulse
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
@@ -230,7 +232,6 @@ impl Io {
         }
 
         ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
-        self.check_for_overrun()?;
 
         Ok(bytes_received)
     }
@@ -292,7 +293,8 @@ impl Io {
         }
 
         // Prime our write fifo, so we clock out zero bytes on the next receive
-        self.spi.drain_tx();
+        // We also empty our read fifo, since we don't bother reading bytes while writing.
+        self.spi.drain();
         while self.spi.can_tx() {
             self.spi.send_u8(0);
         }

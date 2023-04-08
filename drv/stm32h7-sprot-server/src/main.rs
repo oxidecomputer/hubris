@@ -189,7 +189,7 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         tx_size: usize,
         timeout: u32,
-    ) -> Result<Response, SprotError> {
+    ) -> Result<RspBody, SprotError> {
         ringbuf_entry!(Trace::SendRecv(tx_size));
 
         self.handle_rot_irq()?;
@@ -245,7 +245,7 @@ impl<S: SpiServer> ServerImpl<S> {
     // We can fetch FIFO size number of bytes reliably. After that, a short
     // delay and fetch the rest if there is a payload. Small messages will fit
     // entirely in the RoT FIFO.
-    fn do_read_response(&mut self) -> Result<Response, SprotError> {
+    fn do_read_response(&mut self) -> Result<RspBody, SprotError> {
         // Increase the error count here. We'll decrease if we return successfully.
         self.stats.rx_invalid = self.stats.rx_invalid.wrapping_add(1);
 
@@ -279,7 +279,7 @@ impl<S: SpiServer> ServerImpl<S> {
         // Remove the error we added at the beginning of this function
         self.stats.rx_invalid = self.stats.rx_invalid.wrapping_sub(1);
         self.stats.rx_received = self.stats.rx_received.wrapping_add(1);
-        Ok(response)
+        response.body
     }
 
     fn do_send_recv_retries<'a>(
@@ -287,7 +287,7 @@ impl<S: SpiServer> ServerImpl<S> {
         tx_size: usize,
         timeout: u32,
         retries: u16,
-    ) -> Result<Response, SprotError> {
+    ) -> Result<RspBody, SprotError> {
         let mut attempts_left = retries;
         loop {
             let err = match self.do_send_recv(tx_size, timeout) {
@@ -454,7 +454,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Status(status) = rsp.body? {
+        if let RspBody::Status(status) = rsp {
             Ok(status)
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -472,7 +472,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::IoStats(rot_stats) = rsp.body? {
+        if let RspBody::IoStats(rot_stats) = rsp {
             Ok(IoStats {
                 rot: rot_stats,
                 sp: self.stats,
@@ -494,7 +494,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Update(UpdateRsp::BlockSize(size)) = rsp.body? {
+        if let RspBody::Update(UpdateRsp::BlockSize(size)) = rsp {
             Ok(size)
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -514,7 +514,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -540,7 +540,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             MAX_UPDATE_ATTEMPTS,
         )?;
 
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -558,7 +558,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -576,7 +576,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -597,7 +597,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -612,7 +612,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let body = ReqBody::Update(UpdateReq::Reset);
         let tx_size = Request::pack(&body, &mut self.tx_buf)?;
         let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
-        if let RspBody::Ok = rsp.body? {
+        if let RspBody::Ok = rsp {
             Ok(())
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
