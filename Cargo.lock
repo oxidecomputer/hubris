@@ -1413,6 +1413,7 @@ dependencies = [
  "gnarle",
  "num-traits",
  "ringbuf",
+ "transceiver-messages",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
@@ -4844,7 +4845,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#0d6bf9eabf7dbbf595165680ad021be2bf07f09c"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=the-big-hammer#b5c575ac095e8009b9bb87103a198b0a450f97e9"
 dependencies = [
  "bitflags",
  "hubpack",
