@@ -233,7 +233,7 @@ fn main() -> ! {
 
     #[cfg(feature = "net")]
     {
-        let (tx_data_buf, rx_data_buf) = claim_statics();
+        let (rx_data_buf, tx_data_buf) = claim_statics();
         let mut server = ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             net: task_net_api::Net::from(NET.get_task_id()),
@@ -241,8 +241,8 @@ fn main() -> ! {
 
         loop {
             server.check_net(
-                tx_data_buf.as_mut_slice(),
                 rx_data_buf.as_mut_slice(),
+                tx_data_buf.as_mut_slice(),
             );
             idol_runtime::dispatch_n(&mut buffer, &mut server);
         }
@@ -276,12 +276,12 @@ const MAX_UDP_RX_SIZE: usize =
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
 pub fn claim_statics() -> (
-    &'static mut [u8; MAX_UDP_TX_SIZE],
     &'static mut [u8; MAX_UDP_RX_SIZE],
+    &'static mut [u8; MAX_UDP_TX_SIZE],
 ) {
     mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; MAX_UDP_TX_SIZE] = [|| 0u8; _];
-        static mut RX_BUF: [u8; MAX_UDP_RX_SIZE] = [|| 0u8; _];
+        static mut TX_BUF: [u8; MAX_UDP_RX_SIZE] = [|| 0u8; _];
+        static mut RX_BUF: [u8; MAX_UDP_TX_SIZE] = [|| 0u8; _];
     }
 }
 
