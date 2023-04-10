@@ -1310,7 +1310,7 @@ rx = { packets = 3, bytes = 2048 }
 [config.net.sockets.dump_agent]
 kind = "udp"
 owner = {name = "dump_agent", notification = "socket"}
-port = 11113 # TODO do we have a documented port for MGS traffic?
+port = 11113 # TODO do we have a documented port for dump_agent traffic?
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
