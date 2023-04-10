@@ -100,6 +100,7 @@ impl ServerImpl {
         // If the header is < our min version, then we can't deserialize at all,
         // so return an error immediately.
         if header.version < humpty::udp::version::MIN {
+            ringbuf_entry!(Trace::WrongVersion(header.version));
             return Err(humpty::udp::Error::VersionMismatch);
         }
 
@@ -123,11 +124,13 @@ impl ServerImpl {
                 }
             },
             Err(e) => {
-                ringbuf_entry!(Trace::DeserializeError(e));
-                // This message is from a newer version
+                // This message is from a newer version, so it makes sense that
+                // we failed to deserialize it.
                 if header.version > humpty::udp::version::CURRENT {
+                    ringbuf_entry!(Trace::WrongVersion(header.version));
                     return Err(humpty::udp::Error::VersionMismatch);
                 } else {
+                    ringbuf_entry!(Trace::DeserializeError(e));
                     return Err(humpty::udp::Error::DeserializeError);
                 }
             }
