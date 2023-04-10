@@ -41,7 +41,7 @@ name = "task-net"
 stacksize = 6040
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
-max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
