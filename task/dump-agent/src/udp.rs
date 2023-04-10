@@ -50,8 +50,9 @@ impl ServerImpl {
     ) {
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
-                Ok((header, msg)) => {
+                Ok((mut header, msg)) => {
                     let r = self.handle_message(header, msg);
+                    header.version = humpty::udp::version::CURRENT;
                     let reply = (header, r);
                     Some(hubpack::serialize(tx_data_buf, &reply).unwrap())
                 }
@@ -93,9 +94,15 @@ impl ServerImpl {
     /// Handles a single message
     fn handle_message(
         &mut self,
-        _header: humpty::udp::Header,
+        header: humpty::udp::Header,
         data: &[u8],
     ) -> Result<humpty::udp::Response, humpty::udp::Error> {
+        // If the header is < our min version, then we can't deserialize at all,
+        // so return an error immediately.
+        if header.version < humpty::udp::version::MIN {
+            return Err(humpty::udp::Error::VersionMismatch);
+        }
+
         use humpty::udp::{Request, Response};
         let r = match hubpack::deserialize::<Request>(data) {
             Ok((msg, _data)) => match msg {
@@ -117,8 +124,12 @@ impl ServerImpl {
             },
             Err(e) => {
                 ringbuf_entry!(Trace::DeserializeError(e));
-                return Err(humpty::udp::Error::DeserializeError);
-                // TODO: reply something?
+                // This message is from a newer version
+                if header.version > humpty::udp::version::CURRENT {
+                    return Err(humpty::udp::Error::VersionMismatch);
+                } else {
+                    return Err(humpty::udp::Error::DeserializeError);
+                }
             }
         };
         Ok(r)
