@@ -311,6 +311,7 @@ pub fn claim_statics() -> (
 
 mod idl {
     use super::*;
+
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
