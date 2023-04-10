@@ -2,14 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::{ServerImpl, DUMP_READ_SIZE};
+use hubpack::SerializedSize;
+use ringbuf::*;
+use task_net_api::*;
+
 static_assertions::const_assert_eq!(
     DUMP_READ_SIZE,
     humpty::udp::DUMP_READ_SIZE
 );
-
-use crate::{ServerImpl, DUMP_READ_SIZE};
-use ringbuf::*;
-use task_net_api::*;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -21,6 +22,32 @@ enum Trace {
 }
 
 ringbuf!(Trace, 16, Trace::None);
+
+// We are sending a (Header, Result<Response, Error>) to the host
+const MAX_UDP_TX_SIZE: usize = <(
+    humpty::udp::Header,
+    Result<humpty::udp::Response, humpty::udp::Error>,
+)>::MAX_SIZE;
+
+// We are receiving a (Header, Request) from the host
+const MAX_UDP_RX_SIZE: usize =
+    <(humpty::udp::Header, humpty::udp::Request)>::MAX_SIZE;
+
+// Check against packet sizes in the TOML file
+static_assertions::const_assert!(MAX_UDP_TX_SIZE <= 1024);
+static_assertions::const_assert!(MAX_UDP_RX_SIZE <= 1024);
+
+/// Grabs references to the static descriptor/buffer receive rings. Can only be
+/// called once.
+pub fn claim_statics() -> (
+    &'static mut [u8; MAX_UDP_RX_SIZE],
+    &'static mut [u8; MAX_UDP_TX_SIZE],
+) {
+    mutable_statics::mutable_statics! {
+        static mut TX_BUF: [u8; MAX_UDP_RX_SIZE] = [|| 0u8; _];
+        static mut RX_BUF: [u8; MAX_UDP_TX_SIZE] = [|| 0u8; _];
+    }
+}
 
 impl ServerImpl {
     pub fn check_net(

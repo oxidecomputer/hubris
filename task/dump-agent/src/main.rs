@@ -233,7 +233,7 @@ fn main() -> ! {
 
     #[cfg(feature = "net")]
     {
-        let (rx_data_buf, tx_data_buf) = claim_statics();
+        let (rx_data_buf, tx_data_buf) = udp::claim_statics();
         let mut server = ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             net: task_net_api::Net::from(NET.get_task_id()),
@@ -260,30 +260,6 @@ fn main() -> ! {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-use hubpack::SerializedSize;
-
-// We are sending a (Header, Result<Response, Error>) to the host
-const MAX_UDP_TX_SIZE: usize = <(
-    humpty::udp::Header,
-    Result<humpty::udp::Response, humpty::udp::Error>,
-)>::MAX_SIZE;
-
-// We are receiving a (Header, Request) from the host
-const MAX_UDP_RX_SIZE: usize =
-    <(humpty::udp::Header, humpty::udp::Request)>::MAX_SIZE;
-
-/// Grabs references to the static descriptor/buffer receive rings. Can only be
-/// called once.
-pub fn claim_statics() -> (
-    &'static mut [u8; MAX_UDP_RX_SIZE],
-    &'static mut [u8; MAX_UDP_TX_SIZE],
-) {
-    mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; MAX_UDP_RX_SIZE] = [|| 0u8; _];
-        static mut RX_BUF: [u8; MAX_UDP_TX_SIZE] = [|| 0u8; _];
-    }
-}
 
 mod idl {
     use super::*;
