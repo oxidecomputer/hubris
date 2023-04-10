@@ -321,7 +321,7 @@ impl SpHandler for MgsHandler {
         action: ComponentAction,
     ) -> Result<(), SpError> {
         match (component, action) {
-            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(_action)) => {
                 // TODO: implement this
                 Err(SpError::RequestUnsupportedForComponent)
             }
