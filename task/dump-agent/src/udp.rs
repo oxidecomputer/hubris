@@ -108,20 +108,15 @@ impl ServerImpl {
                 meta,
                 &tx_data_buf[..meta.size as usize],
             ) {
-                // We'll drop packets if the outgoing queue is full;
-                // the host is responsible for retrying.
+                // We'll drop packets if the outgoing queue is full or the
+                // server has died; the host is responsible for retrying
+                // (which isn't implemented yet in Humility).
                 //
                 // Other errors are unexpected and panic.
-                //
-                // This includes ServerRestarted, because the server should only
-                // restart if the watchdog times out, and the watchdog should
-                // not be timing out, because we're literally replying to a
-                // packet here.
                 ringbuf_entry!(Trace::SendError(e));
                 match e {
-                    SendError::QueueFull => (),
+                    SendError::QueueFull | SendError::ServerRestarted => (),
                     SendError::Other
-                    | SendError::ServerRestarted
                     | SendError::NotYours
                     | SendError::InvalidVLan => panic!(),
                 }
