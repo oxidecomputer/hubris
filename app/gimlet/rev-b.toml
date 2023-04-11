@@ -1282,14 +1282,14 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
 [config.net.sockets.dump_agent]
 kind = "udp"
 owner = {name = "dump_agent", notification = "socket"}
-port = 11113 # TODO do we have a documented port for dump_agent traffic?
+port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

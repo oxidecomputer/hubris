@@ -405,7 +405,7 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
