@@ -50,10 +50,10 @@ fn system_init() {
         }
     }
 
-    // Sidecar, starting at Rev C, has resistors strapping three pins to
-    // indicate the board revision.  Revs A and B left the pins floating; so, we
-    // have a backwards-compatibility scheme where we use our internal pull-up
-    // resistors, causing Rev A and B to read as 0b111.
+    // Sidecar, starting at Rev B, has resistors strapping three pins to
+    // indicate the board revision.  Rev A left the pins floating; so, we have a
+    // backwards-compatibility scheme where we use our internal pull-up
+    // resistors, causing Rev A to read as 0b111.
     //
     // We read the board version very early in boot to try and detect the
     // firmware being flashed on the wrong board. In particular, we read the
@@ -69,8 +69,8 @@ fn system_init() {
     // - ID1: PC7
     // - ID2: PC13
 
-    // Un-gate the clock to GPIO bank G. TODO is this the right bank?
-    p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+    // Un-gate the clock to GPIO bank C.
+    p.RCC.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
     cortex_m::asm::dsb();
     // PC6,7,13 are already inputs after reset, but without any pull resistors.
     #[rustfmt::skip]
@@ -85,8 +85,8 @@ fn system_init() {
         .pupdr7().pull_up()
         .pupdr13().pull_up());
 
-    // See timing calculations in `app/gimlet/src/main.rs`
-    cortex_m::asm::delay(155 * 2);
+    // TODO: fill in timing justification here based on Sidecar's schematic.
+    cortex_m::asm::delay(2000);
 
     // Build the full ID
     let rev = p.GPIOC.idr.read().bits();
@@ -98,7 +98,7 @@ fn system_init() {
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "sidecar-b")] {
-            let expected_rev = 0b111;
+            let expected_rev = 0b001;
         } else if #[cfg(target_board = "sidecar-c")] {
             let expected_rev = 0b010;
         } else {
