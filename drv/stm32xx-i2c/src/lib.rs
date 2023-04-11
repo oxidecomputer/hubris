@@ -394,10 +394,6 @@ impl I2cController<'_> {
             }
         }
 
-        //
-        // Our unit is disabled.
-        //
-
         // And then finally set it
         i2c.cr1.modify(|_, w| w.pe().set_bit());
     }

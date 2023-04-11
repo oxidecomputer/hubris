@@ -147,9 +147,7 @@ enum Trace {
     Reset(Controller, PortIndex),
     ResetMux(Mux),
     MuxConfigure(u8),
-    MuxClear(u8),
-    MuxCleared(u8, u8),
-    SegmentFailed(ResponseCode, u8),
+    SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
     PinRead(PinSet, bool),
     None,
@@ -240,8 +238,6 @@ fn main() -> ! {
             let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
         },
     };
-
-    // hl::sleep_for(40);
 
     configure_muxes(&muxes, &controllers, &pins, &mut portmap, &ctrl);
 
@@ -566,13 +562,12 @@ fn configure_muxes(
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
-    let max_resets = 10u8;
-
     for mux in muxes {
         let controller =
             lookup_controller(controllers, mux.controller).unwrap();
         configure_port(map, controller, mux.port, pins);
-        let mut nresets = 0u8;
+
+        let mut reset_attempted = false;
 
         loop {
             ringbuf_entry!(Trace::MuxConfigure(mux.address));
@@ -599,27 +594,15 @@ fn configure_muxes(
                     // for the first I2C transaction (which may or may not
                     // deal with the reset).
                     //
-                    ringbuf_entry!(Trace::MuxClear(mux.address));
                     if let Err(code) =
                         mux.driver.enable_segment(mux, controller, None, ctrl)
                     {
-                        ringbuf_entry!(Trace::SegmentFailed(code, nresets));
+                        ringbuf_entry!(Trace::SegmentFailed(code));
 
-                        if mux.address == 0x70 && code == ResponseCode::ControllerBusy {
-                            panic!();
-                        }
-
-                        if nresets < max_resets {
-                            nresets += 1;
+                        if reset_needed(code) && !reset_attempted {
                             reset(controller, mux.port, muxes, None);
+                            reset_attempted = true;
                             continue;
-                        }
-                    } else {
-                        ringbuf_entry!(Trace::MuxCleared(mux.address, nresets));
-
-                        // If that succeeded after many attempts, toss.
-                        if nresets > 5 {
-                            panic!();
                         }
                     }
 

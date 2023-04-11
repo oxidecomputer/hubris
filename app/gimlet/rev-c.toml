@@ -36,9 +36,6 @@ set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
 
-[tasks.jefe.config]
-tasks-to-hold = ["i2c_driver"]
-
 [tasks.net]
 name = "task-net"
 stacksize = 6040
