@@ -23,15 +23,8 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
-// We are sending a (Header, Result<Response, Error>) to the host
-const MAX_UDP_TX_SIZE: usize = <(
-    humpty::udp::Header,
-    Result<humpty::udp::Response, humpty::udp::Error>,
-)>::MAX_SIZE;
-
-// We are receiving a (Header, Request) from the host
-const MAX_UDP_RX_SIZE: usize =
-    <(humpty::udp::Header, humpty::udp::Request)>::MAX_SIZE;
+const MAX_UDP_TX_SIZE: usize = humpty::udp::ResponseMessage::MAX_SIZE;
+const MAX_UDP_RX_SIZE: usize = humpty::udp::RequestMessage::MAX_SIZE;
 
 // Check against packet sizes in the TOML file
 static_assertions::const_assert!(MAX_UDP_TX_SIZE <= 1024);
@@ -78,9 +71,10 @@ impl ServerImpl {
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
                 Ok((mut header, msg)) => {
-                    let r = self.handle_message(header, msg);
+                    let response = self.handle_message(header, msg);
                     header.version = humpty::udp::version::CURRENT;
-                    let reply = (header, r);
+                    let reply =
+                        humpty::udp::ResponseMessage { header, response };
                     Some(hubpack::serialize(tx_data_buf, &reply).unwrap())
                 }
                 Err(e) => {
