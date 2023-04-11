@@ -62,10 +62,23 @@ Interface(
         "dump_task": (
             description: "dumps the specified task",
             args: {
-                "index": "u32",
+                "task_index": "u32",
             },
             reply: Result(
-                ok: "()",
+                ok: "humpty::DumpArea",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "dump_task_region": (
+            description: "dumps a subregion of the specified task",
+            args: {
+                "task_index": "u32",
+                "address": "u32",
+                "length": "u32",
+            },
+            reply: Result(
+                ok: "humpty::DumpArea",
                 err: CLike("DumpAgentError"),
             ),
             encoding: Hubpack,

@@ -236,19 +236,35 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             fn dump_task(
                 &mut self,
                 _msg: &userlib::RecvMessage,
-                index: u32,
-            ) -> Result<(), RequestError<DumpAgentError>> {
-                // `dump::dump_task` doesn't do any sanity-checking of its
-                // inputs, so we have to do that ourselves.
-                if index == 0 {
+                task_index: u32,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                // `dump::dump_task` doesn't check the task index, because it's
+                // normally called by a trusted source; we'll do it ourself.
+                if task_index == 0 {
                     // Can't dump the supervisor
                     return Err(DumpAgentError::NotSupported.into());
-                } else if index as usize > self.task_states.len() {
+                } else if task_index as usize > self.task_states.len() {
                     // Can't dump a non-existent task
                     return Err(DumpAgentError::BadOffset.into());
                 }
-                dump::dump_task(self.dump_areas, index as usize)?;
-                Ok(())
+                dump::dump_task(self.dump_areas, task_index as usize)
+                    .map_err(|e| e.into())
+            }
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task_index: u32,
+                address: u32,
+                length: u32,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                if task_index == 0 {
+                    return Err(DumpAgentError::NotSupported.into());
+                } else if task_index as usize > self.task_states.len() {
+                    return Err(DumpAgentError::BadOffset.into());
+                }
+                dump::dump_task_region(
+                    self.dump_areas, task_index as usize, address, length
+                ).map_err(|e| e.into())
             }
         } else {
             fn get_dump_area(
@@ -275,9 +291,18 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
             fn dump_task(
                 &mut self,
-                _index: u32,
+                _task_index: u32,
                 _msg: &userlib::RecvMessage,
-            ) -> Result<(), RequestError<DumpAgentError>> {
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _task_index: u32,
+                _address: u32,
+                _length: u32,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
         }
