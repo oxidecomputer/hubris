@@ -138,5 +138,84 @@ Interface(
                 err: CLike("TransceiversError"),
             ),
         ),
+
+        "set_port_led_on": (
+            doc: "Turn on the LEDs for each port as set in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_port_led_off": (
+            doc: "Turn off the LEDs for each port as set in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_port_led_blink": (
+            doc: "Blink the LEDs for each port as set in the mask",
+            args: {
+                "logical_port_mask": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_system_led_on": (
+            doc: "Turn on the System LED.",
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_system_led_off": (
+            doc: "Turn off the System LED.",
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_system_led_blink": (
+            doc: "Blink the System LED.",
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_led_current": (
+            doc: "Sets the internal state which is written to the PCA9956B's IREFALL register",
+            args: {
+                "value": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
+
+        "set_led_pwm": (
+            doc: "Sets the internal state which is written to the PCA9956B's PWMx registers",
+            args: {
+                "value": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("TransceiversError"),
+            ),
+        ),
     }
 )

@@ -117,7 +117,7 @@ impl LogicalPort {
     }
 }
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LogicalPortMask(pub u32);
 
 impl LogicalPortMask {

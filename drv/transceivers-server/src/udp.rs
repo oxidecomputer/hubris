@@ -55,6 +55,8 @@ enum Trace {
     OperationResult(ModuleResult),
     OperationNoFailResult(ModuleResultNoFailure),
     ClearPowerFault(ModuleId),
+    LedState(ModuleId),
+    SetLedState(ModuleId, LedState),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -530,6 +532,49 @@ impl ServerImpl {
                     num_err_bytes,
                 )
             }
+            HostRequest::LedState(modules) => {
+                ringbuf_entry!(Trace::LedState(modules));
+                let mask = LogicalPortMask::from(modules);
+                let (num_led_bytes, result) =
+                    self.get_led_state_response(mask, out);
+                // This operation just queries internal SP state, so it is
+                // always successful. However, invalid modules may been
+                // specified by the host so we need to check that anyway.
+                let success = ModuleId::from(result.success());
+                let (num_err_bytes, failed_modules) = self.handle_errors(
+                    modules,
+                    result,
+                    &mut out[num_led_bytes..],
+                );
+                (
+                    MessageBody::SpResponse(SpResponse::LedState {
+                        modules: success,
+                        failed_modules,
+                    }),
+                    num_err_bytes + num_err_bytes,
+                )
+            }
+            HostRequest::SetLedState { modules, state } => {
+                ringbuf_entry!(Trace::SetLedState(modules, state));
+                let mask = LogicalPortMask::from(modules);
+                self.set_led_state(mask, state);
+                let result =
+                    ModuleResultNoFailure::new(mask, LogicalPortMask(0))
+                        .unwrap();
+                // This operation just sets internal SP state, so it is always
+                // successful. However, invalid modules may been specified by
+                // the host so we need to check that anyway.
+                let success = ModuleId::from(result.success());
+                let (num_err_bytes, failed_modules) =
+                    self.handle_errors(modules, result, out);
+                (
+                    MessageBody::SpResponse(SpResponse::Ack {
+                        modules: success,
+                        failed_modules,
+                    }),
+                    num_err_bytes,
+                )
+            }
         }
     }
 
@@ -832,5 +877,26 @@ impl ServerImpl {
             result.success(),
         ));
         result.chain(self.wait_and_check_i2c(result.success()))
+    }
+
+    fn get_led_state_response(
+        &mut self,
+        modules: LogicalPortMask,
+        out: &mut [u8],
+    ) -> (usize, ModuleResultNoFailure) {
+        let mut led_state_len = 0;
+        for led in modules
+            .to_indices()
+            .map(|m| self.get_led_state().0[m.0 as usize])
+        {
+            let led_state_size =
+                hubpack::serialize(&mut out[led_state_len..], &led).unwrap();
+            led_state_len += led_state_size;
+        }
+
+        (
+            led_state_len,
+            ModuleResultNoFailure::new(modules, LogicalPortMask(0)).unwrap(),
+        )
     }
 }
