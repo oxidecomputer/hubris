@@ -27,8 +27,12 @@ const MAX_UDP_TX_SIZE: usize = humpty::udp::ResponseMessage::MAX_SIZE;
 const MAX_UDP_RX_SIZE: usize = humpty::udp::RequestMessage::MAX_SIZE;
 
 // Check against packet sizes in the TOML file
-static_assertions::const_assert!(MAX_UDP_TX_SIZE <= 1024);
-static_assertions::const_assert!(MAX_UDP_RX_SIZE <= 1024);
+static_assertions::const_assert!(
+    MAX_UDP_TX_SIZE <= SOCKET_TX_SIZE[SocketName::dump_agent as usize]
+);
+static_assertions::const_assert!(
+    MAX_UDP_RX_SIZE <= SOCKET_RX_SIZE[SocketName::dump_agent as usize]
+);
 
 // The response message is a tuple (Header, Result<Response, Error>)
 static_assertions::const_assert_eq!(
