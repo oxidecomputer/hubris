@@ -293,9 +293,18 @@ impl<S: SpiServer> ServerImpl<S> {
                     }
                 }
 
-                // Intact messages from the RoT may indicate an error on
-                // its side.
-                Ok(response) => return Ok(response),
+                // The response itself may contain an error detected on the RoT
+                Ok(response) => match &response.body {
+                    Ok(_) => return Ok(response),
+                    Err(err) => {
+                        ringbuf_entry!(Trace::Error(*err));
+                        if err.is_recoverable() {
+                            *err
+                        } else {
+                            return Err(*err);
+                        }
+                    }
+                },
             };
 
             self.stats.retries = self.stats.retries.wrapping_add(1);
