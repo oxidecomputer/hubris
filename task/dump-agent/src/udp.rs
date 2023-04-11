@@ -30,6 +30,19 @@ const MAX_UDP_RX_SIZE: usize = humpty::udp::RequestMessage::MAX_SIZE;
 static_assertions::const_assert!(MAX_UDP_TX_SIZE <= 1024);
 static_assertions::const_assert!(MAX_UDP_RX_SIZE <= 1024);
 
+// The response message is a tuple (Header, Result<Response, Error>)
+static_assertions::const_assert_eq!(
+    humpty::udp::ResponseMessage::MAX_SIZE,
+    humpty::udp::Header::MAX_SIZE
+        + <Result<humpty::udp::Response, humpty::udp::Error>>::MAX_SIZE
+);
+
+// The request message is a tuple (Header, Request)
+static_assertions::const_assert_eq!(
+    humpty::udp::RequestMessage::MAX_SIZE,
+    humpty::udp::Header::MAX_SIZE + humpty::udp::Request::MAX_SIZE
+);
+
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
 pub fn claim_statics() -> (
