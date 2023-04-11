@@ -75,7 +75,7 @@ pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
     }
 }
 
-pub fn dump_task(base: u32, task: usize) {
+pub fn dump_task(base: u32, task: usize) -> Result<(), DumpAgentError> {
     ringbuf_entry!(Trace::Dumping(task, base));
 
     //
@@ -89,12 +89,12 @@ pub fn dump_task(base: u32, task: usize) {
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
-
     ringbuf_entry!(Trace::DumpArea(area));
 
     let base = match area {
         Ok(Some(area)) => area.address,
-        _ => return,
+        Ok(None) => return Err(DumpAgentError::DumpAreaInUse),
+        Err(_) => return Err(DumpAgentError::CannotClaimDumpArea),
     };
 
     let mut ndx = 0;
@@ -126,7 +126,7 @@ pub fn dump_task(base: u32, task: usize) {
                     |addr, buf| unsafe { humpty::to_mem(addr, buf) },
                 ) {
                     ringbuf_entry!(Trace::DumpRegionsFailed(e));
-                    return;
+                    return Err(DumpAgentError::BadSegmentAdd);
                 }
 
                 ndx += 1;
@@ -171,4 +171,5 @@ pub fn dump_task(base: u32, task: usize) {
     );
 
     ringbuf_entry!(Trace::DumpDone(r));
+    r.map_err(|_| DumpAgentError::DumpFailed)
 }

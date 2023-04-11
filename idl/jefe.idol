@@ -59,5 +59,16 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "dump_task": (
+            description: "dumps the specified task",
+            args: {
+                "index": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
     },
 )
