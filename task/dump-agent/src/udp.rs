@@ -171,6 +171,19 @@ impl ServerImpl {
                 Request::TakeDump => {
                     self.take_dump().map(|()| Response::TakeDump)?
                 }
+                Request::DumpTask { task_index } => {
+                    self.dump_task(task_index).map(Response::DumpTask)?
+                }
+                Request::DumpTaskRegion {
+                    task_index,
+                    start,
+                    length,
+                } => self
+                    .dump_task_region(task_index, start, length)
+                    .map(Response::DumpTaskRegion)?,
+                Request::ReinitializeDumpFrom { index } => self
+                    .reinitialize_dump_from(index)
+                    .map(|()| Response::ReinitializeDumpFrom)?,
             },
             Err(e) => {
                 // This message is from a newer version, so it makes sense that

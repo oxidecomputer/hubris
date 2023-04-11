@@ -116,6 +116,29 @@ impl ServerImpl {
         }
     }
 
+    fn dump_task(&mut self, task_index: u32) -> Result<u8, DumpAgentError> {
+        let out = self.jefe.dump_task(task_index)?;
+        Ok(out)
+    }
+
+    fn dump_task_region(
+        &mut self,
+        task_index: u32,
+        start: u32,
+        length: u32,
+    ) -> Result<u8, DumpAgentError> {
+        let out = self.jefe.dump_task_region(task_index, start, length)?;
+        Ok(out)
+    }
+
+    fn reinitialize_dump_from(
+        &mut self,
+        index: u8,
+    ) -> Result<(), DumpAgentError> {
+        self.jefe.reinitialize_dump_from(index)?;
+        Ok(())
+    }
+
     #[cfg(not(feature = "no-rot"))]
     fn take_dump(&mut self) -> Result<(), DumpAgentError> {
         use dumper_api::DumperError;

@@ -232,11 +232,53 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 self.dump_areas = dump::initialize_dump_areas();
                 Ok(())
             }
+
+            fn dump_task(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task_index: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                // `dump::dump_task` doesn't check the task index, because it's
+                // normally called by a trusted source; we'll do it ourself.
+                if task_index == 0 {
+                    // Can't dump the supervisor
+                    return Err(DumpAgentError::NotSupported.into());
+                } else if task_index as usize > self.task_states.len() {
+                    // Can't dump a non-existent task
+                    return Err(DumpAgentError::BadOffset.into());
+                }
+                dump::dump_task(self.dump_areas, task_index as usize)
+                    .map_err(|e| e.into())
+            }
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task_index: u32,
+                address: u32,
+                length: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                if task_index == 0 {
+                    return Err(DumpAgentError::NotSupported.into());
+                } else if task_index as usize > self.task_states.len() {
+                    return Err(DumpAgentError::BadOffset.into());
+                }
+                dump::dump_task_region(
+                    self.dump_areas, task_index as usize, address, length
+                ).map_err(|e| e.into())
+            }
+            fn reinitialize_dump_from(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                index: u8,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                dump::reinitialize_dump_from(self.dump_areas, index)
+                    .map_err(|e| e.into())
+            }
         } else {
             fn get_dump_area(
                 &mut self,
                 _msg: &userlib::RecvMessage,
-                _index: u8,
+                _index: u32,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
@@ -251,6 +293,30 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             fn reinitialize_dump_areas(
                 &mut self,
                 _msg: &userlib::RecvMessage,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn dump_task(
+                &mut self,
+                _task_index: u32,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _task_index: u32,
+                _address: u32,
+                _length: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+            fn reinitialize_dump_from(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _index: u8,
             ) -> Result<(), RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
@@ -304,7 +370,14 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         log_fault(i, &fault);
 
                         #[cfg(feature = "dump")]
-                        dump::dump_task(self.dump_areas, i);
+                        {
+                            // We'll ignore the result of dumping; it could fail
+                            // if we're out of space, but we don't have a way of
+                            // dealing with that right now.
+                            //
+                            // TODO: some kind of circular buffer?
+                            _ = dump::dump_task(self.dump_areas, i);
+                        }
 
                         if status.disposition == Disposition::Restart {
                             // Stand it back up

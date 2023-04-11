@@ -18,12 +18,27 @@ enum Trace {
     GetDumpAreaFailed(humpty::DumpError<()>),
     ClaimDumpAreaFailed(humpty::DumpError<()>),
     Claiming,
-    Dumping(usize, u32),
+    Dumping {
+        task: usize,
+        base: u32,
+    },
+    DumpingTaskRegion {
+        task: usize,
+        base: u32,
+        start: u32,
+        length: u32,
+    },
     DumpArea(Result<Option<DumpArea>, humpty::DumpError<()>>),
     DumpRegion(abi::TaskDumpRegion),
     DumpRegionsFailed(humpty::DumpError<()>),
-    DumpStart(u32),
-    DumpReading(u32, usize, bool),
+    DumpStart {
+        base: u32,
+    },
+    DumpReading {
+        addr: u32,
+        buf_len: usize,
+        meta: bool,
+    },
     DumpRead(usize),
     DumpDone(Result<(), humpty::DumpError<()>>),
 }
@@ -75,9 +90,8 @@ pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
     }
 }
 
-pub fn dump_task(base: u32, task: usize) {
-    ringbuf_entry!(Trace::Dumping(task, base));
-
+/// Setup for dumping a task (either completely or a sub-region)
+fn dump_task_setup(base: u32, full: bool) -> Result<DumpArea, DumpAgentError> {
     //
     // We need to claim a dump area.  Once it's claimed, we have committed
     // to dumping into it:  any failure will result in a partial or otherwise
@@ -85,56 +99,26 @@ pub fn dump_task(base: u32, task: usize) {
     //
     let area = humpty::claim_dump_area(
         base,
-        DumpContents::SingleTask,
+        if full {
+            DumpContents::SingleTask
+        } else {
+            DumpContents::TaskRegion
+        },
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
-
     ringbuf_entry!(Trace::DumpArea(area));
 
-    let base = match area {
-        Ok(Some(area)) => area.address,
-        _ => return,
-    };
-
-    let mut ndx = 0;
-
-    loop {
-        //
-        // We need to ask the kernel which regions we should dump for this
-        // task, which we do by asking for each dump region by index.  Note
-        // that get_task_dump_region is O(#regions) -- which makes this loop
-        // quadratic: O(#regions * #dumpable).  Fortunately, these numbers are
-        // very small: the number of regions is generally 3 or less (and -- as
-        // of this writing -- tops out at 7), and the number of dumpable
-        // regions is generally just one (two when including the task TCB, but
-        // that's constant time to extract).  So this isn't as bad as it
-        // potentially looks (and boils down to two iterations over all
-        // regions in a task) -- but could become so if these numbers become
-        // larger.
-        //
-        match kipc::get_task_dump_region(task, ndx) {
-            None => break,
-            Some(region) => {
-                ringbuf_entry!(Trace::DumpRegion(region));
-
-                if let Err(e) = humpty::add_dump_segment_header(
-                    base,
-                    region.base,
-                    region.size,
-                    |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
-                    |addr, buf| unsafe { humpty::to_mem(addr, buf) },
-                ) {
-                    ringbuf_entry!(Trace::DumpRegionsFailed(e));
-                    return;
-                }
-
-                ndx += 1;
-            }
-        }
+    match area {
+        Ok(Some(area)) => Ok(area),
+        Ok(None) => Err(DumpAgentError::DumpAreaInUse),
+        Err(_) => Err(DumpAgentError::CannotClaimDumpArea),
     }
+}
 
-    ringbuf_entry!(Trace::DumpStart(base));
+/// Once a task dump is set up, this function executes it
+fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
+    ringbuf_entry!(Trace::DumpStart { base });
 
     //
     // The humpty dance is your chance... to do the dump!
@@ -144,7 +128,11 @@ pub fn dump_task(base: u32, task: usize) {
         Some(humpty::DumpTask::new(task as u16, sys_get_timer().now)),
         || Ok(None),
         |addr, buf, meta| {
-            ringbuf_entry!(Trace::DumpReading(addr, buf.len(), meta));
+            ringbuf_entry!(Trace::DumpReading {
+                addr,
+                buf_len: buf.len(),
+                meta
+            });
 
             //
             // If meta is set, this read is metadata from within the dump
@@ -171,4 +159,140 @@ pub fn dump_task(base: u32, task: usize) {
     );
 
     ringbuf_entry!(Trace::DumpDone(r));
+    r.map_err(|_| DumpAgentError::DumpFailed)?;
+    Ok(())
+}
+
+pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
+    ringbuf_entry!(Trace::Dumping { task, base });
+
+    let area = dump_task_setup(base, true)?;
+
+    let mut ndx = 0;
+
+    loop {
+        //
+        // We need to ask the kernel which regions we should dump for this
+        // task, which we do by asking for each dump region by index.  Note
+        // that get_task_dump_region is O(#regions) -- which makes this loop
+        // quadratic: O(#regions * #dumpable).  Fortunately, these numbers are
+        // very small: the number of regions is generally 3 or less (and -- as
+        // of this writing -- tops out at 7), and the number of dumpable
+        // regions is generally just one (two when including the task TCB, but
+        // that's constant time to extract).  So this isn't as bad as it
+        // potentially looks (and boils down to two iterations over all
+        // regions in a task) -- but could become so if these numbers become
+        // larger.
+        //
+        match kipc::get_task_dump_region(task, ndx) {
+            None => break,
+            Some(region) => {
+                ringbuf_entry!(Trace::DumpRegion(region));
+
+                if let Err(e) = humpty::add_dump_segment_header(
+                    area.address,
+                    region.base,
+                    region.size,
+                    |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+                    |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+                ) {
+                    ringbuf_entry!(Trace::DumpRegionsFailed(e));
+                    return Err(DumpAgentError::BadSegmentAdd);
+                }
+
+                ndx += 1;
+            }
+        }
+    }
+
+    dump_task_run(area.address, task)?;
+
+    // Convert from a dump area (address) back to an index
+    humpty::dump_address_to_index(base, area.address, |addr, buf, _| unsafe {
+        humpty::from_mem(addr, buf)
+    })
+    .map_err(|_| DumpAgentError::DumpFailed)
+}
+
+/// Dumps a specific region from the given task
+pub fn dump_task_region(
+    base: u32,
+    task: usize,
+    start: u32,
+    length: u32,
+) -> Result<u8, DumpAgentError> {
+    ringbuf_entry!(Trace::DumpingTaskRegion {
+        task,
+        base,
+        start,
+        length
+    });
+
+    if start & 0b11 != 0 {
+        return Err(DumpAgentError::UnalignedSegmentAddress.into());
+    }
+
+    if (length as usize) & 0b11 != 0 {
+        return Err(DumpAgentError::UnalignedSegmentLength.into());
+    }
+
+    let area = dump_task_setup(base, false)?;
+
+    // We don't trust the caller; it may request to dump a region that isn't
+    // owned by this particular task!  To check this, we iterate over all of the
+    // valid dump regions and confirm that our desired region is within one of
+    // them.
+    let mut ndx = 0;
+    let mem = start..start + length;
+    let mut okay = false;
+    loop {
+        // This is Accidentally Quadratic; see the note in `dump_task`
+        match kipc::get_task_dump_region(task, ndx) {
+            None => break,
+            Some(region) => {
+                let region = region.base..region.base + region.size;
+                if mem.start >= region.start && mem.end <= region.end {
+                    okay = true;
+                    break;
+                }
+
+                ndx += 1;
+            }
+        }
+    }
+
+    if !okay {
+        return Err(DumpAgentError::BadSegmentAdd);
+    }
+
+    if let Err(e) = humpty::add_dump_segment_header(
+        area.address,
+        start,
+        length,
+        |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+        |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+    ) {
+        ringbuf_entry!(Trace::DumpRegionsFailed(e));
+        return Err(DumpAgentError::BadSegmentAdd);
+    }
+
+    dump_task_run(area.address, task)?;
+
+    humpty::dump_address_to_index(base, area.address, |addr, buf, _| unsafe {
+        humpty::from_mem(addr, buf)
+    })
+    .map_err(|_| DumpAgentError::DumpFailed)
+}
+
+pub fn reinitialize_dump_from(
+    base: u32,
+    index: u8,
+) -> Result<(), DumpAgentError> {
+    humpty::release_dump_areas_from(
+        base,
+        index,
+        |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+        |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+    )
+    .map_err(|_| DumpAgentError::DumpFailed)
 }
