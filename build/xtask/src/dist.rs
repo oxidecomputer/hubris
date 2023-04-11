@@ -588,7 +588,7 @@ fn build_archive(
 ) -> Result<PathBuf> {
     // Bundle everything up into an archive.
     let archive_path =
-        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name);
+        cfg.img_file(cfg.toml.archive_name(image_name), image_name);
     let mut archive = Archive::new(&archive_path)?;
 
     archive.text(

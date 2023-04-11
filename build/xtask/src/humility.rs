@@ -26,7 +26,7 @@ pub fn run(
         .join(&toml.name)
         .join("dist")
         .join(image_name)
-        .join(format!("build-{}.zip", &toml.name));
+        .join(toml.archive_name(image_name));
 
     let humility_path = match env::var("HUBRIS_HUMILITY_PATH") {
         Ok(path) => path,
