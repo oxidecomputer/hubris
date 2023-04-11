@@ -122,7 +122,10 @@ impl ServerImpl {
         // so return an error immediately.
         if header.version < humpty::udp::version::MIN {
             ringbuf_entry!(Trace::WrongVersion(header.version));
-            return Err(humpty::udp::Error::VersionMismatch);
+            return Err(humpty::udp::Error::VersionMismatch {
+                ours: humpty::udp::version::CURRENT,
+                theirs: header.version,
+            });
         }
 
         use humpty::udp::{Request, Response};
@@ -149,7 +152,10 @@ impl ServerImpl {
                 // we failed to deserialize it.
                 if header.version > humpty::udp::version::CURRENT {
                     ringbuf_entry!(Trace::WrongVersion(header.version));
-                    return Err(humpty::udp::Error::VersionMismatch);
+                    return Err(humpty::udp::Error::VersionMismatch {
+                        ours: humpty::udp::version::CURRENT,
+                        theirs: header.version,
+                    });
                 } else {
                     ringbuf_entry!(Trace::DeserializeError(e));
                     return Err(humpty::udp::Error::DeserializeError);
