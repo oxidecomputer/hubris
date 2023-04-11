@@ -22,130 +22,157 @@ use sprockets_common::msgs::{
     RotError as SprocketsError, RotRequestV1 as SprocketsReq,
     RotResponseV1 as SprocketsRsp,
 };
+use static_assertions::const_assert;
 use userlib::sys_send;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
-const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
+pub const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
 // XXX ROT FIFO size should be discovered.
 pub const ROT_FIFO_SIZE: usize = 8;
 pub const MAX_BLOB_SIZE: usize = 512;
 pub const MAX_REQUEST_SIZE: usize =
-    <Request as SerializedSize>::MAX_SIZE + MAX_BLOB_SIZE;
-pub const MAX_RESPONSE_SIZE: usize = <Response as SerializedSize>::MAX_SIZE;
+    Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE;
+pub const MAX_RESPONSE_SIZE: usize =
+    Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE;
 
-/// A sprot request from the SP to the RoT
-#[derive(SerializedSize)]
-pub struct Request {
+// For simplicity we want to be able to retrieve the header
+// in a maximum of 1 FIFO size read.
+const_assert!(Header::MAX_SIZE <= ROT_FIFO_SIZE);
+
+pub type Request = Msg<ReqBody>;
+pub type Response = Msg<Result<RspBody, SprotError>>;
+
+/// A message header for a request or response
+///
+/// It's important that this header be kept fixed size by limiting the use
+/// of rust types. This allows us to assume that Header::MAX_SIZE is also the
+/// exact size of the header.
+#[derive(Serialize, Deserialize, SerializedSize)]
+pub struct Header {
     pub protocol: Protocol,
-    pub body: ReqBody,
-    // Optional binary data is stored after the CRC in the buffer. We can read
-    // it directly out of the buffer without enlarging the size of ReqBody for
-    // all variants and inducing an extra copy of the binary data.
-    //
-    // The blob is covered by the CRC if it exists
-    pub blob_size: Option<u16>,
-    pub crc: u16,
+    pub body_size: u16,
 }
 
-impl Request {
-    /// Create a `Request` with `Protocol::V2` header, calculate a CRC16 over
-    // the `protocol` and `body` fields, then serialize it into `buf` with
-    // hubpack, returning the serialized size.
-    pub fn pack(
-        body: &ReqBody,
-        buf: &mut [u8],
-    ) -> Result<usize, SprotProtocolError> {
-        buf[0] = Protocol::V2 as u8;
+impl Header {
+    fn new(body_size: u16) -> Header {
+        Header {
+            protocol: Protocol::V2,
+            body_size,
+        }
+    }
+}
 
-        // `protocol` byte
-        let mut size = 1;
+/// Information about optional blobs appended to the body of messages
+/// before the CRC.
+pub struct BlobInfo {
+    pub offset: usize,
+    pub size: usize,
+}
 
+/// A sprot Msg that flows between the SP and RoT
+///
+/// The message is parameterized by a `ReqBody` or `RspBody`.
+///
+/// Note that `MSG`s do not implement `Serialize`, `Deserialize`, or
+/// `SerializedSize`, as they need to calculate and place a CRC in the buffer.
+/// `Msg`s sometimes include a an offset into the buffer where a binary blob
+/// resides.
+pub struct Msg<T> {
+    pub header: Header,
+    pub body: T,
+
+    // The index into the serialized buffer where an optional binary blob lives
+    pub blob: Option<BlobInfo>,
+}
+
+impl<T> Msg<T>
+where
+    T: Serialize + for<'a> Deserialize<'a> + SerializedSize,
+{
+    /// Serialize a `Header` followed by a `ReqBody` or `RspBody`, compute a CRC, serialize
+    /// the CRC, and return the total size of the serialized request.
+    pub fn pack(body: &T, buf: &mut [u8]) -> Result<usize, SprotProtocolError> {
         // Serialize `body`
-        size += hubpack::serialize(&mut buf[size..], body)?;
+        let mut size = hubpack::serialize(&mut buf[Header::MAX_SIZE..], body)?;
 
-        // Serialize `blob_size`
-        let blob_size: Option<u16> = None;
-        size += hubpack::serialize(&mut buf[size..], &blob_size)?;
+        // Create a header, now that we know the size of the body
+        let header = Header::new(size.try_into().unwrap_lite());
 
-        // Calculate the CRC
+        // Serialize the header
+        size += hubpack::serialize(buf, &header)?;
+
+        // Compute and serialize the CRC
         let crc = CRC16.checksum(&buf[..size]);
-
-        // Serialize the CRC
-        size += hubpack::serialize(&mut buf[size..], &crc).unwrap_lite();
+        size += hubpack::serialize(&mut buf[size..], &crc)?;
 
         Ok(size)
     }
 
+    /// Serialize a `Header` followed by a `ReqBody` or `RspBody, copy a blob
+    /// into `buf` after the serialized body,  compute a CRC, serialize the
+    /// CRC, and return the total size of the serialized request.
     pub fn pack_with_blob(
-        body: &ReqBody,
+        body: &T,
         buf: &mut [u8],
         blob: LenLimit<Leased<R, [u8]>, MAX_BLOB_SIZE>,
     ) -> Result<usize, SprotProtocolError> {
-        buf[0] = Protocol::V2 as u8;
-
-        // `protocol` byte
-        let mut size = 1;
-
         // Serialize `body`
-        size += hubpack::serialize(&mut buf[size..], body)?;
+        let mut size = hubpack::serialize(&mut buf[Header::MAX_SIZE..], body)?;
 
-        // Serialize `blob_size`
-        size += hubpack::serialize(&mut buf[size..], &Some(blob.len()))?;
-
-        // Leave room for the CRC
-        let blob_start = size + 2;
-        let blob_end = blob_start + blob.len();
-
-        // Copy the blob into the buffer
-        blob.read_range(0..blob.len(), &mut buf[blob_start..])
+        // Copy the blob into the buffer after the serialized body
+        blob.read_range(0..blob.len(), &mut buf[Header::MAX_SIZE + size..])
             .map_err(|_| SprotProtocolError::ServerRestarted)?;
 
-        // Calculate the CRC
-        let mut digest = CRC16.digest();
-        digest.update(&buf[..size]);
-        digest.update(&buf[blob_start..blob_end]);
-        let crc = digest.finalize();
+        size += blob.len();
 
-        // Serialize the CRC
-        size += hubpack::serialize(&mut buf[size..], &crc).unwrap_lite();
+        // Create a header, now that we know the size of the body
+        let header = Header::new(size.try_into().unwrap_lite());
 
-        Ok(size + blob.len())
+        // Serialize the header
+        size += hubpack::serialize(buf, &header)?;
+
+        // Compute and serialize the CRC
+        let crc = CRC16.checksum(&buf[..size]);
+        size += hubpack::serialize(&mut buf[size..], &crc)?;
+
+        Ok(size)
     }
 
-    /// Deserialize a Request and validate its CRC
-    /// Return an offset to the start of the blob from `buf`, if a blob exists.
-    pub fn unpack(
-        buf: &[u8],
-    ) -> Result<(Request, Option<usize>), SprotProtocolError> {
-        let protocol = Protocol::V2;
-        if buf[0] != protocol as u8 {
+    // Deserialize and return a `Msg`
+    pub fn unpack(buf: &[u8]) -> Result<Msg<T>, SprotProtocolError> {
+        let (header, body_buf) = hubpack::deserialize::<Header>(buf)?;
+        if header.protocol != Protocol::V2 {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
-        let (body, rest) = hubpack::deserialize(&buf[1..])?;
-        let (blob_size, crc_start) = hubpack::deserialize(rest)?;
-        let (crc, blob_start) = hubpack::deserialize(crc_start)?;
+        Self::unpack_body(header, buf, body_buf)
+    }
 
-        let crc_offset = buf.len() - crc_start.len();
-
-        let (computed, blob_offset) = if let Some(size) = blob_size {
-            let mut digest = CRC16.digest();
-            digest.update(&buf[..crc_offset]);
-            digest.update(&blob_start[..size as usize]);
-            let crc = digest.finalize();
-            let blob_offset = buf.len() - blob_start.len();
-            (crc, Some(blob_offset))
+    /// Deserialize just the body, given a header that was already deserialized.
+    pub fn unpack_body(
+        header: Header,
+        // The buffer containing the entire serialized `Msg` including the `Header`
+        buf: &[u8],
+        // The body part of the buffer including the CRC at the end
+        body_buf: &[u8],
+    ) -> Result<Msg<T>, SprotProtocolError> {
+        let (body, blob_buf) = hubpack::deserialize::<T>(body_buf)?;
+        let end = Header::MAX_SIZE + header.body_size as usize;
+        let blob_len =
+            header.body_size as usize - (body_buf.len() - blob_buf.len());
+        let computed_crc = CRC16.checksum(&buf[..end]);
+        let blob = if blob_len != 0 {
+            Some(BlobInfo {
+                size: blob_len,
+                offset: buf.len() - blob_buf.len(),
+            })
         } else {
-            (CRC16.checksum(&buf[..crc_offset]), None)
+            None
         };
 
-        if computed == crc {
-            let request = Request {
-                protocol,
-                body,
-                blob_size,
-                crc,
-            };
-            Ok((request, blob_offset))
+        // The CRC comes after the body, and is not included in header body_len
+        let (crc, _) = hubpack::deserialize::<u16>(&buf[end..])?;
+        if computed_crc == crc {
+            Ok(Msg { header, body, blob })
         } else {
             Err(SprotProtocolError::InvalidCrc)
         }
@@ -165,94 +192,6 @@ pub enum Protocol {
     V1,
     /// The second format, using hubpack
     V2,
-}
-
-/// A sprot response from the RoT to the SP
-#[derive(SerializedSize)]
-pub struct Response {
-    pub protocol: Protocol,
-    // The SP needs to know how many bytes to clock in
-    pub body_len: u16,
-    pub body: Result<RspBody, SprotError>,
-    pub crc: u16,
-}
-
-impl Response {
-    /// Create a `Response` with `Protocol::V2` header, calculate a CRC16 over
-    // the `length`, `protocol` and `body` fields, then serialize it into `buf` with
-    // hubpack, returning the serialized size.
-    pub fn pack(body: Result<RspBody, SprotError>, buf: &mut [u8]) -> usize {
-        buf[0] = Protocol::V2 as u8;
-        // Protocol byte + u16 length
-        let body_start = 3;
-
-        // Serialize the body
-        // Leave room for the Protocol byte, u16 length, and CRC
-        // We treat failure as a programmer error, as the buffer should
-        // always be sized large enough.
-        let size =
-            hubpack::serialize(&mut buf[body_start..], &body).unwrap_lite();
-
-        // Serialize the length of the body
-        let _ = hubpack::serialize(
-            &mut buf[1..],
-            &u16::try_from(size).unwrap_lite(),
-        );
-        let crc_start = body_start + size;
-        let crc = CRC16.checksum(&buf[..crc_start]);
-        let crc_buf = &mut buf[crc_start..];
-        let _ = hubpack::serialize(crc_buf, &crc).unwrap_lite();
-        body_start + size + CRC_SIZE
-    }
-
-    /// Return the length of the entire serialized request, given a buffer of
-    /// at least 3 bytes of the serialized request.
-    pub fn parse_body_len(buf: &[u8]) -> Result<u16, SprotProtocolError> {
-        assert!(buf.len() >= 3);
-        if buf[0] != Protocol::V2 as u8 {
-            return Err(SprotProtocolError::UnsupportedProtocol);
-        }
-        let (body_len, _) = hubpack::deserialize(&buf[1..])?;
-
-        Ok(body_len)
-    }
-
-    /// Return the total size of a serialized response given its body length
-    pub fn total_len(body_len: u16) -> usize {
-        // 5 = protocol byte + u16 length + u16 crc
-        body_len as usize + 5
-    }
-
-    /// Deserialize a Response and validate its CRC.
-    ///
-    /// The buffer passed in must be the exact buffer size of the received message.
-    ///
-    /// This operates on the whole buffer in order to validate the CRC, but
-    /// does not reparse the protocol byte or body length as those were already
-    /// parsed.
-    pub fn unpack_remaining(
-        buf: &[u8],
-        body_len: u16,
-    ) -> Result<Response, SprotProtocolError> {
-        // Protocol byte + u16 length + u16 CRC
-        assert!(buf.len() == body_len as usize + 5);
-        // Protocol byte + u16 length
-        let body_start = 3;
-        let crc_start = buf.len() - 2;
-        let (body, rest) = hubpack::deserialize(&buf[body_start..])?;
-        let (crc, _) = hubpack::deserialize(rest)?;
-        let computed = CRC16.checksum(&buf[..crc_start]);
-        if computed == crc {
-            Ok(Response {
-                protocol: Protocol::V2,
-                body_len,
-                body,
-                crc,
-            })
-        } else {
-            Err(SprotProtocolError::InvalidCrc)
-        }
-    }
 }
 
 /// The body of a sprot request
@@ -384,7 +323,8 @@ impl SprotError {
             SprotError::Protocol(err) => {
                 use SprotProtocolError::*;
                 match err {
-                    InvalidCrc | FlowError | Timeout | ServerRestarted => true,
+                    InvalidCrc | FlowError | Timeout | ServerRestarted
+                    | Serialization => true,
                     _ => false,
                 }
             }

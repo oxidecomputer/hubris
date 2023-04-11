@@ -41,7 +41,9 @@
 use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
-use drv_sprot_api::{RotIoStats, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE};
+use drv_sprot_api::{
+    RotIoStats, SprotProtocolError, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
+};
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
@@ -64,6 +66,7 @@ pub(crate) enum Trace {
     StatusReq,
     ReplyLen(usize),
     Underrun,
+    Err(SprotProtocolError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -185,9 +188,6 @@ impl Io {
         &mut self,
         rx_buf: &mut [u8],
     ) -> Result<usize, IoError> {
-        // We don't bother receiving bytes when sending. So we must clear
-        // the overrun error condition.
-        self.spi.rxerr_clear();
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
             sys_recv_closed(
@@ -236,13 +236,14 @@ impl Io {
 
         ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
 
+        // We don't bother sending bytes when receiving. So we must clear
+        // the underrun error condition before we handle a reply.
+        self.spi.txerr_clear();
+
         Ok(bytes_received)
     }
 
     fn reply(&mut self, tx_buf: &[u8]) {
-        // We don't bother sending bytes when receiving. So we must clear
-        // the underrun error condition.
-        self.spi.txerr_clear();
         ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
 
         let mut tx = tx_buf.iter();
@@ -297,6 +298,10 @@ impl Io {
         } else {
             self.check_for_underrun();
         }
+
+        // We don't bother receiving bytes when sending. So we must clear
+        // the overrun error condition for the next time we wait for a reply.
+        self.spi.rxerr_clear();
 
         // Prime our write fifo, so we clock out zero bytes on the next receive
         // We also empty our read fifo, since we don't bother reading bytes while writing.

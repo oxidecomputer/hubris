@@ -64,8 +64,8 @@ impl Handler {
 
     /// Serialize and return a `SprotError::FlowError`
     pub fn flow_error(&self, tx_buf: &mut [u8]) -> usize {
-        let body = Err(SprotError::Protocol(SprotProtocolError::FlowError));
-        Response::pack(body, tx_buf)
+        let body = Err(SprotProtocolError::FlowError.into());
+        Response::pack(&body, tx_buf).unwrap_lite()
     }
 
     pub fn handle(
@@ -75,55 +75,48 @@ impl Handler {
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
-        let (req, blob_offset) = match Request::unpack(rx_buf) {
-            Ok(req) => {
+        let request = match Request::unpack(rx_buf) {
+            Ok(request) => {
                 ringbuf_entry!(Trace::Req {
                     protocol: rx_buf[0],
                     body_type: rx_buf[1]
                 });
-                req
+                request
             }
             Err(e) => {
+                ringbuf_entry!(Trace::Err(e));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                return Response::pack(Err(e.into()), tx_buf);
+                return Response::pack(&Err(e.into()), tx_buf).unwrap_lite();
             }
         };
 
-        let rsp_body = self.handle_request(rx_buf, req, blob_offset, stats);
-        Response::pack(rsp_body, tx_buf)
+        let rsp_body = self.handle_request(rx_buf, request, stats);
+        Response::pack(&rsp_body, tx_buf).unwrap_lite()
     }
 
     pub fn handle_request(
         &mut self,
         rx_buf: &[u8],
         req: Request,
-        blob_offset: Option<usize>,
         stats: &mut RotIoStats,
     ) -> Result<RspBody, SprotError> {
         match req.body {
-            ReqBody::Status => {
-                ringbuf_entry!(Trace::StatusReq);
-                match self.update.status() {
-                    UpdateStatus::Rot(rot_updates) => {
-                        let msg = SprotStatus {
-                            supported: self.startup_state.supported,
-                            bootrom_crc32: self.startup_state.bootrom_crc32,
-                            max_request_size: self
-                                .startup_state
-                                .max_request_size,
-                            max_response_size: self
-                                .startup_state
-                                .max_response_size,
-                            rot_updates,
-                        };
-                        Ok(RspBody::Status(msg))
-                    }
-                    _ => {
-                        stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                        Err(SprotProtocolError::BadUpdateStatus)?
-                    }
+            ReqBody::Status => match self.update.status() {
+                UpdateStatus::Rot(rot_updates) => {
+                    let msg = SprotStatus {
+                        supported: self.startup_state.supported,
+                        bootrom_crc32: self.startup_state.bootrom_crc32,
+                        max_request_size: self.startup_state.max_request_size,
+                        max_response_size: self.startup_state.max_response_size,
+                        rot_updates,
+                    };
+                    Ok(RspBody::Status(msg))
                 }
-            }
+                _ => {
+                    stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
+                    Err(SprotProtocolError::BadUpdateStatus)?
+                }
+            },
             ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
             ReqBody::Sprockets(req) => {
                 // TODO: Don't unwrap!
@@ -151,9 +144,10 @@ impl Handler {
                 Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
-                match (blob_offset, req.blob_size) {
-                    (Some(offset), Some(size)) => {
-                        let block = &rx_buf[offset..offset + size as usize];
+                match req.blob {
+                    Some(blob) => {
+                        let end = blob.offset + blob.size;
+                        let block = &rx_buf[blob.offset..end];
                         self.update
                             .write_one_block(block_num as usize, &block)?;
                     }

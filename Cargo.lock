@@ -1533,6 +1533,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sprockets-common",
+ "static_assertions",
  "unwrap-lite",
  "userlib",
  "zerocopy",
