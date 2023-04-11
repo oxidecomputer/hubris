@@ -146,9 +146,6 @@ impl ServerImpl {
                 Request::ReadDump { index, offset } => {
                     self.read_dump(index, offset).map(Response::ReadDump)?
                 }
-                Request::GetDumpArea { index } => {
-                    self.dump_area(index).map(Response::GetDumpArea)?
-                }
                 Request::InitializeDump => {
                     self.initialize().map(|()| Response::InitializeDump)?
                 }
