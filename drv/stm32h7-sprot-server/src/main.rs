@@ -178,7 +178,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
         if !self.wait_rot_irq(true, timeout) {
             ringbuf_entry!(Trace::RspTimeout);
-            return Err(SprotError::Protocol(SprotProtocolError::Timeout));
+            return Err(SprotProtocolError::Timeout.into());
         }
 
         // Fill in rx_buf with a complete message and validate its crc

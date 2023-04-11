@@ -368,7 +368,9 @@ pub struct SprotStatus {
 /// Stats from the RoT side of sprot
 ///
 /// All of the counters will wrap around.
-#[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Default, Clone, Copy, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
 pub struct RotIoStats {
     /// Number of messages received
     pub rx_received: u32,

@@ -67,6 +67,7 @@ pub(crate) enum Trace {
     ReplyLen(usize),
     Underrun,
     Err(SprotProtocolError),
+    Stats(RotIoStats),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -179,17 +180,24 @@ fn main() -> ! {
             }
         };
 
+        ringbuf_entry!(Trace::Stats(io.stats));
         io.reply(&tx_buf[..rsp_len]);
     }
 }
 
 impl Io {
-    pub fn wait_for_request(
-        &mut self,
-        rx_buf: &mut [u8],
-    ) -> Result<usize, IoError> {
+    // Wait for chip select to be asserted
+    // Assert ROT_IRQ if this is a reply
+    fn wait_for_csn_asserted(&mut self, is_reply: bool) {
+        let mut rot_irq_asserted = false;
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
+
+            if is_reply && !rot_irq_asserted {
+                rot_irq_asserted = true;
+                self.assert_rot_irq();
+            }
+
             sys_recv_closed(
                 &mut [],
                 notifications::SPI_IRQ_MASK,
@@ -204,6 +212,13 @@ impl Io {
                 break;
             }
         }
+    }
+
+    pub fn wait_for_request(
+        &mut self,
+        rx_buf: &mut [u8],
+    ) -> Result<usize, IoError> {
+        self.wait_for_csn_asserted(false);
 
         // Go into a tight loop receiving as many bytes as we can until we see
         // CSn de-asserted.
@@ -249,35 +264,16 @@ impl Io {
         let mut tx = tx_buf.iter();
 
         // Fill in the fifo before we assert ROT_IRQ
+        // We assert ROT_IRQ in `wait_for_csn_asserted` so we can
+        // put it after the `sys_irq_control` syscall to minimize time taken to
+        // process a request.
         self.spi.drain_tx();
         while self.spi.can_tx() {
             let b = tx.next().copied().unwrap_or(0);
             self.spi.send_u8(b);
         }
 
-        let mut rot_irq_asserted = false;
-        loop {
-            sys_irq_control(notifications::SPI_IRQ_MASK, true);
-
-            if !rot_irq_asserted {
-                rot_irq_asserted = true;
-                self.assert_rot_irq();
-            }
-
-            sys_recv_closed(
-                &mut [],
-                notifications::SPI_IRQ_MASK,
-                TaskId::KERNEL,
-            )
-            .unwrap_lite();
-
-            // Is CSn asserted by the SP?
-            let intstat = self.spi.intstat();
-            if intstat.ssa().bit() {
-                self.spi.ssa_clear();
-                break;
-            }
-        }
+        self.wait_for_csn_asserted(true);
 
         let mut bytes_sent = 0;
         while !self.spi.ssd() {
@@ -299,19 +295,23 @@ impl Io {
             self.check_for_underrun();
         }
 
-        // We don't bother receiving bytes when sending. So we must clear
-        // the overrun error condition for the next time we wait for a reply.
-        self.spi.rxerr_clear();
+        ringbuf_entry!(Trace::SentBytes(bytes_sent));
+        self.prepare_for_next_request();
+    }
 
+    fn prepare_for_next_request(&mut self) {
         // Prime our write fifo, so we clock out zero bytes on the next receive
         // We also empty our read fifo, since we don't bother reading bytes while writing.
         self.spi.drain();
         while self.spi.can_tx() {
             self.spi.send_u8(0);
         }
+        // We don't bother receiving bytes when sending. So we must clear
+        // the overrun error condition for the next time we wait for a reply.
+        self.spi.rxerr_clear();
 
-        ringbuf_entry!(Trace::SentBytes(bytes_sent));
-
+        // Now that we are ready to handle the next request, let the SP know we
+        // are ready.
         self.deassert_rot_irq();
     }
 
