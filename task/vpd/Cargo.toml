@@ -15,6 +15,7 @@ zerocopy = { workspace = true }
 
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
+drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-vpd-api = { path = "../vpd-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

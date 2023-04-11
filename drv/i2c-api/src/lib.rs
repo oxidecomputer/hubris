@@ -93,6 +93,8 @@ pub enum ResponseCode {
     OperationNotSupported = 25,
     /// Illegal number of leases
     IllegalLeaseCount = 26,
+    /// Bad selected segment for mux
+    BadMuxSegment = 27,
 }
 
 ///

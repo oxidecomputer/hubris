@@ -7,6 +7,7 @@
 use crate::*;
 use bitfield::bitfield;
 use drv_i2c_api::{ResponseCode, Segment};
+use ringbuf::*;
 
 pub struct Pca9548;
 
@@ -22,6 +23,15 @@ bitfield! {
     channel1_enabled, set_channel1_enabled: 1;
     channel0_enabled, set_channel0_enabled: 0;
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    Check { address: u8, reg: u8, check: u8 },
+    CheckFailed { address: u8, reg: u8, check: Option<u8> },
+}
+
+ringbuf!(Trace, 32, Trace::None);
 
 impl I2cMuxDriver for Pca9548 {
     fn configure(
@@ -85,7 +95,36 @@ impl I2cMuxDriver for Pca9548 {
             ctrl,
         ) {
             Err(code) => Err(mux.error_code(code)),
-            _ => Ok(()),
+            _ => {
+                let mut check = None;
+
+                match controller.write_read(
+                    mux.address,
+                    0,
+                    |_| None,
+                    ReadLength::Fixed(1),
+                    |_pos, byte| {
+                        ringbuf_entry!(
+                            Trace::Check { address: mux.address, reg: reg.0, check: byte }
+                        );
+                        check = Some(byte);
+                        Some(())
+                    },
+                    ctrl
+                ) {
+                    Err(code) => Err(mux.error_code(code)),
+                    _ => {
+                        if check != Some(reg.0) {
+                            ringbuf_entry!(
+                                Trace::CheckFailed { address: mux.address, reg: reg.0, check }
+                            );
+                            Err(drv_i2c_api::ResponseCode::BadMuxSegment)
+                        } else {
+                            Ok(())
+                        }
+                    }
+                }
+            }
         }
     }
 

@@ -9,7 +9,7 @@
 
 use drv_i2c_api::*;
 use drv_stm32xx_i2c::*;
-use drv_stm32xx_sys_api::{Mode, OutputType, Pull, Speed, Sys};
+use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;
@@ -146,12 +146,16 @@ enum Trace {
     Error, // ringbuf line indicates error location
     Reset(Controller, PortIndex),
     ResetMux(Mux),
-    SegmentFailed(ResponseCode),
+    MuxConfigure(u8),
+    MuxClear(u8),
+    MuxCleared(u8, u8),
+    SegmentFailed(ResponseCode, u8),
     ConfigureFailed(ResponseCode),
+    PinRead(PinSet, bool),
     None,
 }
 
-ringbuf!(Trace, 8, Trace::None);
+ringbuf!(Trace, 64, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -182,7 +186,8 @@ fn reset_needed(code: ResponseCode) -> bool {
         | ResponseCode::BusReset
         | ResponseCode::BusResetMux
         | ResponseCode::BusError
-        | ResponseCode::ControllerBusy => true,
+        | ResponseCode::ControllerBusy
+        | ResponseCode::BadMuxSegment => true,
         _ => false,
     }
 }
@@ -235,6 +240,8 @@ fn main() -> ! {
             let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
         },
     };
+
+    // hl::sleep_for(40);
 
     configure_muxes(&muxes, &controllers, &pins, &mut portmap, &ctrl);
 
@@ -444,6 +451,38 @@ fn configure_port(
     map.insert(controller.controller, port);
 }
 
+fn reset_pinpair(sys: &Sys, pair: &[PinSet; 2]) {
+    for pin in pair {
+        sys.gpio_configure_input(*pin, Pull::None);
+    }
+
+    let rval = (sys.gpio_read(pair[0]) != 0, sys.gpio_read(pair[1]) != 0);
+
+    ringbuf_entry!(Trace::PinRead(pair[0], rval.0));
+    ringbuf_entry!(Trace::PinRead(pair[1], rval.1));
+
+    let (scl, sda) = match rval {
+        (true, true) => return,
+        (false, false) => return,
+        (true, false) => (pair[0], pair[1]),
+        (false, true) => (pair[1], pair[0])
+    };
+
+    sys.gpio_configure_output(
+        scl,
+        OutputType::OpenDrain,
+        Speed::Low,
+        Pull::None,
+    );
+    
+    for _ in 0..10 {
+        sys.gpio_reset(scl);
+        sys.gpio_set(scl);
+    }
+
+    panic!();
+}
+
 fn configure_pins(
     controllers: &[I2cController<'_>],
     pins: &[I2cPin],
@@ -451,6 +490,34 @@ fn configure_pins(
 ) {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
+
+    for (ndx, pin) in pins.iter().enumerate() {
+        let mask = pin.gpio_pins.pin_mask;
+
+        if mask & (mask - 1) == 0 {
+            //
+            // There is only one pin in this mask, so we need to go searching
+            // for the other.
+            //
+            let other = pins
+                .iter()
+                .skip(ndx)
+                .find(|p| p.controller == pin.controller && p.port == pin.port)
+                .unwrap();
+
+            reset_pinpair(&sys, &[pin.gpio_pins, other.gpio_pins]);
+        } else {
+            let lowbit = 1 << mask.trailing_zeros();
+
+            reset_pinpair(&sys, &[ PinSet {
+                port: pin.gpio_pins.port,
+                pin_mask: lowbit,
+            }, PinSet {
+                port: pin.gpio_pins.port,
+                pin_mask: mask & !lowbit,
+            }]);
+        }
+    }
 
     for pin in pins {
         let controller =
@@ -499,14 +566,16 @@ fn configure_muxes(
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    let max_resets = 10u8;
+
     for mux in muxes {
         let controller =
             lookup_controller(controllers, mux.controller).unwrap();
         configure_port(map, controller, mux.port, pins);
-
-        let mut reset_attempted = false;
+        let mut nresets = 0u8;
 
         loop {
+            ringbuf_entry!(Trace::MuxConfigure(mux.address));
             match mux.driver.configure(mux, controller, &sys, ctrl) {
                 Ok(_) => {
                     //
@@ -530,14 +599,27 @@ fn configure_muxes(
                     // for the first I2C transaction (which may or may not
                     // deal with the reset).
                     //
+                    ringbuf_entry!(Trace::MuxClear(mux.address));
                     if let Err(code) =
                         mux.driver.enable_segment(mux, controller, None, ctrl)
                     {
-                        ringbuf_entry!(Trace::SegmentFailed(code));
-                        if reset_needed(code) && !reset_attempted {
+                        ringbuf_entry!(Trace::SegmentFailed(code, nresets));
+
+                        if mux.address == 0x70 && code == ResponseCode::ControllerBusy {
+                            panic!();
+                        }
+
+                        if nresets < max_resets {
+                            nresets += 1;
                             reset(controller, mux.port, muxes, None);
-                            reset_attempted = true;
                             continue;
+                        }
+                    } else {
+                        ringbuf_entry!(Trace::MuxCleared(mux.address, nresets));
+
+                        // If that succeeded after many attempts, toss.
+                        if nresets > 5 {
+                            panic!();
                         }
                     }
 
