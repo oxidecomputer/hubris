@@ -63,15 +63,15 @@ impl Handler {
     }
 
     /// Serialize and return a `SprotError::FlowError`
-    pub fn flow_error(&self, tx_buf: &mut [u8]) -> usize {
+    pub fn flow_error(&self, tx_buf: &mut [u8; MAX_RESPONSE_SIZE]) -> usize {
         let body = Err(SprotProtocolError::FlowError.into());
-        Response::pack(&body, tx_buf).unwrap_lite()
+        Response::pack(&body, tx_buf)
     }
 
     pub fn handle(
         &mut self,
         rx_buf: &[u8],
-        tx_buf: &mut [u8],
+        tx_buf: &mut [u8; MAX_RESPONSE_SIZE],
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
@@ -86,12 +86,12 @@ impl Handler {
             Err(e) => {
                 ringbuf_entry!(Trace::Err(e));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                return Response::pack(&Err(e.into()), tx_buf).unwrap_lite();
+                return Response::pack(&Err(e.into()), tx_buf);
             }
         };
 
         let rsp_body = self.handle_request(rx_buf, request, stats);
-        Response::pack(&rsp_body, tx_buf).unwrap_lite()
+        Response::pack(&rsp_body, tx_buf)
     }
 
     pub fn handle_request(
