@@ -94,6 +94,7 @@ mux = "port_i"
 cs = [{port = "I", pin = 0}]
 
 [config.net]
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"

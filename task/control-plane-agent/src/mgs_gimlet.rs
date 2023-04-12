@@ -7,7 +7,6 @@ use crate::{
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS,
 };
-use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;

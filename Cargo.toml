@@ -119,7 +119,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
-humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false }
+humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.1" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }

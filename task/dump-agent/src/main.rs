@@ -14,6 +14,9 @@ use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 use userlib::*;
 
+#[cfg(feature = "net")]
+mod udp;
+
 //
 // Our DUMP_READ_SIZE must be an even power of 2 -- and practically speaking
 // cannot be more than 1K
@@ -23,6 +26,8 @@ const_assert!(DUMP_READ_SIZE <= 1024);
 
 struct ServerImpl {
     jefe: Jefe,
+    #[cfg(feature = "net")]
+    net: task_net_api::Net,
 }
 
 #[cfg(not(feature = "no-rot"))]
@@ -48,6 +53,14 @@ impl ServerImpl {
         addr: u32,
         length: u32,
     ) -> Result<(), DumpAgentError> {
+        if addr & 0b11 != 0 {
+            return Err(DumpAgentError::UnalignedSegmentAddress.into());
+        }
+
+        if (length as usize) & 0b11 != 0 {
+            return Err(DumpAgentError::UnalignedSegmentLength.into());
+        }
+
         let area = self.dump_area(0)?;
 
         //
@@ -70,55 +83,49 @@ impl ServerImpl {
         )
         .map_err(|_| DumpAgentError::BadSegmentAdd)
     }
-}
 
-impl idl::InOrderDumpAgentImpl for ServerImpl {
-    fn get_dump_area(
+    fn read_dump(
         &mut self,
-        _msg: &RecvMessage,
         index: u8,
-    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-        self.dump_area(index).map_err(|e| e.into())
-    }
+        offset: u32,
+    ) -> Result<[u8; DUMP_READ_SIZE], DumpAgentError> {
+        let mut rval = [0u8; DUMP_READ_SIZE];
 
-    fn initialize_dump(
-        &mut self,
-        _msg: &RecvMessage,
-    ) -> Result<(), RequestError<DumpAgentError>> {
-        self.initialize().map_err(|e| e.into())
-    }
-
-    fn add_dump_segment(
-        &mut self,
-        _msg: &RecvMessage,
-        address: u32,
-        length: u32,
-    ) -> Result<(), RequestError<DumpAgentError>> {
-        if address & 0b11 != 0 {
-            return Err(DumpAgentError::UnalignedSegmentAddress.into());
+        if offset & ((rval.len() as u32) - 1) != 0 {
+            return Err(DumpAgentError::UnalignedOffset);
         }
 
-        if (length as usize) & 0b11 != 0 {
-            return Err(DumpAgentError::UnalignedSegmentLength.into());
+        let area = self.dump_area(index)?;
+
+        let written = unsafe {
+            let header = area.address as *mut DumpAreaHeader;
+            core::ptr::read_volatile(header).written
+        };
+
+        if written > offset {
+            let to_read = written - offset;
+            let base = area.address as *const u8;
+            let base = unsafe { base.add(offset as usize) };
+
+            for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
+                rval[i] = unsafe { core::ptr::read_volatile(base.add(i)) };
+            }
+
+            Ok(rval)
+        } else {
+            Err(DumpAgentError::BadOffset)
         }
-
-        self.add_dump_segment(address, length)?;
-
-        Ok(())
     }
 
     #[cfg(not(feature = "no-rot"))]
-    fn take_dump(
-        &mut self,
-        _msg: &RecvMessage,
-    ) -> Result<(), RequestError<DumpAgentError>> {
+    fn take_dump(&mut self) -> Result<(), DumpAgentError> {
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
         let mut buf = [0u8; 4];
 
         let area = self.dump_area(0)?;
 
         if area.contents != humpty::DumpContents::WholeSystem {
-            return Err(DumpAgentError::UnclaimedDumpArea.into());
+            return Err(DumpAgentError::UnclaimedDumpArea);
         }
 
         match sprot.send_recv(
@@ -153,11 +160,53 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     }
 
     #[cfg(feature = "no-rot")]
+    fn take_dump(&mut self) -> Result<(), DumpAgentError> {
+        Err(DumpAgentError::NotSupported)
+    }
+}
+
+#[cfg(feature = "net")]
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        notifications::SOCKET_MASK
+    }
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & notifications::SOCKET_MASK) != 0 {
+            // Nothing to do here; we'll handle it in the main loop
+        }
+    }
+}
+
+impl idl::InOrderDumpAgentImpl for ServerImpl {
+    fn get_dump_area(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+    ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+        self.dump_area(index).map_err(|e| e.into())
+    }
+
+    fn initialize_dump(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+        self.initialize().map_err(|e| e.into())
+    }
+
+    fn add_dump_segment(
+        &mut self,
+        _msg: &RecvMessage,
+        address: u32,
+        length: u32,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+        self.add_dump_segment(address, length).map_err(|e| e.into())
+    }
+
     fn take_dump(
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
-        Err(DumpAgentError::NotSupported.into())
+        self.take_dump().map_err(|e| e.into())
     }
 
     //
@@ -171,50 +220,49 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         index: u8,
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
-        let mut rval = [0u8; DUMP_READ_SIZE];
-
-        if offset & ((rval.len() as u32) - 1) != 0 {
-            return Err(DumpAgentError::UnalignedOffset.into());
-        }
-
-        let area = self.dump_area(index)?;
-
-        let written = unsafe {
-            let header = area.address as *mut DumpAreaHeader;
-            core::ptr::read_volatile(header).written
-        };
-
-        if written > offset {
-            let to_read = written - offset;
-            let base = area.address as *const u8;
-            let base = unsafe { base.add(offset as usize) };
-
-            for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
-                rval[i] = unsafe { core::ptr::read_volatile(base.add(i)) };
-            }
-
-            Ok(rval)
-        } else {
-            Err(DumpAgentError::BadOffset.into())
-        }
+        self.read_dump(index, offset).map_err(|e| e.into())
     }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut server = ServerImpl {
-        jefe: Jefe::from(JEFE.get_task_id()),
-    };
-
     let mut buffer = [0; idl::INCOMING_SIZE];
 
-    loop {
-        idol_runtime::dispatch(&mut buffer, &mut server);
+    #[cfg(feature = "net")]
+    {
+        task_slot!(NET, net);
+        let (rx_data_buf, tx_data_buf) = udp::claim_statics();
+        let mut server = ServerImpl {
+            jefe: Jefe::from(JEFE.get_task_id()),
+            net: task_net_api::Net::from(NET.get_task_id()),
+        };
+
+        loop {
+            server.check_net(
+                rx_data_buf.as_mut_slice(),
+                tx_data_buf.as_mut_slice(),
+            );
+            idol_runtime::dispatch_n(&mut buffer, &mut server);
+        }
+    }
+
+    #[cfg(not(feature = "net"))]
+    {
+        let mut server = ServerImpl {
+            jefe: Jefe::from(JEFE.get_task_id()),
+        };
+        loop {
+            idol_runtime::dispatch(&mut buffer, &mut server);
+        }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
     use super::*;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
