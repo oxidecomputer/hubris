@@ -683,7 +683,7 @@ dependencies = [
  "nb 1.0.0",
  "salty",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "sha3",
  "stage0-handoff",
  "static_assertions",
@@ -701,7 +701,7 @@ dependencies = [
  "corncobs",
  "hubpack",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "zerocopy",
 ]
 
@@ -2289,7 +2289,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
  "unwrap-lite",
@@ -2344,12 +2344,13 @@ dependencies = [
 
 [[package]]
 name = "humpty"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/humpty#448435605eaa076a57e0b7f78837602b5dd1deef"
+version = "0.1.1"
+source = "git+https://github.com/oxidecomputer/humpty#b4052d8b0c1fe555e1686b281104852d7fba5230"
 dependencies = [
  "hubpack",
  "lzss",
  "serde",
+ "serde-big-array 0.5.1",
  "static_assertions",
  "zerocopy",
 ]
@@ -3479,6 +3480,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3661,7 +3671,7 @@ dependencies = [
  "hubpack",
  "salty",
  "serde",
- "serde-big-array",
+ "serde-big-array 0.4.1",
 ]
 
 [[package]]
@@ -3941,6 +3951,7 @@ name = "task-dump-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-util",
  "cfg-if",
  "cortex-m",
  "drv-sprot-api",
@@ -3950,11 +3961,13 @@ dependencies = [
  "humpty",
  "idol",
  "idol-runtime",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
  "static_assertions",
  "task-jefe-api",
+ "task-net-api",
  "userlib",
  "zerocopy",
 ]

@@ -10,6 +10,7 @@ version = 0
 [kernel]
 name = "gimletlet"
 requires = {flash = 32768, ram = 8192}
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent", "caboose_reader"]
@@ -20,11 +21,12 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.on-state-change]
 host_sp_comms = "jefe-state-change"
@@ -76,6 +78,17 @@ priority = 5
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192 }
+start = true
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
+extern-regions = ["sram2", "sram3", "sram4"]
+notifications = ["socket"]
+features = ["net", "vlan"]
 
 [tasks.gimlet_seq]
 name = "drv-mock-gimlet-seq-server"
@@ -161,7 +174,7 @@ name = "task-net"
 stacksize = 6040
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
-max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi4"]
 start = true
@@ -360,6 +373,7 @@ cs = [{port = "E", pin = 11}]
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.broadcast]
 kind = "udp"
@@ -385,9 +399,16 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 [config.sprot]
 # TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.

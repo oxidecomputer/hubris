@@ -181,6 +181,7 @@ clock_divider = "DIV16"
 
 
 [config.net]
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"

@@ -228,6 +228,7 @@ cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"

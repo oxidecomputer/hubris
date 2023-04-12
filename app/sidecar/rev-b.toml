@@ -307,12 +307,14 @@ stacksize = 800
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 5
-max-sizes = {flash = 8192, ram = 2048 }
+priority = 6
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
-task-slots = ["sprot", "jefe"]
-stacksize = 1200
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
 extern-regions = [ "sram2", "sram3", "sram4" ]
+notifications = ["socket"]
+features = ["net", "vlan"]
 
 [tasks.idle]
 name = "task-idle"
@@ -1057,6 +1059,7 @@ cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"
@@ -1082,14 +1085,21 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.transceivers]
 kind = "udp"
 owner = {name = "transceivers", notification = "socket"}
-port = 11112 # TODO do we have a documented port for transceiver traffic?
+port = 11112
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 
