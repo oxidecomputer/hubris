@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -133,17 +133,19 @@ struct I2cPort {
     name: Option<String>,
     #[allow(dead_code)]
     description: Option<String>,
-    pins: Vec<I2cPinSet>,
+    scl: I2cPin,
+    sda: I2cPin,
+    af: Option<u8>,
     #[serde(default)]
     muxes: Vec<I2cMux>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct I2cPinSet {
+struct I2cPin {
     gpio_port: Option<String>,
-    pins: Vec<u8>,
-    af: u8,
+    pin: u8,
+    af: Option<u8>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -667,9 +669,7 @@ impl ConfigGenerator {
         }
 
         for c in &self.controllers {
-            for port in c.ports.values() {
-                len += port.pins.len();
-            }
+            len += c.ports.len() * 2;
         }
 
         writeln!(
@@ -699,13 +699,23 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                for pin in &port.pins {
+                for pin in [ &port.scl, &port.sda ].iter() {
                     let mut pinstr = String::new();
-                    write!(&mut pinstr, "pin({})", pin.pins[0])?;
+                    write!(&mut pinstr, "pin({})", pin.pin)?;
 
-                    for i in 1..pin.pins.len() {
-                        write!(&mut pinstr, ".and_pin({})", pin.pins[i])?;
-                    }
+                    let af = match (port.af, pin.af) {
+                        (None, None) => {
+                            bail!("need AF on port {port:?}");
+                        }
+                        (Some(af), None) => af,
+                        (None, Some(af)) => af,
+                        (Some(_), Some(_)) => {
+                            bail!(
+                                "port {port:?} specifies both an AF \
+                                and an AF on {pin:?}"
+                            )
+                        }
+                    };
 
                     write!(
                         &mut s,
@@ -722,8 +732,6 @@ impl ConfigGenerator {
                             Some(ref port) => port,
                             None => p,
                         },
-                        pinstr = pinstr,
-                        af = pin.af
                     )?;
                 }
             }

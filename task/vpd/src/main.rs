@@ -8,7 +8,13 @@
 #![no_main]
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
+
+#[cfg(target_board = "gimlet-c")]
 use idol_runtime::{NotificationHandler, RequestError};
+
+#[cfg(not(target_board = "gimlet-c"))]
+use idol_runtime::RequestError;
+
 use task_vpd_api::VpdError;
 use userlib::*;
 
@@ -17,6 +23,8 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 struct ServerImpl;
 
 task_slot!(I2C, i2c_driver);
+
+#[cfg(target_board = "gimlet-c")]
 task_slot!(SEQ, gimlet_seq);
 
 impl idl::InOrderVpdImpl for ServerImpl {
@@ -123,6 +131,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
     }
 }
 
+#[cfg(target_board = "gimlet-c")]
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         notifications::TIMER_MASK
@@ -149,12 +158,16 @@ impl NotificationHandler for ServerImpl {
 fn main() -> ! {
     let mut server = ServerImpl;
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let deadline = sys_get_timer().now;
 
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+    #[cfg(target_board = "gimlet-c")]
+    sys_set_timer(Some(sys_get_timer().now), notifications::TIMER_MASK);
 
     loop {
+        #[cfg(target_board = "gimlet-c")]
         idol_runtime::dispatch_n(&mut buffer, &mut server);
+
+        #[cfg(not(target_board = "gimlet-c"))]
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
@@ -164,4 +177,5 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
+#[cfg(target_board = "gimlet-c")]
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

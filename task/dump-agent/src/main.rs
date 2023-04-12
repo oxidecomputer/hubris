@@ -8,7 +8,6 @@
 #![no_main]
 
 use dump_agent_api::*;
-use dumper_api::DumperError;
 use idol_runtime::RequestError;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -112,6 +111,8 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<DumpAgentError>> {
+        use dumper_api::DumperError;
+
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
         let mut buf = [0u8; 4];
 

@@ -163,35 +163,38 @@ controller = 1
 
 [config.i2c.controllers.ports.B]
 name = "onboard"
-
-[[config.i2c.controllers.ports.B.pins]]
-pins = [ 8, 9 ]
+scl.pin = 8
+sda.pin = 9
 af = 4
 
 [[config.i2c.controllers]]
 controller = 2
 target = true
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1]
+[config.i2c.controllers.ports.F]
+scl.pin = 1
+sda.pin = 0
 af = 4
 
 [[config.i2c.controllers]]
 controller = 3
 
-[[config.i2c.controllers.ports.H.pins]]
-pins = [ 7, 8 ]
+[config.i2c.controllers.ports.H]
+scl.pin = 7
+sda.pin = 8
 af = 4
 
 [[config.i2c.controllers]]
 controller = 4
 
-[[config.i2c.controllers.ports.D.pins]]
-pins = [ 12, 13 ]
+[config.i2c.controllers.ports.D]
+scl.pin = 12
+sda.pin = 13
 af = 4
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 14, 15 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 14
+sda.pin = 15
 af = 4
 
 [[config.i2c.controllers.ports.F.muxes]]
@@ -199,8 +202,9 @@ driver = "ltc4306"
 address = 0x44
 enable = { port = "G", pin = 0 }
 
-[[config.i2c.controllers.ports.H.pins]]
-pins = [ 11, 12 ]
+[config.i2c.controllers.ports.H]
+scl.pin = 11
+sda.pin = 12
 af = 4
 
 [[config.i2c.devices]]
@@ -267,7 +271,6 @@ segment = 4
 address = 0x24
 description = "TPS546B24A evaluation board"
 power = { rails = [ "TPS_EVL_VOUT" ] }
-
 
 [config.spi.spi2]
 controller = 2

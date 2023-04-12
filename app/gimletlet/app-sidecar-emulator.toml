@@ -132,7 +132,9 @@ target = true
 [config.i2c.controllers.ports.F]
 name = "i2c2"
 description = "I2C Port 2"
-pins = [ { pins = [ 0, 1 ], af = 4 } ]
+scl.pin = 1
+sda.pin = 0
+af = 4
 
 [[config.i2c.controllers]]
 controller = 3
@@ -145,21 +147,22 @@ controller = 3
 # definition of `PortIndex` and name the logical port C after the GPIO pin that
 # corresponds to SDA.
 #
-[[config.i2c.controllers.ports.C.pins]]
+[config.i2c.controllers.ports.C.scl]
 gpio_port = "A"
-pins = [ 8 ]
+pin = 8
 af = 4
 
-[[config.i2c.controllers.ports.C.pins]]
+[config.i2c.controllers.ports.C.sda]
 gpio_port = "C"
-pins = [ 9 ]
+pin = 9
 af = 4
 
 [[config.i2c.controllers]]
 controller = 4
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 14, 15 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 14
+sda.pin = 15
 af = 4
 
 [config.spi.spi3]

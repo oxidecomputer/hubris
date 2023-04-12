@@ -153,7 +153,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 8, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -475,8 +475,6 @@ fn reset_pinpair(sys: &Sys, pair: &[PinSet; 2]) {
         sys.gpio_reset(scl);
         sys.gpio_set(scl);
     }
-
-    panic!();
 }
 
 fn configure_pins(
