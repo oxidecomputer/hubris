@@ -90,13 +90,12 @@ impl Handler {
             }
         };
 
-        let rsp_body = self.handle_request(rx_buf, request, stats);
+        let rsp_body = self.handle_request(request, stats);
         Response::pack(&rsp_body, tx_buf)
     }
 
     pub fn handle_request(
         &mut self,
-        rx_buf: &[u8],
         req: Request,
         stats: &mut RotIoStats,
     ) -> Result<RspBody, SprotError> {

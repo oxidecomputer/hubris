@@ -63,7 +63,6 @@ pub(crate) enum Trace {
     SentBytes(usize),
     Flush,
     FlowError,
-    StatusReq,
     ReplyLen(usize),
     Underrun,
     Err(SprotProtocolError),

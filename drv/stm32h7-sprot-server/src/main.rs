@@ -208,8 +208,7 @@ impl<S: SpiServer> Io<S> {
         self.stats.tx_errors = self.stats.tx_errors.wrapping_add(1);
 
         let part1_len = ROT_FIFO_SIZE.min(tx_buf.len());
-        let part1 = &tx_buf[..part1_len];
-        let part2 = &tx_buf[part1_len..];
+        let (part1, part2) = tx_buf.split_at(part1_len);
 
         let _lock = self.spi.lock_auto(CsState::Asserted)?;
         if PART1_DELAY != 0 {
@@ -384,9 +383,6 @@ impl<S: SpiServer> ServerImpl<S> {
         let mut attempts_left = retries;
 
         loop {
-            // Increase the error count here. We'll decrease if we return successfully.
-            self.io.stats.rx_invalid = self.io.stats.rx_invalid.wrapping_add(1);
-
             let res = {
                 // Disjoint borrow so that the borrow checker doesn't tell
                 // us &mut self is held mutably and immutably when  calling
@@ -408,9 +404,6 @@ impl<S: SpiServer> ServerImpl<S> {
                 Ok(rx_size) => {
                     match Response::unpack(&self.rx_buf[..rx_size]) {
                         Ok(response) => {
-                            // Remove the error we added at the beginning of this function
-                            self.io.stats.rx_invalid =
-                                self.io.stats.rx_invalid.wrapping_sub(1);
                             self.io.stats.rx_received =
                                 self.io.stats.rx_received.wrapping_add(1);
                             let Err(e) = response.body else {
@@ -418,7 +411,11 @@ impl<S: SpiServer> ServerImpl<S> {
                             };
                             e
                         }
-                        Err(err) => err.into(),
+                        Err(err) => {
+                            self.io.stats.rx_invalid =
+                                self.io.stats.rx_invalid.wrapping_add(1);
+                            err.into()
+                        }
                     }
                 }
             };

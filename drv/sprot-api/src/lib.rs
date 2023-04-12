@@ -137,11 +137,11 @@ where
 
     // Deserialize and return a `Msg`
     pub fn unpack(buf: &'a [u8]) -> Result<Msg<'a, T, N>, SprotProtocolError> {
-        let (header, body_buf) = hubpack::deserialize::<Header>(buf)?;
+        let (header, rest) = hubpack::deserialize::<Header>(buf)?;
         if header.protocol != Protocol::V2 {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
-        Self::unpack_body(header, buf, body_buf)
+        Self::unpack_body(header, buf, rest)
     }
 
     /// Deserialize just the body, given a header that was already deserialized.
@@ -149,19 +149,21 @@ where
         header: Header,
         // The buffer containing the entire serialized `Msg` including the `Header`
         buf: &'a [u8],
-        // The body part of the buffer including the CRC at the end
-        body_buf: &'a [u8],
+        // The part of the after the header buffer including the body and CRC
+        rest: &'a [u8],
     ) -> Result<Msg<'a, T, N>, SprotProtocolError> {
-        let (body, blob_buf) = hubpack::deserialize::<T>(body_buf)?;
+        let (body, blob_buf) = hubpack::deserialize::<T>(rest)?;
         let end = Header::MAX_SIZE + header.body_size as usize;
-        let blob_len =
-            header.body_size as usize - (body_buf.len() - blob_buf.len());
-        let computed_crc = CRC16.checksum(&buf[..end]);
-        let blob = &blob_buf[..blob_len];
+        let (checksummed_part, tail) = buf.split_at(end);
+        let computed_crc = CRC16.checksum(checksummed_part);
 
         // The CRC comes after the body, and is not included in header body_len
-        let (crc, _) = hubpack::deserialize::<u16>(&buf[end..])?;
+        let (crc, _) = hubpack::deserialize(tail)?;
+
         if computed_crc == crc {
+            let blob_len =
+                header.body_size as usize - (rest.len() - blob_buf.len());
+            let blob = &blob_buf[..blob_len];
             Ok(Msg { header, body, blob })
         } else {
             Err(SprotProtocolError::InvalidCrc)
