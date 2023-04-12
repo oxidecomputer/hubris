@@ -699,6 +699,11 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
+                //
+                // Generate the SCL pin, followed by the SDA pin.  This
+                // ordering is important, and will be relied upon by anyone
+                // wishing to differentiate SCL from SDA.
+                //
                 for pin in [&port.scl, &port.sda].iter() {
                     let mut pinstr = String::new();
                     write!(&mut pinstr, "pin({})", pin.pin)?;
