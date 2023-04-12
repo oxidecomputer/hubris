@@ -2344,8 +2344,8 @@ dependencies = [
 
 [[package]]
 name = "humpty"
-version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/humpty?branch=single-task-dump#5a89634ee21463b3b0a3b56af82d9ebbe15dc2ef"
+version = "0.1.2"
+source = "git+https://github.com/oxidecomputer/humpty?branch=single-task-dump#391699a1b04b92bfa0aee9c6945c1aa57913c585"
 dependencies = [
  "hubpack",
  "lzss",
