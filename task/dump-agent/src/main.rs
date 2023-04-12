@@ -17,9 +17,6 @@ use userlib::*;
 #[cfg(feature = "net")]
 mod udp;
 
-#[cfg(feature = "net")]
-task_slot!(NET, net);
-
 //
 // Our DUMP_READ_SIZE must be an even power of 2 -- and practically speaking
 // cannot be more than 1K
@@ -233,6 +230,7 @@ fn main() -> ! {
 
     #[cfg(feature = "net")]
     {
+        task_slot!(NET, net);
         let (rx_data_buf, tx_data_buf) = udp::claim_statics();
         let mut server = ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),

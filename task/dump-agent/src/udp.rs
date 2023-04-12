@@ -5,7 +5,9 @@
 use crate::{ServerImpl, DUMP_READ_SIZE};
 use hubpack::SerializedSize;
 use ringbuf::*;
-use task_net_api::*;
+use task_net_api::{
+    LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
+};
 
 static_assertions::const_assert_eq!(
     DUMP_READ_SIZE,
@@ -15,23 +17,29 @@ static_assertions::const_assert_eq!(
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    GotHeader(humpty::udp::Header),
     DeserializeError(hubpack::Error),
     DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
     WrongVersion(u8),
+    Hi(u8, usize),
 }
 
 ringbuf!(Trace, 16, Trace::None);
 
-const MAX_UDP_TX_SIZE: usize = humpty::udp::ResponseMessage::MAX_SIZE;
-const MAX_UDP_RX_SIZE: usize = humpty::udp::RequestMessage::MAX_SIZE;
+////////////////////////////////////////////////////////////////////////////////
+// Constants and static assertions
+const SOCKET: SocketName = SocketName::dump_agent;
 
-// Check against packet sizes in the TOML file
+const SOCKET_TX_SIZE: usize = task_net_api::SOCKET_TX_SIZE[SOCKET as usize];
+const SOCKET_RX_SIZE: usize = task_net_api::SOCKET_RX_SIZE[SOCKET as usize];
+
+// Check our buffer sizes against packet sizes in the TOML file
 static_assertions::const_assert!(
-    MAX_UDP_TX_SIZE <= SOCKET_TX_SIZE[SocketName::dump_agent as usize]
+    humpty::udp::ResponseMessage::MAX_SIZE <= SOCKET_TX_SIZE
 );
 static_assertions::const_assert!(
-    MAX_UDP_RX_SIZE <= SOCKET_RX_SIZE[SocketName::dump_agent as usize]
+    humpty::udp::RequestMessage::MAX_SIZE <= SOCKET_RX_SIZE
 );
 
 // The response message is a tuple (Header, Result<Response, Error>)
@@ -49,15 +57,22 @@ static_assertions::const_assert_eq!(
 
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
+///
+/// Note that we're using the packet sizes configured in the TOML file, not the
+/// smallest possible packet sizes. This gives us a little wiggle room: if a
+/// future message protocol version increases max packet size, we'll be able to
+/// at least read it and decode the header.
 pub fn claim_statics() -> (
-    &'static mut [u8; MAX_UDP_RX_SIZE],
-    &'static mut [u8; MAX_UDP_TX_SIZE],
+    &'static mut [u8; SOCKET_RX_SIZE],
+    &'static mut [u8; SOCKET_TX_SIZE],
 ) {
     mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; MAX_UDP_RX_SIZE] = [|| 0u8; _];
-        static mut RX_BUF: [u8; MAX_UDP_TX_SIZE] = [|| 0u8; _];
+        static mut TX_BUF: [u8; SOCKET_RX_SIZE] = [|| 0u8; _];
+        static mut RX_BUF: [u8; SOCKET_TX_SIZE] = [|| 0u8; _];
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 impl ServerImpl {
     pub fn check_net(
@@ -66,7 +81,7 @@ impl ServerImpl {
         tx_data_buf: &mut [u8],
     ) {
         match self.net.recv_packet(
-            SocketName::dump_agent,
+            SOCKET,
             LargePayloadBehavior::Discard,
             rx_data_buf,
         ) {
@@ -85,9 +100,11 @@ impl ServerImpl {
         rx_data_buf: &[u8],
         tx_data_buf: &mut [u8],
     ) {
+        ringbuf_entry!(Trace::Hi(rx_data_buf[0], rx_data_buf.len()));
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
                 Ok((mut header, msg)) => {
+                    ringbuf_entry!(Trace::GotHeader(header));
                     let response = self.handle_message(header, msg);
                     header.version = humpty::udp::version::CURRENT;
                     let reply =
@@ -104,13 +121,12 @@ impl ServerImpl {
         if let Some(out_len) = out_len {
             meta.size = out_len as u32;
             if let Err(e) = self.net.send_packet(
-                SocketName::dump_agent,
+                SOCKET,
                 meta,
                 &tx_data_buf[..meta.size as usize],
             ) {
                 // We'll drop packets if the outgoing queue is full or the
-                // server has died; the host is responsible for retrying
-                // (which isn't implemented yet in Humility).
+                // server has died; the host is responsible for retrying.
                 //
                 // Other errors are unexpected and panic.
                 ringbuf_entry!(Trace::SendError(e));

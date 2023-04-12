@@ -307,7 +307,7 @@ stacksize = 800
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 16384, ram = 4096 }
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
