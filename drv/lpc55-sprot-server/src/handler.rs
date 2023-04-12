@@ -5,9 +5,9 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    Protocol, ReqBody, Request, Response, RotIoStats, RspBody, SprotError,
-    SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp, MAX_REQUEST_SIZE,
-    MAX_RESPONSE_SIZE,
+    Protocol, ReqBody, Request, Response, RotIoStats, RspBody, SprocketsError,
+    SprotError, SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp,
+    MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus};
 use dumper_api::Dumper;
@@ -118,25 +118,24 @@ impl Handler {
                 }
             },
             ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
-            ReqBody::Sprockets(req) => {
-                // TODO: Don't unwrap!
-                Ok(RspBody::Sprockets(
-                    self.sprocket.handle_deserialized(req).unwrap_lite(),
-                ))
-            }
+            ReqBody::Sprockets(req) => Ok(RspBody::Sprockets(
+                // The only error we can get here is a serialization error,
+                // which is represented as `BadEncoding`.
+                self.sprocket
+                    .handle_deserialized(req)
+                    .map_err(|_| SprocketsError::BadEncoding)?,
+            )),
             ReqBody::Dump { addr } => {
                 ringbuf_entry!(Trace::Dump(addr));
                 let dumper = Dumper::from(DUMPER.get_task_id());
-                match dumper.dump(addr) {
-                    Ok(()) => Ok(RspBody::Ok),
-                    Err(e) => Err(SprotError::Dump(e)),
-                }
+                dumper.dump(addr).map_err(SprotError::Dump)?;
+                Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
                 let size = self.update.block_size()?;
                 // Block size will always fit in a u32 on these MCUs
                 Ok(RspBody::Update(UpdateRsp::BlockSize(
-                    size.try_into().unwrap(),
+                    size.try_into().unwrap_lite(),
                 )))
             }
             ReqBody::Update(UpdateReq::Prep(target)) => {

@@ -448,7 +448,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _: &RecvMessage,
     ) -> Result<SprotStatus, RequestError<SprotError>> {
         ringbuf_entry!(Trace::StatusReq);
-        let tx_size = Request::pack(&ReqBody::Status, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&ReqBody::Status, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -466,7 +466,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<IoStats, RequestError<SprotError>> {
-        let tx_size = Request::pack(&ReqBody::IoStats, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&ReqBody::IoStats, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -488,7 +488,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _msg: &userlib::RecvMessage,
     ) -> Result<u32, RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::GetBlockSize);
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -508,7 +508,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         target: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Prep(target));
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -552,7 +552,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Finish);
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -570,7 +570,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Abort);
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -591,7 +591,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body =
             ReqBody::Update(UpdateReq::SwitchDefaultImage { slot, duration });
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
@@ -610,7 +610,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Reset);
-        let tx_size = Request::pack(&body, &mut self.tx_buf)?;
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
         if let RspBody::Ok = rsp.body? {
             Ok(())
