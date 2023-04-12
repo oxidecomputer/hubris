@@ -22,7 +22,6 @@ enum Trace {
     DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
     WrongVersion(u8),
-    Hi(u8, usize),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -100,7 +99,6 @@ impl ServerImpl {
         rx_data_buf: &[u8],
         tx_data_buf: &mut [u8],
     ) {
-        ringbuf_entry!(Trace::Hi(rx_data_buf[0], rx_data_buf.len()));
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
                 Ok((mut header, msg)) => {
