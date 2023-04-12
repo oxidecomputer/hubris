@@ -46,7 +46,7 @@ fn configure_pins(pins: &[I2cPin]) {
 
     for pin in pins {
         sys.gpio_configure_alternate(
-            pin.gpio_pins,
+            pin.gpio_pin,
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,

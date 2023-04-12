@@ -140,7 +140,8 @@ impl NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, _bits: u32) {
         use drv_gimlet_seq_api::{PowerState, Sequencer};
 
-        if Sequencer::from(SEQ.get_task_id()).get_state() == Ok(PowerState::A0) {
+        if Sequencer::from(SEQ.get_task_id()).get_state() == Ok(PowerState::A0)
+        {
             let devs = i2c_config::devices::at24csw080(I2C.get_task_id());
 
             for index in (0..devs.len()).rev() {

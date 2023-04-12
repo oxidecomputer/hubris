@@ -149,11 +149,11 @@ enum Trace {
     MuxConfigure(u8),
     SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
-    PinRead(PinSet, bool),
+    Wiggles(PinSet, u8),
     None,
 }
 
-ringbuf!(Trace, 8, Trace::None);
+ringbuf!(Trace, 16, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -424,8 +424,8 @@ fn configure_port(
             // operation in the GPIO API, so we do it longhand:
             //
             sys.gpio_configure(
-                pin.gpio_pins.port,
-                pin.gpio_pins.pin_mask,
+                pin.gpio_pin.port,
+                pin.gpio_pin.pin_mask,
                 Mode::Analog,
                 OutputType::OpenDrain,
                 Speed::Low,
@@ -435,7 +435,7 @@ fn configure_port(
         } else if pin.port == port {
             // Configure our new port!
             sys.gpio_configure_alternate(
-                pin.gpio_pins,
+                pin.gpio_pin,
                 OutputType::OpenDrain,
                 Speed::Low,
                 Pull::None,
@@ -447,22 +447,8 @@ fn configure_port(
     map.insert(controller.controller, port);
 }
 
-fn reset_pinpair(sys: &Sys, pair: &[PinSet; 2]) {
-    for pin in pair {
-        sys.gpio_configure_input(*pin, Pull::None);
-    }
-
-    let rval = (sys.gpio_read(pair[0]) != 0, sys.gpio_read(pair[1]) != 0);
-
-    ringbuf_entry!(Trace::PinRead(pair[0], rval.0));
-    ringbuf_entry!(Trace::PinRead(pair[1], rval.1));
-
-    let (scl, sda) = match rval {
-        (true, true) => return,
-        (false, false) => return,
-        (true, false) => (pair[0], pair[1]),
-        (false, true) => (pair[1], pair[0])
-    };
+fn wiggle(sys: &Sys, scl: PinSet, sda: PinSet) {
+    sys.gpio_configure_input(sda, Pull::None);
 
     sys.gpio_configure_output(
         scl,
@@ -470,8 +456,32 @@ fn reset_pinpair(sys: &Sys, pair: &[PinSet; 2]) {
         Speed::Low,
         Pull::None,
     );
-    
-    for _ in 0..10 {
+
+    for i in 0..9 {
+        if sys.gpio_read(sda) != 0 {
+            //
+            // SDA is high. We're going to flip it to an output, pull the
+            // clock down then, pull SDA down, then release SCL and finally
+            // release SDA.  This will denote a STOP condition.
+            //
+            sys.gpio_configure_output(
+                sda,
+                OutputType::OpenDrain,
+                Speed::Low,
+                Pull::None,
+            );
+
+            sys.gpio_reset(scl);
+            sys.gpio_reset(sda);
+            sys.gpio_set(scl);
+            sys.gpio_set(sda);
+            ringbuf_entry!(Trace::Wiggles(scl, i));
+            break;
+        }
+
+        //
+        // SDA is low -- someone is holding it down.  Give SCL a wiggle.
+        //
         sys.gpio_reset(scl);
         sys.gpio_set(scl);
     }
@@ -485,32 +495,8 @@ fn configure_pins(
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
-    for (ndx, pin) in pins.iter().enumerate() {
-        let mask = pin.gpio_pins.pin_mask;
-
-        if mask & (mask - 1) == 0 {
-            //
-            // There is only one pin in this mask, so we need to go searching
-            // for the other.
-            //
-            let other = pins
-                .iter()
-                .skip(ndx)
-                .find(|p| p.controller == pin.controller && p.port == pin.port)
-                .unwrap();
-
-            reset_pinpair(&sys, &[pin.gpio_pins, other.gpio_pins]);
-        } else {
-            let lowbit = 1 << mask.trailing_zeros();
-
-            reset_pinpair(&sys, &[ PinSet {
-                port: pin.gpio_pins.port,
-                pin_mask: lowbit,
-            }, PinSet {
-                port: pin.gpio_pins.port,
-                pin_mask: mask & !lowbit,
-            }]);
-        }
+    for ndx in (0..pins.len()).step_by(2) {
+        wiggle(&sys, pins[ndx].gpio_pin, pins[ndx + 1].gpio_pin);
     }
 
     for pin in pins {
@@ -525,8 +511,8 @@ fn configure_pins(
                 // prevent glitches when we first use it.
                 //
                 sys.gpio_configure(
-                    pin.gpio_pins.port,
-                    pin.gpio_pins.pin_mask,
+                    pin.gpio_pin.port,
+                    pin.gpio_pin.pin_mask,
                     Mode::Analog,
                     OutputType::OpenDrain,
                     Speed::Low,
@@ -539,7 +525,7 @@ fn configure_pins(
         }
 
         sys.gpio_configure_alternate(
-            pin.gpio_pins,
+            pin.gpio_pin,
             OutputType::OpenDrain,
             Speed::Low,
             Pull::None,

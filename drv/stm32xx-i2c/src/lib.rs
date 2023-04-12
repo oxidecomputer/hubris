@@ -43,7 +43,7 @@ use drv_stm32xx_sys_api as sys_api;
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::PortIndex,
-    pub gpio_pins: sys_api::PinSet,
+    pub gpio_pin: sys_api::PinSet,
     pub function: sys_api::Alternate,
 }
 

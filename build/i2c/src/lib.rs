@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -699,7 +699,7 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                for pin in [ &port.scl, &port.sda ].iter() {
+                for pin in [&port.scl, &port.sda].iter() {
                     let mut pinstr = String::new();
                     write!(&mut pinstr, "pin({})", pin.pin)?;
 
@@ -723,7 +723,7 @@ impl ConfigGenerator {
             I2cPin {{
                 controller: Controller::I2C{controller},
                 port: PortIndex({i2c_port}),
-                gpio_pins: gpio_api::Port::{gpio_port}.{pinstr},
+                gpio_pin: gpio_api::Port::{gpio_port}.{pinstr},
                 function: Alternate::AF{af},
             }},"##,
                         controller = c.controller,
