@@ -95,13 +95,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
-            UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
-            }
             UpdateState::Finished => {
                 return Err(UpdateError::UpdateAlreadyFinished.into())
             }
-            UpdateState::InProgress => (),
+            UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
 
         self.state = UpdateState::NoUpdate;

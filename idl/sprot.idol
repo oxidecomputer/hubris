@@ -52,6 +52,7 @@ Interface(
                 err: Complex("SprotError"),
             ),
             encoding: Hubpack, 
+            idempotent: true,
         ),
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",

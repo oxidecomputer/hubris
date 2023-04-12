@@ -239,12 +239,7 @@ impl ComponentUpdater for RotUpdate {
         match current.state() {
             State::AcceptingData { .. } | State::Failed(_) => {
                 match self.task.abort_update() {
-                    // Aborting an update that hasn't started yet is fine;
-                    // either way our caller is clear to start a new update.
-                    Ok(())
-                    | Err(SprotError::Update(
-                        drv_sprot_api::UpdateError::UpdateNotStarted,
-                    )) => {
+                    Ok(()) => {
                         *current.state_mut() = State::Aborted;
                         Ok(())
                     }
