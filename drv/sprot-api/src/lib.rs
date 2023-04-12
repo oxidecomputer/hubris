@@ -17,7 +17,7 @@ pub use drv_update_api::{
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, RequestError, R};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use sprockets_common::msgs::{
     RotError as SprocketsError, RotRequestV1 as SprocketsReq,
     RotResponseV1 as SprocketsRsp,
@@ -38,8 +38,8 @@ pub const MAX_RESPONSE_SIZE: usize =
 // in a maximum of 1 FIFO size read.
 const_assert!(Header::MAX_SIZE <= ROT_FIFO_SIZE);
 
-pub type Request = Msg<ReqBody, MAX_REQUEST_SIZE>;
-pub type Response = Msg<Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
+pub type Request<'a> = Msg<'a, ReqBody, MAX_REQUEST_SIZE>;
+pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
 
 /// A message header for a request or response
 ///
@@ -61,13 +61,6 @@ impl Header {
     }
 }
 
-/// Information about optional blobs appended to the body of messages
-/// before the CRC.
-pub struct BlobInfo {
-    pub offset: usize,
-    pub size: usize,
-}
-
 /// A sprot Msg that flows between the SP and RoT
 ///
 /// The message is parameterized by a `ReqBody` or `RspBody`.
@@ -76,17 +69,17 @@ pub struct BlobInfo {
 /// `SerializedSize`, as they need to calculate and place a CRC in the buffer.
 /// `Msg`s sometimes include a an offset into the buffer where a binary blob
 /// resides.
-pub struct Msg<T, const N: usize> {
+pub struct Msg<'a, T, const N: usize> {
     pub header: Header,
     pub body: T,
 
     // The serialized buffer where an optional binary blob lives
-    pub blob: Option<BlobInfo>,
+    pub blob: &'a [u8],
 }
 
-impl<T, const N: usize> Msg<T, N>
+impl<'a, T, const N: usize> Msg<'a, T, N>
 where
-    T: Serialize + for<'a> Deserialize<'a> + SerializedSize,
+    T: Serialize + DeserializeOwned + SerializedSize,
 {
     /// Serialize a `Header` followed by a `ReqBody` or `RspBody`, compute a CRC, serialize
     /// the CRC, and return the total size of the serialized request.
@@ -143,7 +136,7 @@ where
     }
 
     // Deserialize and return a `Msg`
-    pub fn unpack(buf: &[u8]) -> Result<Msg<T, N>, SprotProtocolError> {
+    pub fn unpack(buf: &'a [u8]) -> Result<Msg<'a, T, N>, SprotProtocolError> {
         let (header, body_buf) = hubpack::deserialize::<Header>(buf)?;
         if header.protocol != Protocol::V2 {
             return Err(SprotProtocolError::UnsupportedProtocol);
@@ -155,23 +148,16 @@ where
     pub fn unpack_body(
         header: Header,
         // The buffer containing the entire serialized `Msg` including the `Header`
-        buf: &[u8],
+        buf: &'a [u8],
         // The body part of the buffer including the CRC at the end
-        body_buf: &[u8],
-    ) -> Result<Msg<T, N>, SprotProtocolError> {
+        body_buf: &'a [u8],
+    ) -> Result<Msg<'a, T, N>, SprotProtocolError> {
         let (body, blob_buf) = hubpack::deserialize::<T>(body_buf)?;
         let end = Header::MAX_SIZE + header.body_size as usize;
         let blob_len =
             header.body_size as usize - (body_buf.len() - blob_buf.len());
         let computed_crc = CRC16.checksum(&buf[..end]);
-        let blob = if blob_len != 0 {
-            Some(BlobInfo {
-                size: blob_len,
-                offset: buf.len() - blob_buf.len(),
-            })
-        } else {
-            None
-        };
+        let blob = &blob_buf[..blob_len];
 
         // The CRC comes after the body, and is not included in header body_len
         let (crc, _) = hubpack::deserialize::<u16>(&buf[end..])?;

@@ -136,10 +136,16 @@ cfg_if::cfg_if! {
     }
 }
 
-pub struct ServerImpl<S: SpiServer> {
+// This is a separate type for IO, to prevent borrowing `ServerImpl` mutably
+// and trying to return immutable slices from buffers.
+pub struct Io<S: SpiServer> {
     stats: SpIoStats,
     sys: sys_api::Sys,
     spi: SpiDevice<S>,
+}
+
+pub struct ServerImpl<S: SpiServer> {
+    io: Io<S>,
     tx_buf: [u8; MAX_REQUEST_SIZE],
     rx_buf: [u8; MAX_RESPONSE_SIZE],
 }
@@ -153,10 +159,13 @@ fn main() -> ! {
     debug_config(&sys);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl {
+    let io = Io {
         sys,
         spi,
         stats: SpIoStats::default(),
+    };
+    let mut server = ServerImpl {
+        io,
         tx_buf: [0u8; MAX_REQUEST_SIZE],
         rx_buf: [0u8; MAX_RESPONSE_SIZE],
     };
@@ -166,15 +175,16 @@ fn main() -> ! {
     }
 }
 
-impl<S: SpiServer> ServerImpl<S> {
+impl<S: SpiServer> Io<S> {
     /// Handle the mechanics of sending a message and waiting for a response.
     fn do_send_recv(
         &mut self,
-        tx_size: usize,
+        tx_buf: &[u8],
+        rx_buf: &mut [u8],
         timeout: u32,
-    ) -> Result<Response, SprotError> {
+    ) -> Result<usize, SprotError> {
         self.handle_rot_irq()?;
-        self.do_send_request(tx_size)?;
+        self.do_send_request(tx_buf)?;
 
         if !self.wait_rot_irq(true, timeout) {
             ringbuf_entry!(Trace::RspTimeout);
@@ -182,7 +192,7 @@ impl<S: SpiServer> ServerImpl<S> {
         }
 
         // Fill in rx_buf with a complete message and validate its crc
-        self.do_read_response()
+        self.do_read_response(rx_buf)
     }
 
     // Send a request in 2 parts, with optional delays before each part.
@@ -193,15 +203,13 @@ impl<S: SpiServer> ServerImpl<S> {
     // the RoT FW will respond to the interrupt and enter a tight loop to
     // receive. The short delay should cover most of the lag in RoT interrupt
     // handling.
-    fn do_send_request(&mut self, tx_size: usize) -> Result<(), SprotError> {
+    fn do_send_request(&mut self, tx_buf: &[u8]) -> Result<(), SprotError> {
         // Increase the error count here. We'll decrease if we return successfully.
         self.stats.tx_errors = self.stats.tx_errors.wrapping_add(1);
 
-        let part1_len = ROT_FIFO_SIZE.min(tx_size);
-        let part1 = &self.tx_buf[..part1_len];
-
-        let part2_len = tx_size - part1_len;
-        let part2 = &self.tx_buf[part1_len..part1_len + part2_len];
+        let part1_len = ROT_FIFO_SIZE.min(tx_buf.len());
+        let part1 = &tx_buf[..part1_len];
+        let part2 = &tx_buf[part1_len..];
 
         let _lock = self.spi.lock_auto(CsState::Asserted)?;
         if PART1_DELAY != 0 {
@@ -218,21 +226,21 @@ impl<S: SpiServer> ServerImpl<S> {
         self.stats.tx_errors = self.stats.tx_errors.wrapping_sub(1);
         self.stats.tx_sent = self.stats.tx_sent.wrapping_add(1);
 
-        ringbuf_entry!(Trace::Sent(tx_size));
+        ringbuf_entry!(Trace::Sent(tx_buf.len()));
 
         Ok(())
     }
 
     // Fetch as many bytes as we can and parse the header.
-    // Return the parsed header or an error.
+    // Return the size of the response read into rx_buf
     //
     // We can fetch FIFO size number of bytes reliably. After that, a short
     // delay and fetch the rest if there is a payload. Small messages will fit
     // entirely in the RoT FIFO.
-    fn do_read_response(&mut self) -> Result<Response, SprotError> {
-        // Increase the error count here. We'll decrease if we return successfully.
-        self.stats.rx_invalid = self.stats.rx_invalid.wrapping_add(1);
-
+    fn do_read_response(
+        &mut self,
+        rx_buf: &mut [u8],
+    ) -> Result<usize, SprotError> {
         // Disjoint borrow nonsense to satisfy the borrow checker
         let spi = &mut self.spi;
 
@@ -245,9 +253,9 @@ impl<S: SpiServer> ServerImpl<S> {
         let part1_size = Header::MAX_SIZE;
 
         // Read the `Header`
-        spi.read(&mut self.rx_buf[..part1_size])?;
+        spi.read(&mut rx_buf[..part1_size])?;
 
-        let (header, _) = hubpack::deserialize::<Header>(&self.rx_buf)?;
+        let (header, _) = hubpack::deserialize::<Header>(&rx_buf)?;
         let part2_size = header.body_size as usize + CRC_SIZE;
 
         // Allow RoT time to rouse itself.
@@ -259,67 +267,11 @@ impl<S: SpiServer> ServerImpl<S> {
         }
 
         // Read part 2
-        spi.read(&mut self.rx_buf[part1_size..total_size])?;
+        spi.read(&mut rx_buf[part1_size..total_size])?;
 
         ringbuf_entry!(Trace::Received(total_size));
 
-        // Deserialize the rest of the response and verify the CRC
-        let body_buf = &self.rx_buf[part1_size..total_size];
-        let response = Response::unpack_body(header, &self.rx_buf, body_buf)?;
-
-        // Remove the error we added at the beginning of this function
-        self.stats.rx_invalid = self.stats.rx_invalid.wrapping_sub(1);
-        self.stats.rx_received = self.stats.rx_received.wrapping_add(1);
-        Ok(response)
-    }
-
-    fn do_send_recv_retries<'a>(
-        &mut self,
-        tx_size: usize,
-        timeout: u32,
-        retries: u16,
-    ) -> Result<Response, SprotError> {
-        let mut attempts_left = retries;
-        loop {
-            let err = match self.do_send_recv(tx_size, timeout) {
-                // Recoverable errors dealing with our ability to receive
-                // the message from the RoT.
-                Err(err) => {
-                    ringbuf_entry!(Trace::Error(err));
-                    if err.is_recoverable() {
-                        err
-                    } else {
-                        return Err(err);
-                    }
-                }
-
-                // The response itself may contain an error detected on the RoT
-                Ok(response) => match &response.body {
-                    Ok(_) => return Ok(response),
-                    Err(err) => {
-                        ringbuf_entry!(Trace::Error(*err));
-                        if err.is_recoverable() {
-                            *err
-                        } else {
-                            return Err(*err);
-                        }
-                    }
-                },
-            };
-
-            self.stats.retries = self.stats.retries.wrapping_add(1);
-            attempts_left -= 1;
-
-            if attempts_left == 0 {
-                ringbuf_entry!(Trace::FailedRetries {
-                    retries,
-                    last_errcode: err
-                });
-                return Err(err);
-            }
-
-            hl::sleep_for(RETRY_TIMEOUT);
-        }
+        Ok(total_size)
     }
 
     // TODO: Move README.md to RFD 317 and discuss:
@@ -422,6 +374,76 @@ impl<S: SpiServer> ServerImpl<S> {
     }
 }
 
+impl<S: SpiServer> ServerImpl<S> {
+    fn do_send_recv_retries<'a>(
+        &mut self,
+        tx_size: usize,
+        timeout: u32,
+        retries: u16,
+    ) -> Result<Response, SprotError> {
+        let mut attempts_left = retries;
+
+        loop {
+            // Increase the error count here. We'll decrease if we return successfully.
+            self.io.stats.rx_invalid = self.io.stats.rx_invalid.wrapping_add(1);
+
+            let res = {
+                // Disjoint borrow so that the borrow checker doesn't tell
+                // us &mut self is held mutably and immutably when  calling
+                // `Response::Unpack` below.
+                let mut rx_buf = self.rx_buf;
+                self.io.do_send_recv(
+                    &self.tx_buf[..tx_size],
+                    &mut rx_buf,
+                    timeout,
+                )
+            };
+
+            let err = match res {
+                // Recoverable errors dealing with our ability to receive
+                // the message from the RoT.
+                Err(err) => err,
+
+                // The response itself may contain an error detected on the RoT
+                Ok(rx_size) => {
+                    match Response::unpack(&self.rx_buf[..rx_size]) {
+                        Ok(response) => {
+                            // Remove the error we added at the beginning of this function
+                            self.io.stats.rx_invalid =
+                                self.io.stats.rx_invalid.wrapping_sub(1);
+                            self.io.stats.rx_received =
+                                self.io.stats.rx_received.wrapping_add(1);
+                            let Err(e) = response.body else {
+                                return Ok(response);
+                            };
+                            e
+                        }
+                        Err(err) => err.into(),
+                    }
+                }
+            };
+
+            ringbuf_entry!(Trace::Error(err));
+            if !err.is_recoverable() {
+                return Err(err);
+            }
+
+            self.io.stats.retries = self.io.stats.retries.wrapping_add(1);
+            attempts_left -= 1;
+
+            if attempts_left == 0 {
+                ringbuf_entry!(Trace::FailedRetries {
+                    retries,
+                    last_errcode: err
+                });
+                return Err(err);
+            }
+
+            hl::sleep_for(RETRY_TIMEOUT);
+        }
+    }
+}
+
 impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     /// Clear the RoT Tx buffer and have the RoT deassert ROT_IRQ.
     /// The status of ROT_IRQ before and after the assert is returned.
@@ -433,7 +455,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _: &RecvMessage,
         delay: u16,
     ) -> Result<PulseStatus, RequestError<SprotError>> {
-        self.do_pulse_cs(delay.into(), delay.into())
+        self.io
+            .do_pulse_cs(delay.into(), delay.into())
             .map_err(|e| e.into())
     }
 
@@ -475,7 +498,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         if let RspBody::IoStats(rot_stats) = rsp.body? {
             Ok(IoStats {
                 rot: rot_stats,
-                sp: self.stats,
+                sp: self.io.stats,
             })
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?

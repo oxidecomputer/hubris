@@ -143,15 +143,7 @@ impl Handler {
                 Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
-                match req.blob {
-                    Some(blob) => {
-                        let end = blob.offset + blob.size;
-                        let block = &rx_buf[blob.offset..end];
-                        self.update
-                            .write_one_block(block_num as usize, &block)?;
-                    }
-                    _ => return Err(SprotProtocolError::MissingBlob)?,
-                }
+                self.update.write_one_block(block_num as usize, &req.blob)?;
                 Ok(RspBody::Ok)
             }
             ReqBody::Update(UpdateReq::Abort) => {
