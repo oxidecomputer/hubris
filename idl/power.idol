@@ -60,21 +60,9 @@ Interface(
             idempotent: true,
         ),
         "rendmp_blackbox_dump": (
-            doc: "reads the entire blackbox region of a Renesas multiphase power controller to a local buffer",
+            doc: "reads the RAM blackbox of a Renesas multiphase power controller to the provided lease",
             args: {
                 "dev": "Device",
-                "index": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("ResponseCode"),
-            ),
-            idempotent: true,
-            encoding: Hubpack,
-        ),
-        "rendmp_blackbox_read": (
-            doc: "reads a single blackbox entry from the buffer written in rendmp_blackbox_dump",
-            args: {
                 "index": "u32",
             },
             reply: Result(
@@ -85,6 +73,7 @@ Interface(
                 "out": (type: "[u32]", write: true),
             },
             idempotent: true,
-        )
+            encoding: Hubpack,
+        ),
     },
 )

@@ -627,6 +627,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         req_dev: task_power_api::Device,
         req_index: u32,
+        out: idol_runtime::Leased<idol_runtime::W, [u32]>,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
         use task_power_api::Device;
 
@@ -668,65 +669,69 @@ impl idl::InOrderPowerImpl for ServerImpl {
         // Now that we've proven equivalence, let's import this namespace
         use pmbus::commands::isl68224::CommandCode;
 
+        // Our two chips are from two different generations:
+        // - The RAA229618 uses the "Gen 2.5" guide to get the blackbox; see
+        //   Renesas_DMP_Gen2p5_BlackBox_RAM.pdf for details
+        // - The ISL68224 uses the "Gen 2" guide; see
+        //   Renesas_DMP_Gen2_BlackBox_RAM.pdf
+        //
+        // However, it turns out that the procedures are identical except for
+        // three things:
+        // - The address register checked in Step 2
+        // - The expected ID of the part
+        // - The size of the blackbox
+        //
+        // We extract those differences here, then use a single codepath for
+        // both generations of parts.
+        let (addr_reg, expected_id, size) = match req_dev {
+            Device::Raa229618 => (0xC7, 0x2000001, RENDMP_BLACKBOX_SIZE_GEN2P5),
+            Device::Isl68224 => (0xC5, 0x2000004, RENDMP_BLACKBOX_SIZE_GEN2),
+            // Checked above by the `matches!` statement
+            _ => unreachable!(),
+        };
+
         // Step 1 - Verify Part Revision
         let mut id = 0u32;
         dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_bytes_mut())?;
         ringbuf_entry!(Trace::GotVersion(id));
-        if id >= 0x03000000 {
-            return Err(ResponseCode::OperationNotSupported.into());
-        } else if id >= 0x02000000 {
-            // Step 2a - Write to DMA Address Register
-            dev.write(&[CommandCode::DMAADDR as u8, 0xC5, 0x00])?;
-            // Step 2b - Read DMA Data Register
-            let mut r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
-            ringbuf_entry!(Trace::GotAddr(r));
 
-            // "Divide this value by 4 to determine the starting address of the
-            //  Black Box data."
-            r /= 4;
-
-            // This address is written as a 2-byte value, so I'm assuming
-            // something has gone wrong if our result doesn't fit.
-            if r > u16::MAX as u32 {
-                // TODO: this shouldn't be necessary
-                r = 0x04cf;
-                //return Err(ResponseCode::BadResponse.into());
-            }
-
-            // Step 3a - Write to DMA Address Register
-            dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
-
-            // Step 3b - Read Black Box Data
-            for i in 0..RENDMP_BLACKBOX_BUF_SIZE {
-                let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
-                self.blackbox_buf[i] = r;
-            }
-        } else {
+        // Experimentally determined ID
+        if id != expected_id {
             return Err(ResponseCode::OperationNotSupported.into());
         }
 
-        Ok(())
-    }
+        // Step 2a - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, addr_reg, 0x00])?;
 
-    fn rendmp_blackbox_read(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        index: u32,
-        out: idol_runtime::Leased<idol_runtime::W, [u32]>,
-    ) -> Result<(), RequestError<ResponseCode>> {
-        if !bsp::HAS_RENDMP_BLACKBOX {
-            return Err(ResponseCode::OperationNotSupported.into());
-        } else if out.len() != RENDMP_BLACKBOX_SLOT_SIZE {
-            return Err(RequestError::Fail(ClientError::BadLease.into()));
-        } else if index as usize >= RENDMP_BLACKBOX_SLOT_COUNT {
-            return Err(RequestError::Runtime(ResponseCode::BadArg));
+        // Step 2b - Read DMA Data Register
+        let mut r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        ringbuf_entry!(Trace::GotAddr(r));
+
+        // "Divide this value by 4 to determine the starting address of the
+        //  Black Box data."
+        r /= 4;
+
+        // This address is written as a 2-byte value, so I'm assuming
+        // something has gone wrong if our result doesn't fit.
+        if r > u16::MAX as u32 {
+            return Err(ResponseCode::BadResponse.into());
         }
-        out.write_range(
-            0..RENDMP_BLACKBOX_SLOT_SIZE,
-            &self.blackbox_buf[index as usize * RENDMP_BLACKBOX_SLOT_SIZE..]
-                [..RENDMP_BLACKBOX_SLOT_SIZE],
-        )
-        .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        // Step 3a - Write to DMA Address Register
+        dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
+
+        // Step 3b - Read Black Box Data
+        for i in 0..size {
+            let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
+            self.blackbox_buf[i] = r;
+        }
+
+        if out.len() < size {
+            return Err(RequestError::Fail(ClientError::BadLease));
+        }
+        out.write_range(0..size, &self.blackbox_buf[0..size])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
         Ok(())
     }
 }
@@ -753,13 +758,14 @@ fn claim_blackbox() -> &'static mut [u32; RENDMP_BLACKBOX_BUF_SIZE] {
     dev
 }
 
-const RENDMP_BLACKBOX_SLOT_SIZE: usize = 38;
-const RENDMP_BLACKBOX_SLOT_COUNT: usize = 1;
-const RENDMP_BLACKBOX_BUF_SIZE: usize = if bsp::HAS_RENDMP_BLACKBOX {
-    RENDMP_BLACKBOX_SLOT_SIZE * RENDMP_BLACKBOX_SLOT_COUNT
-} else {
-    0
-};
+const RENDMP_BLACKBOX_SIZE_GEN2: usize = 38;
+const RENDMP_BLACKBOX_SIZE_GEN2P5: usize = 44;
+const RENDMP_BLACKBOX_BUF_SIZE: usize =
+    if RENDMP_BLACKBOX_SIZE_GEN2P5 > RENDMP_BLACKBOX_SIZE_GEN2 {
+        RENDMP_BLACKBOX_SIZE_GEN2P5
+    } else {
+        RENDMP_BLACKBOX_SIZE_GEN2
+    };
 
 mod idl {
     use task_power_api::*;
