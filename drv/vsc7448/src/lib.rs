@@ -800,9 +800,12 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         const TECHNICIAN_1: u8 = 44;
         const TECHNICIAN_2: u8 = 45;
         self.configure_vlan_with_mask(|p| {
-            if p == TECHNICIAN_1 || p == TECHNICIAN_2 {
-                // Technician ports are connected to every port!
-                (1 << 53) - 1
+            if p == TECHNICIAN_1 {
+                // Technician ports are connected to every port, but not to each
+                // other (to prevent spanning tree fun)
+                ((1 << 53) - 1) & !(1 << TECHNICIAN_2)
+            } else if p == TECHNICIAN_2 {
+                ((1 << 53) - 1) & !(1 << TECHNICIAN_1)
             } else {
                 // SPs are only connected to the Tofino and technician ports
                 (1 << p)
