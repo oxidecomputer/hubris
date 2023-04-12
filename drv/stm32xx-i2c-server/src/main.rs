@@ -149,11 +149,11 @@ enum Trace {
     MuxConfigure(u8),
     SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
-    Wiggles(PinSet, u8),
+    Wiggles(u8),
     None,
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 8, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -475,7 +475,7 @@ fn wiggle(sys: &Sys, scl: PinSet, sda: PinSet) {
             sys.gpio_reset(sda);
             sys.gpio_set(scl);
             sys.gpio_set(sda);
-            ringbuf_entry!(Trace::Wiggles(scl, i));
+            ringbuf_entry!(Trace::Wiggles(i));
             break;
         }
 
