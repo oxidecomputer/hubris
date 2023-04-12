@@ -146,7 +146,6 @@ enum Trace {
     Error, // ringbuf line indicates error location
     Reset(Controller, PortIndex),
     ResetMux(Mux),
-    MuxConfigure(u8),
     SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
     Wiggles(u8),
@@ -447,7 +446,22 @@ fn configure_port(
     map.insert(controller.controller, port);
 }
 
-fn wiggle(sys: &Sys, scl: PinSet, sda: PinSet) {
+///
+/// When the system is reset without power loss, I2C can be in an arbitrary
+/// state with respect to the bus -- and we can therefore come to life with a
+/// transaction already in flight.  It is very important that we abort any
+/// such transaction:  failure to do so will result in our first I2C
+/// transaction being corrupted.  (And especially because our first I2C
+/// transactions may well be to disable segments on a mux, this can result in
+/// nearly arbitrary mayhem down the road!)  To do this, we engage in the
+/// time-honored[0] tradition of "clocking through the problem":  wiggling SCL
+/// until we see SDA high, and then pulling SDA low and releasing SCL to
+/// indicate a STOP condition.  (Note that we need to do this up to 9 times to
+/// assure that we have clocked through the entire transaction.)
+///
+/// [0] Analog Devices. AN-686: Implementing an I2C Reset. 2003.
+///
+fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
     sys.gpio_configure_input(sda, Pull::None);
 
     sys.gpio_configure_output(
@@ -480,7 +494,12 @@ fn wiggle(sys: &Sys, scl: PinSet, sda: PinSet) {
         }
 
         //
-        // SDA is low -- someone is holding it down.  Give SCL a wiggle.
+        // SDA is low -- someone is holding it down: give SCL a wiggle to try
+        // to shake them.  Note that we don't sleep here:  we are relying on
+        // the fact that communicating to the GPIO task is going to take
+        // longer than our minimum SCL pulse.  (Which, on a 400 MHz H753, is
+        // on the order of ~15 usecs -- yielding a cycle time of ~30 usecs
+        // or ~33 KHz.)
         //
         sys.gpio_reset(scl);
         sys.gpio_set(scl);
@@ -495,8 +514,12 @@ fn configure_pins(
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    //
+    // Before we conbfigure our pins, wiggle SCL to shake off any old
+    // transaction.
+    //
     for ndx in (0..pins.len()).step_by(2) {
-        wiggle(&sys, pins[ndx].gpio_pin, pins[ndx + 1].gpio_pin);
+        wiggle_scl(&sys, pins[ndx].gpio_pin, pins[ndx + 1].gpio_pin);
     }
 
     for pin in pins {
@@ -554,7 +577,6 @@ fn configure_muxes(
         let mut reset_attempted = false;
 
         loop {
-            ringbuf_entry!(Trace::MuxConfigure(mux.address));
             match mux.driver.configure(mux, controller, &sys, ctrl) {
                 Ok(_) => {
                     //
