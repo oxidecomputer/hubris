@@ -1285,6 +1285,7 @@ clock_divider = "DIV256"
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"
