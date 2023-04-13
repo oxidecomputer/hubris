@@ -147,14 +147,9 @@ controller = 3
 # definition of `PortIndex` and name the logical port C after the GPIO pin that
 # corresponds to SDA.
 #
-[config.i2c.controllers.ports.C.scl]
-gpio_port = "A"
-pin = 8
-af = 4
-
-[config.i2c.controllers.ports.C.sda]
-gpio_port = "C"
-pin = 9
+[config.i2c.controllers.ports.C]
+scl = { gpio_port = "A", pin = 8 }
+sda = { gpio_port = "C", pin = 9 }
 af = 4
 
 [[config.i2c.controllers]]
