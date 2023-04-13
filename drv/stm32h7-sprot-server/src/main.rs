@@ -4,6 +4,7 @@
 
 #![no_std]
 #![no_main]
+#![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
@@ -53,6 +54,7 @@ enum Trace {
     UnexpectedRotIrq,
     RotReadyTimeout,
     RspTimeout,
+    FirstTwoBytes(u8, u8),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -236,14 +238,8 @@ impl<S: SpiServer> Io<S> {
     // We can fetch FIFO size number of bytes reliably. After that, a short
     // delay and fetch the rest if there is a payload. Small messages will fit
     // entirely in the RoT FIFO.
-    fn do_read_response(
-        &mut self,
-        rx_buf: &mut [u8],
-    ) -> Result<usize, SprotError> {
-        // Disjoint borrow nonsense to satisfy the borrow checker
-        let spi = &mut self.spi;
-
-        let _lock = spi.lock_auto(CsState::Asserted)?;
+    fn do_read_response(&self, rx_buf: &mut [u8]) -> Result<usize, SprotError> {
+        let _lock = self.spi.lock_auto(CsState::Asserted)?;
 
         if PART1_DELAY != 0 {
             hl::sleep_for(PART1_DELAY);
@@ -252,7 +248,7 @@ impl<S: SpiServer> Io<S> {
         let part1_size = Header::MAX_SIZE;
 
         // Read the `Header`
-        spi.read(&mut rx_buf[..part1_size])?;
+        self.spi.read(&mut rx_buf[..part1_size])?;
 
         let (header, _) = hubpack::deserialize::<Header>(&rx_buf)?;
         let part2_size = header.body_size as usize + CRC_SIZE;
@@ -266,7 +262,7 @@ impl<S: SpiServer> Io<S> {
         }
 
         // Read part 2
-        spi.read(&mut rx_buf[part1_size..total_size])?;
+        self.spi.read(&mut rx_buf[part1_size..total_size])?;
 
         ringbuf_entry!(Trace::Received(total_size));
 
@@ -374,53 +370,52 @@ impl<S: SpiServer> Io<S> {
 }
 
 impl<S: SpiServer> ServerImpl<S> {
-    fn do_send_recv_retries<'a>(
+    fn do_send_recv_retries(
         &mut self,
         tx_size: usize,
         timeout: u32,
         retries: u16,
-    ) -> Result<Response, SprotError> {
+    ) -> Result<Response<'_>, SprotError> {
         let mut attempts_left = retries;
 
         loop {
-            let res = {
-                // Disjoint borrow so that the borrow checker doesn't tell
-                // us &mut self is held mutably and immutably when  calling
-                // `Response::Unpack` below.
-                let mut rx_buf = self.rx_buf;
-                self.io.do_send_recv(
-                    &self.tx_buf[..tx_size],
-                    &mut rx_buf,
-                    timeout,
-                )
-            };
-
-            let err = match res {
+            let err = match self.io.do_send_recv(
+                &self.tx_buf[..tx_size],
+                &mut self.rx_buf,
+                timeout,
+            ) {
                 // Recoverable errors dealing with our ability to receive
                 // the message from the RoT.
                 Err(err) => err,
 
                 // The response itself may contain an error detected on the RoT
-                Ok(rx_size) => {
-                    match Response::unpack(&self.rx_buf[..rx_size]) {
-                        Ok(response) => {
-                            self.io.stats.rx_received =
-                                self.io.stats.rx_received.wrapping_add(1);
-                            let Err(e) = response.body else {
-                                return Ok(response);
-                            };
-                            e
-                        }
-                        Err(err) => {
-                            self.io.stats.rx_invalid =
-                                self.io.stats.rx_invalid.wrapping_add(1);
-                            err.into()
+                // We use unsafe here to work around a bug in the NLL borrow
+                // checker. See https://github.com/rust-lang/rust/issues/70255
+                //
+                // This is safe because we take an immutable reference to self.rx_buf
+                // and we either return this reference, or it goes out of scope before
+                // we take a mutable reference again at the top of the loop.
+                Ok(_) => match Response::unpack(unsafe {
+                    &*(&self.rx_buf as *const [u8])
+                }) {
+                    Ok(response) => {
+                        self.io.stats.rx_received =
+                            self.io.stats.rx_received.wrapping_add(1);
+                        match response.body {
+                            Ok(_) => return Ok(response),
+                            Err(e) => e,
                         }
                     }
-                }
+                    Err(err) => {
+                        self.io.stats.rx_invalid =
+                            self.io.stats.rx_invalid.wrapping_add(1);
+                        err.into()
+                    }
+                },
             };
 
             ringbuf_entry!(Trace::Error(err));
+
             if !err.is_recoverable() {
                 return Err(err);
             }

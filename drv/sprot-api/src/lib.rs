@@ -5,6 +5,7 @@
 //! Client API for SP to RoT messages over SPI.
 
 #![no_std]
+#![deny(elided_lifetimes_in_paths)]
 extern crate memoffset;
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -148,7 +149,7 @@ where
     pub fn unpack_body(
         header: Header,
         // The buffer containing the entire serialized `Msg` including the `Header`
-        buf: &'a [u8],
+        buf: &[u8],
         // The part of the after the header buffer including the body and CRC
         rest: &'a [u8],
     ) -> Result<Msg<'a, T, N>, SprotProtocolError> {
