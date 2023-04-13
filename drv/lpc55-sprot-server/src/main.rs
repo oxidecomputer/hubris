@@ -170,7 +170,11 @@ fn main() -> ! {
                 handler.handle(&rx_buf[..rx_len], &mut tx_buf, &mut io.stats)
             }
             Err(IoError::Flush) => {
+                // A flush indicates that the server should de-assert ROT_IRQ
+                // as instructed by the SP. We do that and then proceed to wait
+                // for the next request.
                 ringbuf_entry!(Trace::Flush);
+                io.deassert_rot_irq();
                 continue;
             }
             Err(IoError::Flow) => {
@@ -188,6 +192,10 @@ impl Io {
     // Wait for chip select to be asserted
     // Assert ROT_IRQ if this is a reply
     fn wait_for_csn_asserted(&mut self, is_reply: bool) {
+        // This is just an optimization in order to prevent having to call the
+        // gpio task when its not necessary. If the server crashes, and ROT_IRQ
+        // is already asserted, and we somehow get here, we'll just make one
+        // more idempotent call to the gpio server.
         let mut rot_irq_asserted = false;
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
