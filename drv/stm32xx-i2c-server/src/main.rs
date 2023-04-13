@@ -466,8 +466,7 @@ fn configure_port(
 ///
 fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
     sys.gpio_configure_input(sda, Pull::None);
-
-    sys.gpio_reset(scl);
+    sys.gpio_set(scl);
 
     sys.gpio_configure_output(
         scl,
@@ -522,7 +521,7 @@ fn configure_pins(
     let sys = Sys::from(sys);
 
     //
-    // Before we conbfigure our pins, wiggle SCL to shake off any old
+    // Before we configure our pins, wiggle SCL to shake off any old
     // transaction.
     //
     for pin in pins {
