@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -135,7 +135,7 @@ struct I2cPort {
     description: Option<String>,
     scl: I2cPin,
     sda: I2cPin,
-    af: Option<u8>,
+    af: u8,
     #[serde(default)]
     muxes: Vec<I2cMux>,
 }
@@ -145,7 +145,6 @@ struct I2cPort {
 struct I2cPin {
     gpio_port: Option<String>,
     pin: u8,
-    af: Option<u8>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -669,16 +668,16 @@ impl ConfigGenerator {
         }
 
         for c in &self.controllers {
-            len += c.ports.len() * 2;
+            len += c.ports.len();
         }
 
         writeln!(
             &mut s,
             r##"
     #[allow(unused_imports)]
-    use drv_stm32xx_i2c::{{I2cPin, I2cGpio}};
+    use drv_stm32xx_i2c::{{I2cPins, I2cGpio}};
 
-    pub fn pins() -> [I2cPin; {}] {{"##,
+    pub fn pins() -> [I2cPins; {}] {{"##,
             len
         )?;
 
@@ -699,46 +698,29 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                //
-                // Generate the SCL pin, followed by the SDA pin.  This
-                // ordering is important, and will be relied upon by anyone
-                // wishing to differentiate SCL from SDA.
-                //
-                for pin in [&port.scl, &port.sda].iter() {
-                    let mut pinstr = String::new();
-                    write!(&mut pinstr, "pin({})", pin.pin)?;
-
-                    let af = match (port.af, pin.af) {
-                        (None, None) => {
-                            bail!("need AF on port {port:?}");
-                        }
-                        (Some(af), None) => af,
-                        (None, Some(af)) => af,
-                        (Some(_), Some(_)) => {
-                            bail!(
-                                "port {port:?} specifies both an AF \
-                                and an AF on {pin:?}"
-                            )
-                        }
-                    };
-
-                    write!(
-                        &mut s,
-                        r##"
-            I2cPin {{
+                writeln!(
+                    &mut s,
+                    r##"
+            I2cPins {{
                 controller: Controller::I2C{controller},
-                port: PortIndex({i2c_port}),
-                gpio_pin: gpio_api::Port::{gpio_port}.{pinstr},
+                port: PortIndex({index}),
+                scl: gpio_api::Port::{scl}.pin({scl_pin}),
+                sda: gpio_api::Port::{sda}.pin({sda_pin}),
                 function: Alternate::AF{af},
             }},"##,
-                        controller = c.controller,
-                        i2c_port = index,
-                        gpio_port = match pin.gpio_port {
-                            Some(ref port) => port,
-                            None => p,
-                        },
-                    )?;
-                }
+                    controller = c.controller,
+                    scl = match port.scl.gpio_port {
+                        Some(ref port) => port,
+                        None => p,
+                    },
+                    scl_pin = port.scl.pin,
+                    sda = match port.sda.gpio_port {
+                        Some(ref port) => port,
+                        None => p,
+                    },
+                    sda_pin = port.sda.pin,
+                    af = port.af
+                )?;
             }
         }
 

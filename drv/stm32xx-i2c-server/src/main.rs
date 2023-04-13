@@ -31,7 +31,7 @@ fn lookup_controller<'a, 'b>(
 /// Validates a port for the specified controller.
 ///
 fn validate_port(
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     controller: Controller,
     port: PortIndex,
 ) -> Result<(), ResponseCode> {
@@ -390,7 +390,7 @@ fn configure_port(
     map: &mut PortMap,
     controller: &I2cController<'_>,
     port: PortIndex,
-    pins: &[I2cPin],
+    pins: &[I2cPins],
 ) {
     let current = map.get(controller.controller).unwrap();
 
@@ -421,24 +421,28 @@ fn configure_port(
             // This is a slightly unusual operation that lacks a convenience
             // operation in the GPIO API, so we do it longhand:
             //
-            sys.gpio_configure(
-                pin.gpio_pin.port,
-                pin.gpio_pin.pin_mask,
-                Mode::Analog,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-                pin.function,
-            );
+            for gpio_pin in &[pin.scl, pin.sda] {
+                sys.gpio_configure(
+                    gpio_pin.port,
+                    gpio_pin.pin_mask,
+                    Mode::Analog,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
+            }
         } else if pin.port == port {
-            // Configure our new port!
-            sys.gpio_configure_alternate(
-                pin.gpio_pin,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-                pin.function,
-            );
+            for gpio_pin in &[pin.scl, pin.sda] {
+                // Configure our new port!
+                sys.gpio_configure_alternate(
+                    *gpio_pin,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
+            }
         }
     }
 
@@ -463,6 +467,8 @@ fn configure_port(
 fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
     sys.gpio_configure_input(sda, Pull::None);
 
+    sys.gpio_reset(scl);
+
     sys.gpio_configure_output(
         scl,
         OutputType::OpenDrain,
@@ -477,6 +483,8 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
             // clock down then, pull SDA down, then release SCL and finally
             // release SDA.  This will denote a STOP condition.
             //
+            sys.gpio_set(sda);
+
             sys.gpio_configure_output(
                 sda,
                 OutputType::OpenDrain,
@@ -507,7 +515,7 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
 
 fn configure_pins(
     controllers: &[I2cController<'_>],
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     map: &mut PortMap,
 ) {
     let sys = SYS.get_task_id();
@@ -517,8 +525,8 @@ fn configure_pins(
     // Before we conbfigure our pins, wiggle SCL to shake off any old
     // transaction.
     //
-    for ndx in (0..pins.len()).step_by(2) {
-        wiggle_scl(&sys, pins[ndx].gpio_pin, pins[ndx + 1].gpio_pin);
+    for pin in pins {
+        wiggle_scl(&sys, pin.scl, pin.sda);
     }
 
     for pin in pins {
@@ -532,27 +540,32 @@ fn configure_pins(
                 // port, we want to set this pin to its unselected state to
                 // prevent glitches when we first use it.
                 //
-                sys.gpio_configure(
-                    pin.gpio_pin.port,
-                    pin.gpio_pin.pin_mask,
-                    Mode::Analog,
-                    OutputType::OpenDrain,
-                    Speed::Low,
-                    Pull::None,
-                    pin.function,
-                );
+                for gpio_pin in &[pin.scl, pin.sda] {
+                    sys.gpio_configure(
+                        gpio_pin.port,
+                        gpio_pin.pin_mask,
+                        Mode::Analog,
+                        OutputType::OpenDrain,
+                        Speed::Low,
+                        Pull::None,
+                        pin.function,
+                    );
+                }
+
                 continue;
             }
             _ => {}
         }
 
-        sys.gpio_configure_alternate(
-            pin.gpio_pin,
-            OutputType::OpenDrain,
-            Speed::Low,
-            Pull::None,
-            pin.function,
-        );
+        for gpio_pin in &[pin.scl, pin.sda] {
+            sys.gpio_configure_alternate(
+                *gpio_pin,
+                OutputType::OpenDrain,
+                Speed::Low,
+                Pull::None,
+                pin.function,
+            );
+        }
 
         map.insert(controller.controller, pin.port);
     }
@@ -561,7 +574,7 @@ fn configure_pins(
 fn configure_muxes(
     muxes: &[I2cMux<'_>],
     controllers: &[I2cController<'_>],
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {

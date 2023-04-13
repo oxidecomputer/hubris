@@ -394,15 +394,8 @@ controller = 3
 [config.i2c.controllers.ports.C]
 name = "northwest0"
 description = "Northwest Corridor 0"
-
-[config.i2c.controllers.ports.C.scl]
-gpio_port = "A"
-pin = 8
-af = 4
-
-[config.i2c.controllers.ports.C.sda]
-gpio_port = "C"
-pin = 9
+scl = { gpio_port = "A", pin = 8 }
+sda = { gpio_port = "C", pin = 9 }
 af = 4
 
 #
