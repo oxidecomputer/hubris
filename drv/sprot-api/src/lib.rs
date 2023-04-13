@@ -44,8 +44,10 @@ pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
 
 /// A message header for a request or response
 ///
-/// It's important that this header be kept fixed size by limiting the use
-/// of rust types. This allows us to assume that Header::MAX_SIZE is also the
+/// It's important that this header be kept fixed size by limiting the use of
+/// rust types in fields to those with fixed size serialization in Hubpack.
+/// This essentially means only primitives, structs, or simple enums can be
+/// used in fields. This allows us to assume that Header::MAX_SIZE is also the
 /// exact size of the header.
 #[derive(Serialize, Deserialize, SerializedSize)]
 pub struct Header {
@@ -105,7 +107,7 @@ where
         size
     }
 
-    /// Serialize a `Header` followed by a `ReqBody` or `RspBody, copy a blob
+    /// Serialize a `Header` followed by a `ReqBody` or `RspBody`, copy a blob
     /// into `buf` after the serialized body,  compute a CRC, serialize the
     /// CRC, and return the total size of the serialized request.
     pub fn pack_with_blob(
@@ -270,8 +272,8 @@ pub enum SprotProtocolError {
     CannotAssertCSn,
     // The request timed out
     Timeout,
-    // Hubpack error: Used for both serialization and deserialization
-    Serialization,
+    // Hubpack error
+    Deserialization,
     // The RoT has not de-asserted ROT_IRQ
     RotIrqRemainsAsserted,
     // An unexpected response was received.
@@ -300,13 +302,13 @@ impl From<SprotProtocolError> for RequestError<SprotError> {
 
 impl From<hubpack::Error> for SprotError {
     fn from(_: hubpack::Error) -> Self {
-        SprotProtocolError::Serialization.into()
+        SprotProtocolError::Deserialization.into()
     }
 }
 
 impl From<hubpack::Error> for SprotProtocolError {
     fn from(_: hubpack::Error) -> Self {
-        SprotProtocolError::Serialization
+        SprotProtocolError::Deserialization
     }
 }
 
@@ -317,7 +319,7 @@ impl SprotError {
                 use SprotProtocolError::*;
                 match err {
                     InvalidCrc | FlowError | Timeout | ServerRestarted
-                    | Serialization => true,
+                    | Deserialization => true,
                     _ => false,
                 }
             }
@@ -370,11 +372,6 @@ pub struct RotIoStats {
 
     /// Number of messages where the RoT failed to service the Rx FIFO in time.
     pub rx_overrun: u32,
-
-    /// The number of times an SP sent more bytes than expected for one
-    /// message. In otherwords, the number of bytes sent by the SP to the RoT
-    /// between CSn assert and CSn de-assert exceeds `BUF_SIZE`.
-    pub rx_protocol_error_too_many_bytes: u32,
 
     /// The number of CSn pulses seen by the RoT
     pub csn_pulses: u32,

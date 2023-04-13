@@ -248,7 +248,7 @@ impl Io {
             rx.next().map(|b| *b = read);
         }
 
-        self.check_for_overrun()?;
+        self.check_for_rx_error()?;
 
         if bytes_received == 0 {
             // This was a CSn pulse
@@ -295,11 +295,11 @@ impl Io {
 
         // We clocked out at least an existing byte in the fifo, as we fill it on entry to
         // this function.
-        if (bytes_sent == 0) || self.spi.can_tx() {
+        if bytes_sent == 0 || self.spi.can_tx() {
             // This was a CSn pulse
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
         } else {
-            self.check_for_underrun();
+            self.check_for_tx_error();
         }
 
         ringbuf_entry!(Trace::SentBytes(bytes_sent));
@@ -322,7 +322,7 @@ impl Io {
         self.deassert_rot_irq();
     }
 
-    fn check_for_overrun(&mut self) -> Result<(), IoError> {
+    fn check_for_rx_error(&mut self) -> Result<(), IoError> {
         let fifostat = self.spi.fifostat();
         if fifostat.rxerr().bit() {
             self.spi.rxerr_clear();
@@ -335,7 +335,7 @@ impl Io {
 
     // We don't actually want to return an error here.
     // The SP will detect an underrun via a CRC error
-    fn check_for_underrun(&mut self) {
+    fn check_for_tx_error(&mut self) {
         let fifostat = self.spi.fifostat();
 
         if fifostat.txerr().bit() {
