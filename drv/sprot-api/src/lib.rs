@@ -281,12 +281,6 @@ pub enum SprotProtocolError {
     // return this error when unpacking a RspBody in idol calls.
     UnexpectedResponse,
 
-    // Unexpected binary blob trailer received wtih message
-    UnexpectedBlob,
-
-    // Missing expected binary blob trailer received wtih message
-    MissingBlob,
-
     // Failed to load update status
     BadUpdateStatus,
 
