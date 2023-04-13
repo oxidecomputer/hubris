@@ -246,6 +246,33 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
         self.read_dump(index, offset).map_err(|e| e.into())
     }
+
+    fn dump_task(
+        &mut self,
+        _msg: &RecvMessage,
+        task_index: u32,
+    ) -> Result<u8, RequestError<DumpAgentError>> {
+        self.dump_task(task_index).map_err(|e| e.into())
+    }
+
+    fn dump_task_region(
+        &mut self,
+        _msg: &RecvMessage,
+        task_index: u32,
+        start: u32,
+        length: u32,
+    ) -> Result<u8, RequestError<DumpAgentError>> {
+        self.dump_task_region(task_index, start, length)
+            .map_err(|e| e.into())
+    }
+
+    fn reinitialize_dump_from(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+        self.reinitialize_dump_from(index).map_err(|e| e.into())
+    }
 }
 
 #[export_name = "main"]
