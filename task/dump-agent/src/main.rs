@@ -173,7 +173,9 @@ impl ServerImpl {
                     //
                     if val == 0 {
                         Ok(())
-                    } else if let Some(err) = DumperError::from_u32(val) {
+                    } else if let Some(err) =
+                        dumper_api::DumperError::from_u32(val)
+                    {
                         Err(DumpAgentError::from(err).into())
                     } else {
                         Err(DumpAgentError::DumpFailedUnknownError.into())

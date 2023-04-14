@@ -6,7 +6,6 @@
 #![no_main]
 
 use cortex_m_rt::entry;
-use lpc55_pac as device;
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
 // official setting is stored, emulate what the clock driver does instead
@@ -42,7 +41,7 @@ fn get_clock_speed() -> (u32, u8) {
 
 #[entry]
 fn main() -> ! {
-    let (cycles_per_ms, div) = get_clock_speed();
+    let (cycles_per_ms, _div) = get_clock_speed();
 
     unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }
