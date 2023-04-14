@@ -12,14 +12,14 @@ use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
 use gateway_messages::{
-    SpError, SprocketsError as GwSprocketsErr,
+    RotError, SpError, SprocketsError as GwSprocketsErr,
     SprotProtocolError as GwSprotProtocolError,
 };
 use idol_runtime::RequestError;
 
 /// An error returned from a sprot request
 #[derive(
-    Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
+    Debug, Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
 )]
 pub enum SprotError {
     Protocol(SprotProtocolError),
@@ -30,6 +30,18 @@ pub enum SprotError {
 }
 
 impl From<SprotError> for SpError {
+    fn from(value: SprotError) -> Self {
+        match value {
+            SprotError::Protocol(e) => Self::Sprot(e.into()),
+            SprotError::Spi(e) => Self::Spi(e.into()),
+            SprotError::Update(e) => Self::Update(e.into()),
+            SprotError::Sprockets(e) => Self::Sprockets(e.into()),
+            SprotError::Dump(e) => Self::Dump(e.into()),
+        }
+    }
+}
+
+impl From<SprotError> for RotError {
     fn from(value: SprotError) -> Self {
         match value {
             SprotError::Protocol(e) => Self::Sprot(e.into()),

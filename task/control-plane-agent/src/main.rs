@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use drv_sprot_api::SprotError;
 use gateway_messages::{
     sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
     UpdateId,
@@ -60,7 +61,7 @@ enum Log {
     UpdateComplete,
     HostFlashSectorsErased { num_sectors: usize },
     ExpectedRspTimeout,
-    RotReset,
+    RotReset(SprotError),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -113,7 +114,6 @@ enum MgsMessage {
     },
     GetPowerState,
     SetPowerState(PowerState),
-    ResetPrepare,
     Inventory,
     HostPhase2Data {
         hash: [u8; 32],

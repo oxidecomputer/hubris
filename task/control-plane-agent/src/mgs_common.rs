@@ -191,10 +191,12 @@ impl MgsCommon {
                         //     (Management plane should do that.)
                         //   - Enable staged updates where we don't automatically
                         //     reset after writing an image.
-                        ringbuf_entry!(Log::RotReset);
+                        ringbuf_entry!(Log::RotReset(
+                            SprotProtocolError::Timeout.into()
+                        ));
                         Ok(())
                     }
-                    Err(_) => {
+                    Err(err) => {
                         // Some other error occurred.
                         // Update is all-or-nothing at the moment.
                         // The control plane can try to reset the RoT again or it
@@ -202,10 +204,8 @@ impl MgsCommon {
                         // be able to make incremental progress if there is some
                         // bug/condition that is degrading SpRot communications.
 
-                        // TODO(AJS): We need to be able to expose all SprotErrors directly
-                        // and not just as u32s
-                        //ringbuf_entry!(Log::RotReset { err });
-                        Err(SpError::ComponentOperationFailed(9999))
+                        ringbuf_entry!(Log::RotReset(err));
+                        Err(err.into())
                     }
                     Ok(()) => {
                         ringbuf_entry!(Log::ExpectedRspTimeout);
@@ -241,14 +241,10 @@ impl MgsCommon {
         };
         match component {
             SpComponent::ROT => {
-                match update.sprot_task().switch_default_image(slot, duration) {
-                    Err(err) => {
-                        // TODO(AJS): Expose the real error
-                        Err(SpError::ComponentOperationFailed(9999))
-                    }
-                    Ok(()) => Ok(()),
-                }
+                update.sprot_task().switch_default_image(slot, duration)?;
+                Ok(())
             }
+
             // SpComponent::SP_ITSELF:
             // update_server for SP needs to decouple finish_update()
             // from swap_banks() for SwitchDuration::Forever to make sense.
@@ -263,7 +259,7 @@ impl MgsCommon {
 
 // conversion between gateway_messages types and hubris types is quite tedious.
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let boot_state = sprot.status().map_err(SprotErrorConvert)?.rot_updates;
+    let boot_state = sprot.status()?.rot_updates;
     let active = match boot_state.active {
         drv_sprot_api::RotSlot::A => RotSlot::A,
         drv_sprot_api::RotSlot::B => RotSlot::B,
@@ -281,16 +277,6 @@ fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
             },
         },
     })
-}
-
-pub(crate) struct SprotErrorConvert(pub drv_sprot_api::SprotError);
-
-// TODO(AJS): Expose the real error
-impl From<SprotErrorConvert> for RotError {
-    fn from(err: SprotErrorConvert) -> Self {
-        // RotError::MessageError { code: err.0 as u32 }
-        RotError::MessageError { code: 9999 }
-    }
 }
 
 pub(crate) struct RotImageDetailsConvert(pub drv_update_api::RotImageDetails);

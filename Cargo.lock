@@ -2084,7 +2084,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sprot-errors#d690c73f8f8a98ff51193a73331efbb1f1e3b431"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sprot-errors#3a00f8d81ae41ff00567e98c847443666c0dc387"
 dependencies = [
  "bitflags",
  "hubpack",

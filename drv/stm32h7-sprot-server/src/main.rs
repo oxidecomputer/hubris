@@ -54,7 +54,6 @@ enum Trace {
     UnexpectedRotIrq,
     RotReadyTimeout,
     RspTimeout,
-    FirstTwoBytes(u8, u8),
 }
 ringbuf!(Trace, 64, Trace::None);
 

@@ -56,6 +56,7 @@ pub enum UpdateStatus {
 // N.B These varients must be kept in order to maintain compatibility between
 // skewed versions of SP and RoT during updates.
 #[derive(
+    Debug,
     Clone,
     Copy,
     FromPrimitive,
