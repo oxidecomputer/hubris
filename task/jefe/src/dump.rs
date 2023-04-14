@@ -288,9 +288,9 @@ pub fn reinitialize_dump_from(
     base: u32,
     index: u8,
 ) -> Result<(), DumpAgentError> {
+    let area = get_dump_area(base, index)?;
     humpty::release_dump_areas_from(
-        base,
-        index,
+        area.address,
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     )
