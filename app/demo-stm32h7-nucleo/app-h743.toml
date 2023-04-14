@@ -140,7 +140,7 @@ uses = ["rng"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
