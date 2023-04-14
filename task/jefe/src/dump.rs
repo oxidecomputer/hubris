@@ -74,6 +74,9 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::GetDumpArea(index));
     ringbuf_entry!(Trace::Base(base));
 
+    // SAFETY: we have configured memory so that humpty should only read
+    // headers which are properly initialized and which this task is allowed to
+    // read.
     match humpty::get_dump_area(base, index, |addr, buf, _| unsafe {
         humpty::from_mem(addr, buf)
     }) {
@@ -88,6 +91,10 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
 
 pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
     ringbuf_entry!(Trace::Claiming);
+    // SAFETY: we have configured memory so that humpty should only read
+    // headers which are properly initialized and readable by this task, and
+    // should only write memory which is writeable by this task (i.e. the dump
+    // areas).
     match humpty::claim_dump_area(
         base,
         DumpContents::WholeSystem,
@@ -128,6 +135,9 @@ fn dump_task_setup(
     // to dumping into it:  any failure will result in a partial or otherwise
     // corrupted dump.
     //
+    // SAFETY: we have set up the memory correctly, and we're trusting
+    // Humpty to do the right thing here, but ideally we could do this without
+    // `unsafe` (given sufficient changes to `humpty`)
     let area = humpty::claim_dump_area(
         base,
         contents.into(),
@@ -167,6 +177,11 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
             // read it directly -- otherwise, we'll ask the kernel.
             //
             if meta {
+                // SAFETY: when the `meta` argument is `true`, `humpty`
+                // should only ask us to read from memory areas that we control.
+                // We have no alignment concerns, since we're reading into a
+                // `& mut [u8]`, but have to trust `humpty` that the address is
+                // legit.
                 unsafe { humpty::from_mem(addr, buf) }
             } else {
                 let r = kipc::read_task_dump_region(
@@ -182,6 +197,8 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
                 Ok(())
             }
         },
+        // SAFETY: we are trusting `humpty` to not lead us astray into
+        // writing an invalid region of memory.
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
 
@@ -216,6 +233,10 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
             Some(region) => {
                 ringbuf_entry!(Trace::DumpRegion(region));
 
+                // SAFETY: we have configured memory so that humpty
+                // should only read headers which are properly initialized and
+                // readable by this task, and should only write memory which is
+                // writeable by this task (i.e. the dump areas).
                 if let Err(e) = humpty::add_dump_segment_header(
                     area.address,
                     region.base,
@@ -235,6 +256,9 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
     dump_task_run(area.address, task)?;
 
     // Convert from a dump area (address) back to an index
+    //
+    // SAFETY: humpty should walk through the linked list of dump areas
+    // owned by this task, reading initialized headers.
     humpty::dump_address_to_index(base, area.address, |addr, buf, _| unsafe {
         humpty::from_mem(addr, buf)
     })
@@ -292,6 +316,10 @@ pub fn dump_task_region(
         return Err(DumpAgentError::BadSegmentAdd);
     }
 
+    // SAFETY: we have configured memory so that humpty should only read
+    // headers which are properly initialized and readable by this task, and
+    // should only write memory which is writeable by this task (i.e. the
+    // segment header region within dump areas).
     if let Err(e) = humpty::add_dump_segment_header(
         area.address,
         start,
@@ -305,6 +333,8 @@ pub fn dump_task_region(
 
     dump_task_run(area.address, task)?;
 
+    // SAFETY: humpty should walk through the linked list of dump areas owned by
+    // this task, reading initialized headers.
     humpty::dump_address_to_index(base, area.address, |addr, buf, _| unsafe {
         humpty::from_mem(addr, buf)
     })
@@ -316,6 +346,9 @@ pub fn reinitialize_dump_from(
     index: u8,
 ) -> Result<(), DumpAgentError> {
     let area = get_dump_area(base, index)?;
+
+    // SAFETY: humpty should walk through the linked list of dump areas owned by
+    // this task, reading and writing to initialized header data.
     humpty::release_dump_areas_from(
         area.address,
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
