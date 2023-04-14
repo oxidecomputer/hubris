@@ -103,8 +103,26 @@ pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
     }
 }
 
+/// Marker for whether we're dumping an entire task or a sub-region
+enum DumpTaskContents {
+    SingleTask,
+    TaskRegion,
+}
+
+impl From<DumpTaskContents> for DumpContents {
+    fn from(t: DumpTaskContents) -> Self {
+        match t {
+            DumpTaskContents::SingleTask => DumpContents::SingleTask,
+            DumpTaskContents::TaskRegion => DumpContents::TaskRegion,
+        }
+    }
+}
+
 /// Setup for dumping a task (either completely or a sub-region)
-fn dump_task_setup(base: u32, full: bool) -> Result<DumpArea, DumpAgentError> {
+fn dump_task_setup(
+    base: u32,
+    contents: DumpTaskContents,
+) -> Result<DumpArea, DumpAgentError> {
     //
     // We need to claim a dump area.  Once it's claimed, we have committed
     // to dumping into it:  any failure will result in a partial or otherwise
@@ -112,11 +130,7 @@ fn dump_task_setup(base: u32, full: bool) -> Result<DumpArea, DumpAgentError> {
     //
     let area = humpty::claim_dump_area(
         base,
-        if full {
-            DumpContents::SingleTask
-        } else {
-            DumpContents::TaskRegion
-        },
+        contents.into(),
         |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     );
@@ -179,7 +193,7 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
 pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
     ringbuf_entry!(Trace::Dumping { task, base });
 
-    let area = dump_task_setup(base, true)?;
+    let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
 
     let mut ndx = 0;
 
@@ -249,7 +263,7 @@ pub fn dump_task_region(
         return Err(DumpAgentError::UnalignedSegmentLength.into());
     }
 
-    let area = dump_task_setup(base, false)?;
+    let area = dump_task_setup(base, DumpTaskContents::TaskRegion)?;
 
     // We don't trust the caller; it may request to dump a region that isn't
     // owned by this particular task!  To check this, we iterate over all of the
