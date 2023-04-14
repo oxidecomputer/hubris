@@ -9,6 +9,19 @@ use ringbuf::*;
 use task_jefe_api::DumpAgentError;
 use userlib::*;
 
+#[cfg(all(
+    armv8m,
+    not(any(
+        target_board = "lpcxpresso55s69",
+        target_board = "rot-carrier-1",
+        target_board = "rot-carrier-2",
+    ))
+))]
+compile_error!(
+    "Cannot enable `dump` feature on LPC55, \
+     except on specially designated boards"
+);
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum Trace {
     None,
