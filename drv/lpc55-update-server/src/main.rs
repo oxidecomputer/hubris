@@ -244,7 +244,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         match duration {
             SwitchDuration::Once => {
                 // TODO deposit command token into buffer
-                return Err(UpdateError::Unknown.into());
+                return Err(UpdateError::NotImplemented.into());
             }
             SwitchDuration::Forever => {
                 // There are two "official" copies of the CFPA, referred to as
@@ -422,13 +422,13 @@ fn indirect_flash_read(
                         break;
                     }
                     Err(ReadError::IllegalOperation) => {
-                        return Err(UpdateError::Unknown);
+                        return Err(UpdateError::FlashIllegalRead);
                     }
                     Err(ReadError::Ecc) => {
                         return Err(UpdateError::EccDoubleErr);
                     }
                     Err(ReadError::Fail) => {
-                        return Err(UpdateError::Unknown);
+                        return Err(UpdateError::FlashReadFail);
                     }
                 }
             }

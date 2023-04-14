@@ -8,20 +8,19 @@
 #![deny(elided_lifetimes_in_paths)]
 extern crate memoffset;
 
+mod error;
+pub use error::{SprocketsError, SprotError, SprotProtocolError};
+
 use crc::{Crc, CRC_16_XMODEM};
-use derive_more::From;
-use drv_spi_api::SpiError;
 pub use drv_update_api::{
     HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
     UpdateError, UpdateTarget,
 };
-use dumper_api::DumperError;
 use hubpack::SerializedSize;
-use idol_runtime::{Leased, LenLimit, RequestError, R};
+use idol_runtime::{Leased, LenLimit, R};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub use sprockets_common::msgs::{
-    RotError as SprocketsError, RotRequestV1 as SprocketsReq,
-    RotResponseV1 as SprocketsRsp,
+    RotRequestV1 as SprocketsReq, RotResponseV1 as SprocketsRsp,
 };
 use static_assertions::const_assert;
 use userlib::sys_send;
@@ -231,95 +230,6 @@ pub enum RspBody {
     IoStats(RotIoStats),
     Sprockets(SprocketsRsp),
     Update(UpdateRsp),
-}
-
-/// An error returned from a sprot request
-#[derive(
-    Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
-)]
-pub enum SprotError {
-    Protocol(SprotProtocolError),
-    Spi(SpiError),
-    Update(UpdateError),
-    Sprockets(SprocketsError),
-    Dump(DumperError),
-}
-
-impl From<idol_runtime::ServerDeath> for SprotError {
-    fn from(_: idol_runtime::ServerDeath) -> Self {
-        SprotError::Protocol(SprotProtocolError::ServerRestarted)
-    }
-}
-
-/// Sprot protocol specific errors
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
-)]
-// Used by control-plane-agent
-#[repr(u32)]
-pub enum SprotProtocolError {
-    /// CRC check failed.
-    InvalidCrc,
-    /// FIFO overflow/underflow
-    FlowError,
-    /// Unsupported protocol version
-    UnsupportedProtocol,
-    /// Unknown message
-    BadMessageType,
-    /// Transfer size is outside of maximum and minimum lenghts for message type.
-    BadMessageLength,
-    // We cannot assert chip select
-    CannotAssertCSn,
-    // The request timed out
-    Timeout,
-    // Hubpack error
-    Deserialization,
-    // The RoT has not de-asserted ROT_IRQ
-    RotIrqRemainsAsserted,
-    // An unexpected response was received.
-    // This should basically be impossible. We only include it so we can
-    // return this error when unpacking a RspBody in idol calls.
-    UnexpectedResponse,
-
-    // Failed to load update status
-    BadUpdateStatus,
-
-    // Used for mapping From<idol_runtime::ServerDeath>
-    ServerRestarted,
-}
-
-impl From<SprotProtocolError> for RequestError<SprotError> {
-    fn from(err: SprotProtocolError) -> Self {
-        SprotError::from(err).into()
-    }
-}
-
-impl From<hubpack::Error> for SprotError {
-    fn from(_: hubpack::Error) -> Self {
-        SprotProtocolError::Deserialization.into()
-    }
-}
-
-impl From<hubpack::Error> for SprotProtocolError {
-    fn from(_: hubpack::Error) -> Self {
-        SprotProtocolError::Deserialization
-    }
-}
-
-impl SprotError {
-    pub fn is_recoverable(&self) -> bool {
-        match *self {
-            SprotError::Protocol(err) => {
-                use SprotProtocolError::*;
-                match err {
-                    InvalidCrc | FlowError | Timeout | ServerRestarted
-                    | Deserialization => true,
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
 }
 
 /// The successful result of pulsing the active low chip-select line

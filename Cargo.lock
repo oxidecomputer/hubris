@@ -1505,6 +1505,7 @@ dependencies = [
  "build-spi",
  "build-util",
  "derive-idol-err",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -1524,6 +1525,7 @@ dependencies = [
  "drv-spi-api",
  "drv-update-api",
  "dumper-api",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -1939,6 +1941,7 @@ name = "dumper-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "gateway-messages",
  "hubpack",
  "humpty",
  "idol",
@@ -2081,7 +2084,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#76c227f97ba23a197b09d4b5fb2b11f7a7e20c34"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sprot-errors#d690c73f8f8a98ff51193a73331efbb1f1e3b431"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2294,9 +2297,9 @@ dependencies = [
 
 [[package]]
 name = "hubpack"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf8f3c0e51b49dd73e277f8d157f7248e91b3597e3487884181b259682b715d3"
+checksum = "61a0b84aeae519f65e0ba3aa998327080993426024edbd5cc38dbaf5ec524303"
 dependencies = [
  "hubpack_derive",
  "serde",

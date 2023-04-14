@@ -7,6 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use gateway_messages::DumperError as GwDumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
@@ -38,6 +39,27 @@ pub enum DumperError {
 
     #[idol(server_death)]
     ServerRestarted,
+}
+
+impl From<DumperError> for GwDumperError {
+    fn from(value: DumperError) -> Self {
+        match value {
+            DumperError::SetupFailed => Self::SetupFailed,
+            DumperError::UnalignedAddress => Self::UnalignedAddress,
+            DumperError::StartReadFailed => Self::StartReadFailed,
+            DumperError::ReadFailed => Self::ReadFailed,
+            DumperError::BadDumpAreaHeader => Self::BadDumpAreaHeader,
+            DumperError::WriteFailed => Self::WriteFailed,
+            DumperError::HeaderReadFailed => Self::HeaderReadFailed,
+            DumperError::FailedToHalt => Self::FailedToHalt,
+            DumperError::FailedToResume => Self::FailedToResume,
+            DumperError::FailedToResumeAfterFailure => {
+                Self::FailedToResumeAfterFailure
+            }
+            DumperError::RegisterReadFailed => Self::RegisterReadFailed,
+            DumperError::ServerRestarted => Self::ServerRestarted,
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
