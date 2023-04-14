@@ -2,75 +2,114 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//
-// If you are cutting-and-pasting this code into another kernel (and that
-// kernel is armv6m), it is hoped that you will cut-and-paste this compile
-// error along with it and take heed of its admonition!
-//
-#[cfg(not(any(armv7m, armv8m)))]
-compile_error!("ringbuf is unsound in the kernel on armv6m");
+use crate::device;
 
-use ringbuf::*;
+const D0: u8 = 6;
+const D1: u8 = 4;
+const D2: u8 = 3;
+const CLOCK: u8 = 2;
 
-#[derive(Copy, Clone, PartialEq)]
-enum Event {
-    SyscallEnter(u32),
-    SyscallExit,
-    SecondarySyscallEnter,
-    SecondarySyscallExit,
-    IsrEnter,
-    IsrExit,
-    TimerIsrEnter,
-    TimerIsrExit,
-    ContextSwitch(usize),
+fn triples(triples: &[u8]) {
+    let gpio = unsafe {
+        &*device::GPIOH::ptr()
+    };
+
+    for &t in triples {
+        let mut bits = t;
+
+        // Raise clock.
+        gpio.bsrr.write(|w| unsafe { w.bits(1 << CLOCK) });
+
+        // Set I/Os
+        gpio.bsrr.write(|w| {
+            let portbits = 0;
+            for pin in [D0, D1, D2] {
+                if bits & 1 == 0 {
+                    portbits |= 1 << (16 + pin);
+                } else {
+                    portbits |= 1 << pin;
+                }
+
+                bits >>= 1;
+            }
+            unsafe {
+                w.bits(portbits)
+            }
+        });
+
+        // Lower clock.
+        gpio.bsrr.write(|w| unsafe { w.bits(1 << (16 + CLOCK)) });
+        // Lower I/Os 
+        for pin in [D0, D1, D2] {
+            gpio.clr[0].write(|w| unsafe { w.bits(1 << pin) });
+        }
+    }
 }
 
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    Event(Event),
-    None,
+#[inline(always)]
+fn msg(kind: MsgKind, payload: u16) {
+    triples(&[kind as u8, (payload >> 6) as u8, (payload >> 3) as u8, payload as u8]);
 }
 
-ringbuf!(Trace, 128, Trace::None);
+#[inline(always)]
+fn evt(subkind: SubKind) {
+    msg(MsgKind::Other, subkind as u16);
+}
 
-fn trace(event: Event) {
-    ringbuf_entry!(Trace::Event(event));
+enum MsgKind {
+    SyscallStart = 0,
+    CurrentTaskChange = 1,
+    Irq = 2,
+    Other = 0x6,
+}
+
+enum SubKind {
+    PendSvEnter = 0,
+    SystickEnter = 1,
+
+    PendSvExit = 0b001_000,
+    SystickExit = 0b001_001,
+
+    SyscallExit = 0b001_101,
+    IrqExit = 0b001_111,
 }
 
 fn syscall_enter(nr: u32) {
-    trace(Event::SyscallEnter(nr));
+    msg(MsgKind::SyscallStart, nr as u16);
 }
 
 fn syscall_exit() {
-    trace(Event::SyscallExit);
+    evt(SubKind::SyscallExit);
 }
 
 fn secondary_syscall_enter() {
-    trace(Event::SecondarySyscallEnter);
+    evt(SubKind::PendSvEnter);
 }
 
 fn secondary_syscall_exit() {
-    trace(Event::SecondarySyscallExit);
+    evt(SubKind::PendSvExit);
 }
 
-fn isr_enter() {
-    trace(Event::IsrEnter);
+fn isr_enter(n: u32) {
+    msg(MsgKind::Irq, n as u16);
 }
 
 fn isr_exit() {
-    trace(Event::IsrExit);
+    evt(SubKind::IrqExit);
 }
 
 fn timer_isr_enter() {
-    trace(Event::TimerIsrEnter);
+    evt(SubKind::SystickEnter);
 }
 
 fn timer_isr_exit() {
-    trace(Event::TimerIsrExit);
+    evt(SubKind::SystickExit);
 }
 
 fn context_switch(addr: usize) {
-    trace(Event::ContextSwitch(addr));
+    let offset = addr - unsafe { kern::startup::HUBRIS_TASK_TABLE_SPACE.as_ptr() as usize };
+    let index = offset / core::mem::size_of::<kern::task::Task>();
+    msg(MsgKind::CurrentTaskChange, index as u16);
 }
 
 static TRACING: kern::profiling::EventsTable = kern::profiling::EventsTable {
@@ -85,6 +124,14 @@ static TRACING: kern::profiling::EventsTable = kern::profiling::EventsTable {
     context_switch,
 };
 
-pub fn table() -> &'static kern::profiling::EventsTable {
+pub fn setup() -> &'static kern::profiling::EventsTable {
+    let gpio = unsafe {
+        &*lpc55_pac::GPIO::ptr()
+    };
+    gpio.dirset[0].write(|w| unsafe {
+        // all bits on the AUX I/O header to outputs.
+        w.bits(1 << 4 | 1 << 21 | 1 << 22 | 1 << 25);
+        w
+    });
     &TRACING
 }
