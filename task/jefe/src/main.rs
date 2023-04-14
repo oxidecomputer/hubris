@@ -278,7 +278,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             fn get_dump_area(
                 &mut self,
                 _msg: &userlib::RecvMessage,
-                _index: u32,
+                _index: u8,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
@@ -299,8 +299,8 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
             fn dump_task(
                 &mut self,
-                _task_index: u32,
                 _msg: &userlib::RecvMessage,
+                _task_index: u32,
             ) -> Result<u8, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
