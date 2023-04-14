@@ -243,7 +243,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 if task_index == 0 {
                     // Can't dump the supervisor
                     return Err(DumpAgentError::NotSupported.into());
-                } else if task_index as usize > self.task_states.len() {
+                } else if task_index as usize >= self.task_states.len() {
                     // Can't dump a non-existent task
                     return Err(DumpAgentError::BadOffset.into());
                 }
@@ -259,7 +259,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             ) -> Result<u8, RequestError<DumpAgentError>> {
                 if task_index == 0 {
                     return Err(DumpAgentError::NotSupported.into());
-                } else if task_index as usize > self.task_states.len() {
+                } else if task_index as usize >= self.task_states.len() {
                     return Err(DumpAgentError::BadOffset.into());
                 }
                 dump::dump_task_region(
