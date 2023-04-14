@@ -250,6 +250,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 dump::dump_task(self.dump_areas, task_index as usize)
                     .map_err(|e| e.into())
             }
+
             fn dump_task_region(
                 &mut self,
                 _msg: &userlib::RecvMessage,
@@ -266,6 +267,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                     self.dump_areas, task_index as usize, address, length
                 ).map_err(|e| e.into())
             }
+
             fn reinitialize_dump_from(
                 &mut self,
                 _msg: &userlib::RecvMessage,
@@ -304,6 +306,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             ) -> Result<u8, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
+
             fn dump_task_region(
                 &mut self,
                 _msg: &userlib::RecvMessage,
@@ -313,6 +316,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             ) -> Result<u8, RequestError<DumpAgentError>> {
                 Err(DumpAgentError::DumpAgentUnsupported.into())
             }
+
             fn reinitialize_dump_from(
                 &mut self,
                 _msg: &userlib::RecvMessage,
