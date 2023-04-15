@@ -151,8 +151,9 @@ extern-regions = [ "sram2", "sram3", "sram4" ]
 [[config.i2c.controllers]]
 controller = 2
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 1
+sda.pin = 0
 af = 4
 
 #

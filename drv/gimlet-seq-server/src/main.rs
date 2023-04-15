@@ -85,11 +85,8 @@ enum Trace {
     InterruptFlags(u8),
     V3P3SysA0VOut(units::Volts),
 
-    SpdPresent(u8, u8, u8),
     SpdBankAbsent(u8),
     SpdAbsent(u8, u8, u8),
-    SpdReadTop(u8),
-    SpdReadBottom(u8),
     SpdDimmsFound(usize),
 
     None,
@@ -452,7 +449,6 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             // the device isn't present.
             let first = match spd.read_reg::<u8, u8>(0) {
                 Ok(val) => {
-                    ringbuf_entry!(Trace::SpdPresent(nbank, i, ndx));
                     present[usize::from(ndx)] = true;
                     npresent += 1;
                     val
@@ -462,8 +458,6 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
                     continue;
                 }
             };
-
-            ringbuf_entry!(Trace::SpdReadBottom(ndx));
 
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
@@ -490,8 +484,6 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             if !present[usize::from(ndx)] {
                 continue;
             }
-
-            ringbuf_entry!(Trace::SpdReadTop(ndx));
 
             let mem = spd::Function::Memory(i).to_device_code().unwrap();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);

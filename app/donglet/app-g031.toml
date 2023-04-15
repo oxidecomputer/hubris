@@ -82,8 +82,9 @@ features = ["insomniac"]
 [[config.i2c.controllers]]
 controller = 1
 
-[[config.i2c.controllers.ports.B.pins]]
-pins = [ 6, 9 ]
+[config.i2c.controllers.ports.B]
+scl.pin = 6
+sda.pin = 9
 af = 6
 
 #

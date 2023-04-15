@@ -55,7 +55,7 @@ impl Port {
 ///
 /// A `PinSet` can technically be empty (`pin_mask` of zero) but that's rarely
 /// useful.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PinSet {
     /// Port we're talking about.
     pub port: Port,
