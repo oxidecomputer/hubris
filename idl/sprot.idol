@@ -14,7 +14,7 @@ Interface(
         "io_stats": (
             doc: "Return IO stats from RoT",
             reply: Result(
-                ok: "IoStats",
+                ok: "drv_sprot_api::IoStats",
                 err: Complex("SprotError"),
             ),
             encoding: Hubpack, 
