@@ -6,7 +6,7 @@ use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
 #[allow(unused_imports)]
 use userlib::task_slot;
-#[cfg(any(feature = "sprot", feature = "update"))]
+#[cfg(any(feature = "update"))]
 use userlib::FromPrimitive;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
 #[cfg(feature = "sprot")]
@@ -517,138 +517,6 @@ pub(crate) fn spi_write(
     func_err(spi.write(device, &data[0..len]))?;
     Ok(0)
 }
-
-/*
-#[cfg(feature = "sprot")]
-task_slot!(SPROT, sprot);
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_pulse_cs(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let frame = &stack[stack.len() - 1..];
-    let delay: u16 =
-        frame[0].ok_or(Failure::Fault(Fault::BadParameter(1)))? as u16;
-    let server = drv_sprot_api::SpRot::from(SPROT.get_task_id());
-    let pulse_status = func_err(server.pulse_cs(delay))?;
-    let len = pulse_status.as_bytes().len();
-    rval[..len].copy_from_slice(pulse_status.as_bytes());
-    Ok(len)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_write_block(
-    stack: &[Option<u32>],
-    data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (start_block, len) = update_args(stack)?;
-
-    if len > data.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
-
-    let block_size = func_err(sprot.block_size())?;
-
-    for (i, c) in data[..len].chunks(block_size).enumerate() {
-        func_err(sprot.write_one_block((start_block + i) as u32, c))?;
-    }
-    Ok(0)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_start_update(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 1;
-
-    let target = match stack[fp + 0] {
-        Some(target) => target as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let img = match drv_update_api::UpdateTarget::from_usize(target) {
-        Some(i) => i,
-        None => return Err(Failure::Fault(Fault::BadParameter(0))),
-    };
-
-    func_err(
-        drv_sprot_api::SpRot::from(SPROT.get_task_id()).prep_image_update(img),
-    )?;
-    Ok(0)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_finish_update(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    func_err(
-        drv_sprot_api::SpRot::from(SPROT.get_task_id()).finish_image_update(),
-    )?;
-    Ok(0)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_block_size(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let size =
-        func_err(drv_sprot_api::SpRot::from(SPROT.get_task_id()).block_size())?;
-
-    let bytes: [u8; 4] = [
-        (size & 0xff) as u8,
-        ((size >> 8) & 0xff) as u8,
-        ((size >> 16) & 0xff) as u8,
-        ((size >> 24) & 0xff) as u8,
-    ];
-
-    rval[..4].copy_from_slice(&bytes);
-    Ok(4)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_switch_default_image(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (slot, duration) = switch_default_image_args(stack)?;
-    func_err(
-        drv_sprot_api::SpRot::from(SPROT.get_task_id())
-            .switch_default_image(slot, duration),
-    )?;
-    Ok(0)
-}
-
-#[cfg(feature = "sprot")]
-pub(crate) fn sprot_reset(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    func_err(drv_sprot_api::SpRot::from(SPROT.get_task_id()).reset())?;
-    Ok(0)
-}
-*/
 
 #[cfg(feature = "qspi")]
 task_slot!(HF, hf);
