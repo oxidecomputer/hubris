@@ -24,18 +24,31 @@ use userlib::*;
     Deserialize,
     SerializedSize,
 )]
+
+///
+/// These constitute an interface between the RoT and the SP in that the
+/// error codes are interpreted by the dump agent and turned into dump agent
+/// failures.  
+///
+/// These errors are also serialized and passed up to MGS, and as such they
+/// should not be re-ordered. New errors may be added to the end, but if they
+/// are they should be added to the `From<DumperError> for GwDumperError` below
+/// as `GwDumper::Unknown` variants. `gateway-messages` should also be updated
+/// to include the new variant so that in a second round of updates the from
+/// can be changed to make the variant "known" again.
+///
 pub enum DumperError {
     SetupFailed = 1,
-    UnalignedAddress,
-    StartReadFailed,
-    ReadFailed,
-    BadDumpAreaHeader,
-    WriteFailed,
-    HeaderReadFailed,
-    FailedToHalt,
-    FailedToResume,
-    FailedToResumeAfterFailure,
-    RegisterReadFailed,
+    UnalignedAddress = 2,
+    StartReadFailed = 3,
+    ReadFailed = 4,
+    BadDumpAreaHeader = 5,
+    WriteFailed = 6,
+    HeaderReadFailed = 7,
+    FailedToHalt = 8,
+    FailedToResume = 9,
+    FailedToResumeAfterFailure = 10,
+    RegisterReadFailed = 11,
 
     #[idol(server_death)]
     ServerRestarted,

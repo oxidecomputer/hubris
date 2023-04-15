@@ -122,5 +122,27 @@ pub fn generate_socket_enum(
         writeln!(out, "    {} = {},", name, i)?;
     }
     writeln!(out, "}}")?;
+
+    writeln!(
+        out,
+        "#[allow(unused)]\
+        pub const SOCKET_TX_SIZE: [usize; {}] = [",
+        config.sockets.len(),
+    )?;
+    for c in config.sockets.values() {
+        writeln!(out, "{},", c.tx.bytes)?;
+    }
+    writeln!(out, "];")?;
+    writeln!(
+        out,
+        "#[allow(unused)]\
+        pub const SOCKET_RX_SIZE: [usize; {}] = [",
+        config.sockets.len(),
+    )?;
+    for c in config.sockets.values() {
+        writeln!(out, "{},", c.rx.bytes)?;
+    }
+    writeln!(out, "];")?;
+
     Ok(())
 }

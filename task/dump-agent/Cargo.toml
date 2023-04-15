@@ -7,29 +7,41 @@ edition = "2021"
 target = "thumbv7em-none-eabihf"
 
 [dependencies]
-cfg-if = { workspace = true }
-cortex-m = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
-hubpack = { workspace = true }
-serde = { workspace = true }
-humpty = { workspace = true }
-ringbuf = { path = "../../lib/ringbuf"  }
-dump-agent-api = { path = "../dump-agent-api" }
+cfg-if.workspace = true
+cortex-m.workspace = true
+hubpack.workspace = true
+humpty.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+static_assertions.workspace = true
+zerocopy.workspace = true
+
+drv-sprot-api.path = "../../drv/sprot-api"
+dump-agent-api.path = "../dump-agent-api"
+dumper-api.path = "../dumper-api"
+mutable-statics.path = "../../lib/mutable-statics"
+ringbuf.path = "../../lib/ringbuf"
+task-jefe-api.path = "../../task/jefe-api"
+task-net-api = { path = "../../task/net-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-static_assertions = { workspace = true }
-drv-sprot-api = { path = "../../drv/sprot-api" }
-task-jefe-api = { path = "../../task/jefe-api" }
 
 [features]
 # Disable the SP-ROT communication, e.g. to run dump-agent on a Gimletlet
 no-rot = []
 
+# Runs a network service to dump remotely
+net = ["task-net-api"]
+
+# Configures the net task with VLANs enabled
+vlan = ["task-net-api?/vlan"]
+
 [build-dependencies]
-anyhow = { workspace = true }
-cfg-if = { workspace = true }
-idol = { workspace = true }
+anyhow.workspace = true
+cfg-if.workspace = true
+idol.workspace = true
+
+build-util.path = "../../build/util"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

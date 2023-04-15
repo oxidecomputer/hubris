@@ -18,6 +18,7 @@ pub enum TransceiversError {
     InvalidPortNumber,
     InvalidNumberOfBytes,
     InvalidPowerState,
+    InvalidModuleResult,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -31,9 +32,9 @@ impl From<FpgaError> for TransceiversError {
 
 /// Each field is a bitmask of the 32 transceivers in big endian order, which
 /// results in Port 31 being bit 31, and so forth.
-#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[derive(Copy, Clone, Default, FromBytes, AsBytes)]
 #[repr(C)]
-pub struct ModulesStatus {
+pub struct ModuleStatus {
     pub power_enable: u32,
     pub power_good: u32,
     pub power_good_timeout: u32,

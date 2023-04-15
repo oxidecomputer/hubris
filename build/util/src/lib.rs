@@ -72,10 +72,15 @@ pub fn expose_m_profile() {
     }
 }
 
+/// Returns the `HUBRIS_BOARD` envvar, if set.
+pub fn target_board() -> Option<String> {
+    crate::env_var("HUBRIS_BOARD").ok()
+}
+
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
-    if let Ok(board) = crate::env_var("HUBRIS_BOARD") {
+    if let Some(board) = target_board() {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
 }

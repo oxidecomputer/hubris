@@ -27,6 +27,7 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 num-derive = { workspace = true }
 static_assertions = { workspace = true }
+spd = { workspace = true }
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }

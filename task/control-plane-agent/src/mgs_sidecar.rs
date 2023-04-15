@@ -6,7 +6,6 @@ use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
     update::ComponentUpdater, Log, MgsMessage,
 };
-use core::convert::Infallible;
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
@@ -322,7 +321,7 @@ impl SpHandler for MgsHandler {
         action: ComponentAction,
     ) -> Result<(), SpError> {
         match (component, action) {
-            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(_action)) => {
                 // TODO: implement this
                 Err(SpError::RequestUnsupportedForComponent)
             }

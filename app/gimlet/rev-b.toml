@@ -41,7 +41,7 @@ name = "task-net"
 stacksize = 6040
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
-max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
@@ -95,7 +95,7 @@ priority = 2
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
-task-slots = ["sys", "i2c_driver", "jefe"]
+task-slots = ["sys", "packrat", "jefe"]
 notifications = ["i2c1-irq", "jefe-state-change"]
 
 [tasks.spd.interrupts]
@@ -104,11 +104,12 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-max-sizes = {flash = 8192, ram = 2048}
+priority = 1
+max-sizes = {flash = 8192, ram = 16384}
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
+features = ["gimlet"]
 
 [tasks.thermal]
 name = "task-thermal"
@@ -308,12 +309,14 @@ task-slots = ["sys"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 5
-max-sizes = {flash = 8192, ram = 2048 }
+priority = 6
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
-task-slots = ["sprot", "jefe"]
-stacksize = 1200
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
 extern-regions = ["sram2", "sram3", "sram4"]
+notifications = ["socket"]
+features = ["net", "vlan"]
 
 [tasks.sbrmi]
 name = "drv-sbrmi"
@@ -1254,6 +1257,7 @@ clock_divider = "DIV256"
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"
@@ -1279,9 +1283,16 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 [config.sprot]
 # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
