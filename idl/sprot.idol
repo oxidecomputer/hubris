@@ -108,5 +108,17 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "dump": (
+            doc: "Trigger a dump",
+            args: {
+                "address": "u32",
+            },
+            reply : Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        )
     }
 )

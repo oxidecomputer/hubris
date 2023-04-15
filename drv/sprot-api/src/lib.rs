@@ -230,6 +230,7 @@ pub enum RspBody {
     IoStats(RotIoStats),
     Sprockets(SprocketsRsp),
     Update(UpdateRsp),
+    DumpRsp { err: Option<u32> },
 }
 
 /// The successful result of pulsing the active low chip-select line
