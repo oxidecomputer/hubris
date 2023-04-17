@@ -74,7 +74,7 @@ impl ServerImpl {
         }
 
         humpty::add_dump_segment_header(
-            area.address,
+            area.region.address,
             addr,
             length,
             |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
@@ -97,13 +97,13 @@ impl ServerImpl {
         let area = self.dump_area(index)?;
 
         let written = unsafe {
-            let header = area.address as *mut DumpAreaHeader;
+            let header = area.region.address as *mut DumpAreaHeader;
             core::ptr::read_volatile(header).written
         };
 
         if written > offset {
             let to_read = written - offset;
-            let base = area.address as *const u8;
+            let base = area.region.address as *const u8;
             let base = unsafe { base.add(offset as usize) };
 
             for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
@@ -154,7 +154,7 @@ impl ServerImpl {
 
         match sprot.send_recv(
             drv_sprot_api::MsgType::DumpReq,
-            &area.address.to_le_bytes(),
+            &area.region.address.to_le_bytes(),
             &mut buf,
         ) {
             Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),

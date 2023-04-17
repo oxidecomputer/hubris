@@ -121,7 +121,7 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
 
     write!(
         out,
-        "pub(crate) const DUMP_AREAS: [humpty::DumpArea; {}] = [",
+        "pub(crate) const DUMP_AREAS: [humpty::DumpAreaRegion; {}] = [",
         dump_regions.len(),
     )?;
 
@@ -133,10 +133,9 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
             out,
             r##"
     // {name} dump area
-    humpty::DumpArea {{
+    humpty::DumpAreaRegion {{
         address: {address:#x},
         length: {length:#x},
-        contents: humpty::DumpContents::Available,
     }},"##
         )?;
     }
