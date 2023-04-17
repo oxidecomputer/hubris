@@ -17,8 +17,9 @@ pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed,
     MuxToSPFailed,
-    ClockConfigFailed,
     ReadRegsFailed,
+    CPUNotPresent,
+    UnrecognizedCPU,
 
     #[idol(server_death)]
     ServerRestarted,
