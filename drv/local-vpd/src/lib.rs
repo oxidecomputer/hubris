@@ -28,6 +28,7 @@ pub enum LocalVpdError {
     InvalidChecksum,
     InvalidChunkSize,
     NoRootChunk,
+    BadRootChunk,
 }
 
 #[derive(Clone)]
@@ -39,10 +40,11 @@ struct EepromReader<'a> {
 enum Trace {
     EepromError(drv_i2c_devices::at24csw080::Error),
     Error(LocalVpdError),
+    UnrelatedChunk([u8; 4]),
     None,
 }
 
-ringbuf!(Trace, 1, Trace::None);
+ringbuf!(Trace, 4, Trace::None);
 
 impl<'a> TlvcRead for EepromReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
@@ -132,35 +134,44 @@ pub fn read_config_into(
     let mut reader = TlvcReader::begin(eeprom_reader)
         .map_err(|_| err(LocalVpdError::DeviceError))?;
 
-    while let Ok(Some(chunk)) = reader.next() {
-        let mut scratch = [0u8; 32];
-        if chunk.header().tag == *b"FRU0" {
-            chunk
-                .check_body_checksum(&mut scratch)
-                .map_err(|_| err(LocalVpdError::InvalidChecksum))?;
-            let mut inner = chunk.read_as_chunks();
-            while let Ok(Some(chunk)) = inner.next() {
-                if chunk.header().tag == tag {
+    loop {
+        match reader.next() {
+            Ok(Some(chunk)) => {
+                let mut scratch = [0u8; 32];
+                if chunk.header().tag == *b"FRU0" {
                     chunk
                         .check_body_checksum(&mut scratch)
                         .map_err(|_| err(LocalVpdError::InvalidChecksum))?;
+                    let mut inner = chunk.read_as_chunks();
+                    while let Ok(Some(chunk)) = inner.next() {
+                        if chunk.header().tag == tag {
+                            chunk.check_body_checksum(&mut scratch).map_err(
+                                |_| err(LocalVpdError::InvalidChecksum),
+                            )?;
 
-                    let chunk_len = chunk.len() as usize;
+                            let chunk_len = chunk.len() as usize;
 
-                    if chunk_len > out.len() {
-                        return Err(err(LocalVpdError::InvalidChunkSize));
+                            if chunk_len > out.len() {
+                                return Err(err(
+                                    LocalVpdError::InvalidChunkSize,
+                                ));
+                            }
+
+                            chunk
+                                .read_exact(0, &mut out[..chunk_len])
+                                .map_err(|_| LocalVpdError::DeviceError)?;
+                            return Ok(chunk_len);
+                        }
                     }
-
-                    chunk
-                        .read_exact(0, &mut out[..chunk_len])
-                        .map_err(|_| LocalVpdError::DeviceError)?;
-                    return Ok(chunk_len);
+                    return Err(err(LocalVpdError::NoSuchChunk));
+                } else {
+                    ringbuf_entry!(Trace::UnrelatedChunk(chunk.header().tag));
                 }
             }
-            return Err(err(LocalVpdError::NoSuchChunk));
+            Ok(None) => return Err(err(LocalVpdError::NoRootChunk)),
+            Err(_) => return Err(err(LocalVpdError::BadRootChunk)),
         }
     }
-    Err(err(LocalVpdError::NoRootChunk))
 }
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

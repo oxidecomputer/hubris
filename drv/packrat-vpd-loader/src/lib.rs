@@ -17,7 +17,8 @@ pub use task_packrat_api::Packrat;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    LocalVpdError(LocalVpdError),
+    MacLocalVpdError(LocalVpdError),
+    BarcodeLocalVpdError(LocalVpdError),
     BarcodeParseError(BarcodeParseError),
     MacsAlreadySet(MacAddressBlock),
     IdentityAlreadySet(VpdIdentity),
@@ -47,7 +48,7 @@ pub fn read_vpd_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
                     read_macs = true;
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::LocalVpdError(err));
+                    ringbuf_entry!(Trace::MacLocalVpdError(err));
                 }
             }
         }
@@ -64,7 +65,7 @@ pub fn read_vpd_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
                     read_identity = true;
                 }
                 Err(VpdIdentityError::LocalVpdError(err)) => {
-                    ringbuf_entry!(Trace::LocalVpdError(err));
+                    ringbuf_entry!(Trace::BarcodeLocalVpdError(err));
                 }
                 Err(VpdIdentityError::ParseError(err)) => {
                     ringbuf_entry!(Trace::BarcodeParseError(err));

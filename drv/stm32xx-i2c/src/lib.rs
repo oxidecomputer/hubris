@@ -40,10 +40,11 @@ use userlib::*;
 
 use drv_stm32xx_sys_api as sys_api;
 
-pub struct I2cPin {
+pub struct I2cPins {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::PortIndex,
-    pub gpio_pins: sys_api::PinSet,
+    pub scl: sys_api::PinSet,
+    pub sda: sys_api::PinSet,
     pub function: sys_api::Alternate,
 }
 
