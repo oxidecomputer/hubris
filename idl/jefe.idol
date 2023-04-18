@@ -59,5 +59,40 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "dump_task": (
+            description: "dumps the specified task",
+            args: {
+                "task_index": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "dump_task_region": (
+            description: "dumps a subregion of the specified task",
+            args: {
+                "task_index": "u32",
+                "address": "u32",
+                "length": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "reinitialize_dump_from": (
+            description: "reinitializes the dump memory starting at the given area",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
+        ),
     },
 )

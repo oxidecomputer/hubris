@@ -34,7 +34,7 @@ host_sp_comms = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -307,8 +307,9 @@ interrupts = {"flash_controller.irq" = "flash-irq"}
 [[config.i2c.controllers]]
 controller = 2
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 1
+sda.pin = 0
 af = 4
 
 [[config.i2c.controllers]]
@@ -322,21 +323,17 @@ controller = 3
 # definition of `PortIndex` and name the logical port C after the GPIO pin that
 # corresponds to SDA.
 #
-[[config.i2c.controllers.ports.C.pins]]
-gpio_port = "A"
-pins = [ 8 ]
-af = 4
-
-[[config.i2c.controllers.ports.C.pins]]
-gpio_port = "C"
-pins = [ 9 ]
+[config.i2c.controllers.ports.C]
+scl = { gpio_port = "A", pin = 8 }
+sda = { gpio_port = "C", pin = 9 }
 af = 4
 
 [[config.i2c.controllers]]
 controller = 4
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 14, 15 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 14
+sda.pin = 15
 af = 4
 
 [config.spi.spi3]

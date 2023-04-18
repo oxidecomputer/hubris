@@ -22,7 +22,6 @@ enum Trace {
     DeserializeHeaderError(hubpack::Error),
     SendError(SendError),
     WrongVersion(u8),
-    Hi(u8, usize),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -100,7 +99,6 @@ impl ServerImpl {
         rx_data_buf: &[u8],
         tx_data_buf: &mut [u8],
     ) {
-        ringbuf_entry!(Trace::Hi(rx_data_buf[0], rx_data_buf.len()));
         let out_len =
             match hubpack::deserialize(&rx_data_buf[0..meta.size as usize]) {
                 Ok((mut header, msg)) => {
@@ -171,6 +169,19 @@ impl ServerImpl {
                 Request::TakeDump => {
                     self.take_dump().map(|()| Response::TakeDump)?
                 }
+                Request::DumpTask { task_index } => {
+                    self.dump_task(task_index).map(Response::DumpTask)?
+                }
+                Request::DumpTaskRegion {
+                    task_index,
+                    start,
+                    length,
+                } => self
+                    .dump_task_region(task_index, start, length)
+                    .map(Response::DumpTaskRegion)?,
+                Request::ReinitializeDumpFrom { index } => self
+                    .reinitialize_dump_from(index)
+                    .map(|()| Response::ReinitializeDumpFrom)?,
             },
             Err(e) => {
                 // This message is from a newer version, so it makes sense that

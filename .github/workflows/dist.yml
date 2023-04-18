@@ -32,7 +32,7 @@ jobs:
             app_name: lpc55xpresso
             app_toml: app/lpc55xpresso/app.toml
             target: thumbv8m.main-none-eabihf
-            image: a
+            image: [a, b]
           - build: lpc55-stage0
             app_name: lpc55xpresso
             app_toml: app/lpc55xpresso/stage0.toml
@@ -57,7 +57,7 @@ jobs:
             app_name: rot-carrier
             app_toml: app/rot-carrier/app.toml
             target: thumbv8m.main-none-eabihf
-            image: a
+            image: [a, b]
           - build: rot-carrier-stage0
             app_name: rot-carrier
             app_toml: app/rot-carrier/stage0.toml
@@ -132,7 +132,7 @@ jobs:
             app_name: gimlet-rot-b
             app_toml: app/gimlet-rot/app-b.toml
             target: thumbv8m.main-none-eabihf
-            image: a
+            image: [a, b]
           - build: gimlet-rot-b-stage0
             app_name: gimlet-rot-b
             app_toml: app/gimlet-rot/stage0-b.toml
@@ -147,7 +147,7 @@ jobs:
             app_name: gimlet-rot-c
             app_toml: app/gimlet-rot/app-c.toml
             target: thumbv8m.main-none-eabihf
-            image: a
+            image: [a, b]
           - build: gimlet-rot-c-stage0
             app_name: gimlet-rot-c
             app_toml: app/gimlet-rot/stage0-c.toml
@@ -210,11 +210,15 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
-          target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
+          for image in `echo ${{ join(matrix.image) }} | tr "," "\n"`; do \
+              mv target/${{ matrix.app_name }}/dist/$image/build-${{ matrix.app_name }}-image-$image.zip target/${{ matrix.app_name }}/dist/; \
+              target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-$image.zip manifest; \
+          done
 
       # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v3
+        if: matrix.os == 'ubuntu-latest'
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip
+          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip

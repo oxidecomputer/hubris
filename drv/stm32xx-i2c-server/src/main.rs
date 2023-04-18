@@ -9,7 +9,7 @@
 
 use drv_i2c_api::*;
 use drv_stm32xx_i2c::*;
-use drv_stm32xx_sys_api::{Mode, OutputType, Pull, Speed, Sys};
+use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;
@@ -31,7 +31,7 @@ fn lookup_controller<'a, 'b>(
 /// Validates a port for the specified controller.
 ///
 fn validate_port(
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     controller: Controller,
     port: PortIndex,
 ) -> Result<(), ResponseCode> {
@@ -148,6 +148,7 @@ enum Trace {
     ResetMux(Mux),
     SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
+    Wiggles(u8),
     None,
 }
 
@@ -389,7 +390,7 @@ fn configure_port(
     map: &mut PortMap,
     controller: &I2cController<'_>,
     port: PortIndex,
-    pins: &[I2cPin],
+    pins: &[I2cPins],
 ) {
     let current = map.get(controller.controller).unwrap();
 
@@ -420,37 +421,112 @@ fn configure_port(
             // This is a slightly unusual operation that lacks a convenience
             // operation in the GPIO API, so we do it longhand:
             //
-            sys.gpio_configure(
-                pin.gpio_pins.port,
-                pin.gpio_pins.pin_mask,
-                Mode::Analog,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-                pin.function,
-            );
+            for gpio_pin in &[pin.scl, pin.sda] {
+                sys.gpio_configure(
+                    gpio_pin.port,
+                    gpio_pin.pin_mask,
+                    Mode::Analog,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
+            }
         } else if pin.port == port {
-            // Configure our new port!
-            sys.gpio_configure_alternate(
-                pin.gpio_pins,
-                OutputType::OpenDrain,
-                Speed::Low,
-                Pull::None,
-                pin.function,
-            );
+            for gpio_pin in &[pin.scl, pin.sda] {
+                // Configure our new port!
+                sys.gpio_configure_alternate(
+                    *gpio_pin,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
+            }
         }
     }
 
     map.insert(controller.controller, port);
 }
 
+///
+/// When the system is reset without power loss, I2C can be in an arbitrary
+/// state with respect to the bus -- and we can therefore come to life with a
+/// transaction already in flight.  It is very important that we abort any
+/// such transaction:  failure to do so will result in our first I2C
+/// transaction being corrupted.  (And especially because our first I2C
+/// transactions may well be to disable segments on a mux, this can result in
+/// nearly arbitrary mayhem down the road!)  To do this, we engage in the
+/// time-honored[0] tradition of "clocking through the problem":  wiggling SCL
+/// until we see SDA high, and then pulling SDA low and releasing SCL to
+/// indicate a STOP condition.  (Note that we need to do this up to 9 times to
+/// assure that we have clocked through the entire transaction.)
+///
+/// [0] Analog Devices. AN-686: Implementing an I2C Reset. 2003.
+///
+fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
+    sys.gpio_configure_input(sda, Pull::None);
+    sys.gpio_set(scl);
+
+    sys.gpio_configure_output(
+        scl,
+        OutputType::OpenDrain,
+        Speed::Low,
+        Pull::None,
+    );
+
+    for i in 0..9 {
+        if sys.gpio_read(sda) != 0 {
+            //
+            // SDA is high. We're going to flip it to an output, pull the
+            // clock down then, pull SDA down, then release SCL and finally
+            // release SDA.  This will denote a STOP condition.
+            //
+            sys.gpio_set(sda);
+
+            sys.gpio_configure_output(
+                sda,
+                OutputType::OpenDrain,
+                Speed::Low,
+                Pull::None,
+            );
+
+            sys.gpio_reset(scl);
+            sys.gpio_reset(sda);
+            sys.gpio_set(scl);
+            sys.gpio_set(sda);
+            ringbuf_entry!(Trace::Wiggles(i));
+            break;
+        }
+
+        //
+        // SDA is low -- someone is holding it down: give SCL a wiggle to try
+        // to shake them.  Note that we don't sleep here:  we are relying on
+        // the fact that communicating to the GPIO task is going to take
+        // longer than our minimum SCL pulse.  (Which, on a 400 MHz H753, is
+        // on the order of ~15 usecs -- yielding a cycle time of ~30 usecs
+        // or ~33 KHz.)
+        //
+        sys.gpio_reset(scl);
+        sys.gpio_set(scl);
+    }
+}
+
 fn configure_pins(
     controllers: &[I2cController<'_>],
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     map: &mut PortMap,
 ) {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
+
+    //
+    // Before we configure our pins, wiggle SCL to shake off any old
+    // transaction.
+    //
+    for pin in pins {
+        wiggle_scl(&sys, pin.scl, pin.sda);
+    }
 
     for pin in pins {
         let controller =
@@ -463,27 +539,32 @@ fn configure_pins(
                 // port, we want to set this pin to its unselected state to
                 // prevent glitches when we first use it.
                 //
-                sys.gpio_configure(
-                    pin.gpio_pins.port,
-                    pin.gpio_pins.pin_mask,
-                    Mode::Analog,
-                    OutputType::OpenDrain,
-                    Speed::Low,
-                    Pull::None,
-                    pin.function,
-                );
+                for gpio_pin in &[pin.scl, pin.sda] {
+                    sys.gpio_configure(
+                        gpio_pin.port,
+                        gpio_pin.pin_mask,
+                        Mode::Analog,
+                        OutputType::OpenDrain,
+                        Speed::Low,
+                        Pull::None,
+                        pin.function,
+                    );
+                }
+
                 continue;
             }
             _ => {}
         }
 
-        sys.gpio_configure_alternate(
-            pin.gpio_pins,
-            OutputType::OpenDrain,
-            Speed::Low,
-            Pull::None,
-            pin.function,
-        );
+        for gpio_pin in &[pin.scl, pin.sda] {
+            sys.gpio_configure_alternate(
+                *gpio_pin,
+                OutputType::OpenDrain,
+                Speed::Low,
+                Pull::None,
+                pin.function,
+            );
+        }
 
         map.insert(controller.controller, pin.port);
     }
@@ -492,7 +573,7 @@ fn configure_pins(
 fn configure_muxes(
     muxes: &[I2cMux<'_>],
     controllers: &[I2cController<'_>],
-    pins: &[I2cPin],
+    pins: &[I2cPins],
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {
@@ -534,6 +615,7 @@ fn configure_muxes(
                         mux.driver.enable_segment(mux, controller, None, ctrl)
                     {
                         ringbuf_entry!(Trace::SegmentFailed(code));
+
                         if reset_needed(code) && !reset_attempted {
                             reset(controller, mux.port, muxes, None);
                             reset_attempted = true;

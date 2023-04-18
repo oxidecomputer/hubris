@@ -133,17 +133,18 @@ struct I2cPort {
     name: Option<String>,
     #[allow(dead_code)]
     description: Option<String>,
-    pins: Vec<I2cPinSet>,
+    scl: I2cPin,
+    sda: I2cPin,
+    af: u8,
     #[serde(default)]
     muxes: Vec<I2cMux>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct I2cPinSet {
+struct I2cPin {
     gpio_port: Option<String>,
-    pins: Vec<u8>,
-    af: u8,
+    pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -667,18 +668,16 @@ impl ConfigGenerator {
         }
 
         for c in &self.controllers {
-            for port in c.ports.values() {
-                len += port.pins.len();
-            }
+            len += c.ports.len();
         }
 
         writeln!(
             &mut s,
             r##"
     #[allow(unused_imports)]
-    use drv_stm32xx_i2c::{{I2cPin, I2cGpio}};
+    use drv_stm32xx_i2c::{{I2cPins, I2cGpio}};
 
-    pub fn pins() -> [I2cPin; {}] {{"##,
+    pub fn pins() -> [I2cPins; {}] {{"##,
             len
         )?;
 
@@ -699,33 +698,29 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                for pin in &port.pins {
-                    let mut pinstr = String::new();
-                    write!(&mut pinstr, "pin({})", pin.pins[0])?;
-
-                    for i in 1..pin.pins.len() {
-                        write!(&mut pinstr, ".and_pin({})", pin.pins[i])?;
-                    }
-
-                    write!(
-                        &mut s,
-                        r##"
-            I2cPin {{
+                writeln!(
+                    &mut s,
+                    r##"
+            I2cPins {{
                 controller: Controller::I2C{controller},
-                port: PortIndex({i2c_port}),
-                gpio_pins: gpio_api::Port::{gpio_port}.{pinstr},
+                port: PortIndex({index}),
+                scl: gpio_api::Port::{scl}.pin({scl_pin}),
+                sda: gpio_api::Port::{sda}.pin({sda_pin}),
                 function: Alternate::AF{af},
             }},"##,
-                        controller = c.controller,
-                        i2c_port = index,
-                        gpio_port = match pin.gpio_port {
-                            Some(ref port) => port,
-                            None => p,
-                        },
-                        pinstr = pinstr,
-                        af = pin.af
-                    )?;
-                }
+                    controller = c.controller,
+                    scl = match port.scl.gpio_port {
+                        Some(ref port) => port,
+                        None => p,
+                    },
+                    scl_pin = port.scl.pin,
+                    sda = match port.sda.gpio_port {
+                        Some(ref port) => port,
+                        None => p,
+                    },
+                    sda_pin = port.sda.pin,
+                    af = port.af
+                )?;
             }
         }
 

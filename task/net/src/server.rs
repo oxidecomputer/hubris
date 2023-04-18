@@ -273,6 +273,13 @@ where
 {
     socket_handles: [SocketHandle; SOCKET_COUNT],
     iface: Interface<'static, E>,
+
+    /// If calls to `net_send_packet` consistently return `QueueFull`, this is
+    /// the time at which the _first_ error was returned.  It is cleared when a
+    /// call to `net_send_packet` succeeds.
+    ///
+    /// Used as a watchdog to detect stuck queues
+    first_queue_full: [Option<u64>; SOCKET_COUNT],
 }
 
 impl<E: DeviceExt> VLanState<E> {
@@ -292,6 +299,29 @@ impl<E: DeviceExt> VLanState<E> {
             self.iface
                 .get_socket::<UdpSocket<'_>>(self.get_handle(index)?),
         )
+    }
+
+    pub(crate) fn check_socket_watchdog(&mut self, t: u64) -> bool {
+        const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
+        let mut changed = false;
+        for socket_index in 0..SOCKET_COUNT {
+            if let Some(prev_time) = self.first_queue_full[socket_index] {
+                if t >= prev_time + SOCKET_QUEUE_FULL_TIMEOUT_MS {
+                    let s = self.get_socket_mut(socket_index).unwrap_lite();
+                    if !s.can_send() {
+                        // Reset the queue by closing + reopening it.  This
+                        // will lose packets in the RX queue as well;
+                        // they're collateral damage because `smoltcp`
+                        // doesn't expose a way to flush just the TX side.
+                        let e = s.endpoint();
+                        s.close();
+                        s.bind(e).unwrap();
+                        changed = true;
+                    }
+                }
+            }
+        }
+        changed
     }
 }
 
@@ -353,6 +383,7 @@ where
                 .push(VLanState {
                     socket_handles,
                     iface,
+                    first_queue_full: [None; SOCKET_COUNT],
                 })
                 .unwrap_lite();
 
@@ -398,15 +429,17 @@ where
     }
 
     pub(crate) fn poll(&mut self, t: u64) -> smoltcp::Result<crate::Activity> {
-        let t = smoltcp::time::Instant::from_millis(t as i64);
+        let instant = smoltcp::time::Instant::from_millis(t as i64);
         // Do not be tempted to use `Iterator::any` here, it short circuits and
         // we really do want to poll all of them.
         let mut ip = false;
         let mut mac_rx = false;
         for vlan in &mut self.vlan_state {
-            ip |= vlan.iface.poll(t)?;
+            ip |= vlan.iface.poll(instant)?;
             // Test and clear our receive activity flag.
             mac_rx |= vlan.iface.device().read_and_clear_activity_flag();
+            // Check the socket watchdog, which may free up packet space
+            ip |= vlan.check_socket_watchdog(t);
         }
 
         Ok(crate::Activity { ip, mac_rx })
@@ -549,19 +582,26 @@ where
         #[cfg(not(feature = "vlan"))]
         let vlan_index = 0;
 
-        let socket =
-            self.vlan_state[vlan_index]
-                .get_socket_mut(socket_index)
-                .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+        let vlan = &mut self.vlan_state[vlan_index];
+        let socket = vlan
+            .get_socket_mut(socket_index)
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
         match socket.send(payload.len(), metadata.into()) {
             Ok(buf) => {
                 payload
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
                 self.client_waiting_to_send[socket_index] = false;
+                vlan.first_queue_full[socket_index] = None;
                 Ok(())
             }
             Err(smoltcp::Error::Exhausted) => {
+                // Record the QueueFull error if this is the first time we've
+                // seen it since a successful transmission.
+                if vlan.first_queue_full[socket_index].is_none() {
+                    let now = userlib::sys_get_timer().now;
+                    vlan.first_queue_full[socket_index] = Some(now);
+                }
                 self.client_waiting_to_send[socket_index] = true;
                 Err(SendError::QueueFull.into())
             }

@@ -190,7 +190,7 @@ uses = ["rng"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
@@ -200,8 +200,9 @@ extern-regions = [ "sram2", "sram3", "sram4" ]
 [[config.i2c.controllers]]
 controller = 2
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 1
+sda.pin = 0
 af = 4
 
 #
@@ -210,7 +211,6 @@ af = 4
 # [[config.i2c.controllers.ports.F.muxes]]
 # driver = "ltc4306"
 # address = 0b1001_010
-
 
 [config.spi.spi1]
 controller = 1
