@@ -583,11 +583,25 @@ where
                 // queue isn't clogged.
                 let now = userlib::sys_get_timer().now;
                 if let Some(t) = self.first_queue_full[socket_index] {
-                    // Leave `self.first_queue_full` unchanged; it's already
-                    // populated with the time of the first QueueFull error.
+                    // Reset the queue by closing + reopening it.  This will
+                    // lose packets in the RX queue as well; they're collateral
+                    // damage because `smoltcp` doesn't expose a way to flush
+                    // just the TX side.
                     if now >= t + 500 {
-                        panic!("QueueFull watchdog");
+                        let e = socket.endpoint();
+                        socket.close();
+                        socket.bind(e).unwrap();
+
+                        // Reset the timer, since the queue is now empty.  We
+                        // could _theoretically_ resubmit the packet here, but
+                        // that gets messy; let's return QueueFull and let the
+                        // caller be in charge of retrying.
+                        self.first_queue_full[socket_index] = None;
                     }
+
+                    // Otherwise, leave `self.first_queue_full` unchanged; it's
+                    // already populated with the time of the first QueueFull
+                    // error.
                 } else {
                     self.first_queue_full[socket_index] = Some(now);
                 }
