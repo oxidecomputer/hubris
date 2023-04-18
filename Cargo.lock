@@ -1965,7 +1965,7 @@ version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9c280362032ea4203659fc489832d0204ef09f247a0506f170dafcac08c369"
 dependencies = [
- "signature 1.3.2",
+ "signature",
 ]
 
 [[package]]
@@ -2085,7 +2085,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#caea9e57378c8d1989206c04d12cfe81f5b8aada"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=bump-smoltcp#16fb19a5cf4156ce8e77c73d020f756b81cd17f8"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -3318,7 +3318,7 @@ dependencies = [
  "pkcs8",
  "rand_core",
  "sha2",
- "signature 2.0.0",
+ "signature",
  "subtle",
  "zeroize",
 ]
@@ -3589,12 +3589,6 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2807892cfa58e081aa1f1111391c7a0649d4fa127a4ffbe34bcbfb35a1171a4"
-
-[[package]]
-name = "signature"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fe458c98333f9c8152221191a77e2a44e8325d0193484af2e9421a53019e57d"
@@ -3620,11 +3614,14 @@ dependencies = [
 
 [[package]]
 name = "smoltcp"
-version = "0.8.0"
-source = "git+https://github.com/oxidecomputer/smoltcp?branch=v0.8.0#d9cfed9bb5e263b1c8d2730c8009eea50c8f25d5"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9786ac45091b96f946693e05bfa4d8ca93e2d3341237d97a380107a6b38dea"
 dependencies = [
  "bitflags 1.3.2",
  "byteorder",
+ "cfg-if",
+ "heapless",
  "managed",
 ]
 

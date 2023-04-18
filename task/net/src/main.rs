@@ -138,9 +138,6 @@ const TX_RING_SZ: usize = 4;
 
 const RX_RING_SZ: usize = 4;
 
-/// Number of entries to maintain in our neighbor cache (ARP/NDP).
-const NEIGHBORS: usize = 4;
-
 /// How long to wait with no received packets before we decide the driver is
 /// b0rked and restart it.
 const RX_WATCHDOG_INTERVAL: u64 = 60_000;
@@ -243,13 +240,7 @@ fn main() -> ! {
 
         // Call into smoltcp.
         let now = sys_get_timer().now;
-        let poll_result = server.poll(now);
-        // If smoltcp reported an error we'll treat the activity flags as true
-        // so that we immediately retry.
-        let activity = poll_result.unwrap_or(Activity {
-            ip: true,
-            mac_rx: true,
-        });
+        let activity = server.poll(now);
 
         if activity.mac_rx {
             // Whenever we observe activity we bump the timer forward. Because

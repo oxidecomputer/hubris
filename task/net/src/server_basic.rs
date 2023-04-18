@@ -69,13 +69,9 @@ impl<'d> From<&'d eth::Ethernet> for Smol<'d> {
 
 pub struct OurRxToken<'d>(&'d Smol<'d>);
 impl<'d> smoltcp::phy::RxToken for OurRxToken<'d> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        f: F,
-    ) -> smoltcp::Result<R>
+    fn consume<R, F>(self, _timestamp: smoltcp::time::Instant, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         self.0.eth.recv(f)
     }
@@ -88,9 +84,9 @@ impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
         _timestamp: smoltcp::time::Instant,
         len: usize,
         f: F,
-    ) -> smoltcp::Result<R>
+    ) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         self.0
             .eth
