@@ -51,9 +51,17 @@ enum Trace {
     Ice40PowerGoodV3P3(bool),
     RailsOff,
     Ident(u16),
-    A1Status(u8),
+    A2Status(u8),
     A2,
-    A1Power(u8, u8),
+    A0Failed(SeqError),
+    A1Status(u8),
+    CPUPresent(bool),
+    Coretype {
+        coretype: bool,
+        sp3r1: bool,
+        sp3r2: bool,
+    },
+    A0Status(u8),
     A0Power(u8),
     NICPowerEnableLow(bool),
     RailsOn,
@@ -123,6 +131,12 @@ fn main() -> ! {
 
     // Set SP3_TO_SP_NIC_PWREN_L to be an input
     sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL);
+
+    // Set all of the presence-related pins to be inputs
+    sys.gpio_configure_input(CORETYPE, CORETYPE_PULL);
+    sys.gpio_configure_input(CPU_PRESENT_L, CPU_PRESENT_L_PULL);
+    sys.gpio_configure_input(SP3R1, SP3R1_PULL);
+    sys.gpio_configure_input(SP3R2, SP3R2_PULL);
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -303,7 +317,7 @@ fn main() -> ! {
         let mut status = [0u8];
 
         seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap();
-        ringbuf_entry!(Trace::A1Status(status[0]));
+        ringbuf_entry!(Trace::A2Status(status[0]));
 
         if status[0] == 0 {
             break;
@@ -342,7 +356,7 @@ fn main() -> ! {
     ringbuf_entry_v3p3_sys_a0_vout();
     ringbuf_entry!(Trace::A2);
 
-    // After declaring A2 but before transitioning to A0 (either automatically o
+    // After declaring A2 but before transitioning to A0 (either automatically
     // or in response to an IPC), populate packrat with EEPROM contents for use
     // by the SPD task.
     //
@@ -366,7 +380,9 @@ fn main() -> ! {
 
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
-        server.set_state_internal(PowerState::A0).unwrap();
+        if let Err(err) = server.set_state_internal(PowerState::A0) {
+            ringbuf_entry!(Trace::A0Failed(err));
+        }
     }
 
     //
@@ -604,6 +620,8 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         state: PowerState,
     ) -> Result<(), SeqError> {
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+
         ringbuf_entry!(Trace::SetState(self.state, state));
 
         ringbuf_entry_v3p3_sys_a0_vout();
@@ -637,25 +655,77 @@ impl<S: SpiServer> ServerImpl<S> {
                 }
 
                 //
-                // We are going to pass through A1 on the way to A0.
+                // We are going to pass through A1 on the way to A0.  A1 is
+                // more or less an implementation detail of our journey to A0,
+                // but we'll stop there long enough to check our presence and
+                // CPU type:  if we don't have a CPU (or have the wrong type)
+                // we want to fail cleanly rather than have the appearance of
+                // failing to sequence.
                 //
-                let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+                let a1 = Reg::PWR_CTRL::A1PWREN;
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
 
                 loop {
-                    let mut power = [0u8, 0u8];
+                    let mut status = [0u8];
 
-                    //
-                    // We are going to read both the A1SMSTATUS and the
-                    // A0SMSTATUS just so we can record the A1 state machine
-                    // status -- but we only actually care about the A0 state
-                    // machine.
-                    //
-                    const_assert!(Addr::A1SMSTATUS.precedes(Addr::A0SMSTATUS));
-                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
-                    ringbuf_entry!(Trace::A1Power(power[0], power[1]));
+                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if power[1] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
+                    if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                //
+                // Check for CPU presence first, as this is the more likely
+                // failure.
+                //
+                let present = sys.gpio_read(CPU_PRESENT_L) == 0;
+                ringbuf_entry!(Trace::CPUPresent(present));
+
+                if !present {
+                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
+                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
+                    return Err(SeqError::CPUNotPresent);
+                }
+
+                let coretype = sys.gpio_read(CORETYPE) != 0;
+                let sp3r1 = sys.gpio_read(SP3R1) != 0;
+                let sp3r2 = sys.gpio_read(SP3R2) != 0;
+
+                ringbuf_entry!(Trace::Coretype {
+                    coretype,
+                    sp3r1,
+                    sp3r2
+                });
+
+                //
+                // Check that we have the type of CPU we expect:  we expect
+                // CORETYPE to be high (not connected on Family 19h), SP3R1 to
+                // be high (not connected on Type-0/Type-1/Type-2), and SP3R2
+                // to be low (VSS on Type-0/Type-1/Type-2).
+                //
+                if !coretype || !sp3r1 || sp3r2 {
+                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
+                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
+                    return Err(SeqError::UnrecognizedCPU);
+                }
+
+                //
+                // Onward to A0!
+                //
+                let a0 = Reg::PWR_CTRL::A0A_EN;
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap();
+
+                loop {
+                    let mut status = [0u8];
+
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A0Status(status[0]));
+
+                    if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
                     }
 
@@ -672,12 +742,12 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Now wait for the end of Group C.
                 //
                 loop {
-                    let mut power = [0u8];
+                    let mut status = [0u8];
 
-                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
-                    ringbuf_entry!(Trace::A0Power(power[0]));
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A0Power(status[0]));
 
-                    if power[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
                         break;
                     }
 
@@ -1002,6 +1072,18 @@ cfg_if::cfg_if! {
 
         // Externally pulled to V3P3_SYS_A0
         const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
+
+        // Pins related to core type and presence
+        const CORETYPE: sys_api::PinSet = sys_api::Port::I.pin(5);
+        const CPU_PRESENT_L: sys_api::PinSet = sys_api::Port::C.pin(13);
+        const SP3R1: sys_api::PinSet = sys_api::Port::I.pin(4);
+        const SP3R2: sys_api::PinSet = sys_api::Port::H.pin(13);
+
+        // All of these are externally pulled to V3P3_SP3_VDD_33_S5_A1
+        const CORETYPE_PULL: sys_api::Pull = sys_api::Pull::None;
+        const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
+        const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
+        const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
 
         fn vcore_soc_off() {
             use drv_i2c_devices::raa229618::Raa229618;
