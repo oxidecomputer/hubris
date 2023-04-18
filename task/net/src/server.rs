@@ -302,14 +302,10 @@ impl<E: DeviceExt> VLanState<E> {
     }
 
     pub(crate) fn check_socket_watchdog(&mut self, t: u64) -> bool {
+        const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
         let mut changed = false;
         for socket_index in 0..SOCKET_COUNT {
             if let Some(prev_time) = self.first_queue_full[socket_index] {
-                // Reset the queue by closing + reopening it.  This will
-                // lose packets in the RX queue as well; they're collateral
-                // damage because `smoltcp` doesn't expose a way to flush
-                // just the TX side.
-                const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
                 if t >= prev_time + SOCKET_QUEUE_FULL_TIMEOUT_MS {
                     let s = self.get_socket_mut(socket_index).unwrap_lite();
                     if !s.can_send() {
