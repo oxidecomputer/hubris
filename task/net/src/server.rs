@@ -587,7 +587,8 @@ where
                     // lose packets in the RX queue as well; they're collateral
                     // damage because `smoltcp` doesn't expose a way to flush
                     // just the TX side.
-                    if now >= t + 500 {
+                    const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
+                    if now >= t + SOCKET_QUEUE_FULL_TIMEOUT_MS {
                         let e = socket.endpoint();
                         socket.close();
                         socket.bind(e).unwrap();
