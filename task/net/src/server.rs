@@ -265,6 +265,13 @@ where
 
     mac: EthernetAddress,
     spare_macs: MacAddressBlock,
+
+    /// If calls to `net_send_packet` consistently return `QueueFull`, this is
+    /// the time at which the _first_ error was returned.  It is cleared when a
+    /// call to `net_send_packet` succeeds.
+    ///
+    /// Used as a watchdog to detect stuck queues
+    first_queue_full: [Option<u64>; SOCKET_COUNT],
 }
 
 struct VLanState<E>
@@ -394,6 +401,7 @@ where
                 count: U16::new(mac_address_block.count.get() - N as u16),
                 stride: mac_address_block.stride,
             },
+            first_queue_full: [None; SOCKET_COUNT],
         }
     }
 
@@ -559,9 +567,30 @@ where
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
                 self.client_waiting_to_send[socket_index] = false;
+                self.first_queue_full[socket_index] = None;
                 Ok(())
             }
             Err(smoltcp::Error::Exhausted) => {
+                // Workaround for a smoltcp issue:
+                // https://github.com/smoltcp-rs/smoltcp/issues/594
+                //
+                // If we've gotten nothing but `QueueFull` errors for a certain
+                // amount of time, assume that the queue is clogged and panic
+                // the task.
+                //
+                // Note that any successful packet send on this socket will
+                // reset `self.first_queue_full`, because it means that the
+                // queue isn't clogged.
+                let now = userlib::sys_get_timer().now;
+                if let Some(t) = self.first_queue_full[socket_index] {
+                    // Leave `self.first_queue_full` unchanged; it's already
+                    // populated with the time of the first QueueFull error.
+                    if now >= t + 500 {
+                        panic!("QueueFull watchdog");
+                    }
+                } else {
+                    self.first_queue_full[socket_index] = Some(now);
+                }
                 self.client_waiting_to_send[socket_index] = true;
                 Err(SendError::QueueFull.into())
             }
