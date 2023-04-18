@@ -65,7 +65,7 @@ goblin = { version = "0.4.3", default-features = true } # goblin::Object doesn't
 heapless = { version = "0.7.16", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
-hubpack = { version = "0.1", default-features = false }
+hubpack = { version = "0.1.2", default-features = false }
 if_chain = {version = "1", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 itertools = { version = "0.10.5", default-features = false }
@@ -119,7 +119,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
-humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.1" }
+humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.2" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }

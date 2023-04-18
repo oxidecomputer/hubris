@@ -74,7 +74,7 @@ impl ServerImpl {
         }
 
         humpty::add_dump_segment_header(
-            area.address,
+            area.region.address,
             addr,
             length,
             |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
@@ -97,13 +97,13 @@ impl ServerImpl {
         let area = self.dump_area(index)?;
 
         let written = unsafe {
-            let header = area.address as *mut DumpAreaHeader;
+            let header = area.region.address as *mut DumpAreaHeader;
             core::ptr::read_volatile(header).written
         };
 
         if written > offset {
             let to_read = written - offset;
-            let base = area.address as *const u8;
+            let base = area.region.address as *const u8;
             let base = unsafe { base.add(offset as usize) };
 
             for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
@@ -114,6 +114,29 @@ impl ServerImpl {
         } else {
             Err(DumpAgentError::BadOffset)
         }
+    }
+
+    fn dump_task(&mut self, task_index: u32) -> Result<u8, DumpAgentError> {
+        let out = self.jefe.dump_task(task_index)?;
+        Ok(out)
+    }
+
+    fn dump_task_region(
+        &mut self,
+        task_index: u32,
+        start: u32,
+        length: u32,
+    ) -> Result<u8, DumpAgentError> {
+        let out = self.jefe.dump_task_region(task_index, start, length)?;
+        Ok(out)
+    }
+
+    fn reinitialize_dump_from(
+        &mut self,
+        index: u8,
+    ) -> Result<(), DumpAgentError> {
+        self.jefe.reinitialize_dump_from(index)?;
+        Ok(())
     }
 
     #[cfg(not(feature = "no-rot"))]
@@ -131,7 +154,7 @@ impl ServerImpl {
 
         match sprot.send_recv(
             drv_sprot_api::MsgType::DumpReq,
-            &area.address.to_le_bytes(),
+            &area.region.address.to_le_bytes(),
             &mut buf,
         ) {
             Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
@@ -150,7 +173,9 @@ impl ServerImpl {
                     //
                     if val == 0 {
                         Ok(())
-                    } else if let Some(err) = DumperError::from_u32(val) {
+                    } else if let Some(err) =
+                        dumper_api::DumperError::from_u32(val)
+                    {
                         Err(DumpAgentError::from(err).into())
                     } else {
                         Err(DumpAgentError::DumpFailedUnknownError.into())
@@ -222,6 +247,33 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
         self.read_dump(index, offset).map_err(|e| e.into())
+    }
+
+    fn dump_task(
+        &mut self,
+        _msg: &RecvMessage,
+        task_index: u32,
+    ) -> Result<u8, RequestError<DumpAgentError>> {
+        self.dump_task(task_index).map_err(|e| e.into())
+    }
+
+    fn dump_task_region(
+        &mut self,
+        _msg: &RecvMessage,
+        task_index: u32,
+        start: u32,
+        length: u32,
+    ) -> Result<u8, RequestError<DumpAgentError>> {
+        self.dump_task_region(task_index, start, length)
+            .map_err(|e| e.into())
+    }
+
+    fn reinitialize_dump_from(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+    ) -> Result<(), RequestError<DumpAgentError>> {
+        self.reinitialize_dump_from(index).map_err(|e| e.into())
     }
 }
 

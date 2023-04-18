@@ -98,6 +98,17 @@ pub struct Config {
     pub caboose: Option<CabooseConfig>,
 }
 
+impl Config {
+    pub fn archive_name(&self, image_name: &str) -> String {
+        assert!(
+            self.image_names.iter().any(|s| s == image_name),
+            "cannot build archive name for image {image_name:?}: expected one of {:?}",
+            self.image_names,
+        );
+        format!("build-{}-image-{}.zip", self.name, image_name)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CabooseConfig {
     /// List of tasks that are allowed to access the caboose
