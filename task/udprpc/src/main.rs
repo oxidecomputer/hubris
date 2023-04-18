@@ -148,18 +148,36 @@ fn main() -> ! {
                         &tx_data_buf[0..(meta.size as usize)],
                     ) {
                         Ok(()) => break,
+                        // If `net` just restarted, immediately retry our send.
                         // If our tx queue is full or `net` just restarted, just
                         // retry our send; both of these should be ephemeral.
-                        Err(
-                            SendError::QueueFull | SendError::ServerRestarted,
-                        ) => continue,
+                        Err(SendError::ServerRestarted) => continue,
+                        // If our tx queue is full, wait for space. This is the
+                        // same notification we get for incoming packets, so we
+                        // might spuriously wake up due to an incoming packet
+                        // (which we can't service anyway because we are still
+                        // waiting to respond to a previous request); once we
+                        // finally succeed in sending we'll peel any queued
+                        // packets off our recv queue at the top of our main
+                        // loop.
+                        Err(SendError::QueueFull) => {
+                            sys_recv_closed(
+                                &mut [],
+                                notifications::SOCKET_MASK,
+                                TaskId::KERNEL,
+                            )
+                            .unwrap();
+                        }
                         // These errors should be impossible if we're configured
                         // correctly.
                         Err(SendError::NotYours | SendError::InvalidVLan) => {
                             unreachable!()
                         }
                         // Unclear under what conditions we could se `Other` -
-                        // just panic for now?
+                        // just panic for now? At the time of this writing
+                        // `Other` should only come back if the destination
+                        // address in `meta` is bogus or our socket is closed,
+                        // neither of which should be possible here.
                         Err(SendError::Other) => panic!(),
                     }
                 }
