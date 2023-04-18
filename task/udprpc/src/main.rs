@@ -80,7 +80,7 @@ fn main() -> ! {
                     // We can always read the header, since it's raw data
                     let header =
                         RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE])
-                            .unwrap();
+                            .unwrap_lite();
 
                     let nbytes = header.nbytes.get() as usize;
                     let mut nreply = header.nreply.get() as usize;
@@ -164,7 +164,7 @@ fn main() -> ! {
                                 notifications::SOCKET_MASK,
                                 TaskId::KERNEL,
                             )
-                            .unwrap();
+                            .unwrap_lite();
                         }
                         // These errors should be impossible if we're configured
                         // correctly.
@@ -187,7 +187,7 @@ fn main() -> ! {
                     notifications::SOCKET_MASK,
                     TaskId::KERNEL,
                 )
-                .unwrap();
+                .unwrap_lite();
             }
             Err(RecvError::ServerRestarted) => {
                 // `net` restarted (probably due to the watchdog); just retry.
