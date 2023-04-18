@@ -67,39 +67,36 @@ impl<'d> From<&'d eth::Ethernet> for Smol<'d> {
     }
 }
 
-pub struct OurRxToken<'d>(&'d Smol<'d>);
+pub struct OurRxToken<'d>(&'d eth::Ethernet);
 impl<'d> smoltcp::phy::RxToken for OurRxToken<'d> {
-    fn consume<R, F>(self, _timestamp: smoltcp::time::Instant, f: F) -> R
+    fn consume<R, F>(self, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
     {
-        self.0.eth.recv(f)
+        self.0.recv(f)
     }
 }
 
-pub struct OurTxToken<'d>(&'d Smol<'d>);
+pub struct OurTxToken<'d>(&'d eth::Ethernet);
 impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        len: usize,
-        f: F,
-    ) -> R
+    fn consume<R, F>(self, len: usize, f: F) -> R
     where
         F: FnOnce(&mut [u8]) -> R,
     {
         self.0
-            .eth
             .try_send(len, f)
             .expect("TX token existed without descriptor available")
     }
 }
 
-impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
-    type RxToken = OurRxToken<'d>;
-    type TxToken = OurTxToken<'d>;
+impl<'a> smoltcp::phy::Device for Smol<'a> {
+    type RxToken<'b> = OurRxToken<'b> where Self: 'b;
+    type TxToken<'b> = OurTxToken<'b> where Self: 'b;
 
-    fn receive(&'d mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+    fn receive(
+        &mut self,
+        _timestamp: smoltcp::time::Instant,
+    ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
         // Note: smoltcp wants a transmit token every time it receives a
         // packet. This is because it automatically handles stuff like
         // NDP by itself, but means that if the tx queue fills up, we stop
@@ -114,15 +111,18 @@ impl<'d> smoltcp::phy::Device<'d> for Smol<'_> {
             // for some reason (that'd be a software bug instead).
             self.mac_rx.set(true);
 
-            Some((OurRxToken(self), OurTxToken(self)))
+            Some((OurRxToken(self.eth), OurTxToken(self.eth)))
         } else {
             None
         }
     }
 
-    fn transmit(&'d mut self) -> Option<Self::TxToken> {
+    fn transmit(
+        &mut self,
+        _i: smoltcp::time::Instant,
+    ) -> Option<Self::TxToken<'a>> {
         if self.eth.can_send() {
-            Some(OurTxToken(self))
+            Some(OurTxToken(self.eth))
         } else {
             None
         }

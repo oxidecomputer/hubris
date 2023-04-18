@@ -35,13 +35,13 @@ pub struct VLanEthernet<'a> {
     mac_rx: Cell<bool>,
 }
 
-impl<'a, 'c> smoltcp::phy::Device for VLanEthernet<'a> {
+impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
     type RxToken<'b> = VLanRxToken<'a> where Self: 'b;
     type TxToken<'b> = VLanTxToken<'a> where Self: 'b;
 
     fn receive(
         &mut self,
-        _i: smoltcp::time::Instant,
+        _timestamp: smoltcp::time::Instant,
     ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
         if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
             self.mac_rx.set(true);
@@ -55,7 +55,7 @@ impl<'a, 'c> smoltcp::phy::Device for VLanEthernet<'a> {
     }
     fn transmit(
         &mut self,
-        _i: smoltcp::time::Instant,
+        _timestamp: smoltcp::time::Instant,
     ) -> Option<Self::TxToken<'a>> {
         if self.eth.can_send() {
             Some(VLanTxToken(self.eth, self.vid))
