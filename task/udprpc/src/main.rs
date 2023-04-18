@@ -141,12 +141,28 @@ fn main() -> ! {
                     RpcReply::Ok => (nreply + REPLY_PREFIX_SIZE) as u32,
                 };
 
-                net.send_packet(
-                    SOCKET,
-                    meta,
-                    &tx_data_buf[0..(meta.size as usize)],
-                )
-                .unwrap();
+                loop {
+                    match net.send_packet(
+                        SOCKET,
+                        meta,
+                        &tx_data_buf[0..(meta.size as usize)],
+                    ) {
+                        Ok(()) => break,
+                        // If our tx queue is full or `net` just restarted, just
+                        // retry our send; both of these should be ephemeral.
+                        Err(
+                            SendError::QueueFull | SendError::ServerRestarted,
+                        ) => continue,
+                        // These errors should be impossible if we're configured
+                        // correctly.
+                        Err(SendError::NotYours | SendError::InvalidVLan) => {
+                            unreachable!()
+                        }
+                        // Unclear under what conditions we could se `Other` -
+                        // just panic for now?
+                        Err(SendError::Other) => panic!(),
+                    }
+                }
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
