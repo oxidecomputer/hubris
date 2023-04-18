@@ -69,7 +69,7 @@ impl Header {
 ///
 /// Note that `MSG`s do not implement `Serialize`, `Deserialize`, or
 /// `SerializedSize`, as they need to calculate and place a CRC in the buffer.
-/// `Msg`s sometimes include a an offset into the buffer where a binary blob
+/// `Msg`s sometimes include an offset into the buffer where a binary blob
 /// resides.
 pub struct Msg<'a, T, const N: usize> {
     pub header: Header,

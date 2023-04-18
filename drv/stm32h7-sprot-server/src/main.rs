@@ -147,8 +147,8 @@ pub struct Io<S: SpiServer> {
 
 pub struct ServerImpl<S: SpiServer> {
     io: Io<S>,
-    tx_buf: [u8; MAX_REQUEST_SIZE],
-    rx_buf: [u8; MAX_RESPONSE_SIZE],
+    tx_buf: &'static mut [u8; MAX_REQUEST_SIZE],
+    rx_buf: &'static mut [u8; MAX_RESPONSE_SIZE],
 }
 
 #[export_name = "main"]
@@ -165,11 +165,12 @@ fn main() -> ! {
         spi,
         stats: SpIoStats::default(),
     };
-    let mut server = ServerImpl {
-        io,
-        tx_buf: [0u8; MAX_REQUEST_SIZE],
-        rx_buf: [0u8; MAX_RESPONSE_SIZE],
+
+    let (tx_buf, rx_buf) = mutable_statics::mutable_statics! {
+        static mut TX_BUF: [u8; MAX_REQUEST_SIZE] = [|| 0; _];
+        static mut RX_BUF: [u8; MAX_RESPONSE_SIZE] = [|| 0; _];
     };
+    let mut server = ServerImpl { io, tx_buf, rx_buf };
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -380,7 +381,7 @@ impl<S: SpiServer> ServerImpl<S> {
         loop {
             let err = match self.io.do_send_recv(
                 &self.tx_buf[..tx_size],
-                &mut self.rx_buf,
+                &mut self.rx_buf[..],
                 timeout,
             ) {
                 // Recoverable errors dealing with our ability to receive
@@ -395,7 +396,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // and we either return this reference, or it goes out of scope before
                 // we take a mutable reference again at the top of the loop.
                 Ok(_) => match Response::unpack(unsafe {
-                    &*(&self.rx_buf as *const [u8])
+                    &*(&self.rx_buf[..] as *const [u8])
                 }) {
                     Ok(response) => {
                         self.io.stats.rx_received =

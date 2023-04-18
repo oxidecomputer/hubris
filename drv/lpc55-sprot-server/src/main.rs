@@ -134,6 +134,7 @@ fn configure_spi() -> Io {
         spi,
         gpio,
         stats: RotIoStats::default(),
+        rot_irq_asserted: false,
     }
 }
 
@@ -142,6 +143,11 @@ struct Io {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
     stats: RotIoStats,
+
+    /// This is an optimization to avoid talking to the GPIO task when we don't
+    /// have to.
+    /// ROT_IRQ is deasserted on startup in main.
+    rot_irq_asserted: bool,
 }
 
 enum IoError {
@@ -153,8 +159,10 @@ enum IoError {
 fn main() -> ! {
     let mut io = configure_spi();
 
-    let mut rx_buf = [0u8; MAX_REQUEST_SIZE];
-    let mut tx_buf = [0u8; MAX_RESPONSE_SIZE];
+    let (rx_buf, tx_buf) = mutable_statics::mutable_statics! {
+        static mut RX_BUF: [u8; MAX_REQUEST_SIZE] = [|| 0; _];
+        static mut TX_BUF: [u8; MAX_RESPONSE_SIZE] = [|| 0; _];
+    };
 
     let mut handler = Handler::new();
 
@@ -165,9 +173,9 @@ fn main() -> ! {
     }
 
     loop {
-        let rsp_len = match io.wait_for_request(&mut rx_buf) {
+        let rsp_len = match io.wait_for_request(rx_buf) {
             Ok(rx_len) => {
-                handler.handle(&rx_buf[..rx_len], &mut tx_buf, &mut io.stats)
+                handler.handle(&rx_buf[..rx_len], tx_buf, &mut io.stats)
             }
             Err(IoError::Flush) => {
                 // A flush indicates that the server should de-assert ROT_IRQ
@@ -179,7 +187,7 @@ fn main() -> ! {
             }
             Err(IoError::Flow) => {
                 ringbuf_entry!(Trace::FlowError);
-                handler.flow_error(&mut tx_buf)
+                handler.flow_error(tx_buf)
             }
         };
 
@@ -192,16 +200,10 @@ impl Io {
     // Wait for chip select to be asserted
     // Assert ROT_IRQ if this is a reply
     fn wait_for_csn_asserted(&mut self, is_reply: bool) {
-        // This is just an optimization in order to prevent having to call the
-        // gpio task when its not necessary. If the server crashes, and ROT_IRQ
-        // is already asserted, and we somehow get here, we'll just make one
-        // more idempotent call to the gpio server.
-        let mut rot_irq_asserted = false;
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            if is_reply && !rot_irq_asserted {
-                rot_irq_asserted = true;
+            if is_reply && !self.rot_irq_asserted {
                 self.assert_rot_irq();
             }
 
@@ -282,10 +284,10 @@ impl Io {
 
         self.wait_for_csn_asserted(true);
 
-        let mut bytes_sent = 0;
+        let mut more_bytes = 0;
         while !self.spi.ssd() {
             while self.spi.can_tx() {
-                bytes_sent += 1;
+                more_bytes += 1;
                 let b = tx.next().copied().unwrap_or(0);
                 self.spi.send_u8(b);
             }
@@ -293,20 +295,20 @@ impl Io {
 
         self.spi.ssd_clear();
 
-        // We clocked out at least an existing byte in the fifo, as we fill it on entry to
-        // this function.
-        if bytes_sent == 0 || self.spi.can_tx() {
+        // Were any bytes clocked out?
+        // We check to see if any bytes in the fifo have been sent or any have
+        // been pushed into the fifo?
+        if !self.spi.can_tx() && more_bytes == 0 {
             // This was a CSn pulse
+            // There's no need to flush here, since we de-assert ROT_IRQ at the
+            // bottom of this function, which is the purpose of a flush.
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
         } else {
             self.check_for_tx_error();
         }
 
-        ringbuf_entry!(Trace::SentBytes(bytes_sent));
-        self.prepare_for_next_request();
-    }
+        ringbuf_entry!(Trace::SentBytes(more_bytes));
 
-    fn prepare_for_next_request(&mut self) {
         // Prime our write fifo, so we clock out zero bytes on the next receive
         // We also empty our read fifo, since we don't bother reading bytes while writing.
         self.spi.drain();
@@ -349,12 +351,14 @@ impl Io {
         }
     }
 
-    fn assert_rot_irq(&self) {
+    fn assert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::Zero);
+        self.rot_irq_asserted = true;
     }
 
-    fn deassert_rot_irq(&self) {
+    fn deassert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::One);
+        self.rot_irq_asserted = false;
     }
 }
 

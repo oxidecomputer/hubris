@@ -75,22 +75,21 @@ impl Handler {
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
-        let request = match Request::unpack(rx_buf) {
+        let rsp_body = match Request::unpack(rx_buf) {
             Ok(request) => {
                 ringbuf_entry!(Trace::Req {
                     protocol: rx_buf[0],
                     body_type: rx_buf[1]
                 });
-                request
+                self.handle_request(request, stats)
             }
             Err(e) => {
                 ringbuf_entry!(Trace::Err(e));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                return Response::pack(&Err(e.into()), tx_buf);
+                Err(e.into())
             }
         };
 
-        let rsp_body = self.handle_request(request, stats);
         Response::pack(&rsp_body, tx_buf)
     }
 
