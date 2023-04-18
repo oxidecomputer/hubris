@@ -149,8 +149,6 @@ fn main() -> ! {
                     ) {
                         Ok(()) => break,
                         // If `net` just restarted, immediately retry our send.
-                        // If our tx queue is full or `net` just restarted, just
-                        // retry our send; both of these should be ephemeral.
                         Err(SendError::ServerRestarted) => continue,
                         // If our tx queue is full, wait for space. This is the
                         // same notification we get for incoming packets, so we
