@@ -364,15 +364,6 @@ where
                 ip_addrs.push(Ipv6Cidr::new(ipv6_addr, 64).into()).unwrap()
             });
 
-            /*
-            storage.net =
-            let mut iface = builder
-                .hardware_addr(mac_addr.into())
-                .neighbor_cache(neighbor_cache)
-                .ip_addrs()
-                .finalize();
-            */
-
             // Associate sockets with this interface.
             let mut socket_set =
                 smoltcp::iface::SocketSet::new(storage.sockets.as_mut_slice());
