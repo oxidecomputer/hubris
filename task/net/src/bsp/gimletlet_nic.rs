@@ -42,6 +42,8 @@ impl bsp_support::Bsp for BspImpl {
     // This system wants to be woken periodically to do logging
     const WAKE_INTERVAL: Option<u64> = Some(5000);
 
+    fn preinit() {}
+
     fn configure_ethernet_pins(sys: &Sys) {
         pins::RmiiPins {
             refclk: Port::A.pin(1),
