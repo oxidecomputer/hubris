@@ -273,7 +273,7 @@ where
 {
     socket_handles: [SocketHandle; SOCKET_COUNT],
     socket_set: smoltcp::iface::SocketSet<'static>,
-    iface: Interface,
+    iface: &'static mut Interface,
     device: E,
 
     /// If calls to `net_send_packet` consistently return `QueueFull`, this is
@@ -359,7 +359,9 @@ where
             let mut config = smoltcp::iface::Config::new();
             config.hardware_addr = Some(mac_addr.into());
             let mut device = mkdevice(i);
-            let mut iface = smoltcp::iface::Interface::new(config, &mut device);
+            let iface = storage
+                .iface
+                .write(smoltcp::iface::Interface::new(config, &mut device));
             iface.update_ip_addrs(|ip_addrs| {
                 ip_addrs.push(Ipv6Cidr::new(ipv6_addr, 64).into()).unwrap()
             });
@@ -631,12 +633,14 @@ where
 
 pub struct Storage {
     sockets: [SocketStorage<'static>; SOCKET_COUNT],
+    iface: core::mem::MaybeUninit<Interface>,
 }
 
 impl Default for Storage {
     fn default() -> Self {
         Self {
             sockets: Default::default(),
+            iface: core::mem::MaybeUninit::uninit(),
         }
     }
 }
