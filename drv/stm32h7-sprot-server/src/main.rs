@@ -245,24 +245,29 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART1_DELAY);
         }
 
-        let part1_size = Header::MAX_SIZE;
+        let part1_size = ROT_FIFO_SIZE;
 
         // Read the `Header`
         self.spi.read(&mut rx_buf[..part1_size])?;
 
         let (header, _) = hubpack::deserialize::<Header>(&rx_buf)?;
-        let part2_size = header.body_size as usize + CRC_SIZE;
+        let total_size =
+            Header::MAX_SIZE + header.body_size as usize + CRC_SIZE;
+        let part2_size = total_size.saturating_sub(part1_size);
 
         // Allow RoT time to rouse itself.
-        hl::sleep_for(PART2_DELAY);
-        let total_size = part1_size + part2_size;
+        if PART2_DELAY != 0 {
+            hl::sleep_for(PART2_DELAY);
+        }
 
         if total_size > MAX_RESPONSE_SIZE {
             return Err(SprotProtocolError::BadMessageLength.into());
         }
 
-        // Read part 2
-        self.spi.read(&mut rx_buf[part1_size..total_size])?;
+        if part2_size > 0 {
+            // Read part 2
+            self.spi.read(&mut rx_buf[part1_size..total_size])?;
+        }
 
         ringbuf_entry!(Trace::Received(total_size));
 
@@ -653,7 +658,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 mod idl {
     use super::{
-        IoStats, PulseStatus, SlotId, SprotError, SprotStatus, SwitchDuration,
+        PulseStatus, SlotId, SprotError, SprotStatus, SwitchDuration,
         UpdateTarget,
     };
 

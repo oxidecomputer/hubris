@@ -9,8 +9,6 @@ use userlib::task_slot;
 #[cfg(any(feature = "update"))]
 use userlib::FromPrimitive;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
-#[cfg(feature = "sprot")]
-use zerocopy::AsBytes;
 
 /// We allow dead code on this because the functions below are optional.
 ///
