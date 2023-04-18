@@ -67,8 +67,8 @@ pub trait Bsp: Sized {
     const WAKE_INTERVAL: Option<u64> = None;
 
     /// Opportunity to do any work before the Ethernet peripheral is turned on.
-    /// By default this does nothing, override it if necessary.
-    fn preinit() {}
+    fn preinit();
+
     /// Stateless function to configure ethernet pins before the Bsp struct
     /// is actually constructed
     fn configure_ethernet_pins(sys: &Sys);
