@@ -71,6 +71,20 @@ impl Header {
 /// `SerializedSize`, as they need to calculate and place a CRC in the buffer.
 /// `Msg`s sometimes include an offset into the buffer where a binary blob
 /// resides.
+///
+///
+/// Messages are hubpack encoded and therefore the fields and enum
+/// variants should *not* be reordered, or removed. In general, this allows
+/// extensibility by adding fields or variants to the end of existing
+/// message components. Known prefixes can be read ignoring any new fields
+/// on deserialization. In practice things are not quite this simple, as if we
+/// only read the prefix and a blob is appended, the old deserialization code
+/// will be confused. For this to work, we should probably bump the version
+/// number any time we manipulate the messages, and coordinate as necessary to
+/// use the right version.
+///
+/// Should we make the `Protocol` more than a single byte so that we have more
+/// opportunities to evolve the protocol without having to modify the header?
 pub struct Msg<'a, T, const N: usize> {
     pub header: Header,
     pub body: T,
@@ -332,8 +346,5 @@ pub struct IoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,
 }
-
-// Allow our Idol definition to fully specify API structures
-use crate as drv_sprot_api;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
