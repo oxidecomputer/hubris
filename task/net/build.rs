@@ -36,7 +36,7 @@ fn generate_net_config(config: &NetConfig) -> Result<()> {
         "{}",
         quote::quote! {
             use core::sync::atomic::{AtomicBool, Ordering};
-            use smoltcp::socket::{udp};
+            use smoltcp::socket::udp;
 
             pub const SOCKET_COUNT: usize = #socket_count;
         }

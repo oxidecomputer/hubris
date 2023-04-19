@@ -21,7 +21,7 @@ use task_net_api::{
 use core::iter::zip;
 use heapless::Vec;
 use smoltcp::iface::{Interface, SocketHandle, SocketStorage};
-use smoltcp::socket::udp::Socket as UdpSocket;
+use smoltcp::socket::udp;
 use smoltcp::wire::{EthernetAddress, Ipv6Cidr};
 use userlib::{sys_post, sys_refresh_task_id, UnwrapLite};
 use zerocopy::byteorder::U16;
@@ -296,10 +296,10 @@ impl<E: DeviceExt> VLanState<E> {
     pub(crate) fn get_socket_mut(
         &mut self,
         index: usize,
-    ) -> Option<&mut UdpSocket<'static>> {
+    ) -> Option<&mut udp::Socket<'static>> {
         Some(
             self.socket_set
-                .get_mut::<UdpSocket<'_>>(self.get_handle(index)?),
+                .get_mut::<udp::Socket<'_>>(self.get_handle(index)?),
         )
     }
 
@@ -354,14 +354,13 @@ where
             let ipv6_addr = link_local_iface_addr(mac_addr);
 
             // Make some types explicit to try and make this clearer.
-            let sockets: [UdpSocket<'_>; SOCKET_COUNT] = sockets;
+            let sockets: [udp::Socket<'_>; SOCKET_COUNT] = sockets;
 
             let mut config = smoltcp::iface::Config::new();
             config.hardware_addr = Some(mac_addr.into());
             let mut device = mkdevice(i);
-            let iface = storage
-                .iface
-                .write(smoltcp::iface::Interface::new(config, &mut device));
+            let iface =
+                storage.iface.write(Interface::new(config, &mut device));
             iface.update_ip_addrs(|ip_addrs| {
                 ip_addrs.push(Ipv6Cidr::new(ipv6_addr, 64).into()).unwrap()
             });
@@ -373,7 +372,7 @@ where
             // Bind sockets to their ports.
             for (&h, port) in zip(&socket_handles, generated::SOCKET_PORTS) {
                 socket_set
-                    .get_mut::<UdpSocket<'_>>(h)
+                    .get_mut::<udp::Socket<'_>>(h)
                     .bind((ipv6_addr, port))
                     .unwrap_lite();
             }
@@ -544,7 +543,7 @@ where
                             endp.addr.try_into().map_err(|_| ()).unwrap(),
                         ));
                     }
-                    Err(smoltcp::socket::udp::RecvError::Exhausted) => {
+                    Err(udp::RecvError::Exhausted) => {
                         // Move on to next vid
                         break;
                     }
@@ -594,7 +593,7 @@ where
                 vlan.first_queue_full[socket_index] = None;
                 Ok(())
             }
-            Err(smoltcp::socket::udp::SendError::BufferFull) => {
+            Err(udp::SendError::BufferFull) => {
                 // Record the QueueFull error if this is the first time we've
                 // seen it since a successful transmission.
                 if vlan.first_queue_full[socket_index].is_none() {
