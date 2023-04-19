@@ -879,7 +879,7 @@ pub(crate) fn rng_fill(
 #[cfg(feature = "update")]
 task_slot!(UPDATE, update_server);
 
-#[cfg(any(feature = "update", feature = "sprot"))]
+#[cfg(any(feature = "update"))]
 fn update_args(stack: &[Option<u32>]) -> Result<(usize, usize), Failure> {
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -993,7 +993,7 @@ pub(crate) fn block_size(
     Ok(4)
 }
 
-#[cfg(any(feature = "sprot", feature = "update"))]
+#[cfg(any(feature = "update"))]
 fn switch_default_image_args(
     stack: &[Option<u32>],
 ) -> Result<(drv_update_api::SlotId, drv_update_api::SwitchDuration), Failure> {
