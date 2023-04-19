@@ -149,7 +149,7 @@ impl ServerImpl {
             return Err(DumpAgentError::UnclaimedDumpArea);
         }
 
-        match sprot.dump(area.address) {
+        match sprot.dump(area.region.address) {
             Err(SprotError::Dump(err)) => Err(err.into()),
             Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
             Ok(()) => Ok(()),

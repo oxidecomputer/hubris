@@ -347,4 +347,7 @@ pub struct IoStats {
     pub sp: SpIoStats,
 }
 
+// Allow our Idol definition to fully specify API structures
+use crate as drv_sprot_api;
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
