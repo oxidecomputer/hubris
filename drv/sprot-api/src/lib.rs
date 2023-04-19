@@ -202,13 +202,21 @@ pub enum Protocol {
     V2,
 }
 
-/// The body of a sprot request
+/// The body of a sprot request.
+/// The variants are ordered according to long term stability of the interface.
+/// Status, IoStats, and Update must be the first three variants.  They are
+/// used to determine communications parameters (protocol, buffer sizes), stats
+/// for problem diagnosis, and updating RoT firmware to bring the RoT into
+/// conformance.  The later variants are not required to be as stable.
+/// Note: given that Sprockets is used as part of trust quorum, there may be
+/// cases where the upper layers that orchestrate firmware updates may be
+/// impacted by Sprockets version skew. If those issues exist.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum ReqBody {
     Status,
     IoStats,
-    Sprockets(SprocketsReq),
     Update(UpdateReq),
+    Sprockets(SprocketsReq),
     Dump { addr: u32 },
 }
 
@@ -235,15 +243,17 @@ pub enum UpdateRsp {
     BlockSize(u32),
 }
 
-/// The body of a sprot request
+/// The body of a sprot response.
+/// Ordering is important and should correspond to ReqBody.
+/// See ReqBody for justification.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
     Status(SprotStatus),
     IoStats(RotIoStats),
-    Sprockets(SprocketsRsp),
     Update(UpdateRsp),
+    Sprockets(SprocketsRsp),
     DumpRsp { err: Option<u32> },
 }
 
