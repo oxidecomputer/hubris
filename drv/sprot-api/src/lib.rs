@@ -134,7 +134,7 @@ where
 
         // Copy the blob into the buffer after the serialized body
         blob.read_range(0..blob.len(), &mut buf[Header::MAX_SIZE + size..])
-            .map_err(|_| SprotProtocolError::ServerRestarted)?;
+            .map_err(|_| SprotProtocolError::TaskRestarted)?;
 
         size += blob.len();
 

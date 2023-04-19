@@ -55,7 +55,7 @@ impl From<SprotError> for RotError {
 
 impl From<idol_runtime::ServerDeath> for SprotError {
     fn from(_: idol_runtime::ServerDeath) -> Self {
-        SprotError::Protocol(SprotProtocolError::ServerRestarted)
+        SprotError::Protocol(SprotProtocolError::TaskRestarted)
     }
 }
 
@@ -91,7 +91,7 @@ pub enum SprotProtocolError {
     BadUpdateStatus,
 
     // Used for mapping From<idol_runtime::ServerDeath>
-    ServerRestarted,
+    TaskRestarted,
 }
 
 impl From<SprotProtocolError> for GwSprotProtocolError {
@@ -112,7 +112,7 @@ impl From<SprotProtocolError> for GwSprotProtocolError {
             }
             SprotProtocolError::UnexpectedResponse => Self::UnexpectedResponse,
             SprotProtocolError::BadUpdateStatus => Self::BadUpdateStatus,
-            SprotProtocolError::ServerRestarted => Self::ServerRestarted,
+            SprotProtocolError::TaskRestarted => Self::TaskRestarted,
         }
     }
 }
@@ -141,7 +141,7 @@ impl SprotError {
             SprotError::Protocol(err) => {
                 use SprotProtocolError::*;
                 match err {
-                    InvalidCrc | FlowError | Timeout | ServerRestarted
+                    InvalidCrc | FlowError | Timeout | TaskRestarted
                     | Deserialization => true,
                     _ => false,
                 }

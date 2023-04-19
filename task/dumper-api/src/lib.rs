@@ -51,7 +51,7 @@ pub enum DumperError {
     RegisterReadFailed = 11,
 
     #[idol(server_death)]
-    ServerRestarted,
+    TaskRestarted,
 }
 
 impl From<DumperError> for GwDumperError {
@@ -70,7 +70,7 @@ impl From<DumperError> for GwDumperError {
                 Self::FailedToResumeAfterFailure
             }
             DumperError::RegisterReadFailed => Self::RegisterReadFailed,
-            DumperError::ServerRestarted => Self::ServerRestarted,
+            DumperError::TaskRestarted => Self::TaskRestarted,
         }
     }
 }

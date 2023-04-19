@@ -95,7 +95,7 @@ pub enum UpdateError {
     ImageBoardUnknown,
 
     #[idol(server_death)]
-    ServerRestarted,
+    TaskRestarted,
 
     NotImplemented,
 }
@@ -126,7 +126,7 @@ impl From<UpdateError> for GwUpdateError {
             UpdateError::InvalidHeaderBlock => Self::InvalidHeaderBlock,
             UpdateError::ImageBoardMismatch => Self::ImageBoardMismatch,
             UpdateError::ImageBoardUnknown => Self::ImageBoardUnknown,
-            UpdateError::ServerRestarted => Self::ServerRestarted,
+            UpdateError::TaskRestarted => Self::TaskRestarted,
             UpdateError::NotImplemented => Self::NotImplemented,
         }
     }

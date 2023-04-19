@@ -31,7 +31,7 @@ pub enum SpiError {
 
     /// Server restarted
     #[idol(server_death)]
-    ServerRestarted = 2,
+    TaskRestarted = 2,
 
     /// Release without successful Lock
     NothingToRelease = 3,
@@ -47,7 +47,7 @@ impl From<SpiError> for GwSpiError {
     fn from(value: SpiError) -> Self {
         match value {
             SpiError::BadTransferSize => Self::BadTransferSize,
-            SpiError::ServerRestarted => Self::ServerRestarted,
+            SpiError::TaskRestarted => Self::TaskRestarted,
             SpiError::NothingToRelease => Self::NothingToRelease,
             SpiError::BadDevice => Self::BadDevice,
         }
