@@ -208,9 +208,9 @@ pub enum Protocol {
 /// used to determine communications parameters (protocol, buffer sizes), stats
 /// for problem diagnosis, and updating RoT firmware to bring the RoT into
 /// conformance.  The later variants are not required to be as stable.
-/// Note: given that Sprockets is used as part of trust quorum, there may be
-/// cases where the upper layers that orchestrate firmware updates may be
-/// impacted by Sprockets version skew. If those issues exist.
+///
+/// Note: Sprockets messages are versioned and can be dealt with by higher
+/// level-software independently.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum ReqBody {
     Status,
