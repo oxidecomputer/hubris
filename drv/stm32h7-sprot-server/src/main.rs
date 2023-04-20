@@ -42,6 +42,7 @@ task_slot!(SYS, sys);
 enum Trace {
     None,
     StatusReq,
+    #[allow(unused)]
     Debug(bool),
     Error(SprotError),
     FailedRetries {

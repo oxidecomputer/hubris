@@ -40,7 +40,7 @@ impl From<Ecp5UsingSpiError> for u8 {
         match e {
             Ecp5UsingSpiError::SpiError(e) => match e {
                 SpiError::BadTransferSize => 3,
-                SpiError::ServerRestarted => 4,
+                SpiError::TaskRestarted => 4,
                 SpiError::NothingToRelease => 5,
                 SpiError::BadDevice => 6,
             },
