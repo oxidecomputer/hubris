@@ -2085,7 +2085,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=bump-smoltcp#16fb19a5cf4156ce8e77c73d020f756b81cd17f8"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#47737d5a9b239656c0cd22d48d43b513d20f874d"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
