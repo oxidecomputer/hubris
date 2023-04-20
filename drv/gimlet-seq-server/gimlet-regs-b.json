@@ -2087,6 +2087,418 @@
                     "desc": "Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Any write clears"
                 }
             ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DBG_MAX_A0SMSTATUS",
+            "addr_offset": 48,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A0SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MAX_GROUPB_PG",
+            "addr_offset": 49,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)\nPower good 1 for RA229618 (U350) is configured for \nVDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)\nPower good 1 for RA229618 (U351) is configured for \nVDD_MEM_EFGH_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_PG",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)\nPG1 from ISL68224 U352, should be configured to represent \nV3P3_SYS_A0 rail status"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MAX_GROUPC_PG",
+            "addr_offset": 50,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDDCR_SOC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 for RA229618 (U351) is configured for \nSP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VCORE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_A0_SMSTATUS",
+            "addr_offset": 51,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "A0SM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State Machine enum",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "PBTN",
+                            "value": 1
+                        },
+                        {
+                            "name": "WAITSLP",
+                            "value": 2
+                        },
+                        {
+                            "name": "GROUPB1_EN",
+                            "value": 3
+                        },
+                        {
+                            "name": "GROUPB1_PG",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "DELAY_1MS",
+                            "value": 8
+                        },
+                        {
+                            "name": "ASSERT_PG",
+                            "value": 9
+                        },
+                        {
+                            "name": "WAIT_PWROK",
+                            "value": 10
+                        },
+                        {
+                            "name": "WAIT_RESET_L",
+                            "value": 11
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 12
+                        },
+                        {
+                            "name": "SAFE_DISABLE",
+                            "value": 13
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_GROUPB_PG",
+            "addr_offset": 52,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VPP_ABCD_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VPP_EFGH_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_ABCD_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)\nPower good 1 for RA229618 (U350) is configured for \nVDD_MEM_ABCD_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_MEM_EFGH_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)\nPower good 1 for RA229618 (U351) is configured for \nVDD_MEM_EFGH_A0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_ABCD_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VTT_EFGH_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V1P8_SP3_PG",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "V3P3_SYS_PG",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)\nPG1 from ISL68224 U352, should be configured to represent \nV3P3_SYS_A0 rail status"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FLT_GROUPC_PG",
+            "addr_offset": 53,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDDCR_SOC_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 for RA229618 (U351) is configured for \nSP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VCORE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
         }
     ]
 }
