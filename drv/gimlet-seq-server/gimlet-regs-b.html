@@ -2920,6 +2920,420 @@ installed
         <td class="FieldDesc" colspan="14">Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Any write clears
         </td>
     </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="48">DBG_MAX_A0SMSTATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x30
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;A0 SM status (Max-hold)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">A0SM</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">A0SM</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">State Machine enum
+        <br>
+        <br>
+            IDLE = 0x0 <br>
+            PBTN = 0x1 <br>
+            WAITSLP = 0x2 <br>
+            GROUPB1_EN = 0x3 <br>
+            GROUPB1_PG = 0x4 <br>
+            GROUPB2_EN = 0x5 <br>
+            GROUPB2_PG = 0x6 <br>
+            GROUPC_PG = 0x7 <br>
+            DELAY_1MS = 0x8 <br>
+            ASSERT_PG = 0x9 <br>
+            WAIT_PWROK = 0xa <br>
+            WAIT_RESET_L = 0xb <br>
+            DONE = 0xc <br>
+            SAFE_DISABLE = 0xd 
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="49">MAX_GROUPB_PG</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x31
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Group B PGs (Max-hold)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">V3P3_SYS_PG</td>
+                <td class="validspandef" colspan="2*">V1P8_SP3_PG</td>
+                <td class="validspandef" colspan="2*">VTT_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VTT_ABCD_PG</td>
+                <td class="validspandef" colspan="2*">VDD_MEM_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VDD_MEM_ABCD_PG</td>
+                <td class="validspandef" colspan="2*">VPP_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VPP_ABCD_PG</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">V3P3_SYS_PG</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)
+PG1 from ISL68224 U352, should be configured to represent 
+V3P3_SYS_A0 rail status
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">V1P8_SP3_PG</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VTT_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VTT_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_MEM_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)
+Power good 1 for RA229618 (U351) is configured for 
+VDD_MEM_EFGH_A0
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_MEM_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)
+Power good 1 for RA229618 (U350) is configured for 
+VDD_MEM_ABCD_A0
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VPP_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VPP_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="50">MAX_GROUPC_PG</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x32
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Group C PGs (Max-hold)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">VDD_VCORE</td>
+                <td class="validspandef" colspan="2*">VDDCR_SOC_PG</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_VCORE</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Power good 0 from RA229618 (U350) is configured for
+SP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)
+        </td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDDCR_SOC_PG</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Power good 0 for RA229618 (U351) is configured for 
+SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="51">FLT_A0_SMSTATUS</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x33
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;A0 SM status (latched at fault)</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat51" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">A0SM</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">A0SM</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">State Machine enum
+        <br>
+        <br>
+            IDLE = 0x0 <br>
+            PBTN = 0x1 <br>
+            WAITSLP = 0x2 <br>
+            GROUPB1_EN = 0x3 <br>
+            GROUPB1_PG = 0x4 <br>
+            GROUPB2_EN = 0x5 <br>
+            GROUPB2_PG = 0x6 <br>
+            GROUPC_PG = 0x7 <br>
+            DELAY_1MS = 0x8 <br>
+            ASSERT_PG = 0x9 <br>
+            WAIT_PWROK = 0xa <br>
+            WAIT_RESET_L = 0xb <br>
+            DONE = 0xc <br>
+            SAFE_DISABLE = 0xd 
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="52">FLT_GROUPB_PG</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x34
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Group B PGs latched at fault</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat52" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">V3P3_SYS_PG</td>
+                <td class="validspandef" colspan="2*">V1P8_SP3_PG</td>
+                <td class="validspandef" colspan="2*">VTT_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VTT_ABCD_PG</td>
+                <td class="validspandef" colspan="2*">VDD_MEM_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VDD_MEM_ABCD_PG</td>
+                <td class="validspandef" colspan="2*">VPP_EFGH_PG</td>
+                <td class="validspandef" colspan="2*">VPP_ABCD_PG</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">V3P3_SYS_PG</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)
+PG1 from ISL68224 U352, should be configured to represent 
+V3P3_SYS_A0 rail status
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">V1P8_SP3_PG</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VTT_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VTT_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_MEM_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback from VDD_MEM_EFGH_A0 rail (PWR_CONT2_SP3_PG1)
+Power good 1 for RA229618 (U351) is configured for 
+VDD_MEM_EFGH_A0
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_MEM_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">Readback from VDD_MEM_ABCD_A0 rail (PWR_CONT1_SP3_PG1)
+Power good 1 for RA229618 (U350) is configured for 
+VDD_MEM_ABCD_A0
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VPP_EFGH_PG</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VPP_ABCD_PG</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="53">FLT_GROUPC_PG</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x35
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Group C PGs latched at fault</td>
+    </tr>
+    <!-- Loop over bytes in register !-->
+    <tr class="cat53" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">VDD_VCORE</td>
+                <td class="validspandef" colspan="2*">VDDCR_SOC_PG</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDD_VCORE</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Power good 0 from RA229618 (U350) is configured for
+SP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)
+        </td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">VDDCR_SOC_PG</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Power good 0 for RA229618 (U351) is configured for 
+SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
+        </td>
+    </tr>
     </table>
     </body>
 </html>
