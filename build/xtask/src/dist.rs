@@ -620,10 +620,19 @@ fn build_archive(
             )
             .context("Could not write patches.toml")?;
     }
+
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
     archive.copy(&chip_file, &chip_filename)?;
+
+    archive
+        .text(
+            "memory.toml",
+            toml::to_string(&cfg.toml.outputs)
+                .context("could not serialize memory.toml")?,
+        )
+        .context("could not write memory.toml")?;
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
@@ -763,8 +772,8 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
     // any specified tasks.
     if task_names.is_empty() {
         bail!(
-            "Running `cargo xtask build` without specifying tasks has no effect.\n\
-             Did you mean to run `cargo xtask dist`?"
+            "Running `cargo xtask build` without specifying tasks has no \
+            effect.\nDid you mean to run `cargo xtask dist`?"
         );
     }
     let all_tasks = toml.tasks.keys().collect::<BTreeSet<_>>();
@@ -2025,37 +2034,43 @@ pub fn make_kconfig(
         }
 
         let extern_regions = toml.extern_regions_for(name, image_name)?;
-        let owned_regions = task_allocations[name].iter()
+        let owned_regions = task_allocations[name]
+            .iter()
             .chain(extern_regions.iter())
             .map(|(out_name, range)| {
                 // Look up region for this image
-                let mut regions = toml.outputs[out_name].iter()
+                let mut regions = toml.outputs[out_name]
+                    .iter()
                     .filter(|o| &o.name == image_name);
                 let out = regions.next().expect("no region for name");
                 if regions.next().is_some() {
-                    bail!("multiple {} regions for name {}", out_name, image_name);
+                    bail!("multiple {out_name} regions for name {image_name}");
                 }
                 let size = range.end - range.start;
                 if p2_required && !size.is_power_of_two() {
-                    bail!("memory region for task '{}' output '{}' is required to be \
-                           a power of two, but has size {}",
-                           name, out_name, size);
+                    bail!(
+                        "memory region for task '{name}' output '{out_name}' \
+                        is required to be a power of two, but has size {size}"
+                    );
                 }
 
-                Ok((out_name.to_string(), build_kconfig::RegionConfig {
-                    base: range.start,
-                    size,
-                    attributes: build_kconfig::RegionAttributes {
-                        read: out.read,
-                        write: out.write,
-                        execute: out.execute,
-                        special_role: if out.dma {
-                            Some(build_kconfig::SpecialRole::Dma)
-                        } else {
-                            None
+                Ok((
+                    out_name.to_string(),
+                    build_kconfig::RegionConfig {
+                        base: range.start,
+                        size,
+                        attributes: build_kconfig::RegionAttributes {
+                            read: out.read,
+                            write: out.write,
+                            execute: out.execute,
+                            special_role: if out.dma {
+                                Some(build_kconfig::SpecialRole::Dma)
+                            } else {
+                                None
+                            },
                         },
                     },
-                }))
+                ))
             })
             .collect::<Result<BTreeMap<_, _>, _>>()?;
 
