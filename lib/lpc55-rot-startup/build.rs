@@ -18,6 +18,7 @@ fn gen_memory_range(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use serde::Deserialize;
     use std::fs::File;
+    use std::io::Write;
 
     #[derive(Deserialize, Debug)]
     struct DiceMfgRegion {
