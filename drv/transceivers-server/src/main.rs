@@ -58,10 +58,12 @@ enum Trace {
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
-    TemperatureReadError(usize, FpgaError),
+    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    TemperatureReadUnexpectedError(usize, FpgaError),
     SensorError(usize, SensorError),
     ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, FpgaError),
+    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    GetInterfaceUnexpectedError(usize, FpgaError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -159,7 +161,7 @@ impl ServerImpl {
     ) -> Result<Celsius, FpgaError> {
         let result = self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
         if !result.error().is_empty() {
-            return Err(FpgaError::ImplError(port.0));
+            return Err(FpgaError::CommsError);
         }
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
@@ -195,7 +197,7 @@ impl ServerImpl {
     ) -> Result<ManagementInterface, FpgaError> {
         let result = self.transceivers.setup_i2c_read(0, 1, port.as_mask());
         if !result.error().is_empty() {
-            return Err(FpgaError::ImplError(port.0));
+            return Err(FpgaError::CommsError);
         }
 
         let mut out = [0u8; 2]; // [status, SFF8024Identifier]
@@ -272,9 +274,18 @@ impl ServerImpl {
                         self.thermal_models[i] =
                             self.decode_interface(port, interface)
                     }
+                    Err(FpgaError::ImplError(e)) => {
+                        ringbuf_entry!(Trace::GetInterfaceError(
+                            i,
+                            Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e)
+                                .unwrap()
+                        ));
+                    }
                     Err(e) => {
                         // Not much we can do here if reading failed
-                        ringbuf_entry!(Trace::GetInterfaceError(i, e));
+                        ringbuf_entry!(Trace::GetInterfaceUnexpectedError(
+                            i, e
+                        ));
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
@@ -335,14 +346,17 @@ impl ServerImpl {
                         ringbuf_entry!(Trace::SensorError(i, e));
                     }
                 }
+                // We failed to read a temperature :(
+                //
+                // This could be because someone unplugged the transceiver
+                // at exactly the right time, in which case, the error will
+                // be transient (and we'll remove the transceiver on the
+                // next pass through this function).
+                Err(FpgaError::ImplError(e)) => {
+                    ringbuf_entry!(Trace::TemperatureReadError(i, Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e).unwrap()));
+                }
                 Err(e) => {
-                    // We failed to read a temperature :(
-                    //
-                    // This could be because someone unplugged the transceiver
-                    // at exactly the right time, in which case, the error will
-                    // be transient (and we'll remove the transceiver on the
-                    // next pass through this function).
-                    ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                    ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
                 }
             }
         }
