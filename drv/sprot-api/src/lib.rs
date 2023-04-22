@@ -50,16 +50,13 @@ pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
 /// exact size of the header.
 #[derive(Serialize, Deserialize, SerializedSize)]
 pub struct Header {
-    pub protocol: Protocol,
+    pub version: Version,
     pub body_size: u16,
 }
 
 impl Header {
-    fn new(body_size: u16) -> Header {
-        Header {
-            protocol: Protocol::V2,
-            body_size,
-        }
+    fn new(body_size: u16, version: Version) -> Header {
+        Header { version, body_size }
     }
 }
 
@@ -108,7 +105,7 @@ where
             .unwrap_lite();
 
         // Create a header, now that we know the size of the body
-        let header = Header::new(size.try_into().unwrap_lite());
+        let header = Header::new(size.try_into().unwrap_lite(), Version(2));
 
         // Serialize the header
         size += hubpack::serialize(buf, &header).unwrap_lite();
@@ -139,7 +136,7 @@ where
         size += blob.len();
 
         // Create a header, now that we know the size of the body
-        let header = Header::new(size.try_into().unwrap_lite());
+        let header = Header::new(size.try_into().unwrap_lite(), Version(2));
 
         // Serialize the header
         size += hubpack::serialize(buf, &header).unwrap_lite();
@@ -154,7 +151,7 @@ where
     // Deserialize and return a `Msg`
     pub fn unpack(buf: &'a [u8]) -> Result<Msg<'a, T, N>, SprotProtocolError> {
         let (header, rest) = hubpack::deserialize::<Header>(buf)?;
-        if header.protocol != Protocol::V2 {
+        if header.version != Version(2) {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
         Self::unpack_body(header, buf, rest)
@@ -190,17 +187,12 @@ where
 /// Protocol version
 /// This is the first byte of any Sprot request or response
 #[derive(
-    Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize,
+    Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize,
 )]
-#[repr(u8)]
-pub enum Protocol {
-    /// Indicates that no message is present.
-    Ignore,
-    /// The first sprot format with hand-rolled serialization.
-    V1,
-    /// The second format, using hubpack
-    V2,
-}
+pub struct Version(pub u32);
+
+/// We ignore any messages with leading zeroes on the wire
+pub const IGNORE: Version = Version(0);
 
 /// The body of a sprot request.
 /// The variants are ordered according to long term stability of the interface.
@@ -271,9 +263,7 @@ pub struct PulseStatus {
 /// of problems before trusted communications can be established.
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct SprotStatus {
-    /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
-    pub supported: u32,
-
+    pub rot_version: Version,
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.

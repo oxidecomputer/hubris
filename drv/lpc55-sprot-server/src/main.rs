@@ -58,7 +58,6 @@ use handler::Handler;
 pub(crate) enum Trace {
     None,
     Dump(u32),
-    Req { protocol: u8, body_type: u8 },
     ReceivedBytes(usize),
     SentBytes(usize),
     Flush,
@@ -68,7 +67,7 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 32, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);

@@ -5,8 +5,8 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    Protocol, ReqBody, Request, Response, RotIoStats, RspBody, SprocketsError,
-    SprotError, SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp,
+    ReqBody, Request, Response, RotIoStats, RspBody, SprocketsError,
+    SprotError, SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp, Version,
     MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus};
@@ -14,7 +14,6 @@ use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use sprockets_rot::RotSprocket;
-use static_assertions::const_assert;
 use userlib::{task_slot, UnwrapLite};
 
 mod sprockets;
@@ -23,12 +22,11 @@ task_slot!(UPDATE_SERVER, update_server);
 task_slot!(DUMPER, dumper);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
-const_assert!(Protocol::V2 as u8 == 2);
+
+pub const CURRENT_VERSION: Version = Version(2);
 
 /// State that is set once at the start of the driver
 pub struct StartupState {
-    /// All supported versions 'v' from 1 to 32 as a mask of (1 << v-1)
-    pub supported: u32,
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
@@ -54,7 +52,6 @@ impl Handler {
             sprocket: crate::handler::sprockets::init(),
             update: Update::from(UPDATE_SERVER.get_task_id()),
             startup_state: StartupState {
-                supported: 1_u32 << (Protocol::V2 as u8 - 1),
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
                 max_request_size: MAX_REQUEST_SIZE.try_into().unwrap_lite(),
                 max_response_size: MAX_RESPONSE_SIZE.try_into().unwrap_lite(),
@@ -76,13 +73,7 @@ impl Handler {
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
         let rsp_body = match Request::unpack(rx_buf) {
-            Ok(request) => {
-                ringbuf_entry!(Trace::Req {
-                    protocol: rx_buf[0],
-                    body_type: rx_buf[1]
-                });
-                self.handle_request(request, stats)
-            }
+            Ok(request) => self.handle_request(request, stats),
             Err(e) => {
                 ringbuf_entry!(Trace::Err(e));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
@@ -102,7 +93,7 @@ impl Handler {
             ReqBody::Status => match self.update.status() {
                 UpdateStatus::Rot(rot_updates) => {
                     let msg = SprotStatus {
-                        supported: self.startup_state.supported,
+                        rot_version: CURRENT_VERSION,
                         bootrom_crc32: self.startup_state.bootrom_crc32,
                         max_request_size: self.startup_state.max_request_size,
                         max_response_size: self.startup_state.max_response_size,
