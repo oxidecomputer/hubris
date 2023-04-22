@@ -125,9 +125,15 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
         dump_regions.len(),
     )?;
 
+    let mut min = dump_regions[0].address;
+    let mut max = dump_regions[0].address + dump_regions[0].size;
+
     for (name, region) in &dump_regions {
         let address = region.address;
         let length = region.size;
+
+        min = std::cmp::min(address, min);
+        max = std::cmp::max(address + length, max);
 
         writeln!(
             out,
@@ -141,6 +147,31 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     }
 
     writeln!(out, "];")?;
+
+    writeln!(
+        out,
+        r##"
+///
+/// Function to determine if an address/length pair is contained within a
+/// dump area, short-circuiting in the common case that it isn't.  (Note that
+/// this will only check for containment, not overlap.)
+///
+pub(crate) fn in_dump_area(address: u32, length: u32) -> bool {{
+    if address < {min:#x} || address >= {max:#x} {{
+        return false;
+    }}
+
+    for area in &DUMP_AREAS {{
+        if address >= area.address
+            && address + length <= area.address + area.length
+        {{
+            return true;
+        }}
+    }}
+
+    false
+}}"##
+    )?;
 
     Ok(())
 }
