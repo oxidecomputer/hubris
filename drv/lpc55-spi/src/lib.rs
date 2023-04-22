@@ -153,7 +153,7 @@ impl Spi {
         self.reg.fifostat.read().txnotfull().bit_is_set()
     }
 
-    pub fn has_byte(&self) -> bool {
+    pub fn has_entry(&self) -> bool {
         self.reg.fifostat.read().rxnotempty().bit_is_set()
     }
 
@@ -222,11 +222,42 @@ impl Spi {
                 // ...
                 // 0xF = Data transfer is 16 bits in length.
                 .bits(7)
-                // Don't wait for RX while we're TX (may need to change)
-                .rxignore()
-                .read()
                 .txdata()
                 .bits(byte as u16)
+        });
+    }
+
+    /// This part is really weird.
+    ///
+    /// The TX and RX FIFOs operate in terms of entries. There are 8 16-bit
+    /// entries, which is what txlvl/rxlvel in fifostat account for. However,
+    /// the frame size (number of bits per fifo entry) sent and received does
+    /// not have to be the full 16-bits per-entry. The frame size is configured
+    /// on each `fifowr.write` by writing the upper half-word of the fifowr
+    /// register, where that size can be anywhere from 4 to 16 bits. The frame
+    /// size adjustment allows us to only use part of an entry, and operate in
+    /// terms of bytes for simplicity. We do this with `send_u8` and `read_u8`.
+    /// Importantly, when we call `send_u8` we are configuring not only the
+    /// write fifo to use 8-bits per entry, but *also* the read fifo. Therefore
+    /// we use `send_u8` and `read_u8` in a pair. We don't mix and match to
+    /// prevent confusion and errors.
+    ///
+    /// We want to do the same thing if we use the full 16-bit fifos. We first
+    /// configure the fifos by calling `send_u16`. From there on out we can
+    /// just use `send_u16` and `read_u16` in pairs to double our throughput
+    /// and take full advantage of the fifos.
+    ///
+    /// Note that we could just write the control bits of the FIFOWR register
+    /// but that would leave us in a weird place where we wouldn't know what state
+    /// the fifo was in. Since FIFOWR is write-only, we just set the frame size
+    /// on each wite and ensure we pair writes and reads of the same width.
+    pub fn send_u16(&mut self, entry: u16) {
+        self.reg.fifowr.write(|w| unsafe {
+            w.len()
+                // 0xF = Data transfer is 16 bits in length.
+                .bits(0xF)
+                .txdata()
+                .bits(entry)
         });
     }
 
@@ -295,17 +326,21 @@ impl Spi {
         self.reg.fifostat.modify(|_, w| w.rxerr().set_bit());
     }
 
+    /// This should only be used with the corresponding `send_u8` method.
+    /// Seriously: Ensure that the entry size in the fifo is actually 8 bits
+    /// as configured in the FIFOWR register.
+    ///
+    /// Mixing and matching different frame sizes is not recommended.
     pub fn read_u8(&mut self) -> u8 {
-        // TODO Do something with the Start of Transfer Flag?
-        // "This flag will be 1 if this is the first data after the
-        // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u8
     }
 
+    /// This should only be used with the corresponding `send_u16` method.
+    /// Seriously: Ensure that the entry size in the fifo is actually 16 bits
+    /// as configured in the FIFOWR register.
+    ///
+    /// Mixing and matching different frame sizes is not recommended.
     pub fn read_u16(&mut self) -> u16 {
-        // TODO Do something with the Start of Transfer Flag?
-        // "This flag will be 1 if this is the first data after the
-        // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u16
     }
 }

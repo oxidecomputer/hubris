@@ -378,11 +378,22 @@ impl<S: SpiServer> Io<S> {
 impl<S: SpiServer> ServerImpl<S> {
     fn do_send_recv_retries(
         &mut self,
-        tx_size: usize,
+        mut tx_size: usize,
         timeout: u32,
         retries: u16,
     ) -> Result<Response<'_>, SprotError> {
         let mut attempts_left = retries;
+
+        // We must always send an even number of bytes since
+        // the RoT waits for 2 bytes in each fifo entry before making data
+        // available. Extra data in the data frame will be ignored on
+        // deserialization.
+        //
+        // Our buffers must always be large enough to contain our data plus an
+        // extra byte. Otherwise, this is a programmer error.
+        if tx_size % 2 != 0 {
+            tx_size += 1;
+        }
 
         loop {
             let err = match self.io.do_send_recv(

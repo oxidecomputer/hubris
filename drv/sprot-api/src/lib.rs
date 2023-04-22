@@ -27,12 +27,18 @@ use userlib::sys_send;
 
 const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_XMODEM);
 pub const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
-pub const ROT_FIFO_SIZE: usize = 8;
+pub const ROT_FIFO_SIZE: usize = 16; // bytes
 pub const MAX_BLOB_SIZE: usize = 512;
+
+// We add 1 byte for padding a maximum sized message to an even number of bytes
+// if necessary.
 pub const MAX_REQUEST_SIZE: usize =
-    Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE;
+    Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + 1;
+
+// We add 1 byte for padding a maximum sized message to an even number of bytes
+// if necessary.
 pub const MAX_RESPONSE_SIZE: usize =
-    Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE;
+    Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + 1;
 
 // For simplicity we want to be able to retrieve the header
 // in a maximum of 1 FIFO size read.

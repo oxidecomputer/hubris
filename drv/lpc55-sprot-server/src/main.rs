@@ -43,6 +43,7 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
     RotIoStats, SprotProtocolError, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
+    ROT_FIFO_SIZE,
 };
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -168,7 +169,7 @@ fn main() -> ! {
     // Prime our write fifo, so we clock out zero bytes on the next receive
     io.spi.drain_tx();
     while io.spi.can_tx() {
-        io.spi.send_u8(0);
+        io.spi.send_u16(0);
     }
 
     loop {
@@ -233,20 +234,26 @@ impl Io {
         let mut bytes_received = 0;
         let mut rx = rx_buf.iter_mut();
         while !self.spi.ssd() {
-            while self.spi.has_byte() {
-                bytes_received += 1;
-                let read = self.spi.read_u8();
-                rx.next().map(|b| *b = read);
+            while self.spi.has_entry() {
+                bytes_received += 2;
+                let read = self.spi.read_u16();
+                let upper = (read >> 8) as u8;
+                let lower = read as u8;
+                rx.next().map(|b| *b = upper);
+                rx.next().map(|b| *b = lower);
             }
         }
 
         self.spi.ssd_clear();
 
         // There may be bytes left in the rx fifo after CSn is de-asserted
-        while self.spi.has_byte() {
-            bytes_received += 1;
-            let read = self.spi.read_u8();
-            rx.next().map(|b| *b = read);
+        while self.spi.has_entry() {
+            bytes_received += 2;
+            let read = self.spi.read_u16();
+            let upper = (read >> 8) as u8;
+            let lower = read as u8;
+            rx.next().map(|b| *b = upper);
+            rx.next().map(|b| *b = lower);
         }
 
         self.check_for_rx_error()?;
@@ -269,7 +276,7 @@ impl Io {
     fn reply(&mut self, tx_buf: &[u8]) {
         ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
 
-        let mut tx = tx_buf.iter();
+        let mut idx = 0;
 
         // Fill in the fifo before we assert ROT_IRQ
         // We assert ROT_IRQ in `wait_for_csn_asserted` so we can
@@ -277,18 +284,18 @@ impl Io {
         // process a request.
         self.spi.drain_tx();
         while self.spi.can_tx() {
-            let b = tx.next().copied().unwrap_or(0);
-            self.spi.send_u8(b);
+            let entry = get_u16(idx, tx_buf);
+            self.spi.send_u16(entry);
+            idx += 2;
         }
 
         self.wait_for_csn_asserted(true);
 
-        let mut more_bytes = 0;
         while !self.spi.ssd() {
             while self.spi.can_tx() {
-                more_bytes += 1;
-                let b = tx.next().copied().unwrap_or(0);
-                self.spi.send_u8(b);
+                let entry = get_u16(idx, tx_buf);
+                self.spi.send_u16(entry);
+                idx += 2;
             }
         }
 
@@ -296,8 +303,8 @@ impl Io {
 
         // Were any bytes clocked out?
         // We check to see if any bytes in the fifo have been sent or any have
-        // been pushed into the fifo?
-        if !self.spi.can_tx() && more_bytes == 0 {
+        // been pushed into the fifo beyond the initial fill.
+        if !self.spi.can_tx() && idx == ROT_FIFO_SIZE {
             // This was a CSn pulse
             // There's no need to flush here, since we de-assert ROT_IRQ at the
             // bottom of this function, which is the purpose of a flush.
@@ -306,13 +313,13 @@ impl Io {
             self.check_for_tx_error();
         }
 
-        ringbuf_entry!(Trace::SentBytes(more_bytes));
+        ringbuf_entry!(Trace::SentBytes(idx - ROT_FIFO_SIZE));
 
         // Prime our write fifo, so we clock out zero bytes on the next receive
         // We also empty our read fifo, since we don't bother reading bytes while writing.
         self.spi.drain();
         while self.spi.can_tx() {
-            self.spi.send_u8(0);
+            self.spi.send_u16(0);
         }
         // We don't bother receiving bytes when sending. So we must clear
         // the overrun error condition for the next time we wait for a reply.
@@ -359,6 +366,14 @@ impl Io {
         self.gpio.set_val(ROT_IRQ, Value::One);
         self.rot_irq_asserted = false;
     }
+}
+
+// Return 2 bytes starting at `idx` combined into a u16 for putting on a fifo
+// If `idx` >= `tx_buf.len()` use 0 for the byte.
+fn get_u16(idx: usize, tx_buf: &[u8]) -> u16 {
+    let upper = tx_buf.get(idx).copied().unwrap_or(0) as u16;
+    let lower = tx_buf.get(idx + 1).copied().unwrap_or(0) as u16;
+    upper << 8 | lower
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {

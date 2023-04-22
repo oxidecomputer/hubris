@@ -537,7 +537,7 @@ impl ServerImpl {
     }
 
     fn wait_for_rx(&mut self) {
-        while !self.spi.has_byte() {
+        while !self.spi.has_entry() {
             cortex_m::asm::nop();
         }
     }
