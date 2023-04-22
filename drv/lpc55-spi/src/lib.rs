@@ -16,9 +16,6 @@ impl From<&'static device::spi0::RegisterBlock> for Spi {
     }
 }
 
-// TODO: Update upstream to include the HW register that holds this constant.
-pub const FIFOWR_SIZE: usize = 8;
-
 #[repr(u32)]
 pub enum TxLvl {
     TxEmpty = 0,
