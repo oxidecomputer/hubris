@@ -30,6 +30,17 @@ pub const CRC_SIZE: usize = <u16 as SerializedSize>::MAX_SIZE;
 pub const ROT_FIFO_SIZE: usize = 16; // bytes
 pub const MAX_BLOB_SIZE: usize = 512;
 
+/// The minimum version supported by this code. Messages older than this
+/// minimum version will be served an error.
+pub const MIN_VERSION: Version = Version(2);
+
+/// The current version of this code
+///
+/// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
+/// compatible. Use the rules described in the comments for [`Msg`] to evolve
+/// the protocol such that this remains true.
+pub const CURRENT_VERSION: Version = Version(2);
+
 // We add 1 byte for padding a maximum sized message to an even number of bytes
 // if necessary.
 pub const MAX_REQUEST_SIZE: usize =
@@ -55,8 +66,11 @@ pub struct Header {
 }
 
 impl Header {
-    fn new(body_size: u16, version: Version) -> Header {
-        Header { version, body_size }
+    fn new(body_size: u16) -> Header {
+        Header {
+            version: CURRENT_VERSION,
+            body_size,
+        }
     }
 }
 
@@ -170,7 +184,7 @@ where
             .unwrap_lite();
 
         // Create a header, now that we know the size of the body
-        let header = Header::new(size.try_into().unwrap_lite(), Version(2));
+        let header = Header::new(size.try_into().unwrap_lite());
 
         // Serialize the header
         size += hubpack::serialize(buf, &header).unwrap_lite();
@@ -201,7 +215,7 @@ where
         size += blob.len();
 
         // Create a header, now that we know the size of the body
-        let header = Header::new(size.try_into().unwrap_lite(), Version(2));
+        let header = Header::new(size.try_into().unwrap_lite());
 
         // Serialize the header
         size += hubpack::serialize(buf, &header).unwrap_lite();
@@ -216,7 +230,7 @@ where
     // Deserialize and return a `Msg`
     pub fn unpack(buf: &'a [u8]) -> Result<Msg<'a, T, N>, SprotProtocolError> {
         let (header, rest) = hubpack::deserialize::<Header>(buf)?;
-        if header.version != Version(2) {
+        if header.version < MIN_VERSION {
             return Err(SprotProtocolError::UnsupportedProtocol);
         }
         Self::unpack_body(header, buf, rest)
@@ -252,12 +266,18 @@ where
 /// Protocol version
 /// This is the first byte of any Sprot request or response
 #[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Deserialize,
+    Serialize,
+    SerializedSize,
 )]
 pub struct Version(pub u32);
-
-/// We ignore any messages with leading zeroes on the wire
-pub const IGNORE: Version = Version(0);
 
 /// The body of a sprot request.
 ///
