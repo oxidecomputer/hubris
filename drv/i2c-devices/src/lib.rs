@@ -91,6 +91,36 @@ macro_rules! pmbus_rail_read {
     }};
 }
 
+macro_rules! pmbus_rail_phase_read {
+    ($device:expr, $rail:expr, $phase:expr, $cmd:ident) => {{
+        let rail_payload = [PAGE::CommandData::code(), $rail];
+        let phase_payload = [PHASE::CommandData::code(), $phase];
+
+        match $cmd::CommandData::from_slice(&match $device
+            .write_write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
+                $cmd::CommandData::code(),
+                &rail_payload,
+                &phase_payload,
+            ) {
+            Ok(rval) => Ok(rval),
+            Err(code) => Err(Error::BadRead {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+        }?) {
+            Some(data) => Ok(data),
+            None => Err(Error::BadData {
+                cmd: $cmd::CommandData::code(),
+            }),
+        }
+    }};
+
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
+        use $dev::{$cmd, PAGE};
+        pmbus_rail_read!($device, $rail, $cmd)
+    }};
+}
+
 macro_rules! pmbus_write {
     ($device:expr, $cmd:ident, $data:expr) => {{
         let mut payload = [0u8; $cmd::CommandData::len() + 1];
@@ -109,29 +139,6 @@ macro_rules! pmbus_write {
     ($device:expr, $dev:ident::$cmd:ident, $data:expr) => {{
         use $dev::$cmd;
         pmbus_write!($device, $cmd, $data)
-    }};
-}
-
-macro_rules! pmbus_rail_write {
-    ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
-        let rpayload = [PAGE::CommandData::code(), $rail];
-
-        let mut payload = [0u8; $cmd::CommandData::len() + 1];
-        payload[0] = $cmd::CommandData::code();
-        $data.to_slice(&mut payload[1..]);
-
-        match $device.write_write(&rpayload, &payload) {
-            Err(code) => Err(Error::BadWrite {
-                cmd: $cmd::CommandData::code(),
-                code,
-            }),
-            Ok(_) => Ok(()),
-        }
-    }};
-
-    ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
-        use $dev::{$cmd, PAGE};
-        pmbus_rail_write!($device, $rail, $cmd, $data)
     }};
 }
 

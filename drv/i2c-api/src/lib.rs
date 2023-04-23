@@ -636,7 +636,6 @@ impl I2cDevice {
         }
     }
 
-
     pub fn selected_mux_segment(
         &self,
     ) -> Result<Option<(Mux, Segment)>, ResponseCode> {
