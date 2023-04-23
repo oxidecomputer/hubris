@@ -48,12 +48,6 @@ pub type Request<'a> = Msg<'a, ReqBody, MAX_REQUEST_SIZE>;
 pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
 
 /// A message header for a request or response
-///
-/// It's important that this header be kept fixed size by limiting the use of
-/// rust types in fields to those with fixed size serialization in Hubpack.
-/// This essentially means only primitives, structs, or simple enums can be
-/// used in fields. This allows us to assume that Header::MAX_SIZE is also the
-/// exact size of the header.
 #[derive(Serialize, Deserialize, SerializedSize)]
 pub struct Header {
     pub version: Version,
@@ -75,19 +69,82 @@ impl Header {
 /// `Msg`s sometimes include an offset into the buffer where a binary blob
 /// resides.
 ///
-///
 /// Messages are hubpack encoded and therefore the fields and enum
-/// variants should *not* be reordered, or removed. In general, this allows
-/// extensibility by adding fields or variants to the end of existing
-/// message components. Known prefixes can be read ignoring any new fields
-/// on deserialization. In practice things are not quite this simple, as if we
-/// only read the prefix and a blob is appended, the old deserialization code
-/// will be confused. For this to work, we should probably bump the version
-/// number any time we manipulate the messages, and coordinate as necessary to
-/// use the right version.
+/// variants must *not* be reordered, or removed. In general, this allows
+/// extensibility by adding fields or variants to the end of existing message
+/// components. Details are provided below.
 ///
-/// Should we make the `Protocol` more than a single byte so that we have more
-/// opportunities to evolve the protocol without having to modify the header?
+/// Backwards and Forwards Compatibility
+/// ===========================================================================
+///
+/// Enum variant additions
+/// ---------------------------------------------------------------------------
+/// In particular we can always add a new enum variant and be sure that
+/// old code will just return an error if sent that variant and there is no
+/// particular harm. New code will always understand old messages since the
+/// encoding for older variants doesn't change. Enum variant additions, when
+/// added to the bottom of an existing enum, are therefore always forwards and
+/// backwards compatible.
+///
+///
+/// Struct field additions
+/// ---------------------------------------------------------------------------
+/// Unfortunately the same is not true of adding new fields to structs. Adding
+/// a new field to an existing struct increases the size of the struct on the
+/// wire. A struct with a new field sent to an old version of the code will
+/// still deserialize properly, as long as it is the *last* top-level struct
+/// in the message. This is because the extra fields will be ignored.
+///
+/// If the struct is not at the top level but embedded in another struct and a
+/// field is added to the internal struct, old code will improperly deserialize
+/// the data as it will treat the extra field in the internal struct as a
+/// later field in the outer struct not realizing that the size of the inner
+/// struct has changed. This will not be a problem if the inner struct  is always
+/// the last field of the outer struct. In this scenario the deserialization
+/// behavior will be the same as appending a field to the outer struct.
+///
+/// Forwards compatibility is always a problem when adding a field to an
+/// existing struct. Newer code expecting the extra field will fail to
+/// deserialize a message from older code lacking that field without special
+/// consideration.
+///
+/// Lastly, adding a field to a struct for any message that is expected to have
+/// a blob appended to it will not work at all. Old code will think that the blob
+/// starts at the new field, while new code will see a message without an expected
+/// field and think the blob starts later.
+///
+///
+/// Rules for message evolution
+/// ---------------------------------------------------------------------------
+/// Our primary goal when updating the sprot protocol messages is to minimize
+/// version specific code to deal with compatibility issues. To keep the total
+/// number of messages down we don't want to strictly prohibit version specific
+/// message conversion code. However, we want to be judicious about when we use
+/// this escape hatch. To make things concrete for the people working on  the
+/// sprot protocol, we can devise a few rules that will allow us to meet our
+/// goals and not end up in a mess of confusion.
+///
+/// 1. Any time that `ReqBody` or `RspBody` changes increment the current version.
+/// 2. Never remove, or re-order enum variants or fields in messages. Instead
+/// mark them as deprecated in a comment (for now).
+/// 2. If there is a semantic change to a message required, add it as a new
+/// enum variant.
+/// 3. If a message inside an enum variant is a 3rd party type not defined in
+/// this file and it changes, add it as a new enum variant.
+/// 4. Only flat structs defined in this file and at the bottom (leaf) of a message
+/// enum hierarchy can have field additions. The field additions must not change
+/// the semantic meaning of the message. This is really only useful for things like
+/// `IoStats` where new information can be made available over time.
+/// 5. If a struct field addition is made, then custom code must be written in
+/// the newer code to handle messages that do not contain this field. In almost
+/// all cases, the new field should be wrapped in an `Option` and set to `None`
+/// on receipt of an older version of the message. No special care must be
+/// taken on the old code side since new fields will be ignored.
+/// 6. Messages that carry a blob may not ever have struct field additions. A
+/// new enum variant must be added in this case.
+/// 7. If the blob of a message changes in type, size, semantics, etc.. a new
+/// message should be added. Use your judgement here.
+///
 pub struct Msg<'a, T, const N: usize> {
     pub header: Header,
     pub body: T,
@@ -201,14 +258,8 @@ pub struct Version(pub u32);
 pub const IGNORE: Version = Version(0);
 
 /// The body of a sprot request.
-/// The variants are ordered according to long term stability of the interface.
-/// Status, IoStats, and Update must be the first three variants.  They are
-/// used to determine communications parameters (protocol, buffer sizes), stats
-/// for problem diagnosis, and updating RoT firmware to bring the RoT into
-/// conformance.  The later variants are not required to be as stable.
 ///
-/// Note: Sprockets messages are versioned and can be dealt with by higher
-/// level-software independently.
+/// See [`Msg`] for details about versionin and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum ReqBody {
     Status,
@@ -242,8 +293,8 @@ pub enum UpdateRsp {
 }
 
 /// The body of a sprot response.
-/// Ordering is important and should correspond to ReqBody.
-/// See ReqBody for justification.
+///
+/// See [`Msg`] for details about versionin and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RspBody {
     // General Ok status shared among response variants
