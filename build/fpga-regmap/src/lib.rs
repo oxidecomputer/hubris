@@ -98,7 +98,7 @@ fn build_addr_map(node: &Node, output: &mut String) {
     writeln!(
         output,
         "\
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Addr {{"
