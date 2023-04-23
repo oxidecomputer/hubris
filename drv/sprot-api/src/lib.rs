@@ -41,15 +41,23 @@ pub const MIN_VERSION: Version = Version(2);
 /// the protocol such that this remains true.
 pub const CURRENT_VERSION: Version = Version(2);
 
+/// We allow room in the buffer for message evolution
+pub const MAX_REQUEST_SIZE: usize = 1024;
 // We add 1 byte for padding a maximum sized message to an even number of bytes
 // if necessary.
-pub const MAX_REQUEST_SIZE: usize =
-    Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + 1;
+const_assert!(
+    MAX_REQUEST_SIZE
+        >= Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+);
 
+/// We allow room in the buffer for message evolution
+pub const MAX_RESPONSE_SIZE: usize = 1024;
 // We add 1 byte for padding a maximum sized message to an even number of bytes
 // if necessary.
-pub const MAX_RESPONSE_SIZE: usize =
-    Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + 1;
+const_assert!(
+    MAX_RESPONSE_SIZE
+        >= Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+);
 
 // For simplicity we want to be able to retrieve the header
 // in a maximum of 1 FIFO size read.
