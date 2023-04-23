@@ -38,6 +38,11 @@ address = 0x4009F000
 size = 4096
 interrupts = { hs_spi = 59 }
 
+[hash_crypt]
+address = 0x400A4000
+size = 4096
+interrupts = { irq = 54 }
+
 [pmc]
 address = 0x40020000
 size = 4096

@@ -15,7 +15,7 @@ Interface(
             ),
         ),
         "get_dump_area": (
-            doc: "Return information associated with the specified dump area. This only exists to support Humility dumper emulation.",
+            doc: "Return information associated with the specified dump area.",
             args: {
                 "index": "u8",
             },
@@ -49,6 +49,39 @@ Interface(
                 ok: "()",
                 err: CLike("DumpAgentError"),
             ),
+        ),
+        "dump_task": (
+            doc: "Dump a single task, without the external dumper",
+            args: {
+                "task_index": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "dump_task_region": (
+            doc: "Dump a region from single task, without the external dumper",
+            args: {
+                "task_index": "u32",
+                "start": "u32",
+                "length": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
+        "reinitialize_dump_from": (
+            description: "reinitializes the dump memory starting at the given area",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("DumpAgentError"),
+            ),
+            encoding: Hubpack,
         ),
     },
 )

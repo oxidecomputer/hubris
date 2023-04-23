@@ -8,13 +8,15 @@ use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
     update::ComponentUpdater, Log, MgsMessage,
 };
+use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentDetails, ComponentUpdatePrepare, DiscoverResponse,
-    IgnitionCommand, IgnitionState, MgsError, PowerState, SpComponent, SpError,
-    SpPort, SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SlotId, SpComponent, SpError, SpPort, SpState, SpUpdatePrepare,
+    SwitchDuration, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -26,6 +28,8 @@ use userlib::sys_get_timer;
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks for now, no other updateable components.
 const UPDATE_BUFFER_SIZE: usize = SpUpdate::BLOCK_SIZE;
+
+userlib::task_slot!(USER_LEDS, user_leds);
 
 // Create type aliases that include our `UpdateBuffer` size (i.e., the size of
 // the largest update chunk of all the components we update).
@@ -44,6 +48,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sp_update: SpUpdate,
     rot_update: RotUpdate,
+    user_leds: UserLeds,
 }
 
 impl MgsHandler {
@@ -54,6 +59,7 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
+            user_leds: UserLeds::from(USER_LEDS.get_task_id()),
         }
     }
 
@@ -265,6 +271,31 @@ impl SpHandler for MgsHandler {
         }
     }
 
+    fn component_action(
+        &mut self,
+        _sender: SocketAddrV6,
+        component: SpComponent,
+        action: ComponentAction,
+    ) -> Result<(), SpError> {
+        match (component, action) {
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+                use gateway_messages::LedComponentAction;
+                // Setting the LED should be infallible, because we know that
+                // this board supports LED 0 as the system LED.
+                match action {
+                    LedComponentAction::TurnOn => self.user_leds.led_on(0),
+                    LedComponentAction::TurnOff => self.user_leds.led_off(0),
+                    LedComponentAction::Blink => {
+                        return Err(SpError::RequestUnsupportedForComponent)
+                    }
+                }
+                .unwrap();
+                Ok(())
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
     fn update_status(
         &mut self,
         _sender: SocketAddrV6,
@@ -393,22 +424,6 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
-    }
-
-    fn reset_prepare(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<(), SpError> {
-        self.common.reset_prepare()
-    }
-
-    fn reset_trigger(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<Infallible, SpError> {
-        self.common.reset_trigger()
     }
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
@@ -568,5 +583,40 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
+    }
+
+    fn switch_default_image(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), SpError> {
+        self.common.switch_default_image(
+            &self.sp_update,
+            component,
+            slot,
+            duration,
+        )
+    }
+
+    fn reset_component_prepare(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.reset_component_prepare(component)
+    }
+
+    fn reset_component_trigger(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger(&self.sp_update, component)
     }
 }

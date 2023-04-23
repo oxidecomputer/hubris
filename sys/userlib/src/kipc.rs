@@ -24,6 +24,46 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
+pub fn get_task_dump_region(
+    task: usize,
+    region: usize,
+) -> Option<abi::TaskDumpRegion> {
+    let msg = (task as u32, region as u32);
+    let mut buf = [0; core::mem::size_of::<(u32, u32)>()];
+    ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
+
+    let mut response = [0; core::mem::size_of::<Option<abi::TaskDumpRegion>>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::GetTaskDumpRegion as u16,
+        &buf,
+        &mut response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}
+
+pub fn read_task_dump_region(
+    task: usize,
+    region: abi::TaskDumpRegion,
+    response: &mut [u8],
+) -> usize {
+    let msg = (task as u32, region);
+    let mut buf = [0; core::mem::size_of::<(u32, abi::TaskDumpRegion)>()];
+    ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
+
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadTaskDumpRegion as u16,
+        &buf,
+        response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    len
+}
+
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);

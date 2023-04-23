@@ -102,7 +102,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 }
 
 mod idl {
-    use super::{PowerState, SeqError};
+    use super::SeqError;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

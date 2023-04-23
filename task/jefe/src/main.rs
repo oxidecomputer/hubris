@@ -26,12 +26,17 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "dump")]
+mod dump;
+
 mod external;
 
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
-use task_jefe_api::ResetReason;
+use humpty::DumpArea;
+use idol_runtime::RequestError;
+use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -132,6 +137,8 @@ fn main() -> ! {
         deadline,
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
+        #[cfg(feature = "dump")]
+        dump_areas: dump::initialize_dump_areas(),
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -145,13 +152,15 @@ struct ServerImpl<'s> {
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
+    #[cfg(feature = "dump")]
+    dump_areas: u32,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn request_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         // If we wanted to broadcast to other tasks that a restart is occuring
         // here is where we would do so!
         kipc::system_restart();
@@ -160,7 +169,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn get_reset_reason(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<ResetReason, idol_runtime::RequestError<Infallible>> {
+    ) -> Result<ResetReason, RequestError<Infallible>> {
         Ok(self.reset_reason)
     }
 
@@ -168,7 +177,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
         reason: ResetReason,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.reset_reason = reason;
         Ok(())
     }
@@ -176,7 +185,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn get_state(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<u32, idol_runtime::RequestError<Infallible>> {
+    ) -> Result<u32, RequestError<Infallible>> {
         Ok(self.state)
     }
 
@@ -184,7 +193,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         _msg: &userlib::RecvMessage,
         state: u32,
-    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         if self.state != state {
             self.state = state;
 
@@ -196,6 +205,126 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             }
         }
         Ok(())
+    }
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "dump")] {
+            fn get_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                index: u8,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                dump::get_dump_area(self.dump_areas, index)
+                    .map_err(|e| e.into())
+            }
+
+            fn claim_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                dump::claim_dump_area(self.dump_areas).map_err(|e| e.into())
+            }
+
+            fn reinitialize_dump_areas(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                self.dump_areas = dump::initialize_dump_areas();
+                Ok(())
+            }
+
+            fn dump_task(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task_index: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                // `dump::dump_task` doesn't check the task index, because it's
+                // normally called by a trusted source; we'll do it ourself.
+                if task_index == 0 {
+                    // Can't dump the supervisor
+                    return Err(DumpAgentError::NotSupported.into());
+                } else if task_index as usize >= self.task_states.len() {
+                    // Can't dump a non-existent task
+                    return Err(DumpAgentError::BadOffset.into());
+                }
+                dump::dump_task(self.dump_areas, task_index as usize)
+                    .map_err(|e| e.into())
+            }
+
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task_index: u32,
+                address: u32,
+                length: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                if task_index == 0 {
+                    return Err(DumpAgentError::NotSupported.into());
+                } else if task_index as usize >= self.task_states.len() {
+                    return Err(DumpAgentError::BadOffset.into());
+                }
+                dump::dump_task_region(
+                    self.dump_areas, task_index as usize, address, length
+                ).map_err(|e| e.into())
+            }
+
+            fn reinitialize_dump_from(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                index: u8,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                dump::reinitialize_dump_from(self.dump_areas, index)
+                    .map_err(|e| e.into())
+            }
+        } else {
+            fn get_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _index: u8,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn claim_dump_area(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<DumpArea, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn reinitialize_dump_areas(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn dump_task(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _task_index: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn dump_task_region(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _task_index: u32,
+                _address: u32,
+                _length: u32,
+            ) -> Result<u8, RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+
+            fn reinitialize_dump_from(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _index: u8,
+            ) -> Result<(), RequestError<DumpAgentError>> {
+                Err(DumpAgentError::DumpAgentUnsupported.into())
+            }
+        }
     }
 }
 
@@ -244,6 +373,16 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         // Well! A fault we didn't know about.
                         log_fault(i, &fault);
 
+                        #[cfg(feature = "dump")]
+                        {
+                            // We'll ignore the result of dumping; it could fail
+                            // if we're out of space, but we don't have a way of
+                            // dealing with that right now.
+                            //
+                            // TODO: some kind of circular buffer?
+                            _ = dump::dump_task(self.dump_areas, i);
+                        }
+
                         if status.disposition == Disposition::Restart {
                             // Stand it back up
                             kipc::restart_task(i, true);
@@ -271,6 +410,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::ResetReason;
+    use task_jefe_api::{DumpAgentError, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

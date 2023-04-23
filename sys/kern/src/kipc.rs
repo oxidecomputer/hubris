@@ -11,6 +11,7 @@ use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
 use core::convert::TryFrom;
+use core::mem::size_of;
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -33,7 +34,16 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadCaboosePos) => {
             read_caboose_pos(tasks, caller, args.response?)
         }
-        Err(_) => {
+        #[cfg(feature = "dump")]
+        Ok(Kipcnum::GetTaskDumpRegion) => {
+            get_task_dump_region(tasks, caller, args.message?, args.response?)
+        }
+        #[cfg(feature = "dump")]
+        Ok(Kipcnum::ReadTaskDumpRegion) => {
+            read_task_dump_region(tasks, caller, args.message?, args.response?)
+        }
+
+        _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
@@ -54,6 +64,7 @@ where
 {
     let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
         .map_err(|_| UsageError::BadKernelMessage)?;
+
     Ok(msg)
 }
 
@@ -71,7 +82,7 @@ where
             // The client provided a response buffer that is too small. We
             // actually tolerate this, and report back the size of a buffer that
             // *would have* worked. It's up to the caller to notice.
-            Ok(core::mem::size_of::<T>())
+            Ok(size_of::<T>())
         }
         Err(_) => Err(UsageError::BadKernelMessage.into()),
     }
@@ -257,6 +268,211 @@ fn read_caboose_pos(
     };
 
     let response_len = serialize_response(&mut tasks[caller], response, &out)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+#[cfg(feature = "dump")]
+fn get_task_dump_region(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let (index, rindex): (u32, u32) =
+        deserialize_message(&tasks[caller], message)?;
+    if index as usize >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    let rval = if rindex == 0 {
+        Some(abi::TaskDumpRegion {
+            base: &tasks[index as usize] as *const _ as u32,
+            size: size_of::<Task>() as u32,
+        })
+    } else {
+        tasks[index as usize]
+            .region_table()
+            .iter()
+            .filter(|r| r.dumpable())
+            .nth(rindex as usize - 1)
+            .map(|r| abi::TaskDumpRegion {
+                base: r.base,
+                size: r.size,
+            })
+    };
+
+    let response_len = serialize_response(&mut tasks[caller], response, &rval)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+#[cfg(feature = "dump")]
+fn read_task_dump_region(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    mut response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    use crate::umem::safe_copy;
+    use crate::util::index2_distinct;
+
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
+    let (index, region): (u32, abi::TaskDumpRegion) =
+        deserialize_message(&tasks[caller], message)?;
+    // It's far more convenient to deal with index as a usize from here on.
+    let index = index as usize;
+
+    //
+    // In addition to assuring that the task index isn't out of range, we do
+    // not allow the supervisor to dump itself. This ensures that index !=
+    // caller, which makes reasoning about aliasing below significantly easier.
+    //
+    if index == caller || index >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    // Get &mut references to the two tasks we're interacting with, which are
+    // now ensured to be distinct, so we can treat them as separate entities for
+    // borrowing purposes.
+    let (caller_task, target_task) = index2_distinct(tasks, caller, index);
+
+    // Convert the region from (caller-controlled) arbitrary numbers into a
+    // USlice. This centralizes the check for base+size overflowing, eliminating
+    // the need for it below.
+    //
+    // Note that if the supervisor passes an illegal base+size combination here,
+    // we're going to kill the supervisor, implying a reboot. This is the best
+    // we can do, since the supervisor is malfunctioning.
+    let from =
+        USlice::<u8>::from_raw(region.base as usize, region.size as usize)
+            .map_err(FaultInfo::SyscallUsage)?;
+
+    //
+    // If we are being asked to copy out the target task structure (and only
+    // a part of the target task structure), we will copy that directly.  (If
+    // this has been somehow malformed, we will fall into the `safe_copy`
+    // case, which will fail.)
+    //
+    let tcb_size = size_of::<Task>();
+    let tcb_base = target_task as *mut _ as usize;
+    // Because target_task comes from a reference, we can compute the
+    // one-past-the-end address for it without overflow (i.e. it is guaranteed
+    // not to be up against the top of the address space). So we use a wrapping
+    // add here because the compiler can't see that and wants an overflow check.
+    let tcb_end = tcb_base.wrapping_add(tcb_size);
+
+    let response_len =
+        if from.base_addr() >= tcb_base && from.end_addr() <= tcb_end {
+            // Things are about to get weird.
+            //
+            // We're being asked to copy-out a portion of the raw Task struct
+            // representing target_task. This struct is (quite deliberately)
+            // _not_ repr(C) or packed, so its layout is essentially undefined,
+            // it will contain padding, etc. This means we can't get a view of
+            // it as bytes using `zerocopy` -- `zerocopy` will refuse such a
+            // type as almost certainly a mistake on our part.
+            //
+            // Usually, it'd be right to do so, but the audience for the dump is
+            // the _debugger,_ and the debugger (by definition) knows the layout
+            // of the raw bytes in the type. So, this is one of those rare cases
+            // where just reading the raw bytes is correct and good.
+            //
+            // To avoid potentially aliasing accesses through the `tasks` slice,
+            // we're going to read only within the `target_task` reference
+            // (which also guards us against any accidental out-of-bounds
+            // access).
+
+            // Safety: we're going to read (only read!) the bytes of the Task
+            // struct for dumping purposes. Because we derive this authority
+            // from the `&mut` `target_task` we know there are no other aliasing
+            // references to it. Because we shadow `target_task` here, no code
+            // below this can access the original `&mut` until our punning as
+            // bytes leaves scope. This requires unsafe because, in general,
+            // this is a really bad idea, but in this case
+            // - We are casting from a pointer to a type with higher alignment
+            //   (Task) to lower alignment (byte array)
+            // - We are very comfortable with reading arbitrary undefined data
+            //   in padding between fields and the like, because the debugger
+            //   will ignore them.
+            let target_task: &[u8; size_of::<Task>()] =
+                unsafe { core::mem::transmute(target_task) };
+
+            // Now let's grab the requested portion as a sub-slice. This should
+            // succeed (see: the comparisons between base+size and region.size
+            // above).
+            let offset = from.base_addr() - tcb_base;
+            let tcb = &target_task[offset as usize..from.len()];
+
+            let to = caller_task
+                .try_write(&mut response)
+                .map_err(UserError::Unrecoverable)?;
+            let copy_len = to.len().min(tcb.len());
+            to[..copy_len].copy_from_slice(&tcb[..copy_len]);
+            copy_len
+        } else {
+            //
+            // We have memory that is not completely contained by the target
+            // task structure -- either because it is in the task's memory
+            // or because it is an invalid address/length (e.g., a part of
+            // the task structure that also overlaps with other kernel
+            // memory, or wholly bogus).  In all of these cases, we will
+            // rely on `safe_copy` to do the validation.
+            //
+            // Note that this applies to: attempts to read out of bounds of the
+            // target task's TCB, attempts to read other tasks' TCBs, etc. So
+            // this is effectively serving as the validation backstop for the
+            // TCB access code above.
+            //
+
+            match safe_copy(tasks, index, from, caller, response) {
+                Err(interact) => {
+                    // So, this is a weird case. We are attempting to transfer
+                    // memory from one task to another, but unlike every other
+                    // use of safe_copy in the kernel, the address ranges on
+                    // _both sides_ are controlled by one party (the
+                    // supervisor).
+                    //
+                    // This means the InteractFault produced by `safe_copy` is
+                    // shaped slightly wrong for the task. Counter-intuitively,
+                    // the supervisor (meaning `caller`) should be blamed for
+                    // faults on _both_ the source and destination side.
+                    //
+                    // So we do this using the following code, which looks wrong
+                    // at first glance since it's backwards from every other
+                    // routine in the kernel -- but its shape is deliberate! We
+                    // really do want to apply the SRC fault to the caller,
+                    // followed by any remaining DST fault (by returning it from
+                    // this function, which means it'll be applied by the
+                    // generic syscall error handler).
+                    //
+                    // Note that if the supervisor is _really_ misbehaving, this
+                    // can result in the delivery of two faults to it (the SRC
+                    // and DST faults). The behavior of `task::force_fault` in
+                    // this case is well-defined (the last one wins) so this is
+                    // ok.
+                    //
+                    // The wake hint will only be used if there is a SRC fault
+                    // and no DST fault.
+                    return Ok(interact.apply_to_src(tasks, caller)?);
+                }
+                Ok(len) => len,
+            }
+        };
+
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

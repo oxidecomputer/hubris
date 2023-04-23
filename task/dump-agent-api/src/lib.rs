@@ -7,34 +7,101 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use hubpack::SerializedSize;
-use serde::{Deserialize, Serialize};
+use dumper_api::DumperError;
 use userlib::*;
 
 pub use humpty::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum DumpAgentError {
-    InvalidArea = 1,
+    DumpAgentUnsupported = 1,
+    InvalidArea,
     BadOffset,
     UnalignedOffset,
     UnalignedSegmentAddress,
     UnalignedSegmentLength,
-    OutOfSpaceForSegments,
-    DumpFailed,
+    BadDumpResponse,
     NotSupported,
+    DumpPresent,
+    UnclaimedDumpArea,
+    CannotClaimDumpArea,
+    DumpAreaInUse,
+    BadSegmentAdd,
+
+    DumpMessageFailed,
+    DumpFailed,
+    DumpFailedSetup,
+    DumpFailedRead,
+    DumpFailedWrite,
+    DumpFailedControl,
+    DumpFailedUnknown,
+    DumpFailedUnknownError,
 
     #[idol(server_death)]
     ServerRestarted,
 }
 
-#[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
-pub struct DumpArea {
-    pub address: u32,
-    pub length: u32,
+impl From<DumperError> for DumpAgentError {
+    fn from(err: DumperError) -> DumpAgentError {
+        match err {
+            DumperError::SetupFailed => DumpAgentError::DumpFailedSetup,
+            DumperError::UnalignedAddress
+            | DumperError::StartReadFailed
+            | DumperError::ReadFailed
+            | DumperError::BadDumpAreaHeader
+            | DumperError::HeaderReadFailed => DumpAgentError::DumpFailedRead,
+            DumperError::WriteFailed => DumpAgentError::DumpFailedWrite,
+            DumperError::FailedToHalt
+            | DumperError::FailedToResumeAfterFailure
+            | DumperError::FailedToResume => DumpAgentError::DumpFailedControl,
+            _ => DumpAgentError::DumpFailedUnknown,
+        }
+    }
+}
+
+impl From<DumpAgentError> for humpty::udp::Error {
+    fn from(d: DumpAgentError) -> Self {
+        use humpty::udp::Error;
+        match d {
+            DumpAgentError::DumpAgentUnsupported => Error::DumpAgentUnsupported,
+            DumpAgentError::InvalidArea => Error::InvalidArea,
+            DumpAgentError::BadOffset => Error::BadOffset,
+            DumpAgentError::UnalignedOffset => Error::UnalignedOffset,
+            DumpAgentError::UnalignedSegmentAddress => {
+                Error::UnalignedSegmentAddress
+            }
+            DumpAgentError::UnalignedSegmentLength => {
+                Error::UnalignedSegmentLength
+            }
+            DumpAgentError::DumpFailed => Error::DumpFailed,
+            DumpAgentError::NotSupported => Error::NotSupported,
+            DumpAgentError::DumpPresent => Error::DumpPresent,
+            DumpAgentError::UnclaimedDumpArea => Error::UnclaimedDumpArea,
+            DumpAgentError::CannotClaimDumpArea => Error::CannotClaimDumpArea,
+            DumpAgentError::DumpAreaInUse => Error::DumpAreaInUse,
+            DumpAgentError::BadSegmentAdd => Error::BadSegmentAdd,
+            DumpAgentError::ServerRestarted => Error::ServerRestarted,
+            DumpAgentError::BadDumpResponse => Error::BadDumpResponse,
+            DumpAgentError::DumpMessageFailed => Error::DumpMessageFailed,
+            DumpAgentError::DumpFailedSetup => Error::DumpFailedSetup,
+            DumpAgentError::DumpFailedRead => Error::DumpFailedRead,
+            DumpAgentError::DumpFailedWrite => Error::DumpFailedWrite,
+            DumpAgentError::DumpFailedControl => Error::DumpFailedControl,
+            DumpAgentError::DumpFailedUnknown => Error::DumpFailedUnknown,
+            DumpAgentError::DumpFailedUnknownError => {
+                Error::DumpFailedUnknownError
+            }
+        }
+    }
 }
 
 pub const DUMP_READ_SIZE: usize = 256;
-pub const DUMP_AGENT_VERSION: u8 = 1_u8;
+
+//
+// We use the version field to denote how a dump area is being used.
+//
+pub const DUMP_AGENT_VERSION: u8 = 0x10_u8;
+pub const DUMP_AGENT_TASKS: u8 = 0x12_u8;
+pub const DUMP_AGENT_SYSTEM: u8 = 0x13_u8;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

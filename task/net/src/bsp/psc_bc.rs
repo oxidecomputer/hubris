@@ -7,15 +7,20 @@ compile_error!("this BSP requires the ksz8463 and mgmt features");
 
 use crate::{
     bsp_support::{self, Ksz8463},
-    mgmt, pins,
+    mgmt, notifications, pins,
 };
+use drv_psc_seq_api::PowerState;
 use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
+use task_jefe_api::Jefe;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
+use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
 use vsc7448_pac::types::PhyRegisterAddress;
+
+task_slot!(JEFE, jefe);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -51,6 +56,32 @@ impl bsp_support::Bsp for BspImpl {
             af: Alternate::AF11,
         }
         .configure(sys);
+    }
+
+    fn preinit() {
+        // Wait for the sequencer to turn read our VPD.
+        let jefe = Jefe::from(JEFE.get_task_id());
+
+        loop {
+            // This laborious list is intended to ensure that new power states
+            // have to be added explicitly here.
+            match PowerState::from_u32(jefe.get_state()) {
+                Some(PowerState::A2) => {
+                    break;
+                }
+                Some(PowerState::Init) | None => {
+                    // This happens before we're in a valid power state.
+                    //
+                    // Only listen to our Jefe notification. Discard any error
+                    // since this can't fail but the compiler doesn't know that.
+                    let _ = sys_recv_closed(
+                        &mut [],
+                        notifications::JEFE_STATE_CHANGE_MASK,
+                        TaskId::KERNEL,
+                    );
+                }
+            }
+        }
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {

@@ -6,17 +6,18 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 22000, ram = 4096}
-features = ["h743"]
+requires = {flash = 24000, ram = 5120}
+features = ["h743", "dump"]
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -139,18 +140,20 @@ uses = ["rng"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 16384, ram = 2048 }
 start = true
+task-slots = ["jefe"]
 stacksize = 1200
-uses = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [config]
 
 [[config.i2c.controllers]]
 controller = 2
 
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1 ]
+[config.i2c.controllers.ports.F]
+scl.pin = 1
+sda.pin = 0
 af = 4
 
 #
@@ -178,6 +181,7 @@ clock_divider = "DIV16"
 
 
 [config.net]
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"

@@ -5,10 +5,12 @@
 //! Support for safely interacting with untrusted/unprivileged/user memory.
 
 use core::marker::PhantomData;
+use core::ops::Range;
 use zerocopy::FromBytes;
 
 use crate::err::InteractFault;
 use crate::task::Task;
+use crate::util::index2_distinct;
 use abi::{FaultInfo, FaultSource, UsageError};
 
 /// A (user, untrusted, unprivileged) slice.
@@ -229,6 +231,32 @@ where
             )
         }
     }
+
+    /// Converts this into a raw slice, which could be used for raw pointer
+    /// accesses.
+    ///
+    /// If you are implementing a syscall, please have a look at
+    /// `Task::try_read_dma` instead.
+    ///
+    /// # Safety
+    ///
+    /// This operation is totally unchecked, so to use it safely, you must first
+    /// convince yourself of the following.
+    ///
+    /// 1. That the memory region this `USlice` describes is actual memory.
+    /// 2. That this memory is legally readable by whatever task you're doing
+    ///    work on behalf of.
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
+    ///    constraint ensures this statically.)
+    /// 4. That it does not alias any slice you intend to `&mut`-reference with
+    ///    `assume_writable`, or any kernel memory.
+    pub unsafe fn assume_readable_raw(&self) -> Range<*const T> {
+        let p = self.base_address as *const T;
+        // Safety: this is unsafe because the pointer addition might overflow.
+        // It won't though, due to the invariants on this type and the required
+        // preconditions for this function.
+        unsafe { p..p.add(self.length) }
+    }
 }
 
 impl<T> Clone for USlice<T> {
@@ -316,21 +344,60 @@ pub fn safe_copy(
     }
 }
 
-/// Utility routine for getting `&mut` to _two_ elements of a slice, at indexes
-/// `i` and `j`. `i` and `j` must be distinct, or this will panic.
-#[allow(clippy::comparison_chain)]
-fn index2_distinct<T>(
-    elements: &mut [T],
-    i: usize,
-    j: usize,
-) -> (&mut T, &mut T) {
-    if i < j {
-        let (prefix, suffix) = elements.split_at_mut(i + 1);
-        (&mut prefix[i], &mut suffix[j - (i + 1)])
-    } else if j < i {
-        let (prefix, suffix) = elements.split_at_mut(j + 1);
-        (&mut suffix[i - (j + 1)], &mut prefix[j])
+/// Variation on `safe_copy` that is willing to read (but not write) DMA memory.
+///
+/// Otherwise, see `safe_copy` for prerequisites and docs.
+///
+/// Writing DMA could be enabled without obvious safety implications at the time
+/// of this writing, but since we currently don't need it, I've left it
+/// prevented here.
+pub fn safe_copy_dma(
+    tasks: &mut [Task],
+    from_index: usize,
+    from_slice: USlice<u8>,
+    to_index: usize,
+    mut to_slice: USlice<u8>,
+) -> Result<usize, InteractFault> {
+    let copy_len = from_slice.len().min(to_slice.len());
+
+    let (from, to) = index2_distinct(tasks, from_index, to_index);
+
+    let src = from.try_read_dma(&from_slice);
+    // We're going to blame any aliasing on the recipient, who shouldn't have
+    // designated a receive buffer in shared memory. This decision is somewhat
+    // arbitrary.
+    let dst = if from_slice.aliases(&to_slice) {
+        Err(FaultInfo::MemoryAccess {
+            address: Some(to_slice.base_address as u32),
+            source: FaultSource::Kernel,
+        })
     } else {
-        panic!()
+        to.try_write(&mut to_slice)
+    };
+
+    match (src, dst) {
+        (Ok(from), Ok(to)) => {
+            // We are now convinced, after querying the tasks, that these RAM
+            // areas are legit.
+            //
+            // Safety: copy_nonoverlapping is unsafe because it can do arbitrary
+            // memory-to-memory transfers. In this case, we've checked that both
+            // the source and destination addresses are valid, and rounded down
+            // the transfer length to the common prefix, so the copy should be
+            // sound.
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    from.start,
+                    to.as_mut_ptr(),
+                    copy_len,
+                );
+            }
+
+            Ok(copy_len)
+        }
+        (src, dst) => Err(InteractFault {
+            src: src.err(),
+            dst: dst.err(),
+        }),
     }
 }

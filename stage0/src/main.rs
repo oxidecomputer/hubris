@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![feature(cmse_nonsecure_entry)]
 #![feature(naked_functions)]
 #![feature(array_methods)]
 #![no_main]
@@ -61,68 +60,6 @@ pub unsafe extern "C" fn SecureFault() {
 
 const ROM_VER: u32 = 1;
 
-#[cfg(feature = "tz_support")]
-unsafe fn config_platform(image: &Image) {
-    let sau_ctrl: *mut u32 = 0xe000edd0 as *mut u32;
-    let sau_rbar: *mut u32 = 0xe000eddc as *mut u32;
-    let sau_rlar: *mut u32 = 0xe000ede0 as *mut u32;
-    let sau_rnr: *mut u32 = 0xe000edd8 as *mut u32;
-
-    for i in 0..8 {
-        if let Some(r) = image.get_sau_entry(i) {
-            core::ptr::write_volatile(sau_rnr, i as u32);
-            core::ptr::write_volatile(sau_rbar, r.rbar);
-            core::ptr::write_volatile(sau_rlar, r.rlar);
-        }
-    }
-
-    core::ptr::write_volatile(sau_ctrl, 1);
-
-    let mut peripherals = CorePeripherals::steal();
-
-    // let co processor be non-secure
-    core::ptr::write_volatile(0xE000ED8C as *mut u32, 0xc00);
-
-    peripherals
-        .SCB
-        .enable(cortex_m::peripheral::scb::Exception::UsageFault);
-    peripherals
-        .SCB
-        .enable(cortex_m::peripheral::scb::Exception::BusFault);
-
-    peripherals
-        .SCB
-        .enable(cortex_m::peripheral::scb::Exception::SecureFault);
-
-    // Make our exceptions NS
-    core::ptr::write_volatile(0xe000ed0c as *mut u32, 0x05fa2000);
-
-    // Write the NS_VTOR
-    core::ptr::write_volatile(0xE002ED08 as *mut u32, image.get_vectors());
-
-    // Route all interrupts to the NS world
-    // TODO use only the interrupts we've enabled
-    core::ptr::write_volatile(0xe000e380 as *mut u32, 0xffffffff);
-    core::ptr::write_volatile(0xe000e384 as *mut u32, 0xffffffff);
-}
-
-#[cfg(feature = "tz_support")]
-unsafe fn branch_to_image(image: Image) -> ! {
-    // For secure we do not set the thumb bit!
-    let entry_pt = image.get_pc() & !1u32;
-    let stack = image.get_sp();
-
-    // and branch
-    arch::asm!("
-            msr MSP_NS, {stack}
-            bxns {entry}",
-        stack = in(reg) stack,
-        entry = in(reg) entry_pt,
-        options(noreturn),
-    );
-}
-
-#[cfg(not(feature = "tz_support"))]
 unsafe fn config_platform(image: &Image) {
     let mut peripherals = CorePeripherals::steal();
 
@@ -137,7 +74,6 @@ unsafe fn config_platform(image: &Image) {
     core::ptr::write_volatile(0xE000ED08 as *mut u32, image.get_vectors());
 }
 
-#[cfg(not(feature = "tz_support"))]
 unsafe fn branch_to_image(image: Image) -> ! {
     let entry_pt = image.get_pc();
     let stack = image.get_sp();

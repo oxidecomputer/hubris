@@ -72,10 +72,15 @@ pub fn expose_m_profile() {
     }
 }
 
+/// Returns the `HUBRIS_BOARD` envvar, if set.
+pub fn target_board() -> Option<String> {
+    crate::env_var("HUBRIS_BOARD").ok()
+}
+
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
-    if let Ok(board) = crate::env_var("HUBRIS_BOARD") {
+    if let Some(board) = target_board() {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
 }
@@ -130,6 +135,15 @@ pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
 /// encoded as a TOML `Value`
 pub fn task_full_config_toml() -> Result<toml_task::Task<ordered_toml::Value>> {
     task_full_config()
+}
+
+/// Pulls the external regions that the task is using
+pub fn task_extern_regions<T: DeserializeOwned>() -> Result<IndexMap<String, T>>
+{
+    let t = toml_from_env::<IndexMap<String, T>>("HUBRIS_TASK_EXTERN_REGIONS")?
+        .ok_or_else(|| anyhow!("HUBRIS_TASK_EXTERN_REGIONS is not defined"))?;
+
+    Ok(t)
 }
 
 /// Pulls the full task configuration block of a different task

@@ -257,7 +257,6 @@ Message types include:
     to test the RoT's ability to exchange messages without error.
     The `SinkRsp` is just a header, no payload.
     On error, an `ErrorRsp` message is sent.
-  - _Unknown_ - 0xff A reserved, internal representation for an unsupported message type.
 
 ### SP Timeouts
 

@@ -5,6 +5,7 @@ name = "gemini-bu"
 version = "0.1.0"
 
 [features]
+dump = ["kern/dump"]
 
 [dependencies]
 cfg-if = { workspace = true }

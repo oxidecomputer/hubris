@@ -62,14 +62,12 @@ struct RawConfig {
     external_images: Vec<String>,
     #[serde(default)]
     signing: Option<RoTMfgSettings>,
-    secure_separation: Option<bool>,
     stacksize: Option<u32>,
     kernel: Kernel,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
     config: Option<ordered_toml::Value>,
-    secure_task: Option<String>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
 }
@@ -85,7 +83,6 @@ pub struct Config {
     pub image_names: Vec<String>,
     pub external_images: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
-    pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
@@ -96,10 +93,20 @@ pub struct Config {
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
     pub patches: Option<ConfigPatches>,
-    pub secure_task: Option<String>,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
     pub caboose: Option<CabooseConfig>,
+}
+
+impl Config {
+    pub fn archive_name(&self, image_name: &str) -> String {
+        assert!(
+            self.image_names.iter().any(|s| s == image_name),
+            "cannot build archive name for image {image_name:?}: expected one of {:?}",
+            self.image_names,
+        );
+        format!("build-{}-image-{}.zip", self.name, image_name)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -226,7 +233,6 @@ impl Config {
             epoch: toml.epoch,
             version: toml.version,
             signing: toml.signing,
-            secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
             kernel: toml.kernel,
             outputs,
@@ -238,7 +244,6 @@ impl Config {
             buildhash,
             app_toml_path: cfg.to_owned(),
             patches: None,
-            secure_task: toml.secure_task,
             dice_mfg,
             caboose: toml.caboose,
         })
@@ -328,21 +333,6 @@ impl Config {
             }
         }
 
-        // secure_separation indicates that we have TrustZone enabled.
-        // When TrustZone is enabled, the bootloader is secure and hubris is
-        // not secure.
-        // When TrustZone is not enabled, both the bootloader and Hubris are
-        // secure.
-        if let Some(s) = self.secure_separation {
-            if s {
-                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
-            } else {
-                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-            }
-        } else {
-            env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-        }
-
         if let Some(app_config) = &self.config {
             let app_config = toml::to_string(&app_config).unwrap();
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
@@ -422,6 +412,32 @@ impl Config {
         out.env
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
+        //
+        // Expose any external memories that a task is using should the
+        // task wish to generate code around them.
+        //
+        let mut extern_regions = IndexMap::new();
+
+        for name in &task_toml.extern_regions {
+            if let Some(r) = self.outputs.get(name) {
+                let region = (r[0].address, r[0].size);
+
+                if !r.iter().all(|r| (r.address, r.size) == region) {
+                    return Err(format!(
+                        "extern region {name} has inconsistent \
+                        address/size across images: {r:?}"
+                    ));
+                }
+
+                extern_regions.insert(name, region);
+            }
+        }
+
+        out.env.insert(
+            "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
+            toml::to_string(&extern_regions).unwrap(),
+        );
+
         Ok(out)
     }
 
@@ -435,9 +451,15 @@ impl Config {
         self.outputs
             .iter()
             .map(|(name, out)| {
-                let region : Vec<&Output>= out.iter().filter(|o| o.name == *image_name).collect();
+                let region : Vec<&Output>= out.iter().filter(
+                    |o| o.name == *image_name
+                ).collect();
                 if region.len() > 1 {
-                    bail!("Multiple regions defined for image {}", image_name);
+                    bail!("Multiple regions defined for image {image_name}");
+                }
+
+                if region.is_empty() {
+                    bail!("Missing region for {name} in image {image_name}");
                 }
 
                 let r = region[0];
@@ -524,11 +546,6 @@ impl Config {
 
     pub fn check_image_name(&self, name: &String) -> bool {
         self.image_names.contains(name)
-    }
-
-    pub fn need_tz_linker(&self, name: &str) -> bool {
-        self.tasks[name].uses_secure_entry
-            || self.secure_task.as_ref().map_or(false, |n| n == name)
     }
 
     pub fn extern_regions_for(
@@ -654,7 +671,7 @@ pub struct Output {
     pub dma: bool,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Peripheral {
     pub address: u32,
@@ -704,7 +721,6 @@ impl BuildConfig<'_> {
         nightly_features.extend([
             "array_methods",
             "asm_const",
-            "cmse_nonsecure_entry",
             "naked_functions",
             "named-profiles",
         ]);

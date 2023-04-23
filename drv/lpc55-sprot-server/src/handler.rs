@@ -113,7 +113,7 @@ impl Handler {
                 UpdateStatus::Sp => Err((tx_buf, SprotError::UpdateBadStatus)),
             },
             MsgType::IoStatsReq => {
-                tx_buf.serialize(MsgType::IoStatsRsp, *stats)
+                tx_buf.serialize(MsgType::IoStatsRsp, stats.clone())
             }
             MsgType::SprocketsReq => {
                 let tx_payload = tx_buf.payload_mut();
@@ -205,6 +205,27 @@ impl Handler {
                 tx_payload[0..4].copy_from_slice(&rval.to_le_bytes());
                 tx_buf.from_existing(MsgType::DumpRsp, 4)
             }
+            MsgType::UpdSwitchDefaultImageReq => {
+                match hubpack::deserialize::<
+                    drv_sprot_api::SwitchDefaultImageHeader,
+                >(rx_payload)
+                {
+                    Ok((header, _trailing_data)) => {
+                        let rsp: UpdateRspHeader = self
+                            .update
+                            .switch_default_image(header.slot, header.duration)
+                            .map(|_| None)
+                            .map_err(|e| e.into());
+                        tx_buf.serialize(MsgType::UpdSwitchDefaultImageRsp, rsp)
+                    }
+                    Err(e) => Err((tx_buf, e.into())),
+                }
+            }
+            MsgType::UpdResetReq => {
+                let rsp: UpdateRspHeader =
+                    self.update.reset().map(|_| None).map_err(|e| e.into());
+                tx_buf.serialize(MsgType::UpdResetRsp, rsp)
+            }
 
             // All of the unexpected messages
             MsgType::Invalid
@@ -220,7 +241,8 @@ impl Handler {
             | MsgType::UpdFinishImageUpdateRsp
             | MsgType::IoStatsRsp
             | MsgType::DumpRsp
-            | MsgType::Unknown => {
+            | MsgType::UpdSwitchDefaultImageRsp
+            | MsgType::UpdResetRsp => {
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                 return Some(tx_buf.error_rsp(SprotError::BadMessageType));
             }

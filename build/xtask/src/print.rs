@@ -27,8 +27,8 @@ pub fn run(
             .find(|name| name == &&image_name)
             .ok_or(Error::msg(format!("cannot find image {}", image_name)))?;
 
-        let final_path = config
-            .img_file(format!("build-{}.zip", config.toml.name), image_name);
+        let final_path =
+            config.img_file(config.toml.archive_name(image_name), image_name);
 
         println!("{}", final_path.display());
     } else if expanded_config {

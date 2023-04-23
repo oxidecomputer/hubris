@@ -51,9 +51,17 @@ enum Trace {
     Ice40PowerGoodV3P3(bool),
     RailsOff,
     Ident(u16),
-    A1Status(u8),
+    A2Status(u8),
     A2,
-    A1Power(u8, u8),
+    A0Failed(SeqError),
+    A1Status(u8),
+    CPUPresent(bool),
+    Coretype {
+        coretype: bool,
+        sp3r1: bool,
+        sp3r2: bool,
+    },
+    A0Status(u8),
     A0Power(u8),
     NICPowerEnableLow(bool),
     RailsOn,
@@ -84,6 +92,11 @@ enum Trace {
     PowerControl(u8),
     InterruptFlags(u8),
     V3P3SysA0VOut(units::Volts),
+
+    SpdBankAbsent(u8),
+    SpdAbsent(u8, u8, u8),
+    SpdDimmsFound(usize),
+
     None,
 }
 
@@ -118,6 +131,12 @@ fn main() -> ! {
 
     // Set SP3_TO_SP_NIC_PWREN_L to be an input
     sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL);
+
+    // Set all of the presence-related pins to be inputs
+    sys.gpio_configure_input(CORETYPE, CORETYPE_PULL);
+    sys.gpio_configure_input(CPU_PRESENT_L, CPU_PRESENT_L_PULL);
+    sys.gpio_configure_input(SP3R1, SP3R1_PULL);
+    sys.gpio_configure_input(SP3R2, SP3R2_PULL);
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -298,7 +317,7 @@ fn main() -> ! {
         let mut status = [0u8];
 
         seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap();
-        ringbuf_entry!(Trace::A1Status(status[0]));
+        ringbuf_entry!(Trace::A2Status(status[0]));
 
         if status[0] == 0 {
             break;
@@ -337,6 +356,15 @@ fn main() -> ! {
     ringbuf_entry_v3p3_sys_a0_vout();
     ringbuf_entry!(Trace::A2);
 
+    // After declaring A2 but before transitioning to A0 (either automatically
+    // or in response to an IPC), populate packrat with EEPROM contents for use
+    // by the SPD task.
+    //
+    // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
+    // sending the first SPD command.
+    hl::sleep_for(10);
+    read_spd_data_and_load_packrat(&packrat, I2C.get_task_id());
+
     // Turn on the chassis LED once we reach A2
     sys.gpio_set(CHASSIS_LED);
 
@@ -352,7 +380,9 @@ fn main() -> ! {
 
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
-        server.set_state_internal(PowerState::A0).unwrap();
+        if let Err(err) = server.set_state_internal(PowerState::A0) {
+            ringbuf_entry!(Trace::A0Failed(err));
+        }
     }
 
     //
@@ -372,6 +402,118 @@ fn main() -> ! {
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
+}
+
+fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
+    use drv_gimlet_seq_api::NUM_SPD_BANKS;
+    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
+
+    type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
+
+    cfg_if::cfg_if! {
+        if #[cfg(any(
+            target_board = "gimlet-b",
+            target_board = "gimlet-c",
+            target_board = "gimlet-d",
+        ))] {
+            //
+            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+            //
+            // - ABCD DIMMs are on the mid bus (I2C3, port H)
+            // - EFGH DIMMS are on the rear bus (I2C4, port F)
+            //
+            // It should go without saying that the ordering here is essential
+            // to assure that the SPD data that we return for a DIMM corresponds
+            // to the correct DIMM from the SoC's perspective.
+            //
+            const BANKS: [SpdBank; NUM_SPD_BANKS] = [
+                (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
+                (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
+            ];
+        } else {
+            compile_error!("I2C target unsupported for this board");
+        }
+    }
+
+    let mut npresent = 0;
+    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
+    let mut tmp = [0u8; 256];
+
+    // For each bank, we're going to iterate over each device, reading all 512
+    // bytes of SPD data from each.
+    for nbank in 0..BANKS.len() as u8 {
+        let (controller, port, mux) = BANKS[nbank as usize];
+
+        let addr = spd::Function::PageAddress(spd::Page(0))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        if page.write(&[0]).is_err() {
+            // If our operation fails, we are going to assume that there
+            // are no DIMMs on this bank.
+            ringbuf_entry!(Trace::SpdBankAbsent(nbank));
+            continue;
+        }
+
+        for i in 0..spd::MAX_DEVICES {
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            // Try reading the first byte; if this fails, we will assume
+            // the device isn't present.
+            let first = match spd.read_reg::<u8, u8>(0) {
+                Ok(val) => {
+                    present[usize::from(ndx)] = true;
+                    npresent += 1;
+                    val
+                }
+                Err(_) => {
+                    ringbuf_entry!(Trace::SpdAbsent(nbank, i, ndx));
+                    continue;
+                }
+            };
+
+            // We'll store that byte and then read 255 more.
+            tmp[0] = first;
+
+            spd.read_into(&mut tmp[1..]).unwrap();
+
+            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+        }
+
+        // Now flip over to the top page.
+        let addr = spd::Function::PageAddress(spd::Page(1))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        // We really don't expect this to fail, and if it does, tossing here
+        // seems to be best option:  things are pretty wrong.
+        page.write(&[0]).unwrap();
+
+        // ...and two more reads for each (present) device.
+        for i in 0..spd::MAX_DEVICES {
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            if !present[usize::from(ndx)] {
+                continue;
+            }
+
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+
+            let chunk = 128;
+            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap();
+
+            spd.read_into(&mut tmp[chunk..]).unwrap();
+
+            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
+        }
+    }
+
+    ringbuf_entry!(Trace::SpdDimmsFound(npresent));
 }
 
 struct ServerImpl<S: SpiServer> {
@@ -478,6 +620,8 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         state: PowerState,
     ) -> Result<(), SeqError> {
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+
         ringbuf_entry!(Trace::SetState(self.state, state));
 
         ringbuf_entry_v3p3_sys_a0_vout();
@@ -511,25 +655,77 @@ impl<S: SpiServer> ServerImpl<S> {
                 }
 
                 //
-                // We are going to pass through A1 on the way to A0.
+                // We are going to pass through A1 on the way to A0.  A1 is
+                // more or less an implementation detail of our journey to A0,
+                // but we'll stop there long enough to check our presence and
+                // CPU type:  if we don't have a CPU (or have the wrong type)
+                // we want to fail cleanly rather than have the appearance of
+                // failing to sequence.
                 //
-                let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+                let a1 = Reg::PWR_CTRL::A1PWREN;
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
 
                 loop {
-                    let mut power = [0u8, 0u8];
+                    let mut status = [0u8];
 
-                    //
-                    // We are going to read both the A1SMSTATUS and the
-                    // A0SMSTATUS just so we can record the A1 state machine
-                    // status -- but we only actually care about the A0 state
-                    // machine.
-                    //
-                    const_assert!(Addr::A1SMSTATUS.precedes(Addr::A0SMSTATUS));
-                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
-                    ringbuf_entry!(Trace::A1Power(power[0], power[1]));
+                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if power[1] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
+                    if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                //
+                // Check for CPU presence first, as this is the more likely
+                // failure.
+                //
+                let present = sys.gpio_read(CPU_PRESENT_L) == 0;
+                ringbuf_entry!(Trace::CPUPresent(present));
+
+                if !present {
+                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
+                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
+                    return Err(SeqError::CPUNotPresent);
+                }
+
+                let coretype = sys.gpio_read(CORETYPE) != 0;
+                let sp3r1 = sys.gpio_read(SP3R1) != 0;
+                let sp3r2 = sys.gpio_read(SP3R2) != 0;
+
+                ringbuf_entry!(Trace::Coretype {
+                    coretype,
+                    sp3r1,
+                    sp3r2
+                });
+
+                //
+                // Check that we have the type of CPU we expect:  we expect
+                // CORETYPE to be high (not connected on Family 19h), SP3R1 to
+                // be high (not connected on Type-0/Type-1/Type-2), and SP3R2
+                // to be low (VSS on Type-0/Type-1/Type-2).
+                //
+                if !coretype || !sp3r1 || sp3r2 {
+                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
+                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
+                    return Err(SeqError::UnrecognizedCPU);
+                }
+
+                //
+                // Onward to A0!
+                //
+                let a0 = Reg::PWR_CTRL::A0A_EN;
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap();
+
+                loop {
+                    let mut status = [0u8];
+
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A0Status(status[0]));
+
+                    if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
                     }
 
@@ -546,12 +742,12 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Now wait for the end of Group C.
                 //
                 loop {
-                    let mut power = [0u8];
+                    let mut status = [0u8];
 
-                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
-                    ringbuf_entry!(Trace::A0Power(power[0]));
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    ringbuf_entry!(Trace::A0Power(status[0]));
 
-                    if power[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
                         break;
                     }
 
@@ -877,6 +1073,18 @@ cfg_if::cfg_if! {
         // Externally pulled to V3P3_SYS_A0
         const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
 
+        // Pins related to core type and presence
+        const CORETYPE: sys_api::PinSet = sys_api::Port::I.pin(5);
+        const CPU_PRESENT_L: sys_api::PinSet = sys_api::Port::C.pin(13);
+        const SP3R1: sys_api::PinSet = sys_api::Port::I.pin(4);
+        const SP3R2: sys_api::PinSet = sys_api::Port::H.pin(13);
+
+        // All of these are externally pulled to V3P3_SP3_VDD_33_S5_A1
+        const CORETYPE_PULL: sys_api::Pull = sys_api::Pull::None;
+        const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
+        const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
+        const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
+
         fn vcore_soc_off() {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
@@ -934,7 +1142,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::{PowerState, SeqError};
+    use super::SeqError;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

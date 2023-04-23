@@ -38,8 +38,6 @@ pub enum UpdateTarget {
     ImageA = 2,
     ImageB = 3,
     Bootloader = 4,
-    // For testing
-    DevNull = 0xff,
 }
 
 #[derive(
@@ -54,45 +52,91 @@ pub enum UpdateStatus {
 
 // These values are used as raw integers in the `State::Failed(UpdateError)`
 // variant.  To preserve compatibility, DO NOT REORDER THEM.
+// N.B These varients must be kept in order to maintain compatibility between
+// skewed versions of SP and RoT during updates.
 #[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,
-    UpdateInProgress = 2,
-    OutOfBounds = 3,
-    Timeout = 4,
+    UpdateInProgress,
+    OutOfBounds,
+    Timeout,
     // Specific to STM32H7
-    EccDoubleErr = 5,
-    EccSingleErr = 6,
-    SecureErr = 7,   // If we get this something has gone very wrong
-    ReadProtErr = 8, // If we get this something has gone very wrong
-    WriteEraseErr = 9,
-    InconsistencyErr = 10,
-    StrobeErr = 11,
-    ProgSeqErr = 12,
-    WriteProtErr = 13,
-    BadImageType = 14,
-    UpdateAlreadyFinished = 15,
-    UpdateNotStarted = 16,
-    RunningImage = 17,
-    FlashError = 18,
-    MissingHeaderBlock = 19,
-    InvalidHeaderBlock = 20,
+    EccDoubleErr,
+    EccSingleErr,
+    SecureErr,   // If we get this something has gone very wrong
+    ReadProtErr, // If we get this something has gone very wrong
+    WriteEraseErr,
+    InconsistencyErr,
+    StrobeErr,
+    ProgSeqErr,
+    WriteProtErr,
+    BadImageType,
+    UpdateAlreadyFinished,
+    UpdateNotStarted,
+    RunningImage,
+    FlashError,
+    MissingHeaderBlock,
+    InvalidHeaderBlock,
     // Specific to RoT (LPC55)
-    SpRotError = 21,
+    SpRotError,
 
     // Caboose checks
-    ImageBoardMismatch = 23,
-    ImageBoardUnknown = 24,
+    ImageBoardMismatch,
+    ImageBoardUnknown,
 
     #[idol(server_death)]
-    ServerRestarted = 22,
+    ServerRestarted,
 
-    Unknown = 0xff,
+    // During update when there may be version skew, the RoT may produce an
+    // error that the SP doesn't know.
+    Unknown,
+    NotImplemented,
 }
 
 impl hubpack::SerializedSize for UpdateError {
     const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
+}
+
+/// When booting into an alternate image, specifies how "sticky" that decision
+/// is.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum SwitchDuration {
+    /// Choice applies once. Resetting the processor will return to the original
+    /// image. Useful when provisionally testing an update, but only available
+    /// on certain implementations.
+    Once,
+    /// Choice is permanent until changed. This is more dangerous, but is also
+    /// universally available.
+    Forever,
+}
+
+/// Designates a firmware image slot in parts that have fixed slots (rather than
+/// bank remapping).
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum SlotId {
+    A,
+    B,
 }
 
 pub mod stm32h7 {

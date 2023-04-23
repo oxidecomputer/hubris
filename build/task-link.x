@@ -15,8 +15,6 @@ SECTIONS
     __etext = .;
   } > FLASH =0xdededede
 
-  INCLUDE trustzone.x
-
   /* ### .rodata */
   .rodata : ALIGN(4)
   {

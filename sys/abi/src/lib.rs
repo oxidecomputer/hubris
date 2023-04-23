@@ -386,6 +386,7 @@ pub enum UsageError {
     NoIrq,
     BadKernelMessage,
     BadReplyFaultReason,
+    NotSupervisor,
 }
 
 /// Origin of a fault.
@@ -471,6 +472,13 @@ impl core::convert::TryFrom<u32> for Sysnum {
     }
 }
 
+/// A region to be dumped from a task
+#[derive(Copy, Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct TaskDumpRegion {
+    pub base: u32,
+    pub size: u32,
+}
+
 /// Representation of kipc numbers
 pub enum Kipcnum {
     ReadTaskStatus = 1,
@@ -479,6 +487,8 @@ pub enum Kipcnum {
     ReadImageId = 4,
     Reset = 5,
     ReadCaboosePos = 6,
+    GetTaskDumpRegion = 7,
+    ReadTaskDumpRegion = 8,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -492,16 +502,11 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
             6 => Ok(Self::ReadCaboosePos),
+            7 => Ok(Self::GetTaskDumpRegion),
+            8 => Ok(Self::ReadTaskDumpRegion),
             _ => Err(()),
         }
     }
-}
-
-#[repr(C)]
-#[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
-pub struct SAUEntry {
-    pub rbar: u32,
-    pub rlar: u32,
 }
 
 pub const HEADER_MAGIC: u32 = 0x1535_6637;
@@ -514,7 +519,7 @@ pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
-    pub sau_entries: [SAUEntry; 8],
+    pub _pad: [u32; 16], // previous location of SAU entries
     pub version: u32,
     pub epoch: u32,
 }

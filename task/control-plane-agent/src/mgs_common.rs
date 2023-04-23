@@ -3,13 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
-use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_sprot_api::SpRot;
+use drv_sprot_api::{SpRot, SprotError};
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
-    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpError, SpPort,
-    SpState,
+    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SlotId, SpComponent,
+    SpError, SpPort, SpState, SwitchDuration,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -22,7 +21,7 @@ task_slot!(PACKRAT, packrat);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
-    reset_requested: bool,
+    reset_component_requested: Option<SpComponent>,
     inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
@@ -31,13 +30,14 @@ pub(crate) struct MgsCommon {
 impl MgsCommon {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
-            reset_requested: false,
+            reset_component_requested: None,
             inventory: Inventory::new(),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
         }
     }
 
+    #[allow(dead_code)] // This function is only used by Gimlet right now
     pub(crate) fn packrat(&self) -> &Packrat {
         &self.packrat
     }
@@ -97,28 +97,6 @@ impl MgsCommon {
         Ok(state)
     }
 
-    pub(crate) fn reset_prepare(&mut self) -> Result<(), SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ResetPrepare));
-        self.reset_requested = true;
-        Ok(())
-    }
-
-    pub(crate) fn reset_trigger(&mut self) -> Result<Infallible, SpError> {
-        // TODO: Add some kind of auth check before performing a reset.
-        // https://github.com/oxidecomputer/hubris/issues/723
-        if !self.reset_requested {
-            return Err(SpError::ResetTriggerWithoutPrepare);
-        }
-
-        let jefe = task_jefe_api::Jefe::from(crate::JEFE.get_task_id());
-        jefe.request_reset();
-
-        // If `request_reset()` returns, something has gone very wrong.
-        panic!()
-    }
-
     #[inline(always)]
     pub(crate) fn inventory(&self) -> &Inventory {
         &self.inventory
@@ -143,14 +121,150 @@ impl MgsCommon {
             CabooseError::NoImageHeader => panic!(),
         })
     }
+
+    /// If the targeted component is the SP_ITSELF, then having reset itself,
+    /// it will not be able to respond to the later reset_trigger message.
+    ///
+    /// So, after getting an ACK for the prepare message, MGS will send and
+    /// retry the reset_trigger message until it gets rejected for lack of
+    /// a corresponding prepare message.
+    ///
+    /// If the targeted component is not the SP_ITSELF, it may still have impact
+    /// on the SP if reset, either now or in a future implementation.
+    /// However, for some components, the SP will be able to send an
+    /// acknowledgement and retrying the trigger message will not be effective.
+    /// The implementation in the control plane should handle both cases.
+    pub(crate) fn reset_component_prepare(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.reset_component_requested = Some(component);
+        Ok(())
+    }
+
+    /// ResetComponent is used in the context of the management plane
+    /// driving a firmware update.
+    ///
+    /// When an update is complete, or perhaps for handling update errors,
+    /// the management plane will need to reset a component or change
+    /// boot image selection policy and reset that component.
+    ///
+    /// The target of the operation is the management plane's SpComponent
+    /// and firmware slot.
+    /// For the RoT, that is SpComponent::ROT and slot 0(ImageA) or 1(ImageB)
+    /// or SpComponent::STATE0 and slot 0.
+    pub(crate) fn reset_component_trigger(
+        &mut self,
+        update: &SpUpdate,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        if self.reset_component_requested != Some(component) {
+            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+        }
+        // If we are not resetting the SP_ITSELF, then we may come back here
+        // to reset something else or to run another prepare/trigger on
+        // the same component.
+        self.reset_component_requested = None;
+
+        // Resetting the SP through reset_component() is
+        // the same as through reset() until transient bank selection is
+        // figured out for the SP.
+        match component {
+            SpComponent::SP_ITSELF => {
+                task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
+                    .request_reset();
+                // If `request_reset()` returns,
+                // something has gone very wrong.
+                panic!();
+            }
+            SpComponent::ROT => {
+                // We're dealing with RoT targets at this point.
+                match update.sprot_task().reset() {
+                    Err(SprotError::RspTimeout) => {
+                        // This is the expected error if the reset was successful.
+                        // It could be that the RoT is out-to-lunch for some other
+                        // reason though.
+                        // Things for upper layers to do:
+                        //   - Check a boot nonce type thing to see if we are in a
+                        //     new session.
+                        //   - Check that the expected image is now running.
+                        //     (Management plane should do that.)
+                        //   - Enable staged updates where we don't automatically
+                        //     reset after writing an image.
+                        ringbuf_entry!(Log::RotReset {
+                            err: SprotError::RspTimeout
+                        });
+                        Ok(())
+                    }
+                    Err(err) => {
+                        // Some other error occurred.
+                        // Update is all-or-nothing at the moment.
+                        // The control plane can try to reset the RoT again or it
+                        // can start the update process all over again.  We should
+                        // be able to make incremental progress if there is some
+                        // bug/condition that is degrading SpRot communications.
+                        ringbuf_entry!(Log::RotReset { err });
+                        Err(SpError::ComponentOperationFailed(err.into()))
+                    }
+                    Ok(()) => {
+                        ringbuf_entry!(Log::ExpectedRspTimeout);
+                        Ok(())
+                    }
+                }
+            }
+            // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
+            // reset strategy. Here we take care of common SP and RoT cases.
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    /// SwitchDefaultImage sets the boot policy for image selection.
+    ///
+    /// SwitchDuration::Once specifies the preferred image on the next reset only.
+    /// SwitchDuration::Forever sets the preferred image for all subsequent
+    /// resets or power-cycles.
+    pub(crate) fn switch_default_image(
+        &mut self,
+        update: &SpUpdate,
+        component: SpComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), SpError> {
+        let slot = match slot {
+            SlotId::A => drv_sprot_api::SlotId::A,
+            SlotId::B => drv_sprot_api::SlotId::B,
+        };
+        let duration = match duration {
+            SwitchDuration::Once => drv_sprot_api::SwitchDuration::Once,
+            SwitchDuration::Forever => drv_sprot_api::SwitchDuration::Forever,
+        };
+        match component {
+            SpComponent::ROT => {
+                match update.sprot_task().switch_default_image(slot, duration) {
+                    Err(err) => {
+                        Err(SpError::ComponentOperationFailed(err.into()))
+                    }
+                    Ok(()) => Ok(()),
+                }
+            }
+            // SpComponent::SP_ITSELF:
+            // update_server for SP needs to decouple finish_update()
+            // from swap_banks() for SwitchDuration::Forever to make sense.
+            // There isn't currently a mechanism implemented for SP that
+            // enables SwitchDuration::Once.
+            //
+            // Other components might also be served someday.
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
 }
 
 // conversion between gateway_messages types and hubris types is quite tedious.
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
     let boot_state = sprot.status().map_err(SprotErrorConvert)?.rot_updates;
     let active = match boot_state.active {
-        drv_update_api::RotSlot::A => RotSlot::A,
-        drv_update_api::RotSlot::B => RotSlot::B,
+        drv_sprot_api::RotSlot::A => RotSlot::A,
+        drv_sprot_api::RotSlot::B => RotSlot::B,
     };
 
     let slot_a = boot_state.a.map(|a| RotImageDetailsConvert(a).into());

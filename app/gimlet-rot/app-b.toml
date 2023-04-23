@@ -21,6 +21,9 @@ features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 
+[tasks.jefe.config.allowed-callers]
+request_reset = ["update_server"]
+
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
@@ -40,13 +43,14 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096, sram3 = 4096}
+max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2048
 start = true
-uses = ["flash_controller"]
-sections = {bootstate = "sram3"}
-notifications = ["flash-irq"]
-interrupts = {"flash_controller.irq" = "flash-irq"}
+sections = {bootstate = "usbsram"}
+uses = ["flash_controller", "hash_crypt"]
+notifications = ["flash-irq", "hashcrypt-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
+task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
@@ -160,3 +164,16 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gimlet-b/dist/default/final.bin"
+
+[signing]
+enable-secure-boot = true
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
+boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
+
+[signing.certs]
+signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+private-key = "../../support/fake_certs/fake_private_key.pem"

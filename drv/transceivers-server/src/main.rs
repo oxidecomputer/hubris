@@ -15,17 +15,16 @@ use drv_sidecar_front_io::{
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
-    ModulesStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
+    ModuleStatus, TransceiversError, NUM_PORTS, PAGE_SIZE_BYTES,
     TRANSCEIVER_TEMPERATURE_SENSORS,
 };
-use hubpack::SerializedSize;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use ringbuf::*;
 use task_sensor_api::{NoData, Sensor, SensorError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
-use transceiver_messages::mgmt::ManagementInterface;
+use transceiver_messages::{mgmt::ManagementInterface, MAX_PACKET_SIZE};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -37,12 +36,6 @@ task_slot!(SEQ, seq);
 task_slot!(NET, net);
 task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
-
-// Both incoming and outgoing messages use the Message type, so we use it to
-// size our Tx / Rx buffers.
-const MAX_UDP_MESSAGE_SIZE: usize =
-    transceiver_messages::message::Message::MAX_SIZE
-        + transceiver_messages::MAX_PAYLOAD_SIZE;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -62,11 +55,13 @@ enum Trace {
     LEDUpdateError(Error),
     ModulePresenceUpdate(u32),
     TransceiversError(TransceiversError),
-    GotInterface(usize, ManagementInterface),
+    GotInterface(u8, ManagementInterface),
+    UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     TemperatureReadError(usize, FpgaError),
     SensorError(usize, SensorError),
     ThermalError(usize, ThermalError),
+    GetInterfaceError(usize, FpgaError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -162,7 +157,10 @@ impl ServerImpl {
         port: LogicalPort,
         reg: u8,
     ) -> Result<Celsius, FpgaError> {
-        self.transceivers.setup_i2c_read(reg, 2, port.as_mask())?;
+        let result = self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
+        if !result.error().is_empty() {
+            return Err(FpgaError::ImplError(port.0));
+        }
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
@@ -195,7 +193,11 @@ impl ServerImpl {
         &mut self,
         port: LogicalPort,
     ) -> Result<ManagementInterface, FpgaError> {
-        self.transceivers.setup_i2c_read(0, 1, port.as_mask())?;
+        let result = self.transceivers.setup_i2c_read(0, 1, port.as_mask());
+        if !result.error().is_empty() {
+            return Err(FpgaError::ImplError(port.0));
+        }
+
         let mut out = [0u8; 2]; // [status, SFF8024Identifier]
 
         // Wait for the I2C transaction to complete
@@ -221,7 +223,40 @@ impl ServerImpl {
         }
     }
 
-    fn update_thermal_loop(&mut self, status: ModulesStatus) {
+    /// Converts from a `ManagementInterface` to a `ThermalModel`
+    ///
+    /// If the management interface is unknown, returns `None` instead
+    ///
+    /// Logs debug information to our ringbuf, tagged with the logical port.
+    fn decode_interface(
+        &mut self,
+        p: LogicalPort,
+        interface: ManagementInterface,
+    ) -> Option<ThermalModel> {
+        match interface {
+            ManagementInterface::Sff8636 | ManagementInterface::Cmis => {
+                ringbuf_entry!(Trace::GotInterface(p.0, interface));
+                // TODO: this is made up
+                Some(ThermalModel {
+                    interface,
+                    model: ThermalProperties {
+                        target_temperature: Celsius(65.0),
+                        critical_temperature: Celsius(70.0),
+                        power_down_temperature: Celsius(80.0),
+                        temperature_slew_deg_per_sec: 0.5,
+                    },
+                })
+            }
+            ManagementInterface::Unknown(..) => {
+                // We won't load Unknown transceivers into the thermal loop;
+                // otherwise, the fans would spin up.
+                ringbuf_entry!(Trace::UnknownInterface(p.0, interface));
+                None
+            }
+        }
+    }
+
+    fn update_thermal_loop(&mut self, status: ModuleStatus) {
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
@@ -234,21 +269,12 @@ impl ServerImpl {
             if operational && self.thermal_models[i].is_none() {
                 match self.get_transceiver_interface(port) {
                     Ok(interface) => {
-                        ringbuf_entry!(Trace::GotInterface(i, interface));
-                        // TODO: this is made up
-                        self.thermal_models[i] = Some(ThermalModel {
-                            interface,
-                            model: ThermalProperties {
-                                target_temperature: Celsius(65.0),
-                                critical_temperature: Celsius(70.0),
-                                power_down_temperature: Celsius(80.0),
-                                temperature_slew_deg_per_sec: 0.5,
-                            },
-                        });
+                        self.thermal_models[i] =
+                            self.decode_interface(port, interface)
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
-                        ringbuf_entry!(Trace::TemperatureReadError(i, e));
+                        ringbuf_entry!(Trace::GetInterfaceError(i, e));
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
@@ -278,9 +304,13 @@ impl ServerImpl {
             };
 
             // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.
-            if let Err(e) = self.thermal_api.update_dynamic_input(i, m.model) {
-                ringbuf_entry!(Trace::ThermalError(i, e));
+            // the thermal task still has it in case of restart.  This will
+            // return a `NotInAutoMode` error if the thermal loop is in manual
+            // mode; this is harmless and will be ignored (instead of cluttering
+            // up the logs).
+            match self.thermal_api.update_dynamic_input(i, m.model) {
+                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
             }
 
             let temperature = match m.interface {
@@ -289,7 +319,9 @@ impl ServerImpl {
                     self.read_sff8636_temperature(port)
                 }
                 ManagementInterface::Unknown(..) => {
-                    // TODO: what should we do here?
+                    // We should never get here, because we only assign
+                    // `self.thermal_models[i]` if the management interface is
+                    // known.
                     continue;
                 }
             };
@@ -320,15 +352,17 @@ impl ServerImpl {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl idl::InOrderTransceiversImpl for ServerImpl {
-    fn get_modules_status(
+    fn get_module_status(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<ModulesStatus, idol_runtime::RequestError<TransceiversError>>
+    ) -> Result<ModuleStatus, idol_runtime::RequestError<TransceiversError>>
     {
-        Ok(self
-            .transceivers
-            .get_modules_status()
-            .map_err(TransceiversError::from)?)
+        let (mod_status, result) = self.transceivers.get_module_status();
+        if result.error().is_empty() {
+            Ok(mod_status)
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_enable_power(
@@ -336,10 +370,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .enable_power(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.enable_power(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_disable_power(
@@ -347,10 +384,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .disable_power(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.disable_power(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_assert_reset(
@@ -358,10 +398,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .assert_reset(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.assert_reset(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_deassert_reset(
@@ -369,10 +412,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .deassert_reset(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.deassert_reset(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_assert_lpmode(
@@ -380,10 +426,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .assert_lpmode(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.assert_lpmode(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn port_deassert_lpmode(
@@ -391,21 +440,27 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .deassert_lpmode(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.deassert_lpmode(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
-    fn port_clear_fault(
+    fn clear_power_fault(
         &mut self,
         _msg: &userlib::RecvMessage,
         logical_port_mask: u32,
     ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.transceivers
-            .port_clear_fault(LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.clear_power_fault(mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn setup_i2c_read(
@@ -418,11 +473,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
-
-        self.transceivers
-            .setup_i2c_read(reg, num_bytes, LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.setup_i2c_read(reg, num_bytes, mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn setup_i2c_write(
@@ -435,11 +492,13 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         if usize::from(num_bytes) > PAGE_SIZE_BYTES {
             return Err(TransceiversError::InvalidNumberOfBytes.into());
         }
-
-        self.transceivers
-            .setup_i2c_write(reg, num_bytes, LogicalPortMask(logical_port_mask))
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let mask = LogicalPortMask(logical_port_mask);
+        let result = self.transceivers.setup_i2c_write(reg, num_bytes, mask);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 
     fn get_i2c_read_buffer(
@@ -482,10 +541,12 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
         data.read_range(0..data.len(), &mut buf[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        self.transceivers
-            .set_i2c_write_buffer(&buf[..data.len()])
-            .map_err(TransceiversError::from)?;
-        Ok(())
+        let result = self.transceivers.set_i2c_write_buffer(&buf[..data.len()]);
+        if result.error().is_empty() {
+            Ok(())
+        } else {
+            Err(RequestError::from(TransceiversError::FpgaError))
+        }
     }
 }
 
@@ -518,10 +579,7 @@ impl NotificationHandler for ServerImpl {
             }
 
             // Query module presence and update LEDs accordingly
-            let status = match self.transceivers.get_modules_status() {
-                Ok(status) => status,
-                Err(_) => ModulesStatus::new_zeroed(),
-            };
+            let (status, _) = self.transceivers.get_module_status();
 
             let modules_present = !status.modprsl;
             if modules_present != self.modules_present {
@@ -614,10 +672,10 @@ fn main() -> ! {
 /// Grabs references to the static descriptor/buffer receive rings. Can only be
 /// called once.
 pub fn claim_statics() -> (
-    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
-    &'static mut [u8; MAX_UDP_MESSAGE_SIZE],
+    &'static mut [u8; MAX_PACKET_SIZE],
+    &'static mut [u8; MAX_PACKET_SIZE],
 ) {
-    const S: usize = MAX_UDP_MESSAGE_SIZE;
+    const S: usize = MAX_PACKET_SIZE;
     mutable_statics::mutable_statics! {
         static mut TX_BUF: [u8; S] = [|| 0u8; _];
         static mut RX_BUF: [u8; S] = [|| 0u8; _];
@@ -626,7 +684,7 @@ pub fn claim_statics() -> (
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::{ModulesStatus, TransceiversError};
+    use super::{ModuleStatus, TransceiversError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

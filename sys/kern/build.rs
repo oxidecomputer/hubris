@@ -18,8 +18,6 @@ fn main() -> Result<()> {
     build_util::expose_m_profile();
 
     let g = process_config()?;
-
-    generate_consts()?;
     generate_statics(&g)?;
 
     Ok(())
@@ -109,7 +107,9 @@ fn process_config() -> Result<Generated> {
             regions.push(
                 region_table
                     .get_index_of(&RegionKey::Shared(name.clone()))
-                    .unwrap(),
+                    .with_context(|| {
+                        format!("task {i} uses unknown device {name}")
+                    })?,
             );
         }
 
@@ -342,48 +342,6 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
             attributes: #atts,
         }
     }
-}
-
-fn generate_consts() -> Result<()> {
-    let out = build_util::out_dir();
-    let consts_path = out.join("consts.rs");
-    let mut const_file =
-        File::create(&consts_path).context("creating consts.rs file")?;
-
-    writeln!(
-        const_file,
-        "// See build.rs for an explanation of this constant"
-    )?;
-
-    // EXC_RETURN is used on ARMv8m to return from an exception. This value
-    // differs between secure and non-secure in two important ways:
-    // bit 6 = S = secure or non-secure stack used
-    // bit 0 = ES = the security domain the exception was taken to
-    // These need to be consistent! The failure mode is a secure fault
-    // otherwise
-    let exc_return_value =
-        if let Ok(secure) = build_util::env_var("HUBRIS_SECURE") {
-            if secure == "0" {
-                0xFFFFFFAC_u32
-            } else {
-                0xFFFFFFED_u32
-            }
-        } else {
-            0xFFFFFFED_u32
-        };
-
-    writeln!(
-        const_file,
-        "{}",
-        quote::quote! {
-            pub const EXC_RETURN_CONST: u32 = #exc_return_value;
-        },
-    )?;
-
-    drop(const_file);
-    call_rustfmt::rustfmt(consts_path)?;
-
-    Ok(())
 }
 
 fn generate_statics(gen: &Generated) -> Result<()> {

@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
-drv-psc-seq-api = { path = "../psc-seq-api" }
-task-jefe-api = { path = "../../task/jefe-api" }
+drv-packrat-vpd-loader.path = "../packrat-vpd-loader"
+drv-psc-seq-api.path = "../psc-seq-api"
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
+task-jefe-api.path = "../../task/jefe-api"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

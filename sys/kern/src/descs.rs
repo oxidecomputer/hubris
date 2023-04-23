@@ -5,6 +5,7 @@
 //! Descriptor types, used to statically define application resources.
 
 use crate::umem::USlice;
+use serde::{Deserialize, Serialize};
 
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
@@ -85,7 +86,7 @@ bitflags::bitflags! {
 /// Note that regions can overlap. This can be useful: for example, you can have
 /// two regions pointing to the same area of the address space, but one
 /// read-only and the other read-write.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
@@ -121,10 +122,19 @@ impl RegionDesc {
 
         (self.base as usize) <= slice.base_addr() && slice.end_addr() <= end
     }
+
+    pub fn dumpable(&self) -> bool {
+        let ratts = self.attributes;
+
+        ratts.contains(RegionAttributes::WRITE)
+            && !ratts.contains(RegionAttributes::DEVICE)
+            && !ratts.contains(RegionAttributes::DMA)
+    }
 }
 
 bitflags::bitflags! {
     #[repr(transparent)]
+    #[derive(Serialize, Deserialize)]
     pub struct RegionAttributes: u32 {
         /// Region can be read by tasks that include it.
         const READ = 1 << 0;

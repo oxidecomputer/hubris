@@ -259,6 +259,15 @@ const INITIAL_PSR: u32 = 1 << 24;
 #[cfg(any(armv7m, armv8m))]
 const INITIAL_FPSCR: u32 = 0;
 
+/// EXC_RETURN is used on ARMv8m to return from an exception. This value
+/// differs between secure and non-secure in two important ways:
+/// bit 6 = S = secure or non-secure stack used
+/// bit 0 = ES = the security domain the exception was taken to
+/// These need to be consistent! The failure mode is a secure fault otherwise.
+/// We currently assume that TrustZone has not been enabled (even on the parts
+/// that support it) (and that bit 6 and bit 0 can always be set).
+const EXC_RETURN_CONST: u32 = 0xFFFFFFED;
+
 // Because debuggers need to know the clock frequency to set the SWO clock
 // scaler that enables ITM, and because ITM is particularly useful when
 // debugging boot failures, this should be set as early in boot as it can
@@ -1716,6 +1725,3 @@ cfg_if::cfg_if! {
 
     }
 }
-
-// Constants that may change depending on configuration
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));

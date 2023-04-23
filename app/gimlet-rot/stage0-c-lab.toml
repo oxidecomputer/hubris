@@ -2,14 +2,13 @@ name = "gimlet-rot-c-lab"
 target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-c"
 chip = "../../chips/lpc55"
-secure-separation = true
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
 [kernel]
 name = "stage0"
 requires = {flash = 0x9000, ram = 16000}
-features = ["tz_support", "dice-self"]
+features = ["dice-self"]
 stacksize = 13000
 
 [tasks.idle]

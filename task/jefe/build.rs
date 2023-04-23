@@ -22,6 +22,7 @@ fn main() -> Result<()> {
     .unwrap();
 
     build_util::expose_m_profile();
+    build_util::expose_target_board();
     build_util::build_notifications()?;
 
     let out_dir = build_util::out_dir();
@@ -56,6 +57,8 @@ fn main() -> Result<()> {
         writeln!(out, "];")?;
     }
 
+    #[cfg(feature = "dump")]
+    output_dump_areas(&mut out)?;
     Ok(())
 }
 
@@ -74,4 +77,70 @@ struct Config {
     /// failure, unless overridden at runtime through Humility.
     #[serde(default)]
     tasks_to_hold: BTreeSet<String>,
+}
+
+#[cfg(feature = "dump")]
+#[derive(Deserialize, Default, Debug)]
+#[serde(rename_all = "kebab-case")]
+struct DumpRegion {
+    pub address: u32,
+    pub size: u32,
+}
+
+///
+/// Output our dump areas, making the assumption that any extern regions in use
+/// by Jefe are in fact alternate RAMs for dump areas.  Because this assumption
+/// is a tad aggressive, we also make sure that those extern regions match
+/// exactly what the dump agent itself is using.
+///
+#[cfg(feature = "dump")]
+fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
+    let dump_regions = build_util::task_extern_regions::<DumpRegion>()?;
+
+    if dump_regions.len() == 0 {
+        anyhow::bail!(
+            "jefe is configured for dumping, but no dump regions have been \
+            specified via extern_regions"
+        )
+    }
+
+    let me = build_util::task_full_config_toml()?;
+    let dump_agent = build_util::other_task_full_config_toml("dump_agent")
+        .context(
+            "jefe is configured for task dumping, but can't find dump_agent",
+        )?;
+
+    if me.extern_regions != dump_agent.extern_regions {
+        anyhow::bail!(
+            "jefe is configured for task dumping, but extern regions for \
+             jefe ({:?}) do not match extern regions for dump agent ({:?})",
+            me.extern_regions,
+            dump_agent.extern_regions
+        );
+    }
+
+    write!(
+        out,
+        "pub(crate) const DUMP_AREAS: [humpty::DumpAreaRegion; {}] = [",
+        dump_regions.len(),
+    )?;
+
+    for (name, region) in &dump_regions {
+        let address = region.address;
+        let length = region.size;
+
+        writeln!(
+            out,
+            r##"
+    // {name} dump area
+    humpty::DumpAreaRegion {{
+        address: {address:#x},
+        length: {length:#x},
+    }},"##
+        )?;
+    }
+
+    writeln!(out, "];")?;
+
+    Ok(())
 }

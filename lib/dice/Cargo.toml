@@ -21,6 +21,7 @@ zeroize = { workspace = true }
 lib-lpc55-usart = { path = "../lpc55-usart/" }
 stage0-handoff = { path = "../stage0-handoff"}
 unwrap-lite = { path = "../unwrap-lite" }
+vcell.workspace = true
 
 [dev-dependencies]
 chrono = { workspace = true }

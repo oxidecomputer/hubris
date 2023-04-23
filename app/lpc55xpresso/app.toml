@@ -3,22 +3,25 @@ target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
 stacksize = 1024
-secure-separation = true
 image-names = ["a", "b"]
-secure-task = "secure"
 
 [kernel]
 name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
+features = ["dump"]
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = ["sram2"]
+
+[tasks.jefe.config.allowed-callers]
+request_reset = ["update_server"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -36,21 +39,16 @@ max-sizes = {flash = 256, ram = 256}
 stacksize = 256
 start = true
 
-[tasks.secure]
-name = "task-secure"
-priority = 6
-max-sizes = {flash = 8192, ram = 512}
-stacksize = 256
-
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
-uses = ["flash_controller"]
-notifications = ["flash-irq"]
-interrupts = {"flash_controller.irq" = "flash-irq"}
+uses = ["flash_controller", "hash_crypt"]
+notifications = ["flash-irq", "hashcrypt-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
+task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
@@ -131,3 +129,26 @@ start = true
 stacksize = 1000
 notifications = ["timer"]
 task-slots = ["user_leds"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+features = ["no-rot"]
+priority = 5
+max-sizes = {flash = 16384, ram = 2048 }
+start = true
+task-slots = ["jefe"]
+stacksize = 1200
+extern-regions = ["sram2"]
+
+[signing]
+enable-secure-boot = true
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
+boot-error-gpio = { port = 1, pin = 1 } # BOOT0_LED
+
+[signing.certs]
+signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
+private-key = "../../support/fake_certs/fake_private_key.pem"

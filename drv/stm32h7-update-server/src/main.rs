@@ -14,7 +14,10 @@ use drv_caboose::{CabooseError, CabooseReader};
 use drv_update_api::stm32h7::{
     BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
-use drv_update_api::{ImageVersion, UpdateError, UpdateStatus, UpdateTarget};
+use drv_update_api::{
+    ImageVersion, SlotId, SwitchDuration, UpdateError, UpdateStatus,
+    UpdateTarget,
+};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -521,6 +524,29 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
         Ok(chunk.len() as u32)
     }
+
+    fn switch_default_image(
+        &mut self,
+        _: &RecvMessage,
+        _slot: SlotId,
+        _duration: SwitchDuration,
+    ) -> Result<(), RequestError<UpdateError>> {
+        // The SP does automatic bank switching upon update, and there is no
+        // need to do anything else at this point.
+        Err(UpdateError::NotImplemented.into())
+    }
+
+    fn reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<UpdateError>> {
+        // There is already an implementation for SP reset.
+        // This is here to satisfy update-api.
+        // It may be desireable to put a check it to
+        // reject the reset request if an update is
+        // in progress.
+        Err(UpdateError::NotImplemented.into())
+    }
 }
 
 #[export_name = "main"]
@@ -541,7 +567,8 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
+        CabooseError, ImageVersion, SlotId, SwitchDuration, UpdateError,
+        UpdateStatus, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -7,7 +7,8 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22980, ram = 6256}
+requires = {flash = 24416, ram = 6256}
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -18,15 +19,16 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
+features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
+extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -304,12 +306,14 @@ stacksize = 800
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 5
-max-sizes = {flash = 8192, ram = 2048 }
+priority = 6
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
-task-slots = ["sprot"]
-stacksize = 1200
-uses = [ "sram2", "sram3", "sram4" ]
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
+extern-regions = [ "sram2", "sram3", "sram4" ]
+notifications = ["socket"]
+features = ["net", "vlan"]
 
 [tasks.idle]
 name = "task-idle"
@@ -333,7 +337,9 @@ controller = 1
 [config.i2c.controllers.ports.B1]
 name = "northeast0"
 description = "Northeast Corridor 0"
-pins = [ { gpio_port = "B", pins = [ 6, 7 ], af = 4 } ]
+scl = { gpio_port = "B", pin = 6 }
+sda = { gpio_port = "B", pin = 7 }
+af = 4
 muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
@@ -343,7 +349,9 @@ muxes = [ { driver = "pca9548", address = 0x70 } ]
 [config.i2c.controllers.ports.B2]
 name = "northeast1"
 description = "Northeast Corridor 1"
-pins = [ { gpio_port = "B", pins = [ 8, 9 ], af = 4 } ]
+scl = { gpio_port = "B", pin = 8 }
+sda = { gpio_port = "B", pin = 9 }
+af = 4
 
 #
 # I2C2: Front I/O
@@ -358,7 +366,9 @@ controller = 2
 [config.i2c.controllers.ports.F]
 name = "front_io"
 description = "Front I/O Board"
-pins = [ { pins = [ 0, 1 ], af = 4 } ]
+scl.pin = 1
+sda.pin = 0
+af = 4
 
 #
 # I2C_FRONT_IO1_SCL
@@ -367,7 +377,9 @@ pins = [ { pins = [ 0, 1 ], af = 4 } ]
 [config.i2c.controllers.ports.H]
 name = "frontgps"
 description = "Front I/O GPS"
-pins = [ { pins = [ 4, 5 ], af = 4 } ]
+scl.pin = 4
+sda.pin = 5
+af = 4
 
 #
 # I2C3: Northwest corridors
@@ -382,15 +394,8 @@ controller = 3
 [config.i2c.controllers.ports.C]
 name = "northwest0"
 description = "Northwest Corridor 0"
-
-[[config.i2c.controllers.ports.C.pins]]
-gpio_port = "A"
-pins = [ 8 ]
-af = 4
-
-[[config.i2c.controllers.ports.C.pins]]
-gpio_port = "C"
-pins = [ 9 ]
+scl = { gpio_port = "A", pin = 8 }
+sda = { gpio_port = "C", pin = 9 }
 af = 4
 
 #
@@ -400,7 +405,9 @@ af = 4
 [config.i2c.controllers.ports.H]
 name = "northwest1"
 description = "Northwest Corridor 1"
-pins = [ { pins = [ 7, 8 ], af = 4 } ]
+scl.pin = 7
+sda.pin = 8
+af = 4
 muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
@@ -416,7 +423,9 @@ controller = 4
 [config.i2c.controllers.ports.F]
 name = "south0"
 description = "South Bend 0"
-pins = [ { pins = [ 14, 15 ], af = 4 } ]
+scl.pin = 14
+sda.pin = 15
+af = 4
 
 #
 # I2C_SOUTH1_SCL
@@ -425,7 +434,9 @@ pins = [ { pins = [ 14, 15 ], af = 4 } ]
 [config.i2c.controllers.ports.H]
 name = "south1"
 description = "South Bend 1"
-pins = [ { pins = [ 11, 12 ], af = 4 } ]
+scl.pin = 11
+sda.pin = 12
+af = 4
 
 #
 # I2C_SOUTH2_SCL
@@ -434,7 +445,9 @@ pins = [ { pins = [ 11, 12 ], af = 4 } ]
 [config.i2c.controllers.ports.D]
 name = "south2"
 description = "South Bend 2"
-pins = [ { pins = [ 12, 13 ], af = 4 } ]
+scl.pin = 12
+sda.pin = 13
+af = 4
 
 [[config.i2c.devices]]
 bus = "northeast0"
@@ -1038,6 +1051,7 @@ cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
 [config.net]
 vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
 kind = "udp"
@@ -1063,14 +1077,21 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
-port = 11111 # TODO do we have a documented port for MGS traffic?
+port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.transceivers]
 kind = "udp"
 owner = {name = "transceivers", notification = "socket"}
-port = 11112 # TODO do we have a documented port for transceiver traffic?
+port = 11112
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
 

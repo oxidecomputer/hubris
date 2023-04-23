@@ -19,6 +19,8 @@ const PHYADDR: u8 = 0x0;
 pub struct BspImpl;
 
 impl crate::bsp_support::Bsp for BspImpl {
+    fn preinit() {}
+
     fn configure_ethernet_pins(sys: &Sys) {
         pins::RmiiPins {
             refclk: Port::A.pin(1),

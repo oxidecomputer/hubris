@@ -35,11 +35,14 @@ pub struct VLanEthernet<'a> {
     mac_rx: Cell<bool>,
 }
 
-impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
-    type RxToken = VLanRxToken<'a>;
-    type TxToken = VLanTxToken<'a>;
+impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
+    type RxToken<'b> = VLanRxToken<'a> where Self: 'b;
+    type TxToken<'b> = VLanTxToken<'a> where Self: 'b;
 
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+    fn receive(
+        &mut self,
+        _timestamp: smoltcp::time::Instant,
+    ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
         if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
             self.mac_rx.set(true);
             Some((
@@ -50,7 +53,10 @@ impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
             None
         }
     }
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
+    fn transmit(
+        &mut self,
+        _timestamp: smoltcp::time::Instant,
+    ) -> Option<Self::TxToken<'a>> {
         if self.eth.can_send() {
             Some(VLanTxToken(self.eth, self.vid))
         } else {
@@ -86,13 +92,9 @@ impl DeviceExt for VLanEthernet<'_> {
 
 pub struct VLanRxToken<'a>(&'a eth::Ethernet, u16);
 impl<'a> smoltcp::phy::RxToken for VLanRxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        f: F,
-    ) -> smoltcp::Result<R>
+    fn consume<R, F>(self, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         self.0.vlan_recv(self.1, f)
     }
@@ -100,14 +102,9 @@ impl<'a> smoltcp::phy::RxToken for VLanRxToken<'a> {
 
 pub struct VLanTxToken<'a>(&'a eth::Ethernet, u16);
 impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        len: usize,
-        f: F,
-    ) -> smoltcp::Result<R>
+    fn consume<R, F>(self, len: usize, f: F) -> R
     where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        F: FnOnce(&mut [u8]) -> R,
     {
         self.0
             .vlan_try_send(len, self.1, f)

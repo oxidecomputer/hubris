@@ -9,6 +9,7 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-gimlet-seq-api = { path = "../gimlet-seq-api" }
+drv-gimlet-state = { path = "../gimlet-state" }
 task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
 

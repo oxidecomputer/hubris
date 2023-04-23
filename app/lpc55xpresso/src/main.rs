@@ -6,7 +6,6 @@
 #![no_main]
 
 use cortex_m_rt::entry;
-use lpc55_pac as device;
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
 // official setting is stored, emulate what the clock driver does instead
@@ -42,21 +41,7 @@ fn get_clock_speed() -> (u32, u8) {
 
 #[entry]
 fn main() -> ! {
-    let (cycles_per_ms, div) = get_clock_speed();
+    let (cycles_per_ms, _div) = get_clock_speed();
 
-    unsafe {
-        //
-        // To allow for SWO (the vector for ITM output), we must explicitly
-        // enable it on pin0_10.
-        //
-        let iocon = &*device::IOCON::ptr();
-        iocon.pio0_10.modify(|_, w| w.func().alt6());
-
-        // SWO is clocked indepdently of the CPU. Match the CPU
-        // settings by setting the divider
-        let syscon = &*device::SYSCON::ptr();
-        syscon.traceclkdiv.modify(|_, w| w.div().bits(div));
-
-        kern::startup::start_kernel(cycles_per_ms * 1_000)
-    }
+    unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }

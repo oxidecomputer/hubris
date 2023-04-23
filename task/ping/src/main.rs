@@ -13,8 +13,12 @@ task_slot!(UART, usart_driver);
 
 #[inline(never)]
 fn nullread() {
+    // This constant should be in a region we can't access to induce a memory
+    // fault. (Note that if TZ is enabled, this will in fact induce a secure
+    // fault, and a different constant will be required.)
+    const BAD_ADDRESS: u32 = 0x0;
+
     unsafe {
-        // This constant is in a region we can't access; memory fault
         (BAD_ADDRESS as *const u8).read_volatile();
     }
 }
@@ -72,5 +76,3 @@ fn uart_send(text: &[u8]) {
 
 #[cfg(not(feature = "uart"))]
 fn uart_send(_: &[u8]) {}
-
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));

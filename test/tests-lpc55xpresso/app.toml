@@ -3,7 +3,6 @@ target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
 stacksize = 2048
-secure-separation = true
 image-names = ["a", "b"]
 
 [kernel]
