@@ -79,12 +79,11 @@ impl Header {
 ///
 /// Enum variant additions
 /// ---------------------------------------------------------------------------
-/// In particular we can always add a new enum variant and be sure that
-/// old code will just return an error if sent that variant and there is no
-/// particular harm. New code will always understand old messages since the
-/// encoding for older variants doesn't change. Enum variant additions, when
-/// added to the bottom of an existing enum, are therefore always forwards and
-/// backwards compatible.
+/// We can always add a new enum variant and be sure that old code will return
+/// an error if sent that variant. There is no harm in this. New code will
+/// always understand old messages since the encoding for older variants
+/// doesn't change. Enum variant additions, when added to the bottom of an
+/// existing enum, are therefore always forwards and backwards compatible.
 ///
 ///
 /// Struct field additions
@@ -95,23 +94,25 @@ impl Header {
 /// still deserialize properly, as long as it is the *last* top-level struct
 /// in the message. This is because the extra fields will be ignored.
 ///
-/// If the struct is not at the top level but embedded in another struct and a
+/// If the struct is not at the top level but embedded in another struct, and a
 /// field is added to the internal struct, old code will improperly deserialize
-/// the data as it will treat the extra field in the internal struct as a
-/// later field in the outer struct not realizing that the size of the inner
-/// struct has changed. This will not be a problem if the inner struct  is always
-/// the last field of the outer struct. In this scenario the deserialization
-/// behavior will be the same as appending a field to the outer struct.
+/// the data. This is because the old code will treat the extra field in the
+/// internal struct as a later field in the outer struct not realizing that
+/// the size of the inner struct has changed. This will not be a problem if the
+/// inner struct is always the last field of the outer struct. In this scenario
+/// the deserialization behavior will be the same as appending a field to the
+/// outer struct.
 ///
 /// Forwards compatibility is always a problem when adding a field to an
 /// existing struct. Newer code expecting the extra field will fail to
 /// deserialize a message from older code lacking that field without special
 /// consideration.
 ///
-/// Lastly, adding a field to a struct for any message that is expected to have
-/// a blob appended to it will not work at all. Old code will think that the blob
-/// starts at the new field, while new code will see a message without an expected
-/// field and think the blob starts later.
+/// Lastly, adding a field to a struct for any message that is expected to
+/// have a blob appended to it will not work at all. Old code will think that
+/// the blob starts at the new field offset, while new code will see a message
+/// without an expected field and think the blob starts at a later offset,
+/// interpreting part of the blob as the expected field.
 ///
 ///
 /// Rules for message evolution
@@ -124,16 +125,17 @@ impl Header {
 /// sprot protocol, we can devise a few rules that will allow us to meet our
 /// goals and not end up in a mess of confusion.
 ///
-/// 1. Any time that `ReqBody` or `RspBody` changes increment the current version.
+/// 1. Any time `ReqBody` or `RspBody` changes increment the current version.
 /// 2. Never remove, or re-order enum variants or fields in messages. Instead
 /// mark them as deprecated in a comment (for now).
 /// 2. If there is a semantic change to a message required, add it as a new
 /// enum variant.
 /// 3. If a message inside an enum variant is a 3rd party type not defined in
 /// this file and it changes, add it as a new enum variant.
-/// 4. Only flat structs defined in this file and at the bottom (leaf) of a message
-/// enum hierarchy can have field additions. The field additions must not change
-/// the semantic meaning of the message. This is really only useful for things like
+/// 4. Only flat structs defined in this file and at the bottom (leaf) of a
+/// message enum hierarchy can have field additions. The field additions must
+/// not change the semantic meaning of the message. This is really only useful
+/// for things like
 /// `IoStats` where new information can be made available over time.
 /// 5. If a struct field addition is made, then custom code must be written in
 /// the newer code to handle messages that do not contain this field. In almost
