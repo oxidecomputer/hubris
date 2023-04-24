@@ -160,8 +160,8 @@ impl Header {
 /// 4. Only flat structs defined in this file and at the bottom (leaf) of a
 /// message enum hierarchy can have field additions. The field additions must
 /// not change the semantic meaning of the message. This is really only useful
-/// for things like
-/// `IoStats` where new information can be made available over time.
+/// for things like `IoStats` where new information can be made available over
+/// time.
 /// 5. If a struct field addition is made, then custom code must be written in
 /// the newer code to handle messages that do not contain this field. In almost
 /// all cases, the new field should be wrapped in an `Option` and set to `None`
@@ -171,7 +171,11 @@ impl Header {
 /// new enum variant must be added in this case.
 /// 7. If the blob of a message changes in type, size, semantics, etc.. a new
 /// message should be added. Use your judgement here.
-///
+/// 8. Any time a new field, enum variant, or struct enclosed in a variant
+/// is added, a comment should be added documenting what version it was added
+/// in. Ideally there would be a procedural macro for this that would let
+/// us generate some validation code and tests for compatibility. For now a
+/// comment will suffice.
 pub struct Msg<'a, T, const N: usize> {
     pub header: Header,
     pub body: T,
