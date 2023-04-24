@@ -6,6 +6,8 @@ version = "0.1.0"
 
 [features]
 dump = ["kern/dump"]
+dice-mfg= ["lpc55-rot-startup/dice-mfg"]
+dice-self = ["lpc55-rot-startup/dice-self"]
 
 [dependencies]
 cortex-m = { workspace = true }

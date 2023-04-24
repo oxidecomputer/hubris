@@ -14,7 +14,7 @@ fn main() -> ! {
     let core_peripherals = cortex_m::Peripherals::take().unwrap_lite();
     let peripherals = lpc55_pac::Peripherals::take().unwrap_lite();
 
-    let (cycles_per_ms, div) = get_clock_speed(&peripherals);
+    let (cycles_per_ms, _div) = get_clock_speed(&peripherals);
 
     startup(&core_peripherals, &peripherals);
 
