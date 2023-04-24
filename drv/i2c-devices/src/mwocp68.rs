@@ -349,6 +349,10 @@ impl Mwocp68 {
 
         Ok(val)
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Mwocp68 {

@@ -12,6 +12,7 @@ num-traits.workspace = true
 paste.workspace = true
 pmbus.workspace = true
 serde.workspace = true
+static_assertions.workspace = true
 zerocopy.workspace = true
 
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
