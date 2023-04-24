@@ -62,8 +62,7 @@ Interface(
         "rendmp_blackbox_dump": (
             doc: "reads the RAM blackbox of a Renesas multiphase power controller to the provided lease",
             args: {
-                "dev": "Device",
-                "index": "u32",
+                "addr": "u8",
             },
             reply: Result(
                 ok: "RenesasBlackbox",

@@ -108,6 +108,10 @@ impl Raa229618 {
             pmbus_rail_write!(self.device, self.rail, VOUT_COMMAND, vout)
         }
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Raa229618 {
