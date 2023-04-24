@@ -229,7 +229,6 @@ impl TryFrom<smoltcp::wire::IpAddress> for Address {
 
         match a {
             IpAddress::Ipv6(a) => Ok(Self::Ipv6(a.into())),
-            _ => Err(AddressUnspecified),
         }
     }
 }

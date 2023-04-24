@@ -484,24 +484,25 @@ pub fn package(
                     signing.certs.private_key
                 )
             })?;
-            let root_certs = signing
+
+            // Certificate paths are relative to the app.toml.  Resolve them
+            // before attempting to read them.
+            let root_cert_abspaths: Vec<PathBuf> = signing
                 .certs
                 .root_certs
                 .iter()
-                .map(|c| {
-                    std::fs::read(cfg.app_src_dir.join(c))
-                        .context(format!("could not read root cert {c:?}",))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            let signing_certs = signing
+                .map(|c| cfg.app_src_dir.join(c))
+                .collect();
+            let root_certs = lpc55_sign::cert::read_certs(&root_cert_abspaths)?;
+
+            let signing_cert_abspaths: Vec<PathBuf> = signing
                 .certs
                 .signing_certs
                 .iter()
-                .map(|c| {
-                    std::fs::read(cfg.app_src_dir.join(c))
-                        .context(format!("could not read signing cert {c:?}",))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|c| cfg.app_src_dir.join(c))
+                .collect();
+            let signing_certs =
+                lpc55_sign::cert::read_certs(&signing_cert_abspaths)?;
 
             archive.sign(
                 signing_certs,
@@ -529,6 +530,7 @@ pub fn package(
             archive.set_cfpa(
                 signing.cfpa_settings,
                 [signing.rotk0, signing.rotk1, signing.rotk2, signing.rotk3],
+                0,
             )?;
             archive.overwrite()?;
         }

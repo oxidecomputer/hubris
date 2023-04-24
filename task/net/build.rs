@@ -36,7 +36,7 @@ fn generate_net_config(config: &NetConfig) -> Result<()> {
         "{}",
         quote::quote! {
             use core::sync::atomic::{AtomicBool, Ordering};
-            use smoltcp::socket::{UdpPacketMetadata, UdpSocket, UdpSocketBuffer};
+            use smoltcp::socket::udp;
 
             pub const SOCKET_COUNT: usize = #socket_count;
         }
@@ -149,8 +149,8 @@ fn generate_buffers(
     let bufname: syn::Ident =
         syn::parse_str(&format!("SOCK_{}_DAT_{}", dir, upname)).unwrap();
     quote::quote! {
-        static mut #hdrname: [[UdpPacketMetadata; #pktcnt]; #vlan_count] = [
-            [UdpPacketMetadata::EMPTY; #pktcnt]; #vlan_count
+        static mut #hdrname: [[udp::PacketMetadata; #pktcnt]; #vlan_count] = [
+            [udp::PacketMetadata::EMPTY; #pktcnt]; #vlan_count
         ];
         static mut #bufname: [[u8; #bytecnt]; #vlan_count] = [[0u8; #bytecnt]; #vlan_count];
     }
@@ -159,7 +159,7 @@ fn generate_buffers(
 fn generate_state_struct(config: &NetConfig) -> TokenStream {
     let n = config.sockets.len();
     quote::quote! {
-        pub(crate) struct Sockets<'a, const N: usize>(pub [[UdpSocket<'a>; #n]; N]);
+        pub(crate) struct Sockets<'a, const N: usize>(pub [[udp::Socket<'a>; #n]; N]);
     }
 }
 
@@ -176,12 +176,12 @@ fn generate_constructor(config: &NetConfig) -> Result<TokenStream> {
             syn::parse_str(&format!("SOCK_TX_DAT_{}", upname)).unwrap();
 
         quote::quote! {
-            UdpSocket::new(
-                UdpSocketBuffer::new(
+            udp::Socket::new(
+                udp::PacketBuffer::new(
                     unsafe { &mut #rxhdrs[#i][..] },
                     unsafe { &mut #rxbytes[#i][..] },
                 ),
-                UdpSocketBuffer::new(
+                udp::PacketBuffer::new(
                     unsafe { &mut #txhdrs[#i][..] },
                     unsafe { &mut #txbytes[#i][..] },
                 ),
