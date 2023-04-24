@@ -152,9 +152,10 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
         out,
         r##"
 ///
-/// Function to determine if an address/length pair is contained within a
-/// dump area, short-circuiting in the common case that it isn't.  (Note that
-/// this will only check for containment, not overlap.)
+/// Function to determine if an address/length pair is contained within a dump
+/// area, short-circuiting in the common case that it isn't.  (The desire for
+/// the short-circuit is why this function is generated at build time.)  Note
+/// that this will only check for containment, not overlap.
 ///
 pub(crate) fn in_dump_area(address: u32, length: u32) -> bool {{
     if address < {min:#x} || address >= {max:#x} {{
