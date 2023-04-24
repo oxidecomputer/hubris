@@ -297,7 +297,7 @@ pub struct Version(pub u32);
 pub enum ReqBody {
     Status,
     IoStats,
-    RotBootInfo,
+    RotState,
     Update(UpdateReq),
     Sprockets(SprocketsReq),
     Dump(DumpReq),
@@ -351,7 +351,7 @@ pub enum RspBody {
     // We fill in the `SpIoStats` and return `IoStats` for the Idol
     // interface in the stm32h7-sprot-server
     IoStats(RotIoStats),
-    RotBootInfo(RotBootInfo),
+    RotState(RotState),
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
 }
@@ -396,9 +396,9 @@ pub struct SpStatus {
 
 /// RoT boot info
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
-pub enum RotBootInfo {
-    // We expect to evolve this in short order to include caboose info and boot
-    // selection for the new stage0.
+pub enum RotState {
+    // We expect to evolve this in short order to include caboose info, boot
+    // selection for the new stage0, cfpa, etc...
     V1 {
         state: RotBootState,
 

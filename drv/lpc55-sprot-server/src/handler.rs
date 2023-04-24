@@ -5,7 +5,7 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    DumpReq, ReqBody, Request, Response, RotBootInfo, RotIoStats, RotStatus,
+    DumpReq, ReqBody, Request, Response, RotIoStats, RotState, RotStatus,
     RspBody, SprocketsError, SprotError, SprotProtocolError, UpdateReq,
     UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
     RESPONSE_BUF_SIZE,
@@ -98,13 +98,13 @@ impl Handler {
                 Ok(RspBody::Status(status))
             }
             ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
-            ReqBody::RotBootInfo => match self.update.status() {
+            ReqBody::RotState => match self.update.status() {
                 UpdateStatus::Rot(state) => {
-                    let msg = RotBootInfo::V1 {
+                    let msg = RotState::V1 {
                         bootrom_crc32: self.startup_state.bootrom_crc32,
                         state,
                     };
-                    Ok(RspBody::RotBootInfo(msg))
+                    Ok(RspBody::RotState(msg))
                 }
                 _ => {
                     stats.rx_invalid = stats.rx_invalid.wrapping_add(1);

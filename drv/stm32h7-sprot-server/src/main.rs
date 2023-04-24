@@ -524,17 +524,17 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     }
 
     /// Return boot info about the RoT
-    fn rot_boot_info(
+    fn rot_state(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<RotBootInfo, RequestError<SprotError>> {
-        let tx_size = Request::pack(&ReqBody::RotBootInfo, &mut self.tx_buf);
+    ) -> Result<RotState, RequestError<SprotError>> {
+        let tx_size = Request::pack(&ReqBody::RotState, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::RotBootInfo(info) = rsp.body? {
+        if let RspBody::RotState(info) = rsp.body? {
             Ok(info)
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
@@ -697,8 +697,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 mod idl {
     use super::{
-        PulseStatus, RotBootInfo, SlotId, SprotError, SprotIoStats,
-        SprotStatus, SwitchDuration, UpdateTarget,
+        PulseStatus, RotState, SlotId, SprotError, SprotIoStats, SprotStatus,
+        SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

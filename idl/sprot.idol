@@ -21,10 +21,10 @@ Interface(
             encoding: Hubpack, 
             idempotent: true,
         ),
-        "rot_boot_info": (
+        "rot_state": (
             doc: "Return boot info about the RoT",
             reply: Result(
-                ok: "RotBootInfo",
+                ok: "RotState",
                 err: Complex("SprotError"),
             ),
             encoding: Hubpack,
