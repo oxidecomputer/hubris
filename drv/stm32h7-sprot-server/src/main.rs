@@ -678,13 +678,13 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
-    /// Trigger a dump
+    /// Trigger a dump of the SP by the RoT
     fn dump(
         &mut self,
         _: &userlib::RecvMessage,
         addr: u32,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
-        let body = ReqBody::Dump { addr };
+        let body = ReqBody::Dump(DumpReq::V1 { addr });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
         if let RspBody::Ok = rsp.body? {

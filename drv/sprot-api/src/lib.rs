@@ -300,7 +300,15 @@ pub enum ReqBody {
     RotBootInfo,
     Update(UpdateReq),
     Sprockets(SprocketsReq),
-    Dump { addr: u32 },
+    Dump(DumpReq),
+}
+
+/// Instruct the RoT to take a dump of the SP via SWD
+//
+// Separate this into its own enum to allow better extensibility
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum DumpReq {
+    V1 { addr: u32 },
 }
 
 /// A request used for RoT updates
@@ -346,7 +354,6 @@ pub enum RspBody {
     RotBootInfo(RotBootInfo),
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
-    DumpRsp { err: Option<u32> },
 }
 
 /// The successful result of pulsing the active low chip-select line

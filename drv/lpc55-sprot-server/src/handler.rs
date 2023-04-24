@@ -5,9 +5,10 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    ReqBody, Request, Response, RotBootInfo, RotIoStats, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
-    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    DumpReq, ReqBody, Request, Response, RotBootInfo, RotIoStats, RotStatus,
+    RspBody, SprocketsError, SprotError, SprotProtocolError, UpdateReq,
+    UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
+    RESPONSE_BUF_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus};
 use dumper_api::Dumper;
@@ -28,7 +29,6 @@ pub struct StartupState {
     /// CRC32 of the LPC55 boot ROM contents.
     /// The LPC55 does not have machine readable version information for
     /// its boot ROM contents and there are known issues with old boot ROMs.
-    /// TODO: This should live in the stage0 handoff info
     pub bootrom_crc32: u32,
 
     /// Maxiumum request size that the RoT can handle.
@@ -118,7 +118,7 @@ impl Handler {
                     .handle_deserialized(req)
                     .map_err(|_| SprocketsError::BadEncoding)?,
             )),
-            ReqBody::Dump { addr } => {
+            ReqBody::Dump(DumpReq::V1 { addr }) => {
                 ringbuf_entry!(Trace::Dump(addr));
                 let dumper = Dumper::from(DUMPER.get_task_id());
                 dumper.dump(addr).map_err(SprotError::Dump)?;
