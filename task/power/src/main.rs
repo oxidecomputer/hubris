@@ -18,9 +18,8 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
-use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
-use task_power_api::{Bmr491Event, PmbusValue};
+use task_power_api::{Bmr491Event, PmbusValue, RenesasBlackbox};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -378,7 +377,6 @@ fn main() -> ! {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
-        blackbox_buf: claim_blackbox(),
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -395,7 +393,6 @@ struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG.len()],
-    blackbox_buf: &'static mut [u32],
 }
 
 impl ServerImpl {
@@ -627,8 +624,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         req_dev: task_power_api::Device,
         req_index: u32,
-        out: idol_runtime::Leased<idol_runtime::W, [u32]>,
-    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+    ) -> Result<RenesasBlackbox, idol_runtime::RequestError<ResponseCode>> {
         use task_power_api::Device;
 
         if !bsp::HAS_RENDMP_BLACKBOX {
@@ -683,12 +679,15 @@ impl idl::InOrderPowerImpl for ServerImpl {
         //
         // We extract those differences here, then use a single codepath for
         // both generations of parts.
-        let (addr_reg, expected_id, size) = match req_dev {
-            Device::Raa229618 => (0xC7, 0x2000001, RENDMP_BLACKBOX_SIZE_GEN2P5),
-            Device::Isl68224 => (0xC5, 0x2000004, RENDMP_BLACKBOX_SIZE_GEN2),
+        let (mut out, expected_id) = match req_dev {
+            Device::Raa229618 => {
+                (RenesasBlackbox::Gen2p5([0u32; 44]), 0x2000001)
+            }
+            Device::Isl68224 => (RenesasBlackbox::Gen2([0u32; 38]), 0x2000004),
             // Checked above by the `matches!` statement
             _ => unreachable!(),
         };
+        let addr_reg = out.addr_reg();
 
         // Step 1 - Verify Part Revision
         let mut id = 0u32;
@@ -721,18 +720,16 @@ impl idl::InOrderPowerImpl for ServerImpl {
         dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
 
         // Step 3b - Read Black Box Data
-        for i in 0..size {
+        let buf = match &mut out {
+            RenesasBlackbox::Gen2(buf) => buf.as_mut_slice(),
+            RenesasBlackbox::Gen2p5(buf) => buf.as_mut_slice(),
+        };
+        for b in buf {
             let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
-            self.blackbox_buf[i] = r;
+            *b = r.swap_bytes();
         }
 
-        if out.len() < size {
-            return Err(RequestError::Fail(ClientError::BadLease));
-        }
-        out.write_range(0..size, &self.blackbox_buf[0..size])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-
-        Ok(())
+        Ok(out)
     }
 }
 
@@ -749,23 +746,6 @@ fn claim_devices(
     );
     dev
 }
-
-fn claim_blackbox() -> &'static mut [u32; RENDMP_BLACKBOX_BUF_SIZE] {
-    let dev = mutable_statics::mutable_statics!(
-        static mut RENDMP_BLACKBOX_BUF: [u32; RENDMP_BLACKBOX_BUF_SIZE] =
-            [|| 0; _];
-    );
-    dev
-}
-
-const RENDMP_BLACKBOX_SIZE_GEN2: usize = 38;
-const RENDMP_BLACKBOX_SIZE_GEN2P5: usize = 44;
-const RENDMP_BLACKBOX_BUF_SIZE: usize =
-    if RENDMP_BLACKBOX_SIZE_GEN2P5 > RENDMP_BLACKBOX_SIZE_GEN2 {
-        RENDMP_BLACKBOX_SIZE_GEN2P5
-    } else {
-        RENDMP_BLACKBOX_SIZE_GEN2
-    };
 
 mod idl {
     use task_power_api::*;

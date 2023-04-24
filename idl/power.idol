@@ -66,12 +66,9 @@ Interface(
                 "index": "u32",
             },
             reply: Result(
-                ok: "()",
+                ok: "RenesasBlackbox",
                 err: CLike("ResponseCode"),
             ),
-            leases: {
-                "out": (type: "[u32]", write: true),
-            },
             idempotent: true,
             encoding: Hubpack,
         ),

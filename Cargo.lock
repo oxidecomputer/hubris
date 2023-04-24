@@ -4226,6 +4226,7 @@ dependencies = [
  "num-traits",
  "pmbus",
  "serde",
+ "serde-big-array 0.4.1",
  "static_assertions",
  "userlib",
  "zerocopy",
