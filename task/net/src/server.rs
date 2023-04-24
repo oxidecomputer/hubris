@@ -277,11 +277,13 @@ where
     device: E,
 
     /// If calls to `net_send_packet` consistently return `QueueFull`, this is
-    /// the time at which the _first_ error was returned.  It is cleared when a
-    /// call to `net_send_packet` succeeds.
+    /// a tuple containing
+    ///     (time of first QueueFull, time of most recent QueueFull)
+    ///
+    /// It is cleared when a call to `net_send_packet` succeeds.
     ///
     /// Used as a watchdog to detect stuck queues
-    first_queue_full: [Option<u64>; SOCKET_COUNT],
+    queue_full_time: [Option<(u64, u64)>; SOCKET_COUNT],
 }
 
 impl<E: DeviceExt> VLanState<E> {
@@ -303,23 +305,21 @@ impl<E: DeviceExt> VLanState<E> {
         )
     }
 
-    pub(crate) fn check_socket_watchdog(&mut self, t: u64) -> bool {
+    pub(crate) fn check_socket_watchdog(&mut self) -> bool {
         const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
         let mut changed = false;
         for socket_index in 0..SOCKET_COUNT {
-            if let Some(prev_time) = self.first_queue_full[socket_index] {
-                if t >= prev_time + SOCKET_QUEUE_FULL_TIMEOUT_MS {
+            if let Some((first, last)) = self.queue_full_time[socket_index] {
+                if last >= first + SOCKET_QUEUE_FULL_TIMEOUT_MS {
+                    // Reset the queue by closing + reopening it.  This
+                    // will lose packets in the RX queue as well;
+                    // they're collateral damage because `smoltcp`
+                    // doesn't expose a way to flush just the TX side.
                     let s = self.get_socket_mut(socket_index).unwrap_lite();
-                    if !s.can_send() {
-                        // Reset the queue by closing + reopening it.  This
-                        // will lose packets in the RX queue as well;
-                        // they're collateral damage because `smoltcp`
-                        // doesn't expose a way to flush just the TX side.
-                        let e = s.endpoint();
-                        s.close();
-                        s.bind(e).unwrap();
-                        changed = true;
-                    }
+                    let e = s.endpoint();
+                    s.close();
+                    s.bind(e).unwrap_lite();
+                    changed = true;
                 }
             }
         }
@@ -383,7 +383,7 @@ where
                     iface,
                     device,
                     socket_set,
-                    first_queue_full: [None; SOCKET_COUNT],
+                    queue_full_time: [None; SOCKET_COUNT],
                 })
                 .unwrap_lite();
 
@@ -442,7 +442,7 @@ where
             );
             // Test and clear our receive activity flag.
             mac_rx |= vlan.device.read_and_clear_activity_flag();
-            ip |= vlan.check_socket_watchdog(t);
+            ip |= vlan.check_socket_watchdog();
         }
 
         crate::Activity { ip, mac_rx }
@@ -590,16 +590,16 @@ where
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
                 self.client_waiting_to_send[socket_index] = false;
-                vlan.first_queue_full[socket_index] = None;
+                vlan.queue_full_time[socket_index] = None;
                 Ok(())
             }
             Err(udp::SendError::BufferFull) => {
-                // Record the QueueFull error if this is the first time we've
-                // seen it since a successful transmission.
-                if vlan.first_queue_full[socket_index].is_none() {
-                    let now = userlib::sys_get_timer().now;
-                    vlan.first_queue_full[socket_index] = Some(now);
-                }
+                // Record the QueueFull error, adjusting the later timestamp in
+                // the tuple to be our current time.
+                let now = userlib::sys_get_timer().now;
+                vlan.queue_full_time[socket_index]
+                    .get_or_insert((now, now))
+                    .1 = now;
                 self.client_waiting_to_send[socket_index] = true;
                 Err(SendError::QueueFull.into())
             }
