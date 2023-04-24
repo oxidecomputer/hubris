@@ -59,5 +59,18 @@ Interface(
             ),
             idempotent: true,
         ),
+        "rendmp_blackbox_dump": (
+            doc: "reads the RAM blackbox of a Renesas multiphase power controller to the provided lease",
+            args: {
+                "dev": "Device",
+                "index": "u32",
+            },
+            reply: Result(
+                ok: "RenesasBlackbox",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
     },
 )
