@@ -36,7 +36,11 @@ impl From<SprotError> for SpError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
-            SprotError::Dump(e) => Self::Dump(e.into()),
+
+            // MGS should not dump via sprot, but via dump-agent directly
+            // using its UDP protocol. It is a programmer error if
+            // control-plane-agent performs this translation, so we panic.
+            SprotError::Dump(_) => panic!(),
         }
     }
 }
@@ -48,7 +52,11 @@ impl From<SprotError> for RotError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
-            SprotError::Dump(e) => Self::Dump(e.into()),
+
+            // MGS should not dump via sprot, but via dump-agent directly
+            // using its UDP protocol. It is a programmer error if
+            // control-plane-agent performs this translation, so we panic.
+            SprotError::Dump(_) => panic!(),
         }
     }
 }

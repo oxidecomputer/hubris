@@ -1930,7 +1930,6 @@ name = "dumper-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "gateway-messages",
  "hubpack",
  "humpty",
  "idol",
@@ -2079,7 +2078,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#47737d5a9b239656c0cd22d48d43b513d20f874d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#a8638b2a54b697f55a69032629049a6ea291a698"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",

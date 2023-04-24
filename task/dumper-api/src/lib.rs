@@ -7,11 +7,18 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use gateway_messages::DumperError as GwDumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
+///
+/// These constitute an interface between the RoT and the SP in that the
+/// error codes are interpreted by the dump agent and turned into dump agent
+/// failures.  Ultimately, these error conditions are merely informative,
+/// but it is important that a particular error condition not be falsely
+/// reported; error conditions can be added to or eliminated from this enum,
+/// but the values for extant conditions should not be altered.
+///
 #[derive(
     Copy,
     Clone,
@@ -24,19 +31,6 @@ use userlib::*;
     Deserialize,
     SerializedSize,
 )]
-
-///
-/// These constitute an interface between the RoT and the SP in that the
-/// error codes are interpreted by the dump agent and turned into dump agent
-/// failures.  
-///
-/// These errors are also serialized and passed up to MGS, and as such they
-/// should not be re-ordered. New errors may be added to the end, but if they
-/// are they should be added to the `From<DumperError> for GwDumperError` below
-/// as `GwDumper::Unknown` variants. `gateway-messages` should also be updated
-/// to include the new variant so that in a second round of updates the from
-/// can be changed to make the variant "known" again.
-///
 pub enum DumperError {
     SetupFailed = 1,
     UnalignedAddress = 2,
@@ -51,28 +45,7 @@ pub enum DumperError {
     RegisterReadFailed = 11,
 
     #[idol(server_death)]
-    TaskRestarted,
-}
-
-impl From<DumperError> for GwDumperError {
-    fn from(value: DumperError) -> Self {
-        match value {
-            DumperError::SetupFailed => Self::SetupFailed,
-            DumperError::UnalignedAddress => Self::UnalignedAddress,
-            DumperError::StartReadFailed => Self::StartReadFailed,
-            DumperError::ReadFailed => Self::ReadFailed,
-            DumperError::BadDumpAreaHeader => Self::BadDumpAreaHeader,
-            DumperError::WriteFailed => Self::WriteFailed,
-            DumperError::HeaderReadFailed => Self::HeaderReadFailed,
-            DumperError::FailedToHalt => Self::FailedToHalt,
-            DumperError::FailedToResume => Self::FailedToResume,
-            DumperError::FailedToResumeAfterFailure => {
-                Self::FailedToResumeAfterFailure
-            }
-            DumperError::RegisterReadFailed => Self::RegisterReadFailed,
-            DumperError::TaskRestarted => Self::TaskRestarted,
-        }
-    }
+    ServerRestarted,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
