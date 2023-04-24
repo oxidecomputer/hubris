@@ -77,6 +77,10 @@ impl Bmr491 {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Bmr491 {

@@ -9,6 +9,7 @@
 pub use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use userlib::sys_send;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -16,6 +17,8 @@ use zerocopy::{AsBytes, FromBytes};
 pub enum Device {
     PowerShelf,
     Bmr491,
+    Isl68224,
+    Raa229618,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]
@@ -145,5 +148,22 @@ impl From<pmbus::units::Percent> for PmbusValue {
 )]
 #[repr(C)]
 pub struct Bmr491Event([u8; 24]);
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, SerializedSize)]
+pub enum RenesasBlackbox {
+    #[serde(with = "BigArray")]
+    Gen2([u32; 38]),
+    #[serde(with = "BigArray")]
+    Gen2p5([u32; 44]),
+}
+
+impl RenesasBlackbox {
+    pub fn addr_reg(&self) -> u8 {
+        match self {
+            RenesasBlackbox::Gen2p5(..) => 0xC7,
+            RenesasBlackbox::Gen2(..) => 0xC5,
+        }
+    }
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
