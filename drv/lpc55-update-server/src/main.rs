@@ -679,9 +679,7 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
-    use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
-    };
+    use super::{CabooseError, ImageVersion, UpdateTarget};
     use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

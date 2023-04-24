@@ -207,4 +207,7 @@ pub mod lpc55 {
     pub const BLOCK_SIZE_BYTES: usize = 512;
 }
 
+// Allow our Idol definition to fully specify API structures
+use crate as drv_update_api;
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
