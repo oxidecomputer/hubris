@@ -4,7 +4,7 @@
 
 //! Dump support for Jefe
 
-use crate::generated::in_dump_area;
+use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
 use humpty::{DumpArea, DumpContents};
 use ringbuf::*;
 use task_jefe_api::DumpAgentError;
@@ -69,6 +69,27 @@ pub fn initialize_dump_areas() -> u32 {
     ringbuf_entry!(Trace::Initialized);
 
     areas
+}
+
+///
+/// Function to determine if an address/length pair is contained within a dump
+/// area, short-circuiting in the common case that it isn't.  (Note
+/// that this will only check for containment, not overlap.)
+///
+fn in_dump_area(address: u32, length: u32) -> bool {
+    if address < DUMP_ADDRESS_MIN || address >= DUMP_ADDRESS_MAX {
+        return false;
+    }
+
+    for area in &DUMP_AREAS {
+        if address >= area.address
+            && address + length <= area.address + area.length
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
