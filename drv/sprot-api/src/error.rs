@@ -10,7 +10,6 @@ use drv_update_api::UpdateError;
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::FromPrimitive;
 
 use gateway_messages::{
     RotError, SpError, SprocketsError as GwSprocketsErr,
@@ -180,17 +179,8 @@ pub enum DumpOrSprotError {
     Sprot(SprotError),
 }
 
-/// A new type to prevent orphan rule problems on the conversion below
-pub struct DumperReturnCode(pub u32);
-
-impl From<DumperReturnCode> for Result<(), RequestError<DumpOrSprotError>> {
-    fn from(value: DumperReturnCode) -> Self {
-        if value.0 == 0 {
-            Ok(())
-        } else {
-            let err = DumperError::from_u32(value.0)
-                .unwrap_or(DumperError::UnknownFailureViaSprot);
-            Err(RequestError::Runtime(err.into()))
-        }
+impl From<DumpOrSprotError> for Result<(), RequestError<DumpOrSprotError>> {
+    fn from(err: DumpOrSprotError) -> Self {
+        Err(RequestError::Runtime(err.into()))
     }
 }

@@ -688,7 +688,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
         if let RspBody::Dump(DumpRsp::V1 { err }) = rsp.body? {
-            DumperReturnCode(err).into()
+            err.map_or(Ok(()), |e| DumpOrSprotError::Dump(e).into())
         } else {
             Err(SprotError::Protocol(SprotProtocolError::UnexpectedResponse))?
         }

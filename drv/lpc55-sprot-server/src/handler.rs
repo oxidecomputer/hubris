@@ -121,8 +121,7 @@ impl Handler {
             ReqBody::Dump(DumpReq::V1 { addr }) => {
                 ringbuf_entry!(Trace::Dump(addr));
                 let dumper = Dumper::from(DUMPER.get_task_id());
-                let err =
-                    dumper.dump(addr).map_err(|e| e as u32).err().unwrap_or(0);
+                let err = dumper.dump(addr).err();
                 Ok(RspBody::Dump(DumpRsp::V1 { err }))
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {

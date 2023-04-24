@@ -9,9 +9,9 @@
 extern crate memoffset;
 
 mod error;
+use dumper_api::DumperError;
 pub use error::{
-    DumpOrSprotError, DumperReturnCode, SprocketsError, SprotError,
-    SprotProtocolError,
+    DumpOrSprotError, SprocketsError, SprotError, SprotProtocolError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -369,11 +369,7 @@ pub enum RspBody {
 // Separate this into its own enum to allow better extensibility
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum DumpRsp {
-    // We explicitly use a u32 here, because this interface is really
-    // only meant for use by humility for human inspection. Currently
-    // hiffy cannot decode complex errors, so we don't try.
-    // 0 indicates success.
-    V1 { err: u32 },
+    V1 { err: Option<DumperError> },
 }
 
 /// The successful result of pulsing the active low chip-select line
