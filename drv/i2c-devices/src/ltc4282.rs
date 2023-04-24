@@ -208,7 +208,7 @@ impl Ltc4282 {
     pub fn new(device: &I2cDevice, rsense: Ohms) -> Self {
         Self {
             device: *device,
-            rsense: rsense,
+            rsense,
             control: Cell::new(None),
         }
     }
@@ -246,6 +246,10 @@ impl Ltc4282 {
             Mode::Mode12V => 16.64,
             Mode::Mode24V => 33.28,
         })
+    }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
     }
 }
 

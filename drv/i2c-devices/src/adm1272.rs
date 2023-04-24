@@ -264,6 +264,10 @@ impl Adm1272 {
         let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Adm1272 {

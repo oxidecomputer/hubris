@@ -194,6 +194,19 @@ impl Device {
         };
         Ok(v)
     }
+
+    fn i2c_device(&self) -> &I2cDevice {
+        match &self {
+            Device::Mwocp68(dev) => dev.i2c_device(),
+            Device::Bmr491(dev) => dev.i2c_device(),
+            Device::Raa229618(dev) => dev.i2c_device(),
+            Device::Isl68224(dev) => dev.i2c_device(),
+            Device::Tps546B24A(dev) => dev.i2c_device(),
+            Device::Adm1272(dev) => dev.i2c_device(),
+            Device::Ltc4282(dev) => dev.i2c_device(),
+            Device::Max5970(dev) => dev.i2c_device(),
+        }
+    }
 }
 
 impl PowerControllerConfig {
@@ -622,29 +635,16 @@ impl idl::InOrderPowerImpl for ServerImpl {
     fn rendmp_blackbox_dump(
         &mut self,
         _msg: &userlib::RecvMessage,
-        req_dev: task_power_api::Device,
-        req_index: u32,
+        addr: u8,
     ) -> Result<RenesasBlackbox, idol_runtime::RequestError<ResponseCode>> {
-        use task_power_api::Device;
-
         if !bsp::HAS_RENDMP_BLACKBOX {
-            return Err(ResponseCode::OperationNotSupported.into());
-        } else if !matches!(req_dev, Device::Raa229618 | Device::Isl68224) {
             return Err(ResponseCode::OperationNotSupported.into());
         }
 
-        let dev = bsp::CONTROLLER_CONFIG
+        let dev = self
+            .devices
             .iter()
-            .filter_map(|dev| match (req_dev, dev.device) {
-                (Device::Raa229618, DeviceType::Core | DeviceType::Mem) => {
-                    Some((dev.builder)(self.i2c_task).0)
-                }
-                (Device::Isl68224, DeviceType::MemVpp | DeviceType::SerDes) => {
-                    Some((dev.builder)(self.i2c_task).0)
-                }
-                _ => None,
-            })
-            .nth(req_index as usize)
+            .find(|d| d.i2c_device().address == addr)
             .ok_or(ResponseCode::NoDevice)?;
 
         // The isl68224 and raa229618 have identical DMAADDR / DMAFIX / DMASEQ
@@ -679,15 +679,18 @@ impl idl::InOrderPowerImpl for ServerImpl {
         //
         // We extract those differences here, then use a single codepath for
         // both generations of parts.
-        let (mut out, expected_id) = match req_dev {
-            Device::Raa229618 => {
+        let (mut out, expected_id) = match dev {
+            Device::Raa229618(..) => {
                 (RenesasBlackbox::Gen2p5([0u32; 44]), 0x2000001)
             }
-            Device::Isl68224 => (RenesasBlackbox::Gen2([0u32; 38]), 0x2000004),
-            // Checked above by the `matches!` statement
-            _ => unreachable!(),
+            Device::Isl68224(..) => {
+                (RenesasBlackbox::Gen2([0u32; 38]), 0x2000004)
+            }
+            // No one else has a blackbox
+            _ => return Err(ResponseCode::NoDevice.into()),
         };
         let addr_reg = out.addr_reg();
+        let dev = dev.i2c_device();
 
         // Step 1 - Verify Part Revision
         let mut id = 0u32;
