@@ -5,9 +5,9 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    DumpReq, ReqBody, Request, Response, RotIoStats, RotState, RotStatus,
-    RspBody, SprocketsError, SprotError, SprotProtocolError, UpdateReq,
-    UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
+    DumpReq, DumpRsp, ReqBody, Request, Response, RotIoStats, RotState,
+    RotStatus, RspBody, SprocketsError, SprotError, SprotProtocolError,
+    UpdateReq, UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
     RESPONSE_BUF_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus};
@@ -121,8 +121,9 @@ impl Handler {
             ReqBody::Dump(DumpReq::V1 { addr }) => {
                 ringbuf_entry!(Trace::Dump(addr));
                 let dumper = Dumper::from(DUMPER.get_task_id());
-                dumper.dump(addr).map_err(SprotError::Dump)?;
-                Ok(RspBody::Ok)
+                let err =
+                    dumper.dump(addr).map_err(|e| e as u32).err().unwrap_or(0);
+                Ok(RspBody::Dump(DumpRsp::V1 { err }))
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
                 let size = self.update.block_size()?;

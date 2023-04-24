@@ -46,6 +46,10 @@ pub enum DumperError {
 
     #[idol(server_death)]
     ServerRestarted,
+
+    /// The dumper returned an unknown error, probably due to the SP
+    /// being older than the RoT firmware
+    UnknownFailureViaSprot,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

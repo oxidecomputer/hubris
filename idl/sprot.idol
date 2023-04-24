@@ -126,7 +126,7 @@ Interface(
             },
             reply : Result(
                 ok: "()",
-                err: Complex("SprotError"),
+                err: Complex("DumpOrSprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,

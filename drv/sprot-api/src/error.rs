@@ -10,6 +10,7 @@ use drv_update_api::UpdateError;
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
+use userlib::FromPrimitive;
 
 use gateway_messages::{
     RotError, SpError, SprocketsError as GwSprocketsErr,
@@ -26,7 +27,6 @@ pub enum SprotError {
     Spi(SpiError),
     Update(UpdateError),
     Sprockets(SprocketsError),
-    Dump(DumperError),
 }
 
 impl From<SprotError> for SpError {
@@ -36,11 +36,6 @@ impl From<SprotError> for SpError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
-
-            // MGS should not dump via sprot, but via dump-agent directly
-            // using its UDP protocol. It is a programmer error if
-            // control-plane-agent performs this translation, so we panic.
-            SprotError::Dump(_) => panic!(),
         }
     }
 }
@@ -52,11 +47,6 @@ impl From<SprotError> for RotError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
-
-            // MGS should not dump via sprot, but via dump-agent directly
-            // using its UDP protocol. It is a programmer error if
-            // control-plane-agent performs this translation, so we panic.
-            SprotError::Dump(_) => panic!(),
         }
     }
 }
@@ -174,6 +164,33 @@ impl From<SprocketsError> for GwSprocketsErr {
         match value {
             SprocketsError::BadEncoding => Self::BadEncoding,
             SprocketsError::UnsupportedVersion => Self::UnsupportedVersion,
+        }
+    }
+}
+
+impl From<SprotError> for RequestError<DumpOrSprotError> {
+    fn from(err: SprotError) -> Self {
+        DumpOrSprotError::from(err).into()
+    }
+}
+
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum DumpOrSprotError {
+    Dump(DumperError),
+    Sprot(SprotError),
+}
+
+/// A new type to prevent orphan rule problems on the conversion below
+pub struct DumperReturnCode(pub u32);
+
+impl From<DumperReturnCode> for Result<(), RequestError<DumpOrSprotError>> {
+    fn from(value: DumperReturnCode) -> Self {
+        if value.0 == 0 {
+            Ok(())
+        } else {
+            let err = DumperError::from_u32(value.0)
+                .unwrap_or(DumperError::UnknownFailureViaSprot);
+            Err(RequestError::Runtime(err.into()))
         }
     }
 }

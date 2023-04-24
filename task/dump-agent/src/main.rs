@@ -141,7 +141,8 @@ impl ServerImpl {
 
     #[cfg(not(feature = "no-rot"))]
     fn take_dump(&mut self) -> Result<(), DumpAgentError> {
-        use drv_sprot_api::SprotError;
+        use drv_sprot_api::DumpOrSprotError;
+
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
 
         let area = self.dump_area(0)?;
@@ -150,7 +151,7 @@ impl ServerImpl {
         }
 
         match sprot.dump(area.region.address) {
-            Err(SprotError::Dump(err)) => Err(err.into()),
+            Err(DumpOrSprotError::Dump(e)) => Err(e.into()),
             Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
             Ok(()) => Ok(()),
         }
