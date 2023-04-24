@@ -92,6 +92,10 @@ impl Isl68224 {
         op.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_rail_write!(self.device, self.rail, OPERATION, op)
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Isl68224 {
