@@ -18,6 +18,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use ringbuf::*;
 use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
@@ -71,6 +72,7 @@ struct PowerControllerConfig {
     current: SensorId,
     input_current: Option<SensorId>,
     temperature: Option<SensorId>,
+    phases: Option<&'static [u8]>,
 }
 
 enum Device {
@@ -83,6 +85,15 @@ enum Device {
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Phases(usize),
+    Phase(u8),
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 impl Device {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
@@ -228,6 +239,7 @@ macro_rules! rail_controller {
                 temperature: Some(
                     sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
+                phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
             }
         }
     };
@@ -246,6 +258,7 @@ macro_rules! rail_controller_notemp {
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
             }
         }
     };
@@ -266,6 +279,7 @@ macro_rules! adm1272_controller {
                 temperature: Some(
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
+                phases: None,
             }
         }
     };
@@ -302,6 +316,7 @@ macro_rules! max5970_controller {
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
             }
         }
     };
@@ -325,6 +340,7 @@ macro_rules! mwocp68_controller {
                 ),
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
+                phases: None,
             }
         }
     };
@@ -625,6 +641,21 @@ impl ServerImpl {
         Ok(dev)
     }
 
+    fn raa229618(
+        &mut self,
+        voltage: SensorId,
+    ) -> Result<(&mut Raa229618, Option<&'static [u8]>), ResponseCode> {
+        for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
+            if let Device::Raa229618(dev) = dev {
+                if c.voltage == voltage {
+                    return Ok((dev, c.phases));
+                }
+            }
+        }
+
+        Err(ResponseCode::NoDevice)
+    }
+
     fn get_device(
         &self,
         req_dev: task_power_api::Device,
@@ -760,6 +791,31 @@ impl idl::InOrderPowerImpl for ServerImpl {
             pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
         )?;
         Ok(out)
+    }
+
+    fn raa229618_phase_current(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        rail: task_sensor_api::SensorId,
+        phase: u8,
+    ) -> Result<f32, idol_runtime::RequestError<ResponseCode>> {
+        let (dev, phases) = self.raa229618(rail)?;
+
+        if let Some(phases) = phases {
+            ringbuf_entry!(Trace::Phases(phases.len()));
+            let phase: usize = phase as usize;
+
+            if phase < phases.len() {
+                match dev.read_phase_current(Phase(phases[phase])) {
+                    Err(e) => Err(ResponseCode::from(e).into()),
+                    Ok(val) => Ok(val.0),
+                }
+            } else {
+                Err(ResponseCode::BadArg.into())
+            }
+        } else {
+            Err(ResponseCode::BadArg.into())
+        }
     }
 }
 

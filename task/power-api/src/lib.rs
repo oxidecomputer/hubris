@@ -9,6 +9,7 @@
 pub use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
+pub use task_sensor_api::SensorId;
 use userlib::sys_send;
 use zerocopy::{AsBytes, FromBytes};
 

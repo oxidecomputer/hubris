@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -168,6 +168,9 @@ struct I2cMux {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPower {
     rails: Option<Vec<String>>,
+
+    /// Optional phases, which must be the same length as `rails` if present
+    phases: Option<Vec<Vec<u8>>>,
 
     #[serde(default = "I2cPower::default_pmbus")]
     pmbus: bool,
@@ -1254,6 +1257,36 @@ impl ConfigGenerator {
 
                 let out = self.generate_device(device, 16);
                 writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
+
+                if which == PowerDevices::PMBus {
+                    let phases = if let Some(power) = &device.power {
+                        if let Some(phases) = &power.phases {
+                            if *index >= phases.len() {
+                                bail!("malformed phases for {rail}");
+                            }
+
+                            let p = phases[*index]
+                                .iter()
+                                .map(|p| p.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            format!("Some(&[{p}])")
+                        } else {
+                            "None".to_string()
+                        }
+                    } else {
+                        "None".to_string()
+                    };
+
+                    writeln!(
+                        &mut self.output,
+                        r##"
+        #[allow(dead_code)]
+        pub const {}_{rail}_PHASES: Option<&'static [u8]> = {phases};"##,
+                        device.device.to_uppercase()
+                    )?;
+                }
             }
 
             writeln!(&mut self.output, "    }}")?;

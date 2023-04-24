@@ -966,7 +966,7 @@ bus = "mid"
 address = 0x5a
 device = "raa229618"
 description = "CPU power controller"
-power = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ] }
+power = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ], phases = [ [ 12, 13, 14, 15, 16, 17, 18, 19 ], [ 0, 1, 2, 3 ] ] }
 sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
 refdes = "U350"
 

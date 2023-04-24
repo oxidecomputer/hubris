@@ -59,5 +59,19 @@ Interface(
             ),
             idempotent: true,
         ),
+        "raa229618_phase_current": (
+            args: {
+                "rail": (
+                    type: "SensorId",
+                    recv: From("u32", None),
+                ),
+                "phase": "u8",
+            },
+            reply: Result(
+                ok: "f32",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ), 
     },
 )
