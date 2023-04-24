@@ -141,47 +141,19 @@ impl ServerImpl {
 
     #[cfg(not(feature = "no-rot"))]
     fn take_dump(&mut self) -> Result<(), DumpAgentError> {
-        use dumper_api::DumperError;
+        use drv_sprot_api::DumpOrSprotError;
 
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
-        let mut buf = [0u8; 4];
 
         let area = self.dump_area(0)?;
-
         if area.contents != humpty::DumpContents::WholeSystem {
             return Err(DumpAgentError::UnclaimedDumpArea);
         }
 
-        match sprot.send_recv(
-            drv_sprot_api::MsgType::DumpReq,
-            &area.region.address.to_le_bytes(),
-            &mut buf,
-        ) {
+        match sprot.dump(area.region.address) {
+            Err(DumpOrSprotError::Dump(e)) => Err(e.into()),
             Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
-            Ok(result) => {
-                let response = drv_sprot_api::MsgType::from_u8(result.msgtype);
-
-                if response != Some(drv_sprot_api::MsgType::DumpRsp) {
-                    Err(DumpAgentError::BadDumpResponse.into())
-                } else {
-                    let val = u32::from_le_bytes(buf);
-
-                    //
-                    // A dump response value of 0 denotes success -- anything
-                    // else denotes a failure, and we want to decode and
-                    // translate the error condition if we can.
-                    //
-                    if val == 0 {
-                        Ok(())
-                    } else if let Some(err) =
-                        dumper_api::DumperError::from_u32(val)
-                    {
-                        Err(DumpAgentError::from(err).into())
-                    } else {
-                        Err(DumpAgentError::DumpFailedUnknownError.into())
-                    }
-                }
-            }
+            Ok(()) => Ok(()),
         }
     }
 

@@ -83,9 +83,7 @@ impl ComponentUpdater for RotUpdate {
             _ => return Err(SpError::InvalidSlotForComponent),
         };
 
-        self.task
-            .prep_image_update(target)
-            .map_err(|err| SpError::UpdateFailed(err as u32))?;
+        self.task.prep_image_update(target)?;
 
         self.current = Some(CurrentUpdate::new(
             update.id,
@@ -126,9 +124,21 @@ impl ComponentUpdater for RotUpdate {
             }),
             State::Complete => UpdateStatus::Complete(current.id()),
             State::Aborted => UpdateStatus::Aborted(current.id()),
-            State::Failed(err) => UpdateStatus::Failed {
+            // We can't actually reveal the real error here because
+            // an error from sprot doesn't map directly to a u32 anymore.
+            // We also can't put the real error inside `UpdateStatus::Failed`
+            // because `UpdateStatus` is already included in `SpError`, and therefore
+            // the definition for `UpdateStatus` would be recursive. We can't "box" our way
+            // out of this because we are in a `no_std` context. For now, until we
+            // come up with a better idea, we just put `9999` here to indicate
+            // "RoT update error".
+            //
+            // This isn't really that big a deal, since the error will be
+            // apparent elsewhere in most cases such as the return value of the
+            // failing operation itself and in logs.
+            State::Failed(_) => UpdateStatus::Failed {
                 id: current.id(),
-                code: *err as u32,
+                code: 9999,
             },
         }
     }
@@ -159,9 +169,7 @@ impl ComponentUpdater for RotUpdate {
             State::Complete | State::Aborted => {
                 return Err(SpError::UpdateNotPrepared)
             }
-            State::Failed(err) => {
-                return Err(SpError::UpdateFailed(*err as u32))
-            }
+            State::Failed(err) => return Err((*err).into()),
         };
 
         ringbuf_entry!(Trace::IngestChunkState {
@@ -200,7 +208,8 @@ impl ComponentUpdater for RotUpdate {
                 ));
                 if let Err(err) = self.task.write_one_block(block_num, buffer) {
                     *current.state_mut() = State::Failed(err);
-                    return Err(SpError::UpdateFailed(err as u32));
+
+                    return Err(err.into());
                 }
 
                 *next_write_offset += buffer.len() as u32;
@@ -212,7 +221,7 @@ impl ComponentUpdater for RotUpdate {
         if *next_write_offset == total_size {
             if let Err(err) = self.task.finish_image_update() {
                 *current.state_mut() = State::Failed(err);
-                return Err(SpError::UpdateFailed(err as u32));
+                return Err(err.into());
             }
             *current.state_mut() = State::Complete;
         }
@@ -233,13 +242,11 @@ impl ComponentUpdater for RotUpdate {
         match current.state() {
             State::AcceptingData { .. } | State::Failed(_) => {
                 match self.task.abort_update() {
-                    // Aborting an update that hasn't started yet is fine;
-                    // either way our caller is clear to start a new update.
-                    Ok(()) | Err(SprotError::UpdateNotStarted) => {
+                    Ok(()) => {
                         *current.state_mut() = State::Aborted;
                         Ok(())
                     }
-                    Err(other) => Err(SpError::UpdateFailed(other as u32)),
+                    Err(err) => Err(err.into()),
                 }
             }
             // Update already aborted - aborting it again is a no-op.

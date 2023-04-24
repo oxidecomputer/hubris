@@ -3,58 +3,32 @@
 Interface(
     name: "SpRot",
     ops: {
-        "send_recv": (
-            doc: "Send then receive a message from the RoT",
-            args: {
-                "msgtype": (
-                    type: "MsgType",
-                    recv: FromPrimitive("u8"),
-                ),
-            },
-            leases: {
-                "message": (type: "[u8]", read: true),
-                "response": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "Received",
-                err: CLike("SprotError"),
-            ),
-        ),
-        "send_recv_retries": (
-            doc: "Send then receive a message from the RoT. Retry on recoverable errors.",
-            args: {
-                "msgtype": (
-                    type: "MsgType",
-                    recv: FromPrimitive("u8"),
-                ),
-                "attempts": (
-                    type: "u16",
-                ),
-            },
-            leases: {
-                "message": (type: "[u8]", read: true),
-                "response": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "Received",
-                err: CLike("SprotError"),
-            ),
-        ),
         "status": (
-            doc: "Return untrusted status from RoT",
+            doc: "Return status about the sprot protocol",
             reply : Result(
               ok: "SprotStatus",
-              err: CLike("SprotError"),
+              err: Complex("SprotError"),
             ),
-            encoding: Hubpack
+            encoding: Hubpack,
+            idempotent: true,
         ),
         "io_stats": (
-            doc: "Return IO stats from RoT",
+            doc: "Return IO stats for Sprot",
             reply: Result(
-                ok: "IoStats",
-                err: CLike("SprotError"),
+                ok: "SprotIoStats",
+                err: Complex("SprotError"),
             ),
             encoding: Hubpack, 
+            idempotent: true,
+        ),
+        "rot_state": (
+            doc: "Return boot info about the RoT",
+            reply: Result(
+                ok: "RotState",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
         ),
         "pulse_cs": (
             doc: "SPI Chip Select assert, delay, deassert",
@@ -63,19 +37,9 @@ Interface(
             },
             reply: Result(
                 ok: "PulseStatus",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
-        ),
-        "rot_sink": (
-            doc: "SP locally generates and sends count buffers of size to RoT",
-            args: {
-                "count": "u16",
-                "size": "u16",
-            },
-            reply: Result(
-                ok: "SinkStatus",
-                err: CLike("SprotError"),
-            ),
+            encoding: Hubpack, 
         ),
 
         // The RoT update API is copy and pasted from idl/update.idol.
@@ -83,22 +47,23 @@ Interface(
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
             args: { },
             reply: Result(
-                ok: "usize",
-                err: CLike("SprotError"),
+                ok: "u32",
+                err: Complex("SprotError"),
             ),
+            encoding: Hubpack, 
+            idempotent: true,
         ),
         "prep_image_update": (
             doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
-            args : {
-                "image_type": (
-                  type: "UpdateTarget",
-                  recv: FromPrimitive("u8"),
-                )
+            args: {
+                "target": "UpdateTarget",
             },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
+            encoding: Hubpack, 
+            idempotent: true,
         ),
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",
@@ -106,28 +71,31 @@ Interface(
                 "block_num" : "u32",
             },
             leases : {
-                "block": (type: "[u8]", read: true, max_len: Some(1024)),
+                "block": (type: "[u8]", read: true, max_len: Some(512)),
             },
             reply: Result (
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
+            encoding: Hubpack, 
         ),
         "abort_update": (
             doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
+            encoding: Hubpack,
         ),
         "finish_image_update": (
             doc: "Do any necessary work post image write",
             args : { },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
+            encoding: Hubpack,
         ),
         "switch_default_image": (
             doc: "Prefer a specific image slot for one or many boots",
@@ -137,7 +105,7 @@ Interface(
             },
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,
@@ -146,10 +114,22 @@ Interface(
             doc: "Reset",
             reply : Result(
                 ok: "()",
-                err: CLike("SprotError"),
+                err: Complex("SprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,
         ),
+        "dump": (
+            doc: "Trigger a dump",
+            args: {
+                "address": "u32",
+            },
+            reply : Result(
+                ok: "()",
+                err: Complex("DumpOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        )
     }
 )

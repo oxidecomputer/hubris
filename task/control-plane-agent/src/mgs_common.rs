@@ -4,7 +4,9 @@
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_sprot_api::{SpRot, SprotError};
+use drv_sprot_api::{
+    RotState as SprotRotState, SpRot, SprotError, SprotProtocolError,
+};
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
     RotImageDetails, RotSlot, RotState, RotUpdateDetails, SlotId, SpComponent,
@@ -180,7 +182,7 @@ impl MgsCommon {
             SpComponent::ROT => {
                 // We're dealing with RoT targets at this point.
                 match update.sprot_task().reset() {
-                    Err(SprotError::RspTimeout) => {
+                    Err(SprotError::Protocol(SprotProtocolError::Timeout)) => {
                         // This is the expected error if the reset was successful.
                         // It could be that the RoT is out-to-lunch for some other
                         // reason though.
@@ -191,9 +193,9 @@ impl MgsCommon {
                         //     (Management plane should do that.)
                         //   - Enable staged updates where we don't automatically
                         //     reset after writing an image.
-                        ringbuf_entry!(Log::RotReset {
-                            err: SprotError::RspTimeout
-                        });
+                        ringbuf_entry!(Log::RotReset(
+                            SprotProtocolError::Timeout.into()
+                        ));
                         Ok(())
                     }
                     Err(err) => {
@@ -203,8 +205,9 @@ impl MgsCommon {
                         // can start the update process all over again.  We should
                         // be able to make incremental progress if there is some
                         // bug/condition that is degrading SpRot communications.
-                        ringbuf_entry!(Log::RotReset { err });
-                        Err(SpError::ComponentOperationFailed(err.into()))
+
+                        ringbuf_entry!(Log::RotReset(err));
+                        Err(err.into())
                     }
                     Ok(()) => {
                         ringbuf_entry!(Log::ExpectedRspTimeout);
@@ -240,13 +243,10 @@ impl MgsCommon {
         };
         match component {
             SpComponent::ROT => {
-                match update.sprot_task().switch_default_image(slot, duration) {
-                    Err(err) => {
-                        Err(SpError::ComponentOperationFailed(err.into()))
-                    }
-                    Ok(()) => Ok(()),
-                }
+                update.sprot_task().switch_default_image(slot, duration)?;
+                Ok(())
             }
+
             // SpComponent::SP_ITSELF:
             // update_server for SP needs to decouple finish_update()
             // from swap_banks() for SwitchDuration::Forever to make sense.
@@ -261,14 +261,14 @@ impl MgsCommon {
 
 // conversion between gateway_messages types and hubris types is quite tedious.
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let boot_state = sprot.status().map_err(SprotErrorConvert)?.rot_updates;
-    let active = match boot_state.active {
+    let SprotRotState::V1 { state, .. } = sprot.rot_state()?;
+    let active = match state.active {
         drv_sprot_api::RotSlot::A => RotSlot::A,
         drv_sprot_api::RotSlot::B => RotSlot::B,
     };
 
-    let slot_a = boot_state.a.map(|a| RotImageDetailsConvert(a).into());
-    let slot_b = boot_state.b.map(|b| RotImageDetailsConvert(b).into());
+    let slot_a = state.a.map(|a| RotImageDetailsConvert(a).into());
+    let slot_b = state.b.map(|b| RotImageDetailsConvert(b).into());
 
     Ok(RotState {
         rot_updates: RotUpdateDetails {
@@ -279,14 +279,6 @@ fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
             },
         },
     })
-}
-
-pub(crate) struct SprotErrorConvert(pub drv_sprot_api::SprotError);
-
-impl From<SprotErrorConvert> for RotError {
-    fn from(err: SprotErrorConvert) -> Self {
-        RotError::MessageError { code: err.0 as u32 }
-    }
 }
 
 pub(crate) struct RotImageDetailsConvert(pub drv_update_api::RotImageDetails);

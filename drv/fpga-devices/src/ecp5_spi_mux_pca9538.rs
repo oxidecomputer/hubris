@@ -38,7 +38,7 @@ impl From<Error> for u8 {
         match e {
             Error::SpiError(e) => match e {
                 SpiError::BadTransferSize => 3,
-                SpiError::ServerRestarted => 4,
+                SpiError::TaskRestarted => 4,
                 SpiError::NothingToRelease => 5,
                 SpiError::BadDevice => 6,
             },
