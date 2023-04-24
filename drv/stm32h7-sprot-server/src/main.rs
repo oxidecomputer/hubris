@@ -148,8 +148,8 @@ pub struct Io<S: SpiServer> {
 
 pub struct ServerImpl<S: SpiServer> {
     io: Io<S>,
-    tx_buf: &'static mut [u8; MAX_REQUEST_SIZE],
-    rx_buf: &'static mut [u8; MAX_RESPONSE_SIZE],
+    tx_buf: &'static mut [u8; REQUEST_BUF_SIZE],
+    rx_buf: &'static mut [u8; RESPONSE_BUF_SIZE],
 }
 
 #[export_name = "main"]
@@ -168,8 +168,8 @@ fn main() -> ! {
     };
 
     let (tx_buf, rx_buf) = mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; MAX_REQUEST_SIZE] = [|| 0; _];
-        static mut RX_BUF: [u8; MAX_RESPONSE_SIZE] = [|| 0; _];
+        static mut TX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
+        static mut RX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
     };
     let mut server = ServerImpl { io, tx_buf, rx_buf };
 
@@ -261,7 +261,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART2_DELAY);
         }
 
-        if total_size > MAX_RESPONSE_SIZE {
+        if total_size > RESPONSE_BUF_SIZE {
             return Err(SprotProtocolError::BadMessageLength.into());
         }
 
@@ -486,8 +486,17 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;
-        if let RspBody::Status(status) = rsp.body? {
-            Ok(status)
+        if let RspBody::Status(rot_status) = rsp.body? {
+            let sp_status = SpStatus {
+                version: CURRENT_VERSION,
+                min_version: MIN_VERSION,
+                request_buf_size: REQUEST_BUF_SIZE.try_into().unwrap_lite(),
+                response_buf_size: RESPONSE_BUF_SIZE.try_into().unwrap_lite(),
+            };
+            Ok(SprotStatus {
+                rot: rot_status,
+                sp: sp_status,
+            })
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
         }
@@ -497,7 +506,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     fn io_stats(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<IoStats, RequestError<SprotError>> {
+    ) -> Result<SprotIoStats, RequestError<SprotError>> {
         let tx_size = Request::pack(&ReqBody::IoStats, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
@@ -505,10 +514,28 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             DEFAULT_ATTEMPTS,
         )?;
         if let RspBody::IoStats(rot_stats) = rsp.body? {
-            Ok(IoStats {
+            Ok(SprotIoStats {
                 rot: rot_stats,
                 sp: self.io.stats,
             })
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
+    /// Return boot info about the RoT
+    fn rot_boot_info(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<RotBootInfo, RequestError<SprotError>> {
+        let tx_size = Request::pack(&ReqBody::RotBootInfo, &mut self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::RotBootInfo(info) = rsp.body? {
+            Ok(info)
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
         }
@@ -670,8 +697,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 mod idl {
     use super::{
-        PulseStatus, SlotId, SprotError, SprotStatus, SwitchDuration,
-        UpdateTarget,
+        PulseStatus, RotBootInfo, SlotId, SprotError, SprotIoStats,
+        SprotStatus, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

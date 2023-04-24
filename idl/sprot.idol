@@ -4,20 +4,31 @@ Interface(
     name: "SpRot",
     ops: {
         "status": (
-            doc: "Return untrusted status from RoT",
+            doc: "Return status about the sprot protocol",
             reply : Result(
               ok: "SprotStatus",
               err: Complex("SprotError"),
             ),
-            encoding: Hubpack
+            encoding: Hubpack,
+            idempotent: true,
         ),
         "io_stats": (
-            doc: "Return IO stats from RoT",
+            doc: "Return IO stats for Sprot",
             reply: Result(
-                ok: "drv_sprot_api::IoStats",
+                ok: "SprotIoStats",
                 err: Complex("SprotError"),
             ),
             encoding: Hubpack, 
+            idempotent: true,
+        ),
+        "rot_boot_info": (
+            doc: "Return boot info about the RoT",
+            reply: Result(
+                ok: "RotBootInfo",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
         ),
         "pulse_cs": (
             doc: "SPI Chip Select assert, delay, deassert",

@@ -42,7 +42,7 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    RotIoStats, SprotProtocolError, MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
+    RotIoStats, SprotProtocolError, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
     ROT_FIFO_SIZE,
 };
 use lpc55_pac as device;
@@ -160,8 +160,8 @@ fn main() -> ! {
     let mut io = configure_spi();
 
     let (rx_buf, tx_buf) = mutable_statics::mutable_statics! {
-        static mut RX_BUF: [u8; MAX_REQUEST_SIZE] = [|| 0; _];
-        static mut TX_BUF: [u8; MAX_RESPONSE_SIZE] = [|| 0; _];
+        static mut RX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
+        static mut TX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
     };
 
     let mut handler = Handler::new();

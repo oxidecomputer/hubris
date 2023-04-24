@@ -42,20 +42,20 @@ pub const MIN_VERSION: Version = Version(2);
 pub const CURRENT_VERSION: Version = Version(2);
 
 /// We allow room in the buffer for message evolution
-pub const MAX_REQUEST_SIZE: usize = 1024;
+pub const REQUEST_BUF_SIZE: usize = 1024;
 // We add 1 byte for padding a maximum sized message to an even number of bytes
 // if necessary.
 const_assert!(
-    MAX_REQUEST_SIZE
+    REQUEST_BUF_SIZE
         >= Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
 );
 
 /// We allow room in the buffer for message evolution
-pub const MAX_RESPONSE_SIZE: usize = 1024;
+pub const RESPONSE_BUF_SIZE: usize = 1024;
 // We add 1 byte for padding a maximum sized message to an even number of bytes
 // if necessary.
 const_assert!(
-    MAX_RESPONSE_SIZE
+    RESPONSE_BUF_SIZE
         >= Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
 );
 
@@ -63,8 +63,11 @@ const_assert!(
 // in a maximum of 1 FIFO size read.
 const_assert!(Header::MAX_SIZE <= ROT_FIFO_SIZE);
 
-pub type Request<'a> = Msg<'a, ReqBody, MAX_REQUEST_SIZE>;
-pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, MAX_RESPONSE_SIZE>;
+/// A request from the SP to the RoT
+pub type Request<'a> = Msg<'a, ReqBody, REQUEST_BUF_SIZE>;
+
+/// A resposne from the RoT to the SP
+pub type Response<'a> = Msg<'a, Result<RspBody, SprotError>, RESPONSE_BUF_SIZE>;
 
 /// A message header for a request or response
 #[derive(Serialize, Deserialize, SerializedSize)]
@@ -294,6 +297,7 @@ pub struct Version(pub u32);
 pub enum ReqBody {
     Status,
     IoStats,
+    RotBootInfo,
     Update(UpdateReq),
     Sprockets(SprocketsReq),
     Dump { addr: u32 },
@@ -329,8 +333,17 @@ pub enum UpdateRsp {
 pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
-    Status(SprotStatus),
+    // The RoT can only return `RotStatus`
+    //
+    // We fill in the `SpStatus` and return `SprotStatus` for the Idol
+    // interface in the stm32h7-sprot-server
+    Status(RotStatus),
+    // The RoT can only return `RotIoStats`
+    //
+    // We fill in the `SpIoStats` and return `IoStats` for the Idol
+    // interface in the stm32h7-sprot-server
     IoStats(RotIoStats),
+    RotBootInfo(RotBootInfo),
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
     DumpRsp { err: Option<u32> },
@@ -350,20 +363,45 @@ pub struct PulseStatus {
 /// of problems before trusted communications can be established.
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct SprotStatus {
-    pub rot_version: Version,
-    /// CRC32 of the LPC55 boot ROM contents.
-    /// The LPC55 does not have machine readable version information for
-    /// its boot ROM contents and there are known issues with old boot ROMs.
-    /// TODO: This should live in the stage0 handoff info.
-    pub bootrom_crc32: u32,
+    pub rot: RotStatus,
+    pub sp: SpStatus,
+}
 
-    /// Maxiumum request size that the RoT can handle.
-    pub max_request_size: u32,
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct RotStatus {
+    pub version: Version,
+    pub min_version: Version,
+    /// Max buffer size for receiving requests on the RoT
+    pub request_buf_size: u16,
+    /// Max buffer size for sending responses on the RoT
+    pub response_buf_size: u16,
+}
 
-    /// Maximum response size returned from the RoT to the SP
-    pub max_response_size: u32,
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct SpStatus {
+    pub version: Version,
+    pub min_version: Version,
+    /// Max buffer size for sending requests on the SP
+    pub request_buf_size: u16,
+    /// Max buffer size for receiving responses on the SP
+    pub response_buf_size: u16,
+}
 
-    pub rot_updates: RotBootState,
+/// RoT boot info
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum RotBootInfo {
+    // We expect to evolve this in short order to include caboose info and boot
+    // selection for the new stage0.
+    V1 {
+        state: RotBootState,
+
+        /// CRC32 of the LPC55 boot ROM contents.
+        ///
+        /// The LPC55 does not have machine readable version information for
+        /// its boot ROM contents and there are known issues with old boot
+        /// ROMs.
+        bootrom_crc32: u32,
+    },
 }
 
 /// Stats from the RoT side of sprot
@@ -429,12 +467,9 @@ pub struct SpIoStats {
 
 /// Sprot related stats
 #[derive(Default, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct IoStats {
+pub struct SprotIoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,
 }
-
-// Allow our Idol definition to fully specify API structures
-use crate as drv_sprot_api;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

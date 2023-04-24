@@ -5,9 +5,9 @@
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_sprot_api::{
-    ReqBody, Request, Response, RotIoStats, RspBody, SprocketsError,
-    SprotError, SprotProtocolError, SprotStatus, UpdateReq, UpdateRsp, Version,
-    MAX_REQUEST_SIZE, MAX_RESPONSE_SIZE,
+    ReqBody, Request, Response, RotBootInfo, RotIoStats, RotStatus, RspBody,
+    SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
+    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use drv_update_api::{Update, UpdateStatus};
 use dumper_api::Dumper;
@@ -23,8 +23,6 @@ task_slot!(DUMPER, dumper);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
-pub const CURRENT_VERSION: Version = Version(2);
-
 /// State that is set once at the start of the driver
 pub struct StartupState {
     /// CRC32 of the LPC55 boot ROM contents.
@@ -34,10 +32,10 @@ pub struct StartupState {
     pub bootrom_crc32: u32,
 
     /// Maxiumum request size that the RoT can handle.
-    pub max_request_size: u32,
+    pub max_request_size: u16,
 
     /// Maximum response size returned from the RoT to the SP
-    pub max_response_size: u32,
+    pub max_response_size: u16,
 }
 
 pub struct Handler {
@@ -53,14 +51,14 @@ impl Handler {
             update: Update::from(UPDATE_SERVER.get_task_id()),
             startup_state: StartupState {
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
-                max_request_size: MAX_REQUEST_SIZE.try_into().unwrap_lite(),
-                max_response_size: MAX_RESPONSE_SIZE.try_into().unwrap_lite(),
+                max_request_size: REQUEST_BUF_SIZE.try_into().unwrap_lite(),
+                max_response_size: RESPONSE_BUF_SIZE.try_into().unwrap_lite(),
             },
         }
     }
 
     /// Serialize and return a `SprotError::FlowError`
-    pub fn flow_error(&self, tx_buf: &mut [u8; MAX_RESPONSE_SIZE]) -> usize {
+    pub fn flow_error(&self, tx_buf: &mut [u8; RESPONSE_BUF_SIZE]) -> usize {
         let body = Err(SprotProtocolError::FlowError.into());
         Response::pack(&body, tx_buf)
     }
@@ -68,7 +66,7 @@ impl Handler {
     pub fn handle(
         &mut self,
         rx_buf: &[u8],
-        tx_buf: &mut [u8; MAX_RESPONSE_SIZE],
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
@@ -90,23 +88,29 @@ impl Handler {
         stats: &mut RotIoStats,
     ) -> Result<RspBody, SprotError> {
         match req.body {
-            ReqBody::Status => match self.update.status() {
-                UpdateStatus::Rot(rot_updates) => {
-                    let msg = SprotStatus {
-                        rot_version: CURRENT_VERSION,
+            ReqBody::Status => {
+                let status = RotStatus {
+                    version: CURRENT_VERSION,
+                    min_version: MIN_VERSION,
+                    request_buf_size: self.startup_state.max_request_size,
+                    response_buf_size: self.startup_state.max_response_size,
+                };
+                Ok(RspBody::Status(status))
+            }
+            ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
+            ReqBody::RotBootInfo => match self.update.status() {
+                UpdateStatus::Rot(state) => {
+                    let msg = RotBootInfo::V1 {
                         bootrom_crc32: self.startup_state.bootrom_crc32,
-                        max_request_size: self.startup_state.max_request_size,
-                        max_response_size: self.startup_state.max_response_size,
-                        rot_updates,
+                        state,
                     };
-                    Ok(RspBody::Status(msg))
+                    Ok(RspBody::RotBootInfo(msg))
                 }
                 _ => {
                     stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                     Err(SprotProtocolError::BadUpdateStatus)?
                 }
             },
-            ReqBody::IoStats => Ok(RspBody::IoStats(stats.clone())),
             ReqBody::Sprockets(req) => Ok(RspBody::Sprockets(
                 // The only error we can get here is a serialization error,
                 // which is represented as `BadEncoding`.

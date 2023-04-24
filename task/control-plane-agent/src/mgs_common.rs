@@ -4,7 +4,7 @@
 
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_sprot_api::{SpRot, SprotError, SprotProtocolError};
+use drv_sprot_api::{RotBootInfo, SpRot, SprotError, SprotProtocolError};
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
     RotImageDetails, RotSlot, RotState, RotUpdateDetails, SlotId, SpComponent,
@@ -259,14 +259,14 @@ impl MgsCommon {
 
 // conversion between gateway_messages types and hubris types is quite tedious.
 fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let boot_state = sprot.status()?.rot_updates;
-    let active = match boot_state.active {
+    let RotBootInfo::V1 { state, .. } = sprot.rot_boot_info()?;
+    let active = match state.active {
         drv_sprot_api::RotSlot::A => RotSlot::A,
         drv_sprot_api::RotSlot::B => RotSlot::B,
     };
 
-    let slot_a = boot_state.a.map(|a| RotImageDetailsConvert(a).into());
-    let slot_b = boot_state.b.map(|b| RotImageDetailsConvert(b).into());
+    let slot_a = state.a.map(|a| RotImageDetailsConvert(a).into());
+    let slot_b = state.b.map(|b| RotImageDetailsConvert(b).into());
 
     Ok(RotState {
         rot_updates: RotUpdateDetails {
