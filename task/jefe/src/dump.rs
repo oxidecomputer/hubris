@@ -4,6 +4,7 @@
 
 //! Dump support for Jefe
 
+use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
 use humpty::{DumpArea, DumpContents};
 use ringbuf::*;
 use task_jefe_api::DumpAgentError;
@@ -68,6 +69,27 @@ pub fn initialize_dump_areas() -> u32 {
     ringbuf_entry!(Trace::Initialized);
 
     areas
+}
+
+///
+/// Function to determine if an address/length pair is contained within a dump
+/// area, short-circuiting in the common case that it isn't.  (Note
+/// that this will only check for containment, not overlap.)
+///
+fn in_dump_area(address: u32, length: u32) -> bool {
+    if address < DUMP_ADDRESS_MIN || address >= DUMP_ADDRESS_MAX {
+        return false;
+    }
+
+    for area in &DUMP_AREAS {
+        if address >= area.address
+            && address + length <= area.address + area.length
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
@@ -212,9 +234,7 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
 
     let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
 
-    let mut ndx = 0;
-
-    loop {
+    for ndx in 0.. {
         //
         // We need to ask the kernel which regions we should dump for this
         // task, which we do by asking for each dump region by index.  Note
@@ -230,7 +250,7 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
         //
         match kipc::get_task_dump_region(task, ndx) {
             None => break,
-            Some(region) => {
+            Some(region) if !in_dump_area(region.base, region.size) => {
                 ringbuf_entry!(Trace::DumpRegion(region));
 
                 // SAFETY: we have configured memory so that humpty
@@ -247,9 +267,8 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
                     ringbuf_entry!(Trace::DumpRegionsFailed(e));
                     return Err(DumpAgentError::BadSegmentAdd);
                 }
-
-                ndx += 1;
             }
+            Some(_) => {}
         }
     }
 
@@ -285,22 +304,22 @@ pub fn dump_task_region(
     // owned by this particular task!  To check this, we iterate over all of the
     // valid dump regions and confirm that our desired region is within one of
     // them.
-    let mut ndx = 0;
     let mem = start..start + length;
     let mut okay = false;
-    loop {
+
+    for ndx in 0.. {
         // This is Accidentally Quadratic; see the note in `dump_task`
         match kipc::get_task_dump_region(task, ndx) {
             None => break,
-            Some(region) => {
+            Some(region) if !in_dump_area(region.base, region.size) => {
+                ringbuf_entry!(Trace::DumpRegion(region));
                 let region = region.base..region.base + region.size;
                 if mem.start >= region.start && mem.end <= region.end {
                     okay = true;
                     break;
                 }
-
-                ndx += 1;
             }
+            Some(_) => {}
         }
     }
 

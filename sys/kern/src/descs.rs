@@ -128,7 +128,6 @@ impl RegionDesc {
 
         ratts.contains(RegionAttributes::WRITE)
             && !ratts.contains(RegionAttributes::DEVICE)
-            && !ratts.contains(RegionAttributes::DMA)
     }
 }
 

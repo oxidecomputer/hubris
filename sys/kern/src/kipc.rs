@@ -320,7 +320,7 @@ fn read_task_dump_region(
     message: USlice<u8>,
     mut response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
-    use crate::umem::safe_copy;
+    use crate::umem::safe_copy_dma;
     use crate::util::index2_distinct;
 
     if caller != 0 {
@@ -430,7 +430,7 @@ fn read_task_dump_region(
             // or because it is an invalid address/length (e.g., a part of
             // the task structure that also overlaps with other kernel
             // memory, or wholly bogus).  In all of these cases, we will
-            // rely on `safe_copy` to do the validation.
+            // rely on `safe_copy_dma` to do the validation.
             //
             // Note that this applies to: attempts to read out of bounds of the
             // target task's TCB, attempts to read other tasks' TCBs, etc. So
@@ -438,7 +438,7 @@ fn read_task_dump_region(
             // TCB access code above.
             //
 
-            match safe_copy(tasks, index, from, caller, response) {
+            match safe_copy_dma(tasks, index, from, caller, response) {
                 Err(interact) => {
                     // So, this is a weird case. We are attempting to transfer
                     // memory from one task to another, but unlike every other

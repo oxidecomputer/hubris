@@ -125,9 +125,20 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
         dump_regions.len(),
     )?;
 
+    let mut min = dump_regions[0].address;
+    let mut max = dump_regions[0].address + dump_regions[0].size;
+
     for (name, region) in &dump_regions {
         let address = region.address;
         let length = region.size;
+
+        //
+        // Determine our minimium and maximum dump area addresses so we
+        // can generate constants to short-circuit the determination of
+        // a given address being outside of any dump area.
+        //
+        min = std::cmp::min(address, min);
+        max = std::cmp::max(address + length, max);
 
         writeln!(
             out,
@@ -141,6 +152,13 @@ fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     }
 
     writeln!(out, "];")?;
+
+    writeln!(
+        out,
+        r##"
+pub(crate) const DUMP_ADDRESS_MIN: u32 = {min:#x};
+pub(crate) const DUMP_ADDRESS_MAX: u32 = {max:#x};"##
+    )?;
 
     Ok(())
 }
