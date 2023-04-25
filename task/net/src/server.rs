@@ -329,6 +329,9 @@ impl<E: DeviceExt> VLanState<E> {
                 s.close();
                 s.bind(e).unwrap_lite();
                 changed = true;
+
+                // Reset the watchdog, so it doesn't fire right away
+                self.queue_watchdog[socket_index] = QueueWatchdog::Nominal;
             }
         }
         changed
