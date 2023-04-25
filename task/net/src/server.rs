@@ -320,10 +320,10 @@ impl<E: DeviceExt> VLanState<E> {
             if self.queue_watchdog[socket_index]
                 == QueueWatchdog::QueueFullTimeout
             {
-                // Reset the queue by closing + reopening it.  This
-                // will lose packets in the RX queue as well;
-                // they're collateral damage because `smoltcp`
-                // doesn't expose a way to flush just the TX side.
+                // Reset the queue by closing + reopening it.  This will lose
+                // packets in the RX queue as well; they're collateral damage
+                // because `smoltcp` doesn't expose a way to flush just the TX
+                // side.
                 let s = self.get_socket_mut(socket_index).unwrap_lite();
                 let e = s.endpoint();
                 s.close();
