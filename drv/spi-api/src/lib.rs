@@ -7,9 +7,23 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use gateway_messages::SpiError as GwSpiError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IdolError,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
 #[repr(u32)]
 pub enum SpiError {
     /// Transfer size is 0 or exceeds maximum
@@ -17,7 +31,7 @@ pub enum SpiError {
 
     /// Server restarted
     #[idol(server_death)]
-    ServerRestarted = 2,
+    TaskRestarted = 2,
 
     /// Release without successful Lock
     NothingToRelease = 3,
@@ -27,6 +41,17 @@ pub enum SpiError {
     ///
     /// This is almost certainly a programming error on the client side.
     BadDevice = 4,
+}
+
+impl From<SpiError> for GwSpiError {
+    fn from(value: SpiError) -> Self {
+        match value {
+            SpiError::BadTransferSize => Self::BadTransferSize,
+            SpiError::TaskRestarted => Self::TaskRestarted,
+            SpiError::NothingToRelease => Self::NothingToRelease,
+            SpiError::BadDevice => Self::BadDevice,
+        }
+    }
 }
 
 #[derive(

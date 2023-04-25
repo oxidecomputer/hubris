@@ -105,7 +105,7 @@ fn main() -> ! {
                 again = true;
             }
 
-            if spi.has_byte() && !rx_done {
+            if spi.has_entry() && !rx_done {
                 let b = spi.read_u8();
                 ringbuf_entry!(Trace::Rx(b));
                 rx[rx_cnt] = b;
