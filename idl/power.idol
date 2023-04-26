@@ -60,7 +60,7 @@ Interface(
             idempotent: true,
         ),
         "rendmp_blackbox_dump": (
-            doc: "reads the RAM blackbox of a Renesas multiphase power controller to the provided lease",
+            doc: "reads the RAM blackbox of a Renesas multiphase power controller",
             args: {
                 "addr": "u8",
             },
@@ -70,6 +70,18 @@ Interface(
             ),
             idempotent: true,
             encoding: Hubpack,
+        ),
+        "rendmp_dma_read": (
+            doc: "reads a DMA register from a Renesas multiphase power controller",
+            args: {
+                "addr": "u8",
+                "reg": "u16",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
         ),
     },
 )
