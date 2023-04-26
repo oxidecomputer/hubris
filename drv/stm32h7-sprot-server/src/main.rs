@@ -83,6 +83,15 @@ const PART2_DELAY: u64 = 2; // Observed to be at least 2ms on gimletlet
 
 const MAX_UPDATE_ATTEMPTS: u16 = 3;
 
+// Time to wait for a dump
+//
+// This timeout is probably longer than it needs to be, but there is no real harm
+// in this. The RoT stops the SP, takes the dump, and then replies. During halt
+// the SP isn't ticking so there is no time advancement.
+//
+// On the flipside, we have learned via unintended experiment that 5ms is too short!
+const DUMP_TIMEOUT: u32 = 1000;
+
 // ROT_IRQ comes from app.toml
 // We use spi3 on gimletlet and spi4 on gemini and gimlet.
 // You should be able to move the RoT board between SPI3, SPI4, and SPI6
@@ -686,7 +695,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<DumpOrSprotError>> {
         let body = ReqBody::Dump(DumpReq::V1 { addr });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        let rsp = self.do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)?;
         if let RspBody::Dump(DumpRsp::V1 { err }) = rsp.body? {
             err.map_or(Ok(()), |e| DumpOrSprotError::Dump(e).into())
         } else {

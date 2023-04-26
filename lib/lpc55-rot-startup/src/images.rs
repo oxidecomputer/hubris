@@ -4,49 +4,9 @@
 
 use abi::{ImageHeader, ImageVectors};
 use lpc55_romapi::FLASH_PAGE_SIZE;
-
-use crate::Handoff;
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::{ImageVersion, RotBootState, RotImageDetails, RotSlot};
-
+use stage0_handoff::{ImageVersion, RotImageDetails};
 use unwrap_lite::UnwrapLite;
-
-extern "C" {
-    static __IMAGE_A_BASE: abi::ImageVectors;
-    static __IMAGE_B_BASE: abi::ImageVectors;
-    // __vector size is currently defined in the linker script as
-    //
-    // __vector_size = SIZEOF(.vector_table);
-    //
-    // which is a symbol whose value is the size of the vector table (i.e.
-    // there is no actual space allocated). This is best represented as a zero
-    // sized type which gets accessed by addr_of! as below. The issue here is
-    // that () is not a valid C type and this is a C extern block. We don't
-    // actually care about compatibility with C here though so we can safely
-    // allow an improper ctype here.
-    #[allow(improper_ctypes)]
-    static __vector_size: ();
-}
-
-pub struct Image(&'static ImageVectors);
-
-// FLASH_PAGE_SIZE is a usize so redefine the constant here to avoid having
-// to do the u32 change everywhere
-const PAGE_SIZE: u32 = FLASH_PAGE_SIZE as u32;
-
-// Implicit in this design is that all functions on Image are considered safe.
-// We ensure this by only returning an Image through this interface after
-// verifying all parts of it are valid.
-//
-// It would technically be possible to create an instance of Image with an
-// invalid set of ImageVectors but that would require going far outside the
-// bounds of the expected design.
-
-// Safety: These accesses are unsafe because `IMAGEA` and `IMAGEB`
-// are coming from an extern, and might violate alignment rules or even be
-// modified externally and subject to data races. In our case
-// we have to assume that neither of these is true, since it's
-// being furnished by our linker script, which we trust.
 
 pub fn get_image_b() -> Option<Image> {
     let imageb = unsafe { &__IMAGE_B_BASE };
@@ -69,6 +29,32 @@ pub fn get_image_a() -> Option<Image> {
         Some(img)
     } else {
         None
+    }
+}
+
+extern "C" {
+    static __IMAGE_A_BASE: abi::ImageVectors;
+    static __IMAGE_B_BASE: abi::ImageVectors;
+    // __vector size is currently defined in the linker script as
+    //
+    // __vector_size = SIZEOF(.vector_table);
+    //
+    // which is a symbol whose value is the size of the vector table (i.e.
+    // there is no actual space allocated). This is best represented as a zero
+    // sized type which gets accessed by addr_of! as below.
+    static __vector_size: [u8; 0];
+}
+
+// FLASH_PAGE_SIZE is a usize so redefine the constant here to avoid having
+// to do the u32 change everywhere
+const PAGE_SIZE: u32 = FLASH_PAGE_SIZE as u32;
+
+pub struct Image(&'static ImageVectors);
+
+pub fn image_details(img: Image) -> RotImageDetails {
+    RotImageDetails {
+        digest: img.get_hash(),
+        version: img.get_image_version(),
     }
 }
 
@@ -150,26 +136,6 @@ impl Image {
         img_hash.finalize().try_into().unwrap_lite()
     }
 
-    pub fn get_vectors(&self) -> u32 {
-        self.get_img_start()
-    }
-
-    pub fn get_pc(&self) -> u32 {
-        self.0.entry
-    }
-
-    pub fn get_sp(&self) -> u32 {
-        self.0.sp
-    }
-
-    pub fn get_version(&self) -> u32 {
-        // SAFETY: We checked this previously
-        let header = unsafe { &*self.get_header() };
-
-        header.version
-    }
-
-    // TODO(AJS): Replace get_version with this?
     pub fn get_image_version(&self) -> ImageVersion {
         // SAFETY: We checked this previously
         let header = unsafe { &*self.get_header() };
@@ -179,41 +145,21 @@ impl Image {
             version: header.version,
         }
     }
-}
 
-pub fn select_image_to_boot() -> (Image, RotSlot) {
-    let (imagea, imageb) = (get_image_a(), get_image_b());
+    fn pointer_range(&self) -> core::ops::Range<*const u8> {
+        let img_ptr = self.get_img_start() as *const u8;
+        // The MPU requires 32 byte alignment and so the compiler pads the
+        // image accordingly. The length field from the image header does not
+        // (and should not) account for this padding so we must do that here.
+        let img_size = self.get_img_size().unwrap_lite() + 31 & !31;
 
-    // Image selection is very simple at the moment
-    // Future work: check persistent state and epochs
-    match (imagea, imageb) {
-        (None, None) => panic!(),
-        (Some(a), None) => (a, RotSlot::A),
-        (None, Some(b)) => (b, RotSlot::B),
-        (Some(a), Some(b)) => {
-            if a.get_version() > b.get_version() {
-                (a, RotSlot::A)
-            } else {
-                (b, RotSlot::B)
-            }
-        }
+        // Safety: this is unsafe because the pointer addition could overflow.
+        // If that happens, we'll produce an empty range or crash with a panic.
+        // We do not dereference these here pointers.
+        img_ptr..unsafe { img_ptr.add(img_size) }
     }
-}
 
-/// Handoff Image metadata to USB SRAM
-pub fn dump_image_details_to_ram(handoff: &Handoff) {
-    let a = get_image_a().map(image_details);
-    let b = get_image_b().map(image_details);
-    let (_, active) = select_image_to_boot();
-
-    let details = RotBootState { active, a, b };
-
-    handoff.store(&details);
-}
-
-fn image_details(img: Image) -> RotImageDetails {
-    RotImageDetails {
-        digest: img.get_hash(),
-        version: img.get_image_version(),
+    pub fn contains(&self, address: *const u8) -> bool {
+        self.pointer_range().contains(&address)
     }
 }

@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::image_header::Image;
 use crate::Handoff;
 use core::mem;
 use dice_crate::{
@@ -204,16 +203,7 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
     handoff.store(&rng_data);
 }
 
-fn gen_fwid(image: &Image) -> [u8; 32] {
-    // Collect hash(es) of TCB. The first TCB Component Identifier (TCI)
-    // calculated is the Hubris image. The DICE specs call this collection
-    // of TCIs the FWID. This hash is stored in keys certified by the
-    // DeviceId. This hash should be 'updated' with relevant configuration
-    // and code as FWID for Hubris becomes known.
-    image.get_hash()
-}
-
-pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
+pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -237,7 +227,15 @@ pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
         handoff,
     );
 
-    let fwid = gen_fwid(image);
+    // The data we generate has a slot for "firmware ID." This made more sense
+    // when this code and the Hubris image were distributed and signed
+    // separately, and may begin making sense again when we reimplement the
+    // trustzone split and need to attest to the nonsecure code we're about to
+    // boot.
+    //
+    // However, for now, it is moot, and we've agreed to zero it as an
+    // indication of that.
+    let fwid = [0; 32];
 
     // create CDI for layer 1 (L1) firmware (the hubris image we're booting)
     let cdi_l1 = CdiL1::new(&cdi, &fwid);

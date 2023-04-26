@@ -509,7 +509,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
     }
 }
 
-pub const HEADER_MAGIC: u32 = 0x1535_6637;
+pub const HEADER_MAGIC: u32 = 0x64_CE_D6_CA;
 pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 
 /// TODO: Add hash for integrity check
