@@ -23,10 +23,13 @@ pub(crate) struct GimletData {
 }
 
 fn default_host_startup_options() -> HostStartupOptions {
-    // XXX For now, we want to default to these options.
-    HostStartupOptions::STARTUP_KMDB
-        | HostStartupOptions::STARTUP_PROM
-        | HostStartupOptions::STARTUP_VERBOSE
+    if cfg!(feature = "boot-kmdb") {
+        HostStartupOptions::STARTUP_KMDB
+            | HostStartupOptions::STARTUP_PROM
+            | HostStartupOptions::STARTUP_VERBOSE
+    } else {
+        HostStartupOptions::empty()
+    }
 }
 
 impl GimletData {
