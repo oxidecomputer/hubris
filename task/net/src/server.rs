@@ -285,8 +285,8 @@ enum QueueWatchdog {
     /// Data is flowing through the queue
     Nominal,
 
-    /// We have seen a `QueueFull` error, and no packets have successfully enter
-    /// the queue since then
+    /// We have seen a `QueueFull` error, and no packets have successfully
+    /// entered the queue since then
     QueueFullAt(u64),
 
     /// We have seen two `QueueFull` errors separated by some timeout without
@@ -607,8 +607,9 @@ where
             Err(udp::SendError::BufferFull) => {
                 const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
 
-                // Record the QueueFull error, adjusting the later timestamp in
-                // the tuple to be our current time.
+                // Record a new QueueFull error if the socket had been working
+                // until now, or roll over into QueueFullTimeout if we've
+                // exceeded our timeout delay.
                 let now = userlib::sys_get_timer().now;
                 match vlan.queue_watchdog[socket_index] {
                     QueueWatchdog::Nominal => {
