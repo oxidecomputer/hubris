@@ -18,6 +18,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{Bmr491Event, PmbusValue};
 use task_sensor_api as sensor_api;
@@ -142,6 +143,17 @@ impl Device {
             Device::Ltc4282(dev) => dev.read_vout()?,
         };
         Ok(r)
+    }
+
+    fn read_phase_current(
+        &self,
+        phase: Phase,
+    ) -> Result<Amperes, ResponseCode> {
+        match &self {
+            Device::Raa229618(dev) => Ok(dev.read_phase_current(phase)?),
+            Device::Isl68224(dev) => Ok(dev.read_phase_current(phase)?),
+            _ => Err(ResponseCode::OperationNotSupported),
+        }
     }
 
     fn read_vin(&self) -> Result<Volts, ResponseCode> {
@@ -298,6 +310,7 @@ macro_rules! ltc4282_controller {
                 current: sensors::[<LTC4282_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
             }
         }
     };
@@ -641,21 +654,6 @@ impl ServerImpl {
         Ok(dev)
     }
 
-    fn raa229618(
-        &mut self,
-        voltage: SensorId,
-    ) -> Result<(&mut Raa229618, Option<&'static [u8]>), ResponseCode> {
-        for (c, dev) in CONTROLLER_CONFIG.iter().zip(self.devices.iter_mut()) {
-            if let Device::Raa229618(dev) = dev {
-                if c.voltage == voltage {
-                    return Ok((dev, c.phases));
-                }
-            }
-        }
-
-        Err(ResponseCode::NoDevice)
-    }
-
     fn get_device(
         &self,
         req_dev: task_power_api::Device,
@@ -793,29 +791,31 @@ impl idl::InOrderPowerImpl for ServerImpl {
         Ok(out)
     }
 
-    fn raa229618_phase_current(
+    fn phase_current(
         &mut self,
         _msg: &userlib::RecvMessage,
         rail: task_sensor_api::SensorId,
         phase: u8,
     ) -> Result<f32, idol_runtime::RequestError<ResponseCode>> {
-        let (dev, phases) = self.raa229618(rail)?;
+        if let Some((c, dev)) = CONTROLLER_CONFIG
+            .iter()
+            .zip(self.devices.iter_mut())
+            .find(|(c, _)| c.voltage == rail)
+        {
+            if let Some(phases) = c.phases {
+                ringbuf_entry!(Trace::Phases(phases.len()));
+                let phase: usize = phase as usize;
 
-        if let Some(phases) = phases {
-            ringbuf_entry!(Trace::Phases(phases.len()));
-            let phase: usize = phase as usize;
-
-            if phase < phases.len() {
-                match dev.read_phase_current(Phase(phases[phase])) {
-                    Err(e) => Err(ResponseCode::from(e).into()),
-                    Ok(val) => Ok(val.0),
+                if phase < phases.len() {
+                    return match dev.read_phase_current(Phase(phases[phase])) {
+                        Err(e) => Err(ResponseCode::from(e).into()),
+                        Ok(val) => Ok(val.0),
+                    };
                 }
-            } else {
-                Err(ResponseCode::BadArg.into())
             }
-        } else {
-            Err(ResponseCode::BadArg.into())
         }
+
+        Err(ResponseCode::BadArg.into())
     }
 }
 

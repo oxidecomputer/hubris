@@ -59,7 +59,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "raa229618_phase_current": (
+        "phase_current": (
             args: {
                 "rail": (
                     type: "SensorId",

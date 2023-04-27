@@ -973,7 +973,8 @@ bus = "mid"
 address = 0x5a
 device = "raa229618"
 description = "CPU power controller"
-power = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ] }
+power.rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ]
+power.phases = [ [ 12, 13, 14, 15, 16, 17, 18, 19 ], [ 0, 1, 2, 3 ] ]
 sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
 refdes = "U350"
 
@@ -982,7 +983,8 @@ bus = "mid"
 address = 0x5b
 device = "raa229618"
 description = "SoC power controller"
-power = { rails = [ "VDDCR_SOC", "VDD_MEM_EFGH" ] }
+power.rails = [ "VDDCR_SOC", "VDD_MEM_EFGH" ] }
+power.phases = [ [ 16, 17, 18, 19 ], [ 0, 1, 2, 3 ] ]
 sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
 refdes = "U351"
 
@@ -991,7 +993,8 @@ bus = "mid"
 address = 0x5c
 device = "isl68224"
 description = "DIMM/SP3 1.8V A0 power controller"
-power = { rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ] }
+power.rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ] }
+power.phases = [ [ 0 ], [ 1 ], [ 2 ] ]
 sensors = { voltage = 3, current = 3 }
 refdes = "U352"
 

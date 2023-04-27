@@ -14,7 +14,7 @@ use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
-pub struct Phase(pub u8);
+const PHASE_RAIL: u8 = 0x80;
 
 pub struct Raa229618 {
     device: I2cDevice,
@@ -111,13 +111,10 @@ impl Raa229618 {
         }
     }
 
-    pub fn read_phase_current(
-        &mut self,
-        phase: Phase,
-    ) -> Result<Amperes, Error> {
+    pub fn read_phase_current(&self, phase: Phase) -> Result<Amperes, Error> {
         let iout = pmbus_rail_phase_read!(
             self.device,
-            self.rail,
+            PHASE_RAIL,
             phase.0,
             PHASE_CURRENT
         )?;

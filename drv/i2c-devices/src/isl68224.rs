@@ -14,6 +14,8 @@ use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
+const PHASE_RAIL: u8 = 0x80;
+
 pub struct Isl68224 {
     device: I2cDevice,
     rail: u8,
@@ -91,6 +93,16 @@ impl Isl68224 {
         let mut op = pmbus_rail_read!(self.device, self.rail, OPERATION)?;
         op.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_rail_write!(self.device, self.rail, OPERATION, op)
+    }
+
+    pub fn read_phase_current(&self, phase: Phase) -> Result<Amperes, Error> {
+        let iout = pmbus_rail_phase_read!(
+            self.device,
+            PHASE_RAIL,
+            phase.0,
+            PHASE_CURRENT
+        )?;
+        Ok(Amperes(iout.get()?.0))
     }
 }
 
