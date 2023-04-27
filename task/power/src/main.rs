@@ -270,7 +270,7 @@ macro_rules! rail_controller_notemp {
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
-                phases: None,
+                phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
             }
         }
     };
@@ -353,7 +353,7 @@ macro_rules! mwocp68_controller {
                 ),
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
-                phases: None,
+                phases: i2c_config::pmbus::[<MWOCP68_ $rail:upper _PHASES>],
             }
         }
     };
