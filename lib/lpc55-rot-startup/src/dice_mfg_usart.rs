@@ -6,7 +6,7 @@ use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::Deref;
 use dice_crate::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
-    SeedBuf, SerialMfg, SerialNumber,
+    PlatformId, SeedBuf, SerialMfg,
 };
 use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;
@@ -68,7 +68,7 @@ impl Default for Header {
 #[derive(Deserialize, Serialize, SerializedSize)]
 struct DiceState {
     pub persistid_key_code: [u32; KEYCODE_LEN],
-    pub serial_number: SerialNumber,
+    pub platform_id: PlatformId,
     pub persistid_cert: PersistIdCert,
     pub intermediate_cert: Option<IntermediateCert>,
 }
@@ -190,7 +190,7 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
 
     let dice_state = DiceState {
         persistid_key_code: id_keycode,
-        serial_number: dice_data.serial_number,
+        platform_id: dice_data.platform_id,
         persistid_cert: dice_data.persistid_cert,
         intermediate_cert: dice_data.intermediate_cert,
     };
@@ -199,7 +199,7 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
 
     MfgResult {
         cert_serial_number: Default::default(),
-        serial_number: dice_state.serial_number,
+        platform_id: dice_state.platform_id,
         persistid_keypair: id_keypair,
         persistid_cert: dice_state.persistid_cert,
         intermediate_cert: dice_state.intermediate_cert,
@@ -233,7 +233,7 @@ fn gen_artifacts_from_flash(peripherals: &Peripherals) -> MfgResult {
 
     MfgResult {
         cert_serial_number: CertSerialNumber::default(),
-        serial_number: dice_state.serial_number,
+        platform_id: dice_state.platform_id,
         persistid_keypair: id_keypair,
         persistid_cert: dice_state.persistid_cert,
         intermediate_cert: dice_state.intermediate_cert,

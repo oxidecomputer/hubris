@@ -7,9 +7,8 @@ use core::mem;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
     CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, IntermediateCert,
-    PersistIdCert, RngData, RngSeed, SeedBuf, SerialNumber,
-    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
-    TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
+    PersistIdCert, PlatformId, RngData, RngSeed, SeedBuf, SpMeasureCertBuilder,
+    SpMeasureData, SpMeasureOkm, TrustQuorumDheCertBuilder, TrustQuorumDheOkm,
 };
 use lpc55_pac::Peripherals;
 use lpc55_puf::Puf;
@@ -26,7 +25,7 @@ pub const KEY_INDEX: u32 = 1;
 /// Data we get back from the manufacturing process.
 pub struct MfgResult {
     pub cert_serial_number: CertSerialNumber,
-    pub serial_number: SerialNumber,
+    pub platform_id: PlatformId,
     pub persistid_keypair: Keypair,
     pub persistid_cert: PersistIdCert,
     pub intermediate_cert: Option<IntermediateCert>,
@@ -90,7 +89,7 @@ fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
     // DeviceId.
     MfgResult {
         cert_serial_number: Default::default(),
-        serial_number: mfg_state.serial_number,
+        platform_id: mfg_state.platform_id,
         persistid_keypair: id_keypair,
         persistid_cert: mfg_state.persistid_cert,
         intermediate_cert: mfg_state.intermediate_cert,
@@ -103,7 +102,7 @@ fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
 fn gen_deviceid_artifacts(
     cdi: &Cdi,
     cert_serial_number: &mut CertSerialNumber,
-    serial_number: &SerialNumber,
+    platform_id: &PlatformId,
     persistid_keypair: Keypair,
     persistid_cert: PersistIdCert,
     intermediate_cert: Option<IntermediateCert>,
@@ -115,7 +114,7 @@ fn gen_deviceid_artifacts(
 
     let deviceid_cert = DeviceIdCertBuilder::new(
         &cert_serial_number.next(),
-        &serial_number,
+        &platform_id,
         &deviceid_keypair.public,
     )
     .sign(&persistid_keypair);
@@ -136,7 +135,6 @@ fn gen_deviceid_artifacts(
 fn gen_alias_artifacts(
     cdi_l1: &CdiL1,
     cert_serial_number: &mut CertSerialNumber,
-    serial_number: &SerialNumber,
     deviceid_keypair: &Keypair,
     fwid: &[u8; 32],
     handoff: &Handoff,
@@ -146,7 +144,6 @@ fn gen_alias_artifacts(
 
     let alias_cert = AliasCertBuilder::new(
         &cert_serial_number.next(),
-        &serial_number,
         &alias_keypair.public,
         fwid,
     )
@@ -157,7 +154,6 @@ fn gen_alias_artifacts(
 
     let tqdhe_cert = TrustQuorumDheCertBuilder::new(
         &cert_serial_number.next(),
-        &serial_number,
         &tqdhe_keypair.public,
         fwid,
     )
@@ -174,7 +170,6 @@ fn gen_alias_artifacts(
 fn gen_spmeasure_artifacts(
     cdi_l1: &CdiL1,
     cert_serial_number: &mut CertSerialNumber,
-    serial_number: &SerialNumber,
     deviceid_keypair: &Keypair,
     fwid: &[u8; 32],
     handoff: &Handoff,
@@ -184,7 +179,6 @@ fn gen_spmeasure_artifacts(
 
     let spmeasure_cert = SpMeasureCertBuilder::new(
         &cert_serial_number.next(),
-        &serial_number,
         &spmeasure_keypair.public,
         fwid,
     )
@@ -220,7 +214,7 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
     let deviceid_keypair = gen_deviceid_artifacts(
         &cdi,
         &mut mfg_data.cert_serial_number,
-        &mfg_data.serial_number,
+        &mfg_data.platform_id,
         mfg_data.persistid_keypair,
         mfg_data.persistid_cert,
         mfg_data.intermediate_cert,
@@ -243,7 +237,6 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
     gen_alias_artifacts(
         &cdi_l1,
         &mut mfg_data.cert_serial_number,
-        &mfg_data.serial_number,
         &deviceid_keypair,
         &fwid,
         handoff,
@@ -252,7 +245,6 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
     gen_spmeasure_artifacts(
         &cdi_l1,
         &mut mfg_data.cert_serial_number,
-        &mfg_data.serial_number,
         &deviceid_keypair,
         &fwid,
         handoff,

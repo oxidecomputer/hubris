@@ -6,10 +6,11 @@ use crate::{
     cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
     IntermediateCert, PersistIdCert, SeedBuf,
 };
-use dice_mfg_msgs::{MfgMessage, SerialNumber, SizedBlob};
+use dice_mfg_msgs::{MfgMessage, PlatformId, SizedBlob};
 use lib_lpc55_usart::{Read, Usart, Write};
 use nb;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
+use unwrap_lite::UnwrapLite;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub enum Error {
@@ -35,8 +36,6 @@ impl SeedBuf for PersistIdSeed {
 }
 
 // data returned to caller by MFG
-// serial_number is required to use DeviceId as embedded certificate authority
-// (ECA) post MFG
 pub struct DiceMfgState {
     // TODO: The CertSerialNumber here represents the serial number for the
     // PersistId CA. If this cert is signed by the manufacturing line it will
@@ -46,7 +45,7 @@ pub struct DiceMfgState {
     // DeviceId cert that it issues will have a cert serial number of 1.
     // This field tracks this state.
     pub cert_serial_number: CertSerialNumber,
-    pub serial_number: SerialNumber,
+    pub platform_id: PlatformId,
     pub persistid_cert: PersistIdCert,
     pub intermediate_cert: Option<IntermediateCert>,
 }
@@ -68,20 +67,22 @@ impl<'a> SelfMfg<'a> {
 impl DiceMfg for SelfMfg<'_> {
     fn run(self) -> DiceMfgState {
         let mut cert_sn: CertSerialNumber = Default::default();
-        let dname_sn = SerialNumber::try_from("0123456789a").unwrap();
+        let platform_id =
+            PlatformId::try_from("0XV2:012-3456789:ABC:DEFGHJKLMNP")
+                .unwrap_lite();
 
         let persistid_cert = PersistIdSelfCertBuilder::new(
             &cert_sn.next(),
-            &dname_sn,
+            &platform_id,
             &self.keypair.public,
         )
         .sign(self.keypair);
 
         DiceMfgState {
             cert_serial_number: cert_sn,
-            serial_number: dname_sn,
+            platform_id,
             // TODO: static assert deviceid_cert size < SizedBuf max
-            persistid_cert: persistid_cert,
+            persistid_cert,
             intermediate_cert: None,
         }
     }
@@ -91,7 +92,7 @@ pub struct SerialMfg<'a> {
     keypair: &'a Keypair,
     usart: Usart<'a>,
     buf: [u8; MfgMessage::MAX_ENCODED_SIZE],
-    serial_number: Option<SerialNumber>,
+    platform_id: Option<PlatformId>,
     persistid_cert: Option<PersistIdCert>,
     intermediate_cert: Option<IntermediateCert>,
 }
@@ -102,7 +103,7 @@ impl<'a> SerialMfg<'a> {
             keypair,
             usart,
             buf: [0u8; MfgMessage::MAX_ENCODED_SIZE],
-            serial_number: None,
+            platform_id: None,
             persistid_cert: None,
             intermediate_cert: None,
         }
@@ -113,7 +114,7 @@ impl<'a> SerialMfg<'a> {
     /// (currently) can by ensuring all of the necessary data has been
     /// received.
     fn handle_break(&mut self) -> bool {
-        if self.serial_number.is_none()
+        if self.platform_id.is_none()
             || self.persistid_cert.is_none()
             || self.intermediate_cert.is_none()
         {
@@ -131,12 +132,12 @@ impl<'a> SerialMfg<'a> {
     /// serial number and identity public key. We then sign the CSR with the
     /// private part of the same key and send it back to the mfg system.
     fn handle_csrplz(&mut self) -> Result<(), Error> {
-        if self.serial_number.is_none() {
+        if self.platform_id.is_none() {
             return self.send_nak();
         }
 
         let csr = PersistIdCsrBuilder::new(
-            &self.serial_number.unwrap(),
+            &self.platform_id.unwrap_lite(),
             &self.keypair.public,
         )
         .sign(&self.keypair);
@@ -159,19 +160,15 @@ impl<'a> SerialMfg<'a> {
         self.send_ack()
     }
 
-    /// Store the serial number provided by the mfg system. If we've already
-    /// received a cert for the identity we invalidate it. This is to prevent
-    /// the mfg side from changing the SN after we've used it to create the
-    /// identity cert.
-    fn handle_serial_number(
-        &mut self,
-        serial_number: SerialNumber,
-    ) -> Result<(), Error> {
+    /// Store the platform identity provided by the mfg system.
+    fn handle_platform_id(&mut self, pid: PlatformId) -> Result<(), Error> {
+        // If we've already received an identity cert, getting a new identity
+        // means the old cert will be invalid and so we invalidate it.
         if self.persistid_cert.is_some() {
             self.persistid_cert = None;
         }
 
-        self.serial_number = Some(serial_number);
+        self.platform_id = Some(pid);
 
         self.send_ack()
     }
@@ -231,7 +228,7 @@ impl DiceMfg for SerialMfg<'_> {
                     self.handle_intermediate_cert(cert)
                 }
                 MfgMessage::Ping => self.send_ack(),
-                MfgMessage::SerialNumber(sn) => self.handle_serial_number(sn),
+                MfgMessage::PlatformId(pid) => self.handle_platform_id(pid),
                 _ => continue,
             };
         }
@@ -240,7 +237,7 @@ impl DiceMfg for SerialMfg<'_> {
 
         DiceMfgState {
             cert_serial_number: Default::default(),
-            serial_number: self.serial_number.unwrap(),
+            platform_id: self.platform_id.unwrap_lite(),
             persistid_cert: self.persistid_cert.unwrap(),
             intermediate_cert: Some(self.intermediate_cert.unwrap()),
         }

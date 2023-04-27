@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{persistid_csr_tmpl, SerialNumber};
+use crate::persistid_csr_tmpl;
 use core::ops::Range;
-use dice_mfg_msgs::SizedBlob;
+use dice_mfg_msgs::{PlatformId, SizedBlob};
 use hubpack::SerializedSize;
 use salty::constants::{
     PUBLICKEY_SERIALIZED_LENGTH, SIGNATURE_SERIALIZED_LENGTH,
@@ -27,15 +27,6 @@ pub trait CsrBuilder {
         self
     }
 
-    const SUBJECT_SN_RANGE: Range<usize>;
-
-    fn set_subject_sn(self, sn: &SerialNumber) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_range(Self::SUBJECT_SN_RANGE, sn)
-    }
-
     const PUB_RANGE: Range<usize>;
 
     fn set_pub(self, pubkey: &[u8; PUBLICKEY_SERIALIZED_LENGTH]) -> Self
@@ -55,15 +46,35 @@ pub trait CsrBuilder {
     }
 }
 
+pub trait CsrSubjectCnBuilder: CsrBuilder {
+    const SUBJECT_CN_RANGE: Range<usize>;
+
+    fn set_subject_cn(mut self, pid: &PlatformId) -> Self
+    where
+        Self: Sized,
+    {
+        let cn_range = Range {
+            start: Self::SUBJECT_CN_RANGE.start,
+            // Account for possibility that PlatformId may be smaller than
+            // the full SUBJECT_CN_RANGE.
+            end: Self::SUBJECT_CN_RANGE.start + pid.as_bytes().len(),
+        };
+
+        self.as_mut_bytes()[cn_range].copy_from_slice(pid.as_bytes());
+
+        self
+    }
+}
+
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct PersistIdCsrBuilder(
     #[serde(with = "BigArray")] [u8; persistid_csr_tmpl::SIZE],
 );
 
 impl PersistIdCsrBuilder {
-    pub fn new(dname_sn: &SerialNumber, public_key: &PublicKey) -> Self {
+    pub fn new(pid: &PlatformId, public_key: &PublicKey) -> Self {
         Self(persistid_csr_tmpl::CSR_TMPL.clone())
-            .set_subject_sn(dname_sn)
+            .set_subject_cn(pid)
             .set_pub(public_key.as_bytes())
     }
 
@@ -81,12 +92,15 @@ impl PersistIdCsrBuilder {
 
 impl CsrBuilder for PersistIdCsrBuilder {
     const PUB_RANGE: Range<usize> = persistid_csr_tmpl::PUB_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = persistid_csr_tmpl::SUBJECT_SN_RANGE;
     const SIG_RANGE: Range<usize> = persistid_csr_tmpl::SIG_RANGE;
 
     fn as_mut_bytes(&mut self) -> &mut [u8] {
         &mut self.0
     }
+}
+
+impl CsrSubjectCnBuilder for PersistIdCsrBuilder {
+    const SUBJECT_CN_RANGE: Range<usize> = persistid_csr_tmpl::SUBJECT_CN_RANGE;
 }
 
 #[derive(Deserialize, Serialize, SerializedSize)]
