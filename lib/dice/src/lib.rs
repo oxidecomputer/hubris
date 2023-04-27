@@ -16,12 +16,12 @@ use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // re-export useful types from dice-mfg-msgs making them part of our API
-pub use dice_mfg_msgs::{SerialNumber, SizedBlob};
+pub use dice_mfg_msgs::{PlatformId, SizedBlob};
 
 mod cert;
 pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdCert,
-    DeviceIdCertBuilder, PersistIdSelfCertBuilder, SpMeasureCert,
+    DeviceIdCertBuilder, FwidCert, PersistIdSelfCertBuilder, SpMeasureCert,
     SpMeasureCertBuilder, TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
 mod csr;

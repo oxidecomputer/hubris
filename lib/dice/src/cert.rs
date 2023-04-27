@@ -8,7 +8,7 @@ use crate::{
     PersistIdCert,
 };
 use core::ops::Range;
-use dice_mfg_msgs::{SerialNumber, SizedBlob};
+use dice_mfg_msgs::{PlatformId, SizedBlob, PLATFORM_ID_MAX_LEN};
 use hubpack::SerializedSize;
 use salty::constants::{
     PUBLICKEY_SERIALIZED_LENGTH, SIGNATURE_SERIALIZED_LENGTH,
@@ -16,8 +16,9 @@ use salty::constants::{
 use salty::signature::{Keypair, PublicKey};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use static_assertions as sa;
 use unwrap_lite::UnwrapLite;
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Debug)]
 pub enum CertError {
@@ -30,9 +31,7 @@ pub enum CertError {
     NoCn,
 }
 
-pub trait Cert {
-    fn as_bytes(&self) -> &[u8];
-
+pub trait Cert: AsBytes {
     fn get_range<'a, T>(&'a self, r: Range<usize>) -> T
     where
         T: TryFrom<&'a [u8]>,
@@ -45,18 +44,6 @@ pub trait Cert {
     fn get_serial_number(&self) -> CertSerialNumber {
         let csn: [u8; 1] = self.get_range(Self::SERIAL_NUMBER_RANGE);
         CertSerialNumber::new(csn[0])
-    }
-
-    const ISSUER_SN_RANGE: Range<usize>;
-
-    fn get_issuer_sn(&self) -> SerialNumber {
-        SerialNumber::new(self.get_range(Self::ISSUER_SN_RANGE))
-    }
-
-    const SUBJECT_SN_RANGE: Range<usize>;
-
-    fn get_subject_sn(&self) -> SerialNumber {
-        SerialNumber::new(self.get_range(Self::SUBJECT_SN_RANGE))
     }
 
     const PUB_RANGE: Range<usize>;
@@ -78,14 +65,39 @@ pub trait Cert {
     }
 }
 
-pub trait CertBuilder {
-    fn as_mut_bytes(&mut self) -> &mut [u8];
+pub trait IssuerCnCert: Cert {
+    const ISSUER_CN_RANGE: Range<usize>;
 
+    fn get_issuer_cn(&self) -> PlatformId {
+        PlatformId::try_from(self.get_range::<&[u8]>(Self::ISSUER_CN_RANGE))
+            .unwrap_lite()
+    }
+}
+
+pub trait SubjectCnCert: Cert {
+    const SUBJECT_CN_RANGE: Range<usize>;
+
+    fn get_subject_cn(&self) -> PlatformId {
+        PlatformId::try_from(self.get_range::<&[u8]>(Self::SUBJECT_CN_RANGE))
+            .unwrap_lite()
+    }
+}
+
+/// Trait for Certs with the TCG DICE TcbInfo structure w/ the FWID member.
+pub trait FwidCert: Cert {
+    const FWID_RANGE: Range<usize>;
+
+    fn get_fwid(&self) -> &[u8] {
+        self.get_range(Self::FWID_RANGE)
+    }
+}
+
+pub trait CertBuilder: AsBytes + FromBytes {
     fn set_range<T: AsBytes>(mut self, r: Range<usize>, t: &T) -> Self
     where
         Self: Sized,
     {
-        self.as_mut_bytes()[r].copy_from_slice(t.as_bytes());
+        self.as_bytes_mut()[r].copy_from_slice(t.as_bytes());
 
         self
     }
@@ -97,24 +109,6 @@ pub trait CertBuilder {
         Self: Sized,
     {
         self.set_range(Self::SERIAL_NUMBER_RANGE, sn)
-    }
-
-    const ISSUER_SN_RANGE: Range<usize>;
-
-    fn set_issuer_sn(self, sn: &SerialNumber) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_range(Self::ISSUER_SN_RANGE, sn)
-    }
-
-    const SUBJECT_SN_RANGE: Range<usize>;
-
-    fn set_subject_sn(self, sn: &SerialNumber) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_range(Self::SUBJECT_SN_RANGE, sn)
     }
 
     const PUB_RANGE: Range<usize>;
@@ -136,18 +130,78 @@ pub trait CertBuilder {
     }
 }
 
+pub trait IssuerCnCertBuilder: CertBuilder {
+    const ISSUER_CN_RANGE: Range<usize>;
+
+    fn set_issuer_cn(mut self, pid: &PlatformId) -> Self
+    where
+        Self: Sized,
+    {
+        let cn_range = Range {
+            start: Self::ISSUER_CN_RANGE.start,
+            // Account for possibility that PlatformId may be smaller than
+            // the full ISSUER_CN_RANGE.
+            end: Self::ISSUER_CN_RANGE.start + pid.as_bytes().len(),
+        };
+
+        self.as_bytes_mut()[cn_range].copy_from_slice(pid.as_bytes());
+
+        self
+    }
+}
+
+pub trait SubjectCnCertBuilder: CertBuilder {
+    const SUBJECT_CN_RANGE: Range<usize>;
+
+    fn set_subject_cn(mut self, pid: &PlatformId) -> Self
+    where
+        Self: Sized,
+    {
+        let cn_range = Range {
+            start: Self::SUBJECT_CN_RANGE.start,
+            // Account for possibility that PlatformId may be smaller than
+            // the full SUBJECT_CN_RANGE.
+            end: Self::SUBJECT_CN_RANGE.start + pid.as_bytes().len(),
+        };
+
+        self.as_bytes_mut()[cn_range].copy_from_slice(pid.as_bytes());
+
+        self
+    }
+}
+
+// Several functions in this module return arrays with the following lengths.
+// These consts are a work around to keep from having to enable an unstable
+// feature: generic_const_exprs.
+const FWID_LENGTH: usize =
+    alias_cert_tmpl::FWID_RANGE.end - alias_cert_tmpl::FWID_RANGE.start;
+
+/// Trait for Certs with the TCG DICE TcbInfo structure w/ the FWID member.
+pub trait FwidCertBuilder: CertBuilder {
+    const FWID_RANGE: Range<usize>;
+
+    fn set_fwid(self, fwid: &[u8; FWID_LENGTH]) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_range(Self::FWID_RANGE, fwid)
+    }
+}
+
+#[derive(AsBytes, FromBytes)]
+#[repr(C)]
 pub struct PersistIdSelfCertBuilder([u8; persistid_cert_tmpl::SIZE]);
 
 impl PersistIdSelfCertBuilder {
     pub fn new(
         cert_sn: &CertSerialNumber,
-        dname_sn: &SerialNumber,
+        pid: &PlatformId,
         public_key: &PublicKey,
     ) -> Self {
         Self(persistid_cert_tmpl::CERT_TMPL.clone())
+            .set_issuer_cn(pid)
+            .set_subject_cn(pid)
             .set_serial_number(cert_sn)
-            .set_issuer_sn(dname_sn)
-            .set_subject_sn(dname_sn)
             .set_pub(public_key.as_bytes())
     }
 
@@ -168,31 +222,46 @@ impl PersistIdSelfCertBuilder {
 impl CertBuilder for PersistIdSelfCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         persistid_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = persistid_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        persistid_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = persistid_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = persistid_cert_tmpl::SIG_RANGE;
+}
 
-    fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
+sa::const_assert!(
+    PLATFORM_ID_MAX_LEN
+        == persistid_cert_tmpl::ISSUER_CN_RANGE.end
+            - persistid_cert_tmpl::ISSUER_CN_RANGE.start
+);
+
+impl IssuerCnCertBuilder for PersistIdSelfCertBuilder {
+    const ISSUER_CN_RANGE: Range<usize> = persistid_cert_tmpl::ISSUER_CN_RANGE;
+}
+
+sa::const_assert!(
+    PLATFORM_ID_MAX_LEN
+        == persistid_cert_tmpl::SUBJECT_CN_RANGE.end
+            - persistid_cert_tmpl::SUBJECT_CN_RANGE.start
+);
+
+impl SubjectCnCertBuilder for PersistIdSelfCertBuilder {
+    const SUBJECT_CN_RANGE: Range<usize> =
+        persistid_cert_tmpl::SUBJECT_CN_RANGE;
 }
 
 // TODO: this type is brittle: The subject name in the persistent id cert
 // MUST match the issuer
+#[derive(AsBytes, FromBytes)]
+#[repr(C)]
 pub struct DeviceIdCertBuilder([u8; deviceid_cert_tmpl::SIZE]);
 
 impl DeviceIdCertBuilder {
     pub fn new(
         cert_sn: &CertSerialNumber,
-        dname_sn: &SerialNumber,
+        dname_cn: &PlatformId,
         public_key: &PublicKey,
     ) -> Self {
         Self(deviceid_cert_tmpl::CERT_TMPL.clone())
             .set_serial_number(cert_sn)
-            .set_issuer_sn(dname_sn)
-            .set_subject_sn(dname_sn)
+            .set_issuer_cn(dname_cn)
             .set_pub(public_key.as_bytes())
     }
 
@@ -211,17 +280,22 @@ impl DeviceIdCertBuilder {
 impl CertBuilder for DeviceIdCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         deviceid_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = deviceid_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = deviceid_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = deviceid_cert_tmpl::SIG_RANGE;
-
-    fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+sa::const_assert!(
+    PLATFORM_ID_MAX_LEN
+        == deviceid_cert_tmpl::ISSUER_CN_RANGE.end
+            - deviceid_cert_tmpl::ISSUER_CN_RANGE.start
+);
+
+impl IssuerCnCertBuilder for DeviceIdCertBuilder {
+    const ISSUER_CN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_CN_RANGE;
+}
+
+#[derive(AsBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct DeviceIdCert(
     #[serde(with = "BigArray")] [u8; deviceid_cert_tmpl::SIZE],
 );
@@ -229,39 +303,25 @@ pub struct DeviceIdCert(
 impl Cert for DeviceIdCert {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         deviceid_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = deviceid_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = deviceid_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = deviceid_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> = deviceid_cert_tmpl::SIGNDATA_RANGE;
-
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
 }
 
+#[derive(AsBytes, FromBytes)]
+#[repr(C)]
 pub struct AliasCertBuilder([u8; alias_cert_tmpl::SIZE]);
 
 impl AliasCertBuilder {
-    const FWID_LENGTH: usize =
-        alias_cert_tmpl::FWID_RANGE.end - alias_cert_tmpl::FWID_RANGE.start;
-
     pub fn new(
         cert_sn: &CertSerialNumber,
-        dname_sn: &SerialNumber,
         public_key: &PublicKey,
-        fwid: &[u8; Self::FWID_LENGTH],
+        fwid: &[u8; FWID_LENGTH],
     ) -> Self {
         Self(alias_cert_tmpl::CERT_TMPL.clone())
             .set_serial_number(cert_sn)
-            .set_issuer_sn(dname_sn)
-            .set_subject_sn(dname_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)
-    }
-
-    pub fn set_fwid(self, fwid: &[u8; Self::FWID_LENGTH]) -> Self {
-        self.set_range(alias_cert_tmpl::FWID_RANGE, fwid)
     }
 
     pub fn sign(self, keypair: &Keypair) -> AliasCert
@@ -279,61 +339,44 @@ impl AliasCertBuilder {
 impl CertBuilder for AliasCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         alias_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = alias_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = alias_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = alias_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = alias_cert_tmpl::SIG_RANGE;
-
-    fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+impl FwidCertBuilder for AliasCertBuilder {
+    const FWID_RANGE: Range<usize> = alias_cert_tmpl::FWID_RANGE;
+}
+
+#[derive(AsBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct AliasCert(#[serde(with = "BigArray")] [u8; alias_cert_tmpl::SIZE]);
-
-impl AliasCert {
-    pub fn get_fwid(&self) -> &[u8] {
-        self.get_range(alias_cert_tmpl::FWID_RANGE)
-    }
-}
 
 impl Cert for AliasCert {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         alias_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = alias_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> = alias_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = alias_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = alias_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> = alias_cert_tmpl::SIGNDATA_RANGE;
-
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
 }
 
+impl FwidCert for AliasCert {
+    const FWID_RANGE: Range<usize> = alias_cert_tmpl::FWID_RANGE;
+}
+
+#[derive(AsBytes, FromBytes)]
+#[repr(C)]
 pub struct SpMeasureCertBuilder([u8; spmeasure_cert_tmpl::SIZE]);
 
 impl SpMeasureCertBuilder {
-    const FWID_LENGTH: usize = spmeasure_cert_tmpl::FWID_RANGE.end
-        - spmeasure_cert_tmpl::FWID_RANGE.start;
-
     pub fn new(
         cert_sn: &CertSerialNumber,
-        dname_sn: &SerialNumber,
         public_key: &PublicKey,
-        fwid: &[u8; Self::FWID_LENGTH],
+        fwid: &[u8; FWID_LENGTH],
     ) -> Self {
         Self(spmeasure_cert_tmpl::CERT_TMPL.clone())
             .set_serial_number(cert_sn)
-            .set_issuer_sn(dname_sn)
-            .set_subject_sn(dname_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)
-    }
-
-    pub fn set_fwid(self, fwid: &[u8; Self::FWID_LENGTH]) -> Self {
-        self.set_range(spmeasure_cert_tmpl::FWID_RANGE, fwid)
     }
 
     pub fn sign(self, keypair: &Keypair) -> SpMeasureCert
@@ -351,65 +394,52 @@ impl SpMeasureCertBuilder {
 impl CertBuilder for SpMeasureCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         spmeasure_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = spmeasure_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        spmeasure_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = spmeasure_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = spmeasure_cert_tmpl::SIG_RANGE;
-
-    fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+impl FwidCertBuilder for SpMeasureCertBuilder {
+    const FWID_RANGE: Range<usize> = spmeasure_cert_tmpl::FWID_RANGE;
+}
+
+#[derive(AsBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct SpMeasureCert(
     #[serde(with = "BigArray")] [u8; spmeasure_cert_tmpl::SIZE],
 );
 
-impl SpMeasureCert {
-    pub fn get_fwid(&self) -> &[u8] {
-        self.get_range(spmeasure_cert_tmpl::FWID_RANGE)
-    }
-}
-
 impl Cert for SpMeasureCert {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         spmeasure_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> = spmeasure_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        spmeasure_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = spmeasure_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = spmeasure_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> = spmeasure_cert_tmpl::SIGNDATA_RANGE;
-
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
 }
 
+sa::const_assert!(
+    FWID_LENGTH
+        == spmeasure_cert_tmpl::FWID_RANGE.end
+            - spmeasure_cert_tmpl::FWID_RANGE.start
+);
+
+impl FwidCert for SpMeasureCert {
+    const FWID_RANGE: Range<usize> = spmeasure_cert_tmpl::FWID_RANGE;
+}
+
+#[derive(AsBytes, FromBytes)]
+#[repr(C)]
 pub struct TrustQuorumDheCertBuilder([u8; trust_quorum_dhe_cert_tmpl::SIZE]);
 
 impl TrustQuorumDheCertBuilder {
-    const FWID_LENGTH: usize = trust_quorum_dhe_cert_tmpl::FWID_RANGE.end
-        - trust_quorum_dhe_cert_tmpl::FWID_RANGE.start;
-
     pub fn new(
         cert_sn: &CertSerialNumber,
-        dname_sn: &SerialNumber,
         public_key: &PublicKey,
-        fwid: &[u8; Self::FWID_LENGTH],
+        fwid: &[u8; FWID_LENGTH],
     ) -> Self {
         Self(trust_quorum_dhe_cert_tmpl::CERT_TMPL.clone())
             .set_serial_number(cert_sn)
-            .set_issuer_sn(dname_sn)
-            .set_subject_sn(dname_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)
-    }
-
-    pub fn set_fwid(self, fwid: &[u8; Self::FWID_LENGTH]) -> Self {
-        self.set_range(trust_quorum_dhe_cert_tmpl::FWID_RANGE, fwid)
     }
 
     pub fn sign(self, keypair: &Keypair) -> TrustQuorumDheCert
@@ -427,44 +457,37 @@ impl TrustQuorumDheCertBuilder {
 impl CertBuilder for TrustQuorumDheCertBuilder {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         trust_quorum_dhe_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> =
-        trust_quorum_dhe_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        trust_quorum_dhe_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::SIG_RANGE;
-
-    fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+impl FwidCertBuilder for TrustQuorumDheCertBuilder {
+    const FWID_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::FWID_RANGE;
+}
+
+#[derive(AsBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct TrustQuorumDheCert(
     #[serde(with = "BigArray")] [u8; trust_quorum_dhe_cert_tmpl::SIZE],
 );
 
-impl TrustQuorumDheCert {
-    pub fn get_fwid(&self) -> &[u8] {
-        self.get_range(trust_quorum_dhe_cert_tmpl::FWID_RANGE)
-    }
-}
-
 impl Cert for TrustQuorumDheCert {
     const SERIAL_NUMBER_RANGE: Range<usize> =
         trust_quorum_dhe_cert_tmpl::SERIAL_NUMBER_RANGE;
-    const ISSUER_SN_RANGE: Range<usize> =
-        trust_quorum_dhe_cert_tmpl::ISSUER_SN_RANGE;
-    const SUBJECT_SN_RANGE: Range<usize> =
-        trust_quorum_dhe_cert_tmpl::SUBJECT_SN_RANGE;
     const PUB_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> =
         trust_quorum_dhe_cert_tmpl::SIGNDATA_RANGE;
+}
 
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
+sa::const_assert!(
+    FWID_LENGTH
+        == trust_quorum_dhe_cert_tmpl::FWID_RANGE.end
+            - trust_quorum_dhe_cert_tmpl::FWID_RANGE.start
+);
+
+impl FwidCert for TrustQuorumDheCert {
+    const FWID_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::FWID_RANGE;
 }
 
 #[cfg(test)]
