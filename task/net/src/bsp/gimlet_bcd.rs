@@ -63,7 +63,6 @@ impl crate::bsp_support::Bsp for BspImpl {
             // have to be added explicitly here.
             match PowerState::from_u32(jefe.get_state()) {
                 Some(PowerState::A2)
-                | Some(PowerState::A2PlusMono)
                 | Some(PowerState::A2PlusFans)
                 | Some(PowerState::A1)
                 | Some(PowerState::A0)

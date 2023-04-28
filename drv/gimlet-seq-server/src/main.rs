@@ -588,7 +588,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                 }
 
                 (PowerState::A2, _)
-                | (PowerState::A2PlusMono, _)
                 | (PowerState::A2PlusFans, _)
                 | (PowerState::A1, _) => {
                     //
