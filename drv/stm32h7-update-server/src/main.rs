@@ -567,8 +567,7 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{
-        CabooseError, ImageVersion, SlotId, SwitchDuration, UpdateError,
-        UpdateStatus, UpdateTarget,
+        CabooseError, ImageVersion, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

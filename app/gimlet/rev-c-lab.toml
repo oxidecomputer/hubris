@@ -3,3 +3,4 @@ inherit = "rev-c.toml"
 [patches]
 name = "gimlet-c-lab"
 features.gimlet_seq = ["stay-in-a2"]
+features.packrat = ["boot-kmdb"]

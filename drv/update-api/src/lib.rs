@@ -6,6 +6,7 @@
 
 use derive_idol_err::IdolError;
 use drv_caboose::CabooseError;
+use gateway_messages::UpdateError as GwUpdateError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
@@ -54,14 +55,22 @@ pub enum UpdateStatus {
 // variant.  To preserve compatibility, DO NOT REORDER THEM.
 // N.B These varients must be kept in order to maintain compatibility between
 // skewed versions of SP and RoT during updates.
-#[derive(Clone, Copy, FromPrimitive, IdolError, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    FromPrimitive,
+    IdolError,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    SerializedSize,
+)]
 #[repr(u32)]
 pub enum UpdateError {
     BadLength = 1,
     UpdateInProgress,
     OutOfBounds,
-    Timeout,
-    // Specific to STM32H7
     EccDoubleErr,
     EccSingleErr,
     SecureErr,   // If we get this something has gone very wrong
@@ -76,26 +85,51 @@ pub enum UpdateError {
     UpdateNotStarted,
     RunningImage,
     FlashError,
+    FlashIllegalRead,
+    FlashReadFail,
     MissingHeaderBlock,
     InvalidHeaderBlock,
-    // Specific to RoT (LPC55)
-    SpRotError,
 
     // Caboose checks
     ImageBoardMismatch,
     ImageBoardUnknown,
 
     #[idol(server_death)]
-    ServerRestarted,
+    TaskRestarted,
 
-    // During update when there may be version skew, the RoT may produce an
-    // error that the SP doesn't know.
-    Unknown,
     NotImplemented,
 }
 
-impl hubpack::SerializedSize for UpdateError {
-    const MAX_SIZE: usize = core::mem::size_of::<UpdateError>();
+impl From<UpdateError> for GwUpdateError {
+    fn from(value: UpdateError) -> Self {
+        match value {
+            UpdateError::BadLength => Self::BadLength,
+            UpdateError::UpdateInProgress => Self::UpdateInProgress,
+            UpdateError::OutOfBounds => Self::OutOfBounds,
+            UpdateError::EccDoubleErr => Self::EccDoubleErr,
+            UpdateError::EccSingleErr => Self::EccSingleErr,
+            UpdateError::SecureErr => Self::SecureErr,
+            UpdateError::ReadProtErr => Self::ReadProtErr,
+            UpdateError::WriteEraseErr => Self::WriteEraseErr,
+            UpdateError::InconsistencyErr => Self::InconsistencyErr,
+            UpdateError::StrobeErr => Self::StrobeErr,
+            UpdateError::ProgSeqErr => Self::ProgSeqErr,
+            UpdateError::WriteProtErr => Self::WriteProtErr,
+            UpdateError::BadImageType => Self::BadImageType,
+            UpdateError::UpdateAlreadyFinished => Self::UpdateAlreadyFinished,
+            UpdateError::UpdateNotStarted => Self::UpdateNotStarted,
+            UpdateError::RunningImage => Self::RunningImage,
+            UpdateError::FlashError => Self::FlashError,
+            UpdateError::FlashIllegalRead => Self::FlashIllegalRead,
+            UpdateError::FlashReadFail => Self::FlashReadFail,
+            UpdateError::MissingHeaderBlock => Self::MissingHeaderBlock,
+            UpdateError::InvalidHeaderBlock => Self::InvalidHeaderBlock,
+            UpdateError::ImageBoardMismatch => Self::ImageBoardMismatch,
+            UpdateError::ImageBoardUnknown => Self::ImageBoardUnknown,
+            UpdateError::TaskRestarted => Self::TaskRestarted,
+            UpdateError::NotImplemented => Self::NotImplemented,
+        }
+    }
 }
 
 /// When booting into an alternate image, specifies how "sticky" that decision
@@ -172,5 +206,8 @@ pub mod lpc55 {
     // and hardcode according to hardware requirements.
     pub const BLOCK_SIZE_BYTES: usize = 512;
 }
+
+// Allow our Idol definition to fully specify API structures
+use crate as drv_update_api;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

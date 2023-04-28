@@ -95,13 +95,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
-            UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
-            }
             UpdateState::Finished => {
                 return Err(UpdateError::UpdateAlreadyFinished.into())
             }
-            UpdateState::InProgress => (),
+            UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
 
         self.state = UpdateState::NoUpdate;
@@ -247,7 +244,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         match duration {
             SwitchDuration::Once => {
                 // TODO deposit command token into buffer
-                return Err(UpdateError::Unknown.into());
+                return Err(UpdateError::NotImplemented.into());
             }
             SwitchDuration::Forever => {
                 // There are two "official" copies of the CFPA, referred to as
@@ -425,13 +422,13 @@ fn indirect_flash_read(
                         break;
                     }
                     Err(ReadError::IllegalOperation) => {
-                        return Err(UpdateError::Unknown);
+                        return Err(UpdateError::FlashIllegalRead);
                     }
                     Err(ReadError::Ecc) => {
                         return Err(UpdateError::EccDoubleErr);
                     }
                     Err(ReadError::Fail) => {
-                        return Err(UpdateError::Unknown);
+                        return Err(UpdateError::FlashReadFail);
                     }
                 }
             }
@@ -682,9 +679,7 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
-    use super::{
-        CabooseError, ImageVersion, UpdateError, UpdateStatus, UpdateTarget,
-    };
+    use super::{CabooseError, ImageVersion, UpdateTarget};
     use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

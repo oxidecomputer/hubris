@@ -104,6 +104,10 @@ impl Isl68224 {
         )?;
         Ok(Amperes(iout.get()?.0))
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Isl68224 {

@@ -1,5 +1,5 @@
 [package]
-name = "stage0"
+name = "lpc55-rot-startup"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,8 +15,6 @@ digest = { workspace = true, optional = false}
 hubpack = { workspace = true, optional = false}
 lpc55-pac = { workspace = true, features = ["rt"] }
 nb = { workspace = true }
-panic-halt = { workspace = true }
-panic-semihosting = { workspace = true }
 salty = { workspace = true, optional = true }
 serde = { workspace = true, optional = false }
 sha3 = { workspace = true, optional = false }
@@ -24,29 +22,27 @@ static_assertions = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zeroize = { workspace = true }
 
-abi = { path = "../sys/abi" }
-armv8-m-mpu = { path = "../lib/armv8-m-mpu" }
-lpc55-puf = { path = "../lib/lpc55-puf", optional = true }
-lib-lpc55-usart = { path = "../lib/lpc55-usart", optional = true }
-lpc55_romapi = { path = "../lib/lpc55-romapi" }
-stage0-handoff = { path = "../lib/stage0-handoff"}
-unwrap-lite = { path = "../lib/unwrap-lite", optional = false }
+abi = { path = "../../sys/abi" }
+armv8-m-mpu = { path = "../armv8-m-mpu" }
+lpc55-puf = { path = "../lpc55-puf", optional = true }
+lib-lpc55-usart = { path = "../lpc55-usart", optional = true }
+lpc55_romapi = { path = "../lpc55-romapi" }
+stage0-handoff = { path = "../stage0-handoff"}
+unwrap-lite = { path = "../unwrap-lite" }
 
 # features & deps can't have the same name, using this method from:
 # https://github.com/RustCrypto/RSA/pull/41/files
 [dependencies.dice_crate]
 package = "dice"
-path = "../lib/dice"
+path = "../dice"
 default-features = false
 optional = false
 
 [build-dependencies]
-build-util = { path = "../build/util" }
+build-util = { path = "../../build/util" }
 serde = { workspace = true }
 toml = { workspace = true }
 
-[[bin]]
-name = "stage0"
+[lib]
 test = false
 bench = false
-

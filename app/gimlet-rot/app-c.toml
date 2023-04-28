@@ -9,7 +9,8 @@ version = 0
 
 [kernel]
 name = "gimlet-rot"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 51712, ram = 4096}
+features = ["dice-self"]
 
 [tasks.jefe]
 name = "task-jefe"

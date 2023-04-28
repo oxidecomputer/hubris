@@ -12,6 +12,7 @@ serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
+mutable-statics = { path = "../../lib/mutable-statics" }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-sprot-api = { path = "../../drv/sprot-api", features = ["sink_test"] }
 drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }

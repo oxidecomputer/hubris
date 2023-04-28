@@ -139,32 +139,6 @@ pub enum Functions {
     BlockSize((), drv_update_api::UpdateError),
     #[cfg(feature = "update")]
     Reset((), drv_update_api::UpdateError),
-
-    #[cfg(feature = "sprot")]
-    SpRotSendRecv((u32, u32), drv_spi_api::SpiError),
-    #[cfg(feature = "sprot")]
-    SpRotSendRecvRetries((u32, u32, u32), drv_spi_api::SpiError),
-    #[cfg(feature = "sprot")]
-    SpRotPulse(u16, drv_spi_api::SpiError),
-    #[cfg(feature = "sprot")]
-    SpRotSink((u16, u16), drv_spi_api::SpiError),
-    #[cfg(feature = "sprot")]
-    SpRotStatus((), drv_spi_api::SpiError),
-    #[cfg(feature = "sprot")]
-    SpRotStartUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "sprot")]
-    SpRotWriteBlock((usize, usize), drv_update_api::UpdateError),
-    #[cfg(feature = "sprot")]
-    SpRotFinishUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "sprot")]
-    SpRotBlockSize((), drv_update_api::UpdateError),
-    #[cfg(feature = "sprot")]
-    SpRotSwitchDefaultImage(
-        (drv_update_api::SlotId, drv_update_api::SwitchDuration),
-        drv_update_api::UpdateError,
-    ),
-    #[cfg(feature = "sprot")]
-    SpRotReset((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "i2c")]
@@ -679,26 +653,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::switch_default_image,
     #[cfg(feature = "update")]
     crate::common::reset,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_send_recv,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_send_recv_retries,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_pulse_cs,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_rot_sink,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_start_update,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_write_block,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_finish_update,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_block_size,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_switch_default_image,
-    #[cfg(feature = "sprot")]
-    crate::common::sprot_reset,
 ];
 
 //

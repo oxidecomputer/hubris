@@ -276,12 +276,23 @@ where
     iface: &'static mut Interface,
     device: E,
 
-    /// If calls to `net_send_packet` consistently return `QueueFull`, this is
-    /// the time at which the _first_ error was returned.  It is cleared when a
-    /// call to `net_send_packet` succeeds.
-    ///
-    /// Used as a watchdog to detect stuck queues
-    first_queue_full: [Option<u64>; SOCKET_COUNT],
+    /// Used to detect stuck queues (due to smoltcp#594)
+    queue_watchdog: [QueueWatchdog; SOCKET_COUNT],
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum QueueWatchdog {
+    /// Data is flowing through the queue
+    Nominal,
+
+    /// We have seen a `QueueFull` error, and no packets have successfully
+    /// entered the queue since then
+    QueueFullAt(u64),
+
+    /// We have seen two `QueueFull` errors separated by some timeout without
+    /// any packets successfully entering the queue in between.  This indicates
+    /// that the queue is likely stuck.
+    QueueFullTimeout,
 }
 
 impl<E: DeviceExt> VLanState<E> {
@@ -303,24 +314,24 @@ impl<E: DeviceExt> VLanState<E> {
         )
     }
 
-    pub(crate) fn check_socket_watchdog(&mut self, t: u64) -> bool {
-        const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
+    pub(crate) fn check_socket_watchdog(&mut self) -> bool {
         let mut changed = false;
         for socket_index in 0..SOCKET_COUNT {
-            if let Some(prev_time) = self.first_queue_full[socket_index] {
-                if t >= prev_time + SOCKET_QUEUE_FULL_TIMEOUT_MS {
-                    let s = self.get_socket_mut(socket_index).unwrap_lite();
-                    if !s.can_send() {
-                        // Reset the queue by closing + reopening it.  This
-                        // will lose packets in the RX queue as well;
-                        // they're collateral damage because `smoltcp`
-                        // doesn't expose a way to flush just the TX side.
-                        let e = s.endpoint();
-                        s.close();
-                        s.bind(e).unwrap();
-                        changed = true;
-                    }
-                }
+            if self.queue_watchdog[socket_index]
+                == QueueWatchdog::QueueFullTimeout
+            {
+                // Reset the queue by closing + reopening it.  This will lose
+                // packets in the RX queue as well; they're collateral damage
+                // because `smoltcp` doesn't expose a way to flush just the TX
+                // side.
+                let s = self.get_socket_mut(socket_index).unwrap_lite();
+                let e = s.endpoint();
+                s.close();
+                s.bind(e).unwrap_lite();
+                changed = true;
+
+                // Reset the watchdog, so it doesn't fire right away
+                self.queue_watchdog[socket_index] = QueueWatchdog::Nominal;
             }
         }
         changed
@@ -383,7 +394,7 @@ where
                     iface,
                     device,
                     socket_set,
-                    first_queue_full: [None; SOCKET_COUNT],
+                    queue_watchdog: [QueueWatchdog::Nominal; SOCKET_COUNT],
                 })
                 .unwrap_lite();
 
@@ -442,7 +453,7 @@ where
             );
             // Test and clear our receive activity flag.
             mac_rx |= vlan.device.read_and_clear_activity_flag();
-            ip |= vlan.check_socket_watchdog(t);
+            ip |= vlan.check_socket_watchdog();
         }
 
         crate::Activity { ip, mac_rx }
@@ -590,15 +601,28 @@ where
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
                 self.client_waiting_to_send[socket_index] = false;
-                vlan.first_queue_full[socket_index] = None;
+                vlan.queue_watchdog[socket_index] = QueueWatchdog::Nominal;
                 Ok(())
             }
             Err(udp::SendError::BufferFull) => {
-                // Record the QueueFull error if this is the first time we've
-                // seen it since a successful transmission.
-                if vlan.first_queue_full[socket_index].is_none() {
-                    let now = userlib::sys_get_timer().now;
-                    vlan.first_queue_full[socket_index] = Some(now);
+                const SOCKET_QUEUE_FULL_TIMEOUT_MS: u64 = 500;
+
+                // Record a new QueueFull error if the socket had been working
+                // until now, or roll over into QueueFullTimeout if we've
+                // exceeded our timeout delay.
+                let now = userlib::sys_get_timer().now;
+                match vlan.queue_watchdog[socket_index] {
+                    QueueWatchdog::Nominal => {
+                        vlan.queue_watchdog[socket_index] =
+                            QueueWatchdog::QueueFullAt(now)
+                    }
+                    QueueWatchdog::QueueFullAt(t) => {
+                        if now >= t + SOCKET_QUEUE_FULL_TIMEOUT_MS {
+                            vlan.queue_watchdog[socket_index] =
+                                QueueWatchdog::QueueFullTimeout
+                        }
+                    }
+                    QueueWatchdog::QueueFullTimeout => (),
                 }
                 self.client_waiting_to_send[socket_index] = true;
                 Err(SendError::QueueFull.into())

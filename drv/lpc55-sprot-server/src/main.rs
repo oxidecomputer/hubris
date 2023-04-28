@@ -42,11 +42,11 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    MsgHeader, Protocol, RotIoStats, RxMsg, SprotError, TxMsg, BUF_SIZE,
-    HEADER_SIZE,
+    RotIoStats, SprotProtocolError, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    ROT_FIFO_SIZE,
 };
 use lpc55_pac as device;
-use ringbuf::ringbuf;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
     sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
 };
@@ -58,11 +58,17 @@ use handler::Handler;
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
     None,
-    ErrWithHeader(SprotError, [u8; HEADER_SIZE]),
-    ErrWithTypedHeader(SprotError, MsgHeader),
     Dump(u32),
+    ReceivedBytes(usize),
+    SentBytes(usize),
+    Flush,
+    FlowError,
+    ReplyLen(usize),
+    Underrun,
+    Err(SprotProtocolError),
+    Stats(RotIoStats),
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 32, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -124,12 +130,11 @@ fn configure_spi() -> Io {
     spi.disable_tx();
     spi.disable_rx();
 
-    let gpio = drv_lpc55_gpio_api::Pins::from(gpio_driver);
-
     Io {
         spi,
         gpio,
         stats: RotIoStats::default(),
+        rot_irq_asserted: false,
     }
 }
 
@@ -138,6 +143,11 @@ struct Io {
     spi: crate::spi_core::Spi,
     gpio: drv_lpc55_gpio_api::Pins,
     stats: RotIoStats,
+
+    /// This is an optimization to avoid talking to the GPIO task when we don't
+    /// have to.
+    /// ROT_IRQ is deasserted on startup in main.
+    rot_irq_asserted: bool,
 }
 
 enum IoError {
@@ -149,63 +159,51 @@ enum IoError {
 fn main() -> ! {
     let mut io = configure_spi();
 
-    let mut rx_buf = [0u8; BUF_SIZE];
-    let mut tx_buf = [0u8; BUF_SIZE];
+    let (rx_buf, tx_buf) = mutable_statics::mutable_statics! {
+        static mut RX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
+        static mut TX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
+    };
 
     let mut handler = Handler::new();
-    let mut signal_reply = false;
+
+    // Prime our write fifo, so we clock out zero bytes on the next receive
+    io.spi.drain_tx();
+    while io.spi.can_tx() {
+        io.spi.send_u16(0);
+    }
 
     loop {
-        // Every time through the io loop we receive a fresh request
-        let mut rx_msg = RxMsg::new(&mut rx_buf[..]);
-
-        let reply = match io.next(signal_reply, &tx_buf[..], &mut rx_msg) {
-            Ok(()) => {
-                // Put a busy byte in the tx_fifo before we handle the result,
-                // which may take some time.
-                io.mark_busy();
-                // Clear the buffer in preparation for a reply
-                let tx_msg = TxMsg::new(&mut tx_buf[..]);
-                handler.handle(rx_msg, tx_msg, &mut io.stats)
+        let rsp_len = match io.wait_for_request(rx_buf) {
+            Ok(rx_len) => {
+                handler.handle(&rx_buf[..rx_len], tx_buf, &mut io.stats)
             }
-            Err(IoError::Flush) => None,
+            Err(IoError::Flush) => {
+                // A flush indicates that the server should de-assert ROT_IRQ
+                // as instructed by the SP. We do that and then proceed to wait
+                // for the next request.
+                ringbuf_entry!(Trace::Flush);
+                io.deassert_rot_irq();
+                continue;
+            }
             Err(IoError::Flow) => {
-                io.mark_busy();
-                let tx_msg = TxMsg::new(&mut tx_buf[..]);
-                Some(handler.flow_error(tx_msg))
+                ringbuf_entry!(Trace::FlowError);
+                handler.flow_error(tx_buf)
             }
         };
 
-        if reply.is_none() {
-            // There's no reply to send, so we should clear the Tx buffer.
-            tx_buf.fill(0);
-            signal_reply = false;
-        } else {
-            signal_reply = true;
-        }
+        ringbuf_entry!(Trace::Stats(io.stats));
+        io.reply(&tx_buf[..rsp_len]);
     }
 }
 
 impl Io {
-    /// Put a Protocol::Busy value in FIFOWR so that SP/logic analyzer knows
-    /// we're away.
-    pub fn mark_busy(&mut self) {
-        self.spi.drain_tx();
-        self.spi.send_u8(Protocol::Busy as u8);
-    }
-
-    pub fn next<'a>(
-        &mut self,
-        signal_reply: bool,
-        tx_buf: &[u8],
-        rx_msg: &mut RxMsg<'a>,
-    ) -> Result<(), IoError> {
-        let mut tx_iter = tx_buf.iter();
-        self.prime_tx_fifo(&mut tx_iter);
-        let result = loop {
+    // Wait for chip select to be asserted
+    // Assert ROT_IRQ if this is a reply
+    fn wait_for_csn_asserted(&mut self, is_reply: bool) {
+        loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            if signal_reply {
+            if is_reply && !self.rot_irq_asserted {
                 self.assert_rot_irq();
             }
 
@@ -220,142 +218,162 @@ impl Io {
             let intstat = self.spi.intstat();
             if intstat.ssa().bit() {
                 self.spi.ssa_clear();
-                break self.tight_loop(&mut tx_iter, rx_msg);
-            }
-        };
-
-        if signal_reply {
-            self.deassert_rot_irq();
-        }
-
-        result
-    }
-
-    // Read data in a tight loop until we see CSn de-asserted
-    //
-    // XXX Denial of service by forever asserting CSn?
-    // We could mitigate by imposing a time limit
-    // and resetting the SP if it is exceeded.
-    // But, the management plane is going to notice that
-    // the RoT is not available. So, does it matter?
-    fn tight_loop<'a>(
-        &mut self,
-        tx_iter: &mut dyn Iterator<Item = &u8>,
-        rx_msg: &mut RxMsg<'a>,
-    ) -> Result<(), IoError> {
-        let mut err = None;
-
-        let mut csn_deasserted = false;
-        let mut too_many_bytes_received = false;
-
-        loop {
-            // Let's exchange some bytes
-            let mut io = true;
-            while io {
-                io = false;
-                if self.spi.can_tx() {
-                    io = true;
-                    if let Some(b) = tx_iter.next().copied() {
-                        self.spi.send_u8(b);
-                    } else {
-                        // Just clock out zeros and prevent an unnecessary underrun
-                        self.spi.send_u8(0);
-                    }
-                }
-
-                if self.spi.has_byte() {
-                    io = true;
-                    let b = self.spi.read_u8();
-                    if rx_msg.push(b).is_err() {
-                        too_many_bytes_received = true;
-                    }
-                }
-            }
-
-            // Let's check for any problems
-            let fifostat = self.spi.fifostat();
-
-            if fifostat.txerr().bit() {
-                // We don't do anything with tx errors other than record them
-                // The SP will see a checksum error if this is a reply, or the
-                // underrun happened after the number of reply bytes and it
-                // doesn't matter.
-                self.spi.txerr_clear();
-                self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
-            }
-
-            if fifostat.rxerr().bit() {
-                // Rx errors are more important. They mean we're missing
-                // data. We should report this to the SP. This can be used to
-                // potentially throttle sends in the future.
-                self.spi.rxerr_clear();
-                self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
-                // If we were just sending our response, and SP was just
-                // sending zeros and we received the first byte correctly and
-                // that first byte was `Protocol::Ignore`, then our Rx overrun
-                // is inconsequential and does not need to be reported as
-                // a message.
-                if err.is_none()
-                    && rx_msg.len() > 0
-                    && rx_msg.protocol() != Some(Protocol::Ignore)
-                {
-                    // This error matters
-                    err = Some(IoError::Flow);
-                }
-            }
-
-            // Are we done?
-            if csn_deasserted {
-                self.spi.ssd_clear();
-
-                if rx_msg.is_empty() {
-                    // This was a CSn pulse
-                    self.stats.csn_pulses =
-                        self.stats.csn_pulses.wrapping_add(1);
-                    err = Some(IoError::Flush);
-                }
-
                 break;
             }
-
-            // Read the CSn flag *after* checking if CSn is deasserted.
-            //
-            // This ordering allows us to loop one more time to exchange data
-            // and empty our fifos. Putting the check at the end also minimizes
-            // the time to access the fifos the first time through the loop.
-            // The goal here is to reduce overrun/underrun after already
-            // waiting for the CSn asserted interrupt to fire.
-            csn_deasserted = self.spi.ssd();
         }
-
-        if too_many_bytes_received {
-            self.stats.rx_protocol_error_too_many_bytes =
-                self.stats.rx_protocol_error_too_many_bytes.wrapping_add(1);
-        }
-
-        err.map_or(Ok(()), |e| Err(e))
     }
 
-    // Prime the fifo with the first part of the response to prevent
-    // underrun while waiting for an interrupt.
-    fn prime_tx_fifo(&mut self, tx_iter: &mut dyn Iterator<Item = &u8>) {
-        self.spi.drain_tx();
-        while self.spi.can_tx() {
-            if let Some(b) = tx_iter.next().copied() {
-                self.spi.send_u8(b);
-            } else {
-                self.spi.send_u8(0);
+    pub fn wait_for_request(
+        &mut self,
+        rx_buf: &mut [u8],
+    ) -> Result<usize, IoError> {
+        self.wait_for_csn_asserted(false);
+
+        // Go into a tight loop receiving as many bytes as we can until we see
+        // CSn de-asserted.
+        let mut bytes_received = 0;
+        let mut rx = rx_buf.iter_mut();
+        while !self.spi.ssd() {
+            while self.spi.has_entry() {
+                bytes_received += 2;
+                let read = self.spi.read_u16();
+                let upper = (read >> 8) as u8;
+                let lower = read as u8;
+                rx.next().map(|b| *b = upper);
+                rx.next().map(|b| *b = lower);
             }
         }
+
+        self.spi.ssd_clear();
+
+        // There may be bytes left in the rx fifo after CSn is de-asserted
+        while self.spi.has_entry() {
+            bytes_received += 2;
+            let read = self.spi.read_u16();
+            let upper = (read >> 8) as u8;
+            let lower = read as u8;
+            rx.next().map(|b| *b = upper);
+            rx.next().map(|b| *b = lower);
+        }
+
+        self.check_for_rx_error()?;
+
+        if bytes_received == 0 {
+            // This was a CSn pulse
+            self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
+            return Err(IoError::Flush);
+        }
+
+        ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
+
+        // We don't bother sending bytes when receiving. So we must clear
+        // the underrun error condition before we handle a reply.
+        self.spi.txerr_clear();
+
+        Ok(bytes_received)
     }
 
-    fn assert_rot_irq(&self) {
+    fn reply(&mut self, tx_buf: &[u8]) {
+        ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
+
+        let mut idx = 0;
+
+        // Fill in the fifo before we assert ROT_IRQ
+        // We assert ROT_IRQ in `wait_for_csn_asserted` so we can
+        // put it after the `sys_irq_control` syscall to minimize time taken to
+        // process a request.
+        self.spi.drain_tx();
+        while self.spi.can_tx() {
+            let entry = get_u16(idx, tx_buf);
+            self.spi.send_u16(entry);
+            idx += 2;
+        }
+
+        self.wait_for_csn_asserted(true);
+
+        while !self.spi.ssd() {
+            while self.spi.can_tx() {
+                let entry = get_u16(idx, tx_buf);
+                self.spi.send_u16(entry);
+                idx += 2;
+            }
+        }
+
+        self.spi.ssd_clear();
+
+        // Were any bytes clocked out?
+        // We check to see if any bytes in the fifo have been sent or any have
+        // been pushed into the fifo beyond the initial fill.
+        if !self.spi.can_tx() && idx == ROT_FIFO_SIZE {
+            // This was a CSn pulse
+            // There's no need to flush here, since we de-assert ROT_IRQ at the
+            // bottom of this function, which is the purpose of a flush.
+            self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
+        } else {
+            self.check_for_tx_error();
+        }
+
+        ringbuf_entry!(Trace::SentBytes(idx - ROT_FIFO_SIZE));
+
+        // Prime our write fifo, so we clock out zero bytes on the next receive
+        // We also empty our read fifo, since we don't bother reading bytes while writing.
+        self.spi.drain();
+        while self.spi.can_tx() {
+            self.spi.send_u16(0);
+        }
+        // We don't bother receiving bytes when sending. So we must clear
+        // the overrun error condition for the next time we wait for a reply.
+        self.spi.rxerr_clear();
+
+        // Now that we are ready to handle the next request, let the SP know we
+        // are ready.
+        self.deassert_rot_irq();
+    }
+
+    fn check_for_rx_error(&mut self) -> Result<(), IoError> {
+        let fifostat = self.spi.fifostat();
+        if fifostat.rxerr().bit() {
+            self.spi.rxerr_clear();
+            self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
+            Err(IoError::Flow)
+        } else {
+            Ok(())
+        }
+    }
+
+    // We don't actually want to return an error here.
+    // The SP will detect an underrun via a CRC error
+    fn check_for_tx_error(&mut self) {
+        let fifostat = self.spi.fifostat();
+
+        if fifostat.txerr().bit() {
+            // We don't do anything with tx errors other than record them
+            // The SP will see a checksum error if this is a reply, or the
+            // underrun happened after the number of reply bytes and it
+            // doesn't matter.
+            self.spi.txerr_clear();
+            self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
+            ringbuf_entry!(Trace::Underrun);
+        }
+    }
+
+    fn assert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::Zero);
+        self.rot_irq_asserted = true;
     }
 
-    fn deassert_rot_irq(&self) {
+    fn deassert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::One);
+        self.rot_irq_asserted = false;
     }
+}
+
+// Return 2 bytes starting at `idx` combined into a u16 for putting on a fifo
+// If `idx` >= `tx_buf.len()` use 0 for the byte.
+fn get_u16(idx: usize, tx_buf: &[u8]) -> u16 {
+    let upper = tx_buf.get(idx).copied().unwrap_or(0) as u16;
+    let lower = tx_buf.get(idx + 1).copied().unwrap_or(0) as u16;
+    upper << 8 | lower
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {

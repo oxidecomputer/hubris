@@ -32,6 +32,21 @@ Interface(
             ),
             idempotent: true,
         ),
+        "phase_current": (
+            doc: "reads phase current",
+            args: {
+                "rail": (
+                    type: "SensorId",
+                    recv: From("u32", None),
+                ),
+                "phase": "u8",
+            },
+            reply: Result(
+                ok: "f32",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ), 
         "bmr491_event_log_read": (
             doc: "reads an event from the BMR491's combined fault and lifecycle event log",
             args: {
@@ -59,19 +74,29 @@ Interface(
             ),
             idempotent: true,
         ),
-        "phase_current": (
+        "rendmp_blackbox_dump": (
+            doc: "reads the RAM blackbox of a Renesas multiphase power controller",
             args: {
-                "rail": (
-                    type: "SensorId",
-                    recv: From("u32", None),
-                ),
-                "phase": "u8",
+                "addr": "u8",
             },
             reply: Result(
-                ok: "f32",
+                ok: "RenesasBlackbox",
                 err: CLike("ResponseCode"),
             ),
             idempotent: true,
-        ), 
+            encoding: Hubpack,
+        ),
+        "rendmp_dma_read": (
+            doc: "reads a DMA register from a Renesas multiphase power controller",
+            args: {
+                "addr": "u8",
+                "reg": "u16",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
     },
 )

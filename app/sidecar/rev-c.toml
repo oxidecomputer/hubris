@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 24416, ram = 6256}
+requires = {flash = 24600, ram = 6256}
 features = ["dump"]
 
 [caboose]
@@ -272,7 +272,7 @@ notifications = ["timer"]
 name = "task-power"
 features = ["itm", "sidecar"]
 priority = 6
-max-sizes = {flash = 32768, ram = 4096 }
+max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 2048
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]

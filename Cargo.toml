@@ -9,8 +9,6 @@ members = [
     "task/*",
     "drv/*",
     "test/*",
-
-    "stage0",
 ]
 default-members = []
 resolver = "2"
@@ -114,7 +112,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 
 # Oxide forks and repos
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "bump-smoltcp" }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.2" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
@@ -123,8 +121,7 @@ idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-
 lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
-# pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
-pmbus = { path = "../pmbus" }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroize", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }

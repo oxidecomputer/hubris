@@ -72,6 +72,10 @@ impl Tps546B24A {
             Some(mode) => mode,
         })
     }
+
+    pub fn i2c_device(&self) -> &I2cDevice {
+        &self.device
+    }
 }
 
 impl Validate<Error> for Tps546B24A {
