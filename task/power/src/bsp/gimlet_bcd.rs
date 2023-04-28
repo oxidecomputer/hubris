@@ -65,7 +65,6 @@ pub(crate) fn get_state() -> PowerState {
         | seq_api::PowerState::A0Reset => PowerState::A0,
         seq_api::PowerState::A1
         | seq_api::PowerState::A2
-        | seq_api::PowerState::A2PlusMono
         | seq_api::PowerState::A2PlusFans => PowerState::A2,
     }
 }
