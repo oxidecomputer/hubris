@@ -119,7 +119,7 @@ impl Raa229618 {
             PHASE_CURRENT
         )?;
         Ok(Amperes(iout.get()?.0))
-    }    
+    }
 
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
