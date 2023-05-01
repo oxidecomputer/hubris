@@ -7,10 +7,6 @@
 
 #[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
 #[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
-#[cfg_attr(
-    any(target_board = "gemini-bu-1", target_board = "gimletlet-2"),
-    path = "bsp/vsc7448_dev.rs"
-)]
 mod bsp;
 mod server;
 
