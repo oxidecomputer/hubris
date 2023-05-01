@@ -2312,14 +2312,15 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/hubtools#fc188f48a3b215818b0431e2806d4d8b34c3b8d5"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/hubtools#ac7da1a89952d4282bad7c247097aee8b90b82e1"
 dependencies = [
  "lpc55_areas",
  "lpc55_sign",
  "object",
  "packed_struct",
  "path-slash",
+ "rsa",
  "thiserror",
  "tlvc",
  "tlvc-text",
@@ -2622,7 +2623,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.2.2"
-source = "git+https://github.com/oxidecomputer/lpc55_support#a5cd40d7180224e2184758af6be41a6fa2a74331"
+source = "git+https://github.com/oxidecomputer/lpc55_support#32cf8b50889d5aab3efe4e98949c888276a4c8a7"
 dependencies = [
  "bitfield 0.14.0",
  "packed_struct",
@@ -2650,8 +2651,8 @@ dependencies = [
 
 [[package]]
 name = "lpc55_sign"
-version = "0.2.2"
-source = "git+https://github.com/oxidecomputer/lpc55_support#a5cd40d7180224e2184758af6be41a6fa2a74331"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support#32cf8b50889d5aab3efe4e98949c888276a4c8a7"
 dependencies = [
  "byteorder",
  "const-oid",
@@ -2661,6 +2662,7 @@ dependencies = [
  "hex",
  "log",
  "lpc55_areas",
+ "num-traits",
  "packed_struct",
  "pem-rfc7468",
  "rsa",
@@ -2668,6 +2670,7 @@ dependencies = [
  "sha2",
  "thiserror",
  "x509-cert",
+ "zerocopy",
 ]
 
 [[package]]
@@ -2844,9 +2847,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.14"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
  "libm",
@@ -2962,14 +2965,13 @@ dependencies = [
 
 [[package]]
 name = "pkcs1"
-version = "0.7.3"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a80397ccad3b40508254eee787bcd28ba48cb82710de5b33cc40c5b2c21bde9"
+checksum = "c8ffb9f10fa047879315e6625af03c164b16962a5368d724ed16323b68ace47f"
 dependencies = [
  "der",
  "pkcs8",
  "spki",
- "zeroize",
 ]
 
 [[package]]
@@ -3250,9 +3252,9 @@ dependencies = [
 
 [[package]]
 name = "rsa"
-version = "0.9.0-pre.2"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65db0998ad35adcaca498b7358992e088ee16cc783fe6fb899da203e113a63e5"
+checksum = "3dd2017d3e6d67384f301f8b06fbf4567afc576430a61624d845eb04d2b30a72"
 dependencies = [
  "byteorder",
  "const-oid",

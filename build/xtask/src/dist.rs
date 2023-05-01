@@ -475,8 +475,8 @@ pub fn package(
         if let Some(signing) = &cfg.toml.signing {
             let mut archive = hubtools::RawHubrisArchive::load(&archive_name)
                 .context("loading archive with hubtools")?;
-            let private_key = std::fs::read_to_string(
-                cfg.app_src_dir.join(&signing.certs.private_key),
+            let private_key = lpc55_sign::cert::read_rsa_private_key(
+                &cfg.app_src_dir.join(&signing.certs.private_key),
             )
             .with_context(|| {
                 format!(
