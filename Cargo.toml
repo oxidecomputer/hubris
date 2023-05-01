@@ -112,7 +112,9 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 
 # Oxide forks and repos
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+#gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+# TODO revert back to main before merging
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "remove-switch-default-image" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.2" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }

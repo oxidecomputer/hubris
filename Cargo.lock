@@ -2069,7 +2069,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#a8638b2a54b697f55a69032629049a6ea291a698"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=remove-switch-default-image#316a34ec627f3bdfe3adcc023baa3bd076f99748"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",

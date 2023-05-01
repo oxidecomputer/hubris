@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::convert::Infallible;
-
 use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
     update::ComponentUpdater, Log, MgsMessage,
@@ -15,8 +13,8 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SlotId, SpComponent, SpError, SpPort, SpState, SpUpdatePrepare,
-    SwitchDuration, UpdateChunk, UpdateId, UpdateStatus,
+    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -469,10 +467,8 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        // For now, we don't have any components with active slots.
-        match component {
-            _ => Err(SpError::RequestUnsupportedForComponent),
-        }
+        self.common
+            .component_get_active_slot(&self.sp_update, component)
     }
 
     fn component_set_active_slot(
@@ -489,10 +485,12 @@ impl SpHandler for MgsHandler {
             persist,
         }));
 
-        // For now, we don't have any components with active slots.
-        match component {
-            _ => Err(SpError::RequestUnsupportedForComponent),
-        }
+        self.common.component_set_active_slot(
+            &self.sp_update,
+            component,
+            slot,
+            persist,
+        )
     }
 
     fn component_clear_status(
@@ -583,22 +581,6 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
-    }
-
-    fn switch_default_image(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        component: SpComponent,
-        slot: SlotId,
-        duration: SwitchDuration,
-    ) -> Result<(), SpError> {
-        self.common.switch_default_image(
-            &self.sp_update,
-            component,
-            slot,
-            duration,
-        )
     }
 
     fn reset_component_prepare(
