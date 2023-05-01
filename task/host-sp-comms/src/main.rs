@@ -281,9 +281,7 @@ impl ServerImpl {
                 | PowerState::A0Reset => continue,
 
                 // If we're already in A2 somehow, we're done.
-                PowerState::A2
-                | PowerState::A2PlusMono
-                | PowerState::A2PlusFans => {
+                PowerState::A2 | PowerState::A2PlusFans => {
                     if reboot {
                         // Somehow we're already in A2 when the host wanted to
                         // reboot; set our reboot timer.
@@ -313,9 +311,7 @@ impl ServerImpl {
         // If we're rebooting and jefe has notified us that we're now in A2,
         // move to A0. Otherwise, ignore this notification.
         match state {
-            PowerState::A2
-            | PowerState::A2PlusMono
-            | PowerState::A2PlusFans => {
+            PowerState::A2 | PowerState::A2PlusFans => {
                 // Were we waiting for a transition to A2? If so, start our
                 // timer for going back to A0.
                 if self.reboot_state == Some(RebootState::WaitingForA2) {

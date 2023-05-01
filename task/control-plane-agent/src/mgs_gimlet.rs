@@ -433,9 +433,7 @@ impl MgsHandler {
             .get_state()
             .map_err(|e| SpError::PowerStateError(e as u32))?
         {
-            DrvPowerState::A2
-            | DrvPowerState::A2PlusMono
-            | DrvPowerState::A2PlusFans => PowerState::A2,
+            DrvPowerState::A2 | DrvPowerState::A2PlusFans => PowerState::A2,
             DrvPowerState::A1 => PowerState::A1,
             DrvPowerState::A0
             | DrvPowerState::A0PlusHP

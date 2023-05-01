@@ -137,7 +137,6 @@ impl Bsp {
                 out
             }
             PowerState::A2
-            | PowerState::A2PlusMono
             | PowerState::A2PlusFans
             | PowerState::A0Thermtrip => PowerBitmask::A2,
         }

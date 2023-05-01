@@ -13,12 +13,25 @@ use zerocopy::AsBytes;
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes)]
 #[repr(u8)]
 pub enum PowerState {
+    /// Initial A2 state where the SP and most associated circuitry is powered.
     A2 = 1,
-    A2PlusMono = 2,
+    /// A2 substate where we've turned on the fan hotplug controller.
     A2PlusFans = 3,
+    /// Intermediate A1 state on the way toward A0. This corresponds to the
+    /// system-wide notion of A1 and currently has no substates.
     A1 = 4,
+    /// Initial A0 state: the system-wide A0 domain is on, but we have not
+    /// turned on any of the subdomains within A0 (below).
     A0 = 5,
+    /// A0 with the NIC hotplug controller enabled. This is the state we expect
+    /// to be in most of the time.
     A0PlusHP = 6,
+
+    /// A thermal trip event has occurred in A0. This state is terminal and
+    /// requires an explicit transition back to A2.
     A0Thermtrip = 7,
+
+    /// We have detected a host reset in A0. This state is terminal and requires
+    /// an explicit transition back to A2.
     A0Reset = 8,
 }

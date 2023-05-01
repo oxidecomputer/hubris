@@ -53,6 +53,7 @@ enum Trace {
     Ident(u16),
     A2Status(u8),
     A2,
+    A0FailureDetails(Addr, u8),
     A0Failed(SeqError),
     A1Status(u8),
     CPUPresent(bool),
@@ -66,6 +67,7 @@ enum Trace {
     NICPowerEnableLow(bool),
     RailsOn,
     UartEnabled,
+    A0(u16),
     SetState(PowerState, PowerState),
     UpdateState(PowerState),
     ClockConfigWrite,
@@ -380,9 +382,7 @@ fn main() -> ! {
 
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
-        if let Err(err) = server.set_state_internal(PowerState::A0) {
-            ringbuf_entry!(Trace::A0Failed(err));
-        }
+        _ = server.set_state_internal(PowerState::A0);
     }
 
     //
@@ -588,7 +588,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                 }
 
                 (PowerState::A2, _)
-                | (PowerState::A2PlusMono, _)
                 | (PowerState::A2PlusFans, _)
                 | (PowerState::A1, _) => {
                     //
@@ -654,6 +653,9 @@ impl<S: SpiServer> ServerImpl<S> {
                     return Err(SeqError::MuxToHostCPUFailed);
                 }
 
+                let start = sys_get_timer().now;
+                let deadline = start + A0_TIMEOUT_MILLIS;
+
                 //
                 // We are going to pass through A1 on the way to A0.  A1 is
                 // more or less an implementation detail of our journey to A0,
@@ -675,6 +677,10 @@ impl<S: SpiServer> ServerImpl<S> {
                         break;
                     }
 
+                    if sys_get_timer().now > deadline {
+                        return Err(self.a0_failure(SeqError::A1Timeout));
+                    }
+
                     hl::sleep_for(1);
                 }
 
@@ -686,9 +692,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
-                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
-                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
-                    return Err(SeqError::CPUNotPresent);
+                    return Err(self.a0_failure(SeqError::CPUNotPresent));
                 }
 
                 let coretype = sys.gpio_read(CORETYPE) != 0;
@@ -708,9 +712,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // to be low (VSS on Type-0/Type-1/Type-2).
                 //
                 if !coretype || !sp3r1 || sp3r2 {
-                    self.seq.clear_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
-                    _ = self.hf.set_mux(hf_api::HfMuxState::SP);
-                    return Err(SeqError::UnrecognizedCPU);
+                    return Err(self.a0_failure(SeqError::UnrecognizedCPU));
                 }
 
                 //
@@ -727,6 +729,10 @@ impl<S: SpiServer> ServerImpl<S> {
 
                     if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
+                    }
+
+                    if sys_get_timer().now > deadline {
+                        return Err(self.a0_failure(SeqError::A0TimeoutGroupC));
                     }
 
                     hl::sleep_for(1);
@@ -751,6 +757,10 @@ impl<S: SpiServer> ServerImpl<S> {
                         break;
                     }
 
+                    if sys_get_timer().now > deadline {
+                        return Err(self.a0_failure(SeqError::A0Timeout));
+                    }
+
                     hl::sleep_for(1);
                 }
 
@@ -765,6 +775,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 uart_sp_to_sp3_enable();
                 ringbuf_entry!(Trace::UartEnabled);
+                ringbuf_entry!(Trace::A0((sys_get_timer().now - start) as u16));
 
                 self.update_state_internal(PowerState::A0);
                 Ok(())
@@ -828,6 +839,41 @@ impl<S: SpiServer> ServerImpl<S> {
 
             _ => Err(SeqError::IllegalTransition),
         }
+    }
+
+    fn a0_failure(&mut self, err: SeqError) -> SeqError {
+        let record_reg = |addr| {
+            ringbuf_entry!(Trace::A0FailureDetails(
+                addr,
+                self.seq.read_byte(addr).unwrap(),
+            ));
+        };
+
+        //
+        // We are not going to space today.  Record information in our ring
+        // buffer to allow this to be debugged.
+        //
+        ringbuf_entry!(Trace::A0Failed(err));
+        record_reg(Addr::IFR);
+        record_reg(Addr::DBG_MAX_A0SMSTATUS);
+        record_reg(Addr::MAX_GROUPB_PG);
+        record_reg(Addr::MAX_GROUPC_PG);
+        record_reg(Addr::FLT_A0_SMSTATUS);
+        record_reg(Addr::FLT_GROUPB_PG);
+        record_reg(Addr::FLT_GROUPC_PG);
+
+        //
+        // Now put ourselves back in A2.
+        //
+        let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
+        self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+
+        hl::sleep_for(1);
+
+        vcore_soc_off();
+        _ = self.hf.set_mux(hf_api::HfMuxState::SP);
+
+        err
     }
 
     //
@@ -988,6 +1034,8 @@ cfg_if::cfg_if! {
         target_board = "gimlet-c",
         target_board = "gimlet-d",
     ))] {
+        const A0_TIMEOUT_MILLIS: u64 = 2000;
+
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
             creset: sys_api::Port::D.pin(5),

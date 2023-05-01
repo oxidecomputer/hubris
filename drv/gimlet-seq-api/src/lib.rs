@@ -20,6 +20,9 @@ pub enum SeqError {
     ReadRegsFailed,
     CPUNotPresent,
     UnrecognizedCPU,
+    A1Timeout,
+    A0TimeoutGroupC,
+    A0Timeout,
 
     #[idol(server_death)]
     ServerRestarted,
