@@ -240,4 +240,5 @@ pub struct MacTableEntry {
     pub port: u16,
 }
 
+use crate as drv_monorail_api;
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

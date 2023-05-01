@@ -113,7 +113,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             leds,
             phy_link_up: Default::default(),
         };
-        out.init()?;
+        out.reinit()?;
         Ok(out)
     }
 
@@ -149,7 +149,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     /// Attempts to initialize the system.  This is based on a VSC7448 dev kit
     /// (VSC5627EV), so will need to change depending on your system.
-    fn init(&mut self) -> Result<(), VscError> {
+    pub fn reinit(&mut self) -> Result<(), VscError> {
+        self.leds.led_off(3).unwrap();
+        self.leds.led_on(0).unwrap();
+
+        self.vsc7448.init()?;
         self.gpio_init()?;
         self.phy_init()?;
 

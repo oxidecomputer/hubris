@@ -28,6 +28,7 @@ enum Trace {
     },
     AnegCheckFailed(VscError),
     Restarted10GAneg,
+    Reinit,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -166,13 +167,26 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
             front_io_speed: [Speed::Speed1G; 2],
         };
-        out.init()?;
+
+        out.vsc7448.init()?;
+
+        out.phy_vsc8504_init()?;
+        out.phy_vsc8562_init()?;
+
+        out.vsc7448.configure_ports_from_map(&PORT_MAP)?;
+        out.vsc7448.configure_vlan_semistrict()?;
+        out.vsc7448_postconfig()?;
         Ok(out)
     }
 
-    fn init(&mut self) -> Result<(), VscError> {
-        self.phy_vsc8504_init()?;
-        self.phy_vsc8562_init()?;
+    pub fn reinit(&mut self) -> Result<(), VscError> {
+        ringbuf_entry!(Trace::Reinit);
+        self.vsc7448.init()?;
+
+        // Bring the VSC8504 PHY out of COMA mode (controlled by VSC7448 GPIOs,
+        // so we have to reconfigure it here).
+        self.phy_vsc8504_coma_disable()?;
+
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
         self.vsc7448.configure_vlan_semistrict()?;
         self.vsc7448_postconfig()?;
@@ -296,9 +310,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // Let's configure the on-board PHY first
         //
         // It's always powered on, and COMA_MODE is controlled via the VSC7448
-        // on GPIO_47.
-        const COMA_MODE_GPIO: u32 = 47;
-
+        // on GPIO_47 (pulled up by default).
+        //
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board), using the VSC7448 as a MIIM bridge.
 
@@ -316,6 +329,15 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.
         self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
+
+        // Bring the chip out of COMA mode
+        self.phy_vsc8504_coma_disable()?;
+
+        Ok(())
+    }
+
+    fn phy_vsc8504_coma_disable(&mut self) -> Result<(), VscError> {
+        const COMA_MODE_GPIO: u32 = 47;
 
         // Switch the GPIO to an output.  Since the output register is low
         // by default, this pulls COMA_MODE low, bringing the VSC8504 into
