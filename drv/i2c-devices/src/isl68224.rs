@@ -14,6 +14,10 @@ use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
+//
+// This is a special rail value that is issued as a PAGE command to enable
+// reading phase current via PHASE + PHASE_CURRENT
+//
 const PHASE_RAIL: u8 = 0x80;
 
 pub struct Isl68224 {

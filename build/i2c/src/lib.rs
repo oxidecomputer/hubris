@@ -7,7 +7,7 @@ use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
 
@@ -1219,11 +1219,21 @@ impl ConfigGenerator {
                 }
 
                 //
-                // If we have phases, we must have phases for each rail.
+                // If we have phases, we must have phases for each rail -- and
+                // we check that no single phase is present in more than one
+                // rail.
                 //
                 match (&power.rails, &power.phases) {
                     (Some(_), None) | (None, None) => {}
-                    (Some(r), Some(p)) if r.len() == p.len() => {}
+                    (Some(r), Some(p)) if r.len() == p.len() => {
+                        let mut all = HashSet::new();
+
+                        if let Some(p) =
+                            p.into_iter().flatten().find(|&p| !all.insert(p))
+                        {
+                            bail!("phase {p} appears multiple times in {d:?}");
+                        }
+                    }
                     _ => {
                         bail!("rail/phase length mismatch on {d:?}");
                     }
@@ -1272,10 +1282,6 @@ impl ConfigGenerator {
                 if which == PowerDevices::PMBus {
                     let phases = if let Some(power) = &device.power {
                         if let Some(phases) = &power.phases {
-                            if *index >= phases.len() {
-                                bail!("malformed phases for {rail}");
-                            }
-
                             let p = phases[*index]
                                 .iter()
                                 .map(|p| p.to_string())

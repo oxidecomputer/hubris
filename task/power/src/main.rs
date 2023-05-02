@@ -365,7 +365,7 @@ macro_rules! mwocp68_controller {
                 ),
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
-                phases: i2c_config::pmbus::[<MWOCP68_ $rail:upper _PHASES>],
+                phases: None,
             }
         }
     };

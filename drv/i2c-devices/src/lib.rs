@@ -114,11 +114,6 @@ macro_rules! pmbus_rail_phase_read {
             }),
         }
     }};
-
-    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
-        use $dev::{$cmd, PAGE};
-        pmbus_rail_read!($device, $rail, $cmd)
-    }};
 }
 
 macro_rules! pmbus_write {
