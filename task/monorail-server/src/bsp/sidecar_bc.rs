@@ -309,7 +309,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // on GPIO_47.
         const COMA_MODE_GPIO: u32 = 47;
 
-        //
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board), using the VSC7448 as a MIIM bridge.
 

@@ -135,6 +135,10 @@ impl<R: Vsc7448Rw> Vsc7448Rw for Vsc7448<'_, R> {
 }
 
 impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
+    /// Simple constructor which wraps a `Vsc7448Rw` reference
+    ///
+    /// Also takes the REFCLK frequency, as well as an optional frequency for
+    /// REFCLK2 (used to configure the PLL boost).
     pub fn new(
         rw: &'a mut R,
         refclk_1: RefClockFreq,
@@ -373,9 +377,6 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Performs initial configuration (endianness, soft reset, read padding) of
     /// the VSC7448, checks that its chip ID is correct, and brings core systems
     /// out of reset.
-    ///
-    /// Takes the REFCLK frequency, as well as an optional frequency for
-    /// REFCLK2 (used to configure the PLL boost).
     pub fn init(&self) -> Result<(), VscError> {
         // Write the byte ordering / endianness configuration
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
