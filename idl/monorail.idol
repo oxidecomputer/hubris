@@ -9,8 +9,8 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "PortStatus",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::PortStatus",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
             encoding: Hubpack,
         ),
@@ -20,8 +20,8 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "PortCounters",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::PortCounters",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
             encoding: Hubpack,
         ),
@@ -32,7 +32,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
             encoding: Hubpack,
         ),
@@ -42,8 +42,8 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "PhyStatus",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::PhyStatus",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
             encoding: Hubpack,
         ),
@@ -56,7 +56,7 @@ Interface(
             },
             reply: Result(
                 ok: "u16",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "write_phy_reg": (
@@ -69,7 +69,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc7448_reg": (
@@ -79,7 +79,7 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "write_vsc7448_reg": (
@@ -90,21 +90,21 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc8504_sd6g_patch": (
             doc: "Reads the undocumented VSC8504 SERDES6G patch area",
             reply: Result(
-                ok: "TeslaSerdes6gPatch",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::TeslaSerdes6gPatch",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc8504_sd6g_ob_config": (
             doc: "Reads the VSC8504 SERDES6G output config",
             reply: Result(
-                ok: "TeslaSerdes6gObConfig",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::TeslaSerdes6gObConfig",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "write_vsc8504_sd6g_ob_config": (
@@ -118,14 +118,14 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc8562_sd6g_ob_cfg": (
             doc: "Reads from the VSC8504 SERDES6G output config",
             reply: Result(
-                ok: "Sd6gObCfg",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::Sd6gObCfg",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "write_vsc8562_sd6g_ob_cfg": (
@@ -141,14 +141,14 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc8562_sd6g_ob_cfg1": (
             doc: "Reads from the VSC8504 SERDES6G output config",
             reply: Result(
-                ok: "Sd6gObCfg1",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::Sd6gObCfg1",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "write_vsc8562_sd6g_ob_cfg1": (
@@ -159,21 +159,28 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc7448_mac_count": (
             doc: "Returns the number of entries in the VSC7448 MAC table",
             reply: Result(
                 ok: "usize",
-                err: CLike("MonorailError"),
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
         "read_vsc7448_next_mac": (
             doc: "Reads the next MAC address from the VSC7448 MAC table",
             reply: Result(
-                ok: "MacTableEntry",
-                err: CLike("MonorailError"),
+                ok: "drv_monorail_api::MacTableEntry",
+                err: CLike("drv_monorail_api::MonorailError"),
+            ),
+        ),
+        "reinit": (
+            doc: "Reinitializes the system",
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
     },

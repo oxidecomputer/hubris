@@ -780,6 +780,16 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         };
         Ok(out)
     }
+
+    fn reinit(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp
+            .reinit()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
@@ -794,10 +804,5 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 }
 
 mod idl {
-    use super::{
-        MacTableEntry, MonorailError, PhyStatus, PortCounters, PortStatus,
-    };
-    use vsc85xx::tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch};
-    use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
