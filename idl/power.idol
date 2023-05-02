@@ -33,7 +33,7 @@ Interface(
             idempotent: true,
         ),
         "phase_current": (
-            doc: "reads phase current",
+            doc: "reads phase current for the rail denoted by the specified voltage sensor",
             args: {
                 "rail": (
                     type: "SensorId",

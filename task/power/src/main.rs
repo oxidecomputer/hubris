@@ -36,8 +36,6 @@ use drv_i2c_devices::{
 enum Trace {
     GotVersion(u32),
     GotAddr(u32),
-    Phases(usize),
-    Phase(u8),
     None,
 }
 
@@ -601,7 +599,6 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .find(|(c, _)| c.voltage == rail)
         {
             if let Some(phases) = c.phases {
-                ringbuf_entry!(Trace::Phases(phases.len()));
                 let phase: usize = phase as usize;
 
                 if phase < phases.len() {

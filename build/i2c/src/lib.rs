@@ -1218,6 +1218,17 @@ impl ConfigGenerator {
                     continue;
                 }
 
+                //
+                // If we have phases, we must have phases for each rail.
+                //
+                match (&power.rails, &power.phases) {
+                    (Some(_), None) | (None, None) => {},
+                    (Some(r), Some(p)) if r.len() == p.len() => {},
+                    _ => {
+                        bail!("rail/phase length mismatch on {d:?}");
+                    }
+                }
+
                 if let Some(rails) = &power.rails {
                     for (index, rail) in rails.iter().enumerate() {
                         if rail.is_empty() {
@@ -1225,7 +1236,7 @@ impl ConfigGenerator {
                         }
 
                         if byrail.insert(rail, (d, index)).is_some() {
-                            panic!("duplicate rail {}", rail);
+                            bail!("duplicate rail {}", rail);
                         }
                     }
                 }
