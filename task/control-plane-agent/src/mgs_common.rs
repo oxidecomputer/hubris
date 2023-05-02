@@ -5,12 +5,13 @@
 use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
-    RotState as SprotRotState, SpRot, SprotError, SprotProtocolError,
+    RotState as SprotRotState, SlotId, SpRot, SprotError, SprotProtocolError,
+    SwitchDuration,
 };
 use gateway_messages::{
     DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
-    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SlotId, SpComponent,
-    SpError, SpPort, SpState, SwitchDuration,
+    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpComponent, SpError,
+    SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -221,28 +222,44 @@ impl MgsCommon {
         }
     }
 
-    /// SwitchDefaultImage sets the boot policy for image selection.
-    ///
-    /// SwitchDuration::Once specifies the preferred image on the next reset only.
-    /// SwitchDuration::Forever sets the preferred image for all subsequent
-    /// resets or power-cycles.
-    pub(crate) fn switch_default_image(
+    pub(crate) fn component_get_active_slot(
         &mut self,
         update: &SpUpdate,
         component: SpComponent,
-        slot: SlotId,
-        duration: SwitchDuration,
-    ) -> Result<(), SpError> {
-        let slot = match slot {
-            SlotId::A => drv_sprot_api::SlotId::A,
-            SlotId::B => drv_sprot_api::SlotId::B,
-        };
-        let duration = match duration {
-            SwitchDuration::Once => drv_sprot_api::SwitchDuration::Once,
-            SwitchDuration::Forever => drv_sprot_api::SwitchDuration::Forever,
-        };
+    ) -> Result<u16, SpError> {
         match component {
             SpComponent::ROT => {
+                let SprotRotState::V1 { state, .. } =
+                    update.sprot_task().rot_state()?;
+                let slot = match state.active {
+                    drv_sprot_api::RotSlot::A => 0,
+                    drv_sprot_api::RotSlot::B => 1,
+                };
+                Ok(slot)
+            }
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        }
+    }
+
+    pub(crate) fn component_set_active_slot(
+        &mut self,
+        update: &SpUpdate,
+        component: SpComponent,
+        slot: u16,
+        persist: bool,
+    ) -> Result<(), SpError> {
+        match component {
+            SpComponent::ROT => {
+                let slot = match slot {
+                    0 => SlotId::A,
+                    1 => SlotId::B,
+                    _ => return Err(SpError::RequestUnsupportedForComponent),
+                };
+                let duration = if persist {
+                    SwitchDuration::Forever
+                } else {
+                    SwitchDuration::Once
+                };
                 update.sprot_task().switch_default_image(slot, duration)?;
                 Ok(())
             }

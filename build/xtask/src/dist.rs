@@ -608,10 +608,17 @@ fn build_archive(
     )?;
 
     let (git_rev, git_dirty) = get_git_status()?;
-    archive.text(
-        "git-rev",
-        format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
-    )?;
+    archive
+        .text(
+            "git-rev",
+            format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
+        )
+        .context("failed writing `git-rev`")?;
+
+    archive
+        .text("image-name", image_name)
+        .context("failed writing `image-name`")?;
+
     archive.copy(&cfg.app_toml_file, "app.toml")?;
     if let Some(patches) = cfg.patches.as_ref() {
         archive

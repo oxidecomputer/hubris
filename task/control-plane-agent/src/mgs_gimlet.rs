@@ -18,9 +18,9 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, SlotId, SpComponent, SpError, SpPort,
-    SpRequest, SpState, SpUpdatePrepare, SwitchDuration, UpdateChunk, UpdateId,
-    UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    MessageKind, MgsError, PowerState, SpComponent, SpError, SpPort, SpRequest,
+    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -906,7 +906,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.active_slot()
             }
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            _ => self
+                .common
+                .component_get_active_slot(&self.sp_update, component),
         }
     }
 
@@ -927,7 +929,12 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.set_active_slot(slot, persist)
             }
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            _ => self.common.component_set_active_slot(
+                &self.sp_update,
+                component,
+                slot,
+                persist,
+            ),
         }
     }
 
@@ -1038,22 +1045,6 @@ impl SpHandler for MgsHandler {
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         self.common.get_caboose_value(key)
-    }
-
-    fn switch_default_image(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        component: SpComponent,
-        slot: SlotId,
-        duration: SwitchDuration,
-    ) -> Result<(), SpError> {
-        self.common.switch_default_image(
-            &self.sp_update,
-            component,
-            slot,
-            duration,
-        )
     }
 
     fn reset_component_prepare(
