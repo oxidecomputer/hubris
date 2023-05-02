@@ -353,7 +353,10 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    ringbuf_entry!(Trace::TemperatureReadError(i, Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e).unwrap()));
+                    ringbuf_entry!(Trace::TemperatureReadError(
+                        i,
+                        Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e).unwrap()
+                    ));
                 }
                 Err(e) => {
                     ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
