@@ -1222,8 +1222,8 @@ impl ConfigGenerator {
                 // If we have phases, we must have phases for each rail.
                 //
                 match (&power.rails, &power.phases) {
-                    (Some(_), None) | (None, None) => {},
-                    (Some(r), Some(p)) if r.len() == p.len() => {},
+                    (Some(_), None) | (None, None) => {}
+                    (Some(r), Some(p)) if r.len() == p.len() => {}
                     _ => {
                         bail!("rail/phase length mismatch on {d:?}");
                     }
