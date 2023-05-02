@@ -108,6 +108,8 @@ pub trait Vsc7448Rw {
 /// Top-level state wrapper for a VSC7448 chip.
 pub struct Vsc7448<'a, R> {
     pub rw: &'a mut R,
+    refclk_1: RefClockFreq,
+    refclk_2: Option<RefClockFreq>,
 }
 
 impl<R: Vsc7448Rw> Vsc7448Rw for Vsc7448<'_, R> {
@@ -133,8 +135,20 @@ impl<R: Vsc7448Rw> Vsc7448Rw for Vsc7448<'_, R> {
 }
 
 impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
-    pub fn new(rw: &'a mut R) -> Self {
-        Self { rw }
+    /// Simple constructor which wraps a `Vsc7448Rw` reference
+    ///
+    /// Also takes the REFCLK frequency, as well as an optional frequency for
+    /// REFCLK2 (used to configure the PLL boost).
+    pub fn new(
+        rw: &'a mut R,
+        refclk_1: RefClockFreq,
+        refclk_2: Option<RefClockFreq>,
+    ) -> Self {
+        Self {
+            rw,
+            refclk_1,
+            refclk_2,
+        }
     }
 
     /// Configures all ports in the system from a single `PortMap`
@@ -363,14 +377,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Performs initial configuration (endianness, soft reset, read padding) of
     /// the VSC7448, checks that its chip ID is correct, and brings core systems
     /// out of reset.
-    ///
-    /// Takes the REFCLK frequency, as well as an optional frequency for
-    /// REFCLK2 (used to configure the PLL boost).
-    pub fn init(
-        &self,
-        f1: RefClockFreq,
-        f2: Option<RefClockFreq>,
-    ) -> Result<(), VscError> {
+    pub fn init(&self) -> Result<(), VscError> {
         // Write the byte ordering / endianness configuration
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
 
@@ -447,8 +454,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 
         // Enable the 5G PLL boost on the main clock, and optionally on
         // the secondary clock (if present)
-        self.pll5g_setup(0, f1)?;
-        if let Some(f2) = f2 {
+        self.pll5g_setup(0, self.refclk_1)?;
+        if let Some(f2) = self.refclk_2 {
             self.pll5g_setup(1, f2)?;
         }
 

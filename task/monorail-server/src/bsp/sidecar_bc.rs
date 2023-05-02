@@ -28,6 +28,7 @@ enum Trace {
     },
     AnegCheckFailed(VscError),
     Restarted10GAneg,
+    Reinit,
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -166,21 +167,15 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
             front_io_speed: [Speed::Speed1G; 2],
         };
-        out.init()?;
+
+        out.reinit()?;
         Ok(out)
     }
 
-    fn init(&mut self) -> Result<(), VscError> {
-        self.phy_vsc8504_init()?;
-        self.phy_vsc8562_init()?;
-        self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_semistrict()?;
-        self.vsc7448_postconfig()?;
+    pub fn reinit(&mut self) -> Result<(), VscError> {
+        ringbuf_entry!(Trace::Reinit);
+        self.vsc7448.init()?;
 
-        Ok(())
-    }
-
-    fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
         // By default, the SERDES6G are grouped into 4x chunks for XAUI,
         // where a single DEV10G runs 4x SERDES6G at 2.5G.  This leads to very
         // confusing behavior when only running a few SERDES6G: in particularly,
@@ -202,6 +197,21 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
+        // Reset internals
+        self.vsc8504 = Vsc8504::empty();
+        self.front_io_speed = [Speed::Speed1G; 2];
+
+        self.phy_vsc8504_init()?;
+        self.phy_vsc8562_init()?;
+
+        self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
+        self.vsc7448.configure_vlan_semistrict()?;
+        self.vsc7448_postconfig()?;
+
+        Ok(())
+    }
+
+    fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
         // The SERDES6G going to the front IO board needs to be tuned from
         // its default settings, otherwise the signal quality is bad.
         const FRONT_IO_SERDES6G: u8 = 15;
