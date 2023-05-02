@@ -946,10 +946,11 @@ impl idl::InOrderPowerImpl for ServerImpl {
         }
 
         // Step 2a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, addr_reg, 0x00])?;
-
         // Step 2b - Read DMA Data Register
-        let mut r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        let mut r: u32 = dev.write_read_reg(
+            CommandCode::DMAFIX as u8,
+            &[CommandCode::DMAADDR as u8, addr_reg, 0x00],
+        )?;
         ringbuf_entry!(Trace::GotAddr(r));
 
         // "Divide this value by 4 to determine the starting address of the
@@ -963,16 +964,21 @@ impl idl::InOrderPowerImpl for ServerImpl {
         }
 
         // Step 3a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
-
         // Step 3b - Read Black Box Data
         let buf = match &mut out {
             RenesasBlackbox::Gen2(buf) => buf.as_mut_slice(),
             RenesasBlackbox::Gen2p5(buf) => buf.as_mut_slice(),
         };
         for b in buf {
-            let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
-            *b = r.swap_bytes();
+            // Note that we're using DMAFIX and specifying the address for each
+            // byte.  This is less efficient, but means that no one can mess
+            // with us by modifying the DMA address mid-loop.
+            let v: u32 = dev.write_read_reg(
+                CommandCode::DMAFIX as u8,
+                &[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8],
+            )?;
+            r += 1; // We do the address incrementing ourselves
+            *b = v.swap_bytes();
         }
 
         Ok(out)
@@ -995,8 +1001,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .i2c_device();
 
         use pmbus::commands::isl68224::CommandCode;
-        dev.write(&[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8])?;
-        let out: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        let out: u32 = dev.write_read_reg(
+            CommandCode::DMAFIX as u8,
+            &[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8],
+        )?;
         Ok(out)
     }
 }
