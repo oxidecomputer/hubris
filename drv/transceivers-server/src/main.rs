@@ -64,6 +64,7 @@ enum Trace {
     ThermalError(usize, ThermalError),
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
+    InvalidPortStatusError(usize, u8),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -275,11 +276,17 @@ impl ServerImpl {
                             self.decode_interface(port, interface)
                     }
                     Err(FpgaError::ImplError(e)) => {
-                        ringbuf_entry!(Trace::GetInterfaceError(
-                            i,
-                            Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e)
-                                .unwrap()
-                        ));
+                        match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
+                            Some(val) => {
+                                ringbuf_entry!(Trace::GetInterfaceError(i, val))
+                            }
+                            None => {
+                                // Error code cannot be decoded
+                                ringbuf_entry!(Trace::InvalidPortStatusError(
+                                    i, e
+                                ))
+                            }
+                        }
                     }
                     Err(e) => {
                         // Not much we can do here if reading failed
@@ -353,10 +360,15 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    ringbuf_entry!(Trace::TemperatureReadError(
-                        i,
-                        Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e).unwrap()
-                    ));
+                    match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
+                        Some(val) => {
+                            ringbuf_entry!(Trace::TemperatureReadError(i, val))
+                        }
+                        None => {
+                            // Error code cannot be decoded
+                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
+                        }
+                    }
                 }
                 Err(e) => {
                     ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
