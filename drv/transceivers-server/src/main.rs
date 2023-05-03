@@ -72,7 +72,6 @@ ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// 0-31 for port LEDs, 32 is System LED
 #[derive(Copy, Clone)]
 struct LedStates([LedState; NUM_PORTS as usize]);
 
@@ -136,8 +135,8 @@ impl ServerImpl {
         }
     }
 
-    fn get_led_state(&self) -> LedStates {
-        self.led_states
+    fn get_led_state(&self, port: LogicalPort) -> LedState {
+        self.led_states.0[port.0 as usize]
     }
 
     fn set_system_led_state(&mut self, state: LedState) {

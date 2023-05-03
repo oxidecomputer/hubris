@@ -6,6 +6,19 @@ use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
 use drv_transceivers_api::NUM_PORTS;
 
+/// Leds
+///
+/// `controllers`: two PCA9956B devices, each of which control half of  the LEDs
+/// on the front-io board.
+///
+/// `current`: a u8 to be written into the IREFALL register on the PCA9956Bs.
+/// From the PCA9956B datasheet, the calculus is
+/// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO) is
+/// a 1K. This means the current value is defined as: `current` * 0.225 mA.
+///
+/// `pwm`: a u8 to be written into the PWMx registers on the PCA9956Bs as
+/// necessary. The percent of time the LED is on is governed by the duty cycle
+/// calculation: `pwm`/256.
 pub struct Leds {
     controllers: [Pca9956B; 2],
     current: u8,
@@ -14,21 +27,15 @@ pub struct Leds {
 
 /// Default LED Current
 ///
-/// This will get written into the PCA9956B IREFALL register. The goal is to
-/// make these LEDs look as close to Gimlet CEM attention LEDs as possible.
-/// As of build C, Gimlet is pulling 50mA through those LEDs. From the PCA9956B
-/// datasheet, the calculus is I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47
-///  & R48 on QSFP Front IO) is a 1K, so a bit of math results in a desired
-/// IREF value of d222 (hDE).
-///
-/// This value is being temporarily set to d44 (9.9mA) until a solution for
-/// https://github.com/oxidecomputer/hubris/issues/982 is agreed upon.
+/// This will get written into the PCA9956B IREFALL register until a new value
+/// is given. The goal is to  make these LEDs look as close to Gimlet CEM
+/// attention LEDs and the various System LEDs as possible. This value is being
+/// temporarily set to d44 (9.9mA), it can be tweaked
 const DEFAULT_LED_CURRENT: u8 = 44;
 
 /// Default LED PWM
 ///
-/// This can be used to adjust LED duty cycle. The math here is simple, just
-/// PWM/256.
+/// This can be used to adjust default LED duty cycle.
 const DEFAULT_LED_PWM: u8 = 255;
 
 /// There are two LED controllers, each controlling the LEDs on either the left
@@ -345,7 +352,7 @@ impl Leds {
     /// Adjust System LED PWM
     pub fn update_system_led_state(&self, turn_on: bool) -> Result<(), Error> {
         let value = if turn_on { self.pwm } else { 0 };
-        self.controllers[SYSTEM_LED.controller as usize]
+        self.controller(SYSTEM_LED.controller)
             .set_a_led_pwm(SYSTEM_LED.output, value)
     }
 
@@ -375,13 +382,12 @@ impl Leds {
 
     /// Query device registers and return a summary of observed errors
     pub fn error_summary(&self) -> Result<FullErrorSummary, Error> {
-        let left_errs = self.controller(LedController::Left).check_errors()?;
-        let right_errs =
-            self.controller(LedController::Right).check_errors()?;
+        let errs_l = self.controller(LedController::Left).check_errors()?;
+        let errs_r = self.controller(LedController::Right).check_errors()?;
 
         let mut summary: FullErrorSummary = FullErrorSummary {
-            overtemp_left: left_errs.overtemp,
-            overtemp_right: right_errs.overtemp,
+            overtemp_left: errs_l.overtemp,
+            overtemp_right: errs_r.overtemp,
             ..Default::default()
         };
 
@@ -389,8 +395,8 @@ impl Leds {
             let output: usize = led_loc.output as usize;
 
             let err: LedErr = match led_loc.controller {
-                LedController::Left => left_errs.errors[output],
-                LedController::Right => right_errs.errors[output],
+                LedController::Left => errs_l.errors[output],
+                LedController::Right => errs_r.errors[output],
             };
 
             match err {
@@ -402,11 +408,10 @@ impl Leds {
         }
 
         summary.system_led_err = match SYSTEM_LED.controller {
-            LedController::Left => left_errs.errors[SYSTEM_LED.output as usize],
-            LedController::Right => {
-                right_errs.errors[SYSTEM_LED.output as usize]
-            }
-        };
+            LedController::Left => &errs_l,
+            LedController::Right => &errs_r,
+        }
+        .errors[SYSTEM_LED.output as usize];
 
         Ok(summary)
     }

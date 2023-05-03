@@ -551,7 +551,7 @@ impl ServerImpl {
                         modules: success,
                         failed_modules,
                     }),
-                    num_err_bytes + num_err_bytes,
+                    num_led_bytes + num_err_bytes,
                 )
             }
             HostRequest::SetLedState { modules, state } => {
@@ -885,12 +885,12 @@ impl ServerImpl {
         out: &mut [u8],
     ) -> (usize, ModuleResultNoFailure) {
         let mut led_state_len = 0;
-        for led in modules
+        for led_state in modules
             .to_indices()
-            .map(|m| self.get_led_state().0[m.0 as usize])
+            .map(|m| self.get_led_state(m))
         {
             let led_state_size =
-                hubpack::serialize(&mut out[led_state_len..], &led).unwrap();
+                hubpack::serialize(&mut out[led_state_len..], &led_state).unwrap();
             led_state_len += led_state_size;
         }
 
