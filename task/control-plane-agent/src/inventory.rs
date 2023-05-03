@@ -304,7 +304,7 @@ mod devices_with_static_validation {
             // to MGS messages anyway!
             presence: DevicePresence::Present,
         },
-        #[cfg(any(feature = "gimlet", feature = "psc"))]
+        #[cfg(any(feature = "gimlet", feature = "psc", feature = "sidecar"))]
         DeviceDescription {
             component: SpComponent::SYSTEM_LED,
             device: SpComponent::SYSTEM_LED.const_as_str(),

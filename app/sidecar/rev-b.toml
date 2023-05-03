@@ -100,6 +100,7 @@ task-slots = [
     "ignition",
     "i2c_driver",
     "packrat",
+    "transceivers",
 ]
 features = ["sidecar", "vlan", "auxflash"]
 notifications = ["socket", "usart-irq", "timer"]
