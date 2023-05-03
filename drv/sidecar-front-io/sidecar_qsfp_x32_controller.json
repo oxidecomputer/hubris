@@ -1062,7 +1062,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1093,7 +1123,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1124,7 +1184,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1155,7 +1245,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1186,7 +1306,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1217,7 +1367,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1248,7 +1428,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1279,7 +1489,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1310,7 +1550,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1341,7 +1611,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1372,7 +1672,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1403,7 +1733,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1434,7 +1794,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1465,7 +1855,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1496,7 +1916,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -1527,7 +1977,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3430,7 +3910,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3468,7 +3978,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3506,7 +4046,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3544,7 +4114,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3582,7 +4182,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3620,7 +4250,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3658,7 +4318,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3696,7 +4386,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3734,7 +4454,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3772,7 +4522,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3810,7 +4590,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3848,7 +4658,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3886,7 +4726,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3924,7 +4794,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -3962,7 +4862,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",
@@ -4000,7 +4930,37 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "0x0 = NoError, 0x01 = NoModule, 0x02 = NoPower, 0x03 = PowerFault, 0x04 = I2cAddressnack, 0x05 = I2cByteNack"
+                            "desc": "Port I2C error status",
+                            "encode": [
+                                {
+                                    "name": "NoError",
+                                    "value": 0
+                                },
+                                {
+                                    "name": "NoModule",
+                                    "value": 1
+                                },
+                                {
+                                    "name": "NoPower",
+                                    "value": 2
+                                },
+                                {
+                                    "name": "PowerFault",
+                                    "value": 3
+                                },
+                                {
+                                    "name": "NotInitialized",
+                                    "value": 4
+                                },
+                                {
+                                    "name": "I2cAddressNack",
+                                    "value": 5
+                                },
+                                {
+                                    "name": "I2cByteNack",
+                                    "value": 6
+                                }
+                            ]
                         },
                         {
                             "type": "field",

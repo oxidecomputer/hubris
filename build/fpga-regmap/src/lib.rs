@@ -162,7 +162,7 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
                         output,
                         "
 {prefix}        use num_derive::{{ToPrimitive, FromPrimitive}};
-{prefix}        #[derive(FromPrimitive, ToPrimitive)]
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, ToPrimitive)]
 {prefix}        #[allow(dead_code)]
 {prefix}        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 {prefix}        pub enum Encoded {{"

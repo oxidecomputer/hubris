@@ -28,6 +28,7 @@ pub enum FpgaError {
     AuxChecksumMismatch,
     AuxReadError,
     AuxMissingBlob,
+    CommsError,
 }
 
 // TODO is this right? We cause clients to panic if we die; should we have a
@@ -50,6 +51,7 @@ impl From<FpgaError> for u16 {
             FpgaError::AuxChecksumMismatch => 0x0503,
             FpgaError::AuxReadError => 0x0504,
             FpgaError::AuxMissingBlob => 0x0505,
+            FpgaError::CommsError => 0x0506,
         }
     }
 }
@@ -83,6 +85,7 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0503 => Ok(FpgaError::AuxChecksumMismatch),
                 0x0504 => Ok(FpgaError::AuxReadError),
                 0x0505 => Ok(FpgaError::AuxMissingBlob),
+                0x0506 => Ok(FpgaError::CommsError),
                 _ => Err(()),
             },
         }

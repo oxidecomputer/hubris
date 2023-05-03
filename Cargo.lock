@@ -1387,6 +1387,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-transceivers-api",
  "gnarle",
+ "num-derive",
  "num-traits",
  "ringbuf",
  "transceiver-messages",
