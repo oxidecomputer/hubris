@@ -13,6 +13,7 @@ static_assertions.workspace = true
 zerocopy.workspace = true
 
 drv-i2c-api.path = "../../drv/i2c-api"
+task-sensor-api.path = "../sensor-api"
 userlib.path = "../../sys/userlib"
 
 [build-dependencies]

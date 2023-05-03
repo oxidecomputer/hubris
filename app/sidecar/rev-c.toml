@@ -482,7 +482,10 @@ bus = "northeast0"
 address = 0b1100_011
 device = "raa229618"
 description = "TF2 VDD rail"
-power = { rails = [ "V0P8_TF2_VDD_CORE" ] }
+power.rails = [ "V0P8_TF2_VDD_CORE" ]
+power.phases = [
+    [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 ]
+]
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U31"
 
@@ -563,7 +566,8 @@ bus = "northwest0"
 address = 0b1100_000
 device = "raa229618"
 description = "TF2 VDDA rail"
-power = { rails = [ "V1P5_TF2_VDDA", "V0P9_TF2_VDDT" ] }
+power.rails = [ "V0P9_TF2_VDDT", "V1P5_TF2_VDDA" ]
+power.phases = [ [ 2, 6, 7 ], [ 0, 1 ] ]
 sensors = { temperature = 2, voltage = 2, current = 2 }
 refdes = "U32"
 
@@ -626,7 +630,8 @@ bus = "south0"
 address = 0b1100_010
 device = "isl68224"
 description = "VDD[A]18 rail"
-power = { rails = [ "V1P8_TF2_VDDA", "V1P8_TF2_VDD" ] }
+power.rails = [ "V1P8_TF2_VDD", "V1P8_TF2_VDDA" ]
+power.phases = [ [ 1 ], [ 0 ] ]
 sensors = { temperature = 2, voltage = 2, current = 2 }
 refdes = "U33"
 

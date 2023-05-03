@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
 
@@ -168,6 +168,9 @@ struct I2cMux {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPower {
     rails: Option<Vec<String>>,
+
+    /// Optional phases, which must be the same length as `rails` if present
+    phases: Option<Vec<Vec<u8>>>,
 
     #[serde(default = "I2cPower::default_pmbus")]
     pmbus: bool,
@@ -1215,6 +1218,27 @@ impl ConfigGenerator {
                     continue;
                 }
 
+                //
+                // If we have phases, we must have phases for each rail -- and
+                // we check that no single phase is present in more than one
+                // rail.
+                //
+                match (&power.rails, &power.phases) {
+                    (Some(_), None) | (None, None) => {}
+                    (Some(r), Some(p)) if r.len() == p.len() => {
+                        let mut all = HashSet::new();
+
+                        if let Some(p) =
+                            p.into_iter().flatten().find(|&p| !all.insert(p))
+                        {
+                            bail!("phase {p} appears multiple times in {d:?}");
+                        }
+                    }
+                    _ => {
+                        bail!("rail/phase length mismatch on {d:?}");
+                    }
+                }
+
                 if let Some(rails) = &power.rails {
                     for (index, rail) in rails.iter().enumerate() {
                         if rail.is_empty() {
@@ -1222,7 +1246,7 @@ impl ConfigGenerator {
                         }
 
                         if byrail.insert(rail, (d, index)).is_some() {
-                            panic!("duplicate rail {}", rail);
+                            bail!("duplicate rail {}", rail);
                         }
                     }
                 }
@@ -1254,6 +1278,32 @@ impl ConfigGenerator {
 
                 let out = self.generate_device(device, 16);
                 writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
+
+                if which == PowerDevices::PMBus {
+                    let phases = if let Some(power) = &device.power {
+                        if let Some(phases) = &power.phases {
+                            let p = phases[*index]
+                                .iter()
+                                .map(|p| p.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            format!("Some(&[{p}])")
+                        } else {
+                            "None".to_string()
+                        }
+                    } else {
+                        "None".to_string()
+                    };
+
+                    writeln!(
+                        &mut self.output,
+                        r##"
+        #[allow(dead_code)]
+        pub const {}_{rail}_PHASES: Option<&'static [u8]> = {phases};"##,
+                        device.device.to_uppercase()
+                    )?;
+                }
             }
 
             writeln!(&mut self.output, "    }}")?;

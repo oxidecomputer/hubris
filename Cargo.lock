@@ -3018,7 +3018,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#03124d68e77a84a1e05513133c61990b14a2a75d"
+source = "git+https://github.com/oxidecomputer/pmbus#5af447d53a4bc863b7e0700cee23cbf89da39cd5"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -4218,6 +4218,7 @@ dependencies = [
  "serde",
  "serde-big-array 0.4.1",
  "static_assertions",
+ "task-sensor-api",
  "userlib",
  "zerocopy",
 ]

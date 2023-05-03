@@ -14,6 +14,12 @@ use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
+//
+// This is a special rail value that is issued as a PAGE command to enable
+// reading phase current via PHASE + PHASE_CURRENT
+//
+const PHASE_RAIL: u8 = 0x80;
+
 pub struct Raa229618 {
     device: I2cDevice,
     rail: u8,
@@ -107,6 +113,16 @@ impl Raa229618 {
             vout.set(self.read_mode()?, pmbus::units::Volts(value.0))?;
             pmbus_rail_write!(self.device, self.rail, VOUT_COMMAND, vout)
         }
+    }
+
+    pub fn read_phase_current(&self, phase: Phase) -> Result<Amperes, Error> {
+        let iout = pmbus_rail_phase_read!(
+            self.device,
+            PHASE_RAIL,
+            phase.0,
+            PHASE_CURRENT
+        )?;
+        Ok(Amperes(iout.get()?.0))
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {

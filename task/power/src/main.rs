@@ -18,6 +18,7 @@ use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{Bmr491Event, PmbusValue, RenesasBlackbox};
 use task_sensor_api as sensor_api;
@@ -80,6 +81,7 @@ struct PowerControllerConfig {
     current: SensorId,
     input_current: Option<SensorId>,
     temperature: Option<SensorId>,
+    phases: Option<&'static [u8]>,
 }
 
 enum Device {
@@ -140,6 +142,17 @@ impl Device {
             Device::Ltc4282(dev) => dev.read_vout()?,
         };
         Ok(r)
+    }
+
+    fn read_phase_current(
+        &self,
+        phase: Phase,
+    ) -> Result<Amperes, ResponseCode> {
+        match &self {
+            Device::Raa229618(dev) => Ok(dev.read_phase_current(phase)?),
+            Device::Isl68224(dev) => Ok(dev.read_phase_current(phase)?),
+            _ => Err(ResponseCode::OperationNotSupported),
+        }
     }
 
     fn read_vin(&self) -> Result<Volts, ResponseCode> {
@@ -250,6 +263,7 @@ macro_rules! rail_controller {
                 temperature: Some(
                     sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
+                phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
             }
         }
     };
@@ -268,6 +282,7 @@ macro_rules! rail_controller_notemp {
                 current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
             }
         }
     };
@@ -288,6 +303,7 @@ macro_rules! adm1272_controller {
                 temperature: Some(
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
+                phases: None,
             }
         }
     };
@@ -306,6 +322,7 @@ macro_rules! ltc4282_controller {
                 current: sensors::[<LTC4282_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
             }
         }
     };
@@ -324,6 +341,7 @@ macro_rules! max5970_controller {
                 current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: None,
+                phases: None,
             }
         }
     };
@@ -347,6 +365,7 @@ macro_rules! mwocp68_controller {
                 ),
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
+                phases: None,
             }
         }
     };
@@ -566,6 +585,32 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let device = self.get_device(req_dev, req_rail, req_index)?;
         let out = device.read_mode()?;
         Ok(out.0)
+    }
+
+    fn phase_current(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        rail: task_sensor_api::SensorId,
+        phase: u8,
+    ) -> Result<f32, idol_runtime::RequestError<ResponseCode>> {
+        if let Some((c, dev)) = bsp::CONTROLLER_CONFIG
+            .iter()
+            .zip(self.devices.iter_mut())
+            .find(|(c, _)| c.voltage == rail)
+        {
+            if let Some(phases) = c.phases {
+                let phase: usize = phase as usize;
+
+                if phase < phases.len() {
+                    return match dev.read_phase_current(Phase(phases[phase])) {
+                        Err(e) => Err(ResponseCode::from(e).into()),
+                        Ok(val) => Ok(val.0),
+                    };
+                }
+            }
+        }
+
+        Err(ResponseCode::BadArg.into())
     }
 
     fn bmr491_event_log_read(

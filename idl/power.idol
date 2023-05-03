@@ -32,6 +32,21 @@ Interface(
             ),
             idempotent: true,
         ),
+        "phase_current": (
+            doc: "reads phase current for the rail denoted by the specified voltage sensor",
+            args: {
+                "rail": (
+                    type: "SensorId",
+                    recv: From("u32", None),
+                ),
+                "phase": "u8",
+            },
+            reply: Result(
+                ok: "f32",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ), 
         "bmr491_event_log_read": (
             doc: "reads an event from the BMR491's combined fault and lifecycle event log",
             args: {
