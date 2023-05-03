@@ -885,12 +885,10 @@ impl ServerImpl {
         out: &mut [u8],
     ) -> (usize, ModuleResultNoFailure) {
         let mut led_state_len = 0;
-        for led_state in modules
-            .to_indices()
-            .map(|m| self.get_led_state(m))
-        {
+        for led_state in modules.to_indices().map(|m| self.get_led_state(m)) {
             let led_state_size =
-                hubpack::serialize(&mut out[led_state_len..], &led_state).unwrap();
+                hubpack::serialize(&mut out[led_state_len..], &led_state)
+                    .unwrap();
             led_state_len += led_state_size;
         }
 
