@@ -552,6 +552,51 @@ impl I2cDevice {
     }
 
     ///
+    /// Like `write_read_reg`, but instead of returning a value, reads as many
+    /// bytes as the device will send into a specified slice, returning the
+    /// number of bytes read.
+    ///
+    /// The write and read are not performed as a single I2C transaction (that
+    /// is, it is not a repeated start) -- but the effect is the same in that
+    /// the server does these operations without an intervening receive
+    /// (assuring that the write can modify device state that the subsequent
+    /// read can assume).
+    ///
+    pub fn write_read_reg_into<R: AsBytes>(
+        &self,
+        reg: R,
+        buffer: &[u8],
+        out: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[
+                Lease::from(buffer),
+                Lease::read_only(&[]),
+                Lease::from(reg.as_bytes()),
+                Lease::from(out),
+            ],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
+        }
+    }
+
+    ///
     /// Writes one buffer to a device, and then another.  These are not
     /// performed as a single I2C transaction (that is, it is not a repeated
     /// start) -- but the effect is the same in that the server does these

@@ -97,6 +97,14 @@ pub enum PmbusValue {
     Block { data: [u8; MAX_BLOCK_LEN], len: u8 },
 }
 
+#[derive(
+    Copy, Clone, Debug, Default, Deserialize, Serialize, SerializedSize,
+)]
+pub struct RawPmbusData {
+    pub data: [u8; MAX_BLOCK_LEN],
+    pub len: u8,
+}
+
 impl From<pmbus::units::Celsius> for PmbusValue {
     fn from(value: pmbus::units::Celsius) -> Self {
         Self::Celsius(value.0)

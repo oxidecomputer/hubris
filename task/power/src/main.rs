@@ -20,7 +20,9 @@ use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
-use task_power_api::{Bmr491Event, PmbusValue, RenesasBlackbox};
+use task_power_api::{
+    Bmr491Event, PmbusValue, RawPmbusData, RenesasBlackbox, MAX_BLOCK_LEN,
+};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -573,6 +575,54 @@ impl idl::InOrderPowerImpl for ServerImpl {
     ) -> Result<PmbusValue, idol_runtime::RequestError<ResponseCode>> {
         let device = self.get_device(req_dev, req_rail, req_index)?;
         Ok(device.pmbus_read(op)?)
+    }
+
+    fn raw_pmbus_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        size: u8,
+    ) -> Result<RawPmbusData, idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        let mut out = RawPmbusData::default();
+        if size as usize >= out.data.len() {
+            return Err(ResponseCode::BadArg.into());
+        }
+        let n = dev.write_read_reg_into(
+            op,
+            &[pmbus::commands::PAGE::CommandData::code(), rail],
+            &mut out.data,
+        )?;
+        assert!(n <= size as usize);
+        out.len = n as u8;
+        Ok(out)
+    }
+
+    fn raw_pmbus_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        data: RawPmbusData,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        let mut buf = [0u8; MAX_BLOCK_LEN];
+        buf[0] = op;
+        buf[1..=data.len as usize]
+            .copy_from_slice(&data.data[0..data.len as usize]);
+        dev.write_write(
+            &[pmbus::commands::PAGE::CommandData::code(), rail],
+            &buf,
+        )?;
+        Ok(())
     }
 
     fn read_mode(

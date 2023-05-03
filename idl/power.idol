@@ -18,6 +18,34 @@ Interface(
             ),
             idempotent: true,
         ),
+        "raw_pmbus_read": (
+            doc: "performs a raw pmbus read operation",
+            encoding: Hubpack,
+            args: {
+                "index": "u32",
+                "op": "u8",
+                "size": "u8",
+            },
+            reply: Result(
+                ok: "RawPmbusData",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
+        "raw_pmbus_write": (
+            doc: "performs a raw pmbus write operation",
+            encoding: Hubpack,
+            args: {
+                "index": "u32",
+                "op": "u8",
+                "data": "RawPmbusData",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
         "read_mode": (
             doc: "reads the VOUT_MODE value for the given device",
             encoding: Hubpack,
