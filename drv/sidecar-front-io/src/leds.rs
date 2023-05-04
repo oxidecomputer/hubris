@@ -188,7 +188,7 @@ const LED_MAP: LedMap = LedMap([
         controller: LedController::Left,
         output: 1,
     },
-    #[cfg(not(target_board = "sidecar-b"))]
+    #[cfg(target_board = "sidecar-c")]
     // Port 16
     LedLocation {
         controller: LedController::Left,
@@ -200,7 +200,7 @@ const LED_MAP: LedMap = LedMap([
         controller: LedController::Left,
         output: 3,
     },
-    #[cfg(not(target_board = "sidecar-b"))]
+    #[cfg(target_board = "sidecar-c")]
     // Port 17
     LedLocation {
         controller: LedController::Left,
@@ -212,7 +212,7 @@ const LED_MAP: LedMap = LedMap([
         controller: LedController::Left,
         output: 5,
     },
-    #[cfg(not(target_board = "sidecar-b"))]
+    #[cfg(target_board = "sidecar-c")]
     // Port 18
     LedLocation {
         controller: LedController::Left,
@@ -224,7 +224,7 @@ const LED_MAP: LedMap = LedMap([
         controller: LedController::Left,
         output: 7,
     },
-    #[cfg(not(target_board = "sidecar-b"))]
+    #[cfg(target_board = "sidecar-c")]
     // Port 19
     LedLocation {
         controller: LedController::Left,
