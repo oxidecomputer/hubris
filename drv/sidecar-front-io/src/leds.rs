@@ -11,13 +11,13 @@ pub struct Leds {
     /// Two PCA9956B devices, each of which control half of the LEDs
     controllers: [Pca9956B; 2],
     /// Written into the IREFALL register on the PCA9956Bs
-    /// 
+    ///
     /// From the PCA9956B datasheet, the calculus is
-    /// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO) 
+    /// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO)
     /// is a 1K, so the current value is defined as: `current` * 0.225 mA.
     current: u8,
     /// Written into the PWMx registers on the PCA9956Bs
-    /// 
+    ///
     /// The percent of time the LED is on is governed by the duty cycle
     /// calculation: `pwm`/256.
     pwm: u8,
@@ -48,7 +48,7 @@ struct LedLocation {
 }
 
 /// Summary of errors related to the LED controllers
-/// 
+///
 /// FullErrorSummary takes the errors reported by each individual PCA9956B and
 /// maps them to a by-transceiver-port representation for the masks
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
@@ -332,7 +332,7 @@ impl Leds {
     }
 
     /// Sets self.pwm to `value`
-    /// 
+    ///
     /// This will get pushed out to the controllers when the `update_led_state`
     /// function is called.
     pub fn set_pwm(&mut self, value: u8) {
@@ -340,7 +340,7 @@ impl Leds {
     }
 
     /// Helper function used by a driver to write the initial IREFALL value
-    /// 
+    ///
     /// This should be called once the controllers become available.
     pub fn initialize_current(&self) -> Result<(), Error> {
         self.update_current(self.current)
@@ -354,7 +354,7 @@ impl Leds {
     }
 
     /// Turns on the LED for each bit set in `mask`
-    /// 
+    ///
     /// For any bit set in the `mask`, sets its corresponding PWMx register
     pub fn update_led_state(&self, mask: LogicalPortMask) -> Result<(), Error> {
         let mut data_l: [u8; 16] = [0; 16];

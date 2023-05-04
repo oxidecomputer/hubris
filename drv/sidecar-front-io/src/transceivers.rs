@@ -466,7 +466,7 @@ const LEFT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0x00ff00ff);
 const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 
 /// Consolidates per-module success/failure/error information.
-/// 
+///
 /// For operations which have no failure path, just success or error, make use
 /// of the `ModuleResultNoFailure` type. Since multiple modules can be accessed
 /// in parallel, we need to be able to handle a mix of the following cases on a
@@ -519,8 +519,8 @@ impl ModuleResult {
         self.error
     }
 
-    /// Combines two `ModuleResults` 
-    /// 
+    /// Combines two `ModuleResults`
+    ///
     /// Intended to be used for a sequence of `ModuleResult` yielding function
     /// calls. Building such a sequence is generally done with the following
     /// form (where `modules` is a `LogicalPortMask` of requested modules):
@@ -671,7 +671,7 @@ impl Transceivers {
 
     /// Set ResetL bits per the specified `mask`.
     ///
-    /// This directly controls the ResetL signal to the module. 
+    /// This directly controls the ResetL signal to the module.
     /// The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
