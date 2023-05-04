@@ -109,6 +109,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
             },
             reply: Result(
@@ -122,6 +123,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
             },
             reply: Result(
@@ -135,6 +137,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
             },
             reply: Result(
@@ -148,6 +151,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
             },
             reply: Result(
@@ -161,6 +165,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
             },
             reply: Result(
@@ -174,6 +179,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
                 "data": "u8",
             },
@@ -188,6 +194,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
                 "data": "u16",
             },
@@ -202,6 +209,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
                 "data": "u32",
             },
@@ -216,6 +224,7 @@ Interface(
             encoding: Hubpack,
             args: {
                 "index": "u32",
+                "has_rail": "bool",
                 "op": "u8",
                 "data": "RawPmbusBlock",
             },

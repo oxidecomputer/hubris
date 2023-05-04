@@ -552,6 +552,7 @@ impl ServerImpl {
     fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::AsBytes>(
         &mut self,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<T, idol_runtime::RequestError<ResponseCode>> {
         let cfg = bsp::CONTROLLER_CONFIG
@@ -559,16 +560,21 @@ impl ServerImpl {
             .ok_or(ResponseCode::NoDevice)?;
 
         let (dev, rail) = (cfg.builder)(self.i2c_task);
-        let out: T = dev.write_read_reg(
-            op,
-            &[pmbus::commands::PAGE::CommandData::code(), rail],
-        )?;
+        let out: T = if has_rail {
+            dev.write_read_reg(
+                op,
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+            )
+        } else {
+            dev.read_reg(op)
+        }?;
         Ok(out)
     }
 
     fn raw_pmbus_write<T: zerocopy::AsBytes>(
         &mut self,
         index: u32,
+        has_rail: bool,
         op: u8,
         value: T,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
@@ -585,17 +591,22 @@ impl ServerImpl {
         }
         let args = Args { op, value };
 
-        dev.write_write(
-            &[pmbus::commands::PAGE::CommandData::code(), rail],
-            // SAFETY: this is a packed struct and T is constrained to be
-            // AsBytes, so there should be no padding bytes
-            unsafe {
-                core::slice::from_raw_parts(
-                    (&args as *const Args<T>) as *const u8,
-                    core::mem::size_of::<Args<T>>(),
-                )
-            },
-        )?;
+        // SAFETY: this is a packed struct and T is constrained to be
+        // AsBytes, so there should be no padding bytes
+        let args_slice = unsafe {
+            core::slice::from_raw_parts(
+                (&args as *const Args<T>) as *const u8,
+                core::mem::size_of::<Args<T>>(),
+            )
+        };
+        if has_rail {
+            dev.write_write(
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                args_slice,
+            )
+        } else {
+            dev.write(args_slice)
+        }?;
         Ok(())
     }
 }
@@ -631,33 +642,37 @@ impl idl::InOrderPowerImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_read::<u8>(index, op)
+        self.raw_pmbus_read::<u8>(index, has_rail, op)
     }
 
     fn raw_pmbus_read_word(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<u16, idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_read(index, op)
+        self.raw_pmbus_read(index, has_rail, op)
     }
 
     fn raw_pmbus_read_word32(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<u32, idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_read::<u32>(index, op)
+        self.raw_pmbus_read::<u32>(index, has_rail, op)
     }
 
     fn raw_pmbus_read_block(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<RawPmbusBlock, idol_runtime::RequestError<ResponseCode>> {
         let cfg = bsp::CONTROLLER_CONFIG
@@ -666,11 +681,15 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
         let (dev, rail) = (cfg.builder)(self.i2c_task);
         let mut out = RawPmbusBlock::default();
-        let len = dev.write_read_block(
-            op,
-            &[pmbus::commands::PAGE::CommandData::code(), rail],
-            &mut out.data,
-        )?;
+        let len = if has_rail {
+            dev.write_read_block(
+                op,
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &mut out.data,
+            )
+        } else {
+            dev.read_block(op, &mut out.data)
+        }?;
         out.len = len as u8;
         Ok(out)
     }
@@ -679,45 +698,50 @@ impl idl::InOrderPowerImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_write(index, op, ())
+        self.raw_pmbus_write(index, has_rail, op, ())
     }
 
     fn raw_pmbus_write_byte(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
         data: u8,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_write(index, op, data)
+        self.raw_pmbus_write(index, has_rail, op, data)
     }
 
     fn raw_pmbus_write_word(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
         data: u16,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_write(index, op, data)
+        self.raw_pmbus_write(index, has_rail, op, data)
     }
 
     fn raw_pmbus_write_word32(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
         data: u32,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
-        self.raw_pmbus_write(index, op, data)
+        self.raw_pmbus_write(index, has_rail, op, data)
     }
 
     fn raw_pmbus_write_block(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
+        has_rail: bool,
         op: u8,
         data: RawPmbusBlock,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
@@ -738,10 +762,14 @@ impl idl::InOrderPowerImpl for ServerImpl {
         buf[2..][..n].copy_from_slice(&data.data[..n]);
 
         let (dev, rail) = (cfg.builder)(self.i2c_task);
-        dev.write_write(
-            &[pmbus::commands::PAGE::CommandData::code(), rail],
-            &buf,
-        )?;
+        if has_rail {
+            dev.write_write(
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &buf,
+            )
+        } else {
+            dev.write(&buf)
+        }?;
         Ok(())
     }
 
