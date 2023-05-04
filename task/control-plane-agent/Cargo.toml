@@ -22,6 +22,7 @@ drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
+drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
 drv-update-api = { path = "../../drv/update-api" }
@@ -43,7 +44,7 @@ idol = { workspace = true }
 
 [features]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
-sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api"]
+sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
 
 vlan = ["task-net-api/vlan"]

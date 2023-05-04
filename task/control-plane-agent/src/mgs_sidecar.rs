@@ -9,6 +9,7 @@ use crate::{
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
+use drv_transceivers_api::Transceivers;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
@@ -36,6 +37,7 @@ use ignition_handler::IgnitionController;
 
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
+userlib::task_slot!(TRANSCEIVERS, transceivers);
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
 // update blocks for now, no other updateable components.
@@ -58,6 +60,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
     monorail: Monorail,
+    transceivers: Transceivers,
     sp_update: SpUpdate,
     rot_update: RotUpdate,
     ignition: IgnitionController,
@@ -71,6 +74,7 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             sequencer: Sequencer::from(SIDECAR_SEQ.get_task_id()),
             monorail: Monorail::from(MONORAIL.get_task_id()),
+            transceivers: Transceivers::from(TRANSCEIVERS.get_task_id()),
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
             ignition: IgnitionController::new(),
@@ -321,9 +325,21 @@ impl SpHandler for MgsHandler {
         action: ComponentAction,
     ) -> Result<(), SpError> {
         match (component, action) {
-            (SpComponent::SYSTEM_LED, ComponentAction::Led(_action)) => {
-                // TODO: implement this
-                Err(SpError::RequestUnsupportedForComponent)
+            (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
+                use gateway_messages::LedComponentAction;
+                match action {
+                    LedComponentAction::TurnOn => {
+                        self.transceivers.set_system_led_on()
+                    }
+                    LedComponentAction::Blink => {
+                        self.transceivers.set_system_led_blink()
+                    }
+                    LedComponentAction::TurnOff => {
+                        self.transceivers.set_system_led_off()
+                    }
+                }
+                .unwrap();
+                Ok(())
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
