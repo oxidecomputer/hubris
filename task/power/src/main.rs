@@ -426,7 +426,7 @@ fn main() -> ! {
 struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
-    devices: &'static mut [Device; bsp::CONTROLLER_CONFIG.len()],
+    devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
 }
 
 impl ServerImpl {
@@ -978,10 +978,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
 /// This function can only be called once, and will panic otherwise!
 fn claim_devices(
     i2c_task: TaskId,
-) -> &'static mut [Device; bsp::CONTROLLER_CONFIG.len()] {
+) -> &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN] {
     let mut iter = bsp::CONTROLLER_CONFIG.iter();
     let dev = mutable_statics::mutable_statics!(
-        static mut DEVICES: [Device; bsp::CONTROLLER_CONFIG.len()] =
+        static mut DEVICES: [Device; bsp::CONTROLLER_CONFIG_LEN] =
             [|| iter.next().unwrap().get_device(i2c_task); _];
     );
     dev

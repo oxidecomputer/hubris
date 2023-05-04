@@ -7,7 +7,9 @@ use crate::{
     PowerState,
 };
 
-pub(crate) const CONTROLLER_CONFIG: [PowerControllerConfig; 37] = [
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 37;
+pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
+    CONTROLLER_CONFIG_LEN] = [
     rail_controller!(IBC, bmr491, v12_sys_a2, A2),
     rail_controller!(Core, raa229618, vdd_vcore, A0),
     rail_controller!(Core, raa229618, vddcr_soc, A0),

@@ -7,7 +7,9 @@ use crate::{
     DeviceType, Ohms, PowerControllerConfig, PowerState,
 };
 
-pub(crate) const CONTROLLER_CONFIG: [PowerControllerConfig; 16] = [
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 1;
+pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
+    CONTROLLER_CONFIG_LEN] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
     adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
     adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),

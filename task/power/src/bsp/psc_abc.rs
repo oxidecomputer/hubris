@@ -7,7 +7,9 @@ use crate::{
     DeviceType, PowerControllerConfig, PowerState,
 };
 
-pub(crate) const CONTROLLER_CONFIG: [PowerControllerConfig; 12] = [
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 12;
+pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
+    CONTROLLER_CONFIG_LEN] = [
     mwocp68_controller!(PowerShelf, v54_psu0, A2),
     mwocp68_controller!(PowerShelf, v12_psu0, A2),
     mwocp68_controller!(PowerShelf, v54_psu1, A2),
