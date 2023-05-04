@@ -317,7 +317,9 @@ fn main() -> ! {
                         addr,
                         winfo.len,
                         |pos| wbuf.read_at(pos),
-                        if op == Op::WriteRead {
+                        // Only the final read operation in a WriteReadBlock is
+                        // a block read; everything else is a normal read.
+                        if op == Op::WriteRead || i != lease_count - 2 {
                             ReadLength::Fixed(rinfo.len)
                         } else {
                             ReadLength::Variable

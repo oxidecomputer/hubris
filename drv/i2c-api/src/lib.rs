@@ -32,6 +32,21 @@ use userlib::*;
 #[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
     WriteRead = 1,
+
+    /// In a `WriteReadBlock` operation, only the **final read** is an SMBus
+    /// block operation.
+    ///
+    /// All writes and all other read operations are normal (non-block)
+    /// operations.
+    ///
+    /// We don't need a special way to perform block writes, because they can be
+    /// constructed by the caller without cooperation from the driver.
+    /// Specifically, the caller can construct the array `[reg, size, data[0],
+    /// data[1], ...]` and pass it to a normal `WriteRead` operation.
+    ///
+    /// If we encounter a device which requires multiple block reads in a row
+    /// without interruption, this logic would not work, but that would be a
+    /// very strange device indeed.
     WriteReadBlock = 2,
     SelectedMuxSegment = 3,
 }
