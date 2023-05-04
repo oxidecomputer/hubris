@@ -24,7 +24,9 @@ use idol_runtime::{
 use ringbuf::*;
 use task_sensor_api::{NoData, Sensor, SensorError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
-use transceiver_messages::{mgmt::ManagementInterface, MAX_PACKET_SIZE};
+use transceiver_messages::{
+    message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
+};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -53,7 +55,7 @@ enum Trace {
     LEDEnableError(FpgaError),
     LEDReadError(Error),
     LEDUpdateError(Error),
-    ModulePresenceUpdate(u32),
+    ModulePresenceUpdate(LogicalPortMask),
     TransceiversError(TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
@@ -70,13 +72,22 @@ ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Copy, Clone)]
+struct LedStates([LedState; NUM_PORTS as usize]);
+
 struct ServerImpl {
     transceivers: Transceivers,
     leds: Leds,
     net: task_net_api::Net,
-    modules_present: u32,
+    modules_present: LogicalPortMask,
+
+    /// State around LED management
     led_error: FullErrorSummary,
     leds_initialized: bool,
+    led_states: LedStates,
+    led_on: LogicalPortMask,
+    system_led_state: LedState,
+    system_led_on: bool,
 
     /// Handle to write thermal models and presence to the `thermal` task
     thermal_api: Thermal,
@@ -99,10 +110,8 @@ struct ThermalModel {
 
 /// Controls how often we poll the transceivers (in milliseconds).
 ///
-/// Polling the transceivers serves a few functions:
-/// - Transceiver presence is used to control LEDs on the front IO board
-/// - For transceivers that are present and include a thermal model, we measure
-///   their temperature and send it to the `thermal` task.
+/// For transceivers that are present and include a thermal model, we measure
+/// their temperature and send it to the `thermal` task.
 const TIMER_INTERVAL: u64 = 500;
 
 impl ServerImpl {
@@ -110,7 +119,7 @@ impl ServerImpl {
         match self
             .leds
             .initialize_current()
-            .and(self.leds.turn_on_system_led())
+            .and(self.leds.update_system_led_state(true))
         {
             Ok(_) => {
                 self.leds_initialized = true;
@@ -120,12 +129,53 @@ impl ServerImpl {
         };
     }
 
-    fn led_update(&self, presence: u32) {
-        if self.leds_initialized {
-            match self.leds.update_led_state(presence) {
-                Ok(_) => (),
-                Err(e) => ringbuf_entry!(Trace::LEDUpdateError(e)),
+    fn set_led_state(&mut self, mask: LogicalPortMask, state: LedState) {
+        for index in mask.to_indices() {
+            self.led_states.0[index.0 as usize] = state;
+        }
+    }
+
+    fn get_led_state(&self, port: LogicalPort) -> LedState {
+        self.led_states.0[port.0 as usize]
+    }
+
+    fn set_system_led_state(&mut self, state: LedState) {
+        self.system_led_state = state;
+    }
+
+    #[allow(dead_code)]
+    fn get_system_led_state(&self) -> LedState {
+        self.system_led_state
+    }
+
+    fn update_leds(&mut self) {
+        // handle port LEDs
+        let mut next_state = LogicalPortMask(0);
+        for (i, state) in self.led_states.0.into_iter().enumerate() {
+            let i = LogicalPort(i as u8);
+            match state {
+                LedState::On => next_state.set(i),
+                LedState::Blink => {
+                    if !self.led_on.is_set(i) {
+                        next_state.set(i)
+                    }
+                }
+                LedState::Off => (),
             }
+        }
+        if let Err(e) = self.leds.update_led_state(next_state) {
+            ringbuf_entry!(Trace::LEDUpdateError(e));
+        }
+        self.led_on = next_state;
+
+        // handle system LED
+        match self.system_led_state {
+            LedState::On => self.system_led_on = true,
+            LedState::Blink => self.system_led_on = !self.system_led_on,
+            LedState::Off => self.system_led_on = false,
+        }
+        if let Err(e) = self.leds.update_system_led_state(self.system_led_on) {
+            ringbuf_entry!(Trace::LEDUpdateError(e));
         }
     }
 }
@@ -577,6 +627,76 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
             Err(RequestError::from(TransceiversError::FpgaError))
         }
     }
+
+    fn set_port_led_on(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_led_state(LogicalPortMask(logical_port_mask), LedState::On);
+        Ok(())
+    }
+
+    fn set_port_led_off(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_led_state(LogicalPortMask(logical_port_mask), LedState::Off);
+        Ok(())
+    }
+
+    fn set_port_led_blink(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        logical_port_mask: u32,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_led_state(LogicalPortMask(logical_port_mask), LedState::Blink);
+        Ok(())
+    }
+
+    fn set_system_led_on(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_system_led_state(LedState::On);
+        Ok(())
+    }
+
+    fn set_system_led_off(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_system_led_state(LedState::Off);
+        Ok(())
+    }
+
+    fn set_system_led_blink(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.set_system_led_state(LedState::Blink);
+        Ok(())
+    }
+
+    fn set_led_current(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        value: u8,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.leds
+            .set_current(value)
+            .map_err(|_| RequestError::from(TransceiversError::LedI2cError))
+    }
+
+    fn set_led_pwm(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        value: u8,
+    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
+        self.leds.set_pwm(value);
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -592,6 +712,7 @@ impl NotificationHandler for ServerImpl {
         if (bits & notifications::TIMER_MASK) != 0 {
             // Check for errors
             if self.leds_initialized {
+                self.update_leds();
                 let errors = match self.leds.error_summary() {
                     Ok(errs) => errs,
                     Err(e) => {
@@ -610,10 +731,8 @@ impl NotificationHandler for ServerImpl {
             // Query module presence and update LEDs accordingly
             let (status, _) = self.transceivers.get_module_status();
 
-            let modules_present = !status.modprsl;
+            let modules_present = LogicalPortMask(!status.modprsl);
             if modules_present != self.modules_present {
-                self.led_update(modules_present);
-
                 self.modules_present = modules_present;
                 ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
             }
@@ -667,9 +786,13 @@ fn main() -> ! {
             transceivers,
             leds,
             net,
-            modules_present: 0,
+            modules_present: LogicalPortMask(0),
             led_error: Default::default(),
             leds_initialized: false,
+            led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
+            led_on: LogicalPortMask(0),
+            system_led_state: LedState::Off,
+            system_led_on: false,
             thermal_api,
             sensor_api,
             thermal_models: [None; NUM_PORTS as usize],

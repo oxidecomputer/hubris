@@ -1,47 +1,54 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use super::transceivers::{LogicalPort, LogicalPortMask};
 use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
+use drv_transceivers_api::NUM_PORTS;
 
+/// Leds controllers and brightness state
 pub struct Leds {
+    /// Two PCA9956B devices, each of which control half of the LEDs
     controllers: [Pca9956B; 2],
+    /// Written into the IREFALL register on the PCA9956Bs
+    ///
+    /// From the PCA9956B datasheet, the calculus is
+    /// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO)
+    /// is a 1K, so the current value is defined as: `current` * 0.225 mA.
+    current: u8,
+    /// Written into the PWMx registers on the PCA9956Bs
+    ///
+    /// The percent of time the LED is on is governed by the duty cycle
+    /// calculation: `pwm`/256.
+    pwm: u8,
 }
 
-/// Default LED Current
+/// Default written into the PCA9956B IREFALL register
 ///
-/// This will get written into the PCA9956B IREFALL register. The goal is to
-/// make these LEDs look as close to Gimlet CEM attention LEDs as possible.
-/// As of build C, Gimlet is pulling 50mA through those LEDs. From the PCA9956B
-/// datasheet, the calculus is I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47
-///  & R48 on QSFP Front IO) is a 1K, so a bit of math results in a desired
-/// IREF value of d222 (hDE).
-///
-/// This value is being temporarily set to d44 (9.9mA) until a solution for
-/// https://github.com/oxidecomputer/hubris/issues/982 is agreed upon.
+/// The goal is to  make these LEDs look as close to Gimlet CEM attention LEDs
+/// and the various System LEDs as possible. This value is being temporarily set
+/// to d44 (9.9mA), this can be adjusted as required in the future.
 const DEFAULT_LED_CURRENT: u8 = 44;
 
-/// Default LED PWM
-///
-/// This can be used to adjust LED duty cycle. The math here is simple, just
-/// PWM/256.
+/// Default written into the PCA9956B PWMx registers.
 const DEFAULT_LED_PWM: u8 = 255;
 
-/// There are two LED controllers, each controlling the LEDs on either the left
-/// or right of the board.
+/// One controller for the LEDs on the left side, one for those on the right
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LedController {
     Left = 0,
     Right = 1,
 }
 
-// The necessary information to control a given LED.
+// The physical location information for the control of an LED
 #[derive(Copy, Clone)]
 struct LedLocation {
     controller: LedController,
     output: u8,
 }
 
+/// Summary of errors related to the LED controllers
+///
 /// FullErrorSummary takes the errors reported by each individual PCA9956B and
 /// maps them to a by-transceiver-port representation for the masks
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
@@ -49,24 +56,50 @@ pub struct FullErrorSummary {
     pub overtemp_left: bool,
     pub overtemp_right: bool,
     pub system_led_err: LedErr,
-    pub open_circuit: u32,
-    pub short_circuit: u32,
-    pub invalid: u32,
+    pub open_circuit: LogicalPortMask,
+    pub short_circuit: LogicalPortMask,
+    pub invalid: LogicalPortMask,
 }
 
-/// System LED IDX
+/// Logical -> physical mapping for LEDs
 ///
-/// Index of the System LED in the LED_MAP
-const SYSTEM_LED_IDX: usize = 32;
+/// Index 0 represents port 0, 1 to port 1, and so on. The 32 QSFP ports are
+/// mapped between two PCA9956Bs, split between left and right since each can
+/// only drive 24 LEDs.
+///
+/// The System LED is wired to the left LED driver, which I pull out into its
+/// own constant since we want to be able to use our `LogicalPort` and
+/// `LogicalPortMask` abstractions on an `LedMap`, and those expect a u32 as the
+/// underlying type.
+struct LedMap([LedLocation; NUM_PORTS as usize]);
 
-/// LED Map
-///
-/// Index 0 represents port 0, 1 to port 1, and so on. Following the ports, the
-/// system LED is placed at index 32 (exposed as SYSTEM_LED_IDX above).
-/// The 32 QSFP ports are mapped between two PCA9956Bs, split between left and
-/// right since each can only drive 24 LEDs. The System LED is wired to the left
-/// LED driver.
-const LED_MAP: [LedLocation; 33] = [
+impl core::ops::Index<LogicalPort> for LedMap {
+    type Output = LedLocation;
+
+    fn index(&self, i: LogicalPort) -> &Self::Output {
+        &self.0[i.0 as usize]
+    }
+}
+
+impl<'a> IntoIterator for &'a LedMap {
+    type Item = &'a LedLocation;
+    type IntoIter = core::slice::Iter<'a, LedLocation>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().iter()
+    }
+}
+
+impl LedMap {
+    fn enumerate(&self) -> impl Iterator<Item = (LogicalPort, &LedLocation)> {
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (LogicalPort(i as u8), v))
+    }
+}
+
+const LED_MAP: LedMap = LedMap([
     // Port 0
     LedLocation {
         controller: LedController::Left,
@@ -147,21 +180,51 @@ const LED_MAP: [LedLocation; 33] = [
         controller: LedController::Right,
         output: 13,
     },
+    // On Rev B hardware the LED placement for port 16/17 as well as 18/19 was
+    // swapped, so we correct that here.
+    #[cfg(target_board = "sidecar-b")]
+    // Port 16
+    LedLocation {
+        controller: LedController::Left,
+        output: 1,
+    },
+    #[cfg(target_board = "sidecar-c")]
     // Port 16
     LedLocation {
         controller: LedController::Left,
         output: 3,
     },
+    #[cfg(target_board = "sidecar-b")]
+    // Port 17
+    LedLocation {
+        controller: LedController::Left,
+        output: 3,
+    },
+    #[cfg(target_board = "sidecar-c")]
     // Port 17
     LedLocation {
         controller: LedController::Left,
         output: 1,
     },
+    #[cfg(target_board = "sidecar-b")]
+    // Port 18
+    LedLocation {
+        controller: LedController::Left,
+        output: 5,
+    },
+    #[cfg(target_board = "sidecar-c")]
     // Port 18
     LedLocation {
         controller: LedController::Left,
         output: 7,
     },
+    #[cfg(target_board = "sidecar-b")]
+    // Port 19
+    LedLocation {
+        controller: LedController::Left,
+        output: 7,
+    },
+    #[cfg(target_board = "sidecar-c")]
     // Port 19
     LedLocation {
         controller: LedController::Left,
@@ -227,12 +290,12 @@ const LED_MAP: [LedLocation; 33] = [
         controller: LedController::Right,
         output: 12,
     },
-    // System
-    LedLocation {
-        controller: LedController::Left,
-        output: 23,
-    },
-];
+]);
+
+const SYSTEM_LED: LedLocation = LedLocation {
+    controller: LedController::Left,
+    output: 23,
+};
 
 impl Leds {
     pub fn new(
@@ -244,6 +307,8 @@ impl Leds {
                 Pca9956B::new(left_controller),
                 Pca9956B::new(right_controller),
             ],
+            current: DEFAULT_LED_CURRENT,
+            pwm: DEFAULT_LED_PWM,
         }
     }
 
@@ -251,13 +316,14 @@ impl Leds {
         &self.controllers[c as usize]
     }
 
-    /// Set the current to whatever DEFAULT_LED_CURRENT is
-    pub fn initialize_current(&self) -> Result<(), Error> {
-        self.set_current(DEFAULT_LED_CURRENT)
+    /// Set self.current to `value`, then update the IREFALL on the controllers
+    pub fn set_current(&mut self, value: u8) -> Result<(), Error> {
+        self.current = value;
+        self.update_current(self.current)
     }
 
-    /// Set the current to `value`
-    pub fn set_current(&self, value: u8) -> Result<(), Error> {
+    /// Update IREFALL to `value` on both controllers
+    fn update_current(&self, value: u8) -> Result<(), Error> {
         for controller in &self.controllers {
             controller.set_iref_all(value)?;
         }
@@ -265,26 +331,41 @@ impl Leds {
         Ok(())
     }
 
-    /// Turns on the System LED to a PWM value of DEFAULT_LED_PWM
-    pub fn turn_on_system_led(&self) -> Result<(), Error> {
-        const SYSTEM_LED: LedLocation = LED_MAP[SYSTEM_LED_IDX];
-        self.controllers[SYSTEM_LED.controller as usize]
-            .set_a_led_pwm(SYSTEM_LED.output, DEFAULT_LED_PWM)
+    /// Sets self.pwm to `value`
+    ///
+    /// This will get pushed out to the controllers when the `update_led_state`
+    /// function is called.
+    pub fn set_pwm(&mut self, value: u8) {
+        self.pwm = value;
     }
 
-    /// Takes a `mask` of which ports need their LEDs turned on, which, for any
-    /// bit set in the mask, sets its PWMx register to DEFAULT_LED_PWM
-    pub fn update_led_state(&self, mask: u32) -> Result<(), Error> {
+    /// Helper function used by a driver to write the initial IREFALL value
+    ///
+    /// This should be called once the controllers become available.
+    pub fn initialize_current(&self) -> Result<(), Error> {
+        self.update_current(self.current)
+    }
+
+    /// Turn the System LED on or off
+    pub fn update_system_led_state(&self, turn_on: bool) -> Result<(), Error> {
+        let value = if turn_on { self.pwm } else { 0 };
+        self.controller(SYSTEM_LED.controller)
+            .set_a_led_pwm(SYSTEM_LED.output, value)
+    }
+
+    /// Turns on the LED for each bit set in `mask`
+    ///
+    /// For any bit set in the `mask`, sets its corresponding PWMx register
+    pub fn update_led_state(&self, mask: LogicalPortMask) -> Result<(), Error> {
         let mut data_l: [u8; 16] = [0; 16];
         let mut data_r: [u8; 16] = [0; 16];
 
-        for (i, led_loc) in LED_MAP.iter().enumerate().take(32) {
-            let bit_mask: u32 = 1 << i;
-            if (mask & bit_mask) != 0 {
+        for (index, led_loc) in LED_MAP.enumerate() {
+            if mask.is_set(index) {
                 let index = led_loc.output as usize;
                 match led_loc.controller {
-                    LedController::Left => data_l[index] = DEFAULT_LED_PWM,
-                    LedController::Right => data_r[index] = DEFAULT_LED_PWM,
+                    LedController::Left => data_l[index] = self.pwm,
+                    LedController::Right => data_r[index] = self.pwm,
                 }
             }
         }
@@ -299,40 +380,36 @@ impl Leds {
 
     /// Query device registers and return a summary of observed errors
     pub fn error_summary(&self) -> Result<FullErrorSummary, Error> {
-        let left_errs = self.controller(LedController::Left).check_errors()?;
-        let right_errs =
-            self.controller(LedController::Right).check_errors()?;
+        let errs_l = self.controller(LedController::Left).check_errors()?;
+        let errs_r = self.controller(LedController::Right).check_errors()?;
 
         let mut summary: FullErrorSummary = FullErrorSummary {
-            overtemp_left: left_errs.overtemp,
-            overtemp_right: right_errs.overtemp,
+            overtemp_left: errs_l.overtemp,
+            overtemp_right: errs_r.overtemp,
             ..Default::default()
         };
 
-        for (i, led_loc) in LED_MAP.iter().enumerate().take(32) {
-            let port_mask = 1 << i;
+        for (index, led_loc) in LED_MAP.enumerate() {
             let output: usize = led_loc.output as usize;
 
             let err: LedErr = match led_loc.controller {
-                LedController::Left => left_errs.errors[output],
-                LedController::Right => right_errs.errors[output],
+                LedController::Left => errs_l.errors[output],
+                LedController::Right => errs_r.errors[output],
             };
 
             match err {
-                LedErr::OpenCircuit => summary.open_circuit |= port_mask,
-                LedErr::ShortCircuit => summary.short_circuit |= port_mask,
-                LedErr::Invalid => summary.invalid |= port_mask,
+                LedErr::OpenCircuit => summary.open_circuit |= index,
+                LedErr::ShortCircuit => summary.short_circuit |= index,
+                LedErr::Invalid => summary.invalid |= index,
                 LedErr::NoError => (),
             }
         }
 
-        // handle the system LED outside the loop since it is the 33rd index
-        let sys_led_loc = LED_MAP[SYSTEM_LED_IDX];
-        let sys_output: usize = sys_led_loc.output as usize;
-        summary.system_led_err = match sys_led_loc.controller {
-            LedController::Left => left_errs.errors[sys_output],
-            LedController::Right => right_errs.errors[sys_output],
-        };
+        summary.system_led_err = match SYSTEM_LED.controller {
+            LedController::Left => &errs_l,
+            LedController::Right => &errs_r,
+        }
+        .errors[SYSTEM_LED.output as usize];
 
         Ok(summary)
     }

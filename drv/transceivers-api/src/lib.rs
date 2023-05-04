@@ -19,6 +19,7 @@ pub enum TransceiversError {
     InvalidNumberOfBytes,
     InvalidPowerState,
     InvalidModuleResult,
+    LedI2cError,
 
     #[idol(server_death)]
     ServerRestarted,
