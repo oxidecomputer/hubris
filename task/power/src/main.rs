@@ -21,7 +21,7 @@ use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{
-    Bmr491Event, PmbusValue, RawPmbusData, RenesasBlackbox, MAX_BLOCK_LEN,
+    Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
 };
 use task_sensor_api as sensor_api;
 use userlib::units::*;
@@ -548,6 +548,56 @@ impl ServerImpl {
             .nth(req_index as usize)
             .ok_or(ResponseCode::NoDevice)
     }
+
+    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::AsBytes>(
+        &mut self,
+        index: u32,
+        op: u8,
+    ) -> Result<T, idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        let out: T = dev.write_read_reg(
+            op,
+            &[pmbus::commands::PAGE::CommandData::code(), rail],
+        )?;
+        Ok(out)
+    }
+
+    fn raw_pmbus_write<T: zerocopy::AsBytes>(
+        &mut self,
+        index: u32,
+        op: u8,
+        value: T,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+
+        #[repr(packed)]
+        #[allow(dead_code)]
+        struct Args<T> {
+            op: u8,
+            value: T,
+        }
+        let args = Args { op, value };
+
+        dev.write_write(
+            &[pmbus::commands::PAGE::CommandData::code(), rail],
+            // SAFETY: this is a packed struct and T is constrained to be
+            // AsBytes, so there should be no padding bytes
+            unsafe {
+                core::slice::from_raw_parts(
+                    (&args as *const Args<T>) as *const u8,
+                    core::mem::size_of::<Args<T>>(),
+                )
+            },
+        )?;
+        Ok(())
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
@@ -577,47 +627,117 @@ impl idl::InOrderPowerImpl for ServerImpl {
         Ok(device.pmbus_read(op)?)
     }
 
-    fn raw_pmbus_read(
+    fn raw_pmbus_read_byte(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
         op: u8,
-        size: u8,
-    ) -> Result<RawPmbusData, idol_runtime::RequestError<ResponseCode>> {
+    ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read::<u8>(index, op)
+    }
+
+    fn raw_pmbus_read_word(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+    ) -> Result<u16, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read(index, op)
+    }
+
+    fn raw_pmbus_read_word32(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+    ) -> Result<u32, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read::<u32>(index, op)
+    }
+
+    fn raw_pmbus_read_block(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+    ) -> Result<RawPmbusBlock, idol_runtime::RequestError<ResponseCode>> {
         let cfg = bsp::CONTROLLER_CONFIG
             .get(index as usize)
             .ok_or(ResponseCode::NoDevice)?;
 
         let (dev, rail) = (cfg.builder)(self.i2c_task);
-        let mut out = RawPmbusData::default();
-        if size as usize >= out.data.len() {
-            return Err(ResponseCode::BadArg.into());
-        }
-        let n = dev.write_read_reg_into(
+        let mut out = RawPmbusBlock::default();
+        let len = dev.write_read_block(
             op,
             &[pmbus::commands::PAGE::CommandData::code(), rail],
             &mut out.data,
         )?;
-        assert!(n <= size as usize);
-        out.len = n as u8;
+        out.len = len as u8;
         Ok(out)
     }
 
-    fn raw_pmbus_write(
+    fn raw_pmbus_set(
         &mut self,
         _msg: &userlib::RecvMessage,
         index: u32,
         op: u8,
-        data: RawPmbusData,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, op, ())
+    }
+
+    fn raw_pmbus_write_byte(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        data: u8,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, op, data)
+    }
+
+    fn raw_pmbus_write_word(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        data: u16,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, op, data)
+    }
+
+    fn raw_pmbus_write_word32(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        data: u32,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, op, data)
+    }
+
+    fn raw_pmbus_write_block(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        op: u8,
+        data: RawPmbusBlock,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
         let cfg = bsp::CONTROLLER_CONFIG
             .get(index as usize)
             .ok_or(ResponseCode::NoDevice)?;
-        let (dev, rail) = (cfg.builder)(self.i2c_task);
-        let mut buf = [0u8; MAX_BLOCK_LEN];
+
+        let n = data.len as usize;
+        if n > MAX_BLOCK_LEN {
+            return Err(ResponseCode::BadArg.into());
+        }
+
+        // This is an SMBus write operation, so our data is the PMBus op,
+        // followed by the block length, followed by block data.
+        let mut buf = [0u8; MAX_BLOCK_LEN + 2];
         buf[0] = op;
-        buf[1..=data.len as usize]
-            .copy_from_slice(&data.data[0..data.len as usize]);
+        buf[1] = n as u8;
+        buf[2..][..n].copy_from_slice(&data.data[..n]);
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
         dev.write_write(
             &[pmbus::commands::PAGE::CommandData::code(), rail],
             &buf,

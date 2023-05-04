@@ -552,9 +552,11 @@ impl I2cDevice {
     }
 
     ///
-    /// Like `write_read_reg`, but instead of returning a value, reads as many
-    /// bytes as the device will send into a specified slice, returning the
-    /// number of bytes read.
+    /// Performs a write followed by an SMBus block read (in which the first
+    /// byte returned from the device contains the total number of bytes to
+    /// read) into the specified buffer, returning the total number of bytes
+    /// read.  Note that the byte count is only returned from the function; it
+    /// is *not* present as the payload's first byte.
     ///
     /// The write and read are not performed as a single I2C transaction (that
     /// is, it is not a repeated start) -- but the effect is the same in that
@@ -562,7 +564,7 @@ impl I2cDevice {
     /// (assuring that the write can modify device state that the subsequent
     /// read can assume).
     ///
-    pub fn write_read_reg_into<R: AsBytes>(
+    pub fn write_read_block<R: AsBytes>(
         &self,
         reg: R,
         buffer: &[u8],
@@ -572,7 +574,7 @@ impl I2cDevice {
 
         let (code, _) = sys_send(
             self.task,
-            Op::WriteRead as u16,
+            Op::WriteReadBlock as u16,
             &Marshal::marshal(&(
                 self.address,
                 self.controller,

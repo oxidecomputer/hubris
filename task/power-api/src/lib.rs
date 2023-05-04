@@ -98,11 +98,21 @@ pub enum PmbusValue {
 }
 
 #[derive(
-    Copy, Clone, Debug, Default, Deserialize, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    AsBytes,
+    FromBytes,
 )]
-pub struct RawPmbusData {
-    pub data: [u8; MAX_BLOCK_LEN],
+#[repr(C)]
+pub struct RawPmbusBlock {
+    // When performing a PMBus block read, the length is the first byte
     pub len: u8,
+    pub data: [u8; MAX_BLOCK_LEN],
 }
 
 impl From<pmbus::units::Celsius> for PmbusValue {
