@@ -85,9 +85,8 @@ struct ServerImpl {
     led_error: FullErrorSummary,
     leds_initialized: bool,
     led_states: LedStates,
-    led_on: LogicalPortMask,
+    blink_on: bool,
     system_led_state: LedState,
-    system_led_on: bool,
 
     /// Handle to write thermal models and presence to the `thermal` task
     thermal_api: Thermal,
@@ -156,7 +155,7 @@ impl ServerImpl {
             match state {
                 LedState::On => next_state.set(i),
                 LedState::Blink => {
-                    if !self.led_on.is_set(i) {
+                    if self.blink_on {
                         next_state.set(i)
                     }
                 }
@@ -166,17 +165,16 @@ impl ServerImpl {
         if let Err(e) = self.leds.update_led_state(next_state) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
-        self.led_on = next_state;
-
         // handle system LED
-        match self.system_led_state {
-            LedState::On => self.system_led_on = true,
-            LedState::Blink => self.system_led_on = !self.system_led_on,
-            LedState::Off => self.system_led_on = false,
-        }
-        if let Err(e) = self.leds.update_system_led_state(self.system_led_on) {
+        if let Err(e) = match self.system_led_state {
+            LedState::On => self.leds.update_system_led_state(true),
+            LedState::Blink => self.leds.update_system_led_state(self.blink_on),
+            LedState::Off => self.leds.update_system_led_state(false),
+        } {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
+        // keep track if we are on or off next update when blinking
+        self.blink_on = !self.blink_on;
     }
 }
 
@@ -790,9 +788,8 @@ fn main() -> ! {
             led_error: Default::default(),
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
-            led_on: LogicalPortMask(0),
+            blink_on: false,
             system_led_state: LedState::Off,
-            system_led_on: false,
             thermal_api,
             sensor_api,
             thermal_models: [None; NUM_PORTS as usize],
