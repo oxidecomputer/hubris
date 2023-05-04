@@ -6,53 +6,49 @@ use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
 use drv_transceivers_api::NUM_PORTS;
 
-/// Leds
-///
-/// `controllers`: two PCA9956B devices, each of which control half of  the LEDs
-/// on the front-io board.
-///
-/// `current`: a u8 to be written into the IREFALL register on the PCA9956Bs.
-/// From the PCA9956B datasheet, the calculus is
-/// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO) is
-/// a 1K. This means the current value is defined as: `current` * 0.225 mA.
-///
-/// `pwm`: a u8 to be written into the PWMx registers on the PCA9956Bs as
-/// necessary. The percent of time the LED is on is governed by the duty cycle
-/// calculation: `pwm`/256.
+/// Leds controllers and brightness state
 pub struct Leds {
+    /// Two PCA9956B devices, each of which control half of the LEDs
     controllers: [Pca9956B; 2],
+    /// Written into the IREFALL register on the PCA9956Bs
+    /// 
+    /// From the PCA9956B datasheet, the calculus is
+    /// I = IREFALL/256 * (900mV/Rext) * 1/4. Rext (R47 & R48 on QSFP Front IO) 
+    /// is a 1K, so the current value is defined as: `current` * 0.225 mA.
     current: u8,
+    /// Written into the PWMx registers on the PCA9956Bs
+    /// 
+    /// The percent of time the LED is on is governed by the duty cycle
+    /// calculation: `pwm`/256.
     pwm: u8,
 }
 
-/// Default LED Current
+/// Default written into the PCA9956B IREFALL register
 ///
-/// This will get written into the PCA9956B IREFALL register until a new value
-/// is given. The goal is to  make these LEDs look as close to Gimlet CEM
-/// attention LEDs and the various System LEDs as possible. This value is being
-/// temporarily set to d44 (9.9mA), it can be tweaked
+/// The goal is to  make these LEDs look as close to Gimlet CEM attention LEDs
+/// and the various System LEDs as possible. This value is being temporarily set
+/// to d44 (9.9mA), this can be adjusted as required in the future.
 const DEFAULT_LED_CURRENT: u8 = 44;
 
-/// Default LED PWM
-///
-/// This can be used to adjust default LED duty cycle.
+/// Default written into the PCA9956B PWMx registers.
 const DEFAULT_LED_PWM: u8 = 255;
 
-/// There are two LED controllers, each controlling the LEDs on either the left
-/// or right of the board.
+/// One controller for the LEDs on the left side, one for those on the right
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum LedController {
     Left = 0,
     Right = 1,
 }
 
-// The necessary information to control a given LED.
+// The physical location information for the control of an LED
 #[derive(Copy, Clone)]
 struct LedLocation {
     controller: LedController,
     output: u8,
 }
 
+/// Summary of errors related to the LED controllers
+/// 
 /// FullErrorSummary takes the errors reported by each individual PCA9956B and
 /// maps them to a by-transceiver-port representation for the masks
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
@@ -65,7 +61,7 @@ pub struct FullErrorSummary {
     pub invalid: LogicalPortMask,
 }
 
-/// LED Map
+/// Logical -> physical mapping for LEDs
 ///
 /// Index 0 represents port 0, 1 to port 1, and so on. The 32 QSFP ports are
 /// mapped between two PCA9956Bs, split between left and right since each can
@@ -75,8 +71,6 @@ pub struct FullErrorSummary {
 /// own constant since we want to be able to use our `LogicalPort` and
 /// `LogicalPortMask` abstractions on an `LedMap`, and those expect a u32 as the
 /// underlying type.
-///
-/// This is the logical -> physical mapping.
 struct LedMap([LedLocation; NUM_PORTS as usize]);
 
 impl core::ops::Index<LogicalPort> for LedMap {
@@ -322,13 +316,13 @@ impl Leds {
         &self.controllers[c as usize]
     }
 
-    /// Updates the internal state for current to `value`, then sets the IREFALL
-    /// register of both controllers to `value`
+    /// Set self.current to `value`, then update the IREFALL on the controllers
     pub fn set_current(&mut self, value: u8) -> Result<(), Error> {
         self.current = value;
         self.update_current(self.current)
     }
 
+    /// Update IREFALL to `value` on both controllers
     fn update_current(&self, value: u8) -> Result<(), Error> {
         for controller in &self.controllers {
             controller.set_iref_all(value)?;
@@ -337,27 +331,31 @@ impl Leds {
         Ok(())
     }
 
-    /// Updates the internal state for pwm to `value`. This will get pushed out
-    /// to the controllers by the `update_led_state` function as needed.
+    /// Sets self.pwm to `value`
+    /// 
+    /// This will get pushed out to the controllers when the `update_led_state`
+    /// function is called.
     pub fn set_pwm(&mut self, value: u8) {
         self.pwm = value;
     }
 
-    /// This is a helper function used by a driver to set the initial value of
-    /// the IREFALL register when the controllers become available
+    /// Helper function used by a driver to write the initial IREFALL value
+    /// 
+    /// This should be called once the controllers become available.
     pub fn initialize_current(&self) -> Result<(), Error> {
         self.update_current(self.current)
     }
 
-    /// Adjust System LED PWM
+    /// Turn the System LED on or off
     pub fn update_system_led_state(&self, turn_on: bool) -> Result<(), Error> {
         let value = if turn_on { self.pwm } else { 0 };
         self.controller(SYSTEM_LED.controller)
             .set_a_led_pwm(SYSTEM_LED.output, value)
     }
 
-    /// Takes a `mask` of which ports need their LEDs turned on, which, for any
-    /// bit set in the mask, sets its PWMx register
+    /// Turns on the LED for each bit set in `mask`
+    /// 
+    /// For any bit set in the `mask`, sets its corresponding PWMx register
     pub fn update_led_state(&self, mask: LogicalPortMask) -> Result<(), Error> {
         let mut data_l: [u8; 16] = [0; 16];
         let mut data_r: [u8; 16] = [0; 16];

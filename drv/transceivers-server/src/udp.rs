@@ -286,6 +286,13 @@ impl ServerImpl {
         Some((hdr_len + msg_len + data_len) as u32)
     }
 
+    /// Constructs a MessageBody and provides the length of payload data
+    ///
+    /// The `transceiver-message` protocol supports providing dynamic amounts of
+    /// return data. All responses may contain failure information (up to one
+    /// `HwError` per module), even if there is no additional payload data
+    /// expected. We must ensure that we do not overflow the `out` buffer by
+    /// keeping the data written under `transceiver_messages::MAX_PAYLOAD_SIZE`.
     fn handle_host_request(
         &mut self,
         h: HostRequest,
@@ -886,6 +893,8 @@ impl ServerImpl {
     ) -> (usize, ModuleResultNoFailure) {
         let mut led_state_len = 0;
         for led_state in modules.to_indices().map(|m| self.get_led_state(m)) {
+            // LedState will serialize to a u8, so we aren't concerned about
+            // buffer overflow here
             let led_state_size =
                 hubpack::serialize(&mut out[led_state_len..], &led_state)
                     .unwrap();
