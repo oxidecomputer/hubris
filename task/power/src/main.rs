@@ -20,7 +20,9 @@ use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
-use task_power_api::{Bmr491Event, PmbusValue, RenesasBlackbox};
+use task_power_api::{
+    Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
+};
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -424,7 +426,7 @@ fn main() -> ! {
 struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
-    devices: &'static mut [Device; bsp::CONTROLLER_CONFIG.len()],
+    devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
 }
 
 impl ServerImpl {
@@ -546,6 +548,67 @@ impl ServerImpl {
             .nth(req_index as usize)
             .ok_or(ResponseCode::NoDevice)
     }
+
+    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::AsBytes>(
+        &mut self,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<T, idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        let out: T = if has_rail {
+            dev.write_read_reg(
+                op,
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+            )
+        } else {
+            dev.read_reg(op)
+        }?;
+        Ok(out)
+    }
+
+    fn raw_pmbus_write<T: zerocopy::AsBytes>(
+        &mut self,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+        value: T,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+
+        #[repr(packed)]
+        #[allow(dead_code)]
+        struct Args<T> {
+            op: u8,
+            value: T,
+        }
+        let args = Args { op, value };
+
+        // SAFETY: this is a packed struct and T is constrained to be
+        // AsBytes, so there should be no padding bytes
+        let args_slice = unsafe {
+            core::slice::from_raw_parts(
+                (&args as *const Args<T>) as *const u8,
+                core::mem::size_of::<Args<T>>(),
+            )
+        };
+        if has_rail {
+            dev.write_write(
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                args_slice,
+            )
+        } else {
+            dev.write(args_slice)
+        }?;
+        Ok(())
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
@@ -573,6 +636,141 @@ impl idl::InOrderPowerImpl for ServerImpl {
     ) -> Result<PmbusValue, idol_runtime::RequestError<ResponseCode>> {
         let device = self.get_device(req_dev, req_rail, req_index)?;
         Ok(device.pmbus_read(op)?)
+    }
+
+    fn raw_pmbus_read_byte(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<u8, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read::<u8>(index, has_rail, op)
+    }
+
+    fn raw_pmbus_read_word(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<u16, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read(index, has_rail, op)
+    }
+
+    fn raw_pmbus_read_word32(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<u32, idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_read::<u32>(index, has_rail, op)
+    }
+
+    fn raw_pmbus_read_block(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<RawPmbusBlock, idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        let mut out = RawPmbusBlock::default();
+        let len = if has_rail {
+            dev.write_read_block(
+                op,
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &mut out.data,
+            )
+        } else {
+            dev.read_block(op, &mut out.data)
+        }?;
+        out.len = len as u8;
+        Ok(out)
+    }
+
+    fn raw_pmbus_set(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, has_rail, op, ())
+    }
+
+    fn raw_pmbus_write_byte(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+        data: u8,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, has_rail, op, data)
+    }
+
+    fn raw_pmbus_write_word(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+        data: u16,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, has_rail, op, data)
+    }
+
+    fn raw_pmbus_write_word32(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+        data: u32,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        self.raw_pmbus_write(index, has_rail, op, data)
+    }
+
+    fn raw_pmbus_write_block(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        has_rail: bool,
+        op: u8,
+        data: RawPmbusBlock,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let cfg = bsp::CONTROLLER_CONFIG
+            .get(index as usize)
+            .ok_or(ResponseCode::NoDevice)?;
+
+        let n = data.len as usize;
+        if n > MAX_BLOCK_LEN {
+            return Err(ResponseCode::BadArg.into());
+        }
+
+        // This is an SMBus write operation, so our data is the PMBus op,
+        // followed by the block length, followed by block data.
+        let mut buf = [0u8; MAX_BLOCK_LEN + 2];
+        buf[0] = op;
+        buf[1] = n as u8;
+        buf[2..][..n].copy_from_slice(&data.data[..n]);
+
+        let (dev, rail) = (cfg.builder)(self.i2c_task);
+        if has_rail {
+            dev.write_write(
+                &[pmbus::commands::PAGE::CommandData::code(), rail],
+                &buf,
+            )
+        } else {
+            dev.write(&buf)
+        }?;
+        Ok(())
     }
 
     fn read_mode(
@@ -748,10 +946,11 @@ impl idl::InOrderPowerImpl for ServerImpl {
         }
 
         // Step 2a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, addr_reg, 0x00])?;
-
         // Step 2b - Read DMA Data Register
-        let mut r: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        let mut r: u32 = dev.write_read_reg(
+            CommandCode::DMAFIX as u8,
+            &[CommandCode::DMAADDR as u8, addr_reg, 0x00],
+        )?;
         ringbuf_entry!(Trace::GotAddr(r));
 
         // "Divide this value by 4 to determine the starting address of the
@@ -765,16 +964,21 @@ impl idl::InOrderPowerImpl for ServerImpl {
         }
 
         // Step 3a - Write to DMA Address Register
-        dev.write(&[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8])?;
-
         // Step 3b - Read Black Box Data
         let buf = match &mut out {
             RenesasBlackbox::Gen2(buf) => buf.as_mut_slice(),
             RenesasBlackbox::Gen2p5(buf) => buf.as_mut_slice(),
         };
         for b in buf {
-            let r: u32 = dev.read_reg(CommandCode::DMASEQ as u8)?;
-            *b = r.swap_bytes();
+            // Note that we're using DMAFIX and specifying the address for each
+            // byte.  This is less efficient, but means that no one can mess
+            // with us by modifying the DMA address mid-loop.
+            let v: u32 = dev.write_read_reg(
+                CommandCode::DMAFIX as u8,
+                &[CommandCode::DMAADDR as u8, r as u8, (r >> 8) as u8],
+            )?;
+            r += 1; // We do the address incrementing ourselves
+            *b = v.swap_bytes();
         }
 
         Ok(out)
@@ -797,9 +1001,42 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .i2c_device();
 
         use pmbus::commands::isl68224::CommandCode;
-        dev.write(&[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8])?;
-        let out: u32 = dev.read_reg(CommandCode::DMAFIX as u8)?;
+        let out: u32 = dev.write_read_reg(
+            CommandCode::DMAFIX as u8,
+            &[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8],
+        )?;
         Ok(out)
+    }
+
+    fn rendmp_dma_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        addr: u8,
+        reg: u16,
+        data: u32,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let dev = self
+            .devices
+            .iter()
+            .find(|d| {
+                d.i2c_device().address == addr
+                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
+            })
+            .ok_or(ResponseCode::NoDevice)?
+            .i2c_device();
+
+        use pmbus::commands::isl68224::CommandCode;
+
+        // The second I2C transaction is writing a word through DMAFIX
+        let mut buf = [0u8; 5];
+        buf[0] = CommandCode::DMAFIX as u8;
+        buf[1..].copy_from_slice(&data.to_le_bytes());
+
+        dev.write_write(
+            &[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8],
+            &buf,
+        )?;
+        Ok(())
     }
 }
 
@@ -808,10 +1045,10 @@ impl idl::InOrderPowerImpl for ServerImpl {
 /// This function can only be called once, and will panic otherwise!
 fn claim_devices(
     i2c_task: TaskId,
-) -> &'static mut [Device; bsp::CONTROLLER_CONFIG.len()] {
+) -> &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN] {
     let mut iter = bsp::CONTROLLER_CONFIG.iter();
     let dev = mutable_statics::mutable_statics!(
-        static mut DEVICES: [Device; bsp::CONTROLLER_CONFIG.len()] =
+        static mut DEVICES: [Device; bsp::CONTROLLER_CONFIG_LEN] =
             [|| iter.next().unwrap().get_device(i2c_task); _];
     );
     dev

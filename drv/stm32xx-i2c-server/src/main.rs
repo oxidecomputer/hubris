@@ -317,10 +317,12 @@ fn main() -> ! {
                         addr,
                         winfo.len,
                         |pos| wbuf.read_at(pos),
-                        if op == Op::WriteRead {
-                            ReadLength::Fixed(rinfo.len)
-                        } else {
+                        // Only the final read operation in a WriteReadBlock is
+                        // a block read; everything else is a normal read.
+                        if op == Op::WriteReadBlock && i == lease_count - 2 {
                             ReadLength::Variable
+                        } else {
+                            ReadLength::Fixed(rinfo.len)
                         },
                         |pos, byte| {
                             if pos + 1 > nread {

@@ -32,6 +32,21 @@ use userlib::*;
 #[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
     WriteRead = 1,
+
+    /// In a `WriteReadBlock` operation, only the **final read** is an SMBus
+    /// block operation.
+    ///
+    /// All writes and all other read operations are normal (non-block)
+    /// operations.
+    ///
+    /// We don't need a special way to perform block writes, because they can be
+    /// constructed by the caller without cooperation from the driver.
+    /// Specifically, the caller can construct the array `[reg, size, data[0],
+    /// data[1], ...]` and pass it to a normal `WriteRead` operation.
+    ///
+    /// If we encounter a device which requires multiple block reads in a row
+    /// without interruption, this logic would not work, but that would be a
+    /// very strange device indeed.
     WriteReadBlock = 2,
     SelectedMuxSegment = 3,
 }
@@ -548,6 +563,53 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
+        }
+    }
+
+    ///
+    /// Performs a write followed by an SMBus block read (in which the first
+    /// byte returned from the device contains the total number of bytes to
+    /// read) into the specified buffer, returning the total number of bytes
+    /// read.  Note that the byte count is only returned from the function; it
+    /// is *not* present as the payload's first byte.
+    ///
+    /// The write and read are not performed as a single I2C transaction (that
+    /// is, it is not a repeated start) -- but the effect is the same in that
+    /// the server does these operations without an intervening receive
+    /// (assuring that the write can modify device state that the subsequent
+    /// read can assume).
+    ///
+    pub fn write_read_block<R: AsBytes>(
+        &self,
+        reg: R,
+        buffer: &[u8],
+        out: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteReadBlock as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[
+                Lease::from(buffer),
+                Lease::read_only(&[]),
+                Lease::from(reg.as_bytes()),
+                Lease::from(out),
+            ],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
         }
     }
 
