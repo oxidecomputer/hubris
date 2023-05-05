@@ -7,7 +7,7 @@ use crate::{
     DeviceType, Ohms, PowerControllerConfig, PowerState,
 };
 
-pub(crate) const CONTROLLER_CONFIG_LEN: usize = 1;
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 16;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
