@@ -1007,6 +1007,37 @@ impl idl::InOrderPowerImpl for ServerImpl {
         )?;
         Ok(out)
     }
+
+    fn rendmp_dma_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        addr: u8,
+        reg: u16,
+        data: u32,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let dev = self
+            .devices
+            .iter()
+            .find(|d| {
+                d.i2c_device().address == addr
+                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
+            })
+            .ok_or(ResponseCode::NoDevice)?
+            .i2c_device();
+
+        use pmbus::commands::isl68224::CommandCode;
+
+        // The second I2C transaction is writing a word through DMAFIX
+        let mut buf = [0u8; 5];
+        buf[0] = CommandCode::DMAFIX as u8;
+        buf[1..].copy_from_slice(&data.to_le_bytes());
+
+        dev.write_write(
+            &[CommandCode::DMAADDR as u8, reg as u8, (reg >> 8) as u8],
+            &buf,
+        )?;
+        Ok(())
+    }
 }
 
 /// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.

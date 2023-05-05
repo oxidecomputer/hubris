@@ -98,6 +98,19 @@ Interface(
             ),
             idempotent: true,
         ),
+        "rendmp_dma_write": (
+            doc: "reads a DMA register from a Renesas multiphase power controller",
+            args: {
+                "addr": "u8",
+                "reg": "u16",
+                "data": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
 
         // Low-level read/write APIs
         //
