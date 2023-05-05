@@ -145,12 +145,11 @@ pub fn config(
 ) -> anyhow::Result<Option<FlashConfig>> {
     let mut flash = match board {
         "lpcxpresso55s69" | "rot-carrier-1" | "rot-carrier-2"
-        | "gimlet-rot-b" | "gimlet-rot-c" => {
-            let chip = if board == "lpcxpresso55s69" || board == "rot-carrier-2"
-            {
-                "lpc55s69"
-            } else {
+        | "oxide-rot-1" => {
+            let chip = if board == "rot-carrier-1" {
                 "lpc55s28"
+            } else {
+                "lpc55s69"
             };
 
             let mut args = vec![];
@@ -205,10 +204,8 @@ pub fn config(
 
 pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     let b = match board {
-        "lpcxpresso55s69" | "rot-carrier-2" | "gimlet-rot-c" => {
-            "LPC55S69JBD100"
-        }
-        "rot-carrier-1" | "gimlet-rot-b" => "LPC55S28JBD100",
+        "lpcxpresso55s69" | "rot-carrier-2" | "oxide-rot-1" => "LPC55S69JBD100",
+        "rot-carrier-1" => "LPC55S28JBD100",
         "stm32f3-discovery" => "STM32F303VCTx",
         "stm32f4-discovery" => "STM32F407VGTx",
         "nucleo-h743zi2" => "STM32H743ZITx",

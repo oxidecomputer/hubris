@@ -1,6 +1,6 @@
-# Sidecar Service Processor (SP) firmware
+# Power Shelf Controller (PSC) Service Processor (SP) firmware
 
-The Sidecar is the network switch in the Oxide rack.
+The PSC interfaces with the power shelf in the Oxide rack.
 
 This folder contains the firmware that runs on its service processor (SP).
 
