@@ -16,7 +16,8 @@ task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
+const WAKE_INTERVAL_MS: u64 = 500;
+pub const WAKE_INTERVAL: Option<u64> = Some(WAKE_INTERVAL_MS);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -26,6 +27,7 @@ enum Trace {
         before: Speed,
         after: Speed,
     },
+    SeqError(SeqError),
     AnegCheckFailed(VscError),
     Restarted10GAneg,
     Reinit,
@@ -36,6 +38,9 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+
+    /// Handle for the sequencer task
+    seq: Sequencer,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -54,6 +59,9 @@ pub struct Bsp<'a, R> {
     /// autonegotiate to a different speed, in which case we have to reconfigure
     /// the port on the VSC7448 to match.
     front_io_speed: [Speed; 2],
+
+    /// Number of failed autonegotiation cycles we've been through
+    failed_aneg: usize,
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -166,6 +174,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
+            failed_aneg: 0,
+            seq,
         };
 
         out.reinit()?;
@@ -418,10 +428,35 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
             }
         }
+
+        // The 10G link should only be up if the host isn't trying to hold us in
+        // reset; we won't retrigger autonegotiation / system reset if that's
+        // not the case.
+        let check_10g_link = match self.seq.tofino_pcie_hotplug_status() {
+            Ok(host_reset) => r & 1 == 0,
+            Err(e) => {
+                // If the sequencer failed to talk to us, then fail safe (i.e.
+                // in favor of checking the 10G link).
+                ringbuf_entry!(Trace::SeqError(e));
+                true
+            }
+        };
+
         // Workaround for the link-stuck issue discussed in
         // https://github.com/oxidecomputer/bf_sde/issues/5
-        if self.vsc7448.check_10gbase_kr_aneg(0)? {
+        if check_10g_link && self.vsc7448.check_10gbase_kr_aneg(0)? {
             ringbuf_entry!(Trace::Restarted10GAneg);
+
+            // Follow-up workaround for the other link-stuck issue discussed in
+            // https://github.com/oxidecomputer/bf_sde/issues/27
+            // If we remain down for 20 seconds, then reinitialize everything.
+            self.failed_aneg += 1;
+            if self.failed_aneg as u64 * WAKE_INTERVAL_MS >= 20_000 {
+                self.failed_aneg = 0;
+                self.reinit()?;
+            }
+        } else {
+            self.failed_aneg = 0;
         }
 
         Ok(())
