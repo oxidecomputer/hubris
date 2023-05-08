@@ -11,7 +11,7 @@
 #![no_main]
 
 use userlib::*;
-
+use amd_apcb::{Apcb, ApcbIoOptions};
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_gimlet_apcb_api::{ApcbError};
@@ -64,6 +64,8 @@ impl idl::InOrderApcbImpl for ServerImpl {
         token_id: u32,
      ) -> Result<u32, idol_runtime::RequestError<ApcbError>>
      where ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType {
+        let mut buffer = [0u8; 1000];
+        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default());
         Ok(42) // FIXME
      }
 }
