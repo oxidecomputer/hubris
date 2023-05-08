@@ -15,7 +15,10 @@ zerocopy.workspace = true
 drv-gimlet-apcb-api = { path = "../gimlet-apcb-api" }
 drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-amd-apcb = { workspace = true, optional = false, features = [], default-features = false }
+# features = [], default-features = false }
+amd-apcb = { workspace = true }
+amd-efs = { workspace = true }
+amd-flash = { workspace = true }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

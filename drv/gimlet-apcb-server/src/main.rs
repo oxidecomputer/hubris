@@ -11,10 +11,16 @@
 #![no_main]
 
 use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId};
+use amd_efs::{
+    BhdDirectoryEntry, BhdDirectoryEntryType, DirectoryEntry, Efs,
+    ProcessorGeneration,
+};
+use amd_flash::{
+    ErasableLocation, FlashAlign, FlashRead, FlashWrite, Location,
+};
 use drv_gimlet_apcb_api::ApcbError;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use userlib::*;
 
 //task_slot!(SYS, sys);
@@ -26,9 +32,11 @@ fn main() -> ! {
     let hf = hf_api::HostFlash::from(HF.get_task_id());
 
     //sys.gpio_set(cfg.reset);
-    hl::sleep_for(10);
+    //hl::sleep_for(10);
 
-    let mut server = ServerImpl { hf };
+    let mut server = ServerImpl {
+        storage: Storage::new(hf),
+    };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -38,12 +46,54 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl {
+struct Storage {
     hf: hf_api::HostFlash,
 }
 
-impl ServerImpl {
+impl Storage {
+    fn new(hf: hf_api::HostFlash) -> Self {
+        Self { hf }
+    }
 }
+
+impl amd_flash::FlashRead for Storage {
+    fn read_exact(
+        &self,
+        location: Location,
+        buffer: &mut [u8],
+    ) -> amd_flash::Result<()> {
+        self.hf.read(location, buffer).unwrap(); // FIXME: Make apcb address not fixed
+        Ok(())
+    }
+}
+
+impl FlashAlign for Storage {
+    fn erasable_block_size(&self) -> usize {
+        SECTOR_SIZE_BYTES // or something?
+    }
+}
+
+impl FlashWrite for Storage {
+    fn erase_block(
+        &self,
+        _location: ErasableLocation,
+    ) -> amd_flash::Result<()> {
+        Err(amd_flash::Error::Programmer)
+    }
+    fn erase_and_write_block(
+        &self,
+        _location: ErasableLocation,
+        _buffer: &[u8],
+    ) -> amd_flash::Result<()> {
+        Err(amd_flash::Error::Programmer)
+    }
+}
+
+struct ServerImpl {
+    storage: Storage,
+}
+
+impl ServerImpl {}
 
 impl idl::InOrderApcbImpl for ServerImpl {
     fn apcb_token_value(
@@ -57,19 +107,48 @@ impl idl::InOrderApcbImpl for ServerImpl {
         ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType,
     {
         let mut buffer = [0xFFu8; Apcb::MAX_SIZE];
-        // FIXME: Load buffer from flash
-        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default())
-            .map_err(|_| ApcbError::FIXME)?;
-        let tokens = apcb
-            .tokens(instance_id, BoardInstances::new())
-            .map_err(|_| ApcbError::FIXME)?;
-        let value = tokens
-            .get(
-                TokenEntryId::from_u16(entry_id).ok_or(ApcbError::FIXME)?,
-                token_id,
-            )
-            .map_err(|_| ApcbError::FIXME)?;
-        Ok(value)
+        //let capacity = self.hf.capacity().unwrap();
+
+        let processor_generation = ProcessorGeneration::Milan;
+        let efs = Efs::<Storage>::load(
+            &self.storage,
+            Some(processor_generation),
+            None,
+        )
+        .unwrap();
+        let bhd_directory =
+            efs.bhd_directory(Some(processor_generation)).unwrap();
+        for entry in bhd_directory.entries() {
+            if let Ok(typ) = entry.typ_or_err() {
+                if typ == BhdDirectoryEntryType::ApcbBackup
+                    && entry.sub_program() == 1
+                    && entry.instance() == 0
+                {
+                    let payload_beginning =
+                        bhd_directory.payload_beginning(&entry).unwrap();
+                    let size = entry.size().unwrap() as usize;
+                    self.storage
+                        .read_exact(payload_beginning, &mut buffer[0..size])
+                        .unwrap();
+
+                    let apcb =
+                        Apcb::load(&mut buffer[..], &ApcbIoOptions::default())
+                            .map_err(|_| ApcbError::FIXME.into())?;
+                    let tokens = apcb
+                        .tokens(instance_id, BoardInstances::new())
+                        .map_err(|_| ApcbError::FIXME.into())?;
+                    let value = tokens
+                        .get(
+                            TokenEntryId::from_u16(entry_id)
+                                .ok_or(ApcbError::FIXME.into())?,
+                            token_id,
+                        )
+                        .map_err(|_| ApcbError::FIXME.into())?;
+                    return Ok(value);
+                }
+            }
+        }
+        Err(ApcbError::FIXME.into())
     }
 }
 
