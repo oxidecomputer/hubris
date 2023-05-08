@@ -69,7 +69,7 @@ impl idl::InOrderApcbImpl for ServerImpl {
         let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default()).map_err(|_| ApcbError::FIXME)?;
         let tokens = apcb.tokens(instance_id, BoardInstances::new()).map_err(|_| ApcbError::FIXME)?;
         let value = tokens.get(TokenEntryId::from_u16(entry_id).ok_or(ApcbError::FIXME)?, token_id).map_err(|_| ApcbError::FIXME)?;
-        Ok(value) // FIXME
+        Ok(value)
      }
 }
 
