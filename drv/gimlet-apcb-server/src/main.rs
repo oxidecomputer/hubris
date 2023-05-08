@@ -16,7 +16,6 @@ use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
 
 //task_slot!(SYS, sys);
 task_slot!(HF, hf);
@@ -49,7 +48,7 @@ impl ServerImpl {
 impl idl::InOrderApcbImpl for ServerImpl {
     fn apcb_token_value(
         &mut self,
-        msg: &userlib::RecvMessage,
+        _msg: &userlib::RecvMessage,
         instance_id: u16,
         entry_id: u16,
         token_id: u32,
