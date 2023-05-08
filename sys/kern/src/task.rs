@@ -198,7 +198,7 @@ impl Task {
     /// possible but must use raw pointers and tolerate potential races. (Task
     /// dumps are one of the only cases where this really makes sense.)
     ///
-    /// You could call this with `atts` as `RegionAttributes::empty()`; this
+    /// You could call this with `desired` as `RegionAttributes::empty()`; this
     /// would just check that memory is not device, and is a weird thing to do.
     /// A normal call would pass something like `RegionAttributes::READ`.
     ///
