@@ -14,12 +14,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     let out_dir = build_util::out_dir();
-    let out_file = out_dir.join("sidecar_qsfp_x32_controller.rs");
+    let out_file = out_dir.join("sidecar_qsfp_x32_controller_regs.rs");
     let mut file = fs::File::create(out_file)?;
     write!(
         &mut file,
         "{}",
-        fpga_regs(include_str!("sidecar_qsfp_x32_controller.json"))?
+        fpga_regs(include_str!("sidecar_qsfp_x32_controller_regs.json"))?
     )?;
 
     // Pull the bitstream checksum from an environment variable
