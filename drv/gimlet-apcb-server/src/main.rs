@@ -11,7 +11,7 @@
 #![no_main]
 
 use userlib::*;
-use amd_apcb::{Apcb, ApcbIoOptions};
+use amd_apcb::{Apcb, ApcbIoOptions, TokenEntryId, BoardInstances};
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_gimlet_apcb_api::{ApcbError};
@@ -60,13 +60,16 @@ impl idl::InOrderApcbImpl for ServerImpl {
     fn apcb_token_value(
         &mut self,
         msg: &userlib::RecvMessage,
-        entry_id: u32,
+        instance_id: u16,
+        entry_id: u16,
         token_id: u32,
      ) -> Result<u32, idol_runtime::RequestError<ApcbError>>
      where ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType {
         let mut buffer = [0u8; 1000];
-        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default());
-        Ok(42) // FIXME
+        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default()).map_err(|_| ApcbError::FIXME)?;
+        let tokens = apcb.tokens(instance_id, BoardInstances::new()).map_err(|_| ApcbError::FIXME)?;
+        let value = tokens.get(TokenEntryId::from_u16(entry_id).ok_or(ApcbError::FIXME)?, token_id).map_err(|_| ApcbError::FIXME)?;
+        Ok(value) // FIXME
      }
 }
 

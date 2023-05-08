@@ -8,7 +8,8 @@ Interface(
                 // TODO self.board_instance_mask,
                 // TODO self.instance_id,
 
-                "entry_id": "u32",
+                "instance_id": "u16",
+                "entry_id": "u16",
                 "token_id": "u32",
             },
             reply: Result(
