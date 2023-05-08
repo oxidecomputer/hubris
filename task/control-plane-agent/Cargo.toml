@@ -17,6 +17,7 @@ zerocopy = { workspace = true }
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-caboose = { path = "../../drv/caboose" }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
+drv-gimlet-apcb-api = { path = "../../drv/gimlet-apcb-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
@@ -43,7 +44,7 @@ build-util = { path = "../../build/util" }
 idol = { workspace = true }
 
 [features]
-gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+gimlet = ["drv-gimlet-hf-api", "drv-gimlet-apcb-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
 

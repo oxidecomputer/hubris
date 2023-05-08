@@ -728,9 +728,11 @@ impl BuildConfig<'_> {
         nightly_features.extend([
             "backtrace",
             "error_generic_member_access",
+            "proc_macro_diagnostic", // by proc-macro-error
             "proc_macro_span",
             "proc_macro_span_shrink",
             "provide_any",
+            "adt_const_params", // by pre
         ]);
 
         cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
