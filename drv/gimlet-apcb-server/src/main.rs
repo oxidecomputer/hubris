@@ -10,12 +10,12 @@
 #![no_std]
 #![no_main]
 
-use userlib::*;
-use amd_apcb::{Apcb, ApcbIoOptions, TokenEntryId, BoardInstances};
+use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId};
+use drv_gimlet_apcb_api::ApcbError;
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
-use drv_gimlet_apcb_api::{ApcbError};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
 //task_slot!(SYS, sys);
@@ -29,9 +29,7 @@ fn main() -> ! {
     //sys.gpio_set(cfg.reset);
     hl::sleep_for(10);
 
-    let mut server = ServerImpl {
-        hf,
-    };
+    let mut server = ServerImpl { hf };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -46,14 +44,6 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-/*
-    fn get_persistent_data(&mut self) -> Result<HfPersistentData, HfError> {
-        let out = self.get_raw_persistent_data()?;
-        Ok(HfPersistentData {
-            dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
-        })
-    }
-*/
 }
 
 impl idl::InOrderApcbImpl for ServerImpl {
@@ -63,21 +53,28 @@ impl idl::InOrderApcbImpl for ServerImpl {
         instance_id: u16,
         entry_id: u16,
         token_id: u32,
-     ) -> Result<u32, idol_runtime::RequestError<ApcbError>>
-     where ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType {
+    ) -> Result<u32, idol_runtime::RequestError<ApcbError>>
+    where
+        ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType,
+    {
         let mut buffer = [0u8; 1000];
-        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default()).map_err(|_| ApcbError::FIXME)?;
-        let tokens = apcb.tokens(instance_id, BoardInstances::new()).map_err(|_| ApcbError::FIXME)?;
-        let value = tokens.get(TokenEntryId::from_u16(entry_id).ok_or(ApcbError::FIXME)?, token_id).map_err(|_| ApcbError::FIXME)?;
+        let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default())
+            .map_err(|_| ApcbError::FIXME)?;
+        let tokens = apcb
+            .tokens(instance_id, BoardInstances::new())
+            .map_err(|_| ApcbError::FIXME)?;
+        let value = tokens
+            .get(
+                TokenEntryId::from_u16(entry_id).ok_or(ApcbError::FIXME)?,
+                token_id,
+            )
+            .map_err(|_| ApcbError::FIXME)?;
         Ok(value)
-     }
+    }
 }
 
 mod idl {
-    use super::{
-        //HfDevSelect,
-        ApcbError,
-    };
+    use super::ApcbError;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
