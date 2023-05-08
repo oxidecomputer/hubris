@@ -179,6 +179,18 @@ interrupts = {"quadspi.irq" = "qspi-irq"}
 task-slots = ["sys", "hash_driver"]
 notifications = ["qspi-irq"]
 
+[tasks.apcb]
+name = "drv-gimlet-apcb-server"
+features = []
+priority = 4
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 3000
+start = true
+uses = []
+interrupts = {}
+task-slots = ["hf"]
+notifications = []
+
 [tasks.update_server]
 name = "stm32h7-update-server"
 priority = 3
@@ -254,6 +266,7 @@ task-slots = [
     "update_server",
     "sys",
     "hf",
+    "apcb",
     "gimlet_seq",
     "validate",
     "sensor",
