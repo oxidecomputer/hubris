@@ -4,7 +4,10 @@
 
 #![no_std]
 
-include!(concat!(env!("OUT_DIR"), "/sidecar_qsfp_x32_controller.rs"));
+include!(concat!(
+    env!("OUT_DIR"),
+    "/sidecar_qsfp_x32_controller_regs.rs"
+));
 
 #[cfg(feature = "controller")]
 pub mod controller;
