@@ -727,8 +727,7 @@ impl ServerImpl {
     fn swd_dongle_detected(&self) -> bool {
         cfg_if::cfg_if! {
             if #[cfg(any(
-                target_board = "gimlet-rot-b",
-                target_board = "gimlet-rot-c"
+                target_board = "oxide-rot-1",
             ))] {
                 use drv_lpc55_gpio_api::*;
 

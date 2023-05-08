@@ -1,6 +1,6 @@
-name = "gimlet-rot-c"
+name = "oxide-rot-1"
 target = "thumbv8m.main-none-eabihf"
-board = "gimlet-rot-c"
+board = "oxide-rot-1"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
@@ -8,7 +8,7 @@ epoch = 0
 version = 0
 
 [kernel]
-name = "gimlet-rot"
+name = "oxide-rot-1"
 requires = {flash = 51712, ram = 4096}
 features = ["dice-self"]
 

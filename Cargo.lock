@@ -2131,20 +2131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gimlet-rot"
-version = "0.1.0"
-dependencies = [
- "abi",
- "cfg-if",
- "cortex-m",
- "cortex-m-rt",
- "kern",
- "lpc55-pac",
- "lpc55-rot-startup",
- "unwrap-lite",
-]
-
-[[package]]
 name = "gimletlet"
 version = "0.1.0"
 dependencies = [
@@ -2896,6 +2882,20 @@ dependencies = [
  "host-sp-messages",
  "static_assertions",
  "zerocopy",
+]
+
+[[package]]
+name = "oxide-rot-1"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "lpc55-pac",
+ "lpc55-rot-startup",
+ "unwrap-lite",
 ]
 
 [[package]]

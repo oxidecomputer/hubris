@@ -1,1 +1,1 @@
-# Gemini Bringup Board LPC55 Firmware
+# Root of Trust Carrier LPC55 Firmware
