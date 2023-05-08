@@ -15,8 +15,7 @@ zerocopy.workspace = true
 drv-gimlet-apcb-api = { path = "../gimlet-apcb-api" }
 drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-#amd-apcb = { git = "ssh://git@github.com/oxidecomputer/amd-apcb.git", tag = "v0.1.1", features = [], default-features = false }
-amd-apcb = { path = "../../../amd-apcb", features = [], default-features = false }
+amd-apcb = { workspace = true, optional = false, features = [], default-features = false }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
