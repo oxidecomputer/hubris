@@ -433,7 +433,10 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // reset; we won't retrigger autonegotiation / system reset if that's
         // not the case.
         let check_10g_link = match self.seq.tofino_pcie_hotplug_status() {
-            Ok(host_reset) => r & 1 == 0,
+            Ok(pcie_hotplug_status) => {
+                let host_reset = pcie_hotplug_status & 1;
+                host_reset == 0
+            }
             Err(e) => {
                 // If the sequencer failed to talk to us, then fail safe (i.e.
                 // in favor of checking the 10G link).
