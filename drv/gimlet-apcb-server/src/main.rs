@@ -56,7 +56,8 @@ impl idl::InOrderApcbImpl for ServerImpl {
     where
         ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType,
     {
-        let mut buffer = [0u8; 1000];
+        let mut buffer = [0xFFu8; Apcb::MAX_SIZE];
+        // FIXME: Load buffer from flash
         let apcb = Apcb::load(&mut buffer[..], &ApcbIoOptions::default())
             .map_err(|_| ApcbError::FIXME)?;
         let tokens = apcb
