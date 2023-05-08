@@ -1,0 +1,20 @@
+// Gimlet Apcb API
+
+Interface(
+    name: "Apcb",
+    ops: {
+        "apcb_token_value": (
+            args: {
+                // TODO self.board_instance_mask,
+                // TODO self.instance_id,
+
+                "entry_id": "u32",
+                "token_id": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("ApcbError"),
+            ),
+        )
+    }
+)
