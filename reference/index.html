@@ -4153,6 +4153,11 @@ flash, so its location can only be known after an entire image is built.</p>
 <a href="#caboose-words">expected words</a>, this call will return <code>(0, 0)</code>.</p>
 </div>
 <div class="paragraph">
+<p>This function is a low-level kernel primitive; users may wish to call
+<code>userlib::kipc::get_caboose</code> instead, which decodes the result into a friendlier
+type (<code>Option&lt;&amp;'static [u8]&gt;</code>).</p>
+</div>
+<div class="paragraph">
 <p>Note that this call will return the caboose address even if a task is not
 configured for caboose access!  In that case, reading from the given memory
 range will cause a memory fault and the task will be killed.</p>
@@ -5575,7 +5580,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-05-09 13:42:56 UTC
+Last updated 2023-05-09 13:51:18 UTC
 </div>
 </div>
 </body>
