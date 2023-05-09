@@ -60,8 +60,8 @@ pub struct Bsp<'a, R> {
     /// the port on the VSC7448 to match.
     front_io_speed: [Speed; 2],
 
-    /// Number of failed autonegotiation cycles we've been through
-    failed_aneg: usize,
+    /// Time at which the 10G link went down
+    link_down_at: Option<u64>,
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -174,7 +174,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
-            failed_aneg: 0,
+            link_down_at: None,
             seq,
         };
 
@@ -447,19 +447,38 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // Workaround for the link-stuck issue discussed in
         // https://github.com/oxidecomputer/bf_sde/issues/5
-        if check_10g_link && self.vsc7448.check_10gbase_kr_aneg(0)? {
-            ringbuf_entry!(Trace::Restarted10GAneg);
+        if check_10g_link {
+            if self.vsc7448.check_10gbase_kr_aneg(0)? {
+                ringbuf_entry!(Trace::Restarted10GAneg);
+            }
 
             // Follow-up workaround for the other link-stuck issue discussed in
             // https://github.com/oxidecomputer/bf_sde/issues/27
             // If we remain down for 20 seconds, then reinitialize everything.
-            self.failed_aneg += 1;
-            if self.failed_aneg as u64 * WAKE_INTERVAL_MS >= 20_000 {
-                self.failed_aneg = 0;
-                self.reinit()?;
+            //
+            // (see comment in `monorail-server/src/server.rs` about this check)
+            use vsc7448_pac::PCS10G_BR;
+            let link_down = self
+                .vsc7448
+                .read(PCS10G_BR(0).PCS_10GBR_STATUS().PCS_STATUS())?
+                .rx_block_lock()
+                == 0;
+            if link_down {
+                let now = userlib::sys_get_timer().now;
+                if let Some(link_down_at) = self.link_down_at {
+                    if now - link_down_at >= 20_000 {
+                        self.link_down_at = None;
+                        // This logs Trace::Reinit in the ringbuf
+                        self.reinit()?;
+                    }
+                } else {
+                    self.link_down_at = Some(now);
+                }
+            } else {
+                self.link_down_at = None;
             }
         } else {
-            self.failed_aneg = 0;
+            self.link_down_at = None;
         }
 
         Ok(())
