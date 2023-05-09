@@ -12,6 +12,12 @@ name = "oxide-rot-1"
 requires = {flash = 51712, ram = 4096}
 features = ["dice-self"]
 
+[caboose]
+tasks = ["sprot"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
