@@ -16,7 +16,8 @@ task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
+const WAKE_INTERVAL_MS: u64 = 500;
+pub const WAKE_INTERVAL: Option<u64> = Some(WAKE_INTERVAL_MS);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -26,6 +27,7 @@ enum Trace {
         before: Speed,
         after: Speed,
     },
+    SeqError(SeqError),
     AnegCheckFailed(VscError),
     Restarted10GAneg,
     Reinit,
@@ -36,6 +38,9 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+
+    /// Handle for the sequencer task
+    seq: Sequencer,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -54,6 +59,9 @@ pub struct Bsp<'a, R> {
     /// autonegotiate to a different speed, in which case we have to reconfigure
     /// the port on the VSC7448 to match.
     front_io_speed: [Speed; 2],
+
+    /// Time at which the 10G link went down
+    link_down_at: Option<u64>,
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -166,6 +174,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
+            link_down_at: None,
+            seq,
         };
 
         out.reinit()?;
@@ -418,10 +428,57 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
             }
         }
+
+        // The 10G link should only be up if the host isn't trying to hold us in
+        // reset; we won't retrigger autonegotiation / system reset if that's
+        // not the case.
+        let check_10g_link = match self.seq.tofino_pcie_hotplug_status() {
+            Ok(pcie_hotplug_status) => {
+                let host_reset = pcie_hotplug_status & 1;
+                host_reset == 0
+            }
+            Err(e) => {
+                // If the sequencer failed to talk to us, then fail safe (i.e.
+                // in favor of checking the 10G link).
+                ringbuf_entry!(Trace::SeqError(e));
+                true
+            }
+        };
+
         // Workaround for the link-stuck issue discussed in
         // https://github.com/oxidecomputer/bf_sde/issues/5
-        if self.vsc7448.check_10gbase_kr_aneg(0)? {
-            ringbuf_entry!(Trace::Restarted10GAneg);
+        if check_10g_link {
+            if self.vsc7448.check_10gbase_kr_aneg(0)? {
+                ringbuf_entry!(Trace::Restarted10GAneg);
+            }
+
+            // Follow-up workaround for the other link-stuck issue discussed in
+            // https://github.com/oxidecomputer/bf_sde/issues/27
+            // If we remain down for 20 seconds, then reinitialize everything.
+            //
+            // (see comment in `monorail-server/src/server.rs` about this check)
+            use vsc7448_pac::PCS10G_BR;
+            let link_down = self
+                .vsc7448
+                .read(PCS10G_BR(0).PCS_10GBR_STATUS().PCS_STATUS())?
+                .rx_block_lock()
+                == 0;
+            if link_down {
+                let now = userlib::sys_get_timer().now;
+                if let Some(link_down_at) = self.link_down_at {
+                    if now - link_down_at >= 20_000 {
+                        self.link_down_at = None;
+                        // This logs Trace::Reinit in the ringbuf
+                        self.reinit()?;
+                    }
+                } else {
+                    self.link_down_at = Some(now);
+                }
+            } else {
+                self.link_down_at = None;
+            }
+        } else {
+            self.link_down_at = None;
         }
 
         Ok(())
