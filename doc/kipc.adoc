@@ -245,6 +245,10 @@ flash, so its location can only be known after an entire image is built.
 If the image does not include a caboose or the caboose does not contain the
 <<caboose-words,expected words>>, this call will return `(0, 0)`.
 
+This function is a low-level kernel primitive; users may wish to call
+`userlib::kipc::get_caboose` instead, which decodes the result into a friendlier
+type (`Option<&'static [u8]>`).
+
 Note that this call will return the caboose address even if a task is not
 configured for caboose access!  In that case, reading from the given memory
 range will cause a memory fault and the task will be killed.
