@@ -12,6 +12,12 @@ name = "rot-carrier"
 features = ["dice-self"]
 requires = {flash = 52032, ram = 4096}
 
+[caboose]
+tasks = ["caboose_reader", "sprot"]
+region = "flash"
+size = 256
+default = true
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
@@ -23,6 +29,12 @@ notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 request_reset = ["update_server"]
+
+[tasks.caboose_reader]
+name = "task-caboose-reader"
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+start = true
 
 [tasks.idle]
 name = "task-idle"
