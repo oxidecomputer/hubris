@@ -1501,6 +1501,7 @@ dependencies = [
  "crc",
  "derive-idol-err",
  "derive_more",
+ "drv-caboose",
  "drv-spi-api",
  "drv-update-api",
  "dumper-api",
@@ -1682,6 +1683,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "drv-caboose",
  "drv-spi-api",
  "drv-sprot-api",
  "drv-stm32h7-spi-server-core",
@@ -2071,7 +2073,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=get-component-caboose#5f1ed1ee87953454128f015c5be4818bbd7d539f"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=get-component-caboose#a52df4b50e86a93e1b776b0564b7252543283601"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -3840,6 +3842,7 @@ dependencies = [
  "task-packrat-api",
  "task-sensor-api",
  "task-validate-api",
+ "tlvc",
  "update-buffer",
  "userlib",
  "zerocopy",

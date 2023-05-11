@@ -9,9 +9,9 @@ use drv_sprot_api::{
     SwitchDuration,
 };
 use gateway_messages::{
-    DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
-    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpComponent, SpError,
-    SpPort, SpState,
+    CabooseValue, DiscoverResponse, ImageVersion, PowerState, RotBootState,
+    RotError, RotImageDetails, RotSlot, RotState, RotUpdateDetails,
+    SpComponent, SpError, SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -111,19 +111,23 @@ impl MgsCommon {
     pub(crate) fn get_component_caboose_value(
         &self,
         component: SpComponent,
+        slot: u16,
         key: [u8; 4],
-    ) -> Result<&'static [u8], SpError> {
+    ) -> Result<CabooseValue, SpError> {
         let r = match component {
             SpComponent::SP_ITSELF => {
+                if slot != 0 {
+                    // TODO
+                    return Err(SpError::RequestUnsupportedForComponent);
+                }
                 let reader = userlib::kipc::get_caboose()
                     .map(CabooseReader::new)
                     .ok_or(SpError::NoCaboose)?;
-                reader.get(key)
+                reader.get(key).map(CabooseValue::Local)
             }
-            SpComponent::ROT => {
-                &self.sprot;
-                unimplemented!()
-            }
+            SpComponent::ROT => RotCabooseReader::new(slot, &self.sprot)
+                .and_then(|r| r.get(key))
+                .map(|pos| CabooseValue::Rot { slot, pos }),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
         r.map_err(|e| match e {
@@ -137,6 +141,24 @@ impl MgsCommon {
             // bank2 slot; it shouldn't ever be returned by the local reader.
             CabooseError::NoImageHeader => panic!(),
         })
+    }
+
+    pub fn copy_caboose_value_into(
+        &self,
+        value: CabooseValue,
+        out: &mut [u8],
+    ) -> Result<(), SpError> {
+        match value {
+            CabooseValue::Local(d) => {
+                out.copy_from_slice(d);
+            }
+            CabooseValue::Rot { slot, pos } => {
+                self.sprot
+                    .read_caboose_region(pos.start, slot, out)
+                    .map_err(|_| SpError::CabooseReadError)?;
+            }
+        }
+        Ok(())
     }
 
     /// If the targeted component is the SP_ITSELF, then having reset itself,
@@ -323,5 +345,70 @@ impl From<RotImageDetailsConvert> for RotImageDetails {
                 version: value.0.version.version,
             },
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+struct RotCabooseReader<'a> {
+    sprot: &'a SpRot,
+    size: u32,
+    slot: u16,
+}
+
+impl<'a> RotCabooseReader<'a> {
+    fn new(slot: u16, sprot: &'a SpRot) -> Result<Self, CabooseError> {
+        sprot
+            .caboose_size(slot)
+            .map(|size| Self { size, slot, sprot })
+    }
+
+    pub fn get(
+        &self,
+        key: [u8; 4],
+    ) -> Result<core::ops::Range<u32>, CabooseError> {
+        let mut reader = tlvc::TlvcReader::begin(*self)
+            .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
+        while let Ok(Some(chunk)) = reader.next() {
+            if chunk.header().tag == key {
+                let mut tmp = [0u8; 32];
+                if chunk.check_body_checksum(&mut tmp).is_err() {
+                    return Err(CabooseError::BadChecksum);
+                }
+                // At this point, the reader is positioned **after** the data
+                // from the target chunk.  We'll back up to the start of the
+                // data slice.
+                let (_reader, pos, _end) = reader.into_inner();
+
+                let pos = pos as u32;
+                let data_len = chunk.header().len.get();
+
+                let data_start = pos
+                    - chunk.header().total_len_in_bytes() as u32
+                    + core::mem::size_of::<tlvc::ChunkHeader>() as u32;
+
+                return Ok(data_start..(data_start + data_len));
+            }
+        }
+
+        Err(CabooseError::NoSuchTag)
+    }
+}
+
+impl tlvc::TlvcRead for RotCabooseReader<'_> {
+    fn extent(&self) -> Result<u64, tlvc::TlvcReadError> {
+        Ok(self.size as u64)
+    }
+
+    fn read_exact(
+        &self,
+        offset: u64,
+        dest: &mut [u8],
+    ) -> Result<(), tlvc::TlvcReadError> {
+        let offset = offset
+            .try_into()
+            .map_err(|_| tlvc::TlvcReadError::Truncated)?;
+        self.sprot
+            .read_caboose_region(offset, self.slot, dest)
+            .map_err(|_| tlvc::TlvcReadError::Truncated)
     }
 }
