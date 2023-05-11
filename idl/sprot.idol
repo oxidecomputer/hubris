@@ -130,6 +130,32 @@ Interface(
             ),
             encoding: Hubpack,
             idempotent: true,
-        )
+        ),
+        "caboose_size": (
+            doc: "returns the size of the caboose",
+            args: {
+                "slot": "u16",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("drv_caboose::CabooseError"),
+            ),
+            idempotent: true,
+        ),
+        "read_caboose_region": (
+            doc: "reads a subset of the caboose memory",
+            args: {
+                "offset": "u32",
+                "slot": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_caboose::CabooseError"),
+            ),
+            leases : {
+                "out": (type: "[u8]", write: true),
+            },
+            idempotent: true,
+        ),
     }
 )

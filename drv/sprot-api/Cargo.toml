@@ -17,6 +17,7 @@ serde = { workspace = true }
 sprockets-common = { workspace = true }
 zerocopy = { workspace = true }
 
+drv-caboose = { path = "../../drv/caboose" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-update-api = { path = "../../drv/update-api" }

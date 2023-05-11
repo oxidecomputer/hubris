@@ -577,9 +577,11 @@ impl SpHandler for MgsHandler {
     fn get_component_caboose_value(
         &mut self,
         component: SpComponent,
+        slot: u16,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        self.common.get_component_caboose_value(component, key)
+        self.common
+            .get_component_caboose_value(component, slot, key)
     }
 
     fn reset_component_prepare(

@@ -7,6 +7,7 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
+use drv_caboose::CabooseError;
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
@@ -701,6 +702,26 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         } else {
             Err(SprotError::Protocol(SprotProtocolError::UnexpectedResponse))?
         }
+    }
+
+    fn caboose_size(
+        &mut self,
+        _: &userlib::RecvMessage,
+        slot: u16,
+    ) -> Result<u32, idol_runtime::RequestError<CabooseError>> {
+        // TODO: implement this
+        Err(CabooseError::MissingCaboose.into())
+    }
+
+    fn read_caboose_region(
+        &mut self,
+        _: &userlib::RecvMessage,
+        offset: u32,
+        slot: u16,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<CabooseError>> {
+        // TODO: implement this
+        Err(CabooseError::MissingCaboose.into())
     }
 }
 
