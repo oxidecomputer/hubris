@@ -144,6 +144,7 @@ impl MgsCommon {
             CabooseError::BadChecksum => SpError::BadCabooseChecksum,
             CabooseError::TlvcReaderBeginFailed
             | CabooseError::TlvcReadExactFailed
+            | CabooseError::ReadFailed
             | CabooseError::InvalidRead => SpError::CabooseReadError,
 
             // NoImageHeader is only returned when reading the caboose of the

@@ -709,8 +709,23 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _: &userlib::RecvMessage,
         slot: u16,
     ) -> Result<u32, idol_runtime::RequestError<CabooseError>> {
-        // TODO: implement this
-        Err(CabooseError::MissingCaboose.into())
+        let body = ReqBody::Caboose(CabooseReq::Size { slot });
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .map_err(|_| CabooseError::ReadFailed)?;
+        if let Ok(RspBody::Caboose(r)) = rsp.body {
+            match r {
+                Ok(CabooseRsp::Size(size)) => Ok(size),
+                Ok(_) => Err(CabooseError::ReadFailed.into()),
+                Err(e) => {
+                    let e: CabooseError = e.into();
+                    Err(e.into())
+                }
+            }
+        } else {
+            Err(CabooseError::ReadFailed.into())
+        }
     }
 
     fn read_caboose_region(
@@ -720,8 +735,41 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         slot: u16,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<CabooseError>> {
-        // TODO: implement this
-        Err(CabooseError::MissingCaboose.into())
+        let body = ReqBody::Caboose(CabooseReq::Read {
+            slot,
+            start: offset,
+            size: data.len() as u32,
+        });
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .map_err(|_| CabooseError::ReadFailed)?;
+
+        if let Ok(RspBody::Caboose(r)) = rsp.body {
+            match r {
+                Ok(CabooseRsp::Read) => {
+                    if rsp.blob.len() < data.len() {
+                        return Err(idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::BadLease,
+                        ));
+                    }
+                    data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                        .map_err(|()| {
+                            idol_runtime::RequestError::Fail(
+                                idol_runtime::ClientError::WentAway,
+                            )
+                        })?;
+                    Ok(())
+                }
+                Ok(_) => Err(CabooseError::ReadFailed.into()),
+                Err(e) => {
+                    let e: CabooseError = e.into();
+                    Err(e.into())
+                }
+            }
+        } else {
+            Err(CabooseError::ReadFailed.into())
+        }
     }
 }
 
