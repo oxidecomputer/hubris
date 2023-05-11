@@ -78,6 +78,7 @@ priority = 5
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
+notifications = ["timer"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"

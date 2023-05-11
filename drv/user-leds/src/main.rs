@@ -26,13 +26,22 @@
 //! Toggles an LED by index.
 //!
 //! Request message format: single `u32` giving LED index.
+//!
+//! ## `led_blink` (4)
+//!
+//! Sets an LED to blink, specifying the LED by index
+//!
+//! Request message format: single `u32` giving LED index.
 
 #![no_std]
 #![no_main]
 
 use drv_user_leds_api::LedError;
+use enum_map::EnumMap;
 use idol_runtime::RequestError;
 use userlib::*;
+
+const BLINK_INTERVAL: u64 = 500;
 
 cfg_if::cfg_if! {
     // Target boards with 4 leds
@@ -41,7 +50,7 @@ cfg_if::cfg_if! {
             target_board = "gimletlet-1",
             target_board = "gimletlet-2"
         ))] {
-        #[derive(FromPrimitive)]
+        #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
             Zero = 0,
             One = 1,
@@ -51,7 +60,7 @@ cfg_if::cfg_if! {
     }
     // Target boards with 3 leds
     else if #[cfg(any(target_board = "nucleo-h753zi", target_board = "nucleo-h743zi2"))] {
-        #[derive(FromPrimitive)]
+        #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
             Zero = 0,
             One = 1,
@@ -72,14 +81,14 @@ cfg_if::cfg_if! {
         target_board = "psc-b",
         target_board = "psc-c",
     ))] {
-        #[derive(FromPrimitive)]
+        #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
             Zero = 0,
         }
     }
     // Target boards with 2 leds -> the rest
     else {
-        #[derive(FromPrimitive)]
+        #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
             Zero = 0,
             One = 1,
@@ -87,7 +96,10 @@ cfg_if::cfg_if! {
     }
 }
 
-struct ServerImpl;
+struct ServerImpl {
+    blinking: EnumMap<Led, bool>,
+    blink_state: bool,
+}
 
 impl idl::InOrderUserLedsImpl for ServerImpl {
     fn led_on(
@@ -96,6 +108,7 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         index: usize,
     ) -> Result<(), RequestError<LedError>> {
         let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        self.blinking[led] = false;
         led_on(led);
         Ok(())
     }
@@ -105,6 +118,7 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         index: usize,
     ) -> Result<(), RequestError<LedError>> {
         let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        self.blinking[led] = false;
         led_off(led);
         Ok(())
     }
@@ -114,8 +128,52 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         index: usize,
     ) -> Result<(), RequestError<LedError>> {
         let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        self.blinking[led] = false;
         led_toggle(led);
         Ok(())
+    }
+    fn led_blink(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<LedError>> {
+        let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        let already_blinking = self.blinking.values().any(|b| *b);
+        self.blinking[led] = true;
+        if !already_blinking {
+            sys_set_timer(
+                Some(sys_get_timer().now + BLINK_INTERVAL),
+                notifications::TIMER_MASK,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        notifications::TIMER_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        let mut any_blinking = false;
+        for (led, blinking) in &self.blinking {
+            if *blinking {
+                any_blinking = true;
+                if self.blink_state {
+                    led_on(led);
+                } else {
+                    led_off(led);
+                }
+            }
+        }
+        self.blink_state = !self.blink_state;
+        if any_blinking {
+            sys_set_timer(
+                Some(sys_get_timer().now + BLINK_INTERVAL),
+                notifications::TIMER_MASK,
+            );
+        }
     }
 }
 
@@ -125,9 +183,16 @@ fn main() -> ! {
 
     // Handle messages.
     let mut incoming = [0u8; idl::INCOMING_SIZE];
-    let mut serverimpl = ServerImpl;
+    let mut server = ServerImpl {
+        blinking: Default::default(),
+        blink_state: false,
+    };
     loop {
-        idol_runtime::dispatch(&mut incoming, &mut serverimpl);
+        if server.blinking.values().any(|b| *b) {
+            idol_runtime::dispatch_n(&mut incoming, &mut server);
+        } else {
+            idol_runtime::dispatch(&mut incoming, &mut server);
+        }
     }
 }
 
@@ -613,3 +678,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

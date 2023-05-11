@@ -1880,6 +1880,7 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
+ "enum-map",
  "idol",
  "idol-runtime",
  "lpc55-pac",

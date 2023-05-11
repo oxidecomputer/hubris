@@ -45,6 +45,7 @@ max-sizes = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
 start = true
 task-slots = ["rcc_driver"]
+notifications = ["timer"]
 
 [tasks.ping]
 name = "task-ping"

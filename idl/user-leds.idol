@@ -33,5 +33,16 @@ Interface(
             ),
             idempotent: true,
         ),
+        "led_blink": (
+            description: "blinks the LED at a fixed speed",
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("LedError"),
+            ),
+            idempotent: true,
+        ),
     },
 )

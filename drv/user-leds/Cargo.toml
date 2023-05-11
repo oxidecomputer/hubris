@@ -4,22 +4,23 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = { workspace = true }
-idol-runtime = { workspace = true }
+cfg-if.workspace = true
+enum-map.workspace = true
+idol-runtime.workspace = true
 lpc55-pac = { workspace = true, optional = true }
-num-traits = { workspace = true }
+num-traits.workspace = true
 stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
 stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
-zerocopy = { workspace = true }
+zerocopy.workspace = true
 
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api", optional = true }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", optional = true }
-drv-user-leds-api = { path = "../user-leds-api" }
-userlib = { path = "../../sys/userlib" }
+drv-user-leds-api.path = "../user-leds-api"
+userlib.path = "../../sys/userlib"
 
 [build-dependencies]
-build-util = { path = "../../build/util" }
-idol = { workspace = true }
+build-util.path = "../../build/util"
+idol.workspace = true
 
 [features]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
