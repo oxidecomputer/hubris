@@ -17,6 +17,10 @@ pub use stage0_handoff::{
     HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
 };
 
+/// Target for an update operation
+///
+/// This `enum` is used as part of the wire format for SP-RoT communication, and
+/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
 #[repr(u8)]
 #[derive(
     FromPrimitive,
@@ -134,6 +138,9 @@ impl From<UpdateError> for GwUpdateError {
 
 /// When booting into an alternate image, specifies how "sticky" that decision
 /// is.
+///
+/// This `enum` is used as part of the wire format for SP-RoT communication, and
+/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
 #[derive(
     Clone,
     Copy,
@@ -157,6 +164,9 @@ pub enum SwitchDuration {
 
 /// Designates a firmware image slot in parts that have fixed slots (rather than
 /// bank remapping).
+///
+/// This `enum` is used as part of the wire format for SP-RoT communication, and
+/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
 #[derive(
     Clone,
     Copy,

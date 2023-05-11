@@ -299,7 +299,7 @@ pub struct Version(pub u32);
 
 /// The body of a sprot request.
 ///
-/// See [`Msg`] for details about versionin and message evolution.
+/// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum ReqBody {
     Status,
