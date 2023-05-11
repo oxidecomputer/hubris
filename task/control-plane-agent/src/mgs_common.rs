@@ -2,12 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{inventory::Inventory, update::sp::SpUpdate, Log, MgsMessage};
+use crate::{inventory::Inventory, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
     RotState as SprotRotState, SlotId, SpRot, SprotError, SprotProtocolError,
     SwitchDuration,
 };
+use drv_update_api::Update;
 use gateway_messages::{
     CabooseValue, DiscoverResponse, ImageVersion, PowerState, RotBootState,
     RotError, RotImageDetails, RotSlot, RotState, RotUpdateDetails,
@@ -22,6 +23,7 @@ use userlib::{kipc, task_slot};
 
 task_slot!(PACKRAT, packrat);
 task_slot!(pub SPROT, sprot);
+task_slot!(pub UPDATE_SERVER, update_server);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
@@ -30,6 +32,7 @@ pub(crate) struct MgsCommon {
     base_mac_address: MacAddress,
     packrat: Packrat,
     sprot: SpRot,
+    sp_update: Update,
 }
 
 impl MgsCommon {
@@ -40,6 +43,7 @@ impl MgsCommon {
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
             sprot: SpRot::from(SPROT.get_task_id()),
+            sp_update: Update::from(UPDATE_SERVER.get_task_id()),
         }
     }
 
@@ -67,8 +71,8 @@ impl MgsCommon {
 
     pub(crate) fn sp_state(
         &mut self,
-        update: &SpUpdate,
         power_state: PowerState,
+        version: ImageVersion,
     ) -> Result<SpState, SpError> {
         // SpState has extra-wide fields for the serial and model number. Below
         // when we fill them in we use `usize::min` to pick the right length
@@ -89,9 +93,9 @@ impl MgsCommon {
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
             base_mac_address: self.base_mac_address.0,
-            version: update.current_version(),
+            version,
             power_state,
-            rot: rot_state(update.sprot_task()),
+            rot: rot_state(&self.sprot),
         };
 
         let n = usize::min(state.serial_number.len(), id.serial.len());
@@ -115,16 +119,20 @@ impl MgsCommon {
         key: [u8; 4],
     ) -> Result<CabooseValue, SpError> {
         let r = match component {
-            SpComponent::SP_ITSELF => {
-                if slot != 0 {
-                    // TODO
-                    return Err(SpError::RequestUnsupportedForComponent);
+            SpComponent::SP_ITSELF => match slot {
+                0 => {
+                    let reader = userlib::kipc::get_caboose()
+                        .map(CabooseReader::new)
+                        .ok_or(SpError::NoCaboose)?;
+                    reader.get(key).map(CabooseValue::Local)
                 }
-                let reader = userlib::kipc::get_caboose()
-                    .map(CabooseReader::new)
-                    .ok_or(SpError::NoCaboose)?;
-                reader.get(key).map(CabooseValue::Local)
-            }
+                1 => self.sp_update.get_caboose_value(key).map(|pos| {
+                    CabooseValue::Bank2 {
+                        pos: pos.start..pos.end,
+                    }
+                }),
+                _ => return Err(SpError::InvalidSlotForComponent),
+            },
             SpComponent::ROT => RotCabooseReader::new(slot, &self.sprot)
                 .and_then(|r| r.get(key))
                 .map(|pos| CabooseValue::Rot { slot, pos }),
@@ -133,13 +141,14 @@ impl MgsCommon {
         r.map_err(|e| match e {
             CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
             CabooseError::MissingCaboose => SpError::NoCaboose,
-            CabooseError::TlvcReaderBeginFailed => SpError::CabooseReadError,
-            CabooseError::TlvcReadExactFailed => SpError::CabooseReadError,
             CabooseError::BadChecksum => SpError::BadCabooseChecksum,
+            CabooseError::TlvcReaderBeginFailed
+            | CabooseError::TlvcReadExactFailed
+            | CabooseError::InvalidRead => SpError::CabooseReadError,
 
             // NoImageHeader is only returned when reading the caboose of the
             // bank2 slot; it shouldn't ever be returned by the local reader.
-            CabooseError::NoImageHeader => panic!(),
+            CabooseError::NoImageHeader => SpError::NoCaboose,
         })
     }
 
@@ -151,6 +160,11 @@ impl MgsCommon {
         match value {
             CabooseValue::Local(d) => {
                 out.copy_from_slice(d);
+            }
+            CabooseValue::Bank2 { pos } => {
+                self.sp_update
+                    .read_raw_caboose(pos.start, out)
+                    .map_err(|_| SpError::CabooseReadError)?;
             }
             CabooseValue::Rot { slot, pos } => {
                 self.sprot
@@ -194,7 +208,6 @@ impl MgsCommon {
     /// or SpComponent::STATE0 and slot 0.
     pub(crate) fn reset_component_trigger(
         &mut self,
-        update: &SpUpdate,
         component: SpComponent,
     ) -> Result<(), SpError> {
         if self.reset_component_requested != Some(component) {
@@ -218,7 +231,7 @@ impl MgsCommon {
             }
             SpComponent::ROT => {
                 // We're dealing with RoT targets at this point.
-                match update.sprot_task().reset() {
+                match self.sprot.reset() {
                     Err(SprotError::Protocol(SprotProtocolError::Timeout)) => {
                         // This is the expected error if the reset was successful.
                         // It could be that the RoT is out-to-lunch for some other
@@ -260,13 +273,11 @@ impl MgsCommon {
 
     pub(crate) fn component_get_active_slot(
         &mut self,
-        update: &SpUpdate,
         component: SpComponent,
     ) -> Result<u16, SpError> {
         match component {
             SpComponent::ROT => {
-                let SprotRotState::V1 { state, .. } =
-                    update.sprot_task().rot_state()?;
+                let SprotRotState::V1 { state, .. } = self.sprot.rot_state()?;
                 let slot = match state.active {
                     drv_sprot_api::RotSlot::A => 0,
                     drv_sprot_api::RotSlot::B => 1,
@@ -279,7 +290,6 @@ impl MgsCommon {
 
     pub(crate) fn component_set_active_slot(
         &mut self,
-        update: &SpUpdate,
         component: SpComponent,
         slot: u16,
         persist: bool,
@@ -296,7 +306,7 @@ impl MgsCommon {
                 } else {
                     SwitchDuration::Once
                 };
-                update.sprot_task().switch_default_image(slot, duration)?;
+                self.sprot.switch_default_image(slot, duration)?;
                 Ok(())
             }
 
