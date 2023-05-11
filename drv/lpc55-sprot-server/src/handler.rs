@@ -182,8 +182,12 @@ impl Handler {
             ReqBody::Caboose(c) => {
                 match c {
                     CabooseReq::Size { slot } => {
-                        // TODO
-                        Ok((RspBody::Caboose(Ok(CabooseRsp::Size(0))), None))
+                        // TODO: change behavior based on slot
+                        let rsp = match userlib::kipc::get_caboose() {
+                            Some(c) => Ok(CabooseRsp::Size(0)),
+                            None => Err(CabooseErr::MissingCaboose),
+                        };
+                        Ok((RspBody::Caboose(rsp), None))
                     }
                     CabooseReq::Read { slot, start, size } => {
                         // TODO
