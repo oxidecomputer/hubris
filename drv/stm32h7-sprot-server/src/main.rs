@@ -707,7 +707,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     fn caboose_size(
         &mut self,
         _: &userlib::RecvMessage,
-        slot: u16,
+        slot: SlotId,
     ) -> Result<u32, idol_runtime::RequestError<CabooseError>> {
         let body = ReqBody::Caboose(CabooseReq::Size { slot });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
@@ -732,7 +732,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &userlib::RecvMessage,
         offset: u32,
-        slot: u16,
+        slot: SlotId,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<CabooseError>> {
         let body = ReqBody::Caboose(CabooseReq::Read {

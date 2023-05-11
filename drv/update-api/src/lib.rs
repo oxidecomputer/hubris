@@ -183,6 +183,17 @@ pub enum SlotId {
     B,
 }
 
+impl TryFrom<u16> for SlotId {
+    type Error = ();
+    fn try_from(i: u16) -> Result<Self, Self::Error> {
+        match i {
+            0 => Ok(Self::A),
+            1 => Ok(Self::B),
+            _ => Err(()),
+        }
+    }
+}
+
 pub mod stm32h7 {
     // RM0433 Rev 7 section 4.3.9
     // Flash word is defined as 256 bits
