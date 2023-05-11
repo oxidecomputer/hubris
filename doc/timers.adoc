@@ -91,3 +91,5 @@ in-memory data structure (such as a table or heap) tracking their deadlines. At
 any given time, the kernel-provided timer should be set to the _lowest_
 deadline. When it fires, take action and then load the next lowest. And so
 forth.
+
+The `multitimer` crate implements such a multiplexed timer.
