@@ -54,6 +54,7 @@
                                  └───────────────┘
 */
 
+use crate::mgs_common::SPROT;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
@@ -88,7 +89,6 @@ use auxflash::IngestDataResult as AuxFlashIngestDataResult;
 use auxflash::State as AuxFlashState;
 
 userlib::task_slot!(UPDATE_SERVER, update_server);
-userlib::task_slot!(SPROT, sprot);
 
 static_assertions::const_assert!(
     BLOCK_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY

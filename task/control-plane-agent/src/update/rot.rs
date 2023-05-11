@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use super::{common::CurrentUpdate, ComponentUpdater};
+use crate::mgs_common::SPROT;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use drv_sprot_api::{SpRot, SprotError};
 use drv_update_api::lpc55::BLOCK_SIZE_BYTES;
@@ -13,8 +14,6 @@ use gateway_messages::{
     ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
 };
-
-userlib::task_slot!(SPROT, sprot);
 
 ringbuf!(Trace, 64, Trace::None);
 

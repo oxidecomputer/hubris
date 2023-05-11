@@ -85,4 +85,20 @@ macro_rules! task_slot {
             );
         }
     };
+    (pub $var:ident, $task_name:ident) => {
+        $crate::macros::paste::paste! {
+            #[used]
+            pub static $var: $crate::task_slot::TaskSlot =
+                $crate::task_slot::TaskSlot::UNBOUND;
+
+            #[used]
+            #[link_section = ".task_slot_table"]
+            static [< _TASK_SLOT_TABLE_ $var >]: $crate::task_slot::TaskSlotTableEntry<
+                { $crate::macros::bstringify::bstringify!($task_name).len() },
+            > = $crate::task_slot::TaskSlotTableEntry::for_task_slot(
+                $crate::macros::bstringify::bstringify!($task_name),
+                &$var,
+            );
+        }
+    };
 }
