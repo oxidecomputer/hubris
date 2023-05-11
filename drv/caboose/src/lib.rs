@@ -9,6 +9,7 @@
 use derive_idol_err::IdolError;
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::FromPrimitive;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum CabooseError {
@@ -18,12 +19,23 @@ pub enum CabooseError {
     NoSuchTag,
     BadChecksum,
     NoImageHeader,
+    InvalidRead,
 }
 
 /// Simple handle which points to the beginning of the TLV-C region of the
 /// caboose and allows us to implement `TlvcRead`
 #[derive(Copy, Clone)]
 pub struct CabooseReader<'a>(&'a [u8]);
+
+/// Position of a value within the caboose
+///
+/// This is equivalent to `core::ops::Range<u32>`, but has more traits
+#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[repr(C)]
+pub struct CabooseValuePos {
+    pub start: u32,
+    pub end: u32,
+}
 
 impl<'a> CabooseReader<'a> {
     pub fn new(data: &'a [u8]) -> Self {

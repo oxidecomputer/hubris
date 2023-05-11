@@ -54,12 +54,11 @@
                                  └───────────────┘
 */
 
-use crate::mgs_common::SPROT;
+use crate::mgs_common::UPDATE_SERVER;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_sprot_api::SpRot;
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateError, UpdateTarget};
 use gateway_messages::{
@@ -88,15 +87,12 @@ use auxflash::ChckScanResult;
 use auxflash::IngestDataResult as AuxFlashIngestDataResult;
 use auxflash::State as AuxFlashState;
 
-userlib::task_slot!(UPDATE_SERVER, update_server);
-
 static_assertions::const_assert!(
     BLOCK_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
 );
 
 pub(crate) struct SpUpdate {
     sp_task: Update,
-    sprot_task: SpRot,
     auxflash_task: AuxFlash,
     current: Option<CurrentUpdate>,
 }
@@ -111,7 +107,6 @@ impl SpUpdate {
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),
-            sprot_task: SpRot::from(SPROT.get_task_id()),
             auxflash_task: AuxFlash::from(AUX_FLASH_SERVER.get_task_id()),
             current: None,
         }
@@ -119,10 +114,6 @@ impl SpUpdate {
 
     pub(crate) fn current_version(&self) -> ImageVersion {
         ImageVersionConvert(self.sp_task.current_version()).into()
-    }
-
-    pub(crate) fn sprot_task(&self) -> &SpRot {
-        &self.sprot_task
     }
 
     pub(crate) fn prepare(
