@@ -748,6 +748,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         if let Ok(RspBody::Caboose(r)) = rsp.body {
             match r {
                 Ok(CabooseRsp::Read) => {
+                    // Copy from the trailing data into the lease
                     if rsp.blob.len() < data.len() {
                         return Err(idol_runtime::RequestError::Fail(
                             idol_runtime::ClientError::BadLease,
