@@ -50,6 +50,7 @@ max-sizes = {flash = 2048, ram = 256}
 start = true
 task-slots = ["sys"]
 stacksize = 256
+notifications = ["timer"]
 
 [tasks.pong]
 name = "task-pong"

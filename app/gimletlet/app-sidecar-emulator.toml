@@ -66,6 +66,7 @@ priority = 2
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys"]
+notifications = ["timer"]
 
 [tasks.pong]
 name = "task-pong"

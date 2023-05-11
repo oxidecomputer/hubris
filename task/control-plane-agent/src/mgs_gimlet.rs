@@ -595,9 +595,7 @@ impl SpHandler for MgsHandler {
                 match action {
                     LedComponentAction::TurnOn => self.user_leds.led_on(0),
                     LedComponentAction::TurnOff => self.user_leds.led_off(0),
-                    LedComponentAction::Blink => {
-                        return Err(SpError::RequestUnsupportedForComponent)
-                    }
+                    LedComponentAction::Blink => self.user_leds.led_blink(0),
                 }
                 .unwrap();
                 Ok(())

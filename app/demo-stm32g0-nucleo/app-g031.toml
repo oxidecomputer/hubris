@@ -46,6 +46,7 @@ max-sizes = {flash = 2048, ram = 256}
 start = true
 task-slots = ["sys"]
 stacksize = 256
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
