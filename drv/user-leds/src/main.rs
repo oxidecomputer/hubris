@@ -190,11 +190,7 @@ fn main() -> ! {
         blink_state: false,
     };
     loop {
-        if server.blinking.values().any(|b| *b) {
-            idol_runtime::dispatch_n(&mut incoming, &mut server);
-        } else {
-            idol_runtime::dispatch(&mut incoming, &mut server);
-        }
+        idol_runtime::dispatch_n(&mut incoming, &mut server);
     }
 }
 
