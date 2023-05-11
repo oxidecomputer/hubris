@@ -42,7 +42,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(2);
+pub const CURRENT_VERSION: Version = Version(3);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -308,6 +308,7 @@ pub enum ReqBody {
     Update(UpdateReq),
     Sprockets(SprocketsReq),
     Dump(DumpReq),
+    Caboose(CabooseReq),
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -335,15 +336,28 @@ pub enum UpdateReq {
     Reset,
 }
 
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CabooseReq {
+    Size { slot: u16 },
+    Read { slot: u16, start: u32, size: u32 },
+}
+
 /// A response used for RoT updates
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum UpdateRsp {
     BlockSize(u32),
 }
 
+/// A response used for caboose requests
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CabooseRsp {
+    Size(u32),
+    Read,
+}
+
 /// The body of a sprot response.
 ///
-/// See [`Msg`] for details about versionin and message evolution.
+/// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RspBody {
     // General Ok status shared among response variants
@@ -362,6 +376,29 @@ pub enum RspBody {
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
     Dump(DumpRsp),
+    Caboose(Result<CabooseRsp, CabooseErr>),
+}
+
+/// Minimal error type for caboose actions
+///
+/// This has some overlap with `drv_caboose::CabooseError`, but is versioned
+/// according to the rules described in [`Msg`] and doesn't expose fine-grained
+/// read errors.
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CabooseErr {
+    MissingCaboose,
+    NoSuchTag,
+    ReadFailed,
+}
+
+impl From<CabooseErr> for drv_caboose::CabooseError {
+    fn from(s: CabooseErr) -> Self {
+        match s {
+            CabooseErr::MissingCaboose => Self::MissingCaboose,
+            CabooseErr::NoSuchTag => Self::NoSuchTag,
+            CabooseErr::ReadFailed => Self::ReadFailed,
+        }
+    }
 }
 
 /// A response from the Dumper
