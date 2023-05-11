@@ -110,10 +110,19 @@ impl MgsCommon {
         component: SpComponent,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        let reader = userlib::kipc::get_caboose()
-            .map(CabooseReader::new)
-            .ok_or(SpError::NoCaboose)?;
-        reader.get(key).map_err(|e| match e {
+        let r = match component {
+            SpComponent::SP_ITSELF => {
+                let reader = userlib::kipc::get_caboose()
+                    .map(CabooseReader::new)
+                    .ok_or(SpError::NoCaboose)?;
+                reader.get(key)
+            }
+            SpComponent::ROT => {
+                unimplemented!()
+            }
+            _ => return Err(SpError::RequestUnsupportedForComponent),
+        };
+        r.map_err(|e| match e {
             CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
             CabooseError::MissingCaboose => SpError::NoCaboose,
             CabooseError::TlvcReaderBeginFailed => SpError::CabooseReadError,
