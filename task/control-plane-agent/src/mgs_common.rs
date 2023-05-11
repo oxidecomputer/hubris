@@ -305,11 +305,9 @@ impl MgsCommon {
     ) -> Result<(), SpError> {
         match component {
             SpComponent::ROT => {
-                let slot = match slot {
-                    0 => SlotId::A,
-                    1 => SlotId::B,
-                    _ => return Err(SpError::RequestUnsupportedForComponent),
-                };
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| SpError::RequestUnsupportedForComponent)?;
                 let duration = if persist {
                     SwitchDuration::Forever
                 } else {
