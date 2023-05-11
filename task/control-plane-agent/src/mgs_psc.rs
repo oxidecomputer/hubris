@@ -574,11 +574,12 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn get_caboose_value(
+    fn get_component_caboose_value(
         &mut self,
+        component: SpComponent,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
-        self.common.get_caboose_value(key)
+        self.common.get_component_caboose_value(component, key)
     }
 
     fn reset_component_prepare(
