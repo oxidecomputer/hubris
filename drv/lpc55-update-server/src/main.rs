@@ -13,7 +13,7 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
-    RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
+    RawCabooseError, RotBootInfo, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -68,6 +68,10 @@ const BLOCK_SIZE_BYTES: usize = BYTES_PER_FLASH_PAGE;
 
 const MAX_LEASE: usize = 1024;
 const HEADER_BLOCK: usize = 0;
+
+const CFPA_PING_FLASH_WORD: u32 = 0x9E00;
+const CFPA_PONG_FLASH_WORD: u32 = 0x9E20;
+const CFPA_SCRATCH_FLASH_WORD: u32 = 0x9DE0;
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
@@ -224,6 +228,29 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         RotBootState::load_from_addr(addr).map_err(|e| e.into())
     }
 
+    fn rot_boot_info(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<RotBootInfo, RequestError<UpdateError>> {
+        // Safety: Data is published by pre-kernel main
+        let addr = unsafe { BOOTSTATE.assume_init_ref() };
+        let boot_state = RotBootState::load_from_addr(addr)
+            .map_err(|_| UpdateError::MissingHandoffData)?;
+        let (
+            persistent_boot_preference,
+            pending_persistent_boot_preference,
+            transient_boot_preference,
+        ) = self.boot_preferences()?;
+
+        let info = RotBootInfo {
+            active: boot_state.active.into(),
+            persistent_boot_preference,
+            pending_persistent_boot_preference,
+            transient_boot_preference,
+        };
+        Ok(info)
+    }
+
     fn read_raw_caboose(
         &mut self,
         _msg: &RecvMessage,
@@ -264,54 +291,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::NotImplemented.into());
             }
             SwitchDuration::Forever => {
-                // There are two "official" copies of the CFPA, referred to as
-                // ping and pong. One of them will supercede the other, based on
-                // a monotonic version field at offset 4. We'll take the
-                // contents of whichever one is most recent, alter them, and
-                // then write them into the _third_ copy, called the scratch
-                // page.
-                //
-                // At reset, the boot ROM will inspect the scratch page, check
-                // invariants, and copy it to overwrite the older of the ping
-                // and pong pages if it approves.
-                //
-                // That means you can apply this operation several times before
-                // resetting without burning many monotonic versions, if you
-                // want to do that for some reason.
-                //
-                // The addresses of these pages are as follows (see Figure 13,
-                // "Protected Flash Region," in UM11126 rev 2.4, or the NXP
-                // flash layout spreadsheet):
-                //
-                // Page     Addr        16-byte word number
-                // Scratch  0x9_DE00    0x9DE0
-                // Ping     0x9_E000    0x9E00
-                // Pong     0x9_E200    0x9E20
-
-                let cfpa_word_number = {
-                    // Read the two versions. We do this with smaller buffers so
-                    // we don't need 2x 512B buffers to read the entire CFPAs.
-                    let mut ping_header = [0u32; 4];
-                    let mut pong_header = [0u32; 4];
-
-                    indirect_flash_read_words(
-                        &mut self.flash,
-                        0x9E00,
-                        core::slice::from_mut(&mut ping_header),
-                    )?;
-                    indirect_flash_read_words(
-                        &mut self.flash,
-                        0x9E20,
-                        core::slice::from_mut(&mut pong_header),
-                    )?;
-
-                    // Work out where to read the authoritative contents from.
-                    if ping_header[1] >= pong_header[1] {
-                        0x9E00
-                    } else {
-                        0x9E20
-                    }
-                };
+                let (cfpa_word_number, _) =
+                    self.cfpa_word_number_and_version()?;
 
                 // Read current CFPA contents.
                 let mut cfpa = [[0u32; 4]; 512 / 16];
@@ -382,7 +363,11 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 // Note that the page write machinery uses page numbers. This
                 // should probably change. But, for now, we must divide our word
                 // number by 32.
-                do_raw_page_write(&mut self.flash, 0x9DE0 / 32, &cfpa_bytes)?;
+                do_raw_page_write(
+                    &mut self.flash,
+                    CFPA_SCRATCH_FLASH_WORD / 32,
+                    &cfpa_bytes,
+                )?;
             }
         }
 
@@ -399,6 +384,132 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
         task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
         panic!()
+    }
+}
+
+impl ServerImpl<'_> {
+    // Locate and return the authoritative CFPA flash word number
+    // and the CFPA version for that flash number.
+    //
+    // There are two "official" copies of the CFPA, referred to as
+    // ping and pong. One of them will supercede the other, based on
+    // a monotonic version field at offset 4. We'll take the
+    // contents of whichever one is most recent, alter them, and
+    // then write them into the _third_ copy, called the scratch
+    // page.
+    //
+    // At reset, the boot ROM will inspect the scratch page, check
+    // invariants, and copy it to overwrite the older of the ping
+    // and pong pages if it approves.
+    //
+    // That means you can apply this operation several times before
+    // resetting without burning many monotonic versions, if you
+    // want to do that for some reason.
+    //
+    // The addresses of these pages are as follows (see Figure 13,
+    // "Protected Flash Region," in UM11126 rev 2.4, or the NXP
+    // flash layout spreadsheet):
+    //
+    // Page     Addr        16-byte word number
+    // Scratch  0x9_DE00    0x9DE0
+    // Ping     0x9_E000    0x9E00
+    // Pong     0x9_E200    0x9E20
+    fn cfpa_word_number_and_version(
+        &mut self,
+    ) -> Result<(u32, u32), UpdateError> {
+        // Read the two versions. We do this with smaller buffers so
+        // we don't need 2x 512B buffers to read the entire CFPAs.
+        let mut ping_header = [0u32; 4];
+        let mut pong_header = [0u32; 4];
+
+        indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_PING_FLASH_WORD,
+            core::slice::from_mut(&mut ping_header),
+        )?;
+        indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_PONG_FLASH_WORD,
+            core::slice::from_mut(&mut pong_header),
+        )?;
+
+        // Work out where to read the authoritative contents from.
+        let val = if ping_header[1] >= pong_header[1] {
+            (CFPA_PING_FLASH_WORD, ping_header[1])
+        } else {
+            (CFPA_PONG_FLASH_WORD, pong_header[1])
+        };
+
+        Ok(val)
+    }
+
+    /// Return the persistent and transient boot preferences
+    fn boot_preferences(
+        &mut self,
+    ) -> Result<(SlotId, Option<SlotId>, Option<SlotId>), UpdateError> {
+        let (cfpa_word_number, cfpa_version) =
+            self.cfpa_word_number_and_version()?;
+
+        // Read the authoritative boot selection
+        let boot_selection_word_number = cfpa_word_number + 0x10;
+        let mut boot_selection_word = [0u32; 4];
+        indirect_flash_read_words(
+            &mut self.flash,
+            boot_selection_word_number,
+            core::slice::from_mut(&mut boot_selection_word),
+        )?;
+
+        // Read the scratch boot version
+        let mut scratch_header = [0u32; 4];
+        indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_SCRATCH_FLASH_WORD,
+            core::slice::from_mut(&mut scratch_header),
+        )?;
+
+        // We only have a pending preference if the scratch CFPA page is newer
+        // than the authoritative page
+        let pending_persistent_boot_preference =
+            if scratch_header[1] > cfpa_version {
+                // Read the scratch boot selection
+                let scratch_boot_selection_word_number =
+                    CFPA_SCRATCH_FLASH_WORD + 0x10;
+                let mut scratch_boot_selection_word = [0u32; 4];
+                indirect_flash_read_words(
+                    &mut self.flash,
+                    scratch_boot_selection_word_number,
+                    core::slice::from_mut(&mut scratch_boot_selection_word),
+                )?;
+                Some(boot_preference_from_flash_word(
+                    &scratch_boot_selection_word,
+                ))
+            } else {
+                None
+            };
+
+        // Check the authoritative peristent boot selection bit
+        let persistent_boot_preference =
+            boot_preference_from_flash_word(&boot_selection_word);
+
+        // We only support persistent override at this point
+        // We need to read the magic ram value to fill this in.
+        let transient_boot_preference = None;
+
+        Ok((
+            persistent_boot_preference,
+            pending_persistent_boot_preference,
+            transient_boot_preference,
+        ))
+    }
+}
+
+// Return the preferred slot to boot from for a given CFPA boot selection
+// flash word.
+fn boot_preference_from_flash_word(flash_word: &[u32; 4]) -> SlotId {
+    if flash_word[0] & 1 == 0 {
+        SlotId::A
+    } else {
+        SlotId::B
     }
 }
 
@@ -848,8 +959,8 @@ include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
-        HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootState,
-        SlotId, SwitchDuration, UpdateTarget,
+        HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
+        RotBootState, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

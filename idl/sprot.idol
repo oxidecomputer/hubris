@@ -22,7 +22,7 @@ Interface(
             idempotent: true,
         ),
         "rot_state": (
-            doc: "Return boot info about the RoT",
+            doc: "Return boot time info about the RoT",
             reply: Result(
                 ok: "RotState",
                 err: Complex("SprotError"),
@@ -158,6 +158,15 @@ Interface(
             },
             idempotent: true,
             encoding: Hubpack,
+        ),
+        "rot_boot_info": (
+            doc: "Return boot info about the RoT",
+            reply: Result(
+                ok: "RotBootInfo",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
         ),
     }
 )

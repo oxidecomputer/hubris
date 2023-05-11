@@ -228,6 +228,10 @@ impl Handler {
                     ))
                 }
             },
+            ReqBody::Update(UpdateReq::BootInfo) => {
+                let boot_info = self.update.rot_boot_info()?;
+                Ok((RspBody::Update(boot_info.into()), None))
+            }
         }
     }
 }

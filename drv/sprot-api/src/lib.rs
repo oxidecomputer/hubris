@@ -17,9 +17,10 @@ pub use error::{
 };
 
 use crc::{Crc, CRC_16_XMODEM};
+use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootState, RotSlot, SlotId,
-    SwitchDuration, UpdateTarget,
+    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotSlot,
+    SlotId, SwitchDuration, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
@@ -325,6 +326,7 @@ pub enum ReqBody {
     Update(UpdateReq),
     Sprockets(SprocketsReq),
     Dump(DumpReq),
+    // Added in sprot protocol version 3
     Caboose(CabooseReq),
 }
 
@@ -351,6 +353,8 @@ pub enum UpdateReq {
     Finish,
     Abort,
     Reset,
+    // Added in sprot protocol version 3
+    BootInfo,
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -360,12 +364,16 @@ pub enum CabooseReq {
 }
 
 /// A response used for RoT updates
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+#[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
 pub enum UpdateRsp {
     BlockSize(u32),
+    // Added in sprot protocol version 3
+    BootInfo(RotBootInfo),
 }
 
 /// A response used for caboose requests
+//
+// Added in sprot protocol version 3
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum CabooseRsp {
     Size(u32),
@@ -374,8 +382,8 @@ pub enum CabooseRsp {
 
 /// The body of a sprot response.
 ///
-/// See [`Msg`] for details about versioning and message evolution.
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+/// See [`Msg`] for details about versionin and message evolution.
+#[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
 pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
@@ -393,6 +401,8 @@ pub enum RspBody {
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
     Dump(DumpRsp),
+
+    // Added in sprot protocol version 3
     Caboose(Result<CabooseRsp, RawCabooseError>),
 }
 
@@ -445,8 +455,6 @@ pub struct SpStatus {
 /// RoT boot info
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RotState {
-    // We expect to evolve this in short order to include caboose info, boot
-    // selection for the new stage0, cfpa, etc...
     V1 {
         state: RotBootState,
 

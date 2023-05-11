@@ -47,6 +47,28 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
     }
 }
 
+/// State retrieved from the lpc55-update-server
+///
+/// SW version information is in the caboose and is read from a different
+/// API
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct RotBootInfo {
+    pub active: SlotId,
+
+    // The persistent boot preference written into the current authoritative
+    // CFPA page (ping or pong).
+    pub persistent_boot_preference: SlotId,
+
+    // The persistent boot preference written inot the CFPA scratch page that
+    // will become the persistent boot preference in the authoritative CFPA
+    // page upon reboot, unless CFPA update of the authoritative page fails for
+    // some reason.
+    pub pending_persistent_boot_preference: Option<SlotId>,
+
+    /// This is a magic ram value that is cleared by bootleby
+    pub transient_boot_preference: Option<SlotId>,
+}
+
 /// Target for an update operation
 ///
 /// This `enum` is used as part of the wire format for SP-RoT communication, and
@@ -88,6 +110,15 @@ pub enum UpdateTarget {
 pub enum SlotId {
     A,
     B,
+}
+
+impl From<RotSlot> for SlotId {
+    fn from(value: RotSlot) -> Self {
+        match value {
+            RotSlot::A => SlotId::A,
+            RotSlot::B => SlotId::B,
+        }
+    }
 }
 
 impl TryFrom<u16> for SlotId {

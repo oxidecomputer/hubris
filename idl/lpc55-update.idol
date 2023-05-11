@@ -59,11 +59,21 @@ Interface(
             encoding: Hubpack
         ),
         "status": (
-            doc: "Get info about installed images",
+            doc: "Get info about installed images (deprecated - use rot_boot_info)",
             args: { },
             reply : Result(
                 ok: "RotBootState",
                 err: Complex("HandoffDataLoadError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack
+        ),
+        "rot_boot_info": (
+            doc: "RoT Boot selection and preference info",
+            args: { },
+            reply : Result(
+                ok: "RotBootInfo",
+                err: CLike("drv_update_api::UpdateError")
             ),
             idempotent: true,
             encoding: Hubpack
