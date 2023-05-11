@@ -141,6 +141,8 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         let already_blinking = self.blinking.values().any(|b| *b);
         self.blinking[led] = true;
         if !already_blinking {
+            led_on(led);
+            self.blink_state = false;
             sys_set_timer(
                 Some(sys_get_timer().now + BLINK_INTERVAL),
                 notifications::TIMER_MASK,
