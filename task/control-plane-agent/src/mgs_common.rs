@@ -133,9 +133,14 @@ impl MgsCommon {
                 }),
                 _ => return Err(SpError::InvalidSlotForComponent),
             },
-            SpComponent::ROT => RotCabooseReader::new(slot, &self.sprot)
-                .and_then(|r| r.get(key))
-                .map(|pos| CabooseValue::Rot { slot, pos }),
+            SpComponent::ROT => {
+                let slot_id = slot
+                    .try_into()
+                    .map_err(|()| SpError::InvalidSlotForComponent)?;
+                RotCabooseReader::new(slot_id, &self.sprot)
+                    .and_then(|r| r.get(key))
+                    .map(|pos| CabooseValue::Rot { slot, pos })
+            }
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
         r.map_err(|e| match e {
@@ -168,6 +173,9 @@ impl MgsCommon {
                     .map_err(|_| SpError::CabooseReadError)?;
             }
             CabooseValue::Rot { slot, pos } => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| SpError::InvalidSlotForComponent)?;
                 self.sprot
                     .read_caboose_region(pos.start, slot, out)
                     .map_err(|_| SpError::CabooseReadError)?;
@@ -363,11 +371,11 @@ impl From<RotImageDetailsConvert> for RotImageDetails {
 struct RotCabooseReader<'a> {
     sprot: &'a SpRot,
     size: u32,
-    slot: u16,
+    slot: SlotId,
 }
 
 impl<'a> RotCabooseReader<'a> {
-    fn new(slot: u16, sprot: &'a SpRot) -> Result<Self, CabooseError> {
+    fn new(slot: SlotId, sprot: &'a SpRot) -> Result<Self, CabooseError> {
         sprot
             .caboose_size(slot)
             .map(|size| Self { size, slot, sprot })

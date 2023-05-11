@@ -338,8 +338,8 @@ pub enum UpdateReq {
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum CabooseReq {
-    Size { slot: u16 },
-    Read { slot: u16, start: u32, size: u32 },
+    Size { slot: SlotId },
+    Read { slot: SlotId, start: u32, size: u32 },
 }
 
 /// A response used for RoT updates
