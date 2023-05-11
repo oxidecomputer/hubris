@@ -21,6 +21,7 @@ use task_packrat_api::Packrat;
 use userlib::{kipc, task_slot};
 
 task_slot!(PACKRAT, packrat);
+task_slot!(pub SPROT, sprot);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
@@ -28,6 +29,7 @@ pub(crate) struct MgsCommon {
     inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
+    sprot: SpRot,
 }
 
 impl MgsCommon {
@@ -37,6 +39,7 @@ impl MgsCommon {
             inventory: Inventory::new(),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
+            sprot: SpRot::from(SPROT.get_task_id()),
         }
     }
 
@@ -118,6 +121,7 @@ impl MgsCommon {
                 reader.get(key)
             }
             SpComponent::ROT => {
+                &self.sprot;
                 unimplemented!()
             }
             _ => return Err(SpError::RequestUnsupportedForComponent),
