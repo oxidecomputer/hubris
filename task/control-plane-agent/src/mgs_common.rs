@@ -105,8 +105,9 @@ impl MgsCommon {
         &self.inventory
     }
 
-    pub(crate) fn get_caboose_value(
+    pub(crate) fn get_component_caboose_value(
         &self,
+        component: SpComponent,
         key: [u8; 4],
     ) -> Result<&'static [u8], SpError> {
         let reader = userlib::kipc::get_caboose()
