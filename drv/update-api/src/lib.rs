@@ -57,6 +57,8 @@ pub enum UpdateError {
     TaskRestarted,
 
     NotImplemented,
+
+    MissingHandoffData,
 }
 
 impl From<UpdateError> for GwUpdateError {
@@ -87,6 +89,10 @@ impl From<UpdateError> for GwUpdateError {
             UpdateError::ImageBoardUnknown => Self::ImageBoardUnknown,
             UpdateError::TaskRestarted => Self::TaskRestarted,
             UpdateError::NotImplemented => Self::NotImplemented,
+
+            // TODO: Update gateway error to handle this then change the error to
+            // a proper enum
+            UpdateError::MissingHandoffData => Self::Unknown(value as u32),
         }
     }
 }

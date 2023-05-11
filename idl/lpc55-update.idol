@@ -59,11 +59,22 @@ Interface(
             encoding: Hubpack
         ),
         "status": (
-            doc: "Get info about installed images",
+            doc: "Get info about installed images (deprecated - use boot_info)",
             args: { },
             reply : Result(
                 ok: "RotBootState",
                 err: Complex("HandoffDataLoadError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack
+        ),
+        // Move this when rebased on Matt's stuff that separates SP and RoT idol impls
+        "rot_boot_info": (
+            doc: "RoT Boot selection and preference info",
+            args: { },
+            reply : Result(
+                ok: "drv_update_api::RotBootInfo",
+                err: CLike("drv_update_api::UpdateError")
             ),
             idempotent: true,
             encoding: Hubpack
