@@ -1,4 +1,4 @@
-// Image update API
+// Image update API for the LPC55
 
 Interface(
     name: "Update",
