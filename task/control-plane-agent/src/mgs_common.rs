@@ -388,6 +388,7 @@ impl<'a> RotCabooseReader<'a> {
         let mut reader = tlvc::TlvcReader::begin(*self)
             .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
         while let Ok(Some(chunk)) = reader.next() {
+            ringbuf_entry!(Log::GotCabooseChunk(chunk.header().tag));
             if chunk.header().tag == key {
                 let mut tmp = [0u8; 32];
                 if chunk.check_body_checksum(&mut tmp).is_err() {
@@ -430,6 +431,7 @@ impl tlvc::TlvcRead for RotCabooseReader<'_> {
         if let Err(e) = self.sprot.read_caboose_region(offset, self.slot, dest)
         {
             ringbuf_entry!(Log::ReadCabooseErr(e));
+            // TODO: make `tlvc::TlvcReadError` parameterized
             Err(tlvc::TlvcReadError::Truncated)
         } else {
             Ok(())
