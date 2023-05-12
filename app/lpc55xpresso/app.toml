@@ -48,7 +48,7 @@ start = true
 name = "lpc55-update-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
-stacksize = 2048
+stacksize = 3000
 start = true
 uses = ["flash_controller", "hash_crypt"]
 notifications = ["flash-irq", "hashcrypt-irq"]
