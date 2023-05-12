@@ -812,7 +812,7 @@ fn copy_from_caboose_chunk(
     while remaining > 0 {
         let count = remaining.min(buf.len() as u32);
         let buf = &mut buf[..count as usize];
-        indirect_flash_read(flash, caboose.start + offset, buf)
+        indirect_flash_read(flash, caboose.start + pos.start + offset, buf)
             .map_err(|_| RequestError::from(CabooseError::ReadFailed))?;
         data.write_range(offset as usize..(offset + count) as usize, buf)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
