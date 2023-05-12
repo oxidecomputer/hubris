@@ -1,0 +1,110 @@
+// Image update API for the STM32H7
+
+Interface(
+    name: "Update",
+    ops: {
+        "block_size": (
+            doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
+            args: { },
+            reply: Result(
+                ok: "usize",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+        ),
+        "prep_image_update": (
+            doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
+            args : {
+                "image_type": (
+                    type: "UpdateTarget",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply : Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+        ),
+        "write_one_block": (
+            doc: "Write a single block of an update image to the designated location.",
+            args: {
+                "block_num" : "usize",
+            },
+            leases : {
+                "block": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Result (
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+        ),
+        "abort_update": (
+            doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
+            args : { },
+            reply : Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+        ),
+        "finish_image_update": (
+            doc: "Do any necessary work post image write",
+            args : { },
+            reply : Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+        ),
+        "current_version": (
+            doc: "Get the current image version",
+            args : { },
+            reply : Simple("ImageVersion"),
+            idempotent: true,
+            encoding: Hubpack
+        ),
+        "status": (
+            doc: "Get info about installed images",
+            args: { },
+            reply : Simple("drv_update_api::UpdateStatus"),
+            idempotent: true,
+            encoding: Hubpack
+        ),
+        "find_caboose_value": (
+            doc: "finds the specified tag from the bank2 caboose",
+            args: {
+                "name": "[u8; 4]",
+            },
+            reply: Result(
+                ok: "drv_caboose::CabooseValuePos",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+        "read_caboose_value": (
+            doc: "Reads the specified tag from the bank2 caboose",
+            args: {
+                "name": "[u8; 4]",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+        "read_raw_caboose": (
+            doc: "Reads a raw portion of the bank2 caboose",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)

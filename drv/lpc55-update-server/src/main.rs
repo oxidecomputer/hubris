@@ -11,7 +11,7 @@
 
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
-use drv_caboose::CabooseError;
+use drv_caboose::{CabooseError, CabooseValuePos};
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_update_api::{
     SlotId, SwitchDuration, UpdateError, UpdateStatus, UpdateTarget,
@@ -19,7 +19,7 @@ use drv_update_api::{
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
@@ -226,13 +226,48 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         Ok(status)
     }
 
-    fn read_image_caboose(
+    fn read_caboose_value(
         &mut self,
         _: &RecvMessage,
-        _name: [u8; 4],
-        _data: Leased<idol_runtime::W, [u8]>,
+        slot: SlotId,
+        name: [u8; 4],
+        data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<u32, RequestError<CabooseError>> {
-        Err(CabooseError::MissingCaboose.into()) // TODO
+        let (caboose, v) = find_caboose_value(&self.flash, slot, name)?;
+        copy_from_caboose_chunk(&self.flash, caboose, v, data)?;
+        Ok(v.end - v.start)
+    }
+
+    fn find_caboose_value(
+        &mut self,
+        _: &RecvMessage,
+        slot: SlotId,
+        name: [u8; 4],
+    ) -> Result<CabooseValuePos, RequestError<CabooseError>> {
+        let (_caboose, v) = find_caboose_value(&self.flash, slot, name)?;
+        Ok(v)
+    }
+
+    fn read_raw_caboose(
+        &mut self,
+        _msg: &RecvMessage,
+        slot: SlotId,
+        offset: u32,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), RequestError<CabooseError>> {
+        let caboose = caboose_slice(&self.flash, slot)?;
+        if offset as usize + data.len() >= caboose.len() {
+            return Err(CabooseError::InvalidRead.into());
+        }
+        copy_from_caboose_chunk(
+            &self.flash,
+            caboose,
+            CabooseValuePos {
+                start: offset,
+                end: offset + data.len() as u32,
+            },
+            data,
+        )
     }
 
     fn switch_default_image(
@@ -277,12 +312,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                     let mut ping_header = [0u32; 4];
                     let mut pong_header = [0u32; 4];
 
-                    indirect_flash_read(
+                    indirect_flash_read_words(
                         &mut self.flash,
                         0x9E00,
                         core::slice::from_mut(&mut ping_header),
                     )?;
-                    indirect_flash_read(
+                    indirect_flash_read_words(
                         &mut self.flash,
                         0x9E20,
                         core::slice::from_mut(&mut pong_header),
@@ -298,7 +333,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
                 // Read current CFPA contents.
                 let mut cfpa = [[0u32; 4]; 512 / 16];
-                indirect_flash_read(
+                indirect_flash_read_words(
                     &mut self.flash,
                     cfpa_word_number,
                     &mut cfpa,
@@ -403,8 +438,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 /// order when the flash is viewed as bytes. The easiest way to view the
 /// corresponding block of 16 bytes is using `zerocopy::AsBytes` to reinterpret
 /// the array in place.
-fn indirect_flash_read(
-    flash: &mut drv_lpc55_flash::Flash<'_>,
+fn indirect_flash_read_words(
+    flash: &drv_lpc55_flash::Flash<'_>,
     flash_word_number: u32,
     output: &mut [[u32; 4]],
 ) -> Result<(), UpdateError> {
@@ -447,6 +482,49 @@ fn indirect_flash_read(
         }
     }
 
+    Ok(())
+}
+
+/// Reads an arbitrary contiguous set of bytes from flash, indirectly,
+/// using the flash controller interface. This allows access to sections of
+/// flash that are not direct-mapped into our task's memory, saving MPU regions.
+///
+/// Under the hood, this calls into `indirect_flash_read_words` and reads
+/// 128-byte chunks at a time.
+fn indirect_flash_read(
+    flash: &drv_lpc55_flash::Flash<'_>,
+    mut addr: u32,
+    mut output: &mut [u8],
+) -> Result<(), UpdateError> {
+    while output.len() > 0 {
+        // Convert from memory (byte) address to word address, per comments in
+        // `lpc55_flash` driver.
+        let word = (addr / 16) & ((1 << 18) - 1);
+
+        // Read 128 bytes into a local buffer
+        let mut buf = [0u32; 4];
+        indirect_flash_read_words(
+            flash,
+            word,
+            core::slice::from_mut(&mut buf),
+        )?;
+
+        // If we rounded down to snap to a word boundary, then only a subset of
+        // the data is valid, so adjust here.
+        let chunk = &buf.as_bytes()[(addr - (word * 16)) as usize..];
+
+        // Since we always read 128 bytes at a time, we may have over-read
+        let count = chunk.len().min(output.len());
+
+        // Copy data into our output buffer
+        output[..count].copy_from_slice(&chunk[..count]);
+
+        // Adjust everything and continue
+        output = &mut output[count..];
+        addr = addr
+            .checked_add(count as u32)
+            .ok_or(UpdateError::OutOfBounds)?;
+    }
     Ok(())
 }
 
@@ -647,6 +725,190 @@ fn target_addr(image_target: UpdateTarget, page_num: u32) -> Option<u32> {
     }
 
     Some(addr)
+}
+
+/// Finds the memory range which contains the caboose for the given slot
+///
+/// This implementation has similar logic to the one in `stm32h7-update-server`,
+/// but uses indirect reads instead of mapping the alternate bank into flash.
+fn caboose_slice(
+    flash: &drv_lpc55_flash::Flash<'_>,
+    slot: SlotId,
+) -> Result<core::ops::Range<u32>, CabooseError> {
+    // SAFETY: these symbols are populated by the linker
+    let (image_start, image_end) = unsafe {
+        match slot {
+            SlotId::A => (
+                __IMAGE_A_BASE.as_ptr() as u32,
+                __IMAGE_A_END.as_ptr() as u32,
+            ),
+            SlotId::B => (
+                __IMAGE_B_BASE.as_ptr() as u32,
+                __IMAGE_B_END.as_ptr() as u32,
+            ),
+        }
+    };
+
+    // If all is going according to plan, there will be a valid Hubris image
+    // flashed into the other slot, delimited by `__IMAGE_A/B_BASE` and
+    // `__IMAGE_A/B_END` (which are symbols injected by the linker).
+    //
+    // We'll first want to read the image header, which is at a fixed
+    // location at the end of the vector table.  The length of the vector
+    // table is fixed in hardware, so this should never change.
+    const HEADER_OFFSET: u32 = 0x130;
+    let mut header = ImageHeader::new_zeroed();
+
+    indirect_flash_read(
+        flash,
+        image_start + HEADER_OFFSET,
+        header.as_bytes_mut(),
+    )
+    .map_err(|_| CabooseError::ReadFailed)?;
+    if header.magic != HEADER_MAGIC {
+        return Err(CabooseError::NoImageHeader.into());
+    }
+
+    // Calculate where the image header implies that the image should end
+    //
+    // This is a one-past-the-end value.
+    let header_image_end = image_start + header.total_image_len;
+
+    // Then, check that value against the BANK2 bounds.
+    //
+    // SAFETY: populated by the linker, so this should be valid
+    if header_image_end > image_end {
+        return Err(CabooseError::MissingCaboose.into());
+    }
+
+    // By construction, the last word of the caboose is its size as a `u32`
+    let mut caboose_size = 0u32;
+    indirect_flash_read(flash, image_end - 4, caboose_size.as_bytes_mut())
+        .map_err(|_| CabooseError::ReadFailed)?;
+
+    let caboose_start = image_end.saturating_sub(caboose_size);
+    let caboose_range = if caboose_start < image_start {
+        // This branch will be encountered if there's no caboose, because
+        // then the nominal caboose size will be 0xFFFFFFFF, which will send
+        // us out of the bank2 region.
+        return Err(CabooseError::MissingCaboose.into());
+    } else {
+        // SAFETY: we know this pointer is within the programmed flash region,
+        // since it's checked above.
+        let mut v = 0u32;
+        indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
+            .map_err(|_| CabooseError::ReadFailed)?;
+        if v == CABOOSE_MAGIC {
+            caboose_start + 4..image_end - 4
+        } else {
+            return Err(CabooseError::MissingCaboose.into());
+        }
+    };
+    Ok(caboose_range)
+}
+
+fn find_caboose_value(
+    flash: &drv_lpc55_flash::Flash<'_>,
+    slot: SlotId,
+    name: [u8; 4],
+) -> Result<(core::ops::Range<u32>, CabooseValuePos), CabooseError> {
+    let caboose = caboose_slice(flash, slot)?;
+    let reader = CabooseReader::new(flash, caboose.clone());
+
+    // Get the specific chunk of caboose memory that contains the requested key.
+    let chunk = reader.get(name)?;
+
+    Ok((caboose, chunk))
+}
+
+fn copy_from_caboose_chunk(
+    flash: &drv_lpc55_flash::Flash<'_>,
+    caboose: core::ops::Range<u32>,
+    pos: CabooseValuePos,
+    data: Leased<idol_runtime::W, [u8]>,
+) -> Result<(), RequestError<CabooseError>> {
+    // Early exit if the caller didn't provide enough space in the lease
+    let mut remaining = pos.end - pos.start;
+    if remaining as usize > data.len() {
+        return Err(RequestError::Fail(ClientError::BadLease))?;
+    }
+
+    const BUF_SIZE: usize = 128;
+    let mut offset = 0;
+    let mut buf = [0u8; BUF_SIZE];
+    while remaining > 0 {
+        let count = remaining.min(buf.len() as u32);
+        let buf = &mut buf[..count as usize];
+        indirect_flash_read(flash, caboose.start + offset, buf)
+            .map_err(|_| RequestError::from(CabooseError::ReadFailed))?;
+        data.write_range(offset as usize..(offset + count) as usize, buf)
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        offset += count;
+        remaining -= count;
+    }
+    Ok(())
+}
+
+#[derive(Clone)]
+pub struct CabooseReader<'a> {
+    flash: &'a drv_lpc55_flash::Flash<'a>,
+    range: core::ops::Range<u32>,
+}
+
+impl<'a> CabooseReader<'a> {
+    pub fn new(
+        flash: &'a drv_lpc55_flash::Flash,
+        range: core::ops::Range<u32>,
+    ) -> Self {
+        Self { flash, range }
+    }
+
+    /// Looks up the given key
+    pub fn get(&self, key: [u8; 4]) -> Result<CabooseValuePos, CabooseError> {
+        let mut reader = tlvc::TlvcReader::begin(self.clone())
+            .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
+        while let Ok(Some(chunk)) = reader.next() {
+            if chunk.header().tag == key {
+                let mut tmp = [0u8; 32];
+                if chunk.check_body_checksum(&mut tmp).is_err() {
+                    return Err(CabooseError::BadChecksum);
+                }
+                // At this point, the reader is positioned **after** the data
+                // from the target chunk.  We'll back up to the start of the
+                // data slice.
+                let (_reader, pos, _end) = reader.into_inner();
+
+                let pos = pos as u32;
+                let data_len = chunk.header().len.get();
+
+                let data_start = pos
+                    - chunk.header().total_len_in_bytes() as u32
+                    + core::mem::size_of::<tlvc::ChunkHeader>() as u32;
+
+                return Ok(CabooseValuePos {
+                    start: data_start,
+                    end: (data_start + data_len),
+                });
+            }
+        }
+
+        Err(CabooseError::NoSuchTag)
+    }
+}
+
+impl tlvc::TlvcRead for CabooseReader<'_> {
+    fn extent(&self) -> Result<u64, tlvc::TlvcReadError> {
+        Ok((self.range.end - self.range.start) as u64)
+    }
+
+    fn read_exact(
+        &self,
+        offset: u64,
+        dest: &mut [u8],
+    ) -> Result<(), tlvc::TlvcReadError> {
+        indirect_flash_read(&self.flash, self.range.start + offset as u32, dest)
+            .map_err(|_| tlvc::TlvcReadError::Truncated)
+    }
 }
 
 task_slot!(SYSCON, syscon);

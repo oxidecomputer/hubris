@@ -59,8 +59,9 @@ use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
-use drv_update_api::{Update, UpdateError, UpdateTarget};
+use drv_stm32h7_update_api::{
+    Update, UpdateError, UpdateTarget, BLOCK_SIZE_BYTES,
+};
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
@@ -530,7 +531,7 @@ impl AcceptingData {
                 .and_then(|reader| reader.get(BOARD_KEY).ok());
 
             let mut other = [0u8; 32];
-            if let Ok(n) = sp_task.read_image_caboose(BOARD_KEY, &mut other) {
+            if let Ok(n) = sp_task.read_caboose_value(BOARD_KEY, &mut other) {
                 if ours.map(|b| b == &other[..n as usize]).unwrap_or(true) {
                     match sp_task.finish_image_update() {
                         Ok(()) => (State::Complete, Ok(())),
@@ -557,7 +558,7 @@ impl AcceptingData {
     }
 }
 
-struct ImageVersionConvert(drv_update_api::ImageVersion);
+struct ImageVersionConvert(drv_stm32h7_update_api::ImageVersion);
 
 impl From<ImageVersionConvert> for ImageVersion {
     fn from(v: ImageVersionConvert) -> Self {

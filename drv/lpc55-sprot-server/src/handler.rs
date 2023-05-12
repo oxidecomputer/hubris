@@ -4,13 +4,13 @@
 
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
+use drv_lpc55_update_api::{Update, UpdateStatus};
 use drv_sprot_api::{
     CabooseErr, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody, Request,
     Response, RotIoStats, RotState, RotStatus, RspBody, SprocketsError,
     SprotError, SprotProtocolError, UpdateReq, UpdateRsp, CURRENT_VERSION,
     MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
-use drv_update_api::{Update, UpdateStatus};
 use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;

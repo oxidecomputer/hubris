@@ -201,7 +201,7 @@ impl<'a> Flash<'a> {
     ///
     /// This routine only starts the operation; use `poll_read_result` to learn
     /// when it has completed and whether it succeeded.
-    pub fn start_read(&mut self, word_index: u32) {
+    pub fn start_read(&self, word_index: u32) {
         self.clear_status_flags();
         self.set_single_word_number(word_index);
         // Read commands use DATAW0 to select unusual read modes, like bypassing
@@ -225,7 +225,7 @@ impl<'a> Flash<'a> {
     /// address order. To turn this into the bytes you'd read at the direct bus
     /// interface, convert each `u32` to little-endian bytes (or reinterpret it
     /// in place using `zerocopy::AsBytes`).
-    pub fn poll_read_result(&mut self) -> Option<Result<[u32; 4], ReadError>> {
+    pub fn poll_read_result(&self) -> Option<Result<[u32; 4], ReadError>> {
         let s = self.read_completion_status()?;
         // The manual's definition of the status bits for READ_SINGLE_WORD is a
         // bit vague -- they clearly don't expect us to be using this. This
@@ -261,7 +261,7 @@ impl<'a> Flash<'a> {
     /// corresponding bit in the status register is set. This does _not_ enable
     /// the interrupt in the NVIC, so to actually receive an IRQ, you will need
     /// to also do that.
-    pub fn enable_interrupt_sources(&mut self) {
+    pub fn enable_interrupt_sources(&self) {
         self.reg.int_set_enable.write(|w| {
             w.fail().set_bit();
             w.err().set_bit();
@@ -275,7 +275,7 @@ impl<'a> Flash<'a> {
     /// and DONE). This does _not_ clear any event that's pended in the NVIC
     /// already, so you may still get an interrupt after doing this if you don't
     /// clear pending.
-    pub fn disable_interrupt_sources(&mut self) {
+    pub fn disable_interrupt_sources(&self) {
         self.reg.int_clr_enable.write(|w| {
             w.fail().set_bit();
             w.err().set_bit();
@@ -289,11 +289,11 @@ impl<'a> Flash<'a> {
     // do something weird, like attack the flash controller. The routines are
     // deliberately documented less than the "official" API above.
 
-    pub fn issue_cmd(&mut self, cmd: FlashCmd) {
+    pub fn issue_cmd(&self, cmd: FlashCmd) {
         self.reg.cmd.write(|w| unsafe { w.cmd().bits(cmd as u32) });
     }
 
-    pub fn set_single_word_number(&mut self, word_number: u32) {
+    pub fn set_single_word_number(&self, word_number: u32) {
         // Technically, the write to STOPA this will incur is unnecessary.
         // However, this avoids potentially undefined behavior if
         // set_single_word_number is used before a command that actually takes a
@@ -301,7 +301,7 @@ impl<'a> Flash<'a> {
         self.set_word_range(word_number..=word_number);
     }
 
-    pub fn set_word_range(&mut self, range: RangeInclusive<u32>) {
+    pub fn set_word_range(&self, range: RangeInclusive<u32>) {
         self.reg
             .starta
             .write(|w| unsafe { w.starta().bits(*range.start()) });
@@ -314,7 +314,7 @@ impl<'a> Flash<'a> {
             .write(|w| unsafe { w.stopa().bits(*range.end()) });
     }
 
-    pub fn read_completion_status(&mut self) -> Option<Status> {
+    pub fn read_completion_status(&self) -> Option<Status> {
         let s = self.reg.int_status.read();
         if s.done().bit() {
             Some(Status {
@@ -327,7 +327,7 @@ impl<'a> Flash<'a> {
         }
     }
 
-    pub fn clear_status_flags(&mut self) {
+    pub fn clear_status_flags(&self) {
         self.reg.int_clr_status.write(|w| {
             w.done().set_bit();
             w.ecc_err().set_bit();

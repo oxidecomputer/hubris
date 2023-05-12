@@ -18,15 +18,8 @@ ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
 userlib.path = "../../sys/userlib"
 
-[features]
-default = ["standalone"]
-standalone = []
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [lib]
 test = false
 bench = false
-
-[build-dependencies]
-idol.workspace = true

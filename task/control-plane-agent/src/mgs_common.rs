@@ -8,7 +8,7 @@ use drv_sprot_api::{
     RotState as SprotRotState, SlotId, SpRot, SprotError, SprotProtocolError,
     SwitchDuration,
 };
-use drv_update_api::Update;
+use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CabooseValue, DiscoverResponse, ImageVersion, PowerState, RotBootState,
     RotError, RotImageDetails, RotSlot, RotState, RotUpdateDetails,
@@ -126,7 +126,7 @@ impl MgsCommon {
                         .ok_or(SpError::NoCaboose)?;
                     reader.get(key).map(CabooseValue::Local)
                 }
-                1 => self.sp_update.get_caboose_value(key).map(|pos| {
+                1 => self.sp_update.find_caboose_value(key).map(|pos| {
                     CabooseValue::Bank2 {
                         pos: pos.start..pos.end,
                     }
@@ -351,7 +351,9 @@ fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
     })
 }
 
-pub(crate) struct RotImageDetailsConvert(pub drv_update_api::RotImageDetails);
+pub(crate) struct RotImageDetailsConvert(
+    pub drv_lpc55_update_api::RotImageDetails,
+);
 
 impl From<RotImageDetailsConvert> for RotImageDetails {
     fn from(value: RotImageDetailsConvert) -> Self {
