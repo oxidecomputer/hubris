@@ -21,10 +21,6 @@ pub enum CabooseError {
     NoSuchTag,
     BadChecksum,
     NoImageHeader,
-    InvalidRead,
-
-    /// Generic failure for a remote caboose read
-    ReadFailed,
 }
 
 /// Simple handle which points to the beginning of the TLV-C region of the

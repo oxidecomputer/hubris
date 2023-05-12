@@ -15,9 +15,9 @@ pub use error::{
 };
 
 use crc::{Crc, CRC_16_XMODEM};
-pub use drv_update_api::{
-    HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
-    UpdateError, UpdateTarget,
+pub use drv_lpc55_update_api::{
+    HandoffDataLoadError, RawCabooseError, RotBootState, RotSlot, SlotId,
+    SwitchDuration, UpdateError, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
@@ -391,45 +391,7 @@ pub enum RspBody {
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
     Dump(DumpRsp),
-    Caboose(Result<CabooseRsp, CabooseErr>),
-}
-
-/// Minimal error type for caboose actions
-///
-/// This has some overlap with `drv_caboose::CabooseError`, but is versioned
-/// according to the rules described in [`Msg`] and doesn't expose fine-grained
-/// read errors.
-#[derive(Clone, Serialize, Deserialize, SerializedSize)]
-pub enum CabooseErr {
-    MissingCaboose,
-    NoSuchTag,
-    ReadFailed,
-}
-
-impl From<CabooseErr> for drv_caboose::CabooseError {
-    fn from(s: CabooseErr) -> Self {
-        match s {
-            CabooseErr::MissingCaboose => Self::MissingCaboose,
-            CabooseErr::NoSuchTag => Self::NoSuchTag,
-            CabooseErr::ReadFailed => Self::ReadFailed,
-        }
-    }
-}
-
-impl From<drv_caboose::CabooseError> for CabooseErr {
-    fn from(s: drv_caboose::CabooseError) -> Self {
-        match s {
-            drv_caboose::CabooseError::MissingCaboose => Self::MissingCaboose,
-            drv_caboose::CabooseError::NoSuchTag => Self::NoSuchTag,
-
-            drv_caboose::CabooseError::TlvcReaderBeginFailed
-            | drv_caboose::CabooseError::TlvcReadExactFailed
-            | drv_caboose::CabooseError::BadChecksum
-            | drv_caboose::CabooseError::NoImageHeader
-            | drv_caboose::CabooseError::InvalidRead
-            | drv_caboose::CabooseError::ReadFailed => Self::ReadFailed,
-        }
-    }
+    Caboose(Result<CabooseRsp, RawCabooseError>),
 }
 
 /// A response from the Dumper

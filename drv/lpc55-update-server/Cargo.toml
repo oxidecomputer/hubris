@@ -7,6 +7,7 @@ edition = "2021"
 abi.path = "../../sys/abi"
 drv-caboose.path = "../../drv/caboose"
 drv-update-api.path = "../update-api/"
+drv-lpc55-update-api.path = "../lpc55-update-api/"
 ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}

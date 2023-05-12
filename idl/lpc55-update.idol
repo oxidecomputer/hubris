@@ -78,7 +78,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("CabooseError"),
+                err: CLike("RawCabooseError"),
             ),
             idempotent: true,
             encoding: Hubpack,
@@ -90,7 +90,7 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("CabooseError"),
+                err: CLike("RawCabooseError"),
             ),
             idempotent: true,
             encoding: Hubpack,

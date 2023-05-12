@@ -11,8 +11,9 @@
 
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
-use drv_caboose::{CabooseError, CabooseValuePos};
+use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
+use drv_lpc55_update_api::RawCabooseError;
 use drv_update_api::{
     SlotId, SwitchDuration, UpdateError, UpdateStatus, UpdateTarget,
 };
@@ -232,10 +233,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         slot: SlotId,
         offset: u32,
         data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<(), RequestError<CabooseError>> {
+    ) -> Result<(), RequestError<RawCabooseError>> {
         let caboose = caboose_slice(&self.flash, slot)?;
         if offset as usize + data.len() >= caboose.len() {
-            return Err(CabooseError::InvalidRead.into());
+            return Err(RawCabooseError::InvalidRead.into());
         }
         copy_from_caboose_chunk(
             &self.flash,
@@ -252,7 +253,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         slot: SlotId,
-    ) -> Result<u32, RequestError<CabooseError>> {
+    ) -> Result<u32, RequestError<RawCabooseError>> {
         let caboose = caboose_slice(&self.flash, slot)?;
         Ok(caboose.end - caboose.start)
     }
@@ -721,7 +722,7 @@ fn target_addr(image_target: UpdateTarget, page_num: u32) -> Option<u32> {
 fn caboose_slice(
     flash: &drv_lpc55_flash::Flash<'_>,
     slot: SlotId,
-) -> Result<core::ops::Range<u32>, CabooseError> {
+) -> Result<core::ops::Range<u32>, RawCabooseError> {
     // SAFETY: these symbols are populated by the linker
     let (image_start, image_region_end) = unsafe {
         match slot {
@@ -751,9 +752,9 @@ fn caboose_slice(
         image_start + HEADER_OFFSET,
         header.as_bytes_mut(),
     )
-    .map_err(|_| CabooseError::ReadFailed)?;
+    .map_err(|_| RawCabooseError::ReadFailed)?;
     if header.magic != HEADER_MAGIC {
-        return Err(CabooseError::NoImageHeader.into());
+        return Err(RawCabooseError::NoImageHeader.into());
     }
 
     // Calculate where the image header implies that the image should end
@@ -765,30 +766,30 @@ fn caboose_slice(
     //
     // SAFETY: populated by the linker, so this should be valid
     if image_end > image_region_end {
-        return Err(CabooseError::MissingCaboose.into());
+        return Err(RawCabooseError::MissingCaboose.into());
     }
 
     // By construction, the last word of the caboose is its size as a `u32`
     let mut caboose_size = 0u32;
     indirect_flash_read(flash, image_end - 4, caboose_size.as_bytes_mut())
-        .map_err(|_| CabooseError::ReadFailed)?;
+        .map_err(|_| RawCabooseError::ReadFailed)?;
 
     let caboose_start = image_end.saturating_sub(caboose_size);
     let caboose_range = if caboose_start < image_start {
         // This branch will be encountered if there's no caboose, because
         // then the nominal caboose size will be 0xFFFFFFFF, which will send
         // us out of the bank2 region.
-        return Err(CabooseError::MissingCaboose.into());
+        return Err(RawCabooseError::MissingCaboose.into());
     } else {
         // SAFETY: we know this pointer is within the programmed flash region,
         // since it's checked above.
         let mut v = 0u32;
         indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
-            .map_err(|_| CabooseError::ReadFailed)?;
+            .map_err(|_| RawCabooseError::ReadFailed)?;
         if v == CABOOSE_MAGIC {
             caboose_start + 4..image_end - 4
         } else {
-            return Err(CabooseError::MissingCaboose.into());
+            return Err(RawCabooseError::MissingCaboose.into());
         }
     };
     Ok(caboose_range)
@@ -799,7 +800,7 @@ fn copy_from_caboose_chunk(
     caboose: core::ops::Range<u32>,
     pos: CabooseValuePos,
     data: Leased<idol_runtime::W, [u8]>,
-) -> Result<(), RequestError<CabooseError>> {
+) -> Result<(), RequestError<RawCabooseError>> {
     // Early exit if the caller didn't provide enough space in the lease
     let mut remaining = pos.end - pos.start;
     if remaining as usize > data.len() {
@@ -813,7 +814,7 @@ fn copy_from_caboose_chunk(
         let count = remaining.min(buf.len() as u32);
         let buf = &mut buf[..count as usize];
         indirect_flash_read(flash, caboose.start + pos.start + offset, buf)
-            .map_err(|_| RequestError::from(CabooseError::ReadFailed))?;
+            .map_err(|_| RequestError::from(RawCabooseError::ReadFailed))?;
         data.write_range(offset as usize..(offset + count) as usize, buf)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         offset += count;
@@ -852,7 +853,7 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
-    use super::{CabooseError, ImageVersion, UpdateTarget};
+    use super::{ImageVersion, RawCabooseError, UpdateTarget};
     use drv_update_api::{SlotId, SwitchDuration};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
