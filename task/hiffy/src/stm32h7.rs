@@ -649,10 +649,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::finish_update,
     #[cfg(feature = "update")]
     crate::common::block_size,
-    #[cfg(feature = "update")]
-    crate::common::switch_default_image,
-    #[cfg(feature = "update")]
-    crate::common::reset,
 ];
 
 //

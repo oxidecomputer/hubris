@@ -21,7 +21,7 @@ use drv_lpc55_update_api::Update;
 /// This could become a From impl on Failure if moved into hif, which would let
 /// it be replaced syntactically by a question mark.
 #[allow(dead_code)]
-fn func_err<T, E>(e: Result<T, E>) -> Result<T, hif::Failure>
+pub fn func_err<T, E>(e: Result<T, E>) -> Result<T, hif::Failure>
 where
     E: Into<u32>,
 {
@@ -883,7 +883,7 @@ pub(crate) fn rng_fill(
 }
 
 #[cfg(feature = "update")]
-task_slot!(UPDATE, update_server);
+task_slot!(pub UPDATE, update_server);
 
 #[cfg(any(feature = "update"))]
 fn update_args(stack: &[Option<u32>]) -> Result<(usize, usize), Failure> {
@@ -989,55 +989,4 @@ pub(crate) fn block_size(
     rval[..4].copy_from_slice(&bytes);
 
     Ok(4)
-}
-
-#[cfg(any(feature = "update"))]
-fn switch_default_image_args(
-    stack: &[Option<u32>],
-) -> Result<(drv_update_api::SlotId, drv_update_api::SwitchDuration), Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let fp = stack.len() - 2;
-    let slot: drv_update_api::SlotId = match stack[fp + 0] {
-        Some(slot) => match drv_update_api::SlotId::from_u8(slot as u8) {
-            Some(slot) => slot,
-            None => return Err(Failure::Fault(Fault::BadParameter(0))),
-        },
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-    let duration: drv_update_api::SwitchDuration = match stack[fp + 1] {
-        Some(duration) => {
-            match drv_update_api::SwitchDuration::from_u32(duration) {
-                Some(target) => target,
-                None => return Err(Failure::Fault(Fault::BadParameter(1))),
-            }
-        }
-        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
-    };
-    Ok((slot, duration))
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn switch_default_image(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (slot, duration) = switch_default_image_args(stack)?;
-
-    func_err(
-        Update::from(UPDATE.get_task_id()).switch_default_image(slot, duration),
-    )?;
-    Ok(0)
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn reset(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    func_err(Update::from(UPDATE.get_task_id()).reset())?;
-    Ok(0)
 }
