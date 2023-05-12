@@ -56,6 +56,7 @@ enum Trace {
     UnexpectedRotIrq,
     RotReadyTimeout,
     RspTimeout,
+    RxBuf([u8; 16]),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -434,6 +435,9 @@ impl<S: SpiServer> ServerImpl<S> {
                         }
                     }
                     Err(err) => {
+                        ringbuf_entry!(Trace::RxBuf(
+                            self.rx_buf[0..16].try_into().unwrap()
+                        ));
                         self.io.stats.rx_invalid =
                             self.io.stats.rx_invalid.wrapping_add(1);
                         err.into()
@@ -742,7 +746,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
-            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 4)
             .map_err(|_| CabooseError::ReadFailed)?;
 
         if let Ok(RspBody::Caboose(r)) = rsp.body {

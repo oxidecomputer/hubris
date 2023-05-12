@@ -222,15 +222,30 @@ where
         buf: &mut [u8; N],
         blob: LenLimit<Leased<R, [u8]>, MAX_BLOB_SIZE>,
     ) -> Result<usize, SprotProtocolError> {
+        Self::pack_with_cb(body, buf, |buf| {
+            // Copy the blob into the buffer after the serialized body
+            blob.read_range(0..blob.len(), buf)
+                .map_err(|_| SprotProtocolError::TaskRestarted)?;
+            Ok(blob.len())
+        })
+    }
+
+    /// Serialize a `Header` followed by a `ReqBody` or `RspBody`, copy a blob
+    /// into `buf` after the serialized body,  compute a CRC, serialize the
+    /// CRC, and return the total size of the serialized request.
+    pub fn pack_with_cb<F, E>(
+        body: &T,
+        buf: &mut [u8; N],
+        mut cb: F,
+    ) -> Result<usize, E>
+    where
+        F: FnMut(&mut [u8]) -> Result<usize, E>,
+    {
         // Serialize `body`
         let mut size = hubpack::serialize(&mut buf[Header::MAX_SIZE..], body)
             .unwrap_lite();
 
-        // Copy the blob into the buffer after the serialized body
-        blob.read_range(0..blob.len(), &mut buf[Header::MAX_SIZE + size..])
-            .map_err(|_| SprotProtocolError::TaskRestarted)?;
-
-        size += blob.len();
+        size += cb(&mut buf[Header::MAX_SIZE + size..])?;
 
         // Create a header, now that we know the size of the body
         let header = Header::new(size.try_into().unwrap_lite());
