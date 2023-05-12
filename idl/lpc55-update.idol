@@ -67,35 +67,6 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
-        "find_caboose_value": (
-            doc: "finds the specified tag in the given slot's caboose",
-            args: {
-                "slot": "SlotId",
-                "name": "[u8; 4]",
-            },
-            reply: Result(
-                ok: "drv_caboose::CabooseValuePos",
-                err: CLike("CabooseError"),
-            ),
-            idempotent: true,
-            encoding: Hubpack,
-        ),
-        "read_caboose_value": (
-            doc: "Reads the specified tag from the given slot's caboose",
-            args: {
-                "slot": "SlotId",
-                "name": "[u8; 4]",
-            },
-            leases: {
-                "data": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "u32",
-                err: CLike("CabooseError"),
-            ),
-            idempotent: true,
-            encoding: Hubpack,
-        ),
         "read_raw_caboose": (
             doc: "Reads a raw portion of the caboose",
             args: {
@@ -107,6 +78,18 @@ Interface(
             },
             reply: Result(
                 ok: "()",
+                err: CLike("CabooseError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+        "caboose_size": (
+            doc: "Returns the size of the caboose",
+            args: {
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "u32",
                 err: CLike("CabooseError"),
             ),
             idempotent: true,

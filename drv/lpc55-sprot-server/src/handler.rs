@@ -4,12 +4,12 @@
 
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{Update, UpdateStatus};
+use drv_lpc55_update_api::{SlotId, Update, UpdateStatus};
 use drv_sprot_api::{
-    CabooseErr, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody, Request,
-    Response, RotIoStats, RotState, RotStatus, RspBody, SprocketsError,
-    SprotError, SprotProtocolError, UpdateReq, UpdateRsp, CURRENT_VERSION,
-    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody, Request, Response,
+    RotIoStats, RotState, RotStatus, RspBody, SprocketsError, SprotError,
+    SprotProtocolError, UpdateReq, UpdateRsp, CURRENT_VERSION, MIN_VERSION,
+    REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
@@ -40,7 +40,7 @@ pub struct StartupState {
 
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData {
-    Caboose,
+    Caboose { slot: SlotId, start: u32, size: u32 },
 }
 
 pub struct Handler {
@@ -87,14 +87,43 @@ impl Handler {
             }
         };
 
-        let mut size = Response::pack(&rsp_body, tx_buf);
+        let mut tx_size = Response::pack(&rsp_body, tx_buf);
+
+        // In certain cases, handling the request has left us with trailing data
+        // that needs to be packed into the remaining packet space.
         if let Some(t) = trailer {
             match t {
-                TrailingData::Caboose => (),
+                TrailingData::Caboose { slot, start, size } => {
+                    // Carve off the subsection of the tx buffer after our
+                    // packet, into which we'll serialize the caboose value.
+                    let out_buf = &mut tx_buf[tx_size as usize..];
+                    if size as usize > out_buf.len() {
+                        tx_size = Response::pack(
+                            &Err(SprotError::Protocol(
+                                SprotProtocolError::BadMessageLength,
+                            )),
+                            tx_buf,
+                        )
+                    } else {
+                        match self.update.read_raw_caboose(
+                            slot,
+                            start,
+                            &mut out_buf[..size as usize],
+                        ) {
+                            Err(e) => {
+                                tx_size = Response::pack(
+                                    &Ok(RspBody::Caboose(Err(e.into()))),
+                                    tx_buf,
+                                )
+                            }
+                            Ok(()) => tx_size += size as usize,
+                        }
+                    }
+                }
             }
         }
 
-        size
+        tx_size
     }
 
     pub fn handle_request(
@@ -179,25 +208,25 @@ impl Handler {
                 self.update.reset()?;
                 Ok((RspBody::Ok, None))
             }
-            ReqBody::Caboose(c) => {
-                match c {
-                    CabooseReq::Size { slot } => {
-                        // TODO: change behavior based on slot
-                        let rsp = match userlib::kipc::get_caboose() {
-                            Some(c) => Ok(CabooseRsp::Size(0)),
-                            None => Err(CabooseErr::MissingCaboose),
-                        };
-                        Ok((RspBody::Caboose(rsp), None))
-                    }
-                    CabooseReq::Read { slot, start, size } => {
-                        // TODO
-                        Ok((
-                            RspBody::Caboose(Ok(CabooseRsp::Read)),
-                            Some(TrailingData::Caboose),
-                        ))
-                    }
+            ReqBody::Caboose(c) => match c {
+                CabooseReq::Size { slot } => {
+                    let rsp = match self.update.caboose_size(slot) {
+                        Ok(v) => Ok(CabooseRsp::Size(v)),
+                        Err(e) => Err(e.into()),
+                    };
+                    Ok((RspBody::Caboose(rsp), None))
                 }
-            }
+                CabooseReq::Read { slot, start, size } => {
+                    // In this case, we're going to be sending back a variable
+                    // amount of data in the trailing section of the packet.  We
+                    // don't know exactly where that data will be placed, so
+                    // we'll return a marker here and copy it later.
+                    Ok((
+                        RspBody::Caboose(Ok(CabooseRsp::Read)),
+                        Some(TrailingData::Caboose { slot, start, size }),
+                    ))
+                }
+            },
         }
     }
 }

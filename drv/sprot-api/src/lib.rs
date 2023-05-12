@@ -401,6 +401,22 @@ impl From<CabooseErr> for drv_caboose::CabooseError {
     }
 }
 
+impl From<drv_caboose::CabooseError> for CabooseErr {
+    fn from(s: drv_caboose::CabooseError) -> Self {
+        match s {
+            drv_caboose::CabooseError::MissingCaboose => Self::MissingCaboose,
+            drv_caboose::CabooseError::NoSuchTag => Self::NoSuchTag,
+
+            drv_caboose::CabooseError::TlvcReaderBeginFailed
+            | drv_caboose::CabooseError::TlvcReadExactFailed
+            | drv_caboose::CabooseError::BadChecksum
+            | drv_caboose::CabooseError::NoImageHeader
+            | drv_caboose::CabooseError::InvalidRead
+            | drv_caboose::CabooseError::ReadFailed => Self::ReadFailed,
+        }
+    }
+}
+
 /// A response from the Dumper
 //
 // Separate this into its own enum to allow better extensibility
