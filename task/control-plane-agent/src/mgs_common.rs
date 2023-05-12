@@ -376,9 +376,9 @@ struct RotCabooseReader<'a> {
 
 impl<'a> RotCabooseReader<'a> {
     fn new(slot: SlotId, sprot: &'a SpRot) -> Result<Self, CabooseError> {
-        sprot
-            .caboose_size(slot)
-            .map(|size| Self { size, slot, sprot })
+        let size = sprot.caboose_size(slot)?;
+        ringbuf_entry!(Log::SprotCabooseSize(size));
+        Ok(Self { size, slot, sprot })
     }
 
     pub fn get(
@@ -426,8 +426,13 @@ impl tlvc::TlvcRead for RotCabooseReader<'_> {
         let offset = offset
             .try_into()
             .map_err(|_| tlvc::TlvcReadError::Truncated)?;
-        self.sprot
-            .read_caboose_region(offset, self.slot, dest)
-            .map_err(|_| tlvc::TlvcReadError::Truncated)
+        ringbuf_entry!(Log::ReadCaboose(offset, dest.len()));
+        if let Err(e) = self.sprot.read_caboose_region(offset, self.slot, dest)
+        {
+            ringbuf_entry!(Log::ReadCabooseErr(e));
+            Err(tlvc::TlvcReadError::Truncated)
+        } else {
+            Ok(())
+        }
     }
 }

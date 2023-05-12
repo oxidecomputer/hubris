@@ -89,43 +89,43 @@ impl Handler {
             }
         };
 
-        let mut tx_size = Response::pack(&rsp_body, tx_buf);
-
         // In certain cases, handling the request has left us with trailing data
         // that needs to be packed into the remaining packet space.
-        if let Some(t) = trailer {
-            match t {
-                TrailingData::Caboose { slot, start, size } => {
-                    // Carve off the subsection of the tx buffer after our
-                    // packet, into which we'll serialize the caboose value.
-                    let out_buf = &mut tx_buf[tx_size as usize..];
-                    if size as usize > out_buf.len() {
-                        tx_size = Response::pack(
-                            &Err(SprotError::Protocol(
-                                SprotProtocolError::BadMessageLength,
-                            )),
-                            tx_buf,
-                        )
-                    } else {
-                        match self.update.read_raw_caboose(
-                            slot,
-                            start,
-                            &mut out_buf[..size as usize],
-                        ) {
-                            Err(e) => {
-                                tx_size = Response::pack(
-                                    &Ok(RspBody::Caboose(Err(e.into()))),
-                                    tx_buf,
-                                )
-                            }
-                            Ok(()) => tx_size += size as usize,
-                        }
+        let size = match trailer {
+            Some(TrailingData::Caboose {
+                slot,
+                start,
+                size: blob_size,
+            }) => {
+                let blob_size: usize = blob_size.try_into().unwrap_lite();
+                if blob_size as usize > drv_sprot_api::MAX_BLOB_SIZE {
+                    // If there isn't enough room, then pack an error instead
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                        self.update
+                            .read_raw_caboose(
+                                slot,
+                                start,
+                                &mut buf[..blob_size as usize],
+                            )
+                            .map_err(|e| RspBody::Caboose(Err(e.into())))?;
+                        Ok(blob_size)
+                    }) {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
                     }
                 }
             }
-        }
+            _ => Response::pack(&rsp_body, tx_buf),
+        };
 
-        tx_size
+        size
     }
 
     pub fn handle_request(
