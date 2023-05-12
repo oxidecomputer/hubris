@@ -545,7 +545,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
     fn read_caboose_value(
         &mut self,
-        _msg: &RecvMessage,
+        _: &RecvMessage,
         name: [u8; 4],
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<u32, RequestError<CabooseError>> {

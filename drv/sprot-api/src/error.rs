@@ -5,8 +5,8 @@
 //! Errors for the sprot API
 
 use derive_more::From;
+use drv_lpc55_update_api::UpdateError;
 use drv_spi_api::SpiError;
-use drv_update_api::UpdateError;
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};

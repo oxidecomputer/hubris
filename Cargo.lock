@@ -1192,7 +1192,7 @@ dependencies = [
 name = "drv-lpc55-update-api"
 version = "0.1.0"
 dependencies = [
- "drv-caboose",
+ "derive-idol-err",
  "drv-update-api",
  "gateway-messages",
  "hubpack",
@@ -1522,8 +1522,8 @@ dependencies = [
  "derive-idol-err",
  "derive_more",
  "drv-caboose",
+ "drv-lpc55-update-api",
  "drv-spi-api",
- "drv-update-api",
  "dumper-api",
  "gateway-messages",
  "hubpack",
@@ -2631,6 +2631,7 @@ dependencies = [
  "drv-lpc55-flash",
  "drv-lpc55-sha256",
  "drv-lpc55-syscon-api",
+ "drv-lpc55-update-api",
  "drv-update-api",
  "hubpack",
  "idol",

@@ -4,9 +4,39 @@
 
 #![no_std]
 
-use drv_caboose::CabooseError;
+use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
+use userlib::{sys_send, FromPrimitive};
+
 pub use drv_update_api::*;
-use userlib::sys_send;
+
+/// Minimal error type for caboose actions
+///
+/// The RoT decodes the caboose location and presence, but does not actually
+/// decode any of its contents on-board; as such, this `enum` has fewer variants
+/// that the `CabooseError` itself.
+///
+/// This `enum` is used as part of the wire format for SP-RoT communication, and
+/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IdolError,
+    SerializedSize,
+    Serialize,
+    Deserialize,
+)]
+pub enum RawCabooseError {
+    InvalidRead = 1,
+    ReadFailed,
+    MissingCaboose,
+    NoImageHeader,
+}
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
 //
