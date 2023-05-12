@@ -723,7 +723,7 @@ fn caboose_slice(
     slot: SlotId,
 ) -> Result<core::ops::Range<u32>, CabooseError> {
     // SAFETY: these symbols are populated by the linker
-    let (image_start, image_end) = unsafe {
+    let (image_start, image_region_end) = unsafe {
         match slot {
             SlotId::A => (
                 __IMAGE_A_BASE.as_ptr() as u32,
@@ -759,12 +759,12 @@ fn caboose_slice(
     // Calculate where the image header implies that the image should end
     //
     // This is a one-past-the-end value.
-    let header_image_end = image_start + header.total_image_len;
+    let image_end = image_start + header.total_image_len;
 
     // Then, check that value against the BANK2 bounds.
     //
     // SAFETY: populated by the linker, so this should be valid
-    if header_image_end > image_end {
+    if image_end > image_region_end {
         return Err(CabooseError::MissingCaboose.into());
     }
 
