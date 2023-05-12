@@ -20,13 +20,14 @@ drv-caboose = { path = "../../drv/caboose" }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
+drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
-drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
-drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
+drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
+drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
+drv-stm32h7-update-api = { path = "../../drv/stm32h7-update-api" }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
-drv-update-api = { path = "../../drv/update-api" }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }

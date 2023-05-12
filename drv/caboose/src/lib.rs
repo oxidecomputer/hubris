@@ -7,6 +7,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
@@ -33,7 +35,9 @@ pub struct CabooseReader<'a>(&'a [u8]);
 /// Position of a value within the caboose
 ///
 /// This is equivalent to `core::ops::Range<u32>`, but has more traits
-#[derive(Copy, Clone, AsBytes, FromBytes)]
+#[derive(
+    Copy, Clone, AsBytes, FromBytes, Serialize, Deserialize, SerializedSize,
+)]
 #[repr(C)]
 pub struct CabooseValuePos {
     pub start: u32,

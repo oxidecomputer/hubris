@@ -5,11 +5,10 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use drv_caboose::CabooseError;
 use gateway_messages::UpdateError as GwUpdateError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::FromPrimitive;
 use zerocopy::AsBytes;
 
 // Re-export
@@ -193,42 +192,3 @@ impl TryFrom<u16> for SlotId {
         }
     }
 }
-
-pub mod stm32h7 {
-    // RM0433 Rev 7 section 4.3.9
-    // Flash word is defined as 256 bits
-    pub const FLASH_WORD_BITS: usize = 256;
-
-    // Total length of a word in bytes (i.e. our array size)
-    pub const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
-
-    // This is arbitrarily chosen to determine how much data the server will
-    // process at a time, and is not dictated by the hardware.
-    pub const FLASH_WORDS_PER_BLOCK: usize = 32;
-
-    // Block is an abstract concept here. It represents the size of data the
-    // driver will process at a time.
-    pub const BLOCK_SIZE_BYTES: usize =
-        FLASH_WORD_BYTES * FLASH_WORDS_PER_BLOCK;
-
-    pub const BLOCK_SIZE_WORDS: usize = BLOCK_SIZE_BYTES / 4;
-}
-
-pub mod lpc55 {
-    // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
-    //
-    // We hardcode it for simplicity, and because we cannot,and should not,
-    // directly include the `lpc55_romapi` crate. While we could transfer
-    // arbitrary amounts of data over spi and have the update server on
-    // the RoT split it up, this makes the code more complicated than
-    // necessary and is only an optimization. For now, especially since we
-    // only have 1 RoT and we must currently define a constant for use the
-    // `control_plane_agent::ComponentUpdater` trait, we do the simple thing
-    // and hardcode according to hardware requirements.
-    pub const BLOCK_SIZE_BYTES: usize = 512;
-}
-
-// Allow our Idol definition to fully specify API structures
-use crate as drv_update_api;
-
-include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

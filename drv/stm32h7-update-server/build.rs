@@ -8,7 +8,7 @@ use std::io::Write;
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
     idol::server::build_server_support(
-        "../../idl/update.idol",
+        "../../idl/stm32h7-update.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
     )?;

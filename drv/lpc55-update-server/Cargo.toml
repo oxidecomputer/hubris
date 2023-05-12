@@ -15,14 +15,15 @@ drv-lpc55-sha256.path = "../lpc55-sha256"
 drv-lpc55-syscon-api.path = "../lpc55-syscon-api"
 task-jefe-api = { path = "../../task/jefe-api" }
 
-cfg-if = { workspace = true }
-hubpack = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-serde = { workspace = true }
-zerocopy = { workspace = true }
+cfg-if.workspace = true
+hubpack.workspace = true
+idol-runtime.workspace = true
 lpc55-pac.workspace = true
+num-traits.workspace = true
+serde.workspace = true
 static_assertions.workspace = true
+tlvc.workspace = true
+zerocopy.workspace = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

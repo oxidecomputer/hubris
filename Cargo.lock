@@ -726,9 +726,11 @@ name = "drv-caboose"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "tlvc",
  "userlib",
  "zerocopy",
@@ -1114,8 +1116,8 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
+ "drv-lpc55-update-api",
  "drv-sprot-api",
- "drv-update-api",
  "dumper-api",
  "hubpack",
  "idol-runtime",
@@ -1182,6 +1184,23 @@ dependencies = [
  "build-util",
  "idol",
  "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-lpc55-update-api"
+version = "0.1.0"
+dependencies = [
+ "drv-caboose",
+ "drv-update-api",
+ "gateway-messages",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "serde_repr",
  "userlib",
  "zerocopy",
 ]
@@ -1712,6 +1731,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-update-api"
+version = "0.1.0"
+dependencies = [
+ "drv-caboose",
+ "drv-update-api",
+ "gateway-messages",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "serde_repr",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-usart"
 version = "0.1.0"
 dependencies = [
@@ -1863,7 +1899,6 @@ dependencies = [
  "drv-caboose",
  "gateway-messages",
  "hubpack",
- "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
@@ -2607,6 +2642,7 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -3729,6 +3765,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "drv-caboose",
+ "drv-stm32h7-update-api",
  "drv-update-api",
  "hubpack",
  "idol",
@@ -3819,12 +3856,13 @@ dependencies = [
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
+ "drv-lpc55-update-api",
  "drv-monorail-api",
  "drv-sidecar-seq-api",
  "drv-sprot-api",
+ "drv-stm32h7-update-api",
  "drv-stm32h7-usart",
  "drv-transceivers-api",
- "drv-update-api",
  "drv-user-leds-api",
  "gateway-messages",
  "heapless",

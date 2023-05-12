@@ -67,9 +67,10 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
-        "get_caboose_value": (
-            doc: "finds the specified tag from the bank2 caboose",
+        "find_caboose_value": (
+            doc: "finds the specified tag in the given slot's caboose",
             args: {
+                "slot": "SlotId",
                 "name": "[u8; 4]",
             },
             reply: Result(
@@ -77,10 +78,12 @@ Interface(
                 err: CLike("CabooseError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
-        "read_image_caboose": (
-            doc: "Reads the specified tag from the bank2 caboose",
+        "read_caboose_value": (
+            doc: "Reads the specified tag from the given slot's caboose",
             args: {
+                "slot": "SlotId",
                 "name": "[u8; 4]",
             },
             leases: {
@@ -91,10 +94,12 @@ Interface(
                 err: CLike("CabooseError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
         "read_raw_caboose": (
-            doc: "Reads a raw portion of the bank2 caboose",
+            doc: "Reads a raw portion of the caboose",
             args: {
+                "slot": "SlotId",
                 "offset": "u32",
             },
             leases: {
@@ -105,6 +110,7 @@ Interface(
                 err: CLike("CabooseError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
         "switch_default_image": (
             doc: "Prefer a specific image slot for one or many boots",
