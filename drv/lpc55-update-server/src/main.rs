@@ -226,28 +226,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         Ok(status)
     }
 
-    fn read_caboose_value(
-        &mut self,
-        _: &RecvMessage,
-        slot: SlotId,
-        name: [u8; 4],
-        data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<u32, RequestError<CabooseError>> {
-        let (caboose, v) = find_caboose_value(&self.flash, slot, name)?;
-        copy_from_caboose_chunk(&self.flash, caboose, v, data)?;
-        Ok(v.end - v.start)
-    }
-
-    fn find_caboose_value(
-        &mut self,
-        _: &RecvMessage,
-        slot: SlotId,
-        name: [u8; 4],
-    ) -> Result<CabooseValuePos, RequestError<CabooseError>> {
-        let (_caboose, v) = find_caboose_value(&self.flash, slot, name)?;
-        Ok(v)
-    }
-
     fn read_raw_caboose(
         &mut self,
         _msg: &RecvMessage,
@@ -268,6 +246,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             },
             data,
         )
+    }
+
+    fn caboose_size(
+        &mut self,
+        _: &RecvMessage,
+        slot: SlotId,
+    ) -> Result<u32, RequestError<CabooseError>> {
+        let caboose = caboose_slice(&self.flash, slot)?;
+        Ok(caboose.end - caboose.start)
     }
 
     fn switch_default_image(
@@ -807,20 +794,6 @@ fn caboose_slice(
     Ok(caboose_range)
 }
 
-fn find_caboose_value(
-    flash: &drv_lpc55_flash::Flash<'_>,
-    slot: SlotId,
-    name: [u8; 4],
-) -> Result<(core::ops::Range<u32>, CabooseValuePos), CabooseError> {
-    let caboose = caboose_slice(flash, slot)?;
-    let reader = CabooseReader::new(flash, caboose.clone());
-
-    // Get the specific chunk of caboose memory that contains the requested key.
-    let chunk = reader.get(name)?;
-
-    Ok((caboose, chunk))
-}
-
 fn copy_from_caboose_chunk(
     flash: &drv_lpc55_flash::Flash<'_>,
     caboose: core::ops::Range<u32>,
@@ -847,68 +820,6 @@ fn copy_from_caboose_chunk(
         remaining -= count;
     }
     Ok(())
-}
-
-#[derive(Clone)]
-pub struct CabooseReader<'a> {
-    flash: &'a drv_lpc55_flash::Flash<'a>,
-    range: core::ops::Range<u32>,
-}
-
-impl<'a> CabooseReader<'a> {
-    pub fn new(
-        flash: &'a drv_lpc55_flash::Flash,
-        range: core::ops::Range<u32>,
-    ) -> Self {
-        Self { flash, range }
-    }
-
-    /// Looks up the given key
-    pub fn get(&self, key: [u8; 4]) -> Result<CabooseValuePos, CabooseError> {
-        let mut reader = tlvc::TlvcReader::begin(self.clone())
-            .map_err(|_| CabooseError::TlvcReaderBeginFailed)?;
-        while let Ok(Some(chunk)) = reader.next() {
-            if chunk.header().tag == key {
-                let mut tmp = [0u8; 32];
-                if chunk.check_body_checksum(&mut tmp).is_err() {
-                    return Err(CabooseError::BadChecksum);
-                }
-                // At this point, the reader is positioned **after** the data
-                // from the target chunk.  We'll back up to the start of the
-                // data slice.
-                let (_reader, pos, _end) = reader.into_inner();
-
-                let pos = pos as u32;
-                let data_len = chunk.header().len.get();
-
-                let data_start = pos
-                    - chunk.header().total_len_in_bytes() as u32
-                    + core::mem::size_of::<tlvc::ChunkHeader>() as u32;
-
-                return Ok(CabooseValuePos {
-                    start: data_start,
-                    end: (data_start + data_len),
-                });
-            }
-        }
-
-        Err(CabooseError::NoSuchTag)
-    }
-}
-
-impl tlvc::TlvcRead for CabooseReader<'_> {
-    fn extent(&self) -> Result<u64, tlvc::TlvcReadError> {
-        Ok((self.range.end - self.range.start) as u64)
-    }
-
-    fn read_exact(
-        &self,
-        offset: u64,
-        dest: &mut [u8],
-    ) -> Result<(), tlvc::TlvcReadError> {
-        indirect_flash_read(&self.flash, self.range.start + offset as u32, dest)
-            .map_err(|_| tlvc::TlvcReadError::Truncated)
-    }
 }
 
 task_slot!(SYSCON, syscon);
