@@ -16,6 +16,8 @@ drv-sprot-api = { path = "../../drv/sprot-api", optional = true }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", optional = true  }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", optional = true }
 drv-update-api = {path = "../../drv/update-api", optional = true}
+drv-stm32h7-update-api = {path = "../../drv/stm32h7-update-api", optional = true}
+drv-lpc55-update-api = {path = "../../drv/lpc55-update-api", optional = true}
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 static-cell = { path = "../../lib/static-cell"  }
@@ -42,7 +44,7 @@ semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
-sprot = ["drv-sprot-api", "drv-update-api"]
+sprot = ["drv-sprot-api", "drv-update-api", "drv-lpc55-update-api"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7", "userlib/panic-messages"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
@@ -55,7 +57,7 @@ micro = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
 rng = ["drv-rng-api"]
 spctrl = ["drv-sp-ctrl-api"]
-update = ["drv-update-api"]
+update = ["drv-update-api", "drv-lpc55-update-api", "drv-stm32h7-update-api"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

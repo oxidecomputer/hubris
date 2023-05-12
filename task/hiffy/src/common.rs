@@ -10,6 +10,12 @@ use userlib::task_slot;
 use userlib::FromPrimitive;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
 
+#[cfg(all(feature = "update", feature = "stm32h7"))]
+use drv_stm32h7_update_api::Update;
+
+#[cfg(all(feature = "update", feature = "lpc55"))]
+use drv_lpc55_update_api::Update;
+
 /// We allow dead code on this because the functions below are optional.
 ///
 /// This could become a From impl on Failure if moved into hif, which would let
@@ -916,7 +922,7 @@ pub(crate) fn write_block(
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
 
-    let update = drv_update_api::Update::from(UPDATE.get_task_id());
+    let update = Update::from(UPDATE.get_task_id());
 
     let block_size = func_err(update.block_size())?;
 
@@ -951,10 +957,7 @@ pub(crate) fn start_update(
         None => return Err(Failure::Fault(Fault::BadParameter(0))),
     };
 
-    func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id())
-            .prep_image_update(img),
-    )?;
+    func_err(Update::from(UPDATE.get_task_id()).prep_image_update(img))?;
     Ok(0)
 }
 
@@ -964,10 +967,7 @@ pub(crate) fn finish_update(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id())
-            .finish_image_update(),
-    )?;
+    func_err(Update::from(UPDATE.get_task_id()).finish_image_update())?;
     Ok(0)
 }
 
@@ -977,9 +977,7 @@ pub(crate) fn block_size(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let size = func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id()).block_size(),
-    )?;
+    let size = func_err(Update::from(UPDATE.get_task_id()).block_size())?;
 
     let bytes: [u8; 4] = [
         (size & 0xff) as u8,
@@ -1029,8 +1027,7 @@ pub(crate) fn switch_default_image(
     let (slot, duration) = switch_default_image_args(stack)?;
 
     func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id())
-            .switch_default_image(slot, duration),
+        Update::from(UPDATE.get_task_id()).switch_default_image(slot, duration),
     )?;
     Ok(0)
 }
@@ -1041,6 +1038,6 @@ pub(crate) fn reset(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    func_err(drv_update_api::Update::from(UPDATE.get_task_id()).reset())?;
+    func_err(Update::from(UPDATE.get_task_id()).reset())?;
     Ok(0)
 }
