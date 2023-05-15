@@ -32,7 +32,9 @@ struct SlotReader<'a> {
 }
 
 impl<'a> TlvcRead for SlotReader<'a> {
-    fn extent(&self) -> Result<u64, TlvcReadError> {
+    type Error = core::convert::Infallible;
+
+    fn extent(&self) -> Result<u64, TlvcReadError<Self::Error>> {
         // Hard-coded slot size, on a per-board basis
         Ok(SLOT_SIZE as u64)
     }
@@ -40,7 +42,7 @@ impl<'a> TlvcRead for SlotReader<'a> {
         &self,
         offset: u64,
         dest: &mut [u8],
-    ) -> Result<(), TlvcReadError> {
+    ) -> Result<(), TlvcReadError<Self::Error>> {
         let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
         self.qspi.read_memory(addr, dest);
         Ok(())

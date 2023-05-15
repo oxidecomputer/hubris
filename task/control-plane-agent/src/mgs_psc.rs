@@ -585,6 +585,14 @@ impl SpHandler for MgsHandler {
             .get_component_caboose_value(component, slot, key)
     }
 
+    fn copy_caboose_value_into(
+        &self,
+        value: CabooseValue,
+        out: &mut [u8],
+    ) -> Result<(), SpError> {
+        self.common.copy_caboose_value_into(value, out)
+    }
+
     fn reset_component_prepare(
         &mut self,
         _sender: SocketAddrV6,
