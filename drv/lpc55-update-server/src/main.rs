@@ -14,9 +14,9 @@ use core::mem::MaybeUninit;
 use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
-    RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
+    RawCabooseError, RotUpdateStatus, SlotId, SwitchDuration, UpdateTarget,
 };
-use drv_update_api::{UpdateError, UpdateStatus};
+use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
@@ -217,12 +217,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn status(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<UpdateStatus, RequestError<Infallible>> {
+    ) -> Result<RotUpdateStatus, RequestError<Infallible>> {
         // Safety: Data is published by stage0
         let addr = unsafe { BOOTSTATE.assume_init_ref() };
         let status = match RotBootState::load_from_addr(addr) {
-            Ok(details) => UpdateStatus::Rot(details),
-            Err(e) => UpdateStatus::LoadError(e),
+            Ok(details) => RotUpdateStatus::Rot(details),
+            Err(e) => RotUpdateStatus::LoadError(e),
         };
         Ok(status)
     }
@@ -849,7 +849,8 @@ include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
-        ImageVersion, RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
+        ImageVersion, RawCabooseError, RotUpdateStatus, SlotId, SwitchDuration,
+        UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

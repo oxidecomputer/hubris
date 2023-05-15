@@ -14,7 +14,6 @@ gateway-messages.workspace = true
 
 derive-idol-err.path = "../../lib/derive-idol-err"
 ringbuf.path = "../../lib/ringbuf"
-stage0-handoff.path = "../../lib/stage0-handoff"
 userlib.path = "../../sys/userlib"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

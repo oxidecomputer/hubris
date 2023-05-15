@@ -57,7 +57,7 @@ Interface(
         "status": (
             doc: "Get info about installed images",
             args: { },
-            reply : Simple("drv_update_api::UpdateStatus"),
+            reply : Simple("SpUpdateStatus"),
             idempotent: true,
             encoding: Hubpack
         ),

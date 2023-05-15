@@ -5,8 +5,11 @@
 #![no_std]
 
 use drv_caboose::CabooseError;
-pub use drv_update_api::*;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::sys_send;
+
+pub use stage0_handoff::ImageVersion;
 
 // RM0433 Rev 7 section 4.3.9
 // Flash word is defined as 256 bits
@@ -24,5 +27,9 @@ pub const FLASH_WORDS_PER_BLOCK: usize = 32;
 pub const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * FLASH_WORDS_PER_BLOCK;
 
 pub const BLOCK_SIZE_WORDS: usize = BLOCK_SIZE_BYTES / 4;
+
+// TODO(AJS): Fill in details for the SP
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct SpUpdateStatus {}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

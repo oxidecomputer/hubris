@@ -18,7 +18,7 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 pub use drv_lpc55_update_api::{
     HandoffDataLoadError, RawCabooseError, RotBootState, RotSlot, SlotId,
-    SwitchDuration, UpdateError, UpdateTarget,
+    SwitchDuration, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};

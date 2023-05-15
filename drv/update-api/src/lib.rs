@@ -10,21 +10,6 @@ use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::FromPrimitive;
 
-// Re-export
-pub use stage0_handoff::{
-    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
-};
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
-)]
-pub enum UpdateStatus {
-    LoadError(HandoffDataLoadError),
-    Rot(RotBootState),
-    // TODO(AJS): Fill in details for the SP
-    Sp,
-}
-
 // These values are used as raw integers in the `State::Failed(UpdateError)`
 // variant.  To preserve compatibility, DO NOT REORDER THEM.
 // N.B These varients must be kept in order to maintain compatibility between

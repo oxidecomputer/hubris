@@ -16,6 +16,7 @@ zerocopy.workspace = true
 
 drv-caboose.path = "../caboose"
 drv-update-api.path = "../update-api"
+stage0-handoff = { path = "../../lib/stage0-handoff"}
 userlib.path = "../../sys/userlib/"
 
 [build-dependencies]
