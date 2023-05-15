@@ -11,10 +11,10 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
-    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus,
+    ignition, CabooseValue, ComponentAction, ComponentDetails,
+    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
+    MgsError, PowerState, SpComponent, SpError, SpPort, SpState,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -466,8 +466,7 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common
-            .component_get_active_slot(&self.sp_update, component)
+        self.common.component_get_active_slot(component)
     }
 
     fn component_set_active_slot(
@@ -484,12 +483,8 @@ impl SpHandler for MgsHandler {
             persist,
         }));
 
-        self.common.component_set_active_slot(
-            &self.sp_update,
-            component,
-            slot,
-            persist,
-        )
+        self.common
+            .component_set_active_slot(component, slot, persist)
     }
 
     fn component_clear_status(
@@ -580,7 +575,7 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         slot: u16,
         key: [u8; 4],
-    ) -> Result<&'static [u8], SpError> {
+    ) -> Result<CabooseValue, SpError> {
         self.common
             .get_component_caboose_value(component, slot, key)
     }
@@ -608,7 +603,6 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        self.common
-            .reset_component_trigger(&self.sp_update, component)
+        self.common.reset_component_trigger(component)
     }
 }
