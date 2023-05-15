@@ -11,7 +11,6 @@
 
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
-use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
     RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
@@ -239,10 +238,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         copy_from_caboose_chunk(
             &self.flash,
             caboose,
-            CabooseValuePos {
-                start: offset,
-                end: offset + data.len() as u32,
-            },
+            offset..offset + data.len() as u32,
             data,
         )
     }
@@ -791,7 +787,7 @@ fn caboose_slice(
 fn copy_from_caboose_chunk(
     flash: &drv_lpc55_flash::Flash<'_>,
     caboose: core::ops::Range<u32>,
-    pos: CabooseValuePos,
+    pos: core::ops::Range<u32>,
     data: Leased<idol_runtime::W, [u8]>,
 ) -> Result<(), RequestError<RawCabooseError>> {
     // Early exit if the caller didn't provide enough space in the lease

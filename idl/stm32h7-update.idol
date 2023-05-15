@@ -61,17 +61,6 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
-        "find_caboose_value": (
-            doc: "finds the specified tag from the bank2 caboose",
-            args: {
-                "name": "[u8; 4]",
-            },
-            reply: Result(
-                ok: "drv_caboose::CabooseValuePos",
-                err: CLike("CabooseError"),
-            ),
-            idempotent: true,
-        ),
         "read_caboose_value": (
             doc: "Reads the specified tag from the bank2 caboose",
             args: {
@@ -82,20 +71,6 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("CabooseError"),
-            ),
-            idempotent: true,
-        ),
-        "read_raw_caboose": (
-            doc: "Reads a raw portion of the bank2 caboose",
-            args: {
-                "offset": "u32",
-            },
-            leases: {
-                "data": (type: "[u8]", write: true),
-            },
-            reply: Result(
-                ok: "()",
                 err: CLike("CabooseError"),
             ),
             idempotent: true,
