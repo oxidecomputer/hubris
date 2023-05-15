@@ -13,12 +13,6 @@ Interface(
         ),
         "prep_image_update": (
             doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
-            args : {
-                "image_type": (
-                    type: "UpdateTarget",
-                    recv: FromPrimitive("u8"),
-                )
-            },
             reply : Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),

@@ -12,7 +12,7 @@
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader, CabooseValuePos};
 use drv_stm32h7_update_api::{
-    ImageVersion, UpdateError, UpdateStatus, UpdateTarget, BLOCK_SIZE_BYTES,
+    ImageVersion, UpdateError, UpdateStatus, BLOCK_SIZE_BYTES,
     FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -406,7 +406,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
         &mut self,
         _: &RecvMessage,
-        img_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::InProgress => {
@@ -416,11 +415,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::UpdateAlreadyFinished.into())
             }
             UpdateState::NoUpdate => (),
-        }
-
-        match img_type {
-            UpdateTarget::Alternate => (),
-            _ => return Err(UpdateError::BadImageType.into()),
         }
 
         self.unlock();
@@ -596,7 +590,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{CabooseError, ImageVersion, UpdateTarget};
+    use super::{CabooseError, ImageVersion};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -129,16 +129,6 @@ pub enum Functions {
     HashFinalize((), drv_hash_api::HashError),
     #[cfg(feature = "rng")]
     Rng(usize, drv_rng_api::RngError),
-    #[cfg(feature = "update")]
-    StartUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    WriteBlock((usize, usize), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    FinishUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    BlockSize((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    Reset((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "i2c")]
@@ -641,14 +631,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     hash_finalize_sha256,
     #[cfg(feature = "rng")]
     crate::common::rng_fill,
-    #[cfg(feature = "update")]
-    crate::common::start_update,
-    #[cfg(feature = "update")]
-    crate::common::write_block,
-    #[cfg(feature = "update")]
-    crate::common::finish_update,
-    #[cfg(feature = "update")]
-    crate::common::block_size,
 ];
 
 //

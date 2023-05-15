@@ -64,7 +64,6 @@ enum Log {
     RotReset(SprotError),
     SprotCabooseSize(u32),
     ReadCaboose(u32, usize),
-    ReadCabooseErr(drv_caboose::CabooseError),
     GotCabooseChunk([u8; 4]),
 }
 

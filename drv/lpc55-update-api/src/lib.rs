@@ -8,6 +8,7 @@ use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
+use zerocopy::AsBytes;
 
 pub use drv_update_api::*;
 
@@ -36,6 +37,46 @@ pub enum RawCabooseError {
     ReadFailed,
     MissingCaboose,
     NoImageHeader,
+}
+
+impl From<RawCabooseError> for drv_caboose::CabooseError {
+    fn from(t: RawCabooseError) -> Self {
+        match t {
+            RawCabooseError::InvalidRead => Self::InvalidRead,
+            RawCabooseError::ReadFailed => Self::RawReadFailed,
+            RawCabooseError::MissingCaboose => Self::MissingCaboose,
+            RawCabooseError::NoImageHeader => Self::NoImageHeader,
+        }
+    }
+}
+
+/// Target for an update operation
+///
+/// This `enum` is used as part of the wire format for SP-RoT communication, and
+/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
+#[repr(u8)]
+#[derive(
+    FromPrimitive,
+    AsBytes,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum UpdateTarget {
+    // The value of 0 is reserved
+    // The value of 1 was previously used for Alternate, when this enum was
+    // shared by the RoT and the SP.  Now, it is unused but reserved to avoid
+    // changing the wire format.
+
+    // Represents targets where we must write to a specific range
+    // of flash.
+    ImageA = 2,
+    ImageB = 3,
+    Bootloader = 4,
 }
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`

@@ -9,40 +9,11 @@ use gateway_messages::UpdateError as GwUpdateError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::FromPrimitive;
-use zerocopy::AsBytes;
 
 // Re-export
 pub use stage0_handoff::{
     HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
 };
-
-/// Target for an update operation
-///
-/// This `enum` is used as part of the wire format for SP-RoT communication, and
-/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
-#[repr(u8)]
-#[derive(
-    FromPrimitive,
-    AsBytes,
-    Eq,
-    PartialEq,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    SerializedSize,
-)]
-pub enum UpdateTarget {
-    // Represents targets where we only ever write to a single
-    // alternate flash location. This is typically used in
-    // conjunction with a bank swap feature.
-    Alternate = 1,
-    // Represents targets where we must write to a specific range
-    // of flash.
-    ImageA = 2,
-    ImageB = 3,
-    Bootloader = 4,
-}
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,

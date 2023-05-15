@@ -11,7 +11,8 @@ extern crate memoffset;
 mod error;
 use dumper_api::DumperError;
 pub use error::{
-    DumpOrSprotError, SprocketsError, SprotError, SprotProtocolError,
+    CabooseOrSprotError, DumpOrSprotError, SprocketsError, SprotError,
+    SprotProtocolError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};

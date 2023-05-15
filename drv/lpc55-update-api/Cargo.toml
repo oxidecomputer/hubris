@@ -14,6 +14,7 @@ serde.workspace = true
 serde_repr.workspace = true
 zerocopy.workspace = true
 
+drv-caboose.path = "../../drv/caboose"
 drv-update-api.path = "../update-api"
 userlib.path = "../../sys/userlib/"
 derive-idol-err.path = "../../lib/derive-idol-err"

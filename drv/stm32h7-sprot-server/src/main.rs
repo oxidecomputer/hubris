@@ -7,11 +7,11 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
-use drv_caboose::CabooseError;
+use drv_lpc55_update_api::UpdateTarget;
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::{SlotId, SwitchDuration, UpdateTarget};
+use drv_update_api::{SlotId, SwitchDuration};
 use hubpack::SerializedSize;
 use idol_runtime::RequestError;
 use ringbuf::*;
@@ -712,23 +712,22 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &userlib::RecvMessage,
         slot: SlotId,
-    ) -> Result<u32, idol_runtime::RequestError<CabooseError>> {
+    ) -> Result<u32, idol_runtime::RequestError<CabooseOrSprotError>> {
         let body = ReqBody::Caboose(CabooseReq::Size { slot });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
             .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
-            .map_err(|_| CabooseError::ReadFailed)?;
-        if let Ok(RspBody::Caboose(r)) = rsp.body {
-            match r {
-                Ok(CabooseRsp::Size(size)) => Ok(size),
-                Ok(_) => Err(CabooseError::ReadFailed.into()),
-                Err(e) => {
-                    let e: CabooseError = e.into();
-                    Err(e.into())
-                }
+            .map_err(CabooseOrSprotError::Sprot)?;
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::Size(size)))) => Ok(size),
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(CabooseOrSprotError::Caboose(e).into())
             }
-        } else {
-            Err(CabooseError::ReadFailed.into())
+            Ok(RspBody::Caboose(_)) | Ok(_) => Err(CabooseOrSprotError::Sprot(
+                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
+            )
+            .into()),
+            Err(e) => Err(CabooseOrSprotError::Sprot(e).into()),
         }
     }
 
@@ -738,7 +737,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         offset: u32,
         slot: SlotId,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<(), idol_runtime::RequestError<CabooseError>> {
+    ) -> Result<(), idol_runtime::RequestError<CabooseOrSprotError>> {
         let body = ReqBody::Caboose(CabooseReq::Read {
             slot,
             start: offset,
@@ -747,41 +746,40 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
             .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 4)
-            .map_err(|_| CabooseError::ReadFailed)?;
+            .map_err(CabooseOrSprotError::Sprot)?;
 
-        if let Ok(RspBody::Caboose(r)) = rsp.body {
-            match r {
-                Ok(CabooseRsp::Read) => {
-                    // Copy from the trailing data into the lease
-                    if rsp.blob.len() < data.len() {
-                        return Err(idol_runtime::RequestError::Fail(
-                            idol_runtime::ClientError::BadLease,
-                        ));
-                    }
-                    data.write_range(0..data.len(), &rsp.blob[..data.len()])
-                        .map_err(|()| {
-                            idol_runtime::RequestError::Fail(
-                                idol_runtime::ClientError::WentAway,
-                            )
-                        })?;
-                    Ok(())
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::Read))) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
                 }
-                Ok(_) => Err(CabooseError::ReadFailed.into()),
-                Err(e) => {
-                    let e: CabooseError = e.into();
-                    Err(e.into())
-                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
             }
-        } else {
-            Err(CabooseError::ReadFailed.into())
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(CabooseOrSprotError::Caboose(e).into())
+            }
+            Ok(RspBody::Caboose(_)) | Ok(_) => Err(CabooseOrSprotError::Sprot(
+                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
+            )
+            .into()),
+            Err(e) => Err(CabooseOrSprotError::Sprot(e).into()),
         }
     }
 }
 
 mod idl {
     use super::{
-        DumpOrSprotError, PulseStatus, RotState, SlotId, SprotError,
-        SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        CabooseOrSprotError, DumpOrSprotError, PulseStatus, RotState, SlotId,
+        SprotError, SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
