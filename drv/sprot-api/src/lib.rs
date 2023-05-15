@@ -11,7 +11,7 @@ extern crate memoffset;
 mod error;
 use dumper_api::DumperError;
 pub use error::{
-    CabooseOrSprotError, DumpOrSprotError, SprocketsError, SprotError,
+    DumpOrSprotError, RawCabooseOrSprotError, SprocketsError, SprotError,
     SprotProtocolError,
 };
 

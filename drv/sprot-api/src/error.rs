@@ -168,26 +168,26 @@ impl From<SprocketsError> for GwSprocketsErr {
     }
 }
 
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum DumpOrSprotError {
+    Sprot(SprotError),
+    Dump(DumperError),
+}
+
 impl From<SprotError> for RequestError<DumpOrSprotError> {
     fn from(err: SprotError) -> Self {
         DumpOrSprotError::from(err).into()
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-pub enum DumpOrSprotError {
-    Dump(DumperError),
-    Sprot(SprotError),
-}
-
-impl From<DumpOrSprotError> for Result<(), RequestError<DumpOrSprotError>> {
+impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
     fn from(err: DumpOrSprotError) -> Self {
         Err(RequestError::Runtime(err.into()))
     }
 }
 
 #[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-pub enum CabooseOrSprotError {
-    Caboose(RawCabooseError),
+pub enum RawCabooseOrSprotError {
     Sprot(SprotError),
+    Caboose(RawCabooseError),
 }

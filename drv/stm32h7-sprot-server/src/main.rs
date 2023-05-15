@@ -711,22 +711,24 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &userlib::RecvMessage,
         slot: SlotId,
-    ) -> Result<u32, idol_runtime::RequestError<CabooseOrSprotError>> {
+    ) -> Result<u32, idol_runtime::RequestError<RawCabooseOrSprotError>> {
         let body = ReqBody::Caboose(CabooseReq::Size { slot });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
             .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
-            .map_err(CabooseOrSprotError::Sprot)?;
+            .map_err(RawCabooseOrSprotError::Sprot)?;
         match rsp.body {
             Ok(RspBody::Caboose(Ok(CabooseRsp::Size(size)))) => Ok(size),
             Ok(RspBody::Caboose(Err(e))) => {
-                Err(CabooseOrSprotError::Caboose(e).into())
+                Err(RawCabooseOrSprotError::Caboose(e).into())
             }
-            Ok(RspBody::Caboose(_)) | Ok(_) => Err(CabooseOrSprotError::Sprot(
-                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
-            )
-            .into()),
-            Err(e) => Err(CabooseOrSprotError::Sprot(e).into()),
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
         }
     }
 
@@ -736,7 +738,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         offset: u32,
         slot: SlotId,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<(), idol_runtime::RequestError<CabooseOrSprotError>> {
+    ) -> Result<(), idol_runtime::RequestError<RawCabooseOrSprotError>> {
         let body = ReqBody::Caboose(CabooseReq::Read {
             slot,
             start: offset,
@@ -745,7 +747,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
             .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 4)
-            .map_err(CabooseOrSprotError::Sprot)?;
+            .map_err(RawCabooseOrSprotError::Sprot)?;
 
         match rsp.body {
             Ok(RspBody::Caboose(Ok(CabooseRsp::Read))) => {
@@ -764,21 +766,24 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
                 Ok(())
             }
             Ok(RspBody::Caboose(Err(e))) => {
-                Err(CabooseOrSprotError::Caboose(e).into())
+                Err(RawCabooseOrSprotError::Caboose(e).into())
             }
-            Ok(RspBody::Caboose(_)) | Ok(_) => Err(CabooseOrSprotError::Sprot(
-                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
-            )
-            .into()),
-            Err(e) => Err(CabooseOrSprotError::Sprot(e).into()),
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
         }
     }
 }
 
 mod idl {
     use super::{
-        CabooseOrSprotError, DumpOrSprotError, PulseStatus, RotState, SlotId,
-        SprotError, SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotState,
+        SlotId, SprotError, SprotIoStats, SprotStatus, SwitchDuration,
+        UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
