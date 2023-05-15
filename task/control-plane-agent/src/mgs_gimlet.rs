@@ -16,11 +16,11 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, CabooseValue, ComponentAction, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, Header, IgnitionCommand,
-    IgnitionState, Message, MessageKind, MgsError, PowerState, SpComponent,
-    SpError, SpPort, SpRequest, SpState, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
+    MessageKind, MgsError, PowerState, SpComponent, SpError, SpPort, SpRequest,
+    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1039,17 +1039,10 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         slot: u16,
         key: [u8; 4],
-    ) -> Result<CabooseValue, SpError> {
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
         self.common
-            .get_component_caboose_value(component, slot, key)
-    }
-
-    fn copy_caboose_value_into(
-        &self,
-        value: CabooseValue,
-        out: &mut [u8],
-    ) -> Result<(), SpError> {
-        self.common.copy_caboose_value_into(value, out)
+            .get_component_caboose_value(component, slot, key, buf)
     }
 
     fn reset_component_prepare(

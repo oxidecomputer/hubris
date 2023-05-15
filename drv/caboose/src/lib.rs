@@ -42,6 +42,12 @@ pub struct CabooseValuePos {
     pub end: u32,
 }
 
+impl CabooseValuePos {
+    pub fn len(self) -> usize {
+        (self.end - self.start) as usize
+    }
+}
+
 impl<'a> CabooseReader<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         Self(data)
