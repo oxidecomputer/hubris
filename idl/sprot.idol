@@ -138,7 +138,7 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: Complex("CabooseOrSprotError"),
+                err: Complex("RawCabooseOrSprotError"),
             ),
             idempotent: true,
             encoding: Hubpack,
@@ -151,7 +151,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: Complex("CabooseOrSprotError"),
+                err: Complex("RawCabooseOrSprotError"),
             ),
             leases : {
                 "out": (type: "[u8]", write: true),

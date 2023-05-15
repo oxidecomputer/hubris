@@ -61,7 +61,6 @@ heapless = { version = "0.7.16", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
-if_chain = {version = "1", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 itertools = { version = "0.10.5", default-features = false }
 lpc55-pac = { version = "0.4", default-features = false }
@@ -126,7 +125,7 @@ salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroi
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
-tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
-tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
+tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, branch = "user-error" }
+tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, branch = "user-error"}
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }

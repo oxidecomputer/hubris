@@ -80,7 +80,9 @@ impl<'a> CabooseReader<'a> {
 }
 
 impl TlvcRead for CabooseReader<'_> {
-    fn extent(&self) -> Result<u64, TlvcReadError> {
+    type Error = core::convert::Infallible;
+
+    fn extent(&self) -> Result<u64, TlvcReadError<Self::Error>> {
         Ok(self.0.len() as u64)
     }
 
@@ -88,7 +90,7 @@ impl TlvcRead for CabooseReader<'_> {
         &self,
         offset: u64,
         dest: &mut [u8],
-    ) -> Result<(), TlvcReadError> {
+    ) -> Result<(), TlvcReadError<Self::Error>> {
         dest.copy_from_slice(&self.0[offset as usize..][..dest.len()]);
         Ok(())
     }
