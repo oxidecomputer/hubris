@@ -132,7 +132,7 @@ Interface(
             idempotent: true,
         ),
         "caboose_size": (
-            doc: "returns the size of the caboose",
+            doc: "Returns the size of the caboose",
             args: {
                 "slot": "SlotId",
             },
@@ -144,7 +144,7 @@ Interface(
             encoding: Hubpack,
         ),
         "read_caboose_region": (
-            doc: "reads a subset of the caboose memory",
+            doc: "Reads a subset of the caboose memory",
             args: {
                 "offset": "u32",
                 "slot": "SlotId",
