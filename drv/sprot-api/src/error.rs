@@ -5,7 +5,7 @@
 //! Errors for the sprot API
 
 use derive_more::From;
-use drv_lpc55_update_api::UpdateError;
+use drv_lpc55_update_api::{RawCabooseError, UpdateError};
 use drv_spi_api::SpiError;
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
@@ -183,4 +183,10 @@ impl From<DumpOrSprotError> for Result<(), RequestError<DumpOrSprotError>> {
     fn from(err: DumpOrSprotError) -> Self {
         Err(RequestError::Runtime(err.into()))
     }
+}
+
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum CabooseOrSprotError {
+    Caboose(RawCabooseError),
+    Sprot(SprotError),
 }

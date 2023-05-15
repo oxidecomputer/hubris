@@ -33,7 +33,7 @@ request_reset = ["update_server"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
-features = ["lpc55", "gpio", "spctrl", "update"]
+features = ["lpc55", "gpio", "spctrl"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

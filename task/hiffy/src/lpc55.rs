@@ -4,11 +4,8 @@
 
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
-#[cfg(feature = "update")]
-use crate::common::{func_err, UPDATE};
 use byteorder::ByteOrder;
 use drv_lpc55_gpio_api::*;
-use drv_lpc55_update_api::Update;
 use hif::*;
 use hubris_num_tasks::Task;
 use ringbuf::*;
@@ -78,21 +75,6 @@ pub enum Functions {
     ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
-    #[cfg(feature = "update")]
-    StartUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    WriteBlock((usize, usize), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    FinishUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    BlockSize((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    SwitchDefaultImage(
-        (drv_update_api::SlotId, drv_update_api::SwitchDuration),
-        drv_update_api::UpdateError,
-    ),
-    #[cfg(feature = "update")]
-    Reset((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -362,57 +344,6 @@ fn gpio_reset(
     Ok(0)
 }
 
-#[cfg(feature = "update")]
-fn switch_default_image_args(
-    stack: &[Option<u32>],
-) -> Result<(drv_update_api::SlotId, drv_update_api::SwitchDuration), Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let fp = stack.len() - 2;
-    let slot: drv_update_api::SlotId = match stack[fp + 0] {
-        Some(slot) => match drv_update_api::SlotId::from_u8(slot as u8) {
-            Some(slot) => slot,
-            None => return Err(Failure::Fault(Fault::BadParameter(0))),
-        },
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-    let duration: drv_update_api::SwitchDuration = match stack[fp + 1] {
-        Some(duration) => {
-            match drv_update_api::SwitchDuration::from_u32(duration) {
-                Some(target) => target,
-                None => return Err(Failure::Fault(Fault::BadParameter(1))),
-            }
-        }
-        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
-    };
-    Ok((slot, duration))
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn switch_default_image(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (slot, duration) = switch_default_image_args(stack)?;
-
-    func_err(
-        Update::from(UPDATE.get_task_id()).switch_default_image(slot, duration),
-    )?;
-    Ok(0)
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn reset(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    func_err(Update::from(UPDATE.get_task_id()).reset())?;
-    Ok(0)
-}
-
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
     crate::common::send,
@@ -442,18 +373,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
-    #[cfg(feature = "update")]
-    crate::common::start_update,
-    #[cfg(feature = "update")]
-    crate::common::write_block,
-    #[cfg(feature = "update")]
-    crate::common::finish_update,
-    #[cfg(feature = "update")]
-    crate::common::block_size,
-    #[cfg(feature = "update")]
-    switch_default_image,
-    #[cfg(feature = "update")]
-    reset,
 ];
 
 //

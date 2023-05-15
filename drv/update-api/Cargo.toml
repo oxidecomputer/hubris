@@ -13,7 +13,6 @@ zerocopy.workspace = true
 gateway-messages.workspace = true
 
 derive-idol-err.path = "../../lib/derive-idol-err"
-drv-caboose.path = "../../drv/caboose"
 ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
 userlib.path = "../../sys/userlib"

@@ -21,6 +21,8 @@ pub enum CabooseError {
     NoSuchTag,
     BadChecksum,
     NoImageHeader,
+    RawReadFailed,
+    InvalidRead,
 }
 
 /// Simple handle which points to the beginning of the TLV-C region of the

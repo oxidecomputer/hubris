@@ -13,10 +13,8 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
-use drv_lpc55_update_api::RawCabooseError;
-use drv_update_api::{
-    SlotId, SwitchDuration, UpdateError, UpdateStatus, UpdateTarget,
-};
+use drv_lpc55_update_api::{RawCabooseError, UpdateTarget};
+use drv_update_api::{SlotId, SwitchDuration, UpdateError, UpdateStatus};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
@@ -549,7 +547,6 @@ fn validate_header_block(
         UpdateTarget::Bootloader => {
             (stage0_base..stage0_end).contains(&reset_vector)
         }
-        _ => false,
     };
     if !valid {
         return Err(UpdateError::InvalidHeaderBlock);
@@ -669,14 +666,12 @@ fn same_image(which: UpdateTarget) -> bool {
     get_base(which) == unsafe { __this_image.as_ptr() } as u32
 }
 
-/// Returns the byte address of the first byte of the given flash target slot,
-/// or panics if you're holding it wrong.
+/// Returns the byte address of the first byte of the given flash target slot
 fn get_base(which: UpdateTarget) -> u32 {
     (match which {
         UpdateTarget::ImageA => unsafe { __IMAGE_A_BASE.as_ptr() },
         UpdateTarget::ImageB => unsafe { __IMAGE_B_BASE.as_ptr() },
         UpdateTarget::Bootloader => unsafe { __IMAGE_STAGE0_BASE.as_ptr() },
-        _ => unreachable!(),
     }) as u32
 }
 
@@ -685,7 +680,6 @@ fn get_end(which: UpdateTarget) -> u32 {
         UpdateTarget::ImageA => unsafe { __IMAGE_A_END.as_ptr() },
         UpdateTarget::ImageB => unsafe { __IMAGE_B_END.as_ptr() },
         UpdateTarget::Bootloader => unsafe { __IMAGE_STAGE0_END.as_ptr() },
-        _ => unreachable!(),
     }) as u32
 }
 
@@ -693,8 +687,7 @@ fn get_end(which: UpdateTarget) -> u32 {
 /// combination.
 ///
 /// `image_target` designates the flash slot and must be `ImageA`, `ImageB`, or
-/// `Bootloader`, despite containing many other variants. All other choices will
-/// panic. (TODO: fix this when time permits.)
+/// `Bootloader`; this is enforced by the type system.
 ///
 /// `page_num` designates a flash page (called a block elsewhere in this file, a
 /// 512B unit) within the flash slot. If the page is out range for the target

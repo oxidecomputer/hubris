@@ -1193,6 +1193,7 @@ name = "drv-lpc55-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "drv-caboose",
  "drv-update-api",
  "gateway-messages",
  "hubpack",
@@ -1704,6 +1705,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-caboose",
+ "drv-lpc55-update-api",
  "drv-spi-api",
  "drv-sprot-api",
  "drv-stm32h7-spi-server-core",
@@ -1896,7 +1898,6 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
- "drv-caboose",
  "gateway-messages",
  "hubpack",
  "idol-runtime",
@@ -3964,15 +3965,12 @@ dependencies = [
  "drv-hash-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
- "drv-lpc55-update-api",
  "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
  "drv-sprot-api",
- "drv-stm32h7-update-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
- "drv-update-api",
  "hif",
  "hubris-num-tasks",
  "idol-runtime",

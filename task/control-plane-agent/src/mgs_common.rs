@@ -148,9 +148,9 @@ impl MgsCommon {
             CabooseError::MissingCaboose => SpError::NoCaboose,
             CabooseError::BadChecksum => SpError::BadCabooseChecksum,
             CabooseError::TlvcReaderBeginFailed
-            | CabooseError::TlvcReadExactFailed
-            | CabooseError::ReadFailed
-            | CabooseError::InvalidRead => SpError::CabooseReadError,
+            | CabooseError::RawReadFailed
+            | CabooseError::InvalidRead
+            | CabooseError::TlvcReadExactFailed => SpError::CabooseReadError,
 
             // NoImageHeader is only returned when reading the caboose of the
             // bank2 slot; it shouldn't ever be returned by the local reader.
@@ -376,7 +376,9 @@ struct RotCabooseReader<'a> {
 
 impl<'a> RotCabooseReader<'a> {
     fn new(slot: SlotId, sprot: &'a SpRot) -> Result<Self, CabooseError> {
-        let size = sprot.caboose_size(slot)?;
+        let size = sprot
+            .caboose_size(slot)
+            .map_err(|_| CabooseError::RawReadFailed)?;
         ringbuf_entry!(Log::SprotCabooseSize(size));
         Ok(Self { size, slot, sprot })
     }
@@ -430,7 +432,6 @@ impl tlvc::TlvcRead for RotCabooseReader<'_> {
         ringbuf_entry!(Log::ReadCaboose(offset, dest.len()));
         if let Err(e) = self.sprot.read_caboose_region(offset, self.slot, dest)
         {
-            ringbuf_entry!(Log::ReadCabooseErr(e));
             // TODO: make `tlvc::TlvcReadError` parameterized
             Err(tlvc::TlvcReadError::Truncated)
         } else {

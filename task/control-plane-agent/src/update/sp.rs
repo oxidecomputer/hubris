@@ -59,9 +59,7 @@ use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_stm32h7_update_api::{
-    Update, UpdateError, UpdateTarget, BLOCK_SIZE_BYTES,
-};
+use drv_stm32h7_update_api::{Update, UpdateError, BLOCK_SIZE_BYTES};
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
@@ -157,7 +155,7 @@ impl SpUpdate {
 
         // Attempt to prepare for an update (erases our flash).
         self.sp_task
-            .prep_image_update(UpdateTarget::Alternate)
+            .prep_image_update()
             .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
         let state = if update.aux_flash_size > 0 {

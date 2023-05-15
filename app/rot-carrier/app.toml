@@ -185,7 +185,7 @@ notifications = ["timer"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
-features = ["lpc55", "gpio", "spctrl", "spi", "update"]
+features = ["lpc55", "gpio", "spctrl", "spi"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

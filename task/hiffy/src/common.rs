@@ -6,15 +6,7 @@ use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
 #[allow(unused_imports)]
 use userlib::task_slot;
-#[cfg(any(feature = "update"))]
-use userlib::FromPrimitive;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
-
-#[cfg(all(feature = "update", feature = "stm32h7"))]
-use drv_stm32h7_update_api::Update;
-
-#[cfg(all(feature = "update", feature = "lpc55"))]
-use drv_lpc55_update_api::Update;
 
 /// We allow dead code on this because the functions below are optional.
 ///
@@ -880,113 +872,4 @@ pub(crate) fn rng_fill(
 
     func_err(Rng::from(RNG.get_task_id()).fill(&mut rval[0..count]))?;
     Ok(count)
-}
-
-#[cfg(feature = "update")]
-task_slot!(pub UPDATE, update_server);
-
-#[cfg(any(feature = "update"))]
-fn update_args(stack: &[Option<u32>]) -> Result<(usize, usize), Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 2;
-
-    let len = match stack[fp + 0] {
-        Some(len) => len as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let block_num = match stack[fp + 1] {
-        Some(len) => len as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    Ok((block_num, len))
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn write_block(
-    stack: &[Option<u32>],
-    data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (start_block, len) = update_args(stack)?;
-
-    if len > data.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let update = Update::from(UPDATE.get_task_id());
-
-    let block_size = func_err(update.block_size())?;
-
-    for (i, c) in data[..len].chunks(block_size).enumerate() {
-        func_err(update.write_one_block(start_block + i, c))?;
-    }
-
-    Ok(0)
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn start_update(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 1;
-
-    let target = match stack[fp + 0] {
-        Some(target) => target as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let img = match drv_update_api::UpdateTarget::from_usize(target) {
-        Some(i) => i,
-        None => return Err(Failure::Fault(Fault::BadParameter(0))),
-    };
-
-    func_err(Update::from(UPDATE.get_task_id()).prep_image_update(img))?;
-    Ok(0)
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn finish_update(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    func_err(Update::from(UPDATE.get_task_id()).finish_image_update())?;
-    Ok(0)
-}
-
-#[cfg(feature = "update")]
-pub(crate) fn block_size(
-    _stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let size = func_err(Update::from(UPDATE.get_task_id()).block_size())?;
-
-    let bytes: [u8; 4] = [
-        (size & 0xff) as u8,
-        ((size >> 8) & 0xff) as u8,
-        ((size >> 16) & 0xff) as u8,
-        ((size >> 24) & 0xff) as u8,
-    ];
-
-    rval[..4].copy_from_slice(&bytes);
-
-    Ok(4)
 }
