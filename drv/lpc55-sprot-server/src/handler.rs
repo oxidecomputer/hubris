@@ -4,7 +4,7 @@
 
 use crate::Trace;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{SlotId, Update, UpdateStatus};
+use drv_lpc55_update_api::{RotUpdateStatus, SlotId, Update};
 use drv_sprot_api::{
     CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody, Request, Response,
     RotIoStats, RotState, RotStatus, RspBody, SprocketsError, SprotError,
@@ -144,7 +144,7 @@ impl Handler {
             }
             ReqBody::IoStats => Ok((RspBody::IoStats(stats.clone()), None)),
             ReqBody::RotState => match self.update.status() {
-                UpdateStatus::Rot(state) => {
+                RotUpdateStatus::Rot(state) => {
                     let msg = RotState::V1 {
                         bootrom_crc32: self.startup_state.bootrom_crc32,
                         state,

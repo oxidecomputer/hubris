@@ -59,7 +59,8 @@ use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_stm32h7_update_api::{Update, UpdateError, BLOCK_SIZE_BYTES};
+use drv_stm32h7_update_api::{Update, BLOCK_SIZE_BYTES};
+use drv_update_api::UpdateError;
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
@@ -556,7 +557,7 @@ impl AcceptingData {
     }
 }
 
-struct ImageVersionConvert(drv_stm32h7_update_api::ImageVersion);
+struct ImageVersionConvert(drv_lpc55_update_api::ImageVersion);
 
 impl From<ImageVersionConvert> for ImageVersion {
     fn from(v: ImageVersionConvert) -> Self {

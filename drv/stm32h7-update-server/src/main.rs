@@ -12,9 +12,10 @@
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader, CabooseValuePos};
 use drv_stm32h7_update_api::{
-    ImageVersion, UpdateError, UpdateStatus, BLOCK_SIZE_BYTES,
-    FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
+    ImageVersion, SpUpdateStatus, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK,
+    FLASH_WORD_BYTES,
 };
+use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -530,11 +531,11 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<
-        UpdateStatus,
+        SpUpdateStatus,
         idol_runtime::RequestError<core::convert::Infallible>,
     > {
         // TODO(AJS): Return actual info about loaded images for the SP
-        Ok(UpdateStatus::Sp)
+        Ok(SpUpdateStatus {})
     }
 
     fn read_caboose_value(
@@ -590,7 +591,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{CabooseError, ImageVersion};
+    use super::{CabooseError, ImageVersion, SpUpdateStatus};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

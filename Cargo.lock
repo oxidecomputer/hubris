@@ -1118,6 +1118,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "drv-lpc55-update-api",
  "drv-sprot-api",
+ "drv-update-api",
  "dumper-api",
  "hubpack",
  "idol-runtime",
@@ -1202,6 +1203,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_repr",
+ "stage0-handoff",
  "userlib",
  "zerocopy",
 ]
@@ -1525,6 +1527,7 @@ dependencies = [
  "drv-caboose",
  "drv-lpc55-update-api",
  "drv-spi-api",
+ "drv-update-api",
  "dumper-api",
  "gateway-messages",
  "hubpack",
@@ -1745,6 +1748,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_repr",
+ "stage0-handoff",
  "userlib",
  "zerocopy",
 ]
@@ -1905,7 +1909,6 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_repr",
- "stage0-handoff",
  "userlib",
  "zerocopy",
 ]
@@ -3865,6 +3868,7 @@ dependencies = [
  "drv-stm32h7-update-api",
  "drv-stm32h7-usart",
  "drv-transceivers-api",
+ "drv-update-api",
  "drv-user-leds-api",
  "gateway-messages",
  "heapless",

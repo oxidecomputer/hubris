@@ -17,10 +17,11 @@ serde = { workspace = true }
 sprockets-common = { workspace = true }
 zerocopy = { workspace = true }
 
-drv-caboose = { path = "../../drv/caboose" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
-drv-spi-api = { path = "../../drv/spi-api" }
+drv-caboose = { path = "../../drv/caboose" }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
+drv-spi-api = { path = "../../drv/spi-api" }
+drv-update-api = { path = "../../drv/update-api" }
 dumper-api = { path = "../../task/dumper-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }

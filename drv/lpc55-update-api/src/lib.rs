@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
-pub use drv_update_api::*;
-
 /// Minimal error type for caboose actions
 ///
 /// The RoT decodes the caboose location and presence, but does not actually
@@ -131,6 +129,19 @@ pub enum SwitchDuration {
     /// Choice is permanent until changed. This is more dangerous, but is also
     /// universally available.
     Forever,
+}
+
+// Re-export
+pub use stage0_handoff::{
+    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
+};
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum RotUpdateStatus {
+    LoadError(HandoffDataLoadError),
+    Rot(RotBootState),
 }
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
