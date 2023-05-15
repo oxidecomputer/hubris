@@ -14,15 +14,13 @@ Interface(
         "prep_image_update": (
             doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
             args : {
-                "image_type": (
-                    type: "UpdateTarget",
-                    recv: FromPrimitive("u8"),
-                )
+                "image_type": "UpdateTarget",
             },
             reply : Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),
+            encoding: Hubpack,
         ),
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",
