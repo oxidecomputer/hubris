@@ -13,8 +13,8 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
-use drv_lpc55_update_api::{RawCabooseError, UpdateTarget};
-use drv_update_api::{SlotId, SwitchDuration, UpdateError, UpdateStatus};
+use drv_lpc55_update_api::{RawCabooseError, SlotId, UpdateTarget};
+use drv_update_api::{SwitchDuration, UpdateError, UpdateStatus};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
@@ -846,8 +846,9 @@ fn main() -> ! {
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
-    use super::{ImageVersion, RawCabooseError, UpdateTarget};
-    use drv_update_api::{SlotId, SwitchDuration};
+    use super::{
+        ImageVersion, RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

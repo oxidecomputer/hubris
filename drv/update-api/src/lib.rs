@@ -131,35 +131,3 @@ pub enum SwitchDuration {
     /// universally available.
     Forever,
 }
-
-/// Designates a firmware image slot in parts that have fixed slots (rather than
-/// bank remapping).
-///
-/// This `enum` is used as part of the wire format for SP-RoT communication, and
-/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    FromPrimitive,
-    Serialize,
-    Deserialize,
-    SerializedSize,
-)]
-pub enum SlotId {
-    A,
-    B,
-}
-
-impl TryFrom<u16> for SlotId {
-    type Error = ();
-    fn try_from(i: u16) -> Result<Self, Self::Error> {
-        match i {
-            0 => Ok(Self::A),
-            1 => Ok(Self::B),
-            _ => Err(()),
-        }
-    }
-}
