@@ -21,7 +21,6 @@ mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
 
-#[cfg(feature = "dumper")]
 task_slot!(DUMPER, dumper);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
@@ -168,20 +167,10 @@ impl Handler {
                 None,
             )),
             ReqBody::Dump(DumpReq::V1 { addr }) => {
-                #[cfg(feature = "dumper")]
-                {
-                    ringbuf_entry!(Trace::Dump(addr));
-                    let dumper = Dumper::from(DUMPER.get_task_id());
-                    let err = dumper.dump(addr).err();
-                    Ok((RspBody::Dump(DumpRsp::V1 { err }), None))
-                }
-                #[cfg(not(feature = "dumper"))]
-                Ok((
-                    RspBody::Dump(DumpRsp::V1 {
-                        err: Some(dumper_api::DumperError::SetupFailed),
-                    }),
-                    None,
-                ))
+                ringbuf_entry!(Trace::Dump(addr));
+                let dumper = Dumper::from(DUMPER.get_task_id());
+                let err = dumper.dump(addr).err();
+                Ok((RspBody::Dump(DumpRsp::V1 { err }), None))
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
                 let size = self.update.block_size()?;
