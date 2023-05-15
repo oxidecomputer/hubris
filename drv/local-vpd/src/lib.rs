@@ -47,17 +47,18 @@ enum Trace {
 ringbuf!(Trace, 4, Trace::None);
 
 impl<'a> TlvcRead for EepromReader<'a> {
-    fn extent(&self) -> Result<u64, TlvcReadError> {
+    type Error = drv_i2c_devices::at24csw080::Error;
+    fn extent(&self) -> Result<u64, TlvcReadError<Self::Error>> {
         Ok(EEPROM_SIZE as u64)
     }
     fn read_exact(
         &self,
         offset: u64,
         dest: &mut [u8],
-    ) -> Result<(), TlvcReadError> {
+    ) -> Result<(), TlvcReadError<Self::Error>> {
         self.eeprom.read_into(offset as u16, dest).map_err(|code| {
             ringbuf_entry!(Trace::EepromError(code));
-            TlvcReadError::Truncated
+            TlvcReadError::User(code)
         })?;
         Ok(())
     }

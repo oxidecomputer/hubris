@@ -136,14 +136,6 @@ pub use stage0_handoff::{
     HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
 };
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
-)]
-pub enum RotUpdateStatus {
-    LoadError(HandoffDataLoadError),
-    Rot(RotBootState),
-}
-
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
 //
 // We hardcode it for simplicity, and because we cannot,and should not,

@@ -63,7 +63,10 @@ Interface(
         "status": (
             doc: "Get info about installed images",
             args: { },
-            reply : Simple("RotUpdateStatus"),
+            reply : Result(
+                ok: "RotBootState",
+                err: Complex("HandoffDataLoadError"),
+            ),
             idempotent: true,
             encoding: Hubpack
         ),
