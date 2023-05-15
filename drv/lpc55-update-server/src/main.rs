@@ -543,6 +543,7 @@ fn validate_header_block(
         UpdateTarget::Bootloader => {
             (stage0_base..stage0_end).contains(&reset_vector)
         }
+        UpdateTarget::_Reserved => false,
     };
     if !valid {
         return Err(UpdateError::InvalidHeaderBlock);
@@ -662,12 +663,14 @@ fn same_image(which: UpdateTarget) -> bool {
     get_base(which) == unsafe { __this_image.as_ptr() } as u32
 }
 
-/// Returns the byte address of the first byte of the given flash target slot
+/// Returns the byte address of the first byte of the given flash target slot,
+/// or panics if you're holding it wrong
 fn get_base(which: UpdateTarget) -> u32 {
     (match which {
         UpdateTarget::ImageA => unsafe { __IMAGE_A_BASE.as_ptr() },
         UpdateTarget::ImageB => unsafe { __IMAGE_B_BASE.as_ptr() },
         UpdateTarget::Bootloader => unsafe { __IMAGE_STAGE0_BASE.as_ptr() },
+        UpdateTarget::_Reserved => panic!(),
     }) as u32
 }
 
@@ -676,6 +679,7 @@ fn get_end(which: UpdateTarget) -> u32 {
         UpdateTarget::ImageA => unsafe { __IMAGE_A_END.as_ptr() },
         UpdateTarget::ImageB => unsafe { __IMAGE_B_END.as_ptr() },
         UpdateTarget::Bootloader => unsafe { __IMAGE_STAGE0_END.as_ptr() },
+        UpdateTarget::_Reserved => panic!(),
     }) as u32
 }
 
@@ -683,7 +687,8 @@ fn get_end(which: UpdateTarget) -> u32 {
 /// combination.
 ///
 /// `image_target` designates the flash slot and must be `ImageA`, `ImageB`, or
-/// `Bootloader`; this is enforced by the type system.
+/// `Bootloader`, despite containing other variants.  All other choices will
+/// panic. (TODO: fix this when time permits.)
 ///
 /// `page_num` designates a flash page (called a block elsewhere in this file, a
 /// 512B unit) within the flash slot. If the page is out range for the target
