@@ -12,7 +12,6 @@ num-traits.workspace = true
 serde.workspace = true
 ssmarshal.workspace = true
 static_assertions.workspace = true
-tlvc.workspace = true
 zerocopy.workspace = true
 
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }

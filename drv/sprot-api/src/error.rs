@@ -5,6 +5,7 @@
 //! Errors for the sprot API
 
 use derive_more::From;
+use drv_caboose::CabooseError;
 use drv_lpc55_update_api::RawCabooseError;
 use drv_spi_api::SpiError;
 use drv_update_api::UpdateError;
@@ -190,4 +191,21 @@ impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
 pub enum RawCabooseOrSprotError {
     Sprot(SprotError),
     Caboose(RawCabooseError),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum CabooseOrSprotError {
+    Sprot(SprotError),
+    Caboose(CabooseError),
+}
+
+impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
+    fn from(e: RawCabooseOrSprotError) -> Self {
+        match e {
+            RawCabooseOrSprotError::Caboose(e) => {
+                CabooseOrSprotError::Caboose(e.into())
+            }
+            RawCabooseOrSprotError::Sprot(e) => CabooseOrSprotError::Sprot(e),
+        }
+    }
 }

@@ -7,11 +7,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use hubpack::SerializedSize;
-use serde::{Deserialize, Serialize};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::FromPrimitive;
-use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum CabooseError {
@@ -29,24 +26,6 @@ pub enum CabooseError {
 /// caboose and allows us to implement `TlvcRead`
 #[derive(Copy, Clone)]
 pub struct CabooseReader<'a>(&'a [u8]);
-
-/// Position of a value within the caboose
-///
-/// This is equivalent to `core::ops::Range<u32>`, but has more traits
-#[derive(
-    Copy, Clone, AsBytes, FromBytes, Serialize, Deserialize, SerializedSize,
-)]
-#[repr(C)]
-pub struct CabooseValuePos {
-    pub start: u32,
-    pub end: u32,
-}
-
-impl CabooseValuePos {
-    pub fn len(self) -> usize {
-        (self.end - self.start) as usize
-    }
-}
 
 impl<'a> CabooseReader<'a> {
     pub fn new(data: &'a [u8]) -> Self {
