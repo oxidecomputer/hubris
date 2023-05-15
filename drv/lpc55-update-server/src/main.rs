@@ -13,8 +13,10 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_caboose::CabooseValuePos;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
-use drv_lpc55_update_api::{RawCabooseError, SlotId, UpdateTarget};
-use drv_update_api::{SwitchDuration, UpdateError, UpdateStatus};
+use drv_lpc55_update_api::{
+    RawCabooseError, SlotId, SwitchDuration, UpdateTarget,
+};
+use drv_update_api::{UpdateError, UpdateStatus};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use stage0_handoff::{HandoffData, ImageVersion, RotBootState};
 use userlib::*;
