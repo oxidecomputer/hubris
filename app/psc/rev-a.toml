@@ -119,7 +119,7 @@ task-slots = ["sys", "i2c_driver", "jefe", "packrat"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 5
-max-sizes = {flash = 65536, ram = 16384}
+max-sizes = {flash = 131072, ram = 16384}
 stacksize = 4096
 start = true
 uses = []
