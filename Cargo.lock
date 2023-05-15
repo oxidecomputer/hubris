@@ -698,7 +698,7 @@ dependencies = [
  "num-traits",
  "serde",
  "sha3",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -716,7 +716,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32h7",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -731,7 +731,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -761,7 +761,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "sha3",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -1001,7 +1001,7 @@ dependencies = [
  "drv-i2c-devices",
  "ringbuf",
  "serde",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -2346,8 +2346,8 @@ dependencies = [
  "path-slash",
  "rsa",
  "thiserror",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc)",
- "tlvc-text 0.1.0 (git+https://github.com/oxidecomputer/tlvc)",
+ "tlvc 0.2.0",
+ "tlvc-text 0.1.0",
  "toml",
  "x509-cert",
  "zerocopy",
@@ -2635,7 +2635,7 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "userlib",
  "zerocopy",
 ]
@@ -3875,7 +3875,7 @@ dependencies = [
  "task-packrat-api",
  "task-sensor-api",
  "task-validate-api",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
  "update-buffer",
  "userlib",
  "zerocopy",
@@ -4752,7 +4752,7 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 [[package]]
 name = "tlvc"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#620e98bdeffa6f22d180448c8e992facec910b50"
+source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
 dependencies = [
  "byteorder",
  "crc",
@@ -4761,8 +4761,8 @@ dependencies = [
 
 [[package]]
 name = "tlvc"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#e93a8756885e2e2da350bb3bb0dae935e3634ff4"
 dependencies = [
  "byteorder",
  "crc",
@@ -4772,22 +4772,22 @@ dependencies = [
 [[package]]
 name = "tlvc-text"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#620e98bdeffa6f22d180448c8e992facec910b50"
+source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
 dependencies = [
  "ron",
  "serde",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.2.0",
  "zerocopy",
 ]
 
 [[package]]
 name = "tlvc-text"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#e93a8756885e2e2da350bb3bb0dae935e3634ff4"
 dependencies = [
  "ron",
  "serde",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc)",
+ "tlvc 0.3.0",
  "zerocopy",
 ]
 
@@ -5152,8 +5152,8 @@ dependencies = [
  "serde_json",
  "sha3",
  "strsim",
- "tlvc 0.2.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
- "tlvc-text 0.1.0 (git+https://github.com/oxidecomputer/tlvc?branch=user-error)",
+ "tlvc 0.3.0",
+ "tlvc-text 0.3.0",
  "toml",
  "toml-task",
  "walkdir",
