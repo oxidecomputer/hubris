@@ -105,29 +105,3 @@ impl From<UpdateError> for GwUpdateError {
         }
     }
 }
-
-/// When booting into an alternate image, specifies how "sticky" that decision
-/// is.
-///
-/// This `enum` is used as part of the wire format for SP-RoT communication, and
-/// therefore cannot be changed at will; see discussion in `drv_sprot_api::Msg`
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    FromPrimitive,
-    Serialize,
-    Deserialize,
-    SerializedSize,
-)]
-pub enum SwitchDuration {
-    /// Choice applies once. Resetting the processor will return to the original
-    /// image. Useful when provisionally testing an update, but only available
-    /// on certain implementations.
-    Once,
-    /// Choice is permanent until changed. This is more dangerous, but is also
-    /// universally available.
-    Forever,
-}

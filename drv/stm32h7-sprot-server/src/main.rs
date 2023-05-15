@@ -7,11 +7,10 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
-use drv_lpc55_update_api::UpdateTarget;
+use drv_lpc55_update_api::{SwitchDuration, UpdateTarget};
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::SwitchDuration;
 use hubpack::SerializedSize;
 use idol_runtime::RequestError;
 use ringbuf::*;
