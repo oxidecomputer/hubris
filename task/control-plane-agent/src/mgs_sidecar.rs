@@ -14,10 +14,10 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
 };
 use gateway_messages::{
-    ignition, CabooseValue, ComponentAction, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
-    MgsError, PowerState, SpComponent, SpError, SpPort, SpState,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
+    DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
+    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -674,17 +674,10 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         slot: u16,
         key: [u8; 4],
-    ) -> Result<CabooseValue, SpError> {
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
         self.common
-            .get_component_caboose_value(component, slot, key)
-    }
-
-    fn copy_caboose_value_into(
-        &self,
-        value: CabooseValue,
-        out: &mut [u8],
-    ) -> Result<(), SpError> {
-        self.common.copy_caboose_value_into(value, out)
+            .get_component_caboose_value(component, slot, key, buf)
     }
 
     fn reset_component_prepare(

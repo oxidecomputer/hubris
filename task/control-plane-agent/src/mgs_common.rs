@@ -10,9 +10,9 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    CabooseValue, DiscoverResponse, ImageVersion, PowerState, RotBootState,
-    RotError, RotImageDetails, RotSlot, RotState, RotUpdateDetails,
-    SpComponent, SpError, SpPort, SpState,
+    DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
+    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpComponent, SpError,
+    SpPort, SpState,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -117,7 +117,8 @@ impl MgsCommon {
         component: SpComponent,
         slot: u16,
         key: [u8; 4],
-    ) -> Result<CabooseValue, SpError> {
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
         let caboose_to_sp_error = |e| {
             match e {
                 CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
@@ -142,62 +143,61 @@ impl MgsCommon {
                     let reader = userlib::kipc::get_caboose()
                         .map(CabooseReader::new)
                         .ok_or(SpError::NoCaboose)?;
-                    reader
-                        .get(key)
-                        .map(CabooseValue::Local)
-                        .map_err(caboose_to_sp_error)
+                    let v = reader.get(key).map_err(caboose_to_sp_error)?;
+                    let len = v.len();
+                    if len > buf.len() {
+                        Err(SpError::CabooseValueOverflow(len as u32))
+                    } else {
+                        buf[..len].copy_from_slice(v);
+                        Ok(len)
+                    }
                 }
-                1 => self
-                    .sp_update
-                    .find_caboose_value(key)
-                    .map(|pos| CabooseValue::Bank2 {
-                        pos: pos.start..pos.end,
-                    })
-                    .map_err(caboose_to_sp_error),
+                1 => {
+                    let v = self
+                        .sp_update
+                        .find_caboose_value(key)
+                        .map_err(caboose_to_sp_error)?;
+                    let len = v.len();
+                    if len > buf.len() {
+                        Err(SpError::CabooseValueOverflow(len as u32))
+                    } else {
+                        self.sp_update
+                            .read_raw_caboose(v.start, &mut buf[..len])
+                            .map_err(caboose_to_sp_error)?;
+                        Ok(len)
+                    }
+                }
                 _ => return Err(SpError::InvalidSlotForComponent),
             },
             SpComponent::ROT => {
                 let slot_id = slot
                     .try_into()
                     .map_err(|()| SpError::InvalidSlotForComponent)?;
-                RotCabooseReader::new(slot_id, &self.sprot)
+                let v = RotCabooseReader::new(slot_id, &self.sprot)
                     .and_then(|r| r.get(key))
-                    .map(|pos| CabooseValue::Rot { slot, pos })
                     .map_err(|e| match e {
                         CabooseOrSprotError::Sprot(e) => e.into(),
                         CabooseOrSprotError::Caboose(e) => {
                             caboose_to_sp_error(e)
                         }
-                    })
+                    })?;
+                let len = v.len();
+                if len > buf.len() {
+                    Err(SpError::CabooseValueOverflow(len as u32))
+                } else {
+                    self.sprot
+                        .read_caboose_region(v.start, slot_id, &mut buf[..len])
+                        .map_err(|e| match e {
+                            RawCabooseOrSprotError::Sprot(e) => e.into(),
+                            RawCabooseOrSprotError::Caboose(e) => {
+                                caboose_to_sp_error(e.into())
+                            }
+                        })?;
+                    Ok(len)
+                }
             }
             _ => return Err(SpError::RequestUnsupportedForComponent),
         }
-    }
-
-    pub fn copy_caboose_value_into(
-        &self,
-        value: CabooseValue,
-        out: &mut [u8],
-    ) -> Result<(), SpError> {
-        match value {
-            CabooseValue::Local(d) => {
-                out.copy_from_slice(d);
-            }
-            CabooseValue::Bank2 { pos } => {
-                self.sp_update
-                    .read_raw_caboose(pos.start, out)
-                    .map_err(|_| SpError::CabooseReadError)?;
-            }
-            CabooseValue::Rot { slot, pos } => {
-                let slot = slot
-                    .try_into()
-                    .map_err(|()| SpError::InvalidSlotForComponent)?;
-                self.sprot
-                    .read_caboose_region(pos.start, slot, out)
-                    .map_err(|_| SpError::CabooseReadError)?;
-            }
-        }
-        Ok(())
     }
 
     /// If the targeted component is the SP_ITSELF, then having reset itself,
