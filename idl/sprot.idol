@@ -130,6 +130,34 @@ Interface(
             ),
             encoding: Hubpack,
             idempotent: true,
-        )
+        ),
+        "caboose_size": (
+            doc: "Returns the size of the caboose",
+            args: {
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("RawCabooseOrSprotError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+        "read_caboose_region": (
+            doc: "Reads a subset of the caboose memory",
+            args: {
+                "offset": "u32",
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("RawCabooseOrSprotError"),
+            ),
+            leases : {
+                "out": (type: "[u8]", write: true),
+            },
+            idempotent: true,
+            encoding: Hubpack,
+        ),
     }
 )

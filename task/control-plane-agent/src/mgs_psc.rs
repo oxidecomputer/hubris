@@ -229,7 +229,8 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
     ) -> Result<SpState, SpError> {
         let power_state = self.power_state_impl()?;
-        self.common.sp_state(&self.sp_update, power_state)
+        let version = self.sp_update.current_version();
+        self.common.sp_state(power_state, version)
     }
 
     fn sp_update_prepare(
@@ -465,8 +466,7 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common
-            .component_get_active_slot(&self.sp_update, component)
+        self.common.component_get_active_slot(component)
     }
 
     fn component_set_active_slot(
@@ -483,12 +483,8 @@ impl SpHandler for MgsHandler {
             persist,
         }));
 
-        self.common.component_set_active_slot(
-            &self.sp_update,
-            component,
-            slot,
-            persist,
-        )
+        self.common
+            .component_set_active_slot(component, slot, persist)
     }
 
     fn component_clear_status(
@@ -574,11 +570,15 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn get_caboose_value(
+    fn get_component_caboose_value(
         &mut self,
+        component: SpComponent,
+        slot: u16,
         key: [u8; 4],
-    ) -> Result<&'static [u8], SpError> {
-        self.common.get_caboose_value(key)
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        self.common
+            .get_component_caboose_value(component, slot, key, buf)
     }
 
     fn reset_component_prepare(
@@ -596,7 +596,6 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        self.common
-            .reset_component_trigger(&self.sp_update, component)
+        self.common.reset_component_trigger(component)
     }
 }

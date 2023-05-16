@@ -46,7 +46,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
+max-sizes = {flash = 32768, ram = 4096, usbsram = 4096}
 stacksize = 2048
 start = true
 sections = {bootstate = "usbsram"}
@@ -185,7 +185,7 @@ notifications = ["timer"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
-features = ["lpc55", "gpio", "spctrl", "spi", "update"]
+features = ["lpc55", "gpio", "spctrl", "spi"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

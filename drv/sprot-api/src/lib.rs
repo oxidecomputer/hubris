@@ -9,15 +9,17 @@
 extern crate memoffset;
 
 mod error;
+use drv_caboose::CabooseError;
 use dumper_api::DumperError;
 pub use error::{
-    DumpOrSprotError, SprocketsError, SprotError, SprotProtocolError,
+    CabooseOrSprotError, DumpOrSprotError, RawCabooseOrSprotError,
+    SprocketsError, SprotError, SprotProtocolError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
-pub use drv_update_api::{
-    HandoffDataLoadError, RotBootState, RotSlot, SlotId, SwitchDuration,
-    UpdateError, UpdateTarget,
+pub use drv_lpc55_update_api::{
+    HandoffDataLoadError, RawCabooseError, RotBootState, RotSlot, SlotId,
+    SwitchDuration, UpdateTarget,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
@@ -42,7 +44,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(2);
+pub const CURRENT_VERSION: Version = Version(3);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -222,15 +224,30 @@ where
         buf: &mut [u8; N],
         blob: LenLimit<Leased<R, [u8]>, MAX_BLOB_SIZE>,
     ) -> Result<usize, SprotProtocolError> {
+        Self::pack_with_cb(body, buf, |buf| {
+            // Copy the blob into the buffer after the serialized body
+            blob.read_range(0..blob.len(), buf)
+                .map_err(|_| SprotProtocolError::TaskRestarted)?;
+            Ok(blob.len())
+        })
+    }
+
+    /// Serialize a `Header` followed by a `ReqBody` or `RspBody`, copy a blob
+    /// into `buf` after the serialized body,  compute a CRC, serialize the
+    /// CRC, and return the total size of the serialized request.
+    pub fn pack_with_cb<F, E>(
+        body: &T,
+        buf: &mut [u8; N],
+        mut cb: F,
+    ) -> Result<usize, E>
+    where
+        F: FnMut(&mut [u8]) -> Result<usize, E>,
+    {
         // Serialize `body`
         let mut size = hubpack::serialize(&mut buf[Header::MAX_SIZE..], body)
             .unwrap_lite();
 
-        // Copy the blob into the buffer after the serialized body
-        blob.read_range(0..blob.len(), &mut buf[Header::MAX_SIZE + size..])
-            .map_err(|_| SprotProtocolError::TaskRestarted)?;
-
-        size += blob.len();
+        size += cb(&mut buf[Header::MAX_SIZE + size..])?;
 
         // Create a header, now that we know the size of the body
         let header = Header::new(size.try_into().unwrap_lite());
@@ -299,7 +316,7 @@ pub struct Version(pub u32);
 
 /// The body of a sprot request.
 ///
-/// See [`Msg`] for details about versionin and message evolution.
+/// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum ReqBody {
     Status,
@@ -308,6 +325,7 @@ pub enum ReqBody {
     Update(UpdateReq),
     Sprockets(SprocketsReq),
     Dump(DumpReq),
+    Caboose(CabooseReq),
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -335,15 +353,28 @@ pub enum UpdateReq {
     Reset,
 }
 
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CabooseReq {
+    Size { slot: SlotId },
+    Read { slot: SlotId, start: u32, size: u32 },
+}
+
 /// A response used for RoT updates
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum UpdateRsp {
     BlockSize(u32),
 }
 
+/// A response used for caboose requests
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CabooseRsp {
+    Size(u32),
+    Read,
+}
+
 /// The body of a sprot response.
 ///
-/// See [`Msg`] for details about versionin and message evolution.
+/// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RspBody {
     // General Ok status shared among response variants
@@ -362,6 +393,7 @@ pub enum RspBody {
     Update(UpdateRsp),
     Sprockets(SprocketsRsp),
     Dump(DumpRsp),
+    Caboose(Result<CabooseRsp, RawCabooseError>),
 }
 
 /// A response from the Dumper
@@ -493,6 +525,122 @@ pub struct SpIoStats {
 pub struct SprotIoStats {
     pub rot: RotIoStats,
     pub sp: SpIoStats,
+}
+
+impl SpRot {
+    pub fn read_caboose_value(
+        &self,
+        slot_id: SlotId,
+        key: [u8; 4],
+        buf: &mut [u8],
+    ) -> Result<u32, CabooseOrSprotError> {
+        let reader = RotCabooseReader::new(slot_id, &self)?;
+        let len = reader.get(key, buf)?;
+        Ok(len)
+    }
+}
+
+#[derive(Copy, Clone)]
+struct RotCabooseReader<'a> {
+    sprot: &'a SpRot,
+    size: u32,
+    slot: SlotId,
+}
+
+impl<'a> RotCabooseReader<'a> {
+    fn new(
+        slot: SlotId,
+        sprot: &'a SpRot,
+    ) -> Result<Self, CabooseOrSprotError> {
+        let size = sprot.caboose_size(slot)?;
+        Ok(Self { size, slot, sprot })
+    }
+
+    pub fn get(
+        &self,
+        key: [u8; 4],
+        out: &mut [u8],
+    ) -> Result<u32, CabooseOrSprotError> {
+        // This is similar to the implementation in drv_caboose::CabooseReader,
+        // but goes through the SpRot IPC bridge to request data over SPI.  In
+        // addition, it copies the found value in this function, instead of
+        // returning a `&'static [u8]`; returning a slice would be meaningless
+        // because the value is not in local memory.
+        let mut reader = tlvc::TlvcReader::begin(self).map_err(|_| {
+            CabooseOrSprotError::Caboose(CabooseError::TlvcReaderBeginFailed)
+        })?;
+        loop {
+            match reader.next() {
+                Ok(Some(chunk)) => {
+                    if chunk.header().tag == key {
+                        let mut tmp = [0u8; 32];
+                        if chunk.check_body_checksum(&mut tmp).is_err() {
+                            return Err(CabooseOrSprotError::Caboose(
+                                CabooseError::BadChecksum,
+                            ));
+                        }
+                        let data_len = chunk.header().len.get();
+
+                        if data_len as usize > out.len() {
+                            return Err(CabooseOrSprotError::Sprot(
+                                SprotError::Protocol(
+                                    SprotProtocolError::BadMessageLength,
+                                ),
+                            ));
+                        }
+
+                        chunk
+                            .read_exact(0, &mut out[..data_len as usize])
+                            .map_err(|_| {
+                                CabooseOrSprotError::Caboose(
+                                    CabooseError::RawReadFailed,
+                                )
+                            })?;
+                        return Ok(data_len);
+                    }
+                }
+                Err(e) => match e {
+                    tlvc::TlvcReadError::Truncated => {
+                        return Err(CabooseOrSprotError::Caboose(
+                            CabooseError::NoSuchTag,
+                        ))
+                    }
+                    tlvc::TlvcReadError::HeaderCorrupt { .. }
+                    | tlvc::TlvcReadError::BodyCorrupt { .. } => {
+                        return Err(CabooseOrSprotError::Caboose(
+                            CabooseError::BadChecksum,
+                        ))
+                    }
+                    tlvc::TlvcReadError::User(e) => break Err(e.into()),
+                },
+                Ok(None) => {
+                    return Err(CabooseOrSprotError::Caboose(
+                        CabooseError::NoSuchTag,
+                    ))
+                }
+            }
+        }
+    }
+}
+
+impl tlvc::TlvcRead for &RotCabooseReader<'_> {
+    type Error = RawCabooseOrSprotError;
+    fn extent(&self) -> Result<u64, tlvc::TlvcReadError<Self::Error>> {
+        Ok(self.size as u64)
+    }
+
+    fn read_exact(
+        &self,
+        offset: u64,
+        dest: &mut [u8],
+    ) -> Result<(), tlvc::TlvcReadError<Self::Error>> {
+        let offset = offset
+            .try_into()
+            .map_err(|_| tlvc::TlvcReadError::Truncated)?;
+        self.sprot
+            .read_caboose_region(offset, self.slot, dest)
+            .map_err(tlvc::TlvcReadError::User)
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

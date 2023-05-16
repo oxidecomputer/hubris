@@ -1,4 +1,4 @@
-// Image update API
+// Image update API for the LPC55
 
 Interface(
     name: "Update",
@@ -14,15 +14,13 @@ Interface(
         "prep_image_update": (
             doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
             args : {
-                "image_type": (
-                    type: "UpdateTarget",
-                    recv: FromPrimitive("u8"),
-                )
+                "image_type": "UpdateTarget",
             },
             reply : Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),
+            encoding: Hubpack,
         ),
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",
@@ -63,23 +61,40 @@ Interface(
         "status": (
             doc: "Get info about installed images",
             args: { },
-            reply : Simple("drv_update_api::UpdateStatus"),
+            reply : Result(
+                ok: "RotBootState",
+                err: Complex("HandoffDataLoadError"),
+            ),
             idempotent: true,
             encoding: Hubpack
         ),
-        "read_image_caboose": (
-            doc: "Reads the specified tag from the bank2 caboose",
+        "read_raw_caboose": (
+            doc: "Reads a raw portion of the caboose",
             args: {
-                "name": "[u8; 4]",
+                "slot": "SlotId",
+                "offset": "u32",
             },
             leases: {
                 "data": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "u32",
-                err: CLike("CabooseError"),
+                ok: "()",
+                err: CLike("RawCabooseError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
+        ),
+        "caboose_size": (
+            doc: "Returns the size of the caboose",
+            args: {
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("RawCabooseError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
         ),
         "switch_default_image": (
             doc: "Prefer a specific image slot for one or many boots",

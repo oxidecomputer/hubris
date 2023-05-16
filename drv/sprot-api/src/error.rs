@@ -5,6 +5,8 @@
 //! Errors for the sprot API
 
 use derive_more::From;
+use drv_caboose::CabooseError;
+use drv_lpc55_update_api::RawCabooseError;
 use drv_spi_api::SpiError;
 use drv_update_api::UpdateError;
 use dumper_api::DumperError;
@@ -167,20 +169,43 @@ impl From<SprocketsError> for GwSprocketsErr {
     }
 }
 
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum DumpOrSprotError {
+    Sprot(SprotError),
+    Dump(DumperError),
+}
+
 impl From<SprotError> for RequestError<DumpOrSprotError> {
     fn from(err: SprotError) -> Self {
         DumpOrSprotError::from(err).into()
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-pub enum DumpOrSprotError {
-    Dump(DumperError),
-    Sprot(SprotError),
-}
-
-impl From<DumpOrSprotError> for Result<(), RequestError<DumpOrSprotError>> {
+impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
     fn from(err: DumpOrSprotError) -> Self {
         Err(RequestError::Runtime(err.into()))
+    }
+}
+
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum RawCabooseOrSprotError {
+    Sprot(SprotError),
+    Caboose(RawCabooseError),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum CabooseOrSprotError {
+    Sprot(SprotError),
+    Caboose(CabooseError),
+}
+
+impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
+    fn from(e: RawCabooseOrSprotError) -> Self {
+        match e {
+            RawCabooseOrSprotError::Caboose(e) => {
+                CabooseOrSprotError::Caboose(e.into())
+            }
+            RawCabooseOrSprotError::Sprot(e) => CabooseOrSprotError::Sprot(e),
+        }
     }
 }

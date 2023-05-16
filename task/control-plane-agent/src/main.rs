@@ -62,6 +62,9 @@ enum Log {
     HostFlashSectorsErased { num_sectors: usize },
     ExpectedRspTimeout,
     RotReset(SprotError),
+    SprotCabooseSize(u32),
+    ReadCaboose(u32, usize),
+    GotCabooseChunk([u8; 4]),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the

@@ -11,13 +11,10 @@
 
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
-use drv_update_api::stm32h7::{
-    BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
+use drv_stm32h7_update_api::{
+    ImageVersion, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
-use drv_update_api::{
-    ImageVersion, SlotId, SwitchDuration, UpdateError, UpdateStatus,
-    UpdateTarget,
-};
+use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -289,7 +286,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
         &mut self,
         _: &RecvMessage,
-        img_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::InProgress => {
@@ -299,11 +295,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::UpdateAlreadyFinished.into())
             }
             UpdateState::NoUpdate => (),
-        }
-
-        match img_type {
-            UpdateTarget::Alternate => (),
-            _ => return Err(UpdateError::BadImageType.into()),
         }
 
         self.unlock();
@@ -415,18 +406,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         })
     }
 
-    fn status(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<
-        UpdateStatus,
-        idol_runtime::RequestError<core::convert::Infallible>,
-    > {
-        // TODO(AJS): Return actual info about loaded images for the SP
-        Ok(UpdateStatus::Sp)
-    }
-
-    fn read_image_caboose(
+    fn read_caboose_value(
         &mut self,
         _: &RecvMessage,
         name: [u8; 4],
@@ -489,12 +469,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         };
 
         // SAFETY: this is a slice within the bank2 flash
-        let caboose: &[u8] = unsafe {
+        let caboose = unsafe {
             core::slice::from_raw_parts(
                 caboose_range.start as *const u8,
                 caboose_range.len(),
             )
         };
+
         let reader = CabooseReader::new(caboose);
 
         // Get the specific chunk of caboose memory that contains the requested
@@ -518,34 +499,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         for c in chunk.chunks(BUF_SIZE) {
             let buf = &mut buf[..c.len()];
             buf.copy_from_slice(c);
-            data.write_range(pos..pos + c.len(), buf)
+            data.write_range(pos..pos + c.len(), &buf[..c.len()])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             pos += c.len();
         }
+
         Ok(chunk.len() as u32)
-    }
-
-    fn switch_default_image(
-        &mut self,
-        _: &RecvMessage,
-        _slot: SlotId,
-        _duration: SwitchDuration,
-    ) -> Result<(), RequestError<UpdateError>> {
-        // The SP does automatic bank switching upon update, and there is no
-        // need to do anything else at this point.
-        Err(UpdateError::NotImplemented.into())
-    }
-
-    fn reset(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<UpdateError>> {
-        // There is already an implementation for SP reset.
-        // This is here to satisfy update-api.
-        // It may be desireable to put a check it to
-        // reject the reset request if an update is
-        // in progress.
-        Err(UpdateError::NotImplemented.into())
     }
 }
 
@@ -566,9 +525,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{
-        CabooseError, ImageVersion, SlotId, SwitchDuration, UpdateTarget,
-    };
+    use super::{CabooseError, ImageVersion};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -137,7 +137,7 @@ notifications = [
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "qspi", "rng", "update", "hash", "sprot"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "qspi", "rng", "hash", "sprot"]
 priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048

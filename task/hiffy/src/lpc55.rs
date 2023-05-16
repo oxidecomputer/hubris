@@ -75,21 +75,6 @@ pub enum Functions {
     ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
-    #[cfg(feature = "update")]
-    StartUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    WriteBlock((usize, usize), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    FinishUpdate((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    BlockSize((), drv_update_api::UpdateError),
-    #[cfg(feature = "update")]
-    SwitchDefaultImage(
-        (drv_update_api::SlotId, drv_update_api::SwitchDuration),
-        drv_update_api::UpdateError,
-    ),
-    #[cfg(feature = "update")]
-    Reset((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -388,18 +373,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
-    #[cfg(feature = "update")]
-    crate::common::start_update,
-    #[cfg(feature = "update")]
-    crate::common::write_block,
-    #[cfg(feature = "update")]
-    crate::common::finish_update,
-    #[cfg(feature = "update")]
-    crate::common::block_size,
-    #[cfg(feature = "update")]
-    crate::common::switch_default_image,
-    #[cfg(feature = "update")]
-    crate::common::reset,
 ];
 
 //

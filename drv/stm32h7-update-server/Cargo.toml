@@ -12,6 +12,7 @@ stm32h7 = { workspace = true, features = ["stm32h753"] }
 zerocopy = { workspace = true }
 
 drv-caboose.path = "../../drv/caboose"
+drv-stm32h7-update-api.path = "../stm32h7-update-api/"
 drv-update-api.path = "../update-api/"
 ringbuf.path = "../../lib/ringbuf"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

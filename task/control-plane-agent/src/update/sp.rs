@@ -54,13 +54,13 @@
                                  └───────────────┘
 */
 
+use crate::mgs_common::UPDATE_SERVER;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_sprot_api::SpRot;
-use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
-use drv_update_api::{Update, UpdateError, UpdateTarget};
+use drv_stm32h7_update_api::{Update, BLOCK_SIZE_BYTES};
+use drv_update_api::UpdateError;
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
     UpdateInProgressStatus, UpdateStatus,
@@ -87,16 +87,12 @@ use auxflash::ChckScanResult;
 use auxflash::IngestDataResult as AuxFlashIngestDataResult;
 use auxflash::State as AuxFlashState;
 
-userlib::task_slot!(UPDATE_SERVER, update_server);
-userlib::task_slot!(SPROT, sprot);
-
 static_assertions::const_assert!(
     BLOCK_SIZE_BYTES <= UpdateBuffer::MAX_CAPACITY
 );
 
 pub(crate) struct SpUpdate {
     sp_task: Update,
-    sprot_task: SpRot,
     auxflash_task: AuxFlash,
     current: Option<CurrentUpdate>,
 }
@@ -111,7 +107,6 @@ impl SpUpdate {
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),
-            sprot_task: SpRot::from(SPROT.get_task_id()),
             auxflash_task: AuxFlash::from(AUX_FLASH_SERVER.get_task_id()),
             current: None,
         }
@@ -119,10 +114,6 @@ impl SpUpdate {
 
     pub(crate) fn current_version(&self) -> ImageVersion {
         ImageVersionConvert(self.sp_task.current_version()).into()
-    }
-
-    pub(crate) fn sprot_task(&self) -> &SpRot {
-        &self.sprot_task
     }
 
     pub(crate) fn prepare(
@@ -165,7 +156,7 @@ impl SpUpdate {
 
         // Attempt to prepare for an update (erases our flash).
         self.sp_task
-            .prep_image_update(UpdateTarget::Alternate)
+            .prep_image_update()
             .map_err(|err| SpError::UpdateFailed(err as u32))?;
 
         let state = if update.aux_flash_size > 0 {
@@ -539,7 +530,7 @@ impl AcceptingData {
                 .and_then(|reader| reader.get(BOARD_KEY).ok());
 
             let mut other = [0u8; 32];
-            if let Ok(n) = sp_task.read_image_caboose(BOARD_KEY, &mut other) {
+            if let Ok(n) = sp_task.read_caboose_value(BOARD_KEY, &mut other) {
                 if ours.map(|b| b == &other[..n as usize]).unwrap_or(true) {
                     match sp_task.finish_image_update() {
                         Ok(()) => (State::Complete, Ok(())),
@@ -566,7 +557,7 @@ impl AcceptingData {
     }
 }
 
-struct ImageVersionConvert(drv_update_api::ImageVersion);
+struct ImageVersionConvert(drv_lpc55_update_api::ImageVersion);
 
 impl From<ImageVersionConvert> for ImageVersion {
     fn from(v: ImageVersionConvert) -> Self {

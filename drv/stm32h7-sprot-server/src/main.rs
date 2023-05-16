@@ -7,10 +7,10 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
+use drv_lpc55_update_api::{SwitchDuration, UpdateTarget};
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
-use drv_update_api::{SlotId, SwitchDuration, UpdateTarget};
 use hubpack::SerializedSize;
 use idol_runtime::RequestError;
 use ringbuf::*;
@@ -55,6 +55,7 @@ enum Trace {
     UnexpectedRotIrq,
     RotReadyTimeout,
     RspTimeout,
+    RxBuf([u8; 16]),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -433,6 +434,9 @@ impl<S: SpiServer> ServerImpl<S> {
                         }
                     }
                     Err(err) => {
+                        ringbuf_entry!(Trace::RxBuf(
+                            self.rx_buf[0..16].try_into().unwrap()
+                        ));
                         self.io.stats.rx_invalid =
                             self.io.stats.rx_invalid.wrapping_add(1);
                         err.into()
@@ -702,12 +706,84 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(SprotError::Protocol(SprotProtocolError::UnexpectedResponse))?
         }
     }
+
+    fn caboose_size(
+        &mut self,
+        _: &userlib::RecvMessage,
+        slot: SlotId,
+    ) -> Result<u32, idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        let body = ReqBody::Caboose(CabooseReq::Size { slot });
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .map_err(RawCabooseOrSprotError::Sprot)?;
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::Size(size)))) => Ok(size),
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(RawCabooseOrSprotError::Caboose(e).into())
+            }
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn read_caboose_region(
+        &mut self,
+        _: &userlib::RecvMessage,
+        offset: u32,
+        slot: SlotId,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        let body = ReqBody::Caboose(CabooseReq::Read {
+            slot,
+            start: offset,
+            size: data.len() as u32,
+        });
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 4)
+            .map_err(RawCabooseOrSprotError::Sprot)?;
+
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::Read))) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
+                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
+            }
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(RawCabooseOrSprotError::Caboose(e).into())
+            }
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
+        }
+    }
 }
 
 mod idl {
     use super::{
-        DumpOrSprotError, PulseStatus, RotState, SlotId, SprotError,
-        SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotState,
+        SlotId, SprotError, SprotIoStats, SprotStatus, SwitchDuration,
+        UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

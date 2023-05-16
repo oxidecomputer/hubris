@@ -4,28 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = { workspace = true }
-gateway-messages = { workspace = true }
-heapless = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-serde = { workspace = true }
-ssmarshal = { workspace = true }
-static_assertions = { workspace = true }
-zerocopy = { workspace = true }
+cfg-if.workspace = true
+gateway-messages.workspace = true
+heapless.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+ssmarshal.workspace = true
+static_assertions.workspace = true
+zerocopy.workspace = true
 
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-caboose = { path = "../../drv/caboose" }
 drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
+drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
-drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
-drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
+drv-stm32h7-update-api = { path = "../../drv/stm32h7-update-api" }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
+drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-update-api = { path = "../../drv/update-api" }
+drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
