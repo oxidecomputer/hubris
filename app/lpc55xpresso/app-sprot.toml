@@ -3,9 +3,8 @@
 # work; using the LPC55Xpresso as a debugger for the Gimletlet would require
 # additional changes to this file.
 #
-# To set up the system:
-# - Populate the P1 jumper
-# - Build a cable from the Gimletlet's SPI3 header to P23 on the LPC55Xpresso
+# To set up the system, connect a (custom) cable from the Gimletlet's SPI3
+# header to P23 on the LPC55Xpresso
 
 name = "lpc55xpresso-sprot"
 target = "thumbv8m.main-none-eabihf"
@@ -127,15 +126,6 @@ uses = ["rng", "pmc"]
 start = true
 stacksize = 2200
 task-slots = ["syscon_driver"]
-
-[tasks.ping]
-name = "task-ping"
-features = ["uart"]
-priority = 6
-max-sizes = {flash = 8192, ram = 1024}
-start = true
-stacksize = 512
-task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 name = "task-pong"
