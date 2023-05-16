@@ -174,14 +174,6 @@ start = true
 stacksize = 2600
 task-slots = ["swd"]
 
-[tasks.ping]
-name = "task-ping"
-features = ["uart"]
-priority = 8
-max-sizes = {flash = 8192, ram = 2048}
-start = true
-task-slots = [{peer = "pong"}, "usart_driver"]
-
 [tasks.pong]
 name = "task-pong"
 priority = 7
