@@ -54,13 +54,6 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
-        "status": (
-            doc: "Get info about installed images",
-            args: { },
-            reply : Simple("SpUpdateStatus"),
-            idempotent: true,
-            encoding: Hubpack
-        ),
         "read_caboose_value": (
             doc: "Reads the specified tag from the bank2 caboose",
             args: {

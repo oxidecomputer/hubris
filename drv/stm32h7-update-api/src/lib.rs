@@ -28,8 +28,4 @@ pub const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * FLASH_WORDS_PER_BLOCK;
 
 pub const BLOCK_SIZE_WORDS: usize = BLOCK_SIZE_BYTES / 4;
 
-// TODO(AJS): Fill in details for the SP
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct SpUpdateStatus {}
-
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
