@@ -13,8 +13,7 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
-    RawCabooseError, RotBootInfo, SlotId, SwitchDuration, UpdateError,
-    UpdateStatus, UpdateTarget,
+    RawCabooseError, RotBootInfo, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
@@ -407,12 +406,12 @@ impl ServerImpl<'_> {
         let mut ping_header = [0u32; 4];
         let mut pong_header = [0u32; 4];
 
-        indirect_flash_read(
+        indirect_flash_read_words(
             &mut self.flash,
             0x9E00,
             core::slice::from_mut(&mut ping_header),
         )?;
-        indirect_flash_read(
+        indirect_flash_read_words(
             &mut self.flash,
             0x9E20,
             core::slice::from_mut(&mut pong_header),
@@ -437,7 +436,7 @@ impl ServerImpl<'_> {
         // This is the location of boot selection as written in RFD 374
         let boot_selection_word_number = cfpa_word_number + 0x10;
         let mut boot_selection_word = [0u32; 4];
-        indirect_flash_read(
+        indirect_flash_read_words(
             &mut self.flash,
             boot_selection_word_number,
             core::slice::from_mut(&mut boot_selection_word),
@@ -904,8 +903,8 @@ include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
-        HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootState,
-        SlotId, SwitchDuration, UpdateTarget,
+        HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
+        RotBootState, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

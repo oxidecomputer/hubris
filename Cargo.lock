@@ -1898,6 +1898,7 @@ name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "derive_more",
  "gateway-messages",
  "hubpack",
  "idol-runtime",

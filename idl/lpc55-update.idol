@@ -68,12 +68,11 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
-        // Move this when rebased on Matt's stuff that separates SP and RoT idol impls
         "rot_boot_info": (
             doc: "RoT Boot selection and preference info",
             args: { },
             reply : Result(
-                ok: "drv_update_api::RotBootInfo",
+                ok: "RotBootInfo",
                 err: CLike("drv_update_api::UpdateError")
             ),
             idempotent: true,
