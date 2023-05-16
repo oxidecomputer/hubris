@@ -54,10 +54,16 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
 #[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
 pub struct RotBootInfo {
     pub active: SlotId,
-    // What's written in the CFPA as the preferred slot to boot
-    // This slot will boot as long as its signature validates
-    // and the key hasn't been revoked
+
+    // The persistent boot preference written into the current authoritative
+    // CFPA page (ping or pong).
     pub persistent_boot_preference: SlotId,
+
+    // The persistent boot preference written inot the CFPA scratch page that
+    // will become the persistent boot preference in the authoritative CFPA
+    // page upon reboot, unless CFPA update of the authoritative page fails for
+    // some reason.
+    pub pending_persistent_boot_preference: Option<SlotId>,
 
     /// This is a magic ram value that is cleared by bootleby
     pub transient_boot_preference: Option<SlotId>,
