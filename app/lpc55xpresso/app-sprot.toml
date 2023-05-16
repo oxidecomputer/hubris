@@ -1,4 +1,13 @@
-name = "lpc55xpresso"
+# This is a variation on the main LPC55xpresso `app.toml` that allows it to be
+# used as an SP-RoT tester, attached to a Gimletlet.  Only the SPI target should
+# work; using the LPC55Xpresso as a debugger for the Gimletlet would require
+# additional changes to this file.
+#
+# To set up the system:
+# - Populate the P1 jumper
+# - Build a cable from the Gimletlet's SPI3 header to P23 on the LPC55Xpresso
+
+name = "lpc55xpresso-sprot"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
@@ -7,15 +16,20 @@ image-names = ["a", "b"]
 
 [kernel]
 name = "lpc55xpresso"
-features = ["dump", "dice-self"]
+features = ["dice-self"]
 requires = {flash = 53248, ram = 4096}
+
+[caboose]
+region = "flash"
+size = 256
+default = true
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm", "dump"]
+features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 extern-regions = ["sram2"]
@@ -42,8 +56,8 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096}
-stacksize = 2048
+max-sizes = {flash = 32768, ram = 4096}
+stacksize = 3000
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
@@ -132,15 +146,77 @@ stacksize = 1000
 notifications = ["timer"]
 task-slots = ["user_leds"]
 
-[tasks.dump_agent]
-name = "task-dump-agent"
-features = ["no-rot"]
-priority = 5
-max-sizes = {flash = 16384, ram = 2048 }
+[tasks.swd]
+name = "drv-lpc55-swd"
+priority = 4
+max-sizes = {flash = 16384, ram = 4096}
+uses = ["flexcomm5", "iocon"]
 start = true
-task-slots = ["jefe"]
-stacksize = 1200
-extern-regions = ["sram2"]
+stacksize = 1000
+task-slots = ["gpio_driver", "syscon_driver"]
+notifications = ["spi-irq"]
+interrupts = {"flexcomm5.irq" = "spi-irq"}
+
+[tasks.swd.config]
+# On the LPC55Xpresso, these are all connected to SD0, i.e. the SD card on P21.
+# It's harmless to have them up and running, although they won't do anything.
+
+# MOSI = PIO0_8
+# MISO = PIO0_9
+# CLK = PIO0_7
+
+# Out = MOSI on, MISO off
+out_cfg = [
+    { pin = { port = 0, pin = 8 }, alt = 3 },
+    { pin = { port = 0, pin = 9 }, alt = 0, mode = "PullDown" },
+]
+# In = MISO on, MOSI off
+in_cfg = [
+    { pin = { port = 0, pin = 9 }, alt = 3 },
+    { pin = { port = 0, pin = 8 }, alt = 0, mode = "PullDown" },
+]
+pins = [
+    # SCK
+    { pin = { port = 0, pin = 7 }, alt = 3 },
+    { name = "SD0_CARD_DET", pin = { port = 0, pin = 17 }, alt = 0, direction = "input" },
+]
+spi_num = 5
+
+[tasks.dumper]
+name = "task-dumper"
+priority = 5
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 2600
+task-slots = ["swd"]
+
+[tasks.sprot]
+name = "drv-lpc55-sprot-server"
+priority = 6
+max-sizes = {flash = 32768, ram = 32768}
+uses = ["flexcomm8", "bootrom"]
+features = ["spi0"]
+start = true
+notifications = ["spi-irq"]
+interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
+stacksize = 16384
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper"]
+
+[tasks.sprot.config]
+pins = [
+    # HS_SPI_MOSI = P0_26 = FUN9
+    { pin = { port = 0, pin = 26}, alt = 9},
+    # HS_SPI_MISO = P1_3 = FUN6
+    { pin = { port = 1, pin = 3}, alt = 6},
+    # HS_SPI_SCK = P1_2 = FUN6
+    { pin = { port = 1, pin = 2}, alt = 6},
+    # HS_SSEL1 = P1_1 = FUN5
+    { pin = { port = 1, pin = 1}, alt = 5},
+    # ROT_IRQ = P0_16 = FUN0
+    { name = "ROT_IRQ", pin = { port = 0, pin = 16}, alt = 0, direction = "output"},
+    # SP_RESET = P1_5 = FUN0 (not connected)
+    { name = "SP_RESET", pin = { port = 1, pin = 5}, alt = 0, direction = "input"},
+]
 
 [signing]
 enable-secure-boot = true
