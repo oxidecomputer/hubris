@@ -534,17 +534,9 @@ impl SpRot {
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let v =
-            RotCabooseReader::new(slot_id, &self).and_then(|r| r.get(key))?;
-        let len = v.len();
-        if len <= buf.len() {
-            self.read_caboose_region(v.start, slot_id, &mut buf[..len])?;
-            Ok(len as u32)
-        } else {
-            Err(CabooseOrSprotError::Sprot(SprotError::Protocol(
-                SprotProtocolError::BadMessageLength,
-            )))
-        }
+        let reader = RotCabooseReader::new(slot_id, &self)?;
+        let len = reader.get(key, buf)?;
+        Ok(len)
     }
 }
 
@@ -567,7 +559,13 @@ impl<'a> RotCabooseReader<'a> {
     pub fn get(
         &self,
         key: [u8; 4],
-    ) -> Result<core::ops::Range<u32>, CabooseOrSprotError> {
+        out: &mut [u8],
+    ) -> Result<u32, CabooseOrSprotError> {
+        // This is similar to the implementation in drv_caboose::CabooseReader,
+        // but goes through the SpRot IPC bridge to request data over SPI.  In
+        // addition, it copies the found value in this function, instead of
+        // returning a `&'static [u8]`; returning a slice would be meaningless
+        // because the value is not in local memory.
         let mut reader = tlvc::TlvcReader::begin(self).map_err(|_| {
             CabooseOrSprotError::Caboose(CabooseError::TlvcReaderBeginFailed)
         })?;
@@ -581,37 +579,42 @@ impl<'a> RotCabooseReader<'a> {
                                 CabooseError::BadChecksum,
                             ));
                         }
-                        // At this point, the reader is positioned **after** the data
-                        // from the target chunk.  We'll back up to the start of the
-                        // data slice.
-                        let (_reader, pos, _end) = reader.into_inner();
-
-                        let pos = pos as u32;
                         let data_len = chunk.header().len.get();
 
-                        let data_start = pos
-                            - chunk.header().total_len_in_bytes() as u32
-                            + core::mem::size_of::<tlvc::ChunkHeader>() as u32;
+                        if data_len as usize > out.len() {
+                            return Err(CabooseOrSprotError::Sprot(
+                                SprotError::Protocol(
+                                    SprotProtocolError::BadMessageLength,
+                                ),
+                            ));
+                        }
 
-                        break Ok(data_start..(data_start + data_len));
+                        chunk
+                            .read_exact(0, &mut out[..data_len as usize])
+                            .map_err(|_| {
+                                CabooseOrSprotError::Caboose(
+                                    CabooseError::RawReadFailed,
+                                )
+                            })?;
+                        return Ok(data_len);
                     }
                 }
                 Err(e) => match e {
                     tlvc::TlvcReadError::Truncated => {
-                        break Err(CabooseOrSprotError::Caboose(
+                        return Err(CabooseOrSprotError::Caboose(
                             CabooseError::NoSuchTag,
                         ))
                     }
                     tlvc::TlvcReadError::HeaderCorrupt { .. }
                     | tlvc::TlvcReadError::BodyCorrupt { .. } => {
-                        break Err(CabooseOrSprotError::Caboose(
+                        return Err(CabooseOrSprotError::Caboose(
                             CabooseError::BadChecksum,
                         ))
                     }
                     tlvc::TlvcReadError::User(e) => break Err(e.into()),
                 },
                 Ok(None) => {
-                    break Err(CabooseOrSprotError::Caboose(
+                    return Err(CabooseOrSprotError::Caboose(
                         CabooseError::NoSuchTag,
                     ))
                 }
