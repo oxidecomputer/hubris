@@ -57,11 +57,9 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
     Eq, PartialEq, Clone, Copy, Serialize, Deserialize, SerializedSize,
 )]
 pub enum UpdateTarget {
-    // The value of 0 is reserved
-
-    // The value of 1 was previously used for Alternate, when this enum was
-    // shared by the RoT and the SP.  Now, it is unused but reserved to avoid
-    // changing serialization.
+    // This variant was previously used for Alternate, when this enum was shared
+    // by the RoT and the SP.  Now, it is unused but reserved to avoid changing
+    // serialization, which is automatically derived based on variant order.
     _Reserved,
 
     // Represents targets where we must write to a specific range
