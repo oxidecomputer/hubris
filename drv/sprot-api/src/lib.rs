@@ -382,7 +382,7 @@ pub enum CabooseRsp {
 
 /// The body of a sprot response.
 ///
-/// See [`Msg`] for details about versionin and message evolution.
+/// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
 pub enum RspBody {
     // General Ok status shared among response variants

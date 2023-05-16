@@ -47,7 +47,7 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
     }
 }
 
-/// State retrieved from the lpc55-update-server
+/// ROT boot state and preferences retrieved from the lpc55-update-server
 ///
 /// SW version information is in the caboose and is read from a different
 /// API
@@ -59,12 +59,14 @@ pub struct RotBootInfo {
     // CFPA page (ping or pong).
     pub persistent_boot_preference: SlotId,
 
-    // The persistent boot preference written inot the CFPA scratch page that
+    // The persistent boot preference written into the CFPA scratch page that
     // will become the persistent boot preference in the authoritative CFPA
     // page upon reboot, unless CFPA update of the authoritative page fails for
     // some reason.
     pub pending_persistent_boot_preference: Option<SlotId>,
 
+    /// Override persistent preference selection for a single boot
+    ///
     /// This is a magic ram value that is cleared by bootleby
     pub transient_boot_preference: Option<SlotId>,
 }

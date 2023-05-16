@@ -443,7 +443,7 @@ impl ServerImpl<'_> {
         Ok(val)
     }
 
-    /// Return the persistent and transient boot preferences
+    // Return the persistent and transient boot preferences
     fn boot_preferences(
         &mut self,
     ) -> Result<(SlotId, Option<SlotId>, Option<SlotId>), UpdateError> {
@@ -468,7 +468,7 @@ impl ServerImpl<'_> {
         )?;
 
         // We only have a pending preference if the scratch CFPA page is newer
-        // than the authoritative page
+        // than the authoritative page.
         let pending_persistent_boot_preference =
             if scratch_header[1] > cfpa_version {
                 // Read the scratch boot selection
@@ -487,7 +487,7 @@ impl ServerImpl<'_> {
                 None
             };
 
-        // Check the authoritative peristent boot selection bit
+        // Check the authoritative persistent boot selection bit
         let persistent_boot_preference =
             boot_preference_from_flash_word(&boot_selection_word);
 
