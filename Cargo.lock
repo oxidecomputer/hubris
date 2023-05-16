@@ -698,7 +698,7 @@ dependencies = [
  "num-traits",
  "serde",
  "sha3",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -716,7 +716,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32h7",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -731,7 +731,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -761,7 +761,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "sha3",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -1001,7 +1001,7 @@ dependencies = [
  "drv-i2c-devices",
  "ringbuf",
  "serde",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -1537,7 +1537,7 @@ dependencies = [
  "serde",
  "sprockets-common",
  "static_assertions",
- "tlvc 0.3.0",
+ "tlvc",
  "unwrap-lite",
  "userlib",
  "zerocopy",
@@ -2108,7 +2108,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=get-component-caboose#9033354b4c2f362ace84dfa00c04db2b7e073086"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#709029c0286b502d52be0e5c106eb711496c6869"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -2347,8 +2347,8 @@ dependencies = [
  "path-slash",
  "rsa",
  "thiserror",
- "tlvc 0.2.0",
- "tlvc-text 0.1.0",
+ "tlvc",
+ "tlvc-text",
  "toml",
  "x509-cert",
  "zerocopy",
@@ -2636,7 +2636,7 @@ dependencies = [
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
- "tlvc 0.3.0",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -4751,18 +4751,8 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "tlvc"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
-dependencies = [
- "byteorder",
- "crc",
- "zerocopy",
-]
-
-[[package]]
-name = "tlvc"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#e93a8756885e2e2da350bb3bb0dae935e3634ff4"
+source = "git+https://github.com/oxidecomputer/tlvc#559c72856a215ae217e9e6f25ff317edde0b0041"
 dependencies = [
  "byteorder",
  "crc",
@@ -4771,23 +4761,12 @@ dependencies = [
 
 [[package]]
 name = "tlvc-text"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc#533f0bf26b0a8f32d287af4f2ea09320bc05c2cd"
-dependencies = [
- "ron",
- "serde",
- "tlvc 0.2.0",
- "zerocopy",
-]
-
-[[package]]
-name = "tlvc-text"
 version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=user-error#e93a8756885e2e2da350bb3bb0dae935e3634ff4"
+source = "git+https://github.com/oxidecomputer/tlvc#559c72856a215ae217e9e6f25ff317edde0b0041"
 dependencies = [
  "ron",
  "serde",
- "tlvc 0.3.0",
+ "tlvc",
  "zerocopy",
 ]
 
@@ -5152,8 +5131,8 @@ dependencies = [
  "serde_json",
  "sha3",
  "strsim",
- "tlvc 0.3.0",
- "tlvc-text 0.3.0",
+ "tlvc",
+ "tlvc-text",
  "toml",
  "toml-task",
  "walkdir",

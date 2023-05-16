@@ -111,7 +111,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 
 # Oxide forks and repos
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "get-component-caboose" }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.2" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
@@ -125,7 +125,7 @@ salty = { git = "https://github.com/oxidecomputer/salty", branch = "v0.2.0-zeroi
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
-tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, branch = "user-error" }
-tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, branch = "user-error"}
+tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
+tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
