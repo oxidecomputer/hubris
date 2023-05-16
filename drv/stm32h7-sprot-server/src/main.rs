@@ -801,7 +801,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 mod idl {
     use super::{
         DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotBootInfo,
-        RotState, SlotId, SlotId, SprotError, SprotIoStats, SprotStatus,
+        RotState, SlotId, SprotError, SprotIoStats, SprotStatus,
         SwitchDuration, UpdateTarget,
     };
 

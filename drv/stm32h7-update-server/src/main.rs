@@ -14,6 +14,7 @@ use drv_caboose::{CabooseError, CabooseReader};
 use drv_stm32h7_update_api::{
     ImageVersion, SpUpdateStatus, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK,
     FLASH_WORD_BYTES,
+};
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
