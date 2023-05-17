@@ -10,9 +10,8 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, ImageVersion, PowerState, RotBootState, RotError,
-    RotImageDetails, RotSlot, RotState, RotUpdateDetails, SpComponent, SpError,
-    SpPort, SpState,
+    DiscoverResponse, PowerState, RotError, RotStateV2, SlotId, SpComponent,
+    SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -72,8 +71,7 @@ impl MgsCommon {
     pub(crate) fn sp_state(
         &mut self,
         power_state: PowerState,
-        version: ImageVersion,
-    ) -> Result<SpState, SpError> {
+    ) -> Result<SpStateV2, SpError> {
         // SpState has extra-wide fields for the serial and model number. Below
         // when we fill them in we use `usize::min` to pick the right length
         // regardless of which is longer, but really we want to know we aren't
@@ -87,13 +85,12 @@ impl MgsCommon {
 
         let id = self.identity();
 
-        let mut state = SpState {
+        let mut state = SpStateV2 {
             serial_number: [0; SP_STATE_FIELD_WIDTH],
             model: [0; SP_STATE_FIELD_WIDTH],
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
             base_mac_address: self.base_mac_address.0,
-            version,
             power_state,
             rot: rot_state(&self.sprot),
         };
@@ -325,39 +322,32 @@ impl MgsCommon {
 }
 
 // conversion between gateway_messages types and hubris types is quite tedious.
-fn rot_state(sprot: &SpRot) -> Result<RotState, RotError> {
-    let SprotRotState::V1 { state, .. } = sprot.rot_state()?;
-    let active = match state.active {
-        drv_sprot_api::RotSlot::A => RotSlot::A,
-        drv_sprot_api::RotSlot::B => RotSlot::B,
+fn rot_state(sprot: &SpRot) -> Result<RotStateV2, RotError> {
+    let boot_info = sprot.rot_boot_info()?;
+
+    let convert_slot_id = |s| {
+        if s == drv_lpc55_update_api::SlotId::A {
+            SlotId::A
+        } else {
+            SlotId::B
+        }
     };
 
-    let slot_a = state.a.map(|a| RotImageDetailsConvert(a).into());
-    let slot_b = state.b.map(|b| RotImageDetailsConvert(b).into());
+    let active = convert_slot_id(boot_info.active);
+    let persistent_boot_preference =
+        convert_slot_id(boot_info.persistent_boot_preference);
+    let pending_persistent_boot_preference = boot_info
+        .pending_persistent_boot_preference
+        .map(convert_slot_id);
+    let transient_boot_preference =
+        boot_info.transient_boot_preference.map(convert_slot_id);
 
-    Ok(RotState {
-        rot_updates: RotUpdateDetails {
-            boot_state: RotBootState {
-                active,
-                slot_a,
-                slot_b,
-            },
-        },
+    Ok(RotStateV2 {
+        active,
+        persistent_boot_preference,
+        pending_persistent_boot_preference,
+        transient_boot_preference,
+        slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
+        slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
     })
-}
-
-pub(crate) struct RotImageDetailsConvert(
-    pub drv_lpc55_update_api::RotImageDetails,
-);
-
-impl From<RotImageDetailsConvert> for RotImageDetails {
-    fn from(value: RotImageDetailsConvert) -> Self {
-        RotImageDetails {
-            digest: value.0.digest,
-            version: ImageVersion {
-                epoch: value.0.version.epoch,
-                version: value.0.version.version,
-            },
-        }
-    }
 }

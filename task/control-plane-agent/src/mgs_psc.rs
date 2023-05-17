@@ -227,10 +227,9 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpState, SpError> {
+    ) -> Result<SpStateV2, SpError> {
         let power_state = self.power_state_impl()?;
-        let version = self.sp_update.current_version();
-        self.common.sp_state(power_state, version)
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(

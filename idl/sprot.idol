@@ -22,7 +22,7 @@ Interface(
             idempotent: true,
         ),
         "rot_state": (
-            doc: "Return boot time info about the RoT",
+            doc: "Return boot-time info about the RoT (deprecated)",
             reply: Result(
                 ok: "RotState",
                 err: Complex("SprotError"),

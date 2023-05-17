@@ -19,7 +19,7 @@ use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
     MessageKind, MgsError, PowerState, SpComponent, SpError, SpPort, SpRequest,
-    SpState, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -536,10 +536,9 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpState, SpError> {
+    ) -> Result<SpStateV2, SpError> {
         let power_state = self.power_state_impl()?;
-        let version = self.sp_update.current_version();
-        self.common.sp_state(power_state, version)
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(

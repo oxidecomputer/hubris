@@ -72,6 +72,7 @@ const HEADER_BLOCK: usize = 0;
 const CFPA_PING_FLASH_WORD: u32 = 0x9E00;
 const CFPA_PONG_FLASH_WORD: u32 = 0x9E20;
 const CFPA_SCRATCH_FLASH_WORD: u32 = 0x9DE0;
+const BOOT_PREFERENCE_FLASH_WORD_OFFSET: u32 = 0x10;
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
@@ -247,6 +248,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             persistent_boot_preference,
             pending_persistent_boot_preference,
             transient_boot_preference,
+            slot_a_sha3_256_digest: boot_state.a.map(|details| details.digest),
+            slot_b_sha3_256_digest: boot_state.b.map(|details| details.digest),
         };
         Ok(info)
     }
@@ -291,6 +294,32 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 return Err(UpdateError::NotImplemented.into());
             }
             SwitchDuration::Forever => {
+                // Locate and return the authoritative CFPA flash word number
+                // and the CFPA version for that flash number.
+                //
+                // There are two "official" copies of the CFPA, referred to as
+                // ping and pong. One of them will supercede the other, based on
+                // a monotonic version field at offset 4. We'll take the
+                // contents of whichever one is most recent, alter them, and
+                // then write them into the _third_ copy, called the scratch
+                // page.
+                //
+                // At reset, the boot ROM will inspect the scratch page, check
+                // invariants, and copy it to overwrite the older of the ping
+                // and pong pages if it approves.
+                //
+                // That means you can apply this operation several times before
+                // resetting without burning many monotonic versions, if you
+                // want to do that for some reason.
+                //
+                // The addresses of these pages are as follows (see Figure 13,
+                // "Protected Flash Region," in UM11126 rev 2.4, or the NXP
+                // flash layout spreadsheet):
+                //
+                // Page     Addr        16-byte word number
+                // Scratch  0x9_DE00    0x9DE0
+                // Ping     0x9_E000    0x9E00
+                // Pong     0x9_E200    0x9E20
                 let (cfpa_word_number, _) =
                     self.cfpa_word_number_and_version()?;
 
@@ -316,8 +345,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 //
                 // Leave remaining bits undisturbed; they are currently
                 // reserved.
-                cfpa[0x10][0] &= !1;
-                cfpa[0x10][0] |= if slot == SlotId::A { 0 } else { 1 };
+                let offset = BOOT_PREFERENCE_FLASH_WORD_OFFSET as usize;
+                cfpa[offset][0] &= !1;
+                cfpa[offset][0] |= if slot == SlotId::A { 0 } else { 1 };
                 // The last two flash words are a SHA256 hash of the preceding
                 // data. This means we need to compute a SHA256 hash of the
                 // preceding data -- meaning flash words 0 thru 29 inclusive.
@@ -388,32 +418,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 }
 
 impl ServerImpl<'_> {
-    // Locate and return the authoritative CFPA flash word number
-    // and the CFPA version for that flash number.
-    //
-    // There are two "official" copies of the CFPA, referred to as
-    // ping and pong. One of them will supercede the other, based on
-    // a monotonic version field at offset 4. We'll take the
-    // contents of whichever one is most recent, alter them, and
-    // then write them into the _third_ copy, called the scratch
-    // page.
-    //
-    // At reset, the boot ROM will inspect the scratch page, check
-    // invariants, and copy it to overwrite the older of the ping
-    // and pong pages if it approves.
-    //
-    // That means you can apply this operation several times before
-    // resetting without burning many monotonic versions, if you
-    // want to do that for some reason.
-    //
-    // The addresses of these pages are as follows (see Figure 13,
-    // "Protected Flash Region," in UM11126 rev 2.4, or the NXP
-    // flash layout spreadsheet):
-    //
-    // Page     Addr        16-byte word number
-    // Scratch  0x9_DE00    0x9DE0
-    // Ping     0x9_E000    0x9E00
-    // Pong     0x9_E200    0x9E20
     fn cfpa_word_number_and_version(
         &mut self,
     ) -> Result<(u32, u32), UpdateError> {
@@ -451,13 +455,18 @@ impl ServerImpl<'_> {
             self.cfpa_word_number_and_version()?;
 
         // Read the authoritative boot selection
-        let boot_selection_word_number = cfpa_word_number + 0x10;
+        let boot_selection_word_number =
+            cfpa_word_number + BOOT_PREFERENCE_FLASH_WORD_OFFSET;
         let mut boot_selection_word = [0u32; 4];
         indirect_flash_read_words(
             &mut self.flash,
             boot_selection_word_number,
             core::slice::from_mut(&mut boot_selection_word),
         )?;
+
+        // Check the authoritative persistent boot selection bit
+        let persistent_boot_preference =
+            boot_preference_from_flash_word(&boot_selection_word);
 
         // Read the scratch boot version
         let mut scratch_header = [0u32; 4];
@@ -473,7 +482,7 @@ impl ServerImpl<'_> {
             if scratch_header[1] > cfpa_version {
                 // Read the scratch boot selection
                 let scratch_boot_selection_word_number =
-                    CFPA_SCRATCH_FLASH_WORD + 0x10;
+                    CFPA_SCRATCH_FLASH_WORD + BOOT_PREFERENCE_FLASH_WORD_OFFSET;
                 let mut scratch_boot_selection_word = [0u32; 4];
                 indirect_flash_read_words(
                     &mut self.flash,
@@ -486,10 +495,6 @@ impl ServerImpl<'_> {
             } else {
                 None
             };
-
-        // Check the authoritative persistent boot selection bit
-        let persistent_boot_preference =
-            boot_preference_from_flash_word(&boot_selection_word);
 
         // We only support persistent override at this point
         // We need to read the magic ram value to fill this in.
@@ -505,6 +510,8 @@ impl ServerImpl<'_> {
 
 // Return the preferred slot to boot from for a given CFPA boot selection
 // flash word.
+//
+// This matches the logic in bootleby
 fn boot_preference_from_flash_word(flash_word: &[u32; 4]) -> SlotId {
     if flash_word[0] & 1 == 0 {
         SlotId::A

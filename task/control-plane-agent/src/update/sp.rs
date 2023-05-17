@@ -112,10 +112,6 @@ impl SpUpdate {
         }
     }
 
-    pub(crate) fn current_version(&self) -> ImageVersion {
-        ImageVersionConvert(self.sp_task.current_version()).into()
-    }
-
     pub(crate) fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
