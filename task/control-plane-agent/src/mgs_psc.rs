@@ -13,7 +13,7 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    SpComponent, SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk,
     UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
