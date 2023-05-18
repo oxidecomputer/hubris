@@ -7,7 +7,10 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use drv_i2c_api::ResponseCode;
+use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
+use task_sensor_api::SensorId;
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -28,7 +31,15 @@ pub enum ThermalError {
 }
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Serialize, Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
 )]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
@@ -47,7 +58,15 @@ pub enum ThermalMode {
 /// These are based on `enum ThermalControlState`, but stripped of the
 /// associated state data.
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, Serialize, Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
 )]
 pub enum ThermalAutoState {
     Boot,
@@ -105,6 +124,98 @@ impl ThermalProperties {
     pub fn margin(&self, t: Celsius) -> Celsius {
         Celsius(self.target_temperature.0 - t.0)
     }
+}
+
+/// Combined error type for all of our temperature sensors
+///
+/// Most of them will only return an I2C `ResponseCode`, but in some cases,
+/// they can report an error through in-band signalling (looking at you, NVMe)
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+pub enum SensorReadError {
+    I2cError(ResponseCode),
+
+    /// The sensor reported that data is either not present or too old
+    NoData,
+
+    /// The sensor reported a failure
+    SensorFailure,
+
+    /// The returned value is listed as reserved in the datasheet and does not
+    /// represent a temperature.
+    ReservedValue,
+
+    /// The reply is structurally incorrect (wrong length, bad checksum, etc)
+    CorruptReply,
+}
+
+impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp117::Error) -> Self {
+        use drv_i2c_devices::tmp117::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tmp451::Error) -> Self {
+        use drv_i2c_devices::tmp451::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+            BadRegisterWrite { .. } => panic!(),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::sbtsi::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::sbtsi::Error) -> Self {
+        use drv_i2c_devices::sbtsi::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::tse2004av::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::tse2004av::Error) -> Self {
+        use drv_i2c_devices::tse2004av::Error::*;
+        match s {
+            BadRegisterRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
+impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::nvme_bmc::Error) -> Self {
+        use drv_i2c_devices::nvme_bmc::Error::*;
+        match s {
+            I2cError(v) => Self::I2cError(v),
+            NoData => Self::NoData,
+            SensorFailure => Self::SensorFailure,
+            Reserved => Self::ReservedValue,
+            InvalidLength | BadChecksum => Self::CorruptReply,
+        }
+    }
+}
+
+impl From<SensorReadError> for task_sensor_api::NoData {
+    fn from(code: SensorReadError) -> task_sensor_api::NoData {
+        match code {
+            SensorReadError::I2cError(v) => v.into(),
+            _ => Self::DeviceError,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct ThermalSensorErrors {
+    /// Current (active) error
+    pub curr: Option<(SensorId, SensorReadError)>,
+
+    /// Previous error (saved from before the most recent system reset)
+    pub prev: Option<(SensorId, SensorReadError)>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
