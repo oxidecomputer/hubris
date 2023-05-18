@@ -7,7 +7,7 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use core::convert::Into;
-use drv_lpc55_update_api::{SwitchDuration, UpdateTarget};
+use drv_lpc55_update_api::{RotBootInfo, SlotId, SwitchDuration, UpdateTarget};
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
@@ -536,7 +536,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
-    /// Return boot info about the RoT
+    /// Return boot info about the RoT - deprecated
     fn rot_state(
         &mut self,
         _: &RecvMessage,
@@ -549,6 +549,25 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         )?;
         if let RspBody::RotState(info) = rsp.body? {
             Ok(info)
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
+    /// Return more useful boot info about the RoT
+    fn rot_boot_info(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<RotBootInfo, RequestError<SprotError>> {
+        let body = ReqBody::Update(UpdateReq::BootInfo);
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::Update(UpdateRsp::BootInfo(boot_info)) = rsp.body? {
+            Ok(boot_info)
         } else {
             Err(SprotProtocolError::UnexpectedResponse)?
         }
@@ -781,9 +800,9 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 mod idl {
     use super::{
-        DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotState,
-        SlotId, SprotError, SprotIoStats, SprotStatus, SwitchDuration,
-        UpdateTarget,
+        DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotBootInfo,
+        RotState, SlotId, SprotError, SprotIoStats, SprotStatus,
+        SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -150,7 +150,7 @@ notifications = ["usart-irq", "socket", "timer"]
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 32768}
+max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]

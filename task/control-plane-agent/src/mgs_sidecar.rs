@@ -16,7 +16,7 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpState, SpUpdatePrepare, UpdateChunk,
+    SpComponent, SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk,
     UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
@@ -276,10 +276,9 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpState, SpError> {
+    ) -> Result<SpStateV2, SpError> {
         let power_state = self.power_state_impl()?;
-        let version = self.sp_update.current_version();
-        self.common.sp_state(power_state, version)
+        self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(
