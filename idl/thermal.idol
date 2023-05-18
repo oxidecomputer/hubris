@@ -116,7 +116,7 @@ Interface(
             ),
         ),
         "get_sensor_read_errors": (
-            doc: "returns the newest and second-newest sensor read errors",
+            doc: "returns the sensor blackbox data",
             reply: Result(
                 ok: "ThermalSensorErrors",
                 err: CLike("ThermalError"),

@@ -29,7 +29,7 @@ mod control;
 
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
-    control::{SensorReadError, ThermalControl},
+    control::ThermalControl,
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
@@ -38,8 +38,8 @@ use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{
-    ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
-    ThermalSensorErrors,
+    SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
+    ThermalProperties, ThermalSensorErrors,
 };
 use userlib::units::PWMDuty;
 use userlib::*;

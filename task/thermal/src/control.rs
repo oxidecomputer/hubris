@@ -16,12 +16,11 @@ use drv_i2c_devices::{
     tse2004av::Tse2004Av,
     TempSensor,
 };
-pub use task_thermal_api::SensorReadError;
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{
-    ThermalAutoState, ThermalProperties, ThermalSensorErrors,
+    SensorReadError, ThermalAutoState, ThermalProperties, ThermalSensorErrors,
 };
 use userlib::{
     sys_get_timer,
