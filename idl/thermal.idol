@@ -23,14 +23,14 @@ Interface(
                 ok: "ThermalMode",
                 err: CLike("ThermalError"),
             ),
-            encoding: Ssmarshal
+            encoding: Hubpack
         ),
         "get_auto_state": (
             reply: Result(
                 ok: "ThermalAutoState",
                 err: CLike("ThermalError"),
             ),
-            encoding: Ssmarshal
+            encoding: Hubpack
         ),
         "set_fan_pwm": (
             args: {
@@ -114,6 +114,14 @@ Interface(
                 ok: "u64",
                 err: CLike("ThermalError"),
             ),
+        ),
+        "get_sensor_read_errors": (
+            doc: "returns the sensor blackbox data",
+            reply: Result(
+                ok: "ThermalSensorErrors",
+                err: CLike("ThermalError"),
+            ),
+            encoding: Hubpack
         ),
     },
 )

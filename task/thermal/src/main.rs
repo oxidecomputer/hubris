@@ -29,7 +29,7 @@ mod control;
 
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
-    control::{SensorReadError, ThermalControl},
+    control::ThermalControl,
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
@@ -38,7 +38,8 @@ use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_sensor_api::{Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{
-    ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+    SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
+    ThermalProperties, ThermalSensorErrors,
 };
 use userlib::units::PWMDuty;
 use userlib::*;
@@ -275,6 +276,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     ) -> Result<u64, RequestError<ThermalError>> {
         Ok(self.runtime)
     }
+
+    fn get_sensor_read_errors(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<ThermalSensorErrors, RequestError<ThermalError>> {
+        Ok(self.control.get_sensor_read_errors())
+    }
 }
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
@@ -364,6 +372,7 @@ fn main() -> ! {
 mod idl {
     use super::{
         ThermalAutoState, ThermalError, ThermalMode, ThermalProperties,
+        ThermalSensorErrors,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
