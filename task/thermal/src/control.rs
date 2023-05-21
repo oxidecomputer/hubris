@@ -19,7 +19,9 @@ use drv_i2c_devices::{
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
-use task_thermal_api::{ThermalAutoState, ThermalProperties};
+use task_thermal_api::{
+    SensorReadError, ThermalAutoState, ThermalProperties, ThermalSensorErrors,
+};
 use userlib::{
     sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
@@ -74,89 +76,6 @@ impl TemperatureSensor {
             Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
         };
         Ok(t)
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// Combined error type for all of our temperature sensors
-///
-/// Most of them will only return an I2C `ResponseCode`, but in some cases,
-/// they can report an error through in-band signalling (looking at you, NVMe)
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum SensorReadError {
-    I2cError(ResponseCode),
-
-    /// The sensor reported that data is either not present or too old
-    NoData,
-
-    /// The sensor reported a failure
-    SensorFailure,
-
-    /// The returned value is listed as reserved in the datasheet and does not
-    /// represent a temperature.
-    ReservedValue,
-
-    /// The reply is structurally incorrect (wrong length, bad checksum, etc)
-    CorruptReply,
-}
-
-impl From<drv_i2c_devices::tmp117::Error> for SensorReadError {
-    fn from(s: drv_i2c_devices::tmp117::Error) -> Self {
-        use drv_i2c_devices::tmp117::Error::*;
-        match s {
-            BadRegisterRead { code, .. } => Self::I2cError(code),
-        }
-    }
-}
-
-impl From<drv_i2c_devices::tmp451::Error> for SensorReadError {
-    fn from(s: drv_i2c_devices::tmp451::Error) -> Self {
-        use drv_i2c_devices::tmp451::Error::*;
-        match s {
-            BadRegisterRead { code, .. } => Self::I2cError(code),
-            BadRegisterWrite { .. } => panic!(),
-        }
-    }
-}
-
-impl From<drv_i2c_devices::sbtsi::Error> for SensorReadError {
-    fn from(s: drv_i2c_devices::sbtsi::Error) -> Self {
-        use drv_i2c_devices::sbtsi::Error::*;
-        match s {
-            BadRegisterRead { code, .. } => Self::I2cError(code),
-        }
-    }
-}
-
-impl From<drv_i2c_devices::tse2004av::Error> for SensorReadError {
-    fn from(s: drv_i2c_devices::tse2004av::Error) -> Self {
-        use drv_i2c_devices::tse2004av::Error::*;
-        match s {
-            BadRegisterRead { code, .. } => Self::I2cError(code),
-        }
-    }
-}
-
-impl From<drv_i2c_devices::nvme_bmc::Error> for SensorReadError {
-    fn from(s: drv_i2c_devices::nvme_bmc::Error) -> Self {
-        use drv_i2c_devices::nvme_bmc::Error::*;
-        match s {
-            I2cError(v) => Self::I2cError(v),
-            NoData => Self::NoData,
-            SensorFailure => Self::SensorFailure,
-            Reserved => Self::ReservedValue,
-            InvalidLength | BadChecksum => Self::CorruptReply,
-        }
-    }
-}
-
-impl From<SensorReadError> for task_sensor_api::NoData {
-    fn from(code: SensorReadError) -> task_sensor_api::NoData {
-        match code {
-            SensorReadError::I2cError(v) => v.into(),
-            _ => Self::DeviceError,
-        }
     }
 }
 
@@ -282,6 +201,16 @@ pub(crate) struct ThermalControl<'a> {
     /// `None` values in this list are ignored.
     dynamic_inputs:
         [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+
+    /// Records details on the first sensor read failure since the thermal loop
+    /// entered the `Uncontrollable` state and the system was powered off.
+    ///
+    /// This value is copied to `prev_first_read_failure` when the system is
+    /// deemed `Uncontrollable` and powered off
+    first_read_failure: Option<(SensorId, SensorReadError)>,
+
+    /// Previous value of `first_read_failure`, copied over at power-down
+    prev_first_read_failure: Option<(SensorId, SensorReadError)>,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -487,6 +416,9 @@ impl<'a> ThermalControl<'a> {
             power_mode: PowerBitmask::empty(), // no sensors active
 
             dynamic_inputs: [None; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+
+            first_read_failure: None,
+            prev_first_read_failure: None,
         }
     }
 
@@ -559,8 +491,9 @@ impl<'a> ThermalControl<'a> {
     /// to the sensors task API.
     ///
     /// Records failed sensor reads and failed posts to the sensors task in
-    /// the local ringbuf.
-    pub fn read_sensors(&self) {
+    /// the local ringbuf.  In addition, records the _first_ failed sensor read
+    /// in `self.first_read_failure` for later investigation.
+    pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
             let post_result =
@@ -570,6 +503,10 @@ impl<'a> ThermalControl<'a> {
                     }
                     Err(e) => {
                         ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
+                        self.first_read_failure.get_or_insert((
+                            *sensor_id,
+                            SensorReadError::I2cError(e),
+                        ));
                         self.sensor_api.nodata_now(*sensor_id, e.into())
                     }
                 };
@@ -584,6 +521,7 @@ impl<'a> ThermalControl<'a> {
                 Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
+                    self.first_read_failure.get_or_insert((s.sensor_id, e));
                     self.sensor_api.nodata_now(s.sensor_id, e.into())
                 }
             };
@@ -612,6 +550,8 @@ impl<'a> ThermalControl<'a> {
                                 s.sensor.sensor_id,
                                 e
                             ));
+                            self.first_read_failure
+                                .get_or_insert((s.sensor.sensor_id, e));
                         }
                         self.sensor_api.nodata_now(s.sensor.sensor_id, e.into())
                     }
@@ -751,6 +691,8 @@ impl<'a> ThermalControl<'a> {
 
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
+                    self.prev_first_read_failure =
+                        self.first_read_failure.take();
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::PowerDown
@@ -993,6 +935,13 @@ impl<'a> ThermalControl<'a> {
                 ringbuf_entry!(Trace::PostFailed(sensor_id, e));
             }
             Ok(())
+        }
+    }
+
+    pub fn get_sensor_read_errors(&self) -> ThermalSensorErrors {
+        ThermalSensorErrors {
+            prev: self.prev_first_read_failure,
+            curr: self.first_read_failure,
         }
     }
 }
