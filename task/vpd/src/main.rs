@@ -11,21 +11,12 @@ use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
 use idol_runtime::RequestError;
 use task_vpd_api::VpdError;
 use userlib::*;
-use ringbuf::*;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 struct ServerImpl;
 
 task_slot!(I2C, i2c_driver);
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    LockedErr(drv_i2c_devices::at24csw080::Error),
-    None,
-}
-
-ringbuf!(Trace, 1, Trace::None);
 
 fn eeprom_is_locked(
     dev: &drv_i2c_devices::at24csw080::At24Csw080
