@@ -19,7 +19,7 @@ struct ServerImpl;
 task_slot!(I2C, i2c_driver);
 
 fn eeprom_is_locked(
-    dev: &drv_i2c_devices::at24csw080::At24Csw080
+    dev: &drv_i2c_devices::at24csw080::At24Csw080,
 ) -> Result<bool, RequestError<VpdError>> {
     use drv_i2c_devices::at24csw080::WriteProtectBlock;
 
@@ -27,13 +27,13 @@ fn eeprom_is_locked(
         Err(drv_i2c_devices::at24csw080::Error::I2cError(code)) => {
             let err: VpdError = code.into();
             Err(err.into())
-        },
+        }
         Err(_) => Err(VpdError::DeviceError.into()),
         Ok(wp) if wp.locked => match wp.block {
             Some(WriteProtectBlock::AllMemory) => Ok(true),
-            _ => Err(VpdError::PartiallyLocked.into())
-        }
-        _ => Ok(false)
+            _ => Err(VpdError::PartiallyLocked.into()),
+        },
+        _ => Ok(false),
     }
 }
 
@@ -190,7 +190,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
             }
 
             Err(_) => Err(VpdError::BadLock.into()),
-            Ok(()) => Ok(())
+            Ok(()) => Ok(()),
         }
     }
 }
