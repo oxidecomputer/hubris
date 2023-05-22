@@ -10,7 +10,7 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotStateV2, SlotId, SpComponent,
+    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2, SpComponent,
     SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -325,12 +325,9 @@ impl MgsCommon {
 fn rot_state(sprot: &SpRot) -> Result<RotStateV2, RotError> {
     let boot_info = sprot.rot_boot_info()?;
 
-    let convert_slot_id = |s| {
-        if s == drv_lpc55_update_api::SlotId::A {
-            SlotId::A
-        } else {
-            SlotId::B
-        }
+    let convert_slot_id = |s| match s {
+        drv_lpc55_update_api::SlotId::A => RotSlotId::A,
+        drv_lpc55_update_api::SlotId::B => RotSlotId::B,
     };
 
     let active = convert_slot_id(boot_info.active);

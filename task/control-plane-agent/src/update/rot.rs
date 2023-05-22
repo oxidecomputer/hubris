@@ -122,21 +122,9 @@ impl ComponentUpdater for RotUpdate {
             }),
             State::Complete => UpdateStatus::Complete(current.id()),
             State::Aborted => UpdateStatus::Aborted(current.id()),
-            // We can't actually reveal the real error here because
-            // an error from sprot doesn't map directly to a u32 anymore.
-            // We also can't put the real error inside `UpdateStatus::Failed`
-            // because `UpdateStatus` is already included in `SpError`, and therefore
-            // the definition for `UpdateStatus` would be recursive. We can't "box" our way
-            // out of this because we are in a `no_std` context. For now, until we
-            // come up with a better idea, we just put `9999` here to indicate
-            // "RoT update error".
-            //
-            // This isn't really that big a deal, since the error will be
-            // apparent elsewhere in most cases such as the return value of the
-            // failing operation itself and in logs.
-            State::Failed(_) => UpdateStatus::Failed {
+            State::Failed(err) => UpdateStatus::RotError {
                 id: current.id(),
-                code: 9999,
+                error: (*err).into(),
             },
         }
     }
