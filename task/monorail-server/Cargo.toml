@@ -41,6 +41,11 @@ spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
 spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
 spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
 
+# When this feature is enabled, the technician ports can talk to every SP,
+# instead of just upstream to the Scrimlet.  This feature is enabled in -lab and
+# -bench builds, but is not allowed in production.
+technician-port-override = []
+
 [build-dependencies]
 build-util = {path = "../../build/util"}
 idol = { workspace = true }
