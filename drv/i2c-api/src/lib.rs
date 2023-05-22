@@ -55,7 +55,18 @@ pub enum Op {
 /// specific, not because the caller is expected to necessarily handle them
 /// differently, but to give upstack software some modicum of context
 /// surrounding the error.
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IdolError,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Bad response from server
