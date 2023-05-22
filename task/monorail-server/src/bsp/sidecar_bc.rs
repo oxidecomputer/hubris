@@ -215,7 +215,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8562_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
+
+        #[cfg(not(feature = "technician-port-override"))]
+        self.vsc7448.configure_vlan_strict()?;
+        #[cfg(feature = "technician-port-override")]
         self.vsc7448.configure_vlan_semistrict()?;
+
         self.vsc7448_postconfig()?;
 
         Ok(())

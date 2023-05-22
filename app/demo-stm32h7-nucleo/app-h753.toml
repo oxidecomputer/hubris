@@ -134,6 +134,7 @@ priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
+features = ["enable"]
 task-slots = ["net"]
 notifications = ["socket"]
 

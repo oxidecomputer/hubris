@@ -1,0 +1,6 @@
+inherit = "rev-b.toml"
+
+[patches]
+name = "sidecar-b-bench"
+features.sequencer = ["stay-in-a2"]
+features.monorail = ["technician-port-override"]

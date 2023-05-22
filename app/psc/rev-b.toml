@@ -179,6 +179,8 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+# NOTE: udprpc is diabled here (because the `enable` feature is inactive);
+# we enable it in the -lab images
 [tasks.udprpc]
 name = "task-udprpc"
 priority = 5

@@ -13,6 +13,11 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 build-util = { path = "../../build/util" }
 
 [features]
+# The Hubris build system only allows us to add features when doing inheritance
+# of TOML files.  In addition, we want the base `app.toml` to be our production
+# image.  Given these constraints, `udprpc` is disabled unless the `enable`
+# feature is set.
+enable = []
 vlan = ["task-net-api/vlan"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

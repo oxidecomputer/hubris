@@ -12,6 +12,7 @@ use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
 task_slot!(NET, net);
 
 #[derive(Copy, Clone, Debug)]
+#[allow(unused)]
 #[repr(u8)]
 enum RpcReply {
     Ok,
@@ -24,6 +25,8 @@ enum RpcReply {
     NBytesMismatch,
     /// The output would overflow `tx_data_buf`
     NReplyOverflow,
+    /// UDP-RPC is not enabled
+    Disabled,
 }
 
 /// Header for an RPC request
@@ -37,6 +40,52 @@ struct RpcHeader {
     op: U16<LittleEndian>,
     nreply: U16<LittleEndian>,
     nbytes: U16<LittleEndian>,
+}
+
+const HEADER_SIZE: usize = core::mem::size_of::<RpcHeader>();
+const REPLY_PREFIX_SIZE: usize = 5;
+
+#[cfg(feature = "enable")]
+fn handle_packet(
+    nbytes: usize,
+    nreply: usize,
+    header: RpcHeader,
+    rx_data_buf: &[u8],
+    tx_data_buf: &mut [u8],
+) -> (RpcReply, usize) {
+    // This is the happy path: unpack the data and execute
+    // the sys_send which actually calls the target.
+    let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
+
+    // The returned data is stored after the reply prefix,
+    // which consists of a one-byte `RpcReply` then a
+    // u32 return code from the `sys_send` call.
+    let tx_data = &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
+
+    let task_id = sys_refresh_task_id(TaskId(header.task.get()));
+    let (rc, len) = sys_send(task_id, header.op.get(), rx_data, tx_data, &[]);
+
+    // Store the return code
+    tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
+
+    // For idol calls with ssmarshal or hubpack encoding,
+    // the actual reply len may be less than `nreply` (the
+    // max possible encoding length); fill in the
+    // possibly-truncated length here. We know `len` is at
+    // most `nreply`: if it weren't, `sys_send()` would have
+    // faulted us for providing a too-short buffer.
+    (RpcReply::Ok, len)
+}
+
+#[cfg(not(feature = "enable"))]
+fn handle_packet(
+    _nbytes: usize,
+    _nreply: usize,
+    _header: RpcHeader,
+    _rx_data_buf: &[u8],
+    _tx_data_buf: &mut [u8],
+) -> (RpcReply, usize) {
+    (RpcReply::Disabled, 0)
 }
 
 #[export_name = "main"]
@@ -68,9 +117,6 @@ fn main() -> ! {
             &mut rx_data_buf,
         ) {
             Ok(mut meta) => {
-                const HEADER_SIZE: usize = core::mem::size_of::<RpcHeader>();
-                const REPLY_PREFIX_SIZE: usize = 5;
-
                 // We deliberately assign to `r` here then manipulate it;
                 // otherwise, the compiler won't include `RpcReply` in DWARF
                 // data.
@@ -83,56 +129,31 @@ fn main() -> ! {
                             .unwrap_lite();
 
                     let nbytes = header.nbytes.get() as usize;
-                    let mut nreply = header.nreply.get() as usize;
+                    let nreply = header.nreply.get() as usize;
 
-                    let r = if image_id != header.image_id.get() {
+                    if image_id != header.image_id.get() {
                         tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
-                        RpcReply::BadImageId
+                        (RpcReply::BadImageId, nreply)
                     } else if meta.size as usize != HEADER_SIZE + nbytes {
-                        RpcReply::NBytesMismatch
+                        (RpcReply::NBytesMismatch, nreply)
                     } else if nreply + REPLY_PREFIX_SIZE > tx_data_buf.len() {
-                        RpcReply::NReplyOverflow
+                        (RpcReply::NReplyOverflow, nreply)
                     } else {
-                        // This is the happy path: unpack the data and execute
-                        // the sys_send which actually calls the target.
-                        let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
-
-                        // The returned data is stored after the reply prefix,
-                        // which consists of a one-byte `RpcReply` then a
-                        // u32 return code from the `sys_send` call.
-                        let tx_data =
-                            &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
-
-                        let task_id =
-                            sys_refresh_task_id(TaskId(header.task.get()));
-                        let (rc, len) = sys_send(
-                            task_id,
-                            header.op.get(),
-                            rx_data,
-                            tx_data,
-                            &[],
-                        );
-
-                        // Store the return code
-                        tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
-
-                        // For idol calls with ssmarshal or hubpack encoding,
-                        // the actual reply len may be less than `nreply` (the
-                        // max possible encoding length); fill in the
-                        // possibly-truncated length here. We know `len` is at
-                        // most `nreply`: if it weren't, `sys_send()` would have
-                        // faulted us for providing a too-short buffer.
-                        nreply = len;
-
-                        RpcReply::Ok
-                    };
-                    (r, nreply)
+                        handle_packet(
+                            nbytes,
+                            nreply,
+                            header,
+                            &rx_data_buf,
+                            &mut tx_data_buf,
+                        )
+                    }
                 };
 
                 // Store the `RpcReply` return code and return size
                 tx_data_buf[0] = r as u8;
                 meta.size = match r {
-                    RpcReply::TooShort
+                    RpcReply::Disabled
+                    | RpcReply::TooShort
                     | RpcReply::NBytesMismatch
                     | RpcReply::NReplyOverflow => 1,
                     RpcReply::BadImageId => {

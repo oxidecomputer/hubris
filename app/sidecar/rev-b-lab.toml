@@ -1,5 +1,0 @@
-inherit = "rev-b.toml"
-
-[patches]
-name = "sidecar-b-lab"
-features.sequencer = ["stay-in-a2"]

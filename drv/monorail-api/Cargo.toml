@@ -15,6 +15,12 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
+[features]
+# Allow the technician port to talk to every SP, instead of just upstream to the
+# Scrimlet.  This is the default in -lab and -bench builds, but is not allowed
+# in production.
+technician-port-override = []
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [lib]

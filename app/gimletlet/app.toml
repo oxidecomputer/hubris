@@ -194,7 +194,7 @@ max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
-features = ["vlan"]
+features = ["vlan", "enable"]
 notifications = ["socket"]
 
 [tasks.udpecho]
