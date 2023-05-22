@@ -1,0 +1,6 @@
+inherit = "rev-c.toml"
+
+[patches]
+name = "sidecar-c-lab"
+features.monorail = ["technician-port-override"]
+features.udprpc = ["enable"]

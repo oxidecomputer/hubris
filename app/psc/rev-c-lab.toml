@@ -1,0 +1,5 @@
+inherit = "rev-c.toml"
+
+[patches]
+name = "psc-c-bench"
+features.udprpc = ["enable"]

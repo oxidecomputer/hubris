@@ -1,0 +1,7 @@
+inherit = "rev-d.toml"
+
+[patches]
+name = "gimlet-d-bench"
+features.gimlet_seq = ["stay-in-a2"]
+features.packrat = ["boot-kmdb"]
+features.udprpc = ["enable"]
