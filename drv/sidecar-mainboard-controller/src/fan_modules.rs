@@ -43,7 +43,7 @@ impl FanModules {
                 task_id,
                 MainboardController::DEVICE_INDEX,
             ),
-            led_state: [FanModuleLedState::Off; NUM_FAN_MODULES],
+            led_state: [FanModuleLedState::On; NUM_FAN_MODULES],
             presence: [false; NUM_FAN_MODULES],
         }
     }
