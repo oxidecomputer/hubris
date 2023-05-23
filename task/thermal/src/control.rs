@@ -247,6 +247,8 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Previous value of `first_read_failure`, copied over at power-down
     prev_first_read_failure: Option<(SensorId, SensorReadError)>,
+
+    /// Fans for the system
     fans: Fans,
 }
 
@@ -551,13 +553,9 @@ impl<'a> ThermalControl<'a> {
     pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.fans.enumerate() {
-            match sensor_id {
-                Some(sensor_id) => {
-                    let post_result = match self
-                        .bsp
-                        .fan_control(Fan::from(index))
-                        .fan_rpm()
-                    {
+            if let Some(sensor_id) = sensor_id {
+                let post_result =
+                    match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
                         Ok(reading) => self
                             .sensor_api
                             .post_now(*sensor_id, reading.0.into()),
@@ -571,15 +569,10 @@ impl<'a> ThermalControl<'a> {
                         }
                     };
 
-                    if let Err(e) = post_result {
-                        ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
-                    }
-                    
-                },
-                None => {
-                    ringbuf_entry!(Trace::FanNotPresent(Fan(index as u8)));
+                if let Err(e) = post_result {
+                    ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
                 }
-            };
+            }
         }
 
         // Read miscellaneous temperature data and log it to the sensors task

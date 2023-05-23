@@ -98,6 +98,11 @@ impl FanModules {
         Ok(())
     }
 
+    /// Get the state of a fan module's LED
+    pub fn get_led_state(&self, idx: u8) -> FanModuleLedState {
+        self.led_state[idx as usize]
+    }
+
     /// Change the state of a fan module's LED
     ///
     /// This function will only modify the state of an LED if the requested

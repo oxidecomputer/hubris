@@ -140,15 +140,17 @@ impl ServerImpl {
             Ok(status) => {
                 for (module, status) in status.iter().enumerate() {
                     // Fan module is not present, make sure the LED isn't driven
+                    // Avoid setting the state to Off if is already off so the
+                    // ringbuf is not spammed.
                     if !status.present() {
-                        ringbuf_entry!(Trace::FanModuleLedUpdate(
-                            module.into(),
-                            FanModuleLedState::Off
-                        ));
-                        self.set_fan_module_led_state(
-                            module.into(),
-                            FanModuleLedState::Off,
-                        );
+                        if self.fan_modules.get_led_state(module as u8)
+                            != FanModuleLedState::Off
+                        {
+                            self.set_fan_module_led_state(
+                                module.into(),
+                                FanModuleLedState::Off,
+                            );
+                        }
 
                     // Fan module is present but disabled, re-enable it
                     } else if !status.enable() {
@@ -157,6 +159,10 @@ impl ServerImpl {
                         {
                             ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
                         }
+                        self.set_fan_module_led_state(
+                            module.into(),
+                            FanModuleLedState::On,
+                        );
 
                     // Power fault has been observed for the module, disable it
                     } else if status.power_fault() || status.power_timed_out() {
