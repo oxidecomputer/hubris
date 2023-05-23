@@ -105,7 +105,7 @@ impl Bsp {
         } else {
             panic!();
         };
-        // These are hooked up weird on the board and handle that here
+        // These are hooked up weird on the board; handle that here
         let fan_physical = match fan_logical {
             0 => 2,
             1 => 3,
