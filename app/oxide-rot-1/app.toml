@@ -50,7 +50,7 @@ start = true
 name = "lpc55-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
-stacksize = 2048
+stacksize = 2560
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
