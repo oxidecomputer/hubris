@@ -8,16 +8,17 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
+use Reg::FAN0_STATE;
 bitfield! {
     #[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes, FromBytes)]
     #[repr(C)]
     pub struct FanModuleStatus(u8);
-    pub enable, set_enable: 0;
-    pub led, set_led: 1;
-    pub present, _: 2;
-    pub power_good, _: 3;
-    pub power_fault, _: 4;
-    pub power_timed_out, _: 5;
+    pub enable, set_enable: FAN0_STATE::ENABLE.trailing_zeros() as usize;
+    pub led, set_led: FAN0_STATE::LED.trailing_zeros() as usize;
+    pub present, _: FAN0_STATE::PRESENT.trailing_zeros() as usize;
+    pub power_good, _: FAN0_STATE::PG.trailing_zeros() as usize;
+    pub power_fault, _: FAN0_STATE::POWER_FAULT.trailing_zeros() as usize;
+    pub power_timed_out, _: FAN0_STATE::PG_TIMED_OUT.trailing_zeros() as usize;
 }
 
 /// Each fan module contains two individually controlled fans
@@ -25,9 +26,9 @@ pub const NUM_FAN_MODULES: usize = 4;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum FanModuleLedState {
-    Off = 0,
-    On = 1,
-    Blink = 2,
+    Off,
+    On,
+    Blink,
 }
 
 pub struct FanModules {
@@ -56,9 +57,7 @@ impl FanModules {
     ) -> Result<[FanModuleStatus; NUM_FAN_MODULES], FpgaError> {
         let status: [FanModuleStatus; NUM_FAN_MODULES] =
             self.fpga.read(Addr::FAN0_STATE)?;
-        for (module, status) in status.iter().enumerate() {
-            self.presence[module] = status.present();
-        }
+        self.presence = status.map(|s| s.present());
         Ok(status)
     }
 
@@ -86,9 +85,6 @@ impl FanModules {
     }
 
     /// Disable the HSC for a fan module
-    ///
-    /// The FPGA will automatically disable the HSC if a fan module is removed.
-    /// The module will need to be re-enabled once it is returned.
     pub fn clear_enable(&self, idx: u8) -> Result<(), FpgaError> {
         self.fpga.write(
             WriteOp::BitClear,
@@ -125,13 +121,7 @@ impl FanModules {
             match state {
                 FanModuleLedState::Off => self.led_off(module as u8)?,
                 FanModuleLedState::On => self.led_on(module as u8)?,
-                FanModuleLedState::Blink => {
-                    if blink_on {
-                        self.led_on(module as u8)?
-                    } else {
-                        self.led_off(module as u8)?
-                    }
-                }
+                FanModuleLedState::Blink => self.led_set(module as u8, blink_on)?,
             }
         }
         Ok(())
@@ -139,21 +129,23 @@ impl FanModules {
 
     // private function to turn an LED on
     fn led_on(&self, idx: u8) -> Result<(), FpgaError> {
-        self.fpga.write(
-            WriteOp::BitSet,
-            Addr::FAN0_STATE as u16 + idx as u16,
-            Reg::FAN0_STATE::LED,
-        )?;
-        Ok(())
+        self.led_set(idx, true)
     }
 
     // private function to turn an LED off
     fn led_off(&self, idx: u8) -> Result<(), FpgaError> {
+        self.led_set(idx, false)
+    }
+
+    fn led_set(&self, idx: u8, on: bool) -> Result<(), FpgaError> {
         self.fpga.write(
-            WriteOp::BitClear,
+            if on {
+                WriteOp::BitSet
+            } else {
+                WriteOp::BitClear
+            },
             Addr::FAN0_STATE as u16 + idx as u16,
             Reg::FAN0_STATE::LED,
-        )?;
-        Ok(())
+        )
     }
 }

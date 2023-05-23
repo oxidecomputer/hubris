@@ -86,18 +86,25 @@ impl TemperatureSensor {
 /// their corresponding sensor is an `Option`. We should not read the RPM of
 /// fans which are not present and their PWM should only be driven low.
 #[derive(Copy, Clone)]
-pub struct Fans([Option<SensorId>; bsp::NUM_FANS]);
+pub struct Fans<const N: usize>([Option<SensorId>; N]);
 
-impl Fans {
+impl core::ops::Index<usize> for Fans<{ bsp::NUM_FANS }> {
+    type Output = Option<SensorId>;
+
+    fn index<'a>(&'a self, index: usize) -> &'a Option<SensorId> {
+        &self.0[index]
+    }
+}
+
+impl core::ops::IndexMut<usize> for Fans<{ bsp::NUM_FANS }> {
+    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Option<SensorId> {
+        &mut self.0[index]
+    }
+}
+
+impl Fans<{ bsp::NUM_FANS }> {
     pub fn new() -> Self {
         Self([None; bsp::NUM_FANS])
-    }
-    pub fn add(&mut self, index: usize, sensor: SensorId) {
-        self.0[index] = Some(sensor);
-    }
-    #[allow(dead_code)]
-    pub fn remove(&mut self, index: usize) {
-        self.0[index] = None;
     }
     pub fn len(&self) -> usize {
         self.0.len()
@@ -249,7 +256,7 @@ pub(crate) struct ThermalControl<'a> {
     prev_first_read_failure: Option<(SensorId, SensorReadError)>,
 
     /// Fans for the system
-    fans: Fans,
+    fans: Fans<{ bsp::NUM_FANS }>,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -458,7 +465,7 @@ impl<'a> ThermalControl<'a> {
 
             first_read_failure: None,
             prev_first_read_failure: None,
-            fans: Fans([None; bsp::NUM_FANS]),
+            fans: Fans::new(),
         }
     }
 
@@ -897,10 +904,12 @@ impl<'a> ThermalControl<'a> {
         Ok(())
     }
 
-    /// Attempts to set the PWM duty cycle of every present fan in this group.
+    /// Attempts to set the PWM duty cycle of every fan in this group.
     ///
-    /// Returns the last error if one occurred, but does not short circuit
-    /// (i.e. attempts to set *all* present fan duty cycles, even if one fails)
+    /// For fans that are present, set to `pwm`. For fans that are not present,
+    /// set to zero. Returns the last error if one occurred, but does not short
+    /// circuit (i.e. attempts to set *all* present fan duty cycles, even if one
+    /// fails)
     pub fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ThermalError> {
         if pwm.0 > 100 {
             return Err(ThermalError::InvalidPWM);
@@ -920,21 +929,19 @@ impl<'a> ThermalControl<'a> {
         last_err.map_err(|_| ThermalError::DeviceError)
     }
 
-    /// Sets the PWM for a single fan if it is present
+    /// Sets the PWM for a single fan
     ///
-    /// If the indicated fan is not present, a `FanNotPresent` entry is put into
-    /// the ringbuf but the function will return Ok(()).
+    /// If the fan is present, set to `pwm`. if it is not present, set to zero.
     pub fn set_fan_pwm(
         &self,
         fan: Fan,
         pwm: PWMDuty,
     ) -> Result<(), ResponseCode> {
-        if self.fans.is_present(fan) {
-            self.bsp.fan_control(fan).set_pwm(pwm)
-        } else {
-            ringbuf_entry!(Trace::FanNotPresent(fan));
-            Ok(())
-        }
+        let pwm = match self.fans.is_present(fan) {
+            true => pwm,
+            false => PWMDuty(0),
+        };
+        self.bsp.fan_control(fan).set_pwm(pwm)
     }
 
     pub fn fan(&self, index: u8) -> Option<Fan> {

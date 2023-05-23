@@ -53,7 +53,6 @@ pub enum TofinoSequencerPolicy {
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-#[repr(C)]
 pub struct FanModulePresence(pub [bool; NUM_FAN_MODULES]);
 
 /// Four fan modules exist on sidecar, each with two fans.

@@ -72,7 +72,6 @@ enum Trace {
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(ThermalError),
-    FanNotPresent(Fan),
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),

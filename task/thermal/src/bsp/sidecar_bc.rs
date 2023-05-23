@@ -140,15 +140,15 @@ impl Bsp {
             .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
     }
 
-    pub fn get_fan_presence(&self) -> Result<Fans, SeqError> {
+    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
         let presence = self.seq.fan_module_presence()?;
         let mut next = Fans::new();
         for (i, present) in presence.0.iter().enumerate() {
             // two fans per module
             let idx = i * 2;
             if *present {
-                next.add(idx, sensors::MAX31790_SPEED_SENSORS[idx]);
-                next.add(idx + 1, sensors::MAX31790_SPEED_SENSORS[idx + 1]);
+                next[idx] = Some(sensors::MAX31790_SPEED_SENSORS[idx]);
+                next[idx + 1] = Some(sensors::MAX31790_SPEED_SENSORS[idx + 1]);
             }
         }
         Ok(next)

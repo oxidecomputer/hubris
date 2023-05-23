@@ -142,12 +142,12 @@ impl Bsp {
     }
 
     // We assume Gimlet fan presence cannot change
-    pub fn get_fan_presence(&self) -> Result<Fans, SeqError> {
+    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
         // Awkwardly build the fan array, because there's not a great way to
         // build a fixed-size array from a function
         let mut fans = Fans::new();
         for i in 0..fans.len() {
-            fans.add(i, sensors::MAX31790_SPEED_SENSORS[i]);
+            fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         Ok(fans)
     }
