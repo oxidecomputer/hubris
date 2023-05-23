@@ -44,8 +44,8 @@ Interface(
                 err: CLike("VpdError"),
             ),
         ),
-        "lock": (
-            doc: "Locks VPD -- CANNOT BE UNDONE",
+        "permanently_lock": (
+            doc: "Permanently locks VPD -- CANNOT BE UNDONE",
             args: {
                 "index": "u8",
             },

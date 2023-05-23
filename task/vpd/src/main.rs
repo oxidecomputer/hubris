@@ -33,7 +33,7 @@ fn eeprom_is_locked(
             Some(WriteProtectBlock::AllMemory) => Ok(true),
             _ => Err(VpdError::PartiallyLocked.into()),
         },
-        _ => Ok(false),
+        Ok(_) => Ok(false),
     }
 }
 
@@ -160,7 +160,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
         eeprom_is_locked(&dev)
     }
 
-    fn lock(
+    fn permanently_lock(
         &mut self,
         _: &RecvMessage,
         index: u8,
