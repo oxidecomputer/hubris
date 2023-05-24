@@ -186,7 +186,8 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
 
     let usart = Usart::from(peripherals.USART0.deref());
 
-    let dice_data = SerialMfg::new(&id_keypair, usart).run();
+    let dice_data =
+        SerialMfg::new(&id_keypair, usart, &peripherals.SYSCON).run();
 
     let dice_state = DiceState {
         persistid_key_code: id_keycode,
