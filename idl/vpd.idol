@@ -34,5 +34,25 @@ Interface(
                 err: CLike("VpdError"),
             ),
         ),
+        "is_locked": (
+            doc: "Returns true if and only if VPD is locked",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "bool",
+                err: CLike("VpdError"),
+            ),
+        ),
+        "permanently_lock": (
+            doc: "Permanently locks VPD -- CANNOT BE UNDONE",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("VpdError"),
+            ),
+        ),
     },
 )
