@@ -257,6 +257,9 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Fans for the system
     fans: Fans<{ bsp::NUM_FANS }>,
+
+    /// Last group PWM control value
+    last_pwm: PWMDuty,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -466,6 +469,7 @@ impl<'a> ThermalControl<'a> {
             first_read_failure: None,
             prev_first_read_failure: None,
             fans: Fans::new(),
+            last_pwm: PWMDuty(0),
         }
     }
 
@@ -534,6 +538,7 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
+    /// Get latest fan presence state
     pub fn update_fan_presence(&mut self) {
         match self.bsp.get_fan_presence() {
             Ok(next) => {
@@ -910,10 +915,11 @@ impl<'a> ThermalControl<'a> {
     /// set to zero. Returns the last error if one occurred, but does not short
     /// circuit (i.e. attempts to set *all* present fan duty cycles, even if one
     /// fails)
-    pub fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ThermalError> {
+    pub fn set_pwm(&mut self, pwm: PWMDuty) -> Result<(), ThermalError> {
         if pwm.0 > 100 {
             return Err(ThermalError::InvalidPWM);
         }
+        self.last_pwm = pwm;
         let mut last_err = Ok(());
         for (index, sensor_id) in self.fans.enumerate() {
             // If a fan is missing, keep its PWM signal low
@@ -942,6 +948,14 @@ impl<'a> ThermalControl<'a> {
             false => PWMDuty(0),
         };
         self.bsp.fan_control(fan).set_pwm(pwm)
+    }
+
+    /// Attempts to set the PWM of every fan to whatever the previous value was.
+    ///
+    /// This is used by ThermalMode::Manual to accomodate the removal and
+    /// replacement of fan modules.
+    pub fn maintain_pwm(&mut self) -> Result<(), ThermalError> {
+        self.set_pwm(self.last_pwm)
     }
 
     pub fn fan(&self, index: u8) -> Option<Fan> {

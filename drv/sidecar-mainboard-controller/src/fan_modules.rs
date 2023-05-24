@@ -31,10 +31,30 @@ pub enum FanModuleLedState {
     Blink,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum FanModulePowerState {
+    Enabled,
+    Disabled,
+}
+
+/// Four fan modules exist on sidecar, each with two fans.
+///
+/// The SP applies control at the individual fan level. Power control and
+/// status, module presence, and module LED control exist at the module level.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum FanModuleIndex {
+    Zero = 0,
+    One = 1,
+    Two = 2,
+    Three = 3,
+}
+
 pub struct FanModules {
     fpga: FpgaUserDesign,
     presence: [bool; NUM_FAN_MODULES],
     led_state: [FanModuleLedState; NUM_FAN_MODULES],
+    power_state: [FanModulePowerState; NUM_FAN_MODULES],
 }
 
 impl FanModules {
@@ -46,6 +66,7 @@ impl FanModules {
             ),
             led_state: [FanModuleLedState::On; NUM_FAN_MODULES],
             presence: [false; NUM_FAN_MODULES],
+            power_state: [FanModulePowerState::Enabled; NUM_FAN_MODULES],
         }
     }
 
@@ -67,7 +88,7 @@ impl FanModules {
     }
 
     /// Get the presence status for a particular fan module
-    pub fn is_present(&self, idx: u8) -> bool {
+    pub fn is_present(&self, idx: FanModuleIndex) -> bool {
         self.presence[idx as usize]
     }
 
@@ -75,27 +96,38 @@ impl FanModules {
     ///
     /// The FPGA will automatically disable the HSC if a fan module is removed.
     /// The module will need to be re-enabled once it is returned.
-    pub fn set_enable(&self, idx: u8) -> Result<(), FpgaError> {
-        self.fpga.write(
-            WriteOp::BitSet,
-            Addr::FAN0_STATE as u16 + idx as u16,
-            Reg::FAN0_STATE::ENABLE,
-        )?;
-        Ok(())
+    pub fn set_power_state(
+        &mut self,
+        idx: FanModuleIndex,
+        state: FanModulePowerState,
+    ) {
+        self.power_state[idx as usize] = state;
     }
 
-    /// Disable the HSC for a fan module
-    pub fn clear_enable(&self, idx: u8) -> Result<(), FpgaError> {
-        self.fpga.write(
-            WriteOp::BitClear,
-            Addr::FAN0_STATE as u16 + idx as u16,
-            Reg::FAN0_STATE::ENABLE,
-        )?;
+    pub fn get_power_state(
+        &mut self,
+        idx: FanModuleIndex,
+    ) -> FanModulePowerState {
+        self.power_state[idx as usize]
+    }
+
+    pub fn update_power(&self) -> Result<(), FpgaError> {
+        for (module, state) in self.power_state.iter().enumerate() {
+            self.fpga.write(
+                if *state == FanModulePowerState::Enabled {
+                    WriteOp::BitSet
+                } else {
+                    WriteOp::BitClear
+                },
+                Addr::FAN0_STATE as u16 + module as u16,
+                Reg::FAN0_STATE::ENABLE,
+            )?;
+        }
         Ok(())
     }
 
     /// Get the state of a fan module's LED
-    pub fn get_led_state(&self, idx: u8) -> FanModuleLedState {
+    pub fn get_led_state(&self, idx: FanModuleIndex) -> FanModuleLedState {
         self.led_state[idx as usize]
     }
 
@@ -103,7 +135,11 @@ impl FanModules {
     ///
     /// This function will only modify the state of an LED if the requested
     /// module is present, otherwise it will keep it off.
-    pub fn set_led_state(&mut self, idx: u8, state: FanModuleLedState) {
+    pub fn set_led_state(
+        &mut self,
+        idx: FanModuleIndex,
+        state: FanModuleLedState,
+    ) {
         self.led_state[idx as usize] = if self.is_present(idx) {
             state
         } else {
@@ -118,26 +154,27 @@ impl FanModules {
     /// LEDs which may be blinking.
     pub fn update_leds(&self, blink_on: bool) -> Result<(), FpgaError> {
         for (module, state) in self.led_state.iter().enumerate() {
+            let module = FanModuleIndex::from_usize(module).unwrap();
             match state {
-                FanModuleLedState::Off => self.led_off(module as u8)?,
-                FanModuleLedState::On => self.led_on(module as u8)?,
-                FanModuleLedState::Blink => self.led_set(module as u8, blink_on)?,
+                FanModuleLedState::Off => self.led_off(module)?,
+                FanModuleLedState::On => self.led_on(module)?,
+                FanModuleLedState::Blink => self.led_set(module, blink_on)?,
             }
         }
         Ok(())
     }
 
     // private function to turn an LED on
-    fn led_on(&self, idx: u8) -> Result<(), FpgaError> {
+    fn led_on(&self, idx: FanModuleIndex) -> Result<(), FpgaError> {
         self.led_set(idx, true)
     }
 
     // private function to turn an LED off
-    fn led_off(&self, idx: u8) -> Result<(), FpgaError> {
+    fn led_off(&self, idx: FanModuleIndex) -> Result<(), FpgaError> {
         self.led_set(idx, false)
     }
 
-    fn led_set(&self, idx: u8, on: bool) -> Result<(), FpgaError> {
+    fn led_set(&self, idx: FanModuleIndex, on: bool) -> Result<(), FpgaError> {
         self.fpga.write(
             if on {
                 WriteOp::BitSet

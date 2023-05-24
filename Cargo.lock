@@ -1431,6 +1431,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-ignition-api",
  "gnarle",
+ "num-derive",
  "num-traits",
  "serde",
  "serde_json",

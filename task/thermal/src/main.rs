@@ -316,7 +316,11 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
                     }
                 }
                 ThermalMode::Manual => {
-                    // Nothing to do; we already read the sensors
+                    // This will continually account for fan presence when a
+                    // PWM has been given in manual mode.
+                    if let Err(e) = self.control.maintain_pwm() {
+                        ringbuf_entry!(Trace::ControlError(e))
+                    }
                 }
                 ThermalMode::Off => {
                     panic!("Mode must not be 'Off' when server is running")

@@ -93,7 +93,7 @@ enum Trace {
     FpgaFanModuleFailure(FpgaError),
     FanModulePowerFault(FanModuleIndex, FanModuleStatus),
     FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
-    FanModuleEnableUpdate(FanModuleIndex, bool),
+    FanModuleEnableUpdate(FanModuleIndex, FanModulePowerState),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -116,20 +116,16 @@ impl ServerImpl {
         state: FanModuleLedState,
     ) {
         ringbuf_entry!(Trace::FanModuleLedUpdate(module, state));
-        self.fan_modules.set_led_state(module.into(), state);
+        self.fan_modules.set_led_state(module, state);
     }
 
-    fn set_fan_module_enable(
-        &self,
+    fn set_fan_module_power_state(
+        &mut self,
         module: FanModuleIndex,
-        enabled: bool,
-    ) -> Result<(), FpgaError> {
-        ringbuf_entry!(Trace::FanModuleEnableUpdate(module, enabled));
-        if enabled {
-            self.fan_modules.set_enable(module.into())
-        } else {
-            self.fan_modules.clear_enable(module.into())
-        }
+        state: FanModulePowerState,
+    ) {
+        ringbuf_entry!(Trace::FanModuleEnableUpdate(module, state));
+        self.fan_modules.set_power_state(module, state);
     }
 
     // The SP does not need to disable the module when presence is lost because
@@ -139,46 +135,43 @@ impl ServerImpl {
         match self.fan_modules.get_status() {
             Ok(status) => {
                 for (module, status) in status.iter().enumerate() {
+                    let module = FanModuleIndex::from_usize(module).unwrap();
                     // Fan module is not present, make sure the LED isn't driven
                     // Avoid setting the state to Off if is already off so the
                     // ringbuf is not spammed.
                     if !status.present() {
-                        if self.fan_modules.get_led_state(module as u8)
+                        if self.fan_modules.get_led_state(module)
                             != FanModuleLedState::Off
                         {
                             self.set_fan_module_led_state(
-                                module.into(),
+                                module,
                                 FanModuleLedState::Off,
                             );
                         }
 
-                    // Fan module is present but disabled, re-enable it
+                    // Fan module is present but disabled and should be enabled
                     } else if !status.enable() {
-                        if let Err(e) =
-                            self.set_fan_module_enable(module.into(), true)
-                        {
-                            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
-                        }
                         self.set_fan_module_led_state(
-                            module.into(),
+                            module,
                             FanModuleLedState::On,
                         );
 
                     // Power fault has been observed for the module, disable it
                     } else if status.power_fault() || status.power_timed_out() {
                         ringbuf_entry!(Trace::FanModulePowerFault(
-                            module.into(),
-                            *status
+                            module, *status
                         ));
-                        if let Err(e) =
-                            self.set_fan_module_enable(module.into(), false)
-                        {
-                            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
-                        }
+                        self.set_fan_module_power_state(
+                            module,
+                            FanModulePowerState::Disabled,
+                        )
                     }
                 }
             }
             Err(e) => ringbuf_entry!(Trace::FpgaFanModuleFailure(e)),
+        }
+        if let Err(e) = self.fan_modules.update_power() {
+            ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
         }
         if let Err(e) = self.fan_modules.update_leds(self.led_blink_on) {
             ringbuf_entry!(Trace::FpgaFanModuleFailure(e));
@@ -494,7 +487,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         module: FanModuleIndex,
     ) -> Result<FanModuleStatus, RequestError<SeqError>> {
         match self.fan_modules.get_status() {
-            Ok(all_modules) => Ok(all_modules[usize::from(module)]),
+            Ok(all_modules) => Ok(all_modules[module as usize]),
             Err(e) => Err(RequestError::from(SeqError::from(e))),
         }
     }
@@ -511,7 +504,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         module: FanModuleIndex,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_fan_module_led_state(module.into(), FanModuleLedState::Off);
+        self.set_fan_module_led_state(module, FanModuleLedState::Off);
         Ok(())
     }
 
@@ -520,7 +513,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         module: FanModuleIndex,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_fan_module_led_state(module.into(), FanModuleLedState::On);
+        self.set_fan_module_led_state(module, FanModuleLedState::On);
         Ok(())
     }
 
@@ -529,7 +522,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         module: FanModuleIndex,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_fan_module_led_state(module.into(), FanModuleLedState::Blink);
+        self.set_fan_module_led_state(module, FanModuleLedState::Blink);
         Ok(())
     }
 
@@ -538,9 +531,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         module: FanModuleIndex,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_fan_module_enable(module.into(), true)
-            .map_err(SeqError::from)
-            .map_err(RequestError::from)
+        self.set_fan_module_power_state(module, FanModulePowerState::Enabled);
+        Ok(())
     }
 
     fn fan_module_disable(
@@ -548,9 +540,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         module: FanModuleIndex,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_fan_module_enable(module.into(), false)
-            .map_err(SeqError::from)
-            .map_err(RequestError::from)
+        self.set_fan_module_power_state(module, FanModulePowerState::Disabled);
+        Ok(())
     }
 }
 
