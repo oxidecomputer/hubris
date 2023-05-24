@@ -8,6 +8,7 @@ use crate::{
 };
 use dice_mfg_msgs::{MfgMessage, PlatformId, SizedBlob};
 use lib_lpc55_usart::{Read, Usart, Write};
+use lpc55_pac::SYSCON;
 use nb;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 use unwrap_lite::UnwrapLite;
@@ -91,6 +92,7 @@ impl DiceMfg for SelfMfg<'_> {
 pub struct SerialMfg<'a> {
     keypair: &'a Keypair,
     usart: Usart<'a>,
+    syscon: &'a SYSCON,
     buf: [u8; MfgMessage::MAX_ENCODED_SIZE],
     platform_id: Option<PlatformId>,
     persistid_cert: Option<PersistIdCert>,
@@ -98,10 +100,15 @@ pub struct SerialMfg<'a> {
 }
 
 impl<'a> SerialMfg<'a> {
-    pub fn new(keypair: &'a Keypair, usart: Usart<'a>) -> Self {
+    pub fn new(
+        keypair: &'a Keypair,
+        usart: Usart<'a>,
+        syscon: &'a SYSCON,
+    ) -> Self {
         Self {
             keypair,
             usart,
+            syscon,
             buf: [0u8; MfgMessage::MAX_ENCODED_SIZE],
             platform_id: None,
             persistid_cert: None,
@@ -229,6 +236,60 @@ impl DiceMfg for SerialMfg<'_> {
                 }
                 MfgMessage::Ping => self.send_ack(),
                 MfgMessage::PlatformId(pid) => self.handle_platform_id(pid),
+                MfgMessage::YouLockedBro => {
+                    let syscon_locked = {
+                        // The SYSCON lock register is undocumented and thus
+                        // absent from the SVD file, which means it's absent
+                        // from the lpc55_pac crate. It's at byte offset 0x450.
+                        let reg: &lpc55_pac::syscon::RegisterBlock =
+                            &**self.syscon;
+                        let base: *const u8 = reg as *const _ as *const u8;
+                        let register = base as usize + 0x450;
+
+                        // Safety: this is a fixed-position memory-mapped
+                        // register in our address space, so it's not a wild
+                        // pointer. We've ensured alignment by derivation from
+                        // the register block base address.
+                        let contents = unsafe {
+                            core::ptr::read_volatile(register as *const u32)
+                        };
+
+                        // The undocumented register contains fields in bits
+                        // 11:8 and 7:4 for the CFPA and CMPA, respectively.
+                        // The ROM sets these fields to 1 when it boots locked
+                        // (checked empirically).
+                        contents & 0xFF0 == 0x110
+                    };
+
+                    let cmpa_locked = {
+                        // The CMPA is at a fixed location in Flash. We will
+                        // approximate its locked status by detecting whether
+                        // the final 32 bytes are zero (unlocked) or not zero
+                        // (locked, since we booted). Note that a valid lock
+                        // hash may contain zeros, so we detect locking by the
+                        // presence of _any_ non-zero byte.
+
+                        // Safety: this is a fixed location in flash that
+                        // doesn't alias anything, and we have no alignment
+                        // requirements to uphold because we're using u8.
+                        //
+                        // The 9_E5E0 address is from the User Manual /
+                        // spreadsheet.
+                        let lock: &[u8] = unsafe {
+                            core::slice::from_raw_parts(
+                                0x9_e5e0 as *const u8,
+                                32,
+                            )
+                        };
+
+                        lock.iter().any(|&byte| byte != 0)
+                    };
+
+                    self.send_msg(MfgMessage::LockStatus {
+                        cmpa_locked,
+                        syscon_locked,
+                    })
+                }
                 _ => continue,
             };
         }
