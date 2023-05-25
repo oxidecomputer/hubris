@@ -166,11 +166,12 @@ impl ServerImpl {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
         // handle system LED
-        if let Err(e) = match self.system_led_state {
-            LedState::On => self.leds.update_system_led_state(true),
-            LedState::Blink => self.leds.update_system_led_state(self.blink_on),
-            LedState::Off => self.leds.update_system_led_state(false),
-        } {
+        let system_led_on = match self.system_led_state {
+            LedState::On => true,
+            LedState::Blink => self.blink_on,
+            LedState::Off => false,
+        };
+        if let Err(e) = self.leds.update_system_led_state(system_led_on) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
         // keep track if we are on or off next update when blinking
