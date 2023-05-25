@@ -300,11 +300,12 @@ impl At24Csw080 {
         let out = self.device.registers().write(&cmd);
 
         // The device NAKs at the end of the word address byte if the
-        // security lock is already set. Unfortunately, in the I2C driver,
-        // it's hard to tell whether the address byte went through or not...
+        // security lock is already set.  This will result in the I2C
+        // driver indicating that our device is good (the device address
+        // will be ACKd) but that our register appears to be invalid.
         match out {
             Ok(()) => Ok(false),
-            Err(ResponseCode::NoDevice) => Ok(true),
+            Err(ResponseCode::NoRegister) => Ok(true),
             Err(e) => Err(e.into()),
         }
     }

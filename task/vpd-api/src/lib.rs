@@ -22,7 +22,11 @@ pub enum VpdError {
     BadBuffer,
     BadRead,
     BadWrite,
+    BadLock,
     NotImplemented,
+    IsLocked,
+    PartiallyLocked,
+    AlreadyLocked,
 
     #[idol(server_death)]
     ServerRestarted,
