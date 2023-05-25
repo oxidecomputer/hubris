@@ -79,6 +79,49 @@ impl TemperatureSensor {
     }
 }
 
+/// Represents the indvidual fans in the system
+///
+/// Depending on the system we have diferent numbers of fans structured in
+/// different ways. Not all fans are guaranteed to be there at all times so
+/// their corresponding sensor is an `Option`. We should not read the RPM of
+/// fans which are not present and their PWM should only be driven low.
+#[derive(Copy, Clone)]
+pub struct Fans<const N: usize>([Option<SensorId>; N]);
+
+impl core::ops::Index<usize> for Fans<{ bsp::NUM_FANS }> {
+    type Output = Option<SensorId>;
+
+    fn index<'a>(&'a self, index: usize) -> &'a Option<SensorId> {
+        &self.0[index]
+    }
+}
+
+impl core::ops::IndexMut<usize> for Fans<{ bsp::NUM_FANS }> {
+    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Option<SensorId> {
+        &mut self.0[index]
+    }
+}
+
+impl Fans<{ bsp::NUM_FANS }> {
+    pub fn new() -> Self {
+        Self([None; bsp::NUM_FANS])
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_present(&self, index: crate::Fan) -> bool {
+        self.0[index.0 as usize].is_some()
+    }
+    pub fn enumerate(
+        &self,
+    ) -> impl Iterator<Item = (usize, &Option<SensorId>)> {
+        self.0.iter().enumerate()
+    }
+    pub fn as_fans(&self) -> impl Iterator<Item = Fan> + '_ {
+        self.enumerate().map(|(f, _s)| Fan::from(f))
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Enum representing any of our fan controller types, bound to one of their
@@ -211,6 +254,12 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Previous value of `first_read_failure`, copied over at power-down
     prev_first_read_failure: Option<(SensorId, SensorReadError)>,
+
+    /// Fans for the system
+    fans: Fans<{ bsp::NUM_FANS }>,
+
+    /// Last group PWM control value
+    last_pwm: PWMDuty,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -419,6 +468,8 @@ impl<'a> ThermalControl<'a> {
 
             first_read_failure: None,
             prev_first_read_failure: None,
+            fans: Fans::new(),
+            last_pwm: PWMDuty(0),
         }
     }
 
@@ -487,6 +538,24 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
+    /// Get latest fan presence state
+    pub fn update_fan_presence(&mut self) {
+        match self.bsp.get_fan_presence() {
+            Ok(next) => {
+                for fan in next.as_fans() {
+                    if !self.fans.is_present(fan) && next.is_present(fan) {
+                        ringbuf_entry!(Trace::FanAdded(fan));
+                    } else if self.fans.is_present(fan) && !next.is_present(fan)
+                    {
+                        ringbuf_entry!(Trace::FanRemoved(fan));
+                    }
+                }
+                self.fans = next;
+            }
+            Err(e) => ringbuf_entry!(Trace::FanPresenceUpdateFailed(e)),
+        }
+    }
+
     /// Reads all temperature and fan RPM sensors, posting their results
     /// to the sensors task API.
     ///
@@ -495,23 +564,26 @@ impl<'a> ThermalControl<'a> {
     /// in `self.first_read_failure` for later investigation.
     pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
-        for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
-            let post_result =
-                match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
-                    Ok(reading) => {
-                        self.sensor_api.post_now(*sensor_id, reading.0.into())
-                    }
-                    Err(e) => {
-                        ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                        self.first_read_failure.get_or_insert((
-                            *sensor_id,
-                            SensorReadError::I2cError(e),
-                        ));
-                        self.sensor_api.nodata_now(*sensor_id, e.into())
-                    }
-                };
-            if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
+        for (index, sensor_id) in self.fans.enumerate() {
+            if let Some(sensor_id) = sensor_id {
+                let post_result =
+                    match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
+                        Ok(reading) => self
+                            .sensor_api
+                            .post_now(*sensor_id, reading.0.into()),
+                        Err(e) => {
+                            ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
+                            self.first_read_failure.get_or_insert((
+                                *sensor_id,
+                                SensorReadError::I2cError(e),
+                            ));
+                            self.sensor_api.nodata_now(*sensor_id, e.into())
+                        }
+                    };
+
+                if let Err(e) = post_result {
+                    ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
+                }
             }
         }
 
@@ -839,14 +911,22 @@ impl<'a> ThermalControl<'a> {
 
     /// Attempts to set the PWM duty cycle of every fan in this group.
     ///
-    /// Returns the last error if one occurred, but does not short circuit
-    /// (i.e. attempts to set *all* fan duty cycles, even if one fails)
-    pub fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ThermalError> {
+    /// For fans that are present, set to `pwm`. For fans that are not present,
+    /// set to zero. Returns the last error if one occurred, but does not short
+    /// circuit (i.e. attempts to set *all* present fan duty cycles, even if one
+    /// fails)
+    pub fn set_pwm(&mut self, pwm: PWMDuty) -> Result<(), ThermalError> {
         if pwm.0 > 100 {
             return Err(ThermalError::InvalidPWM);
         }
+        self.last_pwm = pwm;
         let mut last_err = Ok(());
-        for (index, _sensor_id) in self.bsp.fans.iter().enumerate() {
+        for (index, sensor_id) in self.fans.enumerate() {
+            // If a fan is missing, keep its PWM signal low
+            let pwm = match sensor_id {
+                Some(_) => pwm,
+                None => PWMDuty(0),
+            };
             if let Err(e) = self.bsp.fan_control(Fan::from(index)).set_pwm(pwm)
             {
                 last_err = Err(e);
@@ -856,16 +936,30 @@ impl<'a> ThermalControl<'a> {
     }
 
     /// Sets the PWM for a single fan
+    ///
+    /// If the fan is present, set to `pwm`. if it is not present, set to zero.
     pub fn set_fan_pwm(
         &self,
         fan: Fan,
         pwm: PWMDuty,
     ) -> Result<(), ResponseCode> {
+        let pwm = match self.fans.is_present(fan) {
+            true => pwm,
+            false => PWMDuty(0),
+        };
         self.bsp.fan_control(fan).set_pwm(pwm)
     }
 
+    /// Attempts to set the PWM of every fan to whatever the previous value was.
+    ///
+    /// This is used by ThermalMode::Manual to accomodate the removal and
+    /// replacement of fan modules.
+    pub fn maintain_pwm(&mut self) -> Result<(), ThermalError> {
+        self.set_pwm(self.last_pwm)
+    }
+
     pub fn fan(&self, index: u8) -> Option<Fan> {
-        let f = &self.bsp.fans;
+        let f = &self.fans;
 
         if (index as usize) < f.len() {
             Some(Fan(index))

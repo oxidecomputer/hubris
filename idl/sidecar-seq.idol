@@ -270,5 +270,99 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+
+        "fan_module_status": (
+            doc: "Return status signals of each fan module",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "FanModuleStatus",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "fan_module_presence": (
+            doc: "Return presence of each fan module",
+            args: {},
+            reply: Result(
+                ok: "FanModulePresence",
+                err: CLike("SeqError"),
+            ),
+            encoding: Hubpack,
+        ),
+
+        "fan_module_led_off": (
+            doc: "Turn off the LED for a fan module.",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "fan_module_led_on": (
+            doc: "Turn on the LED for a fan module.",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "fan_module_led_blink": (
+            doc: "Blink the LED for a fan module.",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "fan_module_enable": (
+            doc: "Enable the hot-swap controller for a fan module.",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "fan_module_disable": (
+            doc: "Disable the hot-swap controller for a fan module.",
+            args: {
+                "module": (
+                    type: "FanModuleIndex",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )
