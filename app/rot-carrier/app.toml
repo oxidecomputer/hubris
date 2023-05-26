@@ -10,7 +10,7 @@ version = 0
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 52032, ram = 4096}
+requires = {flash = 52548, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]

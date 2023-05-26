@@ -5,7 +5,9 @@
 //! BSP for the Gimlet rev B hardware
 
 use crate::{
-    control::{Device, FanControl, InputChannel, PidConfig, TemperatureSensor},
+    control::{
+        Device, FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
+    },
     i2c_config::{devices, sensors},
 };
 use core::convert::TryInto;
@@ -33,7 +35,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
 
 // We've got 6 fans, driven from a single MAX31790 IC
-const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
+pub const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
 /// This controller is tuned and ready to go
 pub const USE_CONTROLLER: bool = true;
@@ -45,9 +47,6 @@ pub(crate) struct Bsp {
 
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
-
-    /// Fan RPM sensors
-    pub fans: [SensorId; NUM_FANS],
 
     /// Fan control IC
     fctrl: Max31790,
@@ -142,15 +141,18 @@ impl Bsp {
         }
     }
 
-    pub fn new(i2c_task: TaskId) -> Self {
-        // Awkwardly build the fan array, because there's not a great way
-        // to build a fixed-size array from a function
-        let mut fans = [None; NUM_FANS];
-        for (i, f) in fans.iter_mut().enumerate() {
-            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
+    // We assume Gimlet fan presence cannot change
+    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
+        // Awkwardly build the fan array, because there's not a great way to
+        // build a fixed-size array from a function
+        let mut fans = Fans::new();
+        for i in 0..fans.len() {
+            fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
-        let fans = fans.map(Option::unwrap);
+        Ok(fans)
+    }
 
+    pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
         fctrl.initialize().unwrap();
@@ -161,7 +163,6 @@ impl Bsp {
         Self {
             seq,
             i2c_task,
-            fans,
             fctrl,
 
             // Based on experimental tuning!

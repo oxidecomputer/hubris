@@ -8,10 +8,16 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
-pub use drv_sidecar_mainboard_controller::tofino2::{
-    DebugPortState, DirectBarSegment, PowerRail, SpiEepromInstruction,
-    TofinoPcieReset, TofinoSeqError, TofinoSeqState, TofinoSeqStep,
+pub use drv_sidecar_mainboard_controller::{
+    fan_modules::{FanModuleStatus, NUM_FAN_MODULES},
+    tofino2::{
+        DebugPortState, DirectBarSegment, PowerRail, SpiEepromInstruction,
+        TofinoPcieReset, TofinoSeqError, TofinoSeqState, TofinoSeqStep,
+    },
 };
+
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -43,5 +49,12 @@ pub enum TofinoSequencerPolicy {
     LatchOffOnFault = 1,
     RestartOnFault = 2,
 }
+
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct FanModulePresence(pub [bool; NUM_FAN_MODULES]);
+
+pub use drv_sidecar_mainboard_controller::fan_modules::FanModuleIndex;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

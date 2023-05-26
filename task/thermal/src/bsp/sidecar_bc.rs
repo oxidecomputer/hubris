@@ -5,7 +5,7 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
+    Device, FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
 };
 use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
@@ -37,7 +37,8 @@ pub const NUM_TEMPERATURE_INPUTS: usize =
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize =
     drv_transceivers_api::NUM_PORTS as usize;
 
-const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
+// Number of individual fans
+pub const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = true;
@@ -62,9 +63,6 @@ pub(crate) struct Bsp {
     /// Monitored sensors
     pub misc_sensors: &'static [TemperatureSensor],
 
-    /// Fans and their respective RPM sensors
-    pub fans: [SensorId; NUM_FANS],
-
     /// Our two fan controllers: east for 0/1 and west for 1/2
     fctrl_east: Max31790,
     fctrl_west: Max31790,
@@ -80,39 +78,42 @@ impl Bsp {
         fan: crate::Fan,
     ) -> crate::control::FanControl<'_> {
         //
-        // Fan 0/1 are on the east max31790; fan 2/3 are on west max31790.  And
-        // because each fan has in fact two fans, here is the mapping of
-        // index to controller and fan:
+        // Fan module 0/1 are on the east max31790; fan module 2/3 are on west
+        // max31790. Each fan module has two fans which are not mapped in a
+        // straightforward way. Additionally, our MAX31790 code has zero-indexed
+        // fan indices, but the part's datasheet and schematic symbol are
+        // one-indexed. Here is the mapping of the system level index to
+        // controller and fan index:
         //
-        // Index    Controller     Fan           MAX31790 Fan
-        //     0    East           NNE           0
-        //     1    East           SNE           1
-        //     2    East           Northeast     2
-        //     3    East           Southeast     3
-        //     4    West           Northwest     0
-        //     5    West           Southwest     1
-        //     6    West           NNW           2
-        //     7    West           SNW           3
+        // System Index    Controller     Fan           MAX31790 Fan (Datasheet)
+        //     0            East           NNE           2 (3)
+        //     1            East           SNE           3 (4)
+        //     2            East           Northeast     0 (1)
+        //     3            East           Southeast     1 (2)
+        //     4            West           Northwest     2 (3)
+        //     5            West           Southwest     3 (4)
+        //     6            West           NNW           0 (1)
+        //     7            West           SNW           1 (2)
         //
-        if fan.0 < 4 {
-            //
-            // East side: straight mapping of fan index to MAX31790 fan
-            //
-            FanControl::Max31790(&self.fctrl_east, fan.0.try_into().unwrap())
+
+        // The supplied `fan` is the System Index. From that we can map to a fan
+        // and controller.
+        let (fan_logical, controller) = if fan.0 < 4 {
+            (fan.0, &self.fctrl_east)
         } else if fan.0 < 8 {
-            //
-            // West side: subtract 4 to get MAX31790 fan
-            //
-            FanControl::Max31790(
-                &self.fctrl_west,
-                (fan.0 - 4).try_into().unwrap(),
-            )
+            (fan.0 - 4, &self.fctrl_west)
         } else {
-            //
-            // Illegal fan
-            //
             panic!();
-        }
+        };
+        // These are hooked up weird on the board; handle that here
+        let fan_physical = match fan_logical {
+            0 => 2,
+            1 => 3,
+            2 => 0,
+            3 => 1,
+            _ => panic!(),
+        };
+        FanControl::Max31790(controller, fan_physical.try_into().unwrap())
     }
 
     pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
@@ -139,26 +140,32 @@ impl Bsp {
             .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
     }
 
-    pub fn new(i2c_task: TaskId) -> Self {
-        // Awkwardly build the fan array, because there's not a great way
-        // to build a fixed-size array from a function
-        let mut fans = [None; NUM_FANS];
-        for (i, f) in fans.iter_mut().enumerate() {
-            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
+    pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
+        let presence = self.seq.fan_module_presence()?;
+        let mut next = Fans::new();
+        for (i, present) in presence.0.iter().enumerate() {
+            // two fans per module
+            let idx = i * 2;
+            if *present {
+                next[idx] = Some(sensors::MAX31790_SPEED_SENSORS[idx]);
+                next[idx + 1] = Some(sensors::MAX31790_SPEED_SENSORS[idx + 1]);
+            }
         }
-        let fans = fans.map(Option::unwrap);
+        Ok(next)
+    }
+
+    pub fn new(i2c_task: TaskId) -> Self {
+        // Handle for the sequencer task, which we check for power state and
+        // fan presence
+        let seq = Sequencer::from(SEQUENCER.get_task_id());
 
         let fctrl_east = Max31790::new(&devices::max31790_east(i2c_task));
         let fctrl_west = Max31790::new(&devices::max31790_west(i2c_task));
         fctrl_east.initialize().unwrap();
         fctrl_west.initialize().unwrap();
 
-        // Handle for the sequencer task, which we check for power state
-        let seq = Sequencer::from(SEQUENCER.get_task_id());
-
         Self {
             seq,
-            fans,
             fctrl_east,
             fctrl_west,
 

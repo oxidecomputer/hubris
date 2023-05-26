@@ -665,7 +665,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dice-util#75006c616b3d53945eee9dfabdc37b9401a96bd1"
+source = "git+https://github.com/oxidecomputer/dice-util#73d6e20125f01c655469e118161536b85b8843a6"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -1431,6 +1431,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-ignition-api",
  "gnarle",
+ "num-derive",
  "num-traits",
  "serde",
  "serde_json",
@@ -1454,9 +1455,11 @@ dependencies = [
  "derive-idol-err",
  "drv-fpga-api",
  "drv-sidecar-mainboard-controller",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy",
 ]
@@ -1477,10 +1480,12 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]
