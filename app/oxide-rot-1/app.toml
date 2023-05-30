@@ -9,8 +9,8 @@ version = 0
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 51712, ram = 4096}
-features = ["dice-self"]
+requires = {flash = 60712, ram = 4096}
+features = ["dice-mfg"]
 
 [caboose]
 tasks = ["sprot"]
