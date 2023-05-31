@@ -20,7 +20,6 @@ armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-jefe-api = { path = "../jefe-api" }
-dump-agent-api = { path = "../dump-agent-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
