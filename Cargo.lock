@@ -665,7 +665,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dice-util#73d6e20125f01c655469e118161536b85b8843a6"
+source = "git+https://github.com/oxidecomputer/dice-util#a78bfa3e7152f8464e2910ed71d0e5aded40023e"
 dependencies = [
  "corncobs",
  "hubpack",
