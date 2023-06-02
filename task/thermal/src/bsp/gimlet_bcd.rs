@@ -24,12 +24,20 @@ task_slot!(SEQ, gimlet_seq);
 // the control loop.
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 
+#[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
+const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
+    sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
+        + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
+
+#[cfg(not(any(target_board = "gimlet-b", target_board = "gimlet-c")))]
+const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
+    sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS;
+
 // The control loop is driven by CPU, NIC, and DIMM temperatures
 pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS
-    + sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
-    + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
+    + NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
 // Every temperature sensor on Gimlet is owned by this task
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
@@ -247,20 +255,40 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     // See hardware-gimlet#1804 for details; this will hopefully be fixed in
     // later Gimlet revisions.
     InputChannel::new(
+        #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
         TemperatureSensor::new(
             Device::M2,
             devices::m2_hp_only_m2_a,
             sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
+        ),
+        #[cfg(not(any(
+            target_board = "gimlet-b",
+            target_board = "gimlet-c"
+        )))]
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvme_bmc_m2_a,
+            sensors::NVME_BMC_M2_A_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2A,
         true,
     ),
     InputChannel::new(
+        #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
         TemperatureSensor::new(
             Device::M2,
             devices::m2_hp_only_m2_b,
             sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
+        ),
+        #[cfg(not(any(
+            target_board = "gimlet-b",
+            target_board = "gimlet-c"
+        )))]
+        TemperatureSensor::new(
+            Device::M2,
+            devices::nvme_bmc_m2_b,
+            sensors::NVME_BMC_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
         PowerBitmask::M2B,
