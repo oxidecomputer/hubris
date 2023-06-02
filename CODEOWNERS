@@ -1,0 +1,13 @@
+# Everything in the Oxide RoT v1 startup code path before Platform Identity
+# private key is secured needs to be reviewed by folks authorized to
+# production-release sign these images.
+/app/oxide-rot-1/           @cbiffle @flihp @mx-shift
+/build/util/                @cbiffle @flihp @mx-shift
+/lib/armv8-m-mpu/           @cbiffle @flihp @mx-shift
+/lib/dice/                  @cbiffle @flihp @mx-shift
+/lib/lpc55-puf/             @cbiffle @flihp @mx-shift
+/lib/lpc55-romapi/          @cbiffle @flihp @mx-shift
+/lib/lpc55-rot-startup/     @cbiffle @flihp @mx-shift
+/lib/lpc55-usart/           @cbiffle @flihp @mx-shift
+/lib/stage0-handoff/        @cbiffle @flihp @mx-shift
+/lib/unwrap-lite/           @cbiffle @flihp @mx-shift
