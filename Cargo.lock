@@ -2587,6 +2587,8 @@ name = "lpc55-puf"
 version = "0.1.0"
 dependencies = [
  "lpc55-pac",
+ "num-derive",
+ "num-traits",
  "unwrap-lite",
 ]
 

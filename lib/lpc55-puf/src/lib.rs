@@ -6,7 +6,18 @@
 
 use core::mem;
 use lpc55_pac::PUF;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use unwrap_lite::UnwrapLite;
+
+/// Used to represent valid states for PUF index blocking bits in IDXBLK_L &
+/// IDXBLK_H registers. We derive FromPrimivite for this type to enable use
+/// 'from_u32'. This will map invalid / reserved register states to `None`.
+#[derive(FromPrimitive)]
+enum LockState {
+    WritesEnabled = 2,
+    Locked = 1,
+}
 
 /// Set the disable bit and clear the enable bit. The format of the 'bits'
 /// parameter is defined by the lpc55 puf index blocking regsiters.
@@ -315,6 +326,38 @@ impl<'a> Puf<'a> {
         }
     }
 
+    fn get_lock_state(&self, idxblk: u32) -> Option<LockState> {
+        LockState::from_u32(idxblk >> 30)
+    }
+
+    fn is_locked(&self, idxblk: u32) -> bool {
+        match self.get_lock_state(idxblk) {
+            Some(LockState::Locked) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_idxblk_l_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_l.read().bits())
+    }
+
+    pub fn is_idxblk_h_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_h.read().bits())
+    }
+
+    pub fn is_index_locked(&self, index: u32) -> Option<bool> {
+        match index {
+            1..=7 => Some(self.is_idxblk_l_locked()),
+            8..=15 => Some(self.is_idxblk_h_locked()),
+            _ => None,
+        }
+    }
+
+    /// Get the contents of PUF 'stat' register.
+    pub fn get_stat(&self) -> u32 {
+        self.puf.stat.read().bits()
+    }
+
     /// Read the contents of the 'busy' bit from the PUF 'stat' register.
     pub fn is_busy(&self) -> bool {
         self.puf.stat.read().busy().bit()
@@ -374,6 +417,10 @@ impl<'a> Puf<'a> {
 
     fn is_keycode_part_req(&self) -> bool {
         self.puf.stat.read().codeinreq().bit()
+    }
+
+    pub fn get_pwr_ctrl(&self) -> u32 {
+        self.puf.pwrctrl.read().bits()
     }
 }
 
