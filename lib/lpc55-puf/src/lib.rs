@@ -315,6 +315,48 @@ impl<'a> Puf<'a> {
         }
     }
 
+    fn is_lock_bit_set(&self, idxblk: u32) -> bool {
+        (idxblk & 1 << 30) != 0
+    }
+
+    fn is_unlock_bit_set(&self, idxblk: u32) -> bool {
+        (idxblk & 1 << 31) != 0
+    }
+
+    fn is_locked(&self, idxblk: u32) -> bool {
+        if self.is_lock_bit_set(idxblk) && !self.is_unlock_bit_set(idxblk) {
+            true
+        } else if self.is_unlock_bit_set(idxblk)
+            && !self.is_lock_bit_set(idxblk)
+        {
+            false
+        } else {
+            // this shouldn't happen, is checking for the case necessary?
+            panic!("lock inconsistent");
+        }
+    }
+
+    pub fn is_idxblk_l_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_l.read().bits())
+    }
+
+    pub fn is_idxblk_h_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_h.read().bits())
+    }
+
+    pub fn is_index_locked(&self, index: u32) -> Option<bool> {
+        match index {
+            1..=7 => Some(self.is_idxblk_l_locked()),
+            8..=15 => Some(self.is_idxblk_h_locked()),
+            _ => None,
+        }
+    }
+
+    /// Get the contents of PUF 'stat' register.
+    pub fn get_stat(&self) -> u32 {
+        self.puf.stat.read().bits()
+    }
+
     /// Read the contents of the 'busy' bit from the PUF 'stat' register.
     pub fn is_busy(&self) -> bool {
         self.puf.stat.read().busy().bit()
@@ -374,6 +416,10 @@ impl<'a> Puf<'a> {
 
     fn is_keycode_part_req(&self) -> bool {
         self.puf.stat.read().codeinreq().bit()
+    }
+
+    pub fn get_pwr_ctrl(&self) -> u32 {
+        self.puf.pwrctrl.read().bits()
     }
 }
 
