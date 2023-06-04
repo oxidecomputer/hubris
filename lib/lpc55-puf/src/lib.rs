@@ -13,7 +13,7 @@ use unwrap_lite::UnwrapLite;
 fn disable_index_bits(bits: u32, index: u32) -> u32 {
     let index = index % 8;
 
-    bits & !(2 << index * 2) | 1 << index * 2
+    bits & !(2 << (index * 2)) | 1 << (index * 2)
 }
 
 /// Set the enable bit and clear the disable bit. The format of the 'bits'
@@ -21,7 +21,7 @@ fn disable_index_bits(bits: u32, index: u32) -> u32 {
 fn enable_index_bits(bits: u32, index: u32) -> u32 {
     let index = index % 8;
 
-    bits & !(1 << index * 2) | 2 << index * 2
+    bits & !(1 << (index * 2)) | 2 << (index * 2)
 }
 
 /// The Puf structure wraps the lpc55 PUF peripheral in a slightly more
@@ -43,7 +43,7 @@ impl<'a> Puf<'a> {
 
         // This is a simplified version of the formula from NXP LPC55 UM11126
         // section 48.11.7.3
-        20 + (key_len + 31 & !31)
+        20 + ((key_len + 31) & !31)
     }
 
     pub fn new(puf: &'a PUF) -> Self {
@@ -199,7 +199,7 @@ impl<'a> Puf<'a> {
 
             true
         } else {
-            return false;
+            false
         }
     }
 
@@ -380,7 +380,7 @@ impl<'a> Puf<'a> {
 // The PUF keycode holds some metadata including the key index. This
 // function extracts the key index from the provided keycode.
 fn index_from_keycode(keycode: &[u32]) -> Option<u32> {
-    if keycode.len() == 0 {
+    if keycode.is_empty() {
         return None;
     }
 
