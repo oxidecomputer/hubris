@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
 use dice_crate::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
     PlatformId, SeedBuf, SerialMfg,
@@ -15,6 +15,7 @@ use lpc55_puf::Puf;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
+use zeroize::Zeroizing;
 
 macro_rules! flash_page_align {
     ($size:expr) => {
@@ -153,8 +154,8 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
     // Create key code for an ed25519 seed using the PUF. We use this seed
     // to generate a key used as an identity that is independent from the
     // DICE measured boot.
-    let mut id_keycode = [0u32; KEYCODE_LEN];
-    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, &mut id_keycode) {
+    let mut id_keycode = Zeroizing::new([0u32; KEYCODE_LEN]);
+    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, id_keycode.deref_mut()) {
         panic!("failed to generate key code");
     }
     let id_keycode = id_keycode;
@@ -162,7 +163,7 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
     // get keycode from DICE MFG flash region
     // good opportunity to put a magic value in the DICE MFG flash region
     let mut seed = [0u8; SEED_LEN];
-    if !puf.get_key(&id_keycode, &mut seed) {
+    if !puf.get_key(id_keycode.deref(), &mut seed) {
         panic!("failed to get ed25519 seed");
     }
     let seed = seed;
@@ -190,7 +191,7 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
         SerialMfg::new(&id_keypair, usart, &peripherals.SYSCON).run();
 
     let dice_state = DiceState {
-        persistid_key_code: id_keycode,
+        persistid_key_code: *id_keycode,
         platform_id: dice_data.platform_id,
         persistid_cert: dice_data.persistid_cert,
         intermediate_cert: dice_data.intermediate_cert,
