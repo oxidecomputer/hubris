@@ -115,12 +115,9 @@ const TIMER_INTERVAL: u64 = 500;
 
 impl ServerImpl {
     fn led_init(&mut self) {
-        match self
-            .leds
-            .initialize_current()
-            .and(self.leds.update_system_led_state(true))
-        {
+        match self.leds.initialize_current() {
             Ok(_) => {
+                self.set_system_led_state(LedState::On);
                 self.leds_initialized = true;
                 ringbuf_entry!(Trace::LEDInitComplete);
             }
