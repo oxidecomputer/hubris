@@ -421,6 +421,20 @@ impl<'a> Puf<'a> {
     pub fn get_pwr_ctrl(&self) -> u32 {
         self.puf.pwrctrl.read().bits()
     }
+
+    pub fn is_sram_on(&self) -> bool {
+        self.puf.pwrctrl.read().bits() & 1 != 0
+    }
+
+    pub fn is_sram_ready(&self) -> bool {
+        self.puf.pwrctrl.read().bits() & 2 != 0
+    }
+
+    pub fn disable_sram(&self) {
+        self.puf
+            .pwrctrl
+            .modify(|r, w| unsafe { w.bits(r.bits() & !1) });
+    }
 }
 
 // The PUF keycode holds some metadata including the key index. This
