@@ -73,7 +73,7 @@ pub struct PersistIdCsrBuilder(
 
 impl PersistIdCsrBuilder {
     pub fn new(pid: &PlatformId, public_key: &PublicKey) -> Self {
-        Self(persistid_csr_tmpl::CSR_TMPL.clone())
+        Self(persistid_csr_tmpl::CSR_TMPL)
             .set_subject_cn(pid)
             .set_pub(public_key.as_bytes())
     }
