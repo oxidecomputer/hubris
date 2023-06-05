@@ -422,6 +422,36 @@ impl<'a> Puf<'a> {
     pub fn get_pwr_ctrl(&self) -> u32 {
         self.puf.pwrctrl.read().bits()
     }
+
+    /// Return the state of the 'ramon' bit from the PUF 'pwrctrl'
+    /// register. This tells us whether or not the PUF SRAM is powered.
+    pub fn is_sram_on(&self) -> bool {
+        self.puf.pwrctrl.read().ramon().bit()
+    }
+
+    /// Return the state of the 'ramstat' bit from the PUF 'pwrctrl'
+    /// register. This tells us whether or not the PUF SRAM has been
+    /// initialized.
+    pub fn is_sram_ready(&self) -> bool {
+        self.puf.pwrctrl.read().ramstat().bit()
+    }
+
+    /// Clear the 'ramon' bit from the PUF 'pwrctrl' register. This removes
+    /// power from the PUF SRAM. In testing this also appears to cause the
+    /// PUF to reset: ENROLL & START allowed, GENERATEKEY & GETKEY
+    /// disallowed.
+    pub fn disable_sram(&self) {
+        self.puf.pwrctrl.write(|w| w.ramon().clear_bit());
+
+        // Wait till hardware confirms PUF SRAM has been powered off.
+        while self.is_sram_ready() {}
+    }
+
+    /// Enable PUF SRAM. UM11126 48.11.4 says once disabled, the PUF SRAM
+    /// requires up to 400ms delay before it can be turned on again.
+    pub fn enable_sram(&self) {
+        self.puf.pwrctrl.write(|w| w.ramon().set_bit());
+    }
 }
 
 // The PUF keycode holds some metadata including the key index. This
