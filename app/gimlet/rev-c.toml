@@ -183,8 +183,8 @@ notifications = ["qspi-irq"]
 name = "drv-gimlet-apcb-server"
 features = []
 priority = 4
-max-sizes = {flash = 16384, ram = 4096 }
-stacksize = 3000
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 8000
 start = true
 uses = []
 interrupts = {}
