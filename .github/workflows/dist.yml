@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, gimlet-b, gimlet-b-lab, gimlet-c, gimlet-c-lab, gimlet-d, gimlet-d-lab, sidecar-b, sidecar-b-lab, sidecar-c, sidecar-c-lab, psc-b, psc-c, stm32g0, oxide-rot-1, donglet-g031]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, gimlet-b, gimlet-b-lab, gimlet-c, gimlet-c-lab, gimlet-d, gimlet-d-lab, sidecar-b, sidecar-b-lab, sidecar-c, sidecar-c-lab, psc-b, psc-c, stm32g0, oxide-rot-1, oxide-rot-1-dev, donglet-g031]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -121,6 +121,11 @@ jobs:
           - build: oxide-rot-1
             app_name: oxide-rot-1
             app_toml: app/oxide-rot-1/app.toml
+            target: thumbv8m.main-none-eabihf
+            image: [a, b]
+          - build: oxide-rot-1-dev
+            app_name: oxide-rot-1-dev
+            app_toml: app/oxide-rot-1/app-dev.toml
             target: thumbv8m.main-none-eabihf
             image: [a, b]
           - build: donglet-g031
