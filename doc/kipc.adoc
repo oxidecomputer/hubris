@@ -219,41 +219,7 @@ fault.
 
 === `read_image_id` (4)
 === `reset` (5)
-=== `read_caboose_pos` (6)
-[source,rust]
-----
-struct ReadCaboosePos = ();
-----
-
-==== Preconditions
-
-None
-
-==== Response
-
-[source,rust]
-----
-type CaboosePos = core::ops::Range<u32>;
-----
-
-==== Notes
-
-`read_caboose_pos` allows tasks to get the location of <<caboose,the caboose>>
-at runtime. It is necessary because the caboose is positioned at the end of
-flash, so its location can only be known after an entire image is built.
-
-If the image does not include a caboose or the caboose does not contain the
-<<caboose-words,expected words>>, this call will return `(0, 0)`.
-
-This function is a low-level kernel primitive; users may wish to call
-`userlib::kipc::get_caboose` instead, which decodes the result into a friendlier
-type (`Option<&'static [u8]>`).
-
-Note that this call will return the caboose address even if a task is not
-configured for caboose access!  In that case, reading from the given memory
-range will cause a memory fault and the task will be killed.
-
-=== `get_task_dump_region` (7)
+=== `get_task_dump_region` (6)
 
 A dump region is an area of memory for a specified task that can be
 read by the supervisor for purpose of creating a memory dump for debugging.
@@ -293,7 +259,7 @@ the dump region index.  If the dump region index is equal to or greater
 than the number of dump regions for the specified task, `None` will
 be returned.
 
-=== `read_task_dump_region` (8)
+=== `read_task_dump_region` (7)
 
 For a given task and task dump region, this will read the specified region and
 return its contents.  The region should be entirely contained by a region that

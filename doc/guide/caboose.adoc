@@ -67,9 +67,17 @@ presence and size can be determined as follows:
 ** Otherwise, the caboose position and length is now known
 
 Note that this procedure works both at runtime and from a binary file, with or
-without an associated Hubris archive.  In a live system, this logic is
-implemented by the <<_read_caboose_pos_6,`read_caboose_pos`>> kernel IPC call,
-which is wrapped by `get_caboose` to yield an `Option<&'static [u8]>`.
+without an associated Hubris archive.
+
+To reduce runtime overhead, the caboose position may also be baked into an
+individual task image at build time. This is implemented in the
+`drv-caboose-pos` crate:
+```rust
+let caboose: Option<&'static [u8]> = drv_caboose_pos::CABOOSE_POS.as_slice();
+```
+
+(This functionality requires cooperation with the `xtask` build system, as we
+can't know the caboose position until all tasks have been built)
 
 Other than reserving the two words above, the Hubris build system is
 _deliberately agnostic_ to the contents of the caboose; it is left to a separate

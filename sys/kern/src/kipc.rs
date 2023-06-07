@@ -31,9 +31,6 @@ pub fn handle_kernel_message(
             read_image_id(tasks, caller, args.response?)
         }
         Ok(Kipcnum::Reset) => reset(tasks, caller, args.message?),
-        Ok(Kipcnum::ReadCaboosePos) => {
-            read_caboose_pos(tasks, caller, args.response?)
-        }
         #[cfg(feature = "dump")]
         Ok(Kipcnum::GetTaskDumpRegion) => {
             get_task_dump_region(tasks, caller, args.message?, args.response?)
