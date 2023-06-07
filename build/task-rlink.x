@@ -63,6 +63,14 @@ SECTIONS
     KEEP(*(.task_slot_table));
   }
 
+  /* ## .caboose_pos_table */
+  /* Table of CaboosePos instances and their names. Used to record caboose
+     position during packaging. */
+  .caboose_pos_table (INFO) : {
+    . = .;
+    KEEP(*(.caboose_pos_table));
+  }
+
   /* ## .idolatry */
   .idolatry (INFO) : {
     . = .;
