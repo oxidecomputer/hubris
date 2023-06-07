@@ -350,11 +350,6 @@ impl<'a> Puf<'a> {
         }
     }
 
-    /// Get the contents of PUF 'stat' register.
-    pub fn get_stat(&self) -> u32 {
-        self.puf.stat.read().bits()
-    }
-
     /// Read the contents of the 'busy' bit from the PUF 'stat' register.
     pub fn is_busy(&self) -> bool {
         self.puf.stat.read().busy().bit()
@@ -414,10 +409,6 @@ impl<'a> Puf<'a> {
 
     fn is_keycode_part_req(&self) -> bool {
         self.puf.stat.read().codeinreq().bit()
-    }
-
-    pub fn get_pwr_ctrl(&self) -> u32 {
-        self.puf.pwrctrl.read().bits()
     }
 
     /// Return the state of the 'ramon' bit from the PUF 'pwrctrl'
