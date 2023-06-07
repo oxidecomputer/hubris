@@ -126,8 +126,8 @@ impl<'a> Puf<'a> {
         // generate or get the key but it will return a key that's all 0's.
         // To prevent this we check that the key index is not blocked before
         // we get our key.
-        let index = index_from_keycode(keycode).unwrap_lite();
-        if self.is_index_blocked(index).unwrap_lite() {
+        let index = index_from_keycode(keycode);
+        if self.is_index_blocked(index) {
             return false;
         }
 
@@ -312,17 +312,14 @@ impl<'a> Puf<'a> {
         self.puf.idxblk_h.read().bits()
     }
 
-    pub fn is_index_blocked(&self, index: u32) -> Option<bool> {
+    pub fn is_index_blocked(&self, index: u32) -> bool {
         match index {
-            0 => None,
-            1..=7 => {
-                Some(self.puf.idxblk_l.read().bits() & (1 << (index * 2)) != 0)
-            }
+            1..=7 => self.puf.idxblk_l.read().bits() & (1 << (index * 2)) != 0,
             8..=15 => {
                 let index = index - 8;
-                Some(self.puf.idxblk_h.read().bits() & (1 << (index * 2)) != 0)
+                self.puf.idxblk_h.read().bits() & (1 << (index * 2)) != 0
             }
-            16.. => None,
+            _ => panic!("invalid index"),
         }
     }
 
@@ -345,11 +342,11 @@ impl<'a> Puf<'a> {
         self.is_locked(self.puf.idxblk_h.read().bits())
     }
 
-    pub fn is_index_locked(&self, index: u32) -> Option<bool> {
+    pub fn is_index_locked(&self, index: u32) -> bool {
         match index {
-            1..=7 => Some(self.is_idxblk_l_locked()),
-            8..=15 => Some(self.is_idxblk_h_locked()),
-            _ => None,
+            1..=7 => self.is_idxblk_l_locked(),
+            8..=15 => self.is_idxblk_h_locked(),
+            _ => panic!("invalid index"),
         }
     }
 
@@ -456,12 +453,12 @@ impl<'a> Puf<'a> {
 
 // The PUF keycode holds some metadata including the key index. This
 // function extracts the key index from the provided keycode.
-fn index_from_keycode(keycode: &[u32]) -> Option<u32> {
+fn index_from_keycode(keycode: &[u32]) -> u32 {
     if keycode.is_empty() {
-        return None;
+        panic!("invalid keycode");
     }
 
-    Some(keycode[0] >> 8 & 0xf)
+    keycode[0] >> 8 & 0xf
 }
 
 #[cfg(test)]
@@ -470,17 +467,17 @@ mod tests {
 
     #[test]
     fn index_from_kc1() {
-        assert_eq!(index_from_keycode(&[0x4000101_u32]).unwrap_lite(), 1);
+        assert_eq!(index_from_keycode(&[0x4000101_u32]), 1);
     }
 
     #[test]
     fn index_from_kc3() {
-        assert_eq!(index_from_keycode(&[0x4000301_u32]).unwrap_lite(), 3);
+        assert_eq!(index_from_keycode(&[0x4000301_u32]), 3);
     }
 
     #[test]
     fn index_from_kc9() {
-        assert_eq!(index_from_keycode(&[0x4000901_u32]).unwrap_lite(), 9);
+        assert_eq!(index_from_keycode(&[0x4000901_u32]), 9);
     }
 
     #[test]
