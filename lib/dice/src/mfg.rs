@@ -6,11 +6,12 @@ use crate::{
     cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
     IntermediateCert, PersistIdCert, SeedBuf,
 };
-use dice_mfg_msgs::{MfgMessage, PlatformId, SizedBlob};
+use dice_mfg_msgs::{MessageHash, MfgMessage, PlatformId, SizedBlob};
 use lib_lpc55_usart::{Read, Usart, Write};
 use lpc55_pac::SYSCON;
 use nb;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
+use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
 use unwrap_lite::UnwrapLite;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -97,6 +98,7 @@ pub struct SerialMfg<'a> {
     platform_id: Option<PlatformId>,
     persistid_cert: Option<PersistIdCert>,
     intermediate_cert: Option<IntermediateCert>,
+    hash: Sha3_256,
 }
 
 impl<'a> SerialMfg<'a> {
@@ -113,6 +115,7 @@ impl<'a> SerialMfg<'a> {
             platform_id: None,
             persistid_cert: None,
             intermediate_cert: None,
+            hash: Sha3_256::new(),
         }
     }
 
@@ -181,14 +184,18 @@ impl<'a> SerialMfg<'a> {
     }
 
     fn send_ack(&mut self) -> Result<(), Error> {
-        self.send_msg(MfgMessage::Ack)
+        let hash: MessageHash =
+            self.hash.finalize_fixed_reset().try_into().unwrap();
+        self.send_msg(MfgMessage::Ack(hash))
     }
 
     fn send_csr(&mut self, csr: SizedBlob) -> Result<(), Error> {
+        let _ = self.hash.finalize_fixed_reset();
         self.send_msg(MfgMessage::Csr(csr))
     }
 
     fn send_nak(&mut self) -> Result<(), Error> {
+        let _ = self.hash.finalize_fixed_reset();
         self.send_msg(MfgMessage::Nak)
     }
 
@@ -197,7 +204,10 @@ impl<'a> SerialMfg<'a> {
 
         match read_until_zero(&mut self.usart, buf) {
             Ok(size) => {
-                MfgMessage::decode(&buf[..size]).map_err(|_| Error::MsgDecode)
+                self.hash.update(&buf[..size]);
+
+                Ok(MfgMessage::decode(&buf[..size])
+                    .map_err(|_| Error::MsgDecode)?)
             }
             Err(_) => Err(Error::UsartRead),
         }

@@ -15,7 +15,9 @@
 //! The app TOML file must have one AT24xx named `local_vpd`; we use that name
 //! to pick which EEPROM to read.
 
-use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
+use drv_i2c_devices::at24csw080::{
+    At24Csw080, Error as At24Error, EEPROM_SIZE,
+};
 use ringbuf::*;
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
@@ -23,12 +25,14 @@ use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LocalVpdError {
-    DeviceError,
-    NoSuchChunk,
-    InvalidChecksum,
+    ErrorOnBegin(TlvcReadError<At24Error>),
+    ErrorOnRead(TlvcReadError<At24Error>),
+    ErrorOnNext(TlvcReadError<At24Error>),
+    NoSuchChunk([u8; 4]),
+    InvalidChecksum(TlvcReadError<At24Error>),
     InvalidChunkSize,
+    /// The base FRU0 chunk we expected was not present.
     NoRootChunk,
-    BadRootChunk,
 }
 
 #[derive(Clone)]
@@ -122,18 +126,30 @@ pub fn read_config_into(
     tag: [u8; 4],
     out: &mut [u8],
 ) -> Result<usize, LocalVpdError> {
+    match read_config_inner(i2c_task, tag, out) {
+        Ok(n) => Ok(n),
+        Err(e) => {
+            ringbuf_entry!(Trace::Error(e));
+            Err(e)
+        }
+    }
+}
+
+/// Implementation factor of `read_config_into` above to ensure that all errors
+/// are recorded. Any error returned from this routine will be put into a
+/// ringbuf by its caller, so it needn't worry about it.
+fn read_config_inner(
+    i2c_task: TaskId,
+    tag: [u8; 4],
+    out: &mut [u8],
+) -> Result<usize, LocalVpdError> {
     let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
         i2c_config::devices::at24csw080_local_vpd(i2c_task),
     );
     let eeprom_reader = EepromReader { eeprom: &eeprom };
 
-    let err = |e| {
-        ringbuf_entry!(Trace::Error(e));
-        e
-    };
-
     let mut reader = TlvcReader::begin(eeprom_reader)
-        .map_err(|_| err(LocalVpdError::DeviceError))?;
+        .map_err(LocalVpdError::ErrorOnBegin)?;
 
     loop {
         match reader.next() {
@@ -142,35 +158,33 @@ pub fn read_config_into(
                 if chunk.header().tag == *b"FRU0" {
                     chunk
                         .check_body_checksum(&mut scratch)
-                        .map_err(|_| err(LocalVpdError::InvalidChecksum))?;
+                        .map_err(LocalVpdError::InvalidChecksum)?;
                     let mut inner = chunk.read_as_chunks();
                     while let Ok(Some(chunk)) = inner.next() {
                         if chunk.header().tag == tag {
-                            chunk.check_body_checksum(&mut scratch).map_err(
-                                |_| err(LocalVpdError::InvalidChecksum),
-                            )?;
+                            chunk
+                                .check_body_checksum(&mut scratch)
+                                .map_err(LocalVpdError::InvalidChecksum)?;
 
                             let chunk_len = chunk.len() as usize;
 
                             if chunk_len > out.len() {
-                                return Err(err(
-                                    LocalVpdError::InvalidChunkSize,
-                                ));
+                                return Err(LocalVpdError::InvalidChunkSize);
                             }
 
                             chunk
                                 .read_exact(0, &mut out[..chunk_len])
-                                .map_err(|_| LocalVpdError::DeviceError)?;
+                                .map_err(LocalVpdError::ErrorOnRead)?;
                             return Ok(chunk_len);
                         }
                     }
-                    return Err(err(LocalVpdError::NoSuchChunk));
+                    return Err(LocalVpdError::NoSuchChunk(tag));
                 } else {
                     ringbuf_entry!(Trace::UnrelatedChunk(chunk.header().tag));
                 }
             }
-            Ok(None) => return Err(err(LocalVpdError::NoRootChunk)),
-            Err(_) => return Err(err(LocalVpdError::BadRootChunk)),
+            Ok(None) => return Err(LocalVpdError::NoRootChunk),
+            Err(e) => return Err(LocalVpdError::ErrorOnNext(e)),
         }
     }
 }

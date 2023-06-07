@@ -1,4 +1,4 @@
-name = "oxide-rot-1"
+name = "oxide-rot-1-dev"
 target = "thumbv8m.main-none-eabihf"
 board = "oxide-rot-1"
 chip = "../../chips/lpc55"
@@ -9,8 +9,8 @@ version = 0
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 59680, ram = 2528}
-features = ["dice-mfg"]
+requires = {flash = 52256, ram = 4096}
+features = ["dice-self"]
 
 [caboose]
 tasks = ["sprot"]
@@ -23,12 +23,21 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 2048}
 start = true
-features = ["log-null"]
+features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 request_reset = ["update_server"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+priority = 6
+features = ["lpc55", "gpio", "spctrl"]
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 2048
+start = true
+task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.idle]
 name = "task-idle"
@@ -134,10 +143,22 @@ start = true
 stacksize = 2600
 task-slots = ["swd"]
 
+# We intentionally do not start this task to avoid conflicts with the SP
+# debug connection.
+[tasks.sp_measure]
+name = "task-sp-measure"
+priority = 6
+max-sizes = {flash = 131072, ram = 8192}
+task-slots = ["swd"]
+stacksize = 2048
+
+[tasks.sp_measure.config]
+binary_path = "../../target/gimlet-c/dist/default/final.bin"
+
 [signing]
 enable-secure-boot = true
 enable-dice = true
-dice-inc-nxp-cfg = true
+dice-inc-nxp-cfg = false
 dice-cust-cfg = false
 dice-inc-sec-epoch = false
 boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
