@@ -10,6 +10,7 @@ use clap::Parser;
 use crate::config::Config;
 
 mod auxflash;
+mod caboose_pos;
 mod clippy;
 mod config;
 mod dist;

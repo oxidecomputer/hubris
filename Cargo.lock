@@ -3832,6 +3832,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-caboose",
+ "drv-caboose-pos",
  "idol",
  "idol-runtime",
  "num-traits",

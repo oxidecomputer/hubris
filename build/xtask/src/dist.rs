@@ -19,6 +19,7 @@ use path_slash::{PathBufExt, PathExt};
 use zerocopy::AsBytes;
 
 use crate::{
+    caboose_pos,
     config::{BuildConfig, CabooseConfig, Config, ConfigPatches},
     elf,
     sizes::load_task_size,
@@ -328,9 +329,9 @@ pub fn package(
             .keys()
             .map(|name| {
                 let ep = if tasks_to_build.contains(name.as_str()) {
-                    // Link tasks regardless of whether they have changed, because
-                    // we don't want to track changes in the other linker input
-                    // (task-link.x, memory.x, table.ld, etc)
+                    // Link tasks regardless of whether they have changed,
+                    // because we don't want to track changes in the other
+                    // linker input (task-link.x, memory.x, table.ld, etc)
                     link_task(&cfg, name, image_name, allocs)?;
                     task_entry_point(
                         &cfg,
@@ -386,6 +387,18 @@ pub fn package(
                 },
             );
             entry_points.insert("caboose".to_string(), caboose_range.start);
+
+            for name in cfg.toml.tasks.keys() {
+                if tasks_to_build.contains(name.as_str()) {
+                    resolve_caboose_pos(
+                        &cfg,
+                        name,
+                        image_name,
+                        caboose_range.start + 4,
+                        caboose_range.end - 4,
+                    )?;
+                }
+            }
         }
 
         // Build the kernel!
@@ -2437,6 +2450,47 @@ fn resolve_task_slots(
             println!(
                 "Task '{}' task_slot '{}' changed from task index {:#x} to task index {:#x}",
                 task_name, entry.slot_name, in_task_idx, target_task_idx
+            );
+        }
+    }
+
+    Ok(std::fs::write(task_bin, out_task_bin)?)
+}
+
+fn resolve_caboose_pos(
+    cfg: &PackageConfig,
+    task_name: &str,
+    image_name: &str,
+    start: u32,
+    end: u32,
+) -> Result<()> {
+    use scroll::Pwrite;
+
+    let task_bin = cfg.img_file(&task_name, image_name);
+    let in_task_bin = std::fs::read(&task_bin)?;
+    let elf = goblin::elf::Elf::parse(&in_task_bin)?;
+
+    let mut out_task_bin = in_task_bin.clone();
+
+    if let Some(entry) =
+        caboose_pos::get_caboose_pos_table_entry(&in_task_bin, &elf)?
+    {
+        out_task_bin.pwrite_with::<u32>(
+            start,
+            entry.caboose_pos_file_offset as usize,
+            elf::get_endianness(&elf),
+        )?;
+        out_task_bin.pwrite_with::<u32>(
+            end,
+            entry.caboose_pos_file_offset as usize + 4,
+            elf::get_endianness(&elf),
+        )?;
+
+        if cfg.verbose {
+            println!(
+                "Task '{task_name}' caboose pos written to {:#x} as \
+                ({start:#x}, {end:#x})",
+                entry.caboose_pos_address,
             );
         }
     }

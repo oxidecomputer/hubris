@@ -12,6 +12,7 @@
 use unwrap_lite::UnwrapLite;
 use volatile_const::VolatileConst;
 
+/// The caboose position is encoded as `[start, end]` addresses
 #[repr(C)]
 pub struct CaboosePos(VolatileConst<[u32; 2]>);
 
