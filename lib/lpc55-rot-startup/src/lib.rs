@@ -76,12 +76,6 @@ fn puf_check(puf: &lpc55_pac::PUF) {
 }
 
 /// Run the common startup routine for LPC55-based roots of trust.
-///
-/// NOTE: this function is marked `inline(never)` to try to ensure that its
-/// stack usage is not commingled with that of the calling routine, to enable
-/// the use of `nuke_stack` to make extra sure that no data is left in memory by
-/// this routine.
-#[inline(never)]
 pub fn startup(
     core_peripherals: &cortex_m::Peripherals,
     peripherals: &lpc55_pac::Peripherals,
@@ -107,6 +101,8 @@ pub fn startup(
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     dice::run(&handoff, &peripherals);
+
+    nuke_stack();
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     puf_check(&peripherals.PUF);
@@ -183,7 +179,7 @@ pub fn get_clock_speed(peripherals: &lpc55_pac::Peripherals) -> (u32, u8) {
 /// However, if you're doing something weird with unused stack memory, be very
 /// careful.
 #[naked]
-pub extern "C" fn nuke_stack() {
+extern "C" fn nuke_stack() {
     extern "C" {
         static _stack_base: u32;
     }
