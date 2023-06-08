@@ -333,12 +333,7 @@ pub fn package(
                     // because we don't want to track changes in the other
                     // linker input (task-link.x, memory.x, table.ld, etc)
                     link_task(&cfg, name, image_name, allocs)?;
-                    task_entry_point(
-                        &cfg,
-                        name,
-                        image_name,
-                        &mut all_output_sections,
-                    )
+                    task_entry_point(&cfg, name, image_name)
                 } else {
                     // Dummy entry point
                     Ok(allocs.tasks[name]["flash"].start)
@@ -346,6 +341,13 @@ pub fn package(
                 ep.map(|ep| (name.clone(), ep))
             })
             .collect::<Result<_, _>>()?;
+
+        // Resolve task slots in our linked files
+        for task_name in cfg.toml.tasks.keys() {
+            if tasks_to_build.contains(task_name.as_str()) {
+                resolve_task_slots(&cfg, task_name, image_name)?;
+            }
+        }
 
         // Add an empty output section for the caboose
         //
@@ -398,6 +400,21 @@ pub fn package(
                         caboose_range.end - 4,
                     )?;
                 }
+            }
+        }
+
+        // Now that we've resolved the task slots and caboose position, we're
+        // done making low-level modifications to ELF files on disk.  We'll load
+        // all of their data into our `all_output_sections` variable, which is
+        // used as the source of truth for the final (combined) files.
+        for task_name in cfg.toml.tasks.keys() {
+            if tasks_to_build.contains(task_name.as_str()) {
+                load_task_flash(
+                    &cfg,
+                    task_name,
+                    image_name,
+                    &mut all_output_sections,
+                )?;
             }
         }
 
@@ -961,24 +978,29 @@ fn task_size<'a, 'b>(
     load_task_size(&cfg.toml, name, stacksize)
 }
 
-/// Loads a given task's ELF file, populating `all_output_sections` and
-/// returning its entry point.
+/// Finds the entry point of the given task
 fn task_entry_point(
     cfg: &PackageConfig,
     name: &str,
     image_name: &str,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<u32> {
-    let task_toml = &cfg.toml.tasks[name];
-    resolve_task_slots(cfg, name, image_name)?;
+    get_elf_entry_point(&cfg.img_file(name, image_name))
+}
 
+/// Populates `all_output_sections` and checks flash size
+fn load_task_flash(
+    cfg: &PackageConfig,
+    name: &str,
+    image_name: &str,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<()> {
+    let task_toml = &cfg.toml.tasks[name];
     let mut symbol_table = BTreeMap::default();
-    let (ep, flash) = load_elf(
+    let flash = load_elf(
         &cfg.img_file(name, image_name),
         all_output_sections,
         &mut symbol_table,
     )?;
-
     if let Some(required) = task_toml.max_sizes.get("flash") {
         if flash > *required as usize {
             bail!(
@@ -989,7 +1011,7 @@ fn task_entry_point(
             );
         }
     }
-    Ok(ep)
+    Ok(())
 }
 
 fn build_kernel(
@@ -1056,11 +1078,9 @@ fn build_kernel(
     }
 
     let mut ksymbol_table = BTreeMap::default();
-    let (kentry, _) = load_elf(
-        &cfg.img_file("kernel", image_name),
-        all_output_sections,
-        &mut ksymbol_table,
-    )?;
+    let kernel_elf_path = cfg.img_file("kernel", image_name);
+    let kentry = get_elf_entry_point(&kernel_elf_path)?;
+    load_elf(&kernel_elf_path, all_output_sections, &mut ksymbol_table)?;
     Ok((kentry, ksymbol_table))
 }
 
@@ -2181,13 +2201,8 @@ pub fn make_kconfig(
     })
 }
 
-fn load_elf(
-    input: &Path,
-    output: &mut BTreeMap<u32, LoadSegment>,
-    symbol_table: &mut BTreeMap<String, u32>,
-) -> Result<(u32, usize)> {
+fn get_elf_entry_point(input: &Path) -> Result<u32> {
     use goblin::container::Container;
-    use goblin::elf::program_header::PT_LOAD;
 
     let file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;
@@ -2198,6 +2213,24 @@ fn load_elf(
     if elf.header.e_machine != goblin::elf::header::EM_ARM {
         bail!("this is not an ARM file");
     }
+
+    Ok(elf.header.e_entry as u32)
+}
+
+fn load_elf(
+    input: &Path,
+    output: &mut BTreeMap<u32, LoadSegment>,
+    symbol_table: &mut BTreeMap<String, u32>,
+) -> Result<usize> {
+    use goblin::container::Container;
+    use goblin::elf::program_header::PT_LOAD;
+
+    let file_image = std::fs::read(input)?;
+    let elf = goblin::elf::Elf::parse(&file_image)?;
+
+    // Checked in get_elf_entry_point above, but we'll re-check them here
+    assert_eq!(elf.header.container()?, Container::Little);
+    assert_eq!(elf.header.e_machine, goblin::elf::header::EM_ARM);
 
     let mut flash = 0;
 
@@ -2260,10 +2293,9 @@ fn load_elf(
         }
     }
 
-    // Return both our entry and the total allocated flash, allowing the
-    // caller to assure that the allocated flash does not exceed the task's
-    // required flash
-    Ok((elf.header.e_entry as u32, flash))
+    // Return the total allocated flash, allowing the caller to assure that the
+    // allocated flash does not exceed the task's required flash
+    Ok(flash)
 }
 
 /// Keeps track of a build archive being constructed.
