@@ -639,30 +639,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dice"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dice-mfg-msgs",
- "hkdf",
- "hmac",
- "hubpack",
- "lib-lpc55-usart",
- "lpc55-pac",
- "nb 1.0.0",
- "salty",
- "serde",
- "serde-big-array 0.4.1",
- "sha3",
- "stage0-handoff",
- "static_assertions",
- "unwrap-lite",
- "vcell",
- "zerocopy",
- "zeroize",
-]
-
-[[package]]
 name = "dice-mfg-msgs"
 version = "0.2.0"
 source = "git+https://github.com/oxidecomputer/dice-util#a78bfa3e7152f8464e2910ed71d0e5aded40023e"
@@ -2515,6 +2491,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib-dice"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dice-mfg-msgs",
+ "hkdf",
+ "hmac",
+ "hubpack",
+ "lib-lpc55-usart",
+ "lpc55-pac",
+ "nb 1.0.0",
+ "salty",
+ "serde",
+ "serde-big-array 0.4.1",
+ "sha3",
+ "stage0-handoff",
+ "static_assertions",
+ "unwrap-lite",
+ "vcell",
+ "zerocopy",
+ "zeroize",
+]
+
+[[package]]
 name = "lib-lpc55-usart"
 version = "0.1.0"
 dependencies = [
@@ -2602,9 +2602,9 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "cortex-m-rt",
- "dice",
  "digest",
  "hubpack",
+ "lib-dice",
  "lib-lpc55-usart",
  "lpc55-pac",
  "lpc55-puf",
