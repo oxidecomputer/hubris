@@ -51,22 +51,24 @@ fn gen_mfg_artifacts(peripherals: &Peripherals) -> MfgResult {
 /// cannot easily have identities certified by an external CA.
 #[cfg(feature = "dice-self")]
 fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
+    use core::ops::{Deref, DerefMut};
     use dice_crate::{DiceMfg, PersistIdSeed, SelfMfg};
+    use zeroize::Zeroizing;
 
     let puf = Puf::new(&peripherals.PUF);
 
     // Create key code for an ed25519 seed using the PUF. We use this seed
     // to generate a key used as an identity that is independent from the
     // DICE measured boot.
-    let mut keycode = [0u32; KEYCODE_LEN];
-    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, &mut keycode) {
+    let mut keycode = Zeroizing::new([0u32; KEYCODE_LEN]);
+    if !puf.generate_keycode(KEY_INDEX, SEED_LEN, keycode.deref_mut()) {
         panic!("failed to generate keycode");
     }
     let keycode = keycode;
 
     // get keycode from DICE MFG flash region
     let mut seed = [0u8; SEED_LEN];
-    if !puf.get_key(&keycode, &mut seed) {
+    if !puf.get_key(keycode.deref(), &mut seed) {
         // failure to get this key isn't recoverable
         panic!("failed to get seed");
     }

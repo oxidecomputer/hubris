@@ -6,14 +6,25 @@
 
 use core::mem;
 use lpc55_pac::PUF;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use unwrap_lite::UnwrapLite;
+
+/// Used to represent valid states for PUF index blocking bits in IDXBLK_L &
+/// IDXBLK_H registers. We derive FromPrimivite for this type to enable use
+/// 'from_u32'. This will map invalid / reserved register states to `None`.
+#[derive(FromPrimitive)]
+enum LockState {
+    WritesEnabled = 2,
+    Locked = 1,
+}
 
 /// Set the disable bit and clear the enable bit. The format of the 'bits'
 /// parameter is defined by the lpc55 puf index blocking regsiters.
 fn disable_index_bits(bits: u32, index: u32) -> u32 {
     let index = index % 8;
 
-    bits & !(2 << index * 2) | 1 << index * 2
+    bits & !(2 << (index * 2)) | 1 << (index * 2)
 }
 
 /// Set the enable bit and clear the disable bit. The format of the 'bits'
@@ -21,7 +32,7 @@ fn disable_index_bits(bits: u32, index: u32) -> u32 {
 fn enable_index_bits(bits: u32, index: u32) -> u32 {
     let index = index % 8;
 
-    bits & !(1 << index * 2) | 2 << index * 2
+    bits & !(1 << (index * 2)) | 2 << (index * 2)
 }
 
 /// The Puf structure wraps the lpc55 PUF peripheral in a slightly more
@@ -43,7 +54,7 @@ impl<'a> Puf<'a> {
 
         // This is a simplified version of the formula from NXP LPC55 UM11126
         // section 48.11.7.3
-        20 + (key_len + 31 & !31)
+        20 + ((key_len + 31) & !31)
     }
 
     pub fn new(puf: &'a PUF) -> Self {
@@ -115,8 +126,8 @@ impl<'a> Puf<'a> {
         // generate or get the key but it will return a key that's all 0's.
         // To prevent this we check that the key index is not blocked before
         // we get our key.
-        let index = index_from_keycode(keycode).unwrap_lite();
-        if self.is_index_blocked(index).unwrap_lite() {
+        let index = index_from_keycode(keycode);
+        if self.is_index_blocked(index) {
             return false;
         }
 
@@ -199,7 +210,7 @@ impl<'a> Puf<'a> {
 
             true
         } else {
-            return false;
+            false
         }
     }
 
@@ -301,17 +312,41 @@ impl<'a> Puf<'a> {
         self.puf.idxblk_h.read().bits()
     }
 
-    pub fn is_index_blocked(&self, index: u32) -> Option<bool> {
+    pub fn is_index_blocked(&self, index: u32) -> bool {
         match index {
-            0 => None,
-            1..=7 => {
-                Some(self.puf.idxblk_l.read().bits() & (1 << (index * 2)) != 0)
-            }
+            1..=7 => self.puf.idxblk_l.read().bits() & (1 << (index * 2)) != 0,
             8..=15 => {
                 let index = index - 8;
-                Some(self.puf.idxblk_h.read().bits() & (1 << (index * 2)) != 0)
+                self.puf.idxblk_h.read().bits() & (1 << (index * 2)) != 0
             }
-            16.. => None,
+            _ => panic!("invalid index"),
+        }
+    }
+
+    fn get_lock_state(&self, idxblk: u32) -> Option<LockState> {
+        LockState::from_u32(idxblk >> 30)
+    }
+
+    fn is_locked(&self, idxblk: u32) -> bool {
+        match self.get_lock_state(idxblk) {
+            Some(LockState::Locked) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_idxblk_l_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_l.read().bits())
+    }
+
+    pub fn is_idxblk_h_locked(&self) -> bool {
+        self.is_locked(self.puf.idxblk_h.read().bits())
+    }
+
+    pub fn is_index_locked(&self, index: u32) -> bool {
+        match index {
+            1..=7 => self.is_idxblk_l_locked(),
+            8..=15 => self.is_idxblk_h_locked(),
+            _ => panic!("invalid index"),
         }
     }
 
@@ -375,16 +410,46 @@ impl<'a> Puf<'a> {
     fn is_keycode_part_req(&self) -> bool {
         self.puf.stat.read().codeinreq().bit()
     }
+
+    /// Return the state of the 'ramon' bit from the PUF 'pwrctrl'
+    /// register. This tells us whether or not the PUF SRAM is powered.
+    pub fn is_sram_on(&self) -> bool {
+        self.puf.pwrctrl.read().ramon().bit()
+    }
+
+    /// Return the state of the 'ramstat' bit from the PUF 'pwrctrl'
+    /// register. This tells us whether or not the PUF SRAM has been
+    /// initialized.
+    pub fn is_sram_ready(&self) -> bool {
+        self.puf.pwrctrl.read().ramstat().bit()
+    }
+
+    /// Clear the 'ramon' bit from the PUF 'pwrctrl' register. This removes
+    /// power from the PUF SRAM. In testing this also appears to cause the
+    /// PUF to reset: ENROLL & START allowed, GENERATEKEY & GETKEY
+    /// disallowed.
+    pub fn disable_sram(&self) {
+        self.puf.pwrctrl.write(|w| w.ramon().clear_bit());
+
+        // Wait till hardware confirms PUF SRAM has been powered off.
+        while self.is_sram_ready() {}
+    }
+
+    /// Enable PUF SRAM. UM11126 48.11.4 says once disabled, the PUF SRAM
+    /// requires up to 400ms delay before it can be turned on again.
+    pub fn enable_sram(&self) {
+        self.puf.pwrctrl.write(|w| w.ramon().set_bit());
+    }
 }
 
 // The PUF keycode holds some metadata including the key index. This
 // function extracts the key index from the provided keycode.
-fn index_from_keycode(keycode: &[u32]) -> Option<u32> {
-    if keycode.len() == 0 {
-        return None;
+fn index_from_keycode(keycode: &[u32]) -> u32 {
+    if keycode.is_empty() {
+        panic!("invalid keycode");
     }
 
-    Some(keycode[0] >> 8 & 0xf)
+    keycode[0] >> 8 & 0xf
 }
 
 #[cfg(test)]
@@ -393,17 +458,17 @@ mod tests {
 
     #[test]
     fn index_from_kc1() {
-        assert_eq!(index_from_keycode(&[0x4000101_u32]).unwrap_lite(), 1);
+        assert_eq!(index_from_keycode(&[0x4000101_u32]), 1);
     }
 
     #[test]
     fn index_from_kc3() {
-        assert_eq!(index_from_keycode(&[0x4000301_u32]).unwrap_lite(), 3);
+        assert_eq!(index_from_keycode(&[0x4000301_u32]), 3);
     }
 
     #[test]
     fn index_from_kc9() {
-        assert_eq!(index_from_keycode(&[0x4000901_u32]).unwrap_lite(), 9);
+        assert_eq!(index_from_keycode(&[0x4000901_u32]), 9);
     }
 
     #[test]
