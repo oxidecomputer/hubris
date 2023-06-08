@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! API crate for the Gimlet Host Flash server.
+//! API crate for the Gimlet APCB server.
 
 #![no_std]
 
@@ -14,10 +14,10 @@ use zerocopy::AsBytes;
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
-/// Errors that can be produced from the host flash server API.
+/// Errors that can be produced from the APCB server API.
 ///
 /// This enumeration doesn't include errors that result from configuration
-/// issues, like sending host flash messages to some other task.
+/// issues, like sending APCB messages to some other task.
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum ApcbError {
     FIXME = 1,
