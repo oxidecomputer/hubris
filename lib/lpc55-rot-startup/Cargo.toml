@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-dice-mfg = ["lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
-dice-self = ["lpc55-puf", "salty"]
+dice-mfg = ["dice_crate", "lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
+dice-self = ["dice_crate", "lpc55-puf", "salty"]
 
 [dependencies]
 cfg-if = { workspace = true }
@@ -36,7 +36,7 @@ unwrap-lite = { path = "../unwrap-lite" }
 package = "dice"
 path = "../dice"
 default-features = false
-optional = false
+optional = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
