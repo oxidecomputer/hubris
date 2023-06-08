@@ -9,6 +9,8 @@ mod dice;
 #[cfg(feature = "dice-mfg")]
 mod dice_mfg_usart;
 mod images;
+#[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+use lpc55_puf::Puf;
 
 pub mod handoff;
 use handoff::Handoff;
@@ -60,6 +62,18 @@ fn apply_memory_protection(mpu: &MPU) {
     }
 }
 
+// Execute this function before jumping to Hubris.
+// This function will panic if PUF is not in the desired state.
+#[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+fn puf_check(puf: &lpc55_pac::PUF) {
+    use crate::dice::KEY_INDEX;
+    let puf = Puf::new(puf);
+
+    if !puf.is_index_blocked(KEY_INDEX) || !puf.is_index_locked(KEY_INDEX) {
+        panic!();
+    }
+}
+
 pub fn startup(
     core_peripherals: &cortex_m::Peripherals,
     peripherals: &lpc55_pac::Peripherals,
@@ -85,6 +99,9 @@ pub fn startup(
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     dice::run(&handoff, &peripherals);
+
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    puf_check(&peripherals.PUF);
 
     // Write the image details to handoff RAM. Use the address of the current
     // function to determine which image is running.
