@@ -62,7 +62,7 @@ impl amd_flash::FlashRead for Storage {
         location: Location,
         buffer: &mut [u8],
     ) -> amd_flash::Result<()> {
-        self.hf.read(location, buffer).unwrap(); // FIXME: Make apcb address not fixed
+        self.hf.read(location, buffer).unwrap();
         Ok(())
     }
 }
