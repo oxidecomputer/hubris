@@ -133,17 +133,17 @@ impl idl::InOrderApcbImpl for ServerImpl {
 
                     let apcb =
                         Apcb::load(&mut buffer[..], &ApcbIoOptions::default())
-                            .map_err(|_| ApcbError::FIXME.into())?;
+                            .map_err(|_| idol_runtime::RequestError::<ApcbError>::from(ApcbError::FIXME))?;
                     let tokens = apcb
                         .tokens(instance_id, BoardInstances::new())
-                        .map_err(|_| ApcbError::FIXME.into())?;
+                        .map_err(|_| idol_runtime::RequestError::<ApcbError>::from(ApcbError::FIXME))?;
                     let value = tokens
                         .get(
                             TokenEntryId::from_u16(entry_id)
-                                .ok_or(ApcbError::FIXME.into())?,
+                                .ok_or(idol_runtime::RequestError::<ApcbError>::from(ApcbError::FIXME))?,
                             token_id,
                         )
-                        .map_err(|_| ApcbError::FIXME.into())?;
+                        .map_err(|_| idol_runtime::RequestError::<ApcbError>::from(ApcbError::FIXME))?;
                     return Ok(value);
                 }
             }
