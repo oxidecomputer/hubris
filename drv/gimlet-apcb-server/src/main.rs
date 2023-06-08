@@ -62,8 +62,20 @@ impl amd_flash::FlashRead for Storage {
         location: Location,
         buffer: &mut [u8],
     ) -> amd_flash::Result<()> {
-        self.hf.read(location, buffer).unwrap();
-        Ok(())
+        self.hf.read(location, buffer).map_err(|e| {
+           match e {
+               hf_api::HfError::WriteEnableFailed => amd_flash::Error::Io,
+               hf_api::HfError::HashBadRange => amd_flash::Error::Programmer,
+               hf_api::HfError::HashError => amd_flash::Error::Programmer,
+               hf_api::HfError::HashNotConfigured => amd_flash::Error::Programmer,
+               hf_api::HfError::NoDevSelect => amd_flash::Error::Programmer,
+               hf_api::HfError::NotMuxedToSP => amd_flash::Error::Programmer,
+               hf_api::HfError::Sector0IsReserved => amd_flash::Error::Programmer,
+               hf_api::HfError::NoPersistentData => amd_flash::Error::Programmer,
+               hf_api::HfError::MonotonicCounterOverflow => amd_flash::Error::Programmer,
+               hf_api::HfError::ServerRestarted => amd_flash::Error::Io,
+           }
+        })
     }
 }
 
