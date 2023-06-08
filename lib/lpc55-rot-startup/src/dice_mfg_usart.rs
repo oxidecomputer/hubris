@@ -4,11 +4,11 @@
 
 use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::{Deref, DerefMut};
-use dice_crate::{
+use hubpack::SerializedSize;
+use lib_dice::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
     PlatformId, SeedBuf, SerialMfg,
 };
-use hubpack::SerializedSize;
 use lib_lpc55_usart::Usart;
 use lpc55_pac::Peripherals;
 use lpc55_puf::Puf;

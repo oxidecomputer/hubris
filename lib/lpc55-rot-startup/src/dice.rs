@@ -4,7 +4,7 @@
 
 use crate::Handoff;
 use core::mem;
-use dice_crate::{
+use lib_dice::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
     CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, IntermediateCert,
     PersistIdCert, PlatformId, RngData, RngSeed, SeedBuf, SpMeasureCertBuilder,
@@ -52,7 +52,7 @@ fn gen_mfg_artifacts(peripherals: &Peripherals) -> MfgResult {
 #[cfg(feature = "dice-self")]
 fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
     use core::ops::{Deref, DerefMut};
-    use dice_crate::{DiceMfg, PersistIdSeed, SelfMfg};
+    use lib_dice::{DiceMfg, PersistIdSeed, SelfMfg};
     use zeroize::Zeroizing;
 
     let puf = Puf::new(&peripherals.PUF);
