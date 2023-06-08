@@ -199,6 +199,10 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
     handoff.store(&rng_data);
 }
 
+// Note: the inline(never) here is to keep this routine's stack usage, which
+// will contain sensitive material, from commingling with the caller. Do not
+// remove it without reconsidering our stack zeroization approach.
+#[inline(never)]
 pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
