@@ -218,6 +218,16 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.vsc7448.configure_vlan_semistrict()?;
         self.vsc7448_postconfig()?;
 
+        if let Some(phy_rw) = &mut self.vsc8562 {
+            // Read the MAC_SERDES_PCS_STATUS register to clear a spurious
+            // MAC_CGBAD error that shows up on startup.
+            for p in 0..2 {
+                use vsc7448_pac::phy;
+                vsc85xx::Phy::new(p, phy_rw)
+                    .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+            }
+        }
+
         Ok(())
     }
 
@@ -413,6 +423,14 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                     let cfg = PORT_MAP.port_config(switch_port).unwrap();
                     self.vsc7448.reinit_sgmii(cfg.dev, target_speed)?;
                     self.front_io_speed[phy_port as usize] = target_speed;
+
+                    // Clear a spurious MAC_CGBAD flag that pops up when we
+                    // change the link speed here.
+                    for p in 0..2 {
+                        use vsc7448_pac::phy;
+                        vsc85xx::Phy::new(p, phy_rw)
+                            .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+                    }
                 }
             }
         }
