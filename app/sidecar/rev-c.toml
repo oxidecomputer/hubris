@@ -465,7 +465,7 @@ address = 0b0100_011
 device = "max31790"
 name = "East"
 description = "Fan 0/1 controller"
-sensors = { speed = 4 }
+sensors = { speed = 4, names = [ "NE_fan1", "SE_fan1", "ENE_fan0", "ESE_fan0" ] }
 refdes = "U66"
 
 [[config.i2c.devices]]
@@ -616,7 +616,7 @@ address = 0b0100_000
 device = "max31790"
 name = "West"
 description = "Fan 2/3 controller"
-sensors = { speed = 4 }
+sensors = { speed = 4, names = [ "WNW_fan3", "WSW_fan3", "NW_fan2", "SW_fan2", ] }
 refdes = "U78"
 
 [[config.i2c.devices]]
