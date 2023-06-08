@@ -17,6 +17,7 @@ fn main() -> ! {
     let (cycles_per_ms, _div) = get_clock_speed(&peripherals);
 
     startup(&core_peripherals, &peripherals);
+    lpc55_rot_startup::nuke_stack();
 
     unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }
