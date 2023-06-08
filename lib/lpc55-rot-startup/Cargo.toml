@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-dice-mfg = ["dice_crate", "lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
-dice-self = ["dice_crate", "lpc55-puf", "salty"]
+dice-mfg = ["lib-dice", "lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
+dice-self = ["lib-dice", "lpc55-puf", "salty"]
 
 [dependencies]
 cfg-if = { workspace = true }
@@ -25,18 +25,11 @@ zeroize = { workspace = true }
 abi = { path = "../../sys/abi" }
 armv8-m-mpu = { path = "../armv8-m-mpu" }
 lpc55-puf = { path = "../lpc55-puf", optional = true }
+lib-dice = { path = "../dice", optional = true }
 lib-lpc55-usart = { path = "../lpc55-usart", optional = true }
 lpc55_romapi = { path = "../lpc55-romapi" }
 stage0-handoff = { path = "../stage0-handoff"}
 unwrap-lite = { path = "../unwrap-lite" }
-
-# features & deps can't have the same name, using this method from:
-# https://github.com/RustCrypto/RSA/pull/41/files
-[dependencies.dice_crate]
-package = "dice"
-path = "../dice"
-default-features = false
-optional = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
