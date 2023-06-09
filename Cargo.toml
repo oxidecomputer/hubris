@@ -130,6 +130,6 @@ tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
-amd-apcb = { git = "ssh://git@github.com/oxidecomputer/amd-apcb.git", branch = "main", features = [], default-features = false }
+amd-apcb = { git = "ssh://git@github.com/oxidecomputer/amd-apcb.git", tag = "v0.1.5", features = [], default-features = false }
 amd-efs = { git = "ssh://git@github.com/oxidecomputer/amd-efs.git", branch = "main", features = [], default-features = false }
 amd-flash = { git = "ssh://git@github.com/oxidecomputer/amd-flash.git", tag = "v0.2.0", features = [], default-features = false }
