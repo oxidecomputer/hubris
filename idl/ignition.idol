@@ -8,7 +8,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "u8",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "presence_summary": (
@@ -16,7 +16,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "u64",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "port_state": (
@@ -26,7 +26,7 @@ Interface(
             },
             reply: Result(
                 ok: "PortState",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "counters": (
@@ -36,7 +36,7 @@ Interface(
             },
             reply: Result(
                 ok: "Counters",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "transceiver_events": (
@@ -50,7 +50,7 @@ Interface(
             },
             reply: Result(
                 ok: "u8",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "clear_transceiver_events": (
@@ -64,7 +64,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
          "link_events": (
@@ -74,7 +74,7 @@ Interface(
             },
             reply: Result(
                 ok: "[u8; 3]",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "send_request": (
@@ -88,7 +88,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "all_port_state": (
@@ -96,7 +96,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "[PortState; 40]",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
         "all_link_events": (
@@ -104,7 +104,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "[[u8; 3]; 40]",
-                err: CLike("IgnitionError"),
+                err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
     }
