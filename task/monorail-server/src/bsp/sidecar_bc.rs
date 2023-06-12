@@ -214,7 +214,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // See https://github.com/oxidecomputer/hubris/issues/1399 for details
         const JR2_BUFFER_MEMORY: u32 = 4193376;
         const JR2_BUFFER_CELL_SIZE: u32 = 176;
-        let frac = |f| (100 * JR2_BUFFER_MEMORY) / (JR2_BUFFER_CELL_SIZE * f);
+        let frac = |f| (f * JR2_BUFFER_MEMORY) / (JR2_BUFFER_CELL_SIZE * 100);
         use vsc7448_pac::XQS;
         let qlimit_shr = XQS().QLIMIT_SHR(0);
         self.vsc7448
