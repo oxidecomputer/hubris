@@ -207,6 +207,27 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
+        // Configure shared memory limits for the queue system, based on
+        // `jr2_port_buf_qlim_set`.  This is necessary to prevent an issue where
+        // the technician port has all packets to it dropped (!!).
+        //
+        // See https://github.com/oxidecomputer/hubris/issues/1399 for details
+        const JR2_BUFFER_MEMORY: u32 = 4193376;
+        const JR2_BUFFER_CELL_SIZE: u32 = 176;
+        let frac = |f| (100 * JR2_BUFFER_MEMORY) / (JR2_BUFFER_CELL_SIZE * f);
+        use vsc7448_pac::XQS;
+        let qlimit_shr = XQS().QLIMIT_SHR(0);
+        self.vsc7448
+            .write(qlimit_shr.QLIMIT_SHR_QLIM_CFG(0), frac(5).into())?;
+        self.vsc7448
+            .write(qlimit_shr.QLIMIT_SHR_QDIV_CFG(0), frac(70).into())?;
+        self.vsc7448
+            .write(qlimit_shr.QLIMIT_SHR_CTOP_CFG(0), frac(90).into())?;
+        self.vsc7448
+            .write(qlimit_shr.QLIMIT_SHR_ATOP_CFG(0), frac(95).into())?;
+        self.vsc7448
+            .write(qlimit_shr.QLIMIT_SHR_TOP_CFG(0), frac(100).into())?;
+
         // Reset internals
         self.vsc8504 = Vsc8504::empty();
         self.front_io_speed = [Speed::Speed1G; 2];
