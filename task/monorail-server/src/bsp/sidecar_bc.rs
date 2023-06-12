@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_sidecar_front_io::phy_smi::PhySmi;
-use drv_sidecar_seq_api::{SeqError, Sequencer};
+use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{
@@ -447,14 +447,25 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
-        // The 10G link should only be up if the host isn't trying to hold us in
-        // reset; we won't retrigger autonegotiation / system reset if that's
-        // not the case.
-        let check_10g_link = match self.seq.tofino_pcie_hotplug_status() {
-            Ok(pcie_hotplug_status) => {
-                let host_reset = pcie_hotplug_status & 1;
-                host_reset == 0
+        // The 10G link should only be up if we're in A0 and the host isn't
+        // trying to hold us in reset; we won't retrigger autonegotiation /
+        // system reset if that's not the case.
+        let check_10g_link = match self.seq.tofino_seq_state() {
+            Ok(TofinoSeqState::A0) => {
+                match self.seq.tofino_pcie_hotplug_status() {
+                    Ok(pcie_hotplug_status) => {
+                        let host_reset = pcie_hotplug_status & 1;
+                        host_reset == 0
+                    }
+                    Err(e) => {
+                        // If the sequencer failed to talk to us, then fail safe (i.e.
+                        // in favor of checking the 10G link).
+                        ringbuf_entry!(Trace::SeqError(e));
+                        true
+                    }
+                }
             }
+            Ok(_) => false,
             Err(e) => {
                 // If the sequencer failed to talk to us, then fail safe (i.e.
                 // in favor of checking the 10G link).
