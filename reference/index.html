@@ -669,9 +669,8 @@ pre.rouge .gs {
 <li><a href="#_fault_task_3">8.1.3. <code>fault_task</code> (3)</a></li>
 <li><a href="#_read_image_id_4">8.1.4. <code>read_image_id</code> (4)</a></li>
 <li><a href="#_reset_5">8.1.5. <code>reset</code> (5)</a></li>
-<li><a href="#_read_caboose_pos_6">8.1.6. <code>read_caboose_pos</code> (6)</a></li>
-<li><a href="#_get_task_dump_region_7">8.1.7. <code>get_task_dump_region</code> (7)</a></li>
-<li><a href="#_read_task_dump_region_8">8.1.8. <code>read_task_dump_region</code> (8)</a></li>
+<li><a href="#_get_task_dump_region_6">8.1.6. <code>get_task_dump_region</code> (6)</a></li>
+<li><a href="#_read_task_dump_region_7">8.1.7. <code>read_task_dump_region</code> (7)</a></li>
 </ul>
 </li>
 <li><a href="#_receiving_from_the_kernel">8.2. Receiving from the kernel</a></li>
@@ -4121,51 +4120,7 @@ fault.</p>
 
 </div>
 <div class="sect3">
-<h4 id="_read_caboose_pos_6">8.1.6. <code>read_caboose_pos</code> (6)</h4>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">ReadCaboosePos</span> <span class="o">=</span> <span class="p">();</span></code></pre>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_preconditions_4">Preconditions</h5>
-<div class="paragraph">
-<p>None</p>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_response_4">Response</h5>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">type</span> <span class="n">CaboosePos</span> <span class="o">=</span> <span class="nn">core</span><span class="p">::</span><span class="nn">ops</span><span class="p">::</span><span class="n">Range</span><span class="o">&lt;</span><span class="nb">u32</span><span class="o">&gt;</span><span class="p">;</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect4">
-<h5 id="_notes_15">Notes</h5>
-<div class="paragraph">
-<p><code>read_caboose_pos</code> allows tasks to get the location of <a href="#caboose">the caboose</a>
-at runtime. It is necessary because the caboose is positioned at the end of
-flash, so its location can only be known after an entire image is built.</p>
-</div>
-<div class="paragraph">
-<p>If the image does not include a caboose or the caboose does not contain the
-<a href="#caboose-words">expected words</a>, this call will return <code>(0, 0)</code>.</p>
-</div>
-<div class="paragraph">
-<p>This function is a low-level kernel primitive; users may wish to call
-<code>userlib::kipc::get_caboose</code> instead, which decodes the result into a friendlier
-type (<code>Option&lt;&amp;'static [u8]&gt;</code>).</p>
-</div>
-<div class="paragraph">
-<p>Note that this call will return the caboose address even if a task is not
-configured for caboose access!  In that case, reading from the given memory
-range will cause a memory fault and the task will be killed.</p>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_get_task_dump_region_7">8.1.7. <code>get_task_dump_region</code> (7)</h4>
+<h4 id="_get_task_dump_region_6">8.1.6. <code>get_task_dump_region</code> (6)</h4>
 <div class="paragraph">
 <p>A dump region is an area of memory for a specified task that can be
 read by the supervisor for purpose of creating a memory dump for debugging.
@@ -4182,7 +4137,7 @@ is only present if the kernel&#8217;s <code>dump</code> feature is enabled.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_preconditions_5">Preconditions</h5>
+<h5 id="_preconditions_4">Preconditions</h5>
 <div class="paragraph">
 <p>The task index (<code>GetTaskDumpRegionRequest.0</code>) must be a valid task index.  The
 dump region index (<code>GetTaskDumpRegionRequest.1</code>) should denote the region of
@@ -4190,7 +4145,7 @@ interest.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_response_5">Response</h5>
+<h5 id="_response_4">Response</h5>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">TaskDumpRegion</span> <span class="p">{</span>
@@ -4203,7 +4158,7 @@ interest.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_16">Notes</h5>
+<h5 id="_notes_15">Notes</h5>
 <div class="paragraph">
 <p>For the specified task index, this will return the dump region specified by
 the dump region index.  If the dump region index is equal to or greater
@@ -4213,7 +4168,7 @@ be returned.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_read_task_dump_region_8">8.1.8. <code>read_task_dump_region</code> (8)</h4>
+<h4 id="_read_task_dump_region_7">8.1.7. <code>read_task_dump_region</code> (7)</h4>
 <div class="paragraph">
 <p>For a given task and task dump region, this will read the specified region and
 return its contents.  The region should be entirely contained by a region that
@@ -4235,7 +4190,7 @@ feature is enabled.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_preconditions_6">Preconditions</h5>
+<h5 id="_preconditions_5">Preconditions</h5>
 <div class="paragraph">
 <p>The task index (<code>ReadTaskDumpRegionRequest.0</code>) must be a valid task index.
 The dump region should be entirely contained by a region that has been
@@ -4243,7 +4198,7 @@ returned by a call to <code>get_task_dump_region</code> for the specified task.<
 </div>
 </div>
 <div class="sect4">
-<h5 id="_response_6">Response</h5>
+<h5 id="_response_5">Response</h5>
 <div class="paragraph">
 <p>A copy of the memory referred to by the specified region, starting
 at <code>base</code> and running for <code>size</code> bytes.</p>
@@ -5519,9 +5474,21 @@ not present.</p>
 </div>
 <div class="paragraph">
 <p>Note that this procedure works both at runtime and from a binary file, with or
-without an associated Hubris archive.  In a live system, this logic is
-implemented by the <a href="#_read_caboose_pos_6"><code>read_caboose_pos</code></a> kernel IPC call,
-which is wrapped by <code>get_caboose</code> to yield an <code>Option&lt;&amp;'static [u8]&gt;</code>.</p>
+without an associated Hubris archive.</p>
+</div>
+<div class="paragraph">
+<p>To reduce runtime overhead, the caboose position may also be baked into an
+individual task image at build time. This is implemented in the
+<code>drv-caboose-pos</code> crate:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">let</span> <span class="n">caboose</span><span class="p">:</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="k">'static</span> <span class="p">[</span><span class="nb">u8</span><span class="p">]</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nn">drv_caboose_pos</span><span class="p">::</span><span class="n">CABOOSE_POS</span><span class="nf">.as_slice</span><span class="p">();</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>(This functionality requires cooperation with the <code>xtask</code> build system, as we
+can&#8217;t know the caboose position until all tasks have been built)</p>
 </div>
 <div class="paragraph">
 <p>Other than reserving the two words above, the Hubris build system is
@@ -5580,7 +5547,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-06-12 18:03:49 UTC
+Last updated 2023-06-12 18:06:35 UTC
 </div>
 </div>
 </body>
