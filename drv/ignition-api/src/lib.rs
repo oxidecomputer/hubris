@@ -713,9 +713,8 @@ const_assert!(
 );
 
 mod idl {
-    use super::{
-        Counters, IgnitionError, PortState, Request, TransceiverSelect,
-    };
+    use super::{Counters, PortState, Request, TransceiverSelect};
+    use crate as drv_ignition_api;
     use userlib::sys_send;
 
     include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
