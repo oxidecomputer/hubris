@@ -207,51 +207,20 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
-        // Configure shared memory limits for the queue system, based on
-        // `jr2_port_buf_qlim_set`.  This is necessary to prevent an issue where
-        // the technician port has all packets to it dropped (!!).
+        // Disable queue system limits for our active ports.
         //
-        // See https://github.com/oxidecomputer/hubris/issues/1399 for details
-        const JR2_BUFFER_MEMORY: u32 = 4193376;
-        const JR2_BUFFER_CELL_SIZE: u32 = 176;
-        let frac = |f| (f * JR2_BUFFER_MEMORY) / (JR2_BUFFER_CELL_SIZE * 100);
-        use vsc7448_pac::{QRES, XQS};
-        let qlimit_shr = XQS().QLIMIT_SHR(0);
-        self.vsc7448
-            .write(qlimit_shr.QLIMIT_SHR_QLIM_CFG(0), frac(5).into())?;
-        self.vsc7448
-            .write(qlimit_shr.QLIMIT_SHR_QDIV_CFG(0), frac(70).into())?;
-        self.vsc7448
-            .write(qlimit_shr.QLIMIT_SHR_CTOP_CFG(0), frac(90).into())?;
-        self.vsc7448
-            .write(qlimit_shr.QLIMIT_SHR_ATOP_CFG(0), frac(95).into())?;
-        self.vsc7448
-            .write(qlimit_shr.QLIMIT_SHR_TOP_CFG(0), frac(100).into())?;
-        // "Set legacy share levels to max for src_mem and src_ref"
-        for res in 0..2 {
-            for dp in 0..4 {
-                self.vsc7448.write(
-                    QRES().RES_CTRL(dp + 508 + res * 1024).RES_CFG(),
-                    ((1 << 12) - 1).into(),
-                )?;
-            }
-            for prio in 0..8 {
-                self.vsc7448.write(
-                    QRES().RES_CTRL(prio + 496 + res * 1024).RES_CFG(),
-                    ((1 << 12) - 1).into(),
-                )?;
-            }
-        }
-        // "Set max mode for all ports"
-        for port in 0..53 {
-            self.vsc7448
-                .write_with(XQS().QLIMIT_PORT(port).QLIMIT_PORT_CFG(), |r| {
-                    r.set_qlimit_max_mode_ena(1)
-                })?;
-        }
-        for port in [44, 45] {
+        // See https://github.com/oxidecomputer/hubris/issues/1399 for details;
+        // in short, we couldn't find a queue configuration that wouldn't
+        // occasionally lock up, so we're just going to disable these limits
+        // entirely.  If the system gets overloaded, frames will instead be
+        // "tail dropped" before being loaded into memory; this should be
+        // transient, compared to the undesired behavior of queues getting
+        // permanently stuck.
+        for (port, _) in
+            PORT_MAP.iter().enumerate().filter(|(_, c)| c.is_some())
+        {
             self.vsc7448.write_with(
-                XQS().QLIMIT_PORT(port).QLIMIT_DIS_CFG(),
+                vsc7448_pac::XQS().QLIMIT_PORT(port as u8).QLIMIT_DIS_CFG(),
                 |r| {
                     r.set_qlimit_egr_dis(1);
                     r.set_qlimit_igr_dis(1);

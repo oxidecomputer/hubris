@@ -161,6 +161,11 @@ impl PortMap {
             }
         })
     }
+
+    /// Iterates over ports in order
+    pub fn iter(&self) -> impl Iterator<Item = &Option<PortMode>> {
+        self.0.iter()
+    }
 }
 
 impl core::ops::Index<u8> for PortMap {
