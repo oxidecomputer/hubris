@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::elf;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use scroll::Pread;
 use std::path::Path;
 
@@ -45,18 +45,10 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
             scroll::ctx::StrCtx::Length(slot_name_len),
         )?;
 
-        let entry_section =
-            match crate::elf::get_section_by_vma(elf, taskidx_address) {
-                Some(x) => x,
-                _ => bail!(
-                    "slot '{}' points to a non-existant address {:#x}",
-                    slot_name,
-                    taskidx_address
-                ),
-            };
-
         let taskidx_file_offset =
-            taskidx_address - entry_section.sh_addr + entry_section.sh_offset;
+            crate::elf::get_file_offset_by_vma(elf, taskidx_address).context(
+                format!("slot '{slot_name}' points to non-existent address"),
+            )?;
 
         Ok((
             Self {

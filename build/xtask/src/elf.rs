@@ -1,6 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use anyhow::{anyhow, Result};
 
 pub fn get_endianness(elf: &goblin::elf::Elf) -> scroll::Endian {
     if elf.little_endian {
@@ -31,4 +32,13 @@ pub fn get_section_by_vma<'a>(
     elf.section_headers.iter().find(|&section| {
         addr >= section.sh_addr && addr < (section.sh_addr + section.sh_size)
     })
+}
+
+pub fn get_file_offset_by_vma(
+    elf: &goblin::elf::Elf,
+    addr: u64,
+) -> Result<u64> {
+    let entry_section = get_section_by_vma(elf, addr)
+        .ok_or_else(|| anyhow!("address {:#x} is non-existant", addr))?;
+    Ok(addr - entry_section.sh_addr + entry_section.sh_offset)
 }

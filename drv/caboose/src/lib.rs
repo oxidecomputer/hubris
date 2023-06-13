@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! API crate for the caboose reader task
+//! Utility crate for reading a caboose from a static slice
 
 #![no_std]
 

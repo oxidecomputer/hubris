@@ -19,9 +19,10 @@ serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
-abi = {path = "../abi"}
-armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
-unwrap-lite = { path = "../../lib/unwrap-lite" }
+abi.path = "../abi"
+armv6m-atomic-hack.path = "../../lib/armv6m-atomic-hack"
+unwrap-lite.path = "../../lib/unwrap-lite"
+volatile-const.path = "../../lib/volatile-const"
 
 [target.thumbv7em-none-eabihf.dependencies]
 # Note: we don't use cortex-m directly, this is here to ensure that the

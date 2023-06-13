@@ -486,9 +486,8 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
-    ReadCaboosePos = 6,
-    GetTaskDumpRegion = 7,
-    ReadTaskDumpRegion = 8,
+    GetTaskDumpRegion = 6,
+    ReadTaskDumpRegion = 7,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -501,9 +500,8 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
-            6 => Ok(Self::ReadCaboosePos),
-            7 => Ok(Self::GetTaskDumpRegion),
-            8 => Ok(Self::ReadTaskDumpRegion),
+            6 => Ok(Self::GetTaskDumpRegion),
+            7 => Ok(Self::ReadTaskDumpRegion),
             _ => Err(()),
         }
     }

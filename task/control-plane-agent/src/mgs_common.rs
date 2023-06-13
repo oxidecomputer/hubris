@@ -141,7 +141,8 @@ impl MgsCommon {
         match component {
             SpComponent::SP_ITSELF => match slot {
                 0 => {
-                    let reader = userlib::kipc::get_caboose()
+                    let reader = drv_caboose_pos::CABOOSE_POS
+                        .as_slice()
                         .map(CabooseReader::new)
                         .ok_or(SpError::NoCaboose)?;
                     let v = reader.get(key).map_err(caboose_to_sp_error)?;

@@ -1,0 +1,8 @@
+[package]
+name = "drv-caboose-pos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+unwrap-lite.path = "../../lib/unwrap-lite"
+volatile-const.path = "../../lib/volatile-const"

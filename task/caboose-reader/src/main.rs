@@ -14,7 +14,7 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     let mut server = ServerImpl {
-        caboose: kipc::get_caboose(),
+        caboose: drv_caboose_pos::CABOOSE_POS.as_slice(),
     };
 
     loop {

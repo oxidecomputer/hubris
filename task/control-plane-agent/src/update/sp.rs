@@ -521,7 +521,8 @@ impl AcceptingData {
             // `BORD` key, then we'll accept anything, but the incoming image
             // **must** have a valid caboose and `BORD`.
             const BOARD_KEY: [u8; 4] = *b"BORD";
-            let ours = userlib::kipc::get_caboose()
+            let ours = drv_caboose_pos::CABOOSE_POS
+                .as_slice()
                 .map(CabooseReader::new)
                 .and_then(|reader| reader.get(BOARD_KEY).ok());
 
