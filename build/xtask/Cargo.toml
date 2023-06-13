@@ -45,4 +45,3 @@ toml-task.path = "../../lib/toml-task"
 
 # For NXP signing
 lpc55_sign = { workspace = true }
-lpc55_areas = { workspace = true }

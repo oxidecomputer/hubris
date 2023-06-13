@@ -118,7 +118,6 @@ humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = f
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
-lpc55_areas = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }

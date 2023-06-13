@@ -134,14 +134,6 @@ start = true
 stacksize = 2600
 task-slots = ["swd"]
 
-[signing]
-enable-secure-boot = true
-enable-dice = true
-dice-inc-nxp-cfg = true
-dice-cust-cfg = false
-dice-inc-sec-epoch = false
-boot-error-gpio = { port = 0, pin = 17 } # ROT_TO_IGNIT_FLT_L
-
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
 root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

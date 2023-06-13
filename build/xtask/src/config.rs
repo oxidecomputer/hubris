@@ -12,7 +12,6 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
-use lpc55_areas::{DebugSettings, DefaultIsp, ROTKeyStatus};
 
 /// A `PatchedConfig` allows a minimal form of inheritance between TOML files
 /// Specifically, it allows you to **add features** to specific tasks; nothing
@@ -612,32 +611,6 @@ impl MpuAlignment {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct RoTMfgSettings {
     pub certs: lpc55_sign::signed_image::CertConfig,
-    #[serde(default)]
-    pub enable_secure_boot: bool,
-    #[serde(default, flatten)]
-    pub dice: lpc55_sign::signed_image::DiceArgs,
-    #[serde(default)]
-    pub cmpa_settings: DebugSettings,
-    #[serde(default)]
-    pub cfpa_settings: DebugSettings,
-    #[serde(default = "ROTKeyStatus::enabled")]
-    pub rotk0: ROTKeyStatus,
-    #[serde(default = "ROTKeyStatus::invalid")]
-    pub rotk1: ROTKeyStatus,
-    #[serde(default = "ROTKeyStatus::invalid")]
-    pub rotk2: ROTKeyStatus,
-    #[serde(default = "ROTKeyStatus::invalid")]
-    pub rotk3: ROTKeyStatus,
-    #[serde(default = "DefaultIsp::auto")]
-    pub default_isp: DefaultIsp,
-    pub boot_error_gpio: RoTBootErrorPin,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RoTBootErrorPin {
-    pub port: u8,
-    pub pin: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]

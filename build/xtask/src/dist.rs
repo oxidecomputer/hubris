@@ -541,27 +541,6 @@ pub fn package(
                 0, // execution address (TODO)
             )?;
 
-            let boot_pin = lpc55_areas::BootErrorPin::new(
-                signing.boot_error_gpio.port,
-                signing.boot_error_gpio.pin,
-            )
-            .ok_or_else(|| {
-                anyhow!("invalid boot error pin {:?}", signing.boot_error_gpio)
-            })?;
-            archive.set_cmpa(
-                signing.dice.clone(),
-                signing.enable_secure_boot,
-                signing.cmpa_settings,
-                signing.default_isp,
-                lpc55_areas::BootSpeed::Fro96mhz,
-                boot_pin,
-                root_certs,
-            )?;
-            archive.set_cfpa(
-                signing.cfpa_settings,
-                [signing.rotk0, signing.rotk1, signing.rotk2, signing.rotk3],
-                0,
-            )?;
             archive.overwrite()?;
         }
 
