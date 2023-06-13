@@ -99,6 +99,7 @@ struct ServerImpl {
     leds_initialized: bool,
     led_states: LedStates,
     blink_on: bool,
+    blink_cntr: u8,
     system_led_state: LedState,
 
     /// Modules that are physically present but disabled by Hubris
@@ -130,7 +131,17 @@ struct ThermalModel {
 ///
 /// For transceivers that are present and include a thermal model, we measure
 /// their temperature and send it to the `thermal` task.
-const TIMER_INTERVAL: u64 = 500;
+const SPI_INTERVAL: u64 = 500;
+
+/// Controls how often we update the LED controllers (in milliseconds).
+const I2C_INTERVAL: u64 = 100;
+
+/// Controls how many I2C notifications should pass before adjusting blink state
+///
+/// The I2C notification loop runs much faster than we would want to blink, so
+/// don't update the blink on/off until a counter reaches this value. 50% duty
+/// cycle on a 1 Hz blink would be 500 ms on/off.
+const BLINK_DUTY_CYCLE: u8 = 5;
 
 impl ServerImpl {
     fn led_init(&mut self) {
@@ -191,7 +202,11 @@ impl ServerImpl {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
         // keep track if we are on or off next update when blinking
-        self.blink_on = !self.blink_on;
+        self.blink_cntr += 1;
+        if self.blink_cntr == BLINK_DUTY_CYCLE {
+            self.blink_on = !self.blink_on;
+            self.blink_cntr = 0;
+        }
     }
 }
 
@@ -531,7 +546,9 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK | notifications::SOCKET_MASK
+        notifications::I2C_MASK
+            | notifications::SPI_MASK
+            | notifications::SOCKET_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
@@ -539,8 +556,23 @@ impl NotificationHandler for ServerImpl {
             // Nothing to do here; we'll handle it in the main loop
         }
 
-        if (bits & notifications::TIMER_MASK) != 0 {
-            // Check for errors
+        if (bits & notifications::SPI_MASK) != 0 {
+            // Query module presence as this drives other state
+            let (status, _) = self.transceivers.get_module_status();
+
+            let modules_present = LogicalPortMask(!status.modprsl);
+            if modules_present != self.modules_present {
+                self.modules_present = modules_present;
+                ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
+            }
+
+            self.update_thermal_loop(status);
+
+            let next_deadline = sys_get_timer().now + SPI_INTERVAL;
+            sys_set_timer(Some(next_deadline), notifications::SPI_MASK);
+        }
+
+        if (bits & notifications::I2C_MASK) != 0 {
             if self.leds_initialized {
                 self.update_leds();
                 let errors = match self.leds.error_summary() {
@@ -558,19 +590,8 @@ impl NotificationHandler for ServerImpl {
                 ringbuf_entry!(Trace::LEDUninitialized);
             }
 
-            // Query module presence and update LEDs accordingly
-            let (status, _) = self.transceivers.get_module_status();
-
-            let modules_present = LogicalPortMask(!status.modprsl);
-            if modules_present != self.modules_present {
-                self.modules_present = modules_present;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
-            }
-
-            self.update_thermal_loop(status);
-
-            let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-            sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
+            let next_deadline = sys_get_timer().now + I2C_INTERVAL;
+            sys_set_timer(Some(next_deadline), notifications::I2C_MASK);
         }
     }
 }
@@ -622,6 +643,7 @@ fn main() -> ! {
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
             blink_on: false,
+            blink_cntr: 0,
             system_led_state: LedState::Off,
             disabled: LogicalPortMask(0),
             consecutive_nacks: [0; NUM_PORTS as usize],
@@ -639,7 +661,8 @@ fn main() -> ! {
 
         // This will put our timer in the past, immediately forcing an update
         let deadline = sys_get_timer().now;
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        sys_set_timer(Some(deadline), notifications::SPI_MASK);
+        sys_set_timer(Some(deadline), notifications::I2C_MASK);
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
