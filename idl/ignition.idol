@@ -29,6 +29,27 @@ Interface(
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
+        "always_transmit": (
+            doc: "Return the whether or not the Controller port will transmit even if no Target present",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "bool",
+                err: CLike("drv_ignition_api::IgnitionError"),
+            ),
+        ),
+        "set_always_transmit": (
+            doc: "Set whether or not the Controller port will transmit even if no Target present",
+            args: {
+                "port": "u8",
+                "enabled": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_ignition_api::IgnitionError"),
+            ),
+        ),
         "counters": (
             doc: "Return the counters for the given controller port",
             args: {
