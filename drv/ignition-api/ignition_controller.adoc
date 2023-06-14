@@ -1,7 +1,7 @@
 
 Test Output:
 
-Controller Status
+Controller State
 [caption="Address: "]
 .0x0000 - CONTROLLER_STATE Register
 [cols=4,options="header"]
