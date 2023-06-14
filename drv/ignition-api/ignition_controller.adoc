@@ -1,13 +1,14 @@
 
 Test Output:
 
-Controller Status
+Controller State
 [caption="Address: "]
-.0x0000 - CONTROLLER_STATUS Register
+.0x0000 - CONTROLLER_STATE Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
+|[7:2] |  | - | Reserved
+|[1] | rw | ALWAYS_TRANSMIT | Always transmit rather than wait for a Target to be present first
 |[0] | r | TARGET_PRESENT | A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid
 |===
 

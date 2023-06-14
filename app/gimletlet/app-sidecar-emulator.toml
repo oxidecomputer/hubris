@@ -117,6 +117,7 @@ stacksize = 2048
 start = true
 task-slots = ["fpga"]
 notifications = ["timer"]
+features = ["always-transmit"]
 
 [tasks.idle]
 name = "task-idle"

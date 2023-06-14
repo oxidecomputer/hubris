@@ -250,21 +250,22 @@
     </tr>
 
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="0">CONTROLLER_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="0">CONTROLLER_STATE</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x0
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Controller Status</td>
+        <td class="Description" colspan="16">&nbsp;Controller State</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat0" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
+                <td class="validspandef" colspan="2*">ALWAYS_TRANSMIT</td>
                 <td class="validspandef" colspan="2*">TARGET_PRESENT</td>
     </tr>
     <tr class="cat0" style="display: none">
@@ -274,6 +275,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">ALWAYS_TRANSMIT</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Always transmit rather than wait for a Target to be present first
+        </td>
     </tr>
     <tr class="cat0" style="display: none">
         <td class="Blank" colspan="3*"></td>

@@ -55,6 +55,20 @@ impl IgnitionController {
             .write(WriteOp::Write, self.port_addr(port, offset), value)
     }
 
+    #[inline]
+    fn update_port_register<T>(
+        &self,
+        op: WriteOp,
+        port: u8,
+        offset: IgnitionPageAddr,
+        value: T,
+    ) -> Result<(), FpgaError>
+    where
+        T: AsBytes + FromBytes,
+    {
+        self.fpga.write(op, self.port_addr(port, offset), value)
+    }
+
     /// Return the number of ports exposed by the Controller.
     #[inline]
     pub fn port_count(&self) -> Result<u8, FpgaError> {
@@ -91,11 +105,38 @@ impl IgnitionController {
     /// Return the state for the given port.
     #[inline]
     pub fn port_state(&self, port: u8) -> Result<PortState, FpgaError> {
-        self.read_port_register::<u64>(
+        self.read_port_register::<u64>(port, IgnitionPageAddr::CONTROLLER_STATE)
+            .map(PortState::from)
+    }
+
+    /// Return if the given port transmits even if no Target is present.
+    #[inline]
+    pub fn always_transmit(&self, port: u8) -> Result<bool, FpgaError> {
+        Ok(self.read_port_register::<u8>(
             port,
-            IgnitionPageAddr::CONTROLLER_STATUS,
+            IgnitionPageAddr::CONTROLLER_STATE,
+        )? & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
+            != 0)
+    }
+
+    /// Set whether or not the given port should transmit even if no Target is
+    /// present.
+    #[inline]
+    pub fn set_always_transmit(
+        &self,
+        port: u8,
+        enabled: bool,
+    ) -> Result<(), FpgaError> {
+        self.update_port_register(
+            if enabled {
+                WriteOp::BitSet
+            } else {
+                WriteOp::BitClear
+            },
+            port,
+            Addr::CONTROLLER_STATE,
+            Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT,
         )
-        .map(PortState::from)
     }
 
     /// Return the high level counters for the given port.
