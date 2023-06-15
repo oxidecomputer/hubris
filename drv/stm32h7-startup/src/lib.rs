@@ -132,6 +132,17 @@ pub fn system_init_custom(
             .dbgsleep_d1()
             .set_bit()
     });
+    // Halt I2C timeout clocks when the debugger halts the system.
+    p.DBGMCU.apb1lfz1.modify(|_, w| {
+        w.dbg_i2c1().set_bit();
+        w.dbg_i2c2().set_bit();
+        w.dbg_i2c3().set_bit();
+        w
+    });
+    p.DBGMCU.apb4fz1.modify(|_, w| {
+        w.dbg_i2c4().set_bit();
+        w
+    });
 
     // Set up SYSCFG selections so drivers don't have to.
     p.RCC.apb4enr.modify(|_, w| w.syscfgen().enabled());
