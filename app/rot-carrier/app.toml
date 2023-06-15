@@ -9,8 +9,10 @@ version = 0
 
 [kernel]
 name = "rot-carrier"
-features = ["dice-self"]
-requires = {flash = 52768, ram = 4096}
+#features = ["dice-self"]
+#requires = {flash = 52768, ram = 4096}
+features = ["dice-mfg"]
+requires = {flash = 62000, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
@@ -108,14 +110,14 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 34000, ram = 32768}
+max-sizes = {flash = 43768, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest"]
 
 [tasks.sprot.config]
 pins = [
@@ -204,7 +206,7 @@ binary_path = "../../target/gemini-bu/dist/final.bin"
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 12512, ram = 16384, dice_alias = 2048}
+max-sizes = {flash = 12512, ram = 16384}
 stacksize = 9000
 start = true
 extern-regions = ["dice_alias", "dice_certs"]

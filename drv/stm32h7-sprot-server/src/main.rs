@@ -796,13 +796,89 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
         }
     }
+
+    fn cert(
+        &mut self,
+        _: &userlib::RecvMessage,
+        index: u32,
+        offset: u32,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::Cert {
+            index,
+            offset,
+            size: data.len() as u32,
+        });
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, DEFAULT_ATTEMPTS)
+            .map_err(AttestOrSprotError::Sprot)?;
+
+        match rsp.body {
+            Ok(RspBody::Attest(AttestRsp::Cert)) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
+                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
+            }
+            Ok(_) => Err(AttestOrSprotError::Sprot(SprotError::Protocol(
+                SprotProtocolError::UnexpectedResponse,
+            ))
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn cert_chain_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::CertChainLen);
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        match rsp.body {
+            Ok(RspBody::Attest(AttestRsp::CertChainLen(s))) => Ok(s),
+            Ok(_) => Err(AttestOrSprotError::Sprot(SprotError::Protocol(
+                SprotProtocolError::UnexpectedResponse,
+            ))
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn cert_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+        index: u32,
+    ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::CertLen(index));
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        match rsp.body {
+            Ok(RspBody::Attest(AttestRsp::CertLen(s))) => Ok(s),
+            Ok(_) => Err(AttestOrSprotError::Sprot(SprotError::Protocol(
+                SprotProtocolError::UnexpectedResponse,
+            ))
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
 }
 
 mod idl {
     use super::{
-        DumpOrSprotError, PulseStatus, RawCabooseOrSprotError, RotBootInfo,
-        RotState, SlotId, SprotError, SprotIoStats, SprotStatus,
-        SwitchDuration, UpdateTarget,
+        AttestOrSprotError, DumpOrSprotError, PulseStatus,
+        RawCabooseOrSprotError, RotBootInfo, RotState, SlotId, SprotError,
+        SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

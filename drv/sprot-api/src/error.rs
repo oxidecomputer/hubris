@@ -4,6 +4,7 @@
 
 //! Errors for the sprot API
 
+use attest_api::AttestError;
 use derive_more::From;
 use drv_caboose::CabooseError;
 use drv_lpc55_update_api::RawCabooseError;
@@ -28,6 +29,7 @@ pub enum SprotError {
     Spi(SpiError),
     Update(UpdateError),
     Sprockets(SprocketsError),
+    Attest(AttestError),
 }
 
 impl From<SprotError> for SpError {
@@ -37,6 +39,7 @@ impl From<SprotError> for SpError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
+            SprotError::Attest(e) => Self::Attest(e.into()),
         }
     }
 }
@@ -48,6 +51,7 @@ impl From<SprotError> for RotError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
+            SprotError::Attest(e) => Self::Attest(e.into()),
         }
     }
 }
@@ -207,5 +211,25 @@ impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
             }
             RawCabooseOrSprotError::Sprot(e) => CabooseOrSprotError::Sprot(e),
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+pub enum AttestOrSprotError {
+    Sprot(SprotError),
+    Attest(AttestError),
+}
+
+impl From<SprotError> for RequestError<AttestOrSprotError> {
+    fn from(err: SprotError) -> Self {
+        AttestOrSprotError::from(err).into()
+    }
+}
+
+impl<V> From<AttestOrSprotError>
+    for Result<V, RequestError<AttestOrSprotError>>
+{
+    fn from(err: AttestOrSprotError) -> Self {
+        Err(RequestError::Runtime(err))
     }
 }
