@@ -79,6 +79,7 @@ name = "attest-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -1105,6 +1106,7 @@ dependencies = [
 name = "drv-lpc55-sprot-server"
 version = "0.1.0"
 dependencies = [
+ "attest-api",
  "build-lpc55pins",
  "build-util",
  "crc",
@@ -1519,6 +1521,7 @@ dependencies = [
 name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
+ "attest-api",
  "crc",
  "derive-idol-err",
  "derive_more",

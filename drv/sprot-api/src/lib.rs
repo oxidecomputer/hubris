@@ -9,11 +9,12 @@
 extern crate memoffset;
 
 mod error;
+use attest_api::AttestError;
 use drv_caboose::CabooseError;
 use dumper_api::DumperError;
 pub use error::{
-    CabooseOrSprotError, DumpOrSprotError, RawCabooseOrSprotError,
-    SprocketsError, SprotError, SprotProtocolError,
+    AttestOrSprotError, CabooseOrSprotError, DumpOrSprotError,
+    RawCabooseOrSprotError, SprocketsError, SprotError, SprotProtocolError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -328,6 +329,7 @@ pub enum ReqBody {
     Dump(DumpReq),
     // Added in sprot protocol version 3
     Caboose(CabooseReq),
+    Attest(AttestReq),
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -363,6 +365,13 @@ pub enum CabooseReq {
     Read { slot: SlotId, start: u32, size: u32 },
 }
 
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum AttestReq {
+    CertChainLen,
+    CertLen(u32),
+    Cert { index: u32, offset: u32, size: u32 },
+}
+
 /// A response used for RoT updates
 #[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
 pub enum UpdateRsp {
@@ -378,6 +387,13 @@ pub enum UpdateRsp {
 pub enum CabooseRsp {
     Size(u32),
     Read,
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum AttestRsp {
+    CertChainLen(u32),
+    CertLen(u32),
+    Cert,
 }
 
 /// The body of a sprot response.
@@ -404,6 +420,8 @@ pub enum RspBody {
 
     // Added in sprot protocol version 3
     Caboose(Result<CabooseRsp, RawCabooseError>),
+
+    Attest(Result<AttestRsp, AttestError>),
 }
 
 /// A response from the Dumper
