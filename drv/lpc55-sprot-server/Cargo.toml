@@ -15,6 +15,7 @@ sprockets-rot = { workspace = true }
 static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
+attest-api = { path = "../../task/attest-api" }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-spi = { path = "../lpc55-spi" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }

@@ -3,13 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::Trace;
+use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{SlotId, Update};
 use drv_sprot_api::{
-    CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody, Request, Response,
-    RotIoStats, RotState, RotStatus, RspBody, SprocketsError, SprotError,
-    SprotProtocolError, UpdateReq, UpdateRsp, CURRENT_VERSION, MIN_VERSION,
-    REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
+    Request, Response, RotIoStats, RotState, RotStatus, RspBody,
+    SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
+    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
@@ -22,6 +23,8 @@ mod sprockets;
 task_slot!(UPDATE_SERVER, update_server);
 
 task_slot!(DUMPER, dumper);
+
+task_slot!(ATTEST, attest);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
@@ -42,12 +45,14 @@ pub struct StartupState {
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData {
     Caboose { slot: SlotId, start: u32, size: u32 },
+    Attest { index: u32, offset: u32, size: u32 },
 }
 
 pub struct Handler {
     sprocket: RotSprocket,
     update: Update,
     startup_state: StartupState,
+    attest: Attest,
 }
 
 impl Handler {
@@ -60,6 +65,7 @@ impl Handler {
                 max_request_size: REQUEST_BUF_SIZE.try_into().unwrap_lite(),
                 max_response_size: RESPONSE_BUF_SIZE.try_into().unwrap_lite(),
             },
+            attest: Attest::from(ATTEST.get_task_id()),
         }
     }
 
@@ -90,7 +96,7 @@ impl Handler {
 
         // In certain cases, handling the request has left us with trailing data
         // that needs to be packed into the remaining packet space.
-        let size = match trailer {
+        match trailer {
             Some(TrailingData::Caboose {
                 slot,
                 start,
@@ -121,10 +127,33 @@ impl Handler {
                     }
                 }
             }
+            Some(TrailingData::Attest {
+                index,
+                offset,
+                size,
+            }) => {
+                let size: usize = usize::try_from(size).unwrap_lite();
+                if size > drv_sprot_api::MAX_BLOB_SIZE {
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                        self.attest
+                            .cert(index, offset, &mut buf[..size])
+                            .map_err(|e| RspBody::Attest(Err(e.into())))?;
+                        Ok(size)
+                    }) {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
+                }
+            }
             _ => Response::pack(&rsp_body, tx_buf),
-        };
-
-        size
+        }
     }
 
     pub fn handle_request(
@@ -231,6 +260,38 @@ impl Handler {
             ReqBody::Update(UpdateReq::BootInfo) => {
                 let boot_info = self.update.rot_boot_info()?;
                 Ok((RspBody::Update(boot_info.into()), None))
+            }
+            ReqBody::Attest(AttestReq::Cert {
+                index,
+                offset,
+                size,
+            }) => {
+                // This command returns a variable amount of data that belongs
+                // in the trailing data region of the response. We return a
+                // marker struct with the data necessary retrieve this data so
+                // the work can be done elsewhere.
+                Ok((
+                    RspBody::Attest(Ok(AttestRsp::Cert)),
+                    Some(TrailingData::Attest {
+                        index,
+                        offset,
+                        size,
+                    }),
+                ))
+            }
+            ReqBody::Attest(AttestReq::CertChainLen) => {
+                let rsp = match self.attest.cert_chain_len() {
+                    Ok(v) => Ok(AttestRsp::CertChainLen(v)),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::Attest(AttestReq::CertLen(i)) => {
+                let rsp = match self.attest.cert_len(i) {
+                    Ok(v) => Ok(AttestRsp::CertLen(v)),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
             }
         }
     }

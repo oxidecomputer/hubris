@@ -17,6 +17,7 @@ static_assertions.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
 
+attest-api = { path = "../../task/attest-api" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-caboose = { path = "../../drv/caboose" }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }

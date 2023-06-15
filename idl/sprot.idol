@@ -168,5 +168,42 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
-    }
+        "cert_chain_len": (
+            doc: "Return the length of the alias cert chain",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cert_len": (
+            doc: "Get length of a cert in the cert chain",
+            args: {
+                "index" : "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cert": (
+            doc: "Get a cert from the alias cert chaing",
+            args: {
+				"index" : "u32",
+                "offset" : "u32",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+     }
 )
