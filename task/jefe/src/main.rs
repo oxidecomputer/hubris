@@ -207,6 +207,19 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
+    fn restart_me_raw(
+        &mut self,
+        msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<Infallible>> {
+        kipc::restart_task(msg.sender.index(), true);
+
+        // Note: the returned value here won't go anywhere because we just
+        // unblocked the caller. So this is doing a small amount of unnecessary
+        // work. This is a compromise because Idol can't easily describe an IPC
+        // that won't return at this time.
+        Ok(())
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "dump")] {
             fn get_dump_area(
