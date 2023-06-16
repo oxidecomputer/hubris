@@ -736,7 +736,6 @@ const_assert!(
 );
 
 mod idl {
-    use super::{Counters, PortState, Request, TransceiverSelect};
     use crate as drv_ignition_api;
     use userlib::sys_send;
 
