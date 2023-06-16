@@ -249,9 +249,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                     r.set_qlimit_max_mode_ena(1)
                 })?;
         }
-        for port in [44, 45] {
+
+        for (port, _) in
+            PORT_MAP.iter().enumerate().filter(|(_, c)| c.is_some())
+        {
             self.vsc7448.write_with(
-                XQS().QLIMIT_PORT(port).QLIMIT_DIS_CFG(),
+                XQS().QLIMIT_PORT(port as u8).QLIMIT_DIS_CFG(),
                 |r| {
                     r.set_qlimit_egr_dis(1);
                     r.set_qlimit_igr_dis(1);
