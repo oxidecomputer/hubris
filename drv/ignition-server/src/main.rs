@@ -449,8 +449,6 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use drv_ignition_api::*;
-
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 

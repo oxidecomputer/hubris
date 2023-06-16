@@ -25,7 +25,7 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "PortState",
+                ok: "drv_ignition_api::PortState",
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
@@ -56,7 +56,7 @@ Interface(
                 "port": "u8",
             },
             reply: Result(
-                ok: "Counters",
+                ok: "drv_ignition_api::Counters",
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
@@ -65,7 +65,7 @@ Interface(
             args: {
                 "port": "u8",
                 "txr": (
-                    type: "TransceiverSelect",
+                    type: "drv_ignition_api::TransceiverSelect",
                     recv: FromPrimitive("u8"),
                 ),
             },
@@ -79,7 +79,7 @@ Interface(
             args: {
                 "port": "u8",
                 "txr": (
-                    type: "TransceiverSelect",
+                    type: "drv_ignition_api::TransceiverSelect",
                     recv: FromPrimitive("u8"),
                 ),
             },
@@ -103,7 +103,7 @@ Interface(
             args: {
                 "port": "u8",
                 "request": (
-                    type: "Request",
+                    type: "drv_ignition_api::Request",
                     recv: FromPrimitive("u8"),
                 )
             },
@@ -116,7 +116,7 @@ Interface(
             doc: "Return the state for the given controller ports as indicated by the ports bit vector",
             args: {},
             reply: Result(
-                ok: "[PortState; 40]",
+                ok: "[drv_ignition_api::PortState; 40]",
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
