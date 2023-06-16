@@ -18,8 +18,8 @@ fn secondary_syscall_enter() {
 fn secondary_syscall_exit() {
 }
 
-fn isr_enter() {
-    uart_send16(0x01, 0x40);
+fn isr_enter(n: u32) {
+    uart_send16(0x01, n as u8);
 }
 
 fn isr_exit() {

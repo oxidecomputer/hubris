@@ -1084,7 +1084,6 @@ unsafe extern "C" fn pendsv_entry() {
 #[allow(non_snake_case)]
 #[no_mangle]
 pub unsafe extern "C" fn DefaultHandler() {
-    crate::profiling::event_isr_enter();
     // We can cheaply get the identity of the interrupt that called us from the
     // bottom 9 bits of IPSR.
     //
@@ -1098,6 +1097,7 @@ pub unsafe extern "C" fn DefaultHandler() {
         );
         ipsr & 0x1FF
     };
+    crate::profiling::event_isr_enter(exception_num);
 
     // The first 16 exceptions are architecturally defined; vendor hardware
     // interrupts start at 16.
