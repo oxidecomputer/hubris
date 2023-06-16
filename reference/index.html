@@ -656,6 +656,7 @@ pre.rouge .gs {
 <li><a href="#_refresh_task_id_10">7.2.11. <code>REFRESH_TASK_ID</code> (10)</a></li>
 <li><a href="#_post_11">7.2.12. <code>POST</code> (11)</a></li>
 <li><a href="#_reply_fault_12">7.2.13. <code>REPLY_FAULT</code> (12)</a></li>
+<li><a href="#_restart_me_13">7.2.14. <code>RESTART_ME</code> (13)</a></li>
 </ul>
 </li>
 </ul>
@@ -3832,6 +3833,48 @@ while we were processing its request. (It can happen.)</p>
 </div>
 </div>
 </div>
+<div class="sect3">
+<h4 id="_restart_me_13">7.2.14. <code>RESTART_ME</code> (13)</h4>
+<div class="paragraph">
+<p>This asks the kernel to reinitialize the current task. This can be used if a
+task wants to restart for architectural or implementation reasons, but is <em>not</em>
+doing so as a result of a crash or fault.
+==== Arguments</p>
+</div>
+<div class="paragraph">
+<p>None!</p>
+</div>
+<div class="sect4">
+<h5 id="_return_values_14">Return values</h5>
+<div class="paragraph">
+<p><code>RESTART_ME</code>, like <code>PANIC</code>, does not return.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_faults_13">Faults</h5>
+<div class="paragraph">
+<p>None!</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_notes_12">Notes</h5>
+<div class="paragraph">
+<p>Sometimes you want to go back to the beginning of <code>main</code> without having to
+phrase <code>main</code> as a loop. This syscall is for you!</p>
+</div>
+<div class="paragraph">
+<p>This skips generating the "fault" notification to the supervisor task, which
+(in the reference implementation supervisor) has the side effect of skipping
+the crash dump. This makes it cheaper than using <code>PANIC</code> for the same purpose.</p>
+</div>
+<div class="paragraph">
+<p>This also means that the supervisor has no ability to interfere with this
+restart&#8201;&#8212;&#8201;it is between the task and the kernel. The "hold" feature in the
+reference implementation supervisor, intended to catch faults, will not catch
+this, and that&#8217;s quite deliberate.</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -3938,7 +3981,7 @@ generation numbers right.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_12">Notes</h5>
+<h5 id="_notes_13">Notes</h5>
 <div class="paragraph">
 <p>See the <code>abi</code> crate for the definition of <code>TaskState</code> that matches your kernel.
 Here is a representative example at the time of this writing:</p>
@@ -4045,7 +4088,7 @@ that the IPC will never complete.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_13">Notes</h5>
+<h5 id="_notes_14">Notes</h5>
 <div class="paragraph">
 <p>If a task asks to reinit <em>itself,</em> the kernel mumbles &#8220;alright, your funeral&#8221;
 and reinits the caller. Given that <code>reinit_task</code> is intended to be restricted to
@@ -4098,7 +4141,7 @@ and given a <a href="#death">dead code</a> to indicate that the IPC will never c
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_14">Notes</h5>
+<h5 id="_notes_15">Notes</h5>
 <div class="paragraph">
 <p>As with <code>reinit_task</code>, it is possible for a task to use <code>fault_task</code> to fault
 <em>itself.</em> This is an odd thing to do.</p>
@@ -4158,7 +4201,7 @@ interest.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_15">Notes</h5>
+<h5 id="_notes_16">Notes</h5>
 <div class="paragraph">
 <p>For the specified task index, this will return the dump region specified by
 the dump region index.  If the dump region index is equal to or greater
@@ -5547,7 +5590,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-06-16 07:01:00 UTC
+Last updated 2023-06-16 20:12:05 UTC
 </div>
 </div>
 </body>
