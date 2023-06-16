@@ -15,7 +15,6 @@ use drv_stm32h7_startup::ClockConfig;
 
 use cortex_m_rt::entry;
 
-#[cfg(feature = "traptrace")]
 mod tracing;
 
 #[entry]
@@ -24,7 +23,6 @@ fn main() -> ! {
 
     const CYCLES_PER_MS: u32 = 400_000;
 
-    #[cfg(feature = "traptrace")]
     kern::profiling::configure_events_table(tracing::table());
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
@@ -70,7 +68,11 @@ fn system_init() {
     // The revision is on pins PG[2:0], with PG2 as the MSB.
 
     // Un-gate the clock to GPIO bank G.
-    p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| {
+        w.gpiogen().set_bit();
+        w.gpiohen().set_bit();
+        w
+    });
     cortex_m::asm::dsb();
     // PG2:0 are already inputs after reset, but without any pull resistors.
     #[rustfmt::skip]
@@ -181,5 +183,19 @@ fn system_init() {
             .set_bit()
             .pc3so()
             .set_bit()
+    });
+
+    // Force the status LED to output for kernel trace.
+    p.GPIOA.moder.modify(|_, w| {
+        w.moder3().output()
+    });
+    p.GPIOA.ospeedr.modify(|_, w| {
+        w.ospeedr3().very_high_speed()
+    });
+    p.GPIOH.moder.modify(|_, w| {
+        w.moder4().output()
+    });
+    p.GPIOH.ospeedr.modify(|_, w| {
+        w.ospeedr4().very_high_speed()
     });
 }
