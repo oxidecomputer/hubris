@@ -59,6 +59,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
 use task_net_api::MacAddressBlock;
+use task_jefe_api::Jefe;
 use zerocopy::{AsBytes, U16};
 
 #[cfg(feature = "h743")]
@@ -74,6 +75,7 @@ use crate::bsp::BspImpl;
 use crate::bsp_support::Bsp;
 
 task_slot!(SYS, sys);
+task_slot!(JEFE, jefe);
 
 #[cfg(feature = "vpd-mac")]
 task_slot!(PACKRAT, packrat);
@@ -153,6 +155,7 @@ static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
+    let jefe = Jefe::from(JEFE.get_task_id());
 
     // Do any preinit tasks specific to this board.  For hardware which requires
     // explicit clock configuration, this is where the `net` tasks waits for
@@ -265,7 +268,9 @@ fn main() -> ! {
                         server.wake();
                         // timer is set to auto-repeat
                     }
-                    Timers::Watchdog => panic!("MAC RX watchdog"),
+                    Timers::Watchdog => {
+                        jefe.restart_me();
+                    }
                 }
             }
             let mut msgbuf = [0u8; idl::INCOMING_SIZE];
