@@ -106,39 +106,41 @@ fn configure_mux(
     let muxkey = (controller.controller, port);
 
     match muxmap.get(muxkey) {
-        Some(MuxState::Selected(current_id, current_segment)) => {
-            match mux {
-                Some((id, segment)) if id == current_id => {
-                    if segment == current_segment {
-                        return Ok(());
-                    }
-                }
-                _ => {
-                    find_mux(controller, port, muxes, current_id, |mux| {
-                        mux.driver.enable_segment(mux, controller, None, ctrl)
-                    }).map_err(|err| {
-                        muxmap.insert(muxkey, MuxState::Unknown);
-                        err
-                    })?;
-
-                    muxmap.remove(muxkey);
+        Some(MuxState::Selected(current_id, current_segment)) => match mux {
+            Some((id, segment)) if id == current_id => {
+                if segment == current_segment {
+                    return Ok(());
                 }
             }
-        }
+            _ => {
+                find_mux(controller, port, muxes, current_id, |mux| {
+                    mux.driver.enable_segment(mux, controller, None, ctrl)
+                })
+                .map_err(|err| {
+                    muxmap.insert(muxkey, MuxState::Unknown);
+                    err
+                })?;
+
+                muxmap.remove(muxkey);
+            }
+        },
 
         Some(MuxState::Unknown) => {
+            ringbuf_entry!(Trace::MuxUnknownClear(muxkey.0, muxkey.1));
             all_muxes(controller, port, muxes, |mux| {
                 mux.driver.enable_segment(mux, controller, None, ctrl)
             })?;
+            ringbuf_entry!(Trace::MuxUnknownRecover(muxkey.0, muxkey.1));
             muxmap.remove(muxkey);
         }
 
         None => {}
     }
 
-    if let Some((id, segment)) = mux { 
+    if let Some((id, segment)) = mux {
         find_mux(controller, port, muxes, id, |mux| {
-            mux.driver.enable_segment(mux, controller, Some(segment), ctrl)
+            mux.driver
+                .enable_segment(mux, controller, Some(segment), ctrl)
                 .map_err(|err| {
                     muxmap.insert(muxkey, MuxState::Unknown);
                     err
@@ -158,6 +160,8 @@ enum Trace {
     MuxError(ResponseCode),
     Reset(Controller, PortIndex),
     MuxUnknown(Controller, PortIndex),
+    MuxUnknownClear(Controller, PortIndex),
+    MuxUnknownRecover(Controller, PortIndex),
     ResetMux(Mux),
     SegmentFailed(ResponseCode),
     ConfigureFailed(ResponseCode),
@@ -171,26 +175,24 @@ fn reset(
     controller: &I2cController<'_>,
     port: PortIndex,
     muxes: &[I2cMux<'_>],
-    mux: Option<(Mux, Segment)>,
+    muxmap: &mut MuxMap,
 ) {
     ringbuf_entry!(Trace::Reset(controller.controller, port));
 
-/*
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
-*/
 
     // First, bounce our I2C controller
     controller.reset();
 
-/*
-    // And now reset the mux, eating any errors.
-    let _ = find_mux(controller, port, muxes, mux, |mux, id, _| {
-        ringbuf_entry!(Trace::ResetMux(id));
-        mux.driver.reset(mux, &sys)?;
+    // And now reset all muxes on this bus, eating any errors.
+    let _ = all_muxes(controller, port, muxes, |mux| {
+        ringbuf_entry!(Trace::ResetMux(mux.id));
+        let _ = mux.driver.reset(mux, &sys);
         Ok(())
     });
-*/
+
+    muxmap.insert((controller.controller, port), MuxState::Unknown);
 }
 
 fn reset_needed(code: ResponseCode) -> bool {
@@ -210,10 +212,10 @@ fn reset_if_needed(
     controller: &I2cController<'_>,
     port: PortIndex,
     muxes: &[I2cMux<'_>],
-    mux: Option<(Mux, Segment)>,
+    muxmap: &mut MuxMap,
 ) {
     if reset_needed(code) {
-        reset(controller, port, muxes, mux)
+        reset(controller, port, muxes, muxmap)
     }
 }
 
@@ -227,11 +229,8 @@ enum MuxState {
     Unknown,
 }
 
-type MuxMap = FixedMap<
-    (Controller, PortIndex),
-    MuxState,
-    { i2c_config::NMUXEDBUSES },
->;
+type MuxMap =
+    FixedMap<(Controller, PortIndex), MuxState, { i2c_config::NMUXEDBUSES }>;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -260,7 +259,14 @@ fn main() -> ! {
         },
     };
 
-    configure_muxes(&muxes, &controllers, &pins, &mut portmap, &mut muxmap, &ctrl);
+    configure_muxes(
+        &muxes,
+        &controllers,
+        &pins,
+        &mut portmap,
+        &mut muxmap,
+        &ctrl,
+    );
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -298,7 +304,13 @@ fn main() -> ! {
                     Ok(_) => {}
                     Err(code) => {
                         ringbuf_entry!(Trace::MuxError(code));
-                        reset_if_needed(code, controller, port, &muxes, mux);
+                        reset_if_needed(
+                            code,
+                            controller,
+                            port,
+                            &muxes,
+                            &mut muxmap,
+                        );
                         return Err(code);
                     }
                 }
@@ -359,7 +371,11 @@ fn main() -> ! {
                         Err(code) => {
                             ringbuf_entry!(Trace::Error(addr, code));
                             reset_if_needed(
-                                code, controller, port, &muxes, mux,
+                                code,
+                                controller,
+                                port,
+                                &muxes,
+                                &mut muxmap,
                             );
                             return Err(code);
                         }
@@ -370,28 +386,6 @@ fn main() -> ! {
                 }
 
                 caller.reply(total);
-                Ok(())
-            }
-            Op::SelectedMuxSegment => {
-                let (payload, caller) = msg
-                    .fixed::<[u8; 4], [u8; 4]>()
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let (address, controller, port, _) =
-                    Marshal::unmarshal(payload)?;
-
-                let controller = lookup_controller(&controllers, controller)?;
-                validate_port(&pins, controller.controller, port)?;
-
-                caller.reply(Marshal::marshal(&(
-                    address,
-                    controller.controller,
-                    port,
-                    None,
-// XXXX
-// muxmap.get((controller.controller, port)),
-                )));
-
                 Ok(())
             }
         });
@@ -645,7 +639,7 @@ fn configure_muxes(
                         ringbuf_entry!(Trace::SegmentFailed(code));
 
                         if reset_needed(code) && !reset_attempted {
-                            reset(controller, mux.port, muxes, None);
+                            reset(controller, mux.port, muxes, muxmap);
                             reset_attempted = true;
                             continue;
                         }
@@ -659,7 +653,7 @@ fn configure_muxes(
                 }
                 Err(code) => {
                     ringbuf_entry!(Trace::ConfigureFailed(code));
-                    reset_if_needed(code, controller, mux.port, muxes, None);
+                    reset_if_needed(code, controller, mux.port, muxes, muxmap);
                 }
             }
         }

@@ -48,7 +48,6 @@ pub enum Op {
     /// without interruption, this logic would not work, but that would be a
     /// very strange device indeed.
     WriteReadBlock = 2,
-    SelectedMuxSegment = 3,
 }
 
 /// The response code returned from the I2C server.  These response codes pretty
@@ -72,53 +71,51 @@ pub enum ResponseCode {
     /// Bad response from server
     BadResponse = 1,
     /// Bad argument sent to server
-    BadArg = 2,
+    BadArg,
     /// Indicated I2C device is invalid
-    NoDevice = 3,
+    NoDevice,
     /// Indicated I2C controller is invalid
-    BadController = 4,
+    BadController,
     /// Device address is reserved
-    ReservedAddress = 5,
+    ReservedAddress,
     /// Indicated port is invalid
-    BadPort = 6,
+    BadPort,
     /// Device does not have indicated register
-    NoRegister = 8,
+    NoRegister,
     /// Indicated mux is an invalid mux identifier
-    BadMux = 9,
+    BadMux,
     /// Indicated segment is an invalid segment identifier
-    BadSegment = 10,
+    BadSegment,
     /// Indicated mux does not exist on this controller
-    MuxNotFound = 11,
+    MuxNotFound,
     /// Indicated segment does not exist on this controller
-    SegmentNotFound = 12,
+    SegmentNotFound,
     /// Segment disconnected during operation
-    SegmentDisconnected = 13,
+    SegmentDisconnected,
     /// Mux disconnected during operation
-    MuxDisconnected = 14,
+    MuxDisconnected,
     /// Address used for mux in-band management is invalid
-    BadMuxAddress = 15,
+    BadMuxAddress,
     /// Register used for mux in-band management is invalid
-    BadMuxRegister = 16,
+    BadMuxRegister,
     /// I2C bus was spontaneously reset during operation
-    BusReset = 17,
+    BusReset,
     /// I2C bus was reset during a mux in-band management operation
-    BusResetMux = 18,
+    BusResetMux,
     /// I2C bus locked up and was reset
-    BusLocked = 19,
+    BusLocked,
     /// I2C bus locked up during in-band management operation and was reset
-    BusLockedMux = 20,
+    BusLockedMux,
     /// I2C controller appeared to be busy and was reset
-    ControllerBusy = 21,
+    ControllerBusy,
     /// I2C bus error
-    BusError = 22,
+    BusError,
     /// Bad device state of unknown origin
-    BadDeviceState = 23,
-    /// Bad return value for selected mux/segment
-    BadSelectedMux = 24,
+    BadDeviceState,
     /// Requested operation is not supported
-    OperationNotSupported = 25,
+    OperationNotSupported,
     /// Illegal number of leases
-    IllegalLeaseCount = 26,
+    IllegalLeaseCount,
 }
 
 ///
@@ -706,42 +703,6 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
-        }
-    }
-
-    pub fn selected_mux_segment(
-        &self,
-    ) -> Result<Option<(Mux, Segment)>, ResponseCode> {
-        let mut response = [0u8; 4];
-
-        let (code, _) = sys_send(
-            self.task,
-            Op::SelectedMuxSegment as u16,
-            &Marshal::marshal(&(
-                self.address,
-                self.controller,
-                self.port,
-                None,
-            )),
-            response.as_bytes_mut(),
-            &[],
-        );
-
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            let (address, controller, port, mux) =
-                Marshal::unmarshal(&response)?;
-
-            if controller != self.controller
-                || address != self.address
-                || port != self.port
-            {
-                Err(ResponseCode::BadSelectedMux)
-            } else {
-                Ok(mux)
-            }
         }
     }
 }

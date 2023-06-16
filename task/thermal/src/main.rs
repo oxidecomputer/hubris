@@ -369,7 +369,7 @@ fn main() -> ! {
     // which may induce a flight-or-fight reaction for whomever is near the
     // fans when they blast off...
     //
-    server.set_watchdog(I2cWatchdog::ThirtySeconds).unwrap();
+    server.set_watchdog(I2cWatchdog::Disabled).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {

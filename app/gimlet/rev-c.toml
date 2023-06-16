@@ -296,9 +296,8 @@ name = "task-vpd"
 priority = 5 
 max-sizes = {flash = 8192, ram = 1024}
 start = true
-task-slots = ["sys", "i2c_driver", "gimlet_seq"]
+task-slots = ["sys", "i2c_driver"]
 stacksize = 800
-notifications = ["timer"]
 
 [tasks.user_leds]
 name = "drv-user-leds"

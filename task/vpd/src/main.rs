@@ -8,7 +8,7 @@
 #![no_main]
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
-use idol_runtime::{NotificationHandler, RequestError};
+use idol_runtime::RequestError;
 use task_vpd_api::VpdError;
 use userlib::*;
 
@@ -17,7 +17,6 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 struct ServerImpl;
 
 task_slot!(I2C, i2c_driver);
-task_slot!(SEQ, gimlet_seq);
 
 fn eeprom_is_locked(
     dev: &drv_i2c_devices::at24csw080::At24Csw080,
@@ -196,36 +195,13 @@ impl idl::InOrderVpdImpl for ServerImpl {
     }
 }
 
-impl NotificationHandler for ServerImpl {
-    fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
-    }
-
-    fn handle_notification(&mut self, _bits: u32) {
-        _ = drv_gimlet_seq_api::Sequencer::from(SEQ.get_task_id()).get_state();
-
-        let devs = i2c_config::devices::at24csw080(I2C.get_task_id());
-
-        for index in (0..devs.len()).rev() {
-            let dev = At24Csw080::new(devs[index]);
-            _ = dev.read::<u8>(0);
-        }
-           
-        let deadline = sys_get_timer().now + 2;
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-    }
-}
-
 #[export_name = "main"]
 fn main() -> ! {
     let mut server = ServerImpl;
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let deadline = sys_get_timer().now;
-
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
@@ -234,5 +210,3 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
-
-include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
