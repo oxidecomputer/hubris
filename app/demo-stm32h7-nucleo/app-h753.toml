@@ -83,7 +83,7 @@ uses = ["eth", "eth_dma", "tim16"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer"]
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
-task-slots = ["sys"]
+task-slots = ["sys", "jefe"]
 
 [tasks.user_leds]
 name = "drv-user-leds"

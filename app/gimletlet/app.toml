@@ -179,7 +179,7 @@ max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi4"]
 start = true
-task-slots = ["sys"]
+task-slots = ["sys", "jefe"]
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 
 [tasks.net.interrupts]

@@ -17,10 +17,8 @@ use task_jefe_api::Jefe;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
+use userlib::{sys_recv_closed, FromPrimitive, TaskId};
 use vsc7448_pac::types::PhyRegisterAddress;
-
-task_slot!(JEFE, jefe);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -56,7 +54,7 @@ impl crate::bsp_support::Bsp for BspImpl {
     fn preinit() {
         // Wait for the sequencer to turn on the clock. This requires that Jefe
         // state change notifications are routed to our notification bit 3.
-        let jefe = Jefe::from(JEFE.get_task_id());
+        let jefe = Jefe::from(crate::JEFE.get_task_id());
 
         loop {
             // This laborious list is intended to ensure that new power states

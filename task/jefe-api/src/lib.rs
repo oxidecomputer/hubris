@@ -34,4 +34,13 @@ pub enum DumpAreaError {
     AlreadyInUse,
 }
 
+impl Jefe {
+    /// Asks the supervisor to restart the current task without recording a
+    /// fault.
+    pub fn restart_me(&self) -> ! {
+        self.restart_me_raw();
+        unreachable!()
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

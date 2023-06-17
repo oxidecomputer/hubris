@@ -66,6 +66,19 @@ fn main() -> ! {
     server.port_count = server.controller.port_count().unwrap_lite();
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
+    // Set the `always_transmit` bit for each controller, causing each port to
+    // start transmitting whether or not a Target is present. This is disabled
+    // by default in order to not radiate out of empty cubbies, but for lab use
+    // this can help debugging link problems.
+    if cfg!(feature = "always-transmit") {
+        for port in 0..server.port_count.min(PORT_MAX) {
+            server
+                .controller
+                .set_always_transmit(port, true)
+                .unwrap_lite();
+        }
+    }
+
     // Set a timer in the past causing the presence state to be polled and
     // updated as soon as the serving loop starts.
     sys_set_timer(Some(sys_get_timer().now), notifications::TIMER_MASK);
@@ -256,6 +269,37 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    fn always_transmit(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<bool, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.controller
+            .always_transmit(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn set_always_transmit(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+        enabled: bool,
+    ) -> Result<(), RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.controller
+            .set_always_transmit(port, enabled)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
     fn counters(
         &mut self,
         _: &userlib::RecvMessage,
@@ -405,8 +449,6 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use drv_ignition_api::*;
-
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 

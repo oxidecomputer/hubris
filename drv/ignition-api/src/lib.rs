@@ -103,6 +103,24 @@ impl Ignition {
         self.controller.port_state(port).map(Port::from)
     }
 
+    /// Return whether or not the port will always transmit even if no Target is
+    /// present.
+    #[inline]
+    pub fn always_transmit(&self, port: u8) -> Result<bool, IgnitionError> {
+        self.controller.always_transmit(port)
+    }
+
+    /// Set whether or not the port will always transmit even if no Target is
+    /// present.
+    #[inline]
+    pub fn set_always_transmit(
+        &self,
+        port: u8,
+        enabled: bool,
+    ) -> Result<(), IgnitionError> {
+        self.controller.set_always_transmit(port, enabled)
+    }
+
     /// Return the `Target` for a given port if present.
     #[inline]
     pub fn target(&self, port: u8) -> Result<Option<Target>, IgnitionError> {
@@ -231,7 +249,7 @@ impl PortState {
     /// assumptions about addresses used to access data.
     #[inline]
     const fn byte_offset(addr: Addr) -> usize {
-        (addr as usize) - (Addr::CONTROLLER_STATUS as usize)
+        (addr as usize) - (Addr::CONTROLLER_STATE as usize)
     }
 
     #[inline]
@@ -242,6 +260,8 @@ impl PortState {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Port {
+    /// The port is configured to transmit irrespective of Target presence.
+    pub always_transmit: bool,
     /// Receiver status of the Controller port.
     pub receiver_status: ReceiverStatus,
     /// State of the Target, if present. See `Target` for details.
@@ -250,11 +270,14 @@ pub struct Port {
 
 impl From<PortState> for Port {
     fn from(state: PortState) -> Self {
-        let target_present = state.byte(Addr::CONTROLLER_STATUS)
-            & Reg::CONTROLLER_STATUS::TARGET_PRESENT
+        let target_present = state.byte(Addr::CONTROLLER_STATE)
+            & Reg::CONTROLLER_STATE::TARGET_PRESENT
             != 0;
 
         Self {
+            always_transmit: state.byte(Addr::CONTROLLER_STATE)
+                & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
+                != 0,
             receiver_status: state.byte(Addr::CONTROLLER_LINK_STATUS).into(),
             target: if target_present {
                 Some(Target::from(state))
@@ -676,7 +699,7 @@ mod reg_map {
 use core::mem::size_of;
 
 const_assert!(
-    PortState::byte_offset(Addr::CONTROLLER_STATUS) < size_of::<PortState>()
+    PortState::byte_offset(Addr::CONTROLLER_STATE) < size_of::<PortState>()
 );
 const_assert!(
     PortState::byte_offset(Addr::CONTROLLER_LINK_STATUS)
@@ -713,7 +736,6 @@ const_assert!(
 );
 
 mod idl {
-    use super::{Counters, PortState, Request, TransceiverSelect};
     use crate as drv_ignition_api;
     use userlib::sys_send;
 
