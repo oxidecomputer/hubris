@@ -85,6 +85,12 @@ fn all_muxes(
     Ok(())
 }
 
+///
+/// Configure the mux+segment to use for the next transaction.  If anything
+/// goes wrong here, the mux state will be set to unknown and an error
+/// returned.  No operation should be performed on a bus without this
+/// routine correctly returning!
+///
 fn configure_mux(
     muxmap: &mut MuxMap,
     controller: &I2cController<'_>,
@@ -93,60 +99,102 @@ fn configure_mux(
     muxes: &[I2cMux<'_>],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
-    //
-    // XXX If we aren't doing an operation to a segment on a mux and we have had a
-    // mux+segment enabled on this bus, we explicitly disable all segments on
-    // the formerly enabled mux.  On the one hand, this shouldn't be strictly
-    // necessarily (we generally design I2C addresses to avoid conflicts with
-    // enabled segments), but on the other, we want to minimize the ability of
-    // a bad component on a mux'd segment (e.g., a FRU) to wreak havoc
-    // elsewhere in the system -- especially because the failure mode of an
-    // (errant) address conflict can be pretty brutal.
-    //
-    let muxkey = (controller.controller, port);
+    let bus = (controller.controller, port);
 
-    match muxmap.get(muxkey) {
-        Some(MuxState::Selected(current_id, current_segment)) => match mux {
+    match muxmap.get(bus) {
+        Some(MuxState::Enabled(current_id, current_segment)) => match mux {
             Some((id, segment)) if id == current_id => {
+                //
+                // We have an enabled mux+segment on this bus, and it matches
+                // our desired mux.  (If the segment matches, we're done and
+                // can return; if the segment doesn't match we will set it
+                // to our desired segment below.)
+                //
                 if segment == current_segment {
                     return Ok(());
                 }
             }
             _ => {
+                //
+                // We have an enabled mux+segment on this bus, but it doesn't
+                // match our desired mux -- which is to say that we have
+                // either enabled a different mux or no mux at all.  In
+                // either case, we will disable all segments on our currently
+                // enabled mux.  If we are not enabling a mux at all, this
+                // shouldn't be strictly necessarily (we generally design I2C
+                // addresses to avoid conflicts with enabled segments), but we
+                // want to minimize the ability of a bad component on a mux'd
+                // segment (e.g., a FRU) to wreak havoc elsewhere in the
+                // system -- especially because the failure mode of an
+                // (errant) address conflict can be pretty brutal.
+                //
                 find_mux(controller, port, muxes, current_id, |mux| {
                     mux.driver.enable_segment(mux, controller, None, ctrl)
                 })
                 .map_err(|err| {
-                    muxmap.insert(muxkey, MuxState::Unknown);
+                    //
+                    // We have failed to disable the segments on our current
+                    // mux -- which means we are in an unknown mux state for
+                    // this bus.  Set our state, and return the error.
+                    //
+                    muxmap.insert(bus, MuxState::Unknown);
                     err
                 })?;
 
-                muxmap.remove(muxkey);
+                //
+                // We now know that no mux+segment is enabled; indicate
+                // this by removing this bus from the muxmap.
+                //
+                muxmap.remove(bus);
             }
         },
 
         Some(MuxState::Unknown) => {
-            ringbuf_entry!(Trace::MuxUnknownClear(muxkey.0, muxkey.1));
+            //
+            // We are in an unknown mux state.  Before we can do anything,
+            // we need to successfully talk to every mux, and disable every
+            // segment.  If there is any failure through here, we'll just
+            // return the error, leaving our mux state as unknown.
+            //
             all_muxes(controller, port, muxes, |mux| {
                 mux.driver.enable_segment(mux, controller, None, ctrl)
             })?;
-            ringbuf_entry!(Trace::MuxUnknownRecover(muxkey.0, muxkey.1));
-            muxmap.remove(muxkey);
+
+            //
+            // We have successfully transitioned to a known state -- namely,
+            // that no mux+segment is enabled.  Indicate this by removing
+            // this bus from the muxmap.
+            //
+            ringbuf_entry!(Trace::MuxUnknownRecover(bus));
+            muxmap.remove(bus);
         }
 
         None => {}
     }
 
+    //
+    // We know that no mux+segment is enabled OR we have the current mux
+    // but we need to enable a different segment.
+    //
     if let Some((id, segment)) = mux {
         find_mux(controller, port, muxes, id, |mux| {
             mux.driver
                 .enable_segment(mux, controller, Some(segment), ctrl)
                 .map_err(|err| {
-                    muxmap.insert(muxkey, MuxState::Unknown);
+                    //
+                    // We have failed to enable our new mux+segment.
+                    // Transition ourselves into the unknown state and return
+                    // the error.
+                    //
+                    muxmap.insert(bus, MuxState::Unknown);
                     err
                 })?;
 
-            muxmap.insert(muxkey, MuxState::Selected(id, segment));
+            //
+            // We have succeeded, and we are in a known state with our
+            // desired mux+segment correctly enabled.  Update our muxmap!
+            //
+            muxmap.insert(bus, MuxState::Enabled(id, segment));
             Ok(())
         })?;
     }
@@ -156,20 +204,20 @@ fn configure_mux(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Error(u8, ResponseCode),
-    MuxError(ResponseCode),
-    Reset(Controller, PortIndex),
-    MuxUnknown(Controller, PortIndex),
-    MuxUnknownClear(Controller, PortIndex),
-    MuxUnknownRecover(Controller, PortIndex),
+    SegmentOnError((Mux, Segment)),
+    Error(u8, ResponseCodeU8),
+    MuxError(ResponseCodeU8),
+    Reset((Controller, PortIndex)),
+    MuxUnknown((Controller, PortIndex)),
+    MuxUnknownRecover((Controller, PortIndex)),
     ResetMux(Mux),
-    SegmentFailed(ResponseCode),
-    ConfigureFailed(ResponseCode),
+    SegmentFailed(ResponseCodeU8),
+    ConfigureFailed(ResponseCodeU8),
     Wiggles(u8),
     None,
 }
 
-ringbuf!(Trace, 128, Trace::None);
+ringbuf!(Trace, 174, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -177,7 +225,8 @@ fn reset(
     muxes: &[I2cMux<'_>],
     muxmap: &mut MuxMap,
 ) {
-    ringbuf_entry!(Trace::Reset(controller.controller, port));
+    let bus = (controller.controller, port);
+    ringbuf_entry!(Trace::Reset(bus));
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -192,7 +241,12 @@ fn reset(
         Ok(())
     });
 
-    muxmap.insert((controller.controller, port), MuxState::Unknown);
+    //
+    // We now consider ourselves to be in an Unknown state:  it will
+    // be up to the next transaction on this bus to properly set the
+    // mux state.
+    //
+    muxmap.insert(bus, MuxState::Unknown);
 }
 
 fn reset_needed(code: ResponseCode) -> bool {
@@ -225,10 +279,19 @@ type PortMap = FixedMap<Controller, PortIndex, { i2c_config::NCONTROLLERS }>;
 
 #[derive(Copy, Clone, Debug)]
 enum MuxState {
-    Selected(Mux, Segment),
+    /// a mux+segment have been explicitly enabled
+    Enabled(Mux, Segment),
+
+    /// state is unknown: zero, one, or more mux+segment(s) may be enabled
     Unknown,
 }
 
+///
+/// Contains the mux state on a per-bus basis.  If no mux+segment is enabled
+/// for a bus (that is, if any/all muxes on a bus have been explicitly had
+/// all segments disabled), there will not be an entry for the bus in this
+/// map.
+///
 type MuxMap =
     FixedMap<(Controller, PortIndex), MuxState, { i2c_config::NMUXEDBUSES }>;
 
@@ -303,7 +366,7 @@ fn main() -> ! {
                 ) {
                     Ok(_) => {}
                     Err(code) => {
-                        ringbuf_entry!(Trace::MuxError(code));
+                        ringbuf_entry!(Trace::MuxError(code.into()));
                         reset_if_needed(
                             code,
                             controller,
@@ -369,7 +432,20 @@ fn main() -> ! {
                         &ctrl,
                     ) {
                         Err(code) => {
-                            ringbuf_entry!(Trace::Error(addr, code));
+                            //
+                            // NoDevice errors aren't hugely interesting --
+                            // but on any other error, we want to record the
+                            // address of the failing device, the error code
+                            // and the mux+segment (if specified).
+                            //
+                            if code != ResponseCode::NoDevice {
+                                ringbuf_entry!(Trace::Error(addr, code.into()));
+
+                                if let Some(mux) = mux {
+                                    ringbuf_entry!(Trace::SegmentOnError(mux));
+                                }
+                            }
+
                             reset_if_needed(
                                 code,
                                 controller,
@@ -620,7 +696,10 @@ fn configure_muxes(
                     // domain, it is conceivable that we will get what appears
                     // to be hung bus that will not be resolved by us
                     // resetting the controller -- and we don't want to spin
-                    // forever here.
+                    // forever here.  If we can't manage to get the segments
+                    // disabled, we will put the bus into an unknown mux state
+                    // -- which means a bus will be in the unknown state if we
+                    // fail to disable all segments for all of its muxes.
                     //
                     // In terms of why we might see a resolvable reset: we
                     // have noticed an issue whereby the first I2C transaction
@@ -636,7 +715,7 @@ fn configure_muxes(
                     if let Err(code) =
                         mux.driver.enable_segment(mux, controller, None, ctrl)
                     {
-                        ringbuf_entry!(Trace::SegmentFailed(code));
+                        ringbuf_entry!(Trace::SegmentFailed(code.into()));
 
                         if reset_needed(code) && !reset_attempted {
                             reset(controller, mux.port, muxes, muxmap);
@@ -644,15 +723,21 @@ fn configure_muxes(
                             continue;
                         }
 
-                        let muxkey = (controller.controller, mux.port);
-                        ringbuf_entry!(Trace::MuxUnknown(muxkey.0, muxkey.1));
-                        muxmap.insert(muxkey, MuxState::Unknown);
+                        //
+                        // We have failed, and then failed again after the
+                        // reset.  Mark the bus as being in an unknown mux
+                        // state, which will prevent its use until it's
+                        // resolved.
+                        //
+                        let bus = (controller.controller, mux.port);
+                        ringbuf_entry!(Trace::MuxUnknown(bus));
+                        muxmap.insert(bus, MuxState::Unknown);
                     }
 
                     break;
                 }
                 Err(code) => {
-                    ringbuf_entry!(Trace::ConfigureFailed(code));
+                    ringbuf_entry!(Trace::ConfigureFailed(code.into()));
                     reset_if_needed(code, controller, mux.port, muxes, muxmap);
                 }
             }

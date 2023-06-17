@@ -29,6 +29,9 @@ use zerocopy::{AsBytes, FromBytes};
 use derive_idol_err::IdolError;
 use userlib::*;
 
+#[macro_use]
+extern crate enum_kinds;
+
 #[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
     WriteRead = 1,
@@ -58,6 +61,7 @@ pub enum Op {
     Copy,
     Clone,
     Debug,
+    EnumKind,
     FromPrimitive,
     Eq,
     PartialEq,
@@ -66,6 +70,7 @@ pub enum Op {
     Deserialize,
     SerializedSize,
 )]
+#[enum_kind(ResponseCodeU8)]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Bad response from server
