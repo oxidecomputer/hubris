@@ -4540,7 +4540,6 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "idol",
