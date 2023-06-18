@@ -562,7 +562,7 @@ fn configure_port(
 /// [0] Analog Devices. AN-686: Implementing an I2C Reset. 2003.
 ///
 fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
-    sys.gpio_configure_input(sda, Pull::None);
+    let mut wiggles = 0;
     sys.gpio_set(scl);
 
     sys.gpio_configure_output(
@@ -572,10 +572,33 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
         Pull::None,
     );
 
-    for i in 0..9 {
-        if sys.gpio_read(sda) != 0 {
+    for _ in 0..9 {
+        sys.gpio_set(sda);
+
+        sys.gpio_configure_output(
+            sda,
+            OutputType::OpenDrain,
+            Speed::Low,
+            Pull::None,
+        );
+
+        sys.gpio_configure_input(sda, Pull::None);
+
+        if sys.gpio_read(sda) == 0 {
             //
-            // SDA is high. We're going to flip it to an output, pull the
+            // SDA is low -- someone is holding it down: give SCL a wiggle to
+            // try to shake them.  Note that we don't sleep here:  we are
+            // relying on the fact that communicating to the GPIO task is going
+            // to take longer than our minimum SCL pulse.  (Which, on a 400 MHz
+            // H753, is on the order of ~15 usecs -- yielding a cycle time of
+            // ~30 usecs or ~33 KHz.)
+            //
+            sys.gpio_reset(scl);
+            sys.gpio_set(scl);
+            wiggles += 1;
+        } else {
+            //
+            // SDA is high. We're going to flip it back to an output, pull the
             // clock down then, pull SDA down, then release SCL and finally
             // release SDA.  This will denote a STOP condition.
             //
@@ -592,21 +615,10 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
             sys.gpio_reset(sda);
             sys.gpio_set(scl);
             sys.gpio_set(sda);
-            ringbuf_entry!(Trace::Wiggles(i));
-            break;
         }
-
-        //
-        // SDA is low -- someone is holding it down: give SCL a wiggle to try
-        // to shake them.  Note that we don't sleep here:  we are relying on
-        // the fact that communicating to the GPIO task is going to take
-        // longer than our minimum SCL pulse.  (Which, on a 400 MHz H753, is
-        // on the order of ~15 usecs -- yielding a cycle time of ~30 usecs
-        // or ~33 KHz.)
-        //
-        sys.gpio_reset(scl);
-        sys.gpio_set(scl);
     }
+
+    ringbuf_entry!(Trace::Wiggles(wiggles));
 }
 
 fn configure_pins(
