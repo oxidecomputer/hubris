@@ -161,11 +161,10 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             self.configure_port_from_config(NPI_PORT, cfg)?;
         }
         for p in 0..map.len() {
-            if p == NPI_PORT.into() {
-                continue;
-            }
-            if let Some(cfg) = map.port_config(p as u8) {
-                self.configure_port_from_config(p as u8, cfg)?;
+            if p != NPI_PORT.into() {
+                if let Some(cfg) = map.port_config(p as u8) {
+                    self.configure_port_from_config(p as u8, cfg)?;
+                }
             }
         }
         self.apply_calendar()?;
@@ -178,10 +177,6 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         p: u8,
         cfg: PortConfig,
     ) -> Result<(), VscError> {
-        // Disable VSTAX2 header support, which we aren't using
-        self.modify(ASM().CFG().PORT_CFG(p), |r| {
-            r.set_vstax2_awr_ena(0);
-        })?;
         match cfg.mode {
             PortMode::Sgmii(_) => match cfg.serdes.0 {
                 PortSerdes::Serdes10g => self.init_10g_sgmii(p, cfg),
