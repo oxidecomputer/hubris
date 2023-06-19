@@ -42,6 +42,10 @@ fn validate_port(
     Ok(())
 }
 
+///
+/// Calls `func` for the specified mux ID on the specified controller and
+/// port -- or returns `ResponseCode::MuxNotFound` if there is no such mux
+///
 fn find_mux(
     controller: &I2cController<'_>,
     port: PortIndex,
@@ -50,20 +54,20 @@ fn find_mux(
     mut func: impl FnMut(&I2cMux<'_>) -> Result<(), ResponseCode>,
 ) -> Result<(), ResponseCode> {
     for mux in muxes {
-        if mux.controller != controller.controller {
-            continue;
+        if mux.controller == controller.controller
+            && mux.port == port
+            && mux.id == id
+        {
+            return func(mux);
         }
-
-        if mux.port != port || mux.id != id {
-            continue;
-        }
-
-        return func(mux);
     }
 
     Err(ResponseCode::MuxNotFound)
 }
 
+///
+/// Calls `func` for all muxes on the specified controller and port.
+///
 fn all_muxes(
     controller: &I2cController<'_>,
     port: PortIndex,
@@ -71,15 +75,9 @@ fn all_muxes(
     mut func: impl FnMut(&I2cMux<'_>) -> Result<(), ResponseCode>,
 ) -> Result<(), ResponseCode> {
     for mux in muxes {
-        if mux.controller != controller.controller {
-            continue;
+        if mux.controller == controller.controller && mux.port == port {
+            func(mux)?;
         }
-
-        if mux.port != port {
-            continue;
-        }
-
-        func(mux)?;
     }
 
     Ok(())

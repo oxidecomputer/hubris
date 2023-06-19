@@ -27,10 +27,8 @@ use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes};
 
 use derive_idol_err::IdolError;
+use enum_kinds::EnumKind;
 use userlib::*;
-
-#[macro_use]
-extern crate enum_kinds;
 
 #[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
