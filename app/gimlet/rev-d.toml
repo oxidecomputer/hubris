@@ -74,7 +74,7 @@ notifications = ["spi-irq"]
 name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 3
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]

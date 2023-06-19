@@ -163,7 +163,7 @@ interrupts = {"spi2.irq" = "spi-irq"}
 name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 start = true

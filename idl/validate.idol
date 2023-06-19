@@ -13,16 +13,5 @@ Interface(
             ),
             idempotent: true,
         ),
-        "selected_mux_segment": (
-            args: {
-                "index": "u32",
-            },
-            reply: Result(
-                ok: "Option<MuxSegment>",
-                err: CLike("ValidateError"),
-            ),
-            encoding: Hubpack,
-            idempotent: true,
-        ),
     },
 )

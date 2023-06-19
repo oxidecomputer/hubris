@@ -51,6 +51,7 @@ derive_more = { version = "0.99", default-features = false, features = ["from", 
 digest = { version = "0.10", default-features = false }
 dunce = { version = "1.0.2", default-features = false }
 embedded-hal = { version = "0.2", default-features = false }
+enum-kinds = { version = "0.5.1", default-features = false, features = ["no-stdlib"] }
 enum-map = { version = "2.4.1", default-features = false }
 filetime = { version = "0.2.12", default-features = false }
 fletcher = { version = "0.3", default-features = false }
