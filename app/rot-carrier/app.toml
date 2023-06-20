@@ -201,14 +201,6 @@ stacksize = 2048
 [tasks.sp_measure.config]
 binary_path = "../../target/gemini-bu/dist/final.bin"
 
-[signing]
-enable-secure-boot = true
-enable-dice = true
-dice-inc-nxp-cfg = false
-dice-cust-cfg = false
-dice-inc-sec-epoch = false
-boot-error-gpio = { port = 0, pin = 15 } # SCT0_OUT2, red LED on carrier
-
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
 root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

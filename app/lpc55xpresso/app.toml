@@ -133,14 +133,6 @@ task-slots = ["jefe"]
 stacksize = 1200
 extern-regions = ["sram2"]
 
-[signing]
-enable-secure-boot = true
-enable-dice = true
-dice-inc-nxp-cfg = false
-dice-cust-cfg = false
-dice-inc-sec-epoch = false
-boot-error-gpio = { port = 1, pin = 1 } # BOOT0_LED
-
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
 root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

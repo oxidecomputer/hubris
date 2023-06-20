@@ -5150,7 +5150,6 @@ dependencies = [
  "goblin",
  "hubtools",
  "indexmap",
- "lpc55_areas",
  "lpc55_sign",
  "memchr",
  "multimap",
