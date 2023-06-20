@@ -156,9 +156,22 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         &self,
         map: &PortMap,
     ) -> Result<(), VscError> {
+        // For mysterious reasons, the NPI port must be configured before other
+        // ports in the system.  Otherwise, there's a small chance of powering
+        // up in a state where the queues to port 48 are not serviced; this
+        // causes packets to not make it to the local SP.
+        //
+        // The root cause is unknown; see this issue for detailed discussion:
+        // https://github.com/oxidecomputer/hubris/issues/1399
+        const NPI_PORT: u8 = 48;
+        if let Some(cfg) = map.port_config(NPI_PORT) {
+            self.configure_port_from_config(NPI_PORT, cfg)?;
+        }
         for p in 0..map.len() {
-            if let Some(cfg) = map.port_config(p as u8) {
-                self.configure_port_from_config(p as u8, cfg)?;
+            if p != NPI_PORT.into() {
+                if let Some(cfg) = map.port_config(p as u8) {
+                    self.configure_port_from_config(p as u8, cfg)?;
+                }
             }
         }
         self.apply_calendar()?;
