@@ -53,6 +53,7 @@ enum Trace {
     Ident(u16),
     A2Status(u8),
     A2,
+    A2Time(u32),
     A0FailureDetails(Addr, u8),
     A0Failed(SeqError),
     A1Status(u8),
@@ -68,6 +69,7 @@ enum Trace {
     RailsOn,
     UartEnabled,
     A0(u16),
+    A0Time(u32),
     SetState(PowerState, PowerState),
     UpdateState(PowerState),
     ClockConfigWrite,
@@ -775,7 +777,10 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 uart_sp_to_sp3_enable();
                 ringbuf_entry!(Trace::UartEnabled);
-                ringbuf_entry!(Trace::A0((sys_get_timer().now - start) as u16));
+
+                let now = sys_get_timer().now;
+                ringbuf_entry!(Trace::A0((now - start) as u16));
+                ringbuf_entry!(Trace::A0Time((now / 1000) as u32));
 
                 self.update_state_internal(PowerState::A0);
                 Ok(())
@@ -824,6 +829,9 @@ impl<S: SpiServer> ServerImpl<S> {
                 self.update_state_internal(PowerState::A2);
                 ringbuf_entry_v3p3_sys_a0_vout();
                 ringbuf_entry!(Trace::A2);
+
+                let now = sys_get_timer().now;
+                ringbuf_entry!(Trace::A2Time((now / 1000) as u32));
 
                 //
                 // Our rails should be draining.  We'll take two additional
