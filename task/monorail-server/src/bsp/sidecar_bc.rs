@@ -207,6 +207,17 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
+        // DOES THIS WORK?
+        //
+        // For mysterious reasons, the NPI port must be configured before other
+        // ports in the system.  Otherwise, there's a small chance of powering
+        // up in a state where the queues to port 48 are not serviced; this
+        // causes packets to not make it to the local SP.
+        //
+        // The root cause is unknown; see this issue for detailed discussion:
+        // https://github.com/oxidecomputer/hubris/issues/1399
+        self.vsc7448.configure_vlan_none()?;
+
         // Reset internals
         self.vsc8504 = Vsc8504::empty();
         self.front_io_speed = [Speed::Speed1G; 2];

@@ -156,22 +156,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         &self,
         map: &PortMap,
     ) -> Result<(), VscError> {
-        // For mysterious reasons, the NPI port must be configured before other
-        // ports in the system.  Otherwise, there's a small chance of powering
-        // up in a state where the queues to port 48 are not serviced; this
-        // causes packets to not make it to the local SP.
-        //
-        // The root cause is unknown; see this issue for detailed discussion:
-        // https://github.com/oxidecomputer/hubris/issues/1399
-        const NPI_PORT: u8 = 48;
-        if let Some(cfg) = map.port_config(NPI_PORT) {
-            self.configure_port_from_config(NPI_PORT, cfg)?;
-        }
         for p in 0..map.len() {
-            if p != NPI_PORT.into() {
-                if let Some(cfg) = map.port_config(p as u8) {
-                    self.configure_port_from_config(p as u8, cfg)?;
-                }
+            if let Some(cfg) = map.port_config(p as u8) {
+                self.configure_port_from_config(p as u8, cfg)?;
             }
         }
         self.apply_calendar()?;
@@ -711,6 +698,20 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Configures the VLANs to be enabled, but with no ports active
+    pub fn configure_vlan_none(&self) -> Result<(), VscError> {
+        // Enable the VLAN
+        self.write_with(ANA_L3().COMMON().VLAN_CTRL(), |r| r.set_vlan_ena(1))?;
+
+        // By default, there are three VLANs configured in ANA_L3:
+        // 0, 1, and 4095.  We disable all of them, since we only want to
+        // allow very specific VIDs.
+        for vid in [0, 1, 4095] {
+            self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), 0)?;
+        }
+        Ok(())
+    }
+
     /// Configures VLANs for a production-style system.
     ///
     /// For details, see RFD 250, but in brief:
@@ -729,16 +730,6 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         f: fn(u8) -> u64,
     ) -> Result<(), VscError> {
         const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
-
-        // Enable the VLAN
-        self.write_with(ANA_L3().COMMON().VLAN_CTRL(), |r| r.set_vlan_ena(1))?;
-
-        // By default, there are three VLANs configured in ANA_L3:
-        // 0, 1, and 4095.  We disable all of them, since we only want to
-        // allow very specific VIDs.
-        for vid in [0, 1, 4095] {
-            self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), 0)?;
-        }
 
         // Configure the downstream ports, which each have their own VLANs
         for p in (0..=52).filter(|p| *p != UPLINK) {
