@@ -207,14 +207,16 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
-        // DOES THIS WORK?
+        // We must disable frame copying before configuring ports; otherwise, a
+        // rare failure mode can result in queues getting stuck (forever!).  We
+        // disable frame copying by enabling VLANs, then removing all ports from
+        // them!
         //
-        // For mysterious reasons, the NPI port must be configured before other
-        // ports in the system.  Otherwise, there's a small chance of powering
-        // up in a state where the queues to port 48 are not serviced; this
-        // causes packets to not make it to the local SP.
+        // (ports will be added back to VLANs after configuration is done, in
+        // the call to `configure_vlan_semistrict` below)
         //
-        // The root cause is unknown; see this issue for detailed discussion:
+        // The root cause is unknown, but we suspect a hardware race condition
+        // in the switch IC; see this issue for detailed discussion:
         // https://github.com/oxidecomputer/hubris/issues/1399
         self.vsc7448.configure_vlan_none()?;
 
