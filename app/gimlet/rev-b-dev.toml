@@ -1,4 +1,4 @@
-name = "gimlet-b-debug"
+name = "gimlet-b-dev"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-b"
 chip = "../../chips/stm32h7"

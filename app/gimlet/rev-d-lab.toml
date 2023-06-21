@@ -1,4 +1,4 @@
-inherit = "rev-d-debug.toml"
+inherit = "rev-d-dev.toml"
 
 [patches]
 name = "gimlet-d-lab"

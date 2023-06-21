@@ -1,6 +1,6 @@
-name = "sidecar-c-debug"
+name = "sidecar-b-dev"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-c"
+board = "sidecar-b"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
@@ -24,7 +24,7 @@ start = true
 features = ["itm", "dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -98,6 +98,7 @@ task-slots = [
     "sensor",
     "sprot",
     "ignition",
+    "i2c_driver",
     "packrat",
     "transceivers",
 ]
@@ -1136,7 +1137,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_c.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_b.bit"
 compress = true
 tag = "FPGA"
 
