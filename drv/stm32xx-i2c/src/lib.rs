@@ -176,7 +176,7 @@ impl I2cMux<'_> {
         use drv_i2c_api::ResponseCode;
 
         match code {
-            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
+            ResponseCode::NoDevice => ResponseCode::MuxMissing,
             ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
             ResponseCode::BusLocked => ResponseCode::BusLockedMux,
             ResponseCode::BusReset => ResponseCode::BusResetMux,
