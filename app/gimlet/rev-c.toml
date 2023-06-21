@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
@@ -130,6 +130,15 @@ stacksize = 1504
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 notifications = ["timer"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+priority = 5
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 1024
+start = true
+task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"

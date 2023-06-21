@@ -31,7 +31,7 @@ net = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -83,6 +83,15 @@ uses = ["flash_controller"]
 extern-regions = ["bank2"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
+priority = 5
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 1024
+start = true
+task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.validate]
 name = "task-validate"
