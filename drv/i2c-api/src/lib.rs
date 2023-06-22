@@ -97,8 +97,8 @@ pub enum ResponseCode {
     SegmentDisconnected,
     /// Mux disconnected during operation
     MuxDisconnected,
-    /// Address used for mux in-band management is invalid
-    BadMuxAddress,
+    /// No device at address used for mux in-band management
+    MuxMissing,
     /// Register used for mux in-band management is invalid
     BadMuxRegister,
     /// I2C bus was spontaneously reset during operation

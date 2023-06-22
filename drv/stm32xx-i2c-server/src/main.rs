@@ -149,13 +149,37 @@ fn configure_mux(
 
         Some(MuxState::Unknown) => {
             //
-            // We are in an unknown mux state.  Before we can do anything,
-            // we need to successfully talk to every mux, and disable every
-            // segment.  If there is any failure through here, we'll just
-            // return the error, leaving our mux state as unknown.
+            // We are in an unknown mux state.  Before we can do anything, we
+            // need to successfully talk to every mux (or successfully learn
+            // that the mux is gone entirely!), and disable every segment.  If
+            // there is any failure through here that isn't the mux being
+            // affirmatively gone, we'll just return the error, leaving our
+            // mux state as unknown.
             //
             all_muxes(controller, port, muxes, |mux| {
-                mux.driver.enable_segment(mux, controller, None, ctrl)
+                match mux.driver.enable_segment(mux, controller, None, ctrl) {
+                    Err(ResponseCode::MuxMissing) => {
+                        //
+                        // The mux is gone entirely.  We really don't expect
+                        // this on any production system, but it can be true on
+                        // some special lab systems (you know who you are!).
+                        // Regardless of its origin, we can limit the blast
+                        // radius in this case: if the mux is affirmatively
+                        // gone (that is, no device is acking its address), we
+                        // can assume that the mux is absent rather than
+                        // Byzantine -- and therefore assume that its segments
+                        // are as good as disabled and allow other traffic on
+                        // the bus.  So on this error (and only this error), we
+                        // note that we saw it, and drive on.  (Note that
+                        // attempting to speak to a device on a segment on the
+                        // missing mux will properly return MuxMissing -- and
+                        // set our bus's mux state to be unknown.)
+                        //
+                        ringbuf_entry!(Trace::MuxMissing(mux.address));
+                        Ok(())
+                    }
+                    other => other,
+                }
             })?;
 
             //
@@ -208,7 +232,8 @@ enum Trace {
     Reset((Controller, PortIndex)),
     MuxUnknown((Controller, PortIndex)),
     MuxUnknownRecover((Controller, PortIndex)),
-    ResetMux(Mux),
+    MuxMissing(u8),
+    ResetMux(u8),
     SegmentFailed(ResponseCodeU8),
     ConfigureFailed(ResponseCodeU8),
     Wiggles(u8),
@@ -234,7 +259,7 @@ fn reset(
 
     // And now reset all muxes on this bus, eating any errors.
     let _ = all_muxes(controller, port, muxes, |mux| {
-        ringbuf_entry!(Trace::ResetMux(mux.id));
+        ringbuf_entry!(Trace::ResetMux(mux.address));
         let _ = mux.driver.reset(mux, &sys);
         Ok(())
     });
