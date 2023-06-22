@@ -2335,13 +2335,12 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/hubtools#ac7da1a89952d4282bad7c247097aee8b90b82e1"
+version = "0.4.1"
+source = "git+https://github.com/oxidecomputer/hubtools#712a370b077c1481cea6db23ee4573a232779633"
 dependencies = [
  "lpc55_areas",
  "lpc55_sign",
  "object",
- "packed_struct",
  "path-slash",
  "rsa",
  "thiserror",
