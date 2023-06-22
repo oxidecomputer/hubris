@@ -1,6 +1,6 @@
-name = "gimlet-c"
+name = "gimlet-b-dev"
 target = "thumbv7em-none-eabihf"
-board = "gimlet-c"
+board = "gimlet-b"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.net]
 name = "task-net"
@@ -231,6 +231,16 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
@@ -301,7 +311,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -827,15 +837,6 @@ name = "local_vpd"
 description = "Gimlet VPD"
 refdes = "U615"
 
-#
-# M.2 NVMe bus mux. Segments:
-#
-# SEG  CLOCK                              DATA
-#   1  SMBUS_SP_TO_M2A_SMCLK_A2_V3P3      SMBUS_SP_TO_M2A_SMDAT_A2_V3P3
-#   2  SMBUS_SP_TO_M2B_SMCLK_A2_V3P3      SMBUS_SP_TO_M2B_SMDAT_A2_V3P3
-#   3  SMBUS_SP_TO_FAN_FRU_SMCLK_A2_V3P3  SMBUS_SP_TO_FAN_FRU_SMDAT_A2_V3P3
-#   4  SMBUS_SP_TO_NIC_TEMP_SMCLK_A2_V3P3 SMBUS_SP_TO_NIC_TEMP_SMCDAT_A2_V3P3
-#
 [[config.i2c.devices]]
 bus = "m2"
 address = 0x73
@@ -1240,9 +1241,6 @@ outputs = [
 ]
 input = {port = "B", pin = 14, af = 5}
 
-#
-# SP_TO_SEQ_SPI_SS
-#
 [config.spi.spi2.devices.sequencer]
 mux = "port_b"
 cs = [{port = "B", pin = 5}]
@@ -1251,16 +1249,10 @@ cs = [{port = "B", pin = 5}]
 mux = "port_b"
 cs = [{port = "B", pin = 5}]
 
-#
-# SPI_SP_TO_MGMT_MUX_CSN
-#
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
 cs = [{port = "I", pin = 0}]
 
-#
-# SP_TO_FLASH_SPI_CS
-#
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
 cs = [{port = "B", pin = 12}]
@@ -1274,9 +1266,6 @@ outputs = [
 ]
 input = {port = "E", pin = 5, af = 5}
 
-#
-# SPI_SP_TO_ROT_CS_R_L
-#
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]
@@ -1297,6 +1286,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

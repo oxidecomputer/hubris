@@ -1,6 +1,6 @@
-name = "gimlet-c"
+name = "gimlet-d-dev"
 target = "thumbv7em-none-eabihf"
-board = "gimlet-c"
+board = "gimlet-d"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.net]
 name = "task-net"
@@ -231,6 +231,16 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
@@ -301,7 +311,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -360,9 +370,11 @@ description = "M.2 bus"
 scl.pin = 10
 sda.pin = 11
 af = 4
+
 [[config.i2c.controllers.ports.B.muxes]]
 driver = "pca9548"
 address = 0x73
+nreset = { port = "E", pin = 15 } # SP_TO_I2C_SW_M2_A2_V3P3
 
 #
 # SMBUS_SP_TO_LVL_FRONT_SMDAT
@@ -381,14 +393,17 @@ af = 4
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x70
+nreset = { port = "E", pin = 12 } # SP_TO_I2C_SW_CEMABCD_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x71
+nreset = { port = "E", pin = 14 } # SP_TO_I2C_SW_CEMEFGH_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
 driver = "pca9548"
 address = 0x72
+nreset = { port = "E" , pin = 13 } # SP_TO_I2C_SW_CEMIJ_FRU_A2_V3P3
 
 #
 # I2C3: Mid bus
@@ -848,7 +863,7 @@ bus = "m2"
 mux = 1
 segment = 1
 address = 0b110_1010
-device = "m2_hp_only"
+device = "nvme_bmc"
 description = "M.2 A NVMe Basic Management Command"
 name = "M2_A"
 sensors = { temperature = 1 }
@@ -859,7 +874,7 @@ bus = "m2"
 mux = 1
 segment = 2
 address = 0b110_1010
-device = "m2_hp_only"
+device = "nvme_bmc"
 description = "M.2 B NVMe Basic Management Command"
 name = "M2_B"
 sensors = { temperature = 1 }
@@ -1297,6 +1312,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

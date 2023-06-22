@@ -1,6 +1,6 @@
-name = "sidecar-b"
+name = "sidecar-c-dev"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-b"
+board = "sidecar-c"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
@@ -28,7 +28,7 @@ extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -133,6 +133,16 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
 
@@ -298,7 +308,7 @@ stacksize = 800
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -1093,6 +1103,13 @@ port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
 [config.net.sockets.control_plane_agent]
 kind = "udp"
 owner = {name = "control_plane_agent", notification = "socket"}
@@ -1119,7 +1136,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_b.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_c.bit"
 compress = true
 tag = "FPGA"
 

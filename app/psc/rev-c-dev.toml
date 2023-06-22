@@ -1,4 +1,4 @@
-name = "psc-c"
+name = "psc-c-dev"
 target = "thumbv7em-none-eabihf"
 board = "psc-c"
 chip = "../../chips/stm32h7"
@@ -31,7 +31,7 @@ net = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -132,6 +132,7 @@ stacksize = 4096
 start = true
 uses = []
 task-slots = [
+    "i2c_driver",
     "jefe",
     "net",
     "update_server",
@@ -175,6 +176,16 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 5
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
 
@@ -231,7 +242,7 @@ task-slots = ["i2c_driver", "sensor"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 16384, ram = 8192 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -436,6 +447,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

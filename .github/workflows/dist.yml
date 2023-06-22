@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, gimlet-b, gimlet-b-lab, gimlet-c, gimlet-c-lab, gimlet-d, gimlet-d-lab, sidecar-b, sidecar-b-lab, sidecar-c, sidecar-c-lab, psc-b, psc-c, stm32g0, oxide-rot-1, oxide-rot-1-dev, donglet-g031]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, gimlet-b, gimlet-b-lab, gimlet-b-dev, gimlet-c, gimlet-c-lab, gimlet-c-dev, gimlet-d, gimlet-d-lab, gimlet-d-dev, sidecar-b, sidecar-b-lab, sidecar-b-dev, sidecar-c, sidecar-c-lab, sidecar-c-dev, psc-b, psc-b-dev, psc-c, psc-c-dev, stm32g0, oxide-rot-1, oxide-rot-1-dev, donglet-g031]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -68,6 +68,11 @@ jobs:
             app_toml: app/gimlet/rev-b-lab.toml
             target: thumbv7em-none-eabihf
             image: default
+          - build: gimlet-b-dev
+            app_name: gimlet-b-dev
+            app_toml: app/gimlet/rev-b-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
           - build: gimlet-c
             app_name: gimlet-c
             app_toml: app/gimlet/rev-c.toml
@@ -76,6 +81,11 @@ jobs:
           - build: gimlet-c-lab
             app_name: gimlet-c-lab
             app_toml: app/gimlet/rev-c-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-c-dev
+            app_name: gimlet-c-dev
+            app_toml: app/gimlet/rev-c-dev.toml
             target: thumbv7em-none-eabihf
             image: default
           - build: gimlet-d
@@ -88,6 +98,11 @@ jobs:
             app_toml: app/gimlet/rev-d-lab.toml
             target: thumbv7em-none-eabihf
             image: default
+          - build: gimlet-d-dev
+            app_name: gimlet-d-dev
+            app_toml: app/gimlet/rev-d-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
           - build: sidecar-b
             app_name: sidecar-b
             app_toml: app/sidecar/rev-b.toml
@@ -96,6 +111,11 @@ jobs:
           - build: sidecar-b-lab
             app_name: sidecar-b-lab
             app_toml: app/sidecar/rev-b-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: sidecar-b-dev
+            app_name: sidecar-b-dev
+            app_toml: app/sidecar/rev-b-dev.toml
             target: thumbv7em-none-eabihf
             image: default
           - build: sidecar-c
@@ -108,14 +128,29 @@ jobs:
             app_toml: app/sidecar/rev-c-lab.toml
             target: thumbv7em-none-eabihf
             image: default
+          - build: sidecar-c-dev
+            app_name: sidecar-c-dev
+            app_toml: app/sidecar/rev-c-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
           - build: psc-b
             app_name: psc-b
             app_toml: app/psc/rev-b.toml
             target: thumbv7em-none-eabihf
             image: default
+          - build: psc-b-dev
+            app_name: psc-b-dev
+            app_toml: app/psc/rev-b-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
           - build: psc-c
             app_name: psc-c
             app_toml: app/psc/rev-c.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: psc-c-dev
+            app_name: psc-c-dev
+            app_toml: app/psc/rev-c-dev.toml
             target: thumbv7em-none-eabihf
             image: default
           - build: oxide-rot-1
