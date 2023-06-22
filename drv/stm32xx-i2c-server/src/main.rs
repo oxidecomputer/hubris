@@ -158,7 +158,7 @@ fn configure_mux(
             //
             all_muxes(controller, port, muxes, |mux| {
                 match mux.driver.enable_segment(mux, controller, None, ctrl) {
-                    Err(code) if code == ResponseCode::MuxMissing => {
+                    Err(ResponseCode::MuxMissing) => {
                         //
                         // The mux is gone entirely.  We really don't expect
                         // this on any production system, but it can be true on
@@ -178,8 +178,7 @@ fn configure_mux(
                         ringbuf_entry!(Trace::MuxMissing(mux.address));
                         Ok(())
                     }
-                    Err(code) => Err(code),
-                    Ok(()) => Ok(()),
+                    other => other,
                 }
             })?;
 
