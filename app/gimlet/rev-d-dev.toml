@@ -1,4 +1,4 @@
-name = "gimlet-d"
+name = "gimlet-d-dev"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-d"
 chip = "../../chips/stm32h7"
@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 
 [tasks.net]
 name = "task-net"
@@ -228,6 +228,16 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
 task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
 
@@ -1302,6 +1312,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

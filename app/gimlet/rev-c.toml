@@ -34,7 +34,7 @@ spd = "jefe-state-change"
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "control_plane_agent", "udprpc"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
@@ -231,16 +231,6 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
-[tasks.udprpc]
-name = "task-udprpc"
-priority = 6
-max-sizes = {flash = 32768, ram = 8192}
-stacksize = 4096
-start = true
-task-slots = ["net"]
-features = ["vlan"]
-notifications = ["socket"]
-
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
@@ -287,13 +277,13 @@ interrupts = {"spi4.irq" = "spi-irq"}
 name = "task-validate"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096 }
-stacksize = 1000 
+stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
 
 [tasks.vpd]
 name = "task-vpd"
-priority = 5 
+priority = 4
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
@@ -370,7 +360,9 @@ description = "M.2 bus"
 scl.pin = 10
 sda.pin = 11
 af = 4
-muxes = [ { driver = "pca9548", address = 0x73 } ]
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9548"
+address = 0x73
 
 #
 # SMBUS_SP_TO_LVL_FRONT_SMDAT
@@ -1268,7 +1260,7 @@ cs = [{port = "I", pin = 0}]
 
 #
 # SP_TO_FLASH_SPI_CS
-# 
+#
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
 cs = [{port = "B", pin = 12}]
@@ -1305,13 +1297,6 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
-
-[config.net.sockets.rpc]
-kind = "udp"
-owner = {name = "udprpc", notification = "socket"}
-port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 

@@ -1,4 +1,4 @@
-inherit = "rev-b.toml"
+inherit = "rev-b-dev.toml"
 
 [patches]
 name = "sidecar-b-lab"
