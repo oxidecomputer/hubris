@@ -624,21 +624,38 @@ pub fn validate_programmed(start: u32, len: u32) -> bool {
         return false;
     }
 
-    let v = handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_verify_erase)(&mut f, start, len)
-    });
+    // flash_verify_erased returns true iff all flash pages in the range are
+    // erased.  If at least one is programmed, it returns false.  Since we want
+    // to know that all pages are programmed, we need to check each page
+    // individually.
+    let page_size = FLASH_PAGE_SIZE as u32;
+    let page_aligned_start = start - (start % page_size);
+    let page_aligned_end = {
+        let end = start + len;
+        (end + page_size - 1) - ((end + page_size - 1) % page_size)
+    };
 
-    // This looks backwards because we're validating that something is
-    // programmed and the flash API is validating something that is erased.
-    // CommandFailed means the flash _is_ programmed.
-    match v {
-        Ok(_) => false,
-        Err(FlashStatus::CommandFailure) => true,
-        Err(_) => false,
+    for page in
+        (page_aligned_start..page_aligned_end).step_by(page_size as usize)
+    {
+        let v = handle_flash_status(unsafe {
+            (bootloader_tree()
+                .flash_driver
+                .version1_flash_driver
+                .flash_verify_erase)(&mut f, page, page_size)
+        });
+
+        match v {
+            // Page is erased
+            Ok(_) => return false,
+            // Page is programmed
+            Err(FlashStatus::CommandFailure) => continue,
+            // Some other error was encountered
+            Err(_) => return false,
+        }
     }
+
+    true
 }
 
 pub fn get_key_code(
