@@ -198,7 +198,7 @@ impl PersistIdSelfCertBuilder {
         pid: &PlatformId,
         public_key: &PublicKey,
     ) -> Self {
-        Self(persistid_cert_tmpl::CERT_TMPL.clone())
+        Self(persistid_cert_tmpl::CERT_TMPL)
             .set_issuer_cn(pid)
             .set_subject_cn(pid)
             .set_serial_number(cert_sn)
@@ -259,7 +259,7 @@ impl DeviceIdCertBuilder {
         dname_cn: &PlatformId,
         public_key: &PublicKey,
     ) -> Self {
-        Self(deviceid_cert_tmpl::CERT_TMPL.clone())
+        Self(deviceid_cert_tmpl::CERT_TMPL)
             .set_serial_number(cert_sn)
             .set_issuer_cn(dname_cn)
             .set_pub(public_key.as_bytes())
@@ -318,7 +318,7 @@ impl AliasCertBuilder {
         public_key: &PublicKey,
         fwid: &[u8; FWID_LENGTH],
     ) -> Self {
-        Self(alias_cert_tmpl::CERT_TMPL.clone())
+        Self(alias_cert_tmpl::CERT_TMPL)
             .set_serial_number(cert_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)
@@ -373,7 +373,7 @@ impl SpMeasureCertBuilder {
         public_key: &PublicKey,
         fwid: &[u8; FWID_LENGTH],
     ) -> Self {
-        Self(spmeasure_cert_tmpl::CERT_TMPL.clone())
+        Self(spmeasure_cert_tmpl::CERT_TMPL)
             .set_serial_number(cert_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)
@@ -436,7 +436,7 @@ impl TrustQuorumDheCertBuilder {
         public_key: &PublicKey,
         fwid: &[u8; FWID_LENGTH],
     ) -> Self {
-        Self(trust_quorum_dhe_cert_tmpl::CERT_TMPL.clone())
+        Self(trust_quorum_dhe_cert_tmpl::CERT_TMPL)
             .set_serial_number(cert_sn)
             .set_pub(public_key.as_bytes())
             .set_fwid(fwid)

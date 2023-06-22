@@ -121,9 +121,7 @@ impl Cdi {
     /// copies the contents of the DICE registers into a Cdi instance that's
     /// returned to the caller before clearing the DICE registers. This side
     /// effect causes subsequent calls to this function to return None.
-    pub fn from_reg<'a>(
-        syscon: &'a lpc55_pac::syscon::RegisterBlock,
-    ) -> Option<Self> {
+    pub fn from_reg(syscon: &lpc55_pac::syscon::RegisterBlock) -> Option<Self> {
         let mut cdi = [0u8; SEED_LENGTH];
         // If the CDI register hasn't already been cleared it will be when
         // this instance goes out of scope.
@@ -190,7 +188,7 @@ impl CertSerialNumber {
         Self(csn)
     }
 
-    pub fn next(&mut self) -> Self {
+    pub fn next_num(&mut self) -> Self {
         let next = Self(self.0);
         self.0 += 1;
 

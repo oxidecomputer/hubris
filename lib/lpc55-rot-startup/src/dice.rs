@@ -115,7 +115,7 @@ fn gen_deviceid_artifacts(
     let deviceid_keypair = Keypair::from(devid_okm.as_bytes());
 
     let deviceid_cert = DeviceIdCertBuilder::new(
-        &cert_serial_number.next(),
+        &cert_serial_number.next_num(),
         &platform_id,
         &deviceid_keypair.public,
     )
@@ -145,7 +145,7 @@ fn gen_alias_artifacts(
     let alias_keypair = Keypair::from(alias_okm.as_bytes());
 
     let alias_cert = AliasCertBuilder::new(
-        &cert_serial_number.next(),
+        &cert_serial_number.next_num(),
         &alias_keypair.public,
         fwid,
     )
@@ -155,7 +155,7 @@ fn gen_alias_artifacts(
     let tqdhe_keypair = Keypair::from(tqdhe_okm.as_bytes());
 
     let tqdhe_cert = TrustQuorumDheCertBuilder::new(
-        &cert_serial_number.next(),
+        &cert_serial_number.next_num(),
         &tqdhe_keypair.public,
         fwid,
     )
@@ -180,7 +180,7 @@ fn gen_spmeasure_artifacts(
     let spmeasure_keypair = Keypair::from(spmeasure_okm.as_bytes());
 
     let spmeasure_cert = SpMeasureCertBuilder::new(
-        &cert_serial_number.next(),
+        &cert_serial_number.next_num(),
         &spmeasure_keypair.public,
         fwid,
     )

@@ -207,6 +207,19 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             )?;
         }
 
+        // We must disable frame copying before configuring ports; otherwise, a
+        // rare failure mode can result in queues getting stuck (forever!).  We
+        // disable frame copying by enabling VLANs, then removing all ports from
+        // them!
+        //
+        // (ports will be added back to VLANs after configuration is done, in
+        // the call to `configure_vlan_semistrict` below)
+        //
+        // The root cause is unknown, but we suspect a hardware race condition
+        // in the switch IC; see this issue for detailed discussion:
+        // https://github.com/oxidecomputer/hubris/issues/1399
+        self.vsc7448.configure_vlan_none()?;
+
         // Reset internals
         self.vsc8504 = Vsc8504::empty();
         self.front_io_speed = [Speed::Speed1G; 2];

@@ -9,7 +9,6 @@ use crate::{
 use dice_mfg_msgs::{MessageHash, MfgMessage, PlatformId, SizedBlob};
 use lib_lpc55_usart::{Read, Usart, Write};
 use lpc55_pac::SYSCON;
-use nb;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
 use unwrap_lite::UnwrapLite;
@@ -74,7 +73,7 @@ impl DiceMfg for SelfMfg<'_> {
                 .unwrap_lite();
 
         let persistid_cert = PersistIdSelfCertBuilder::new(
-            &cert_sn.next(),
+            &cert_sn.next_num(),
             &platform_id,
             &self.keypair.public,
         )
@@ -150,7 +149,7 @@ impl<'a> SerialMfg<'a> {
             &self.platform_id.unwrap_lite(),
             &self.keypair.public,
         )
-        .sign(&self.keypair);
+        .sign(self.keypair);
 
         self.send_csr(csr)
     }
@@ -252,7 +251,7 @@ impl DiceMfg for SerialMfg<'_> {
                         // absent from the SVD file, which means it's absent
                         // from the lpc55_pac crate. It's at byte offset 0x450.
                         let reg: &lpc55_pac::syscon::RegisterBlock =
-                            &**self.syscon;
+                            self.syscon;
                         let base: *const u8 = reg as *const _ as *const u8;
                         let register = base as usize + 0x450;
 
