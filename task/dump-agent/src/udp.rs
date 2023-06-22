@@ -8,6 +8,7 @@ use ringbuf::*;
 use task_net_api::{
     LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
 };
+use userlib::*;
 
 static_assertions::const_assert_eq!(
     DUMP_READ_SIZE,
@@ -182,6 +183,9 @@ impl ServerImpl {
                 Request::ReinitializeDumpFrom { index } => self
                     .reinitialize_dump_from(index)
                     .map(|()| Response::ReinitializeDumpFrom)?,
+                Request::GetImageId => {
+                    Response::GetImageId(kipc::read_image_id().to_le_bytes())
+                }
             },
             Err(e) => {
                 // This message is from a newer version, so it makes sense that
