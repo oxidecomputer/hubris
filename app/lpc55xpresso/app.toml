@@ -8,7 +8,7 @@ image-names = ["a", "b"]
 [kernel]
 name = "lpc55xpresso"
 features = ["dump", "dice-self"]
-requires = {flash = 53888, ram = 4096}
+requires = {flash = 54016, ram = 4096}
 
 [tasks.jefe]
 name = "task-jefe"
