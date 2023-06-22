@@ -183,7 +183,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 32768, ram = 32768}
+max-sizes = {flash = 33056, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
