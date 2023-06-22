@@ -56,6 +56,11 @@ impl<'a> Handoff<'a> {
             .expect("handoff store header");
 
         // Serialize the data
-        n + hubpack::serialize(&mut dst[n..], t).expect("handoff store value")
+        let n = n + hubpack::serialize(&mut dst[n..], t)
+            .expect("handoff store value");
+
+        dst[n..].fill(0);
+
+        n
     }
 }
