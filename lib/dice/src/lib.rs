@@ -295,7 +295,7 @@ impl RngSeed {
 }
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct PersistIdCert(SizedBlob);
+pub struct PersistIdCert(pub SizedBlob);
 
 #[derive(Deserialize, Serialize, SerializedSize)]
-pub struct IntermediateCert(SizedBlob);
+pub struct IntermediateCert(pub SizedBlob);

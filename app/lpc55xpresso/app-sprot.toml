@@ -183,7 +183,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 32768, ram = 32768}
+max-sizes = {flash = 33056, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
@@ -207,6 +207,14 @@ pins = [
     # SP_RESET = P1_5 = FUN0 (not connected)
     { name = "SP_RESET", pin = { port = 1, pin = 5}, alt = 0, direction = "input"},
 ]
+
+[tasks.attest]
+name = "task-attest"
+priority = 5
+max-sizes = {flash = 12256, ram = 16384}
+stacksize = 9000
+start = true
+extern-regions = ["dice_alias", "dice_certs"]
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

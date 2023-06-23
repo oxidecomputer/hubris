@@ -1,0 +1,45 @@
+// Interface to 'attest' task.
+
+Interface(
+    name: "Attest",
+    ops: {
+        "cert_chain_len": (
+            doc: "Get the number of certs in the attestation cert chain",
+            args: {},
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cert": (
+            doc: "Get a cert from the RoT-R",
+            args: {
+				"index" : "u32",
+                "offset" : "u32",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cert_len": (
+            doc: "Get length of a cert in the cert chain",
+            args: {
+                "index" : "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        )
+    }
+)
