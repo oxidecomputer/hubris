@@ -262,7 +262,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), RequestError<RawCabooseError>> {
         let caboose = caboose_slice(&self.flash, slot)?;
-        if offset as usize + data.len() >= caboose.len() {
+        if offset as usize + data.len() > caboose.len() {
             return Err(RawCabooseError::InvalidRead.into());
         }
         copy_from_caboose_chunk(
