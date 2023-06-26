@@ -321,6 +321,27 @@ impl ServerImpl {
                     final_payload_len,
                 )
             }
+            HostRequest::StatusV2(modules) => {
+                ringbuf_entry!(Trace::Status(modules));
+                let mask = LogicalPortMask::from(modules);
+                let (num_status_bytes, result) = self.get_status_v2(mask, out);
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
+                let success = ModuleId::from(result.success());
+                let (err_len, errored_modules) = self.handle_errors(
+                    modules,
+                    result,
+                    &mut out[num_status_bytes..],
+                );
+                let final_payload_len = num_status_bytes + err_len;
+
+                (
+                    MessageBody::SpResponse(SpResponse::Status {
+                        modules: success,
+                        failed_modules: errored_modules,
+                    }),
+                    final_payload_len,
+                )
+            }
             HostRequest::Read { modules, read } => {
                 ringbuf_entry!(Trace::Read(modules, read));
                 // The host is not setting the the upper 32 bits at this time,
@@ -582,6 +603,10 @@ impl ServerImpl {
                     num_err_bytes,
                 )
             }
+            HostRequest::ClearDisableLatch(modules) => {
+                let cleared = modules & self.disabled;
+                self.disabled &= !modules
+            }
         }
     }
 
@@ -738,6 +763,60 @@ impl ServerImpl {
             // Convert from Status -> u8 and write to the output buffer
             out[count] = status.bits();
             count += 1;
+        }
+        (count, desired_result)
+    }
+
+    fn get_status_v2(
+        &mut self,
+        modules: LogicalPortMask,
+        out: &mut [u8],
+    ) -> (usize, ModuleResultNoFailure) {
+        // This will get the status of every module, so we will have to only
+        // select the data which was requested.
+        let (mod_status, full_result) = self.transceivers.get_module_status();
+        // adjust the result success mask to be only our requested modules
+        let desired_result = ModuleResultNoFailure::new(
+            full_result.success() & modules,
+            full_result.error() & modules,
+        )
+        .unwrap();
+
+        // Write one u32 bitfield per active port in the ModuleId which was
+        // successfully retrieved above.
+        let mut count = 0;
+        for mask in modules
+            .to_indices()
+            .filter(|&p| desired_result.success().is_set(p))
+            .map(|p| p.as_mask())
+        {
+            let mut status = StatusV2::empty();
+            if (mod_status.power_enable & mask.0) != 0 {
+                status |= StatusV2::ENABLED;
+            }
+            if (!mod_status.resetl & mask.0) != 0 {
+                status |= StatusV2::RESET;
+            }
+            if (mod_status.lpmode_txdis & mask.0) != 0 {
+                status |= StatusV2::LOW_POWER_MODE;
+            }
+            if (!mod_status.modprsl & mask.0) != 0 {
+                status |= StatusV2::PRESENT;
+            }
+            if (!mod_status.intl_rxlosl & mask.0) != 0 {
+                status |= StatusV2::INTERRUPT;
+            }
+            if (mod_status.power_good & mask.0) != 0 {
+                status |= StatusV2::POWER_GOOD;
+            }
+            if (mod_status.power_good_timeout & mask.0) != 0 {
+                status |= StatusV2::FAULT_POWER_TIMEOUT;
+            }
+            if (mod_status.power_good_fault & mask.0) != 0 {
+                status |= StatusV2::FAULT_POWER_LOST;
+            }
+            count +=
+                hubpack::serialize(&mut out[count..], &status.bits()).unwrap();
         }
         (count, desired_result)
     }
