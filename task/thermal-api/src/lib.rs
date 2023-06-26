@@ -210,12 +210,41 @@ impl From<SensorReadError> for task_sensor_api::NoData {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct ThermalSensorErrors {
-    /// Current (active) error
-    pub curr: Option<(SensorId, SensorReadError)>,
+pub struct TimestampedSensorError {
+    timestamp: u64,
+    id: SensorId,
+    err: SensorReadError,
+}
 
-    /// Previous error (saved from before the most recent system reset)
-    pub prev: Option<(SensorId, SensorReadError)>,
+impl Default for TimestampedSensorError {
+    fn default() -> Self {
+        TimestampedSensorError {
+            timestamp: 0,
+            id: SensorId(u32::MAX),
+            err: SensorReadError::NoData,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default, Serialize, Deserialize, SerializedSize)]
+pub struct ThermalSensorErrors {
+    pub values: [TimestampedSensorError; 16],
+    pub next: u32,
+}
+
+impl ThermalSensorErrors {
+    pub fn clear(&mut self) {
+        self.values = Default::default();
+        self.next = 0;
+    }
+
+    pub fn push(&mut self, id: SensorId, err: SensorReadError) {
+        if let Some(v) = self.values.get_mut(self.next as usize) {
+            let timestamp = userlib::sys_get_timer().now;
+            *v = TimestampedSensorError { id, err, timestamp };
+            self.next += 1;
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

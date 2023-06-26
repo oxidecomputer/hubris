@@ -4452,6 +4452,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
