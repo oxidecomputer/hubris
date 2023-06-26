@@ -333,6 +333,19 @@ impl I2cDevice {
 }
 
 impl I2cDevice {
+    fn response_code<V>(&self, code: u32, val: V) -> Result<V, ResponseCode> {
+        if code != 0 {
+            if let Some(_g) = userlib::extract_new_generation(code) {
+                panic!("i2c reset");
+            }
+
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(val)
+        }
+    }
+
     ///
     /// Reads a register, with register address of type R and value of type V.
     ///
@@ -370,12 +383,7 @@ impl I2cDevice {
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(val)
-        }
+        self.response_code(code, val)
     }
 
     ///
@@ -403,12 +411,7 @@ impl I2cDevice {
             &[Lease::from(reg.as_bytes()), Lease::from(buf)],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(response)
-        }
+        self.response_code(code, response)
     }
 
     ///
@@ -438,12 +441,7 @@ impl I2cDevice {
             &[Lease::from(reg.as_bytes()), Lease::from(buf)],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(response)
-        }
+        self.response_code(code, response)
     }
 
     ///
@@ -470,12 +468,7 @@ impl I2cDevice {
             &[Lease::read_only(&[]), Lease::from(val.as_bytes_mut())],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(val)
-        }
+        self.response_code(code, val)
     }
 
     ///
@@ -499,12 +492,7 @@ impl I2cDevice {
             &[Lease::read_only(&[]), Lease::from(buf)],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(response)
-        }
+        self.response_code(code, response)
     }
 
     ///
@@ -527,12 +515,7 @@ impl I2cDevice {
             &[Lease::from(buffer), Lease::read_only(&[])],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(())
-        }
+        self.response_code(code, ())
     }
 
     ///
@@ -569,12 +552,7 @@ impl I2cDevice {
             ],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(val)
-        }
+        self.response_code(code, val)
     }
 
     ///
@@ -616,12 +594,7 @@ impl I2cDevice {
             ],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(response)
-        }
+        self.response_code(code, response)
     }
 
     ///
@@ -656,12 +629,7 @@ impl I2cDevice {
             ],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(())
-        }
+        self.response_code(code, ())
     }
 
     ///
@@ -701,11 +669,6 @@ impl I2cDevice {
             ],
         );
 
-        if code != 0 {
-            Err(ResponseCode::from_u32(code)
-                .ok_or(ResponseCode::BadResponse)?)
-        } else {
-            Ok(val)
-        }
+        self.response_code(code, val)
     }
 }

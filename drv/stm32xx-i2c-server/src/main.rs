@@ -261,15 +261,15 @@ fn reset(
     let _ = all_muxes(controller, port, muxes, |mux| {
         ringbuf_entry!(Trace::ResetMux(mux.address));
         let _ = mux.driver.reset(mux, &sys);
+
+        //
+        // We now consider ourselves to be in an Unknown state:  it will
+        // be up to the next transaction on this bus to properly set the
+        // mux state.
+        //
+        muxmap.insert(bus, MuxState::Unknown);
         Ok(())
     });
-
-    //
-    // We now consider ourselves to be in an Unknown state:  it will
-    // be up to the next transaction on this bus to properly set the
-    // mux state.
-    //
-    muxmap.insert(bus, MuxState::Unknown);
 }
 
 fn reset_needed(code: ResponseCode) -> bool {
