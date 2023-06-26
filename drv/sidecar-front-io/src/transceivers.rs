@@ -105,7 +105,7 @@ impl FpgaPortMasks {
 }
 
 /// Represents a single logical port (0-31)
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct LogicalPort(pub u8);
 impl LogicalPort {
     pub fn as_mask(&self) -> LogicalPortMask {
