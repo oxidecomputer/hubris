@@ -893,6 +893,9 @@ impl ServerImpl {
             if (mod_status.power_good_fault & mask.0) != 0 {
                 status |= StatusV2::FAULT_POWER_LOST;
             }
+            if !(self.disabled & mask).is_empty() {
+                status |= StatusV2::DISABLED_BY_SP;
+            }
             count +=
                 hubpack::serialize(&mut out[count..], &status.bits()).unwrap();
         }
