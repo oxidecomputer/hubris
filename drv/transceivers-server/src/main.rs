@@ -64,6 +64,7 @@ enum Trace {
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
+    DisableFailed(usize, LogicalPortMask),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -84,6 +85,12 @@ struct ServerImpl {
     led_states: LedStates,
     blink_on: bool,
     system_led_state: LedState,
+
+    /// Modules that are physically present but disabled by Hubris
+    disabled: LogicalPortMask,
+
+    /// Number of consecutive NACKS seen on a given port
+    consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
     thermal_api: Thermal,
@@ -308,7 +315,8 @@ impl ServerImpl {
             let mask = 1 << i;
             let operational = (!status.modprsl & mask) != 0
                 && (status.power_good & mask) != 0
-                && (status.resetl & mask) != 0;
+                && (status.resetl & mask) != 0
+                && (self.disabled & port).is_empty();
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
@@ -357,6 +365,9 @@ impl ServerImpl {
             }
         }
 
+        // Accumulate ports to disable (but don't disable them in the loop), to
+        // avoid issues with the borrow checker.
+        let mut to_disable = LogicalPortMask(0);
         for (i, m) in self.thermal_models.iter().enumerate() {
             let port = LogicalPort(i as u8);
             let m = match m {
@@ -395,6 +406,7 @@ impl ServerImpl {
                     {
                         ringbuf_entry!(Trace::SensorError(i, e));
                     }
+                    self.consecutive_nacks[i] = 0;
                 }
                 // We failed to read a temperature :(
                 //
@@ -403,21 +415,55 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
+                    use Reg::QSFP::PORT0_STATUS::Encoded;
+                    match Encoded::from_u8(e) {
                         Some(val) => {
+                            if matches!(val, Encoded::I2cAddressNack) {
+                                self.consecutive_nacks[i] += 1;
+                                if self.consecutive_nacks[i] == 3 {
+                                    to_disable.set(port);
+                                }
+                            } else {
+                                self.consecutive_nacks[i] = 0;
+                            }
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
                         None => {
                             // Error code cannot be decoded
-                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
+                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e));
+                            self.consecutive_nacks[i] = 0;
                         }
                     }
                 }
                 Err(e) => {
+                    self.consecutive_nacks[i] = 0;
                     ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
                 }
             }
         }
+        if !to_disable.is_empty() {
+            self.disable_ports(to_disable);
+        }
+    }
+
+    fn disable_ports(&mut self, mask: LogicalPortMask) {
+        for port in mask.to_indices() {
+            self.thermal_models[port.0 as usize] = None;
+        }
+        for (step, f) in [
+            Transceivers::assert_reset,
+            Transceivers::assert_lpmode,
+            Transceivers::disable_power,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let err = f(&mut self.transceivers, mask).error();
+            if !err.is_empty() {
+                ringbuf_entry!(Trace::DisableFailed(step, err));
+            }
+        }
+        self.disabled |= mask;
     }
 }
 
@@ -555,6 +601,8 @@ fn main() -> ! {
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
             blink_on: false,
             system_led_state: LedState::Off,
+            disabled: LogicalPortMask(0),
+            consecutive_nacks: [0; NUM_PORTS as usize],
             thermal_api,
             sensor_api,
             thermal_models: [None; NUM_PORTS as usize],
