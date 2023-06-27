@@ -115,13 +115,5 @@ Interface(
                 err: CLike("ThermalError"),
             ),
         ),
-        "get_sensor_read_errors": (
-            doc: "returns the sensor blackbox data",
-            reply: Result(
-                ok: "ThermalSensorErrors",
-                err: CLike("ThermalError"),
-            ),
-            encoding: Hubpack
-        ),
     },
 )

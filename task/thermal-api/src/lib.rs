@@ -10,7 +10,6 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use task_sensor_api::SensorId;
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -207,15 +206,6 @@ impl From<SensorReadError> for task_sensor_api::NoData {
             _ => Self::DeviceError,
         }
     }
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct ThermalSensorErrors {
-    /// Current (active) error
-    pub curr: Option<(SensorId, SensorReadError)>,
-
-    /// Previous error (saved from before the most recent system reset)
-    pub prev: Option<(SensorId, SensorReadError)>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
