@@ -68,7 +68,7 @@ enum Trace {
     RailsOn,
     UartEnabled,
     A0(u16),
-    SetState(PowerState, PowerState),
+    SetState(PowerState, PowerState, u64),
     UpdateState(PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -621,7 +621,8 @@ impl<S: SpiServer> ServerImpl<S> {
     ) -> Result<(), SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
-        ringbuf_entry!(Trace::SetState(self.state, state));
+        let now = sys_get_timer().now;
+        ringbuf_entry!(Trace::SetState(self.state, state, now));
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
