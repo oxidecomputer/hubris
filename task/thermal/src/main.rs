@@ -75,6 +75,7 @@ enum Trace {
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),
+    PowerDownAt(u64),
 }
 ringbuf!(Trace, 32, Trace::None);
 

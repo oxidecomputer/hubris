@@ -226,6 +226,10 @@ pub struct ThermalSensorErrors {
 }
 
 impl ThermalSensorErrors {
+    pub fn is_empty(&self) -> bool {
+        self.next == 0
+    }
+
     pub fn clear(&mut self) {
         self.values = Default::default();
         self.next = 0;
@@ -806,8 +810,6 @@ impl<'a> ThermalControl<'a> {
 
                 if any_power_down {
                     self.state = ThermalControlState::Uncontrollable;
-                    *self.prev_err_blackbox = *self.err_blackbox;
-                    self.err_blackbox.clear();
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::PowerDown
@@ -942,6 +944,9 @@ impl<'a> ThermalControl<'a> {
                 self.set_pwm(target_pwm)?;
             }
             ControlResult::PowerDown => {
+                ringbuf_entry!(Trace::PowerDownAt(sys_get_timer().now));
+                *self.prev_err_blackbox = *self.err_blackbox;
+                self.err_blackbox.clear();
                 if let Err(e) = self.bsp.power_down() {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
