@@ -633,9 +633,10 @@ impl ServerImpl {
     }
 
     /// This function reads a `ModuleResult` and populates and failure or error
-    /// information at the end of the trailing data buffer. This means it should
-    /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResultNoFailure` is returned, use `handle_errors` or
+    /// information at the end of the trailing data buffer, taking
+    /// `self.disabled` into account. This means it should be called as the last
+    /// operation before sending the response. For results where a
+    /// `ModuleResultNoFailure` is returned, use `handle_errors` or
     /// `handle_errors_and_disabled` instead.
     fn handle_errors_and_failures_and_disabled(
         &mut self,
@@ -695,6 +696,7 @@ impl ServerImpl {
             error_idx,
             ModuleId(
                 requested_invalid_modules.0
+                    | requested_disabled_modules.0
                     | result.failure().0 as u64
                     | result.error().0 as u64,
             ),
@@ -702,10 +704,10 @@ impl ServerImpl {
     }
 
     /// This function reads a `ModuleResultNoFailure` and populates error
-    /// information at the end of the trailing data buffer. This means it should
-    /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResult` is returned, use
-    /// `handle_errors_and_failures_and_disabled` instead.
+    /// information at the end of the trailing data buffer, ignoring
+    /// `self.disabled`. This means it should be called as the last operation
+    /// before sending the response. For results where a `ModuleResult` is
+    /// returned, use `handle_errors_and_failures_and_disabled` instead.
     fn handle_errors(
         &mut self,
         modules: ModuleId,
@@ -747,10 +749,10 @@ impl ServerImpl {
     }
 
     /// This function reads a `ModuleResultNoFailure` and populates error
-    /// information at the end of the trailing data buffer. This means it should
-    /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResult` is returned, use
-    /// `handle_errors_and_failures_and_disabled` instead.
+    /// information at the end of the trailing data buffer, taking `self.data`
+    /// into account. This means it should be called as the last operation
+    /// before sending the response. For results where a `ModuleResult` is
+    /// returned, use `handle_errors_and_failures_and_disabled` instead.
     fn handle_errors_and_disabled(
         &mut self,
         modules: ModuleId,
