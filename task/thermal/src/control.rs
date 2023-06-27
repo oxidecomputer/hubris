@@ -226,11 +226,6 @@ pub struct ThermalSensorErrors {
 }
 
 impl ThermalSensorErrors {
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.next == 0
-    }
-
     pub fn clear(&mut self) {
         self.values = Default::default();
         self.next = 0;

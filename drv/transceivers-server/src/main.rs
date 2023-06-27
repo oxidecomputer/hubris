@@ -397,6 +397,7 @@ impl ServerImpl {
                     continue;
                 }
             };
+            let mut got_nack = false;
             match temperature {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
@@ -406,7 +407,6 @@ impl ServerImpl {
                     {
                         ringbuf_entry!(Trace::SensorError(i, e));
                     }
-                    self.consecutive_nacks[i] = 0;
                 }
                 // We failed to read a temperature :(
                 //
@@ -418,27 +418,27 @@ impl ServerImpl {
                     use Reg::QSFP::PORT0_STATUS::Encoded;
                     match Encoded::from_u8(e) {
                         Some(val) => {
-                            if matches!(val, Encoded::I2cAddressNack) {
-                                self.consecutive_nacks[i] += 1;
-                                if self.consecutive_nacks[i] == 3 {
-                                    to_disable.set(port);
-                                }
-                            } else {
-                                self.consecutive_nacks[i] = 0;
-                            }
+                            got_nack |= matches!(val, Encoded::I2cAddressNack);
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
                         None => {
                             // Error code cannot be decoded
                             ringbuf_entry!(Trace::InvalidPortStatusError(i, e));
-                            self.consecutive_nacks[i] = 0;
                         }
                     }
                 }
                 Err(e) => {
-                    self.consecutive_nacks[i] = 0;
                     ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
                 }
+            }
+
+            self.consecutive_nacks[i] = if got_nack {
+                self.consecutive_nacks[i].wrapping_add(1)
+            } else {
+                0
+            };
+            if self.consecutive_nacks[i] >= 3 {
+                to_disable.set(port);
             }
         }
         if !to_disable.is_empty() {
