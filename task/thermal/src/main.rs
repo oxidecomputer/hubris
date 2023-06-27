@@ -76,6 +76,8 @@ enum Trace {
     FanAdded(Fan),
     FanRemoved(Fan),
     PowerDownAt(u64),
+    AddedDynamicInput(usize),
+    RemovedDynamicInput(usize),
 }
 ringbuf!(Trace, 32, Trace::None);
 

@@ -57,6 +57,7 @@ enum Trace {
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
+    RemovedDisabledModule(usize),
     TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     SensorError(usize, SensorError),
@@ -361,7 +362,11 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::SensorError(i, e));
                 }
 
-                ringbuf_entry!(Trace::UnpluggedModule(i));
+                if (self.disabled & port).is_empty() {
+                    ringbuf_entry!(Trace::UnpluggedModule(i));
+                } else {
+                    ringbuf_entry!(Trace::RemovedDisabledModule(i));
+                }
                 self.thermal_models[i] = None;
             }
         }
@@ -449,9 +454,6 @@ impl ServerImpl {
 
     fn disable_ports(&mut self, mask: LogicalPortMask) {
         ringbuf_entry!(Trace::DisablingPorts(mask));
-        for port in mask.to_indices() {
-            self.thermal_models[port.0 as usize] = None;
-        }
         for (step, f) in [
             Transceivers::assert_reset,
             Transceivers::deassert_lpmode,
@@ -466,6 +468,9 @@ impl ServerImpl {
             }
         }
         self.disabled |= mask;
+        // We don't modify self.thermal_models here; that's left to
+        // `update_thermal_loop`, which is in charge of communicating with
+        // the `sensors` and `thermal` tasks.
     }
 }
 
