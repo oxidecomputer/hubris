@@ -495,8 +495,10 @@ impl<'a> ThermalControl<'a> {
     /// This function can only be called once, because it claims mutable static
     /// buffers.
     pub fn new(bsp: &'a Bsp, i2c_task: TaskId, sensor_api: SensorApi) -> Self {
-        let [err, prev_err] = mutable_statics::mutable_statics! {
-            static mut ERR_BLACKBOX: [ThermalSensorErrors; 2] = [Default::default; _];
+        use mutable_statics::mutable_statics;
+        let [err_blackbox, prev_err_blackbox] = mutable_statics! {
+            static mut ERR_BLACKBOX: [ThermalSensorErrors; 2] =
+                [Default::default; _];
         };
         Self {
             bsp,
@@ -518,8 +520,8 @@ impl<'a> ThermalControl<'a> {
             fans: Fans::new(),
             last_pwm: PWMDuty(0),
 
-            err_blackbox: err,
-            prev_err_blackbox: prev_err,
+            err_blackbox,
+            prev_err_blackbox,
         }
     }
 
