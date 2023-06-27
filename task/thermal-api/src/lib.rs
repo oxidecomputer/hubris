@@ -10,7 +10,6 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use task_sensor_api::SensorId;
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -205,44 +204,6 @@ impl From<SensorReadError> for task_sensor_api::NoData {
         match code {
             SensorReadError::I2cError(v) => v.into(),
             _ => Self::DeviceError,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub struct TimestampedSensorError {
-    timestamp: u64,
-    id: SensorId,
-    err: SensorReadError,
-}
-
-impl Default for TimestampedSensorError {
-    fn default() -> Self {
-        TimestampedSensorError {
-            timestamp: 0,
-            id: SensorId(u32::MAX),
-            err: SensorReadError::NoData,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Default, Serialize, Deserialize, SerializedSize)]
-pub struct ThermalSensorErrors {
-    pub values: [TimestampedSensorError; 16],
-    pub next: u32,
-}
-
-impl ThermalSensorErrors {
-    pub fn clear(&mut self) {
-        self.values = Default::default();
-        self.next = 0;
-    }
-
-    pub fn push(&mut self, id: SensorId, err: SensorReadError) {
-        if let Some(v) = self.values.get_mut(self.next as usize) {
-            let timestamp = userlib::sys_get_timer().now;
-            *v = TimestampedSensorError { id, err, timestamp };
-            self.next += 1;
         }
     }
 }

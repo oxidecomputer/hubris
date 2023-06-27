@@ -19,9 +19,7 @@ use drv_i2c_devices::{
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
-use task_thermal_api::{
-    SensorReadError, ThermalAutoState, ThermalProperties, ThermalSensorErrors,
-};
+use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
     sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
@@ -200,6 +198,46 @@ impl InputChannel {
 #[derive(Clone, Copy)]
 pub(crate) struct DynamicInputChannel {
     model: ThermalProperties,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Copy, Clone)]
+pub struct TimestampedSensorError {
+    pub timestamp: u64,
+    pub id: SensorId,
+    pub err: SensorReadError,
+}
+
+impl Default for TimestampedSensorError {
+    fn default() -> Self {
+        TimestampedSensorError {
+            timestamp: 0,
+            id: SensorId(u32::MAX),
+            err: SensorReadError::NoData,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+pub struct ThermalSensorErrors {
+    pub values: [TimestampedSensorError; 16],
+    pub next: u32,
+}
+
+impl ThermalSensorErrors {
+    pub fn clear(&mut self) {
+        self.values = Default::default();
+        self.next = 0;
+    }
+
+    pub fn push(&mut self, id: SensorId, err: SensorReadError) {
+        if let Some(v) = self.values.get_mut(self.next as usize) {
+            let timestamp = userlib::sys_get_timer().now;
+            *v = TimestampedSensorError { id, err, timestamp };
+            self.next += 1;
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
