@@ -661,13 +661,13 @@ dependencies = [
 
 [[package]]
 name = "dice-mfg-msgs"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dice-util#a78bfa3e7152f8464e2910ed71d0e5aded40023e"
+version = "0.2.1"
+source = "git+https://github.com/oxidecomputer/dice-util#57b4e3b4f37eea3414081a9e1bb53988c76b641f"
 dependencies = [
  "corncobs",
  "hubpack",
  "serde",
- "serde-big-array 0.4.1",
+ "serde-big-array 0.5.1",
  "zerocopy",
 ]
 

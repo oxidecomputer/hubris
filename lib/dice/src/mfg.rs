@@ -6,12 +6,16 @@ use crate::{
     cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
     IntermediateCert, PersistIdCert, SeedBuf,
 };
-use dice_mfg_msgs::{MessageHash, MfgMessage, PlatformId, SizedBlob};
+use core::mem::size_of;
+use dice_mfg_msgs::{
+    KeySlotStatus, MessageHash, MfgMessage, PlatformId, SizedBlob,
+};
 use lib_lpc55_usart::{Read, Usart, Write};
 use lpc55_pac::SYSCON;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
 use unwrap_lite::UnwrapLite;
+use zerocopy::FromBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub enum Error {
@@ -297,6 +301,74 @@ impl DiceMfg for SerialMfg<'_> {
                     self.send_msg(MfgMessage::LockStatus {
                         cmpa_locked,
                         syscon_locked,
+                    })
+                }
+                MfgMessage::GetKeySlotStatus => {
+                    /// Layout of the Customer Field Programmble Area structure in Flash.
+                    ///
+                    /// This struct should be exactly 512 bytes. If you change it such that its size
+                    /// is no longer 512 bytes, it will not compromise security, but bootleby will
+                    /// panic while checking the persistent settings (and with any luck the static
+                    /// assertion below will fire before you hit the panic).
+                    #[derive(FromBytes)]
+                    #[repr(C)]
+                    struct CfpaPage {
+                        // Fields defined by NXP:
+                        header: u32,
+                        monotonic_version: u32,
+                        _fields_we_do_not_use: [u32; 4],
+                        rotkh_revoke: u32,
+                        _more_fields_we_do_not_use: [u32; 5],
+                        _prince_ivs: [[u32; 14]; 3],
+                        _nxp_reserved: [u32; 10],
+                        _customer_area: [u8; 224],
+                        _digest: [u8; 32],
+                    }
+
+                    // It's really quite important that the CFPA data structure be exactly the size
+                    // of a flash page, 512 bytes.
+                    static_assertions::const_assert_eq!(
+                        size_of::<CfpaPage>(),
+                        512
+                    );
+
+                    let cfpa_ping: &[u8] = unsafe {
+                        core::slice::from_raw_parts(0x9_e000 as *const u8, 512)
+                    };
+                    let Some(cfpa_ping) = CfpaPage::read_from(cfpa_ping) else {
+                        let _ = self.send_nak();
+                        continue;
+                    };
+
+                    let cfpa_pong: &[u8] = unsafe {
+                        core::slice::from_raw_parts(0x9_e200 as *const u8, 512)
+                    };
+                    let Some(cfpa_pong) = CfpaPage::read_from(cfpa_pong) else {
+                        let _ = self.send_nak();
+                        continue;
+                    };
+
+                    let cfpa = if cfpa_ping.monotonic_version
+                        > cfpa_pong.monotonic_version
+                    {
+                        &cfpa_ping
+                    } else {
+                        &cfpa_pong
+                    };
+
+                    let key_status_from_slot_value = |value| match value & 0x3 {
+                        0b00 => KeySlotStatus::Invalid,
+                        0b01 => KeySlotStatus::Enabled,
+                        _ => KeySlotStatus::Revoked,
+                    };
+
+                    self.send_msg(MfgMessage::KeySlotStatus {
+                        slots: [
+                            key_status_from_slot_value(cfpa.rotkh_revoke),
+                            key_status_from_slot_value(cfpa.rotkh_revoke >> 2),
+                            key_status_from_slot_value(cfpa.rotkh_revoke >> 4),
+                            key_status_from_slot_value(cfpa.rotkh_revoke >> 6),
+                        ],
                     })
                 }
                 _ => continue,
