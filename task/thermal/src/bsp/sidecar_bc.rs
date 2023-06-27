@@ -87,14 +87,14 @@ impl Bsp {
         // controller and fan index:
         //
         // System Index    Controller     Fan           MAX31790 Fan (Datasheet)
-        //     0            East           ENE           2 (3)
-        //     1            East           ESE           3 (4)
-        //     2            East           NE            0 (1)
-        //     3            East           SE            1 (2)
-        //     4            West           NW            2 (3)
-        //     5            West           SW            3 (4)
-        //     6            West           WNW           0 (1)
-        //     7            West           WSW           1 (2)
+        //     0            East           ESE           2 (3)
+        //     1            East           ENE           3 (4)
+        //     2            East           SE            0 (1)
+        //     3            East           NE            1 (2)
+        //     4            West           SW            2 (3)
+        //     5            West           NW            3 (4)
+        //     6            West           WSW           0 (1)
+        //     7            West           WNW           1 (2)
         //
 
         // The supplied `fan` is the System Index. From that we can map to a fan
