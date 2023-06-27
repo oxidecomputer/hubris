@@ -321,7 +321,7 @@ impl ServerImpl {
                     final_payload_len,
                 )
             }
-            HostRequest::StatusV2(modules) => {
+            HostRequest::ExtendedStatus(modules) => {
                 ringbuf_entry!(Trace::Status(modules));
                 let mask = LogicalPortMask::from(modules);
                 let (num_status_bytes, result) = self.get_status_v2(mask, out);
@@ -868,33 +868,33 @@ impl ServerImpl {
             .filter(|&p| desired_result.success().is_set(p))
             .map(|p| p.as_mask())
         {
-            let mut status = StatusV2::empty();
+            let mut status = ExtendedStatus::empty();
             if (mod_status.power_enable & mask.0) != 0 {
-                status |= StatusV2::ENABLED;
+                status |= ExtendedStatus::ENABLED;
             }
             if (!mod_status.resetl & mask.0) != 0 {
-                status |= StatusV2::RESET;
+                status |= ExtendedStatus::RESET;
             }
             if (mod_status.lpmode_txdis & mask.0) != 0 {
-                status |= StatusV2::LOW_POWER_MODE;
+                status |= ExtendedStatus::LOW_POWER_MODE;
             }
             if (!mod_status.modprsl & mask.0) != 0 {
-                status |= StatusV2::PRESENT;
+                status |= ExtendedStatus::PRESENT;
             }
             if (!mod_status.intl_rxlosl & mask.0) != 0 {
-                status |= StatusV2::INTERRUPT;
+                status |= ExtendedStatus::INTERRUPT;
             }
             if (mod_status.power_good & mask.0) != 0 {
-                status |= StatusV2::POWER_GOOD;
+                status |= ExtendedStatus::POWER_GOOD;
             }
             if (mod_status.power_good_timeout & mask.0) != 0 {
-                status |= StatusV2::FAULT_POWER_TIMEOUT;
+                status |= ExtendedStatus::FAULT_POWER_TIMEOUT;
             }
             if (mod_status.power_good_fault & mask.0) != 0 {
-                status |= StatusV2::FAULT_POWER_LOST;
+                status |= ExtendedStatus::FAULT_POWER_LOST;
             }
             if !(self.disabled & mask).is_empty() {
-                status |= StatusV2::DISABLED_BY_SP;
+                status |= ExtendedStatus::DISABLED_BY_SP;
             }
             count +=
                 hubpack::serialize(&mut out[count..], &status.bits()).unwrap();
