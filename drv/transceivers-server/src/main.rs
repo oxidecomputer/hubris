@@ -64,6 +64,7 @@ enum Trace {
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
+    DisablingPorts(LogicalPortMask),
     DisableFailed(usize, LogicalPortMask),
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -447,12 +448,13 @@ impl ServerImpl {
     }
 
     fn disable_ports(&mut self, mask: LogicalPortMask) {
+        ringbuf_entry!(Trace::DisablingPorts(mask));
         for port in mask.to_indices() {
             self.thermal_models[port.0 as usize] = None;
         }
         for (step, f) in [
             Transceivers::assert_reset,
-            Transceivers::assert_lpmode,
+            Transceivers::deassert_lpmode,
             Transceivers::disable_power,
         ]
         .iter()
