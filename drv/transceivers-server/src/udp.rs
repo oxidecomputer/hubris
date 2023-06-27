@@ -181,7 +181,7 @@ impl ServerImpl {
         } else if request[0] > version::inner::CURRENT {
             let header_size = hubpack::serialize(
                 tx_data_buf,
-                &Header::new(header.message_id, header.message_kind),
+                &Header::new(header.message_id, MessageKind::Error),
             )
             .unwrap();
             let message_size = hubpack::serialize(
