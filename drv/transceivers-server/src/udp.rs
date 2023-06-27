@@ -353,9 +353,11 @@ impl ServerImpl {
                 let num_invalid = ModuleId(modules.0 & 0xffffffff00000000)
                     .selected_transceiver_count();
                 let mask = LogicalPortMask::from(modules);
+                let num_disabled = (mask & self.disabled).count();
                 let read_data = read.len() as usize * mask.count();
-                let invalid_module_err = HwError::MAX_SIZE * num_invalid;
-                if read_data + invalid_module_err
+                let module_err =
+                    HwError::MAX_SIZE * (num_invalid + num_disabled);
+                if read_data + module_err
                     > transceiver_messages::MAX_PAYLOAD_SIZE
                 {
                     return (
@@ -364,12 +366,12 @@ impl ServerImpl {
                     );
                 }
 
-                let result = self.read(read, mask, out);
+                let result = self.read(read, mask & !self.disabled, out);
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let read_bytes = result.success().count() * read.len() as usize;
                 let (err_len, failed_modules) = self
-                    .handle_errors_and_failures(
+                    .handle_errors_and_failures_and_disabled(
                         modules,
                         result,
                         HwError::I2cError,
@@ -398,11 +400,11 @@ impl ServerImpl {
                     );
                 }
                 let mask = LogicalPortMask::from(modules);
-                let result = self.write(write, mask, data);
+                let result = self.write(write, mask & !self.disabled, data);
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) = self
-                    .handle_errors_and_failures(
+                    .handle_errors_and_failures_and_disabled(
                         modules,
                         result,
                         HwError::I2cError,
@@ -633,8 +635,9 @@ impl ServerImpl {
     /// This function reads a `ModuleResult` and populates and failure or error
     /// information at the end of the trailing data buffer. This means it should
     /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResultNoFailure` is returned, use handle_errors instead.
-    fn handle_errors_and_failures(
+    /// where a `ModuleResultNoFailure` is returned, use `handle_errors` or
+    /// `handle_errors_and_disabled` instead.
+    fn handle_errors_and_failures_and_disabled(
         &mut self,
         modules: ModuleId,
         result: ModuleResult,
@@ -645,9 +648,20 @@ impl ServerImpl {
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
         let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let disabled: ModuleId = self.disabled.into();
+        let requested_disabled_modules = modules & disabled;
+
         for module in modules.to_indices().map(LogicalPort) {
             if module <= LogicalPortMask::MAX_PORT_INDEX {
-                if result.failure().is_set(module) {
+                if requested_disabled_modules.is_set(module.0).unwrap() {
+                    // let the host know it requested disabled modules
+                    let err_size = hubpack::serialize(
+                        &mut out[error_idx..],
+                        &HwError::DisabledBySp,
+                    )
+                    .unwrap();
+                    error_idx += err_size;
+                } else if result.failure().is_set(module) {
                     // failure: whatever `HwError` specified by `failure_type`
                     let err_size = hubpack::serialize(
                         &mut out[error_idx..],
@@ -690,8 +704,8 @@ impl ServerImpl {
     /// This function reads a `ModuleResultNoFailure` and populates error
     /// information at the end of the trailing data buffer. This means it should
     /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResult` is returned, use handle_errors_and_failures
-    /// instead.
+    /// where a `ModuleResult` is returned, use
+    /// `handle_errors_and_failures_and_disabled` instead.
     fn handle_errors(
         &mut self,
         modules: ModuleId,
@@ -735,8 +749,8 @@ impl ServerImpl {
     /// This function reads a `ModuleResultNoFailure` and populates error
     /// information at the end of the trailing data buffer. This means it should
     /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResult` is returned, use sandle_errors_and_failures
-    /// instead.
+    /// where a `ModuleResult` is returned, use
+    /// `handle_errors_and_failures_and_disabled` instead.
     fn handle_errors_and_disabled(
         &mut self,
         modules: ModuleId,
