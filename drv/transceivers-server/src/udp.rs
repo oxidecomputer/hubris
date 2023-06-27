@@ -42,6 +42,7 @@ enum Trace {
     EnablePower(ModuleId),
     DisablePower(ModuleId),
     Status(ModuleId),
+    ExtendedStatus(ModuleId),
     Read(ModuleId, MemoryRead),
     Write(ModuleId, MemoryWrite),
     ManagementInterface(ManagementInterface),
@@ -57,6 +58,7 @@ enum Trace {
     ClearPowerFault(ModuleId),
     LedState(ModuleId),
     SetLedState(ModuleId, LedState),
+    ClearDisableLatch(ModuleId),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -322,9 +324,10 @@ impl ServerImpl {
                 )
             }
             HostRequest::ExtendedStatus(modules) => {
-                ringbuf_entry!(Trace::Status(modules));
+                ringbuf_entry!(Trace::ExtendedStatus(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_status_bytes, result) = self.get_status_v2(mask, out);
+                let (num_status_bytes, result) =
+                    self.get_extended_status(mask, out);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (err_len, errored_modules) = self.handle_errors(
@@ -335,7 +338,7 @@ impl ServerImpl {
                 let final_payload_len = num_status_bytes + err_len;
 
                 (
-                    MessageBody::SpResponse(SpResponse::Status {
+                    MessageBody::SpResponse(SpResponse::ExtendedStatus {
                         modules: success,
                         failed_modules: errored_modules,
                     }),
@@ -604,6 +607,7 @@ impl ServerImpl {
                 )
             }
             HostRequest::ClearDisableLatch(modules) => {
+                ringbuf_entry!(Trace::ClearDisableLatch(modules));
                 let mask = LogicalPortMask::from(modules);
                 self.disabled &= !mask;
                 // This operation just sets internal SP state, so it is always
@@ -845,7 +849,7 @@ impl ServerImpl {
         (count, desired_result)
     }
 
-    fn get_status_v2(
+    fn get_extended_status(
         &mut self,
         modules: LogicalPortMask,
         out: &mut [u8],
