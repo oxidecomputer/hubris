@@ -42,6 +42,7 @@ enum Trace {
     EnablePower(ModuleId),
     DisablePower(ModuleId),
     Status(ModuleId),
+    ExtendedStatus(ModuleId),
     Read(ModuleId, MemoryRead),
     Write(ModuleId, MemoryWrite),
     ManagementInterface(ManagementInterface),
@@ -57,6 +58,7 @@ enum Trace {
     ClearPowerFault(ModuleId),
     LedState(ModuleId),
     SetLedState(ModuleId, LedState),
+    ClearDisableLatch(ModuleId),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -321,6 +323,28 @@ impl ServerImpl {
                     final_payload_len,
                 )
             }
+            HostRequest::ExtendedStatus(modules) => {
+                ringbuf_entry!(Trace::ExtendedStatus(modules));
+                let mask = LogicalPortMask::from(modules);
+                let (num_status_bytes, result) =
+                    self.get_extended_status(mask, out);
+                ringbuf_entry!(Trace::OperationNoFailResult(result));
+                let success = ModuleId::from(result.success());
+                let (err_len, errored_modules) = self.handle_errors(
+                    modules,
+                    result,
+                    &mut out[num_status_bytes..],
+                );
+                let final_payload_len = num_status_bytes + err_len;
+
+                (
+                    MessageBody::SpResponse(SpResponse::ExtendedStatus {
+                        modules: success,
+                        failed_modules: errored_modules,
+                    }),
+                    final_payload_len,
+                )
+            }
             HostRequest::Read { modules, read } => {
                 ringbuf_entry!(Trace::Read(modules, read));
                 // The host is not setting the the upper 32 bits at this time,
@@ -329,9 +353,11 @@ impl ServerImpl {
                 let num_invalid = ModuleId(modules.0 & 0xffffffff00000000)
                     .selected_transceiver_count();
                 let mask = LogicalPortMask::from(modules);
+                let num_disabled = (mask & self.disabled).count();
                 let read_data = read.len() as usize * mask.count();
-                let invalid_module_err = HwError::MAX_SIZE * num_invalid;
-                if read_data + invalid_module_err
+                let module_err =
+                    HwError::MAX_SIZE * (num_invalid + num_disabled);
+                if read_data + module_err
                     > transceiver_messages::MAX_PAYLOAD_SIZE
                 {
                     return (
@@ -340,12 +366,12 @@ impl ServerImpl {
                     );
                 }
 
-                let result = self.read(read, mask, out);
+                let result = self.read(read, mask & !self.disabled, out);
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let read_bytes = result.success().count() * read.len() as usize;
                 let (err_len, failed_modules) = self
-                    .handle_errors_and_failures(
+                    .handle_errors_and_failures_and_disabled(
                         modules,
                         result,
                         HwError::I2cError,
@@ -374,11 +400,11 @@ impl ServerImpl {
                     );
                 }
                 let mask = LogicalPortMask::from(modules);
-                let result = self.write(write, mask, data);
+                let result = self.write(write, mask & !self.disabled, data);
                 ringbuf_entry!(Trace::OperationResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) = self
-                    .handle_errors_and_failures(
+                    .handle_errors_and_failures_and_disabled(
                         modules,
                         result,
                         HwError::I2cError,
@@ -396,12 +422,12 @@ impl ServerImpl {
             }
             HostRequest::AssertReset(modules) => {
                 ringbuf_entry!(Trace::AssertReset(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.assert_reset(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -413,12 +439,12 @@ impl ServerImpl {
             }
             HostRequest::DeassertReset(modules) => {
                 ringbuf_entry!(Trace::DeassertReset(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.deassert_reset(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -430,12 +456,12 @@ impl ServerImpl {
             }
             HostRequest::AssertLpMode(modules) => {
                 ringbuf_entry!(Trace::AssertLpMode(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.assert_lpmode(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -447,12 +473,12 @@ impl ServerImpl {
             }
             HostRequest::DeassertLpMode(modules) => {
                 ringbuf_entry!(Trace::DeassertLpMode(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.deassert_lpmode(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -464,12 +490,12 @@ impl ServerImpl {
             }
             HostRequest::EnablePower(modules) => {
                 ringbuf_entry!(Trace::EnablePower(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.enable_power(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -481,12 +507,12 @@ impl ServerImpl {
             }
             HostRequest::DisablePower(modules) => {
                 ringbuf_entry!(Trace::DisablePower(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.disable_power(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -524,12 +550,12 @@ impl ServerImpl {
             }
             HostRequest::ClearPowerFault(modules) => {
                 ringbuf_entry!(Trace::ClearPowerFault(modules));
-                let mask = LogicalPortMask::from(modules);
+                let mask = LogicalPortMask::from(modules) & !self.disabled;
                 let result = self.transceivers.clear_power_fault(mask);
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
-                    self.handle_errors(modules, result, out);
+                    self.handle_errors_and_disabled(modules, result, out);
 
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
@@ -582,14 +608,37 @@ impl ServerImpl {
                     num_err_bytes,
                 )
             }
+            HostRequest::ClearDisableLatch(modules) => {
+                ringbuf_entry!(Trace::ClearDisableLatch(modules));
+                let mask = LogicalPortMask::from(modules);
+                self.disabled &= !mask;
+                // This operation just sets internal SP state, so it is always
+                // successful. However, invalid modules may been specified by
+                // the host so we need to check that anyway.
+                let result =
+                    ModuleResultNoFailure::new(mask, LogicalPortMask(0))
+                        .unwrap();
+                let success = ModuleId::from(result.success());
+                let (num_err_bytes, failed_modules) =
+                    self.handle_errors(modules, result, out);
+                (
+                    MessageBody::SpResponse(SpResponse::Ack {
+                        modules: success,
+                        failed_modules,
+                    }),
+                    num_err_bytes,
+                )
+            }
         }
     }
 
     /// This function reads a `ModuleResult` and populates and failure or error
-    /// information at the end of the trailing data buffer. This means it should
-    /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResultNoFailure` is returned, use handle_errors instead.
-    fn handle_errors_and_failures(
+    /// information at the end of the trailing data buffer, taking
+    /// `self.disabled` into account. This means it should be called as the last
+    /// operation before sending the response. For results where a
+    /// `ModuleResultNoFailure` is returned, use `handle_errors` or
+    /// `handle_errors_and_disabled` instead.
+    fn handle_errors_and_failures_and_disabled(
         &mut self,
         modules: ModuleId,
         result: ModuleResult,
@@ -599,10 +648,22 @@ impl ServerImpl {
         let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
-        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let requested_invalid_modules = modules & invalid_modules;
+
+        let disabled: ModuleId = self.disabled.into();
+        let requested_disabled_modules = modules & disabled;
+
         for module in modules.to_indices().map(LogicalPort) {
             if module <= LogicalPortMask::MAX_PORT_INDEX {
-                if result.failure().is_set(module) {
+                if requested_disabled_modules.is_set(module.0).unwrap() {
+                    // let the host know it requested disabled modules
+                    let err_size = hubpack::serialize(
+                        &mut out[error_idx..],
+                        &HwError::DisabledBySp,
+                    )
+                    .unwrap();
+                    error_idx += err_size;
+                } else if result.failure().is_set(module) {
                     // failure: whatever `HwError` specified by `failure_type`
                     let err_size = hubpack::serialize(
                         &mut out[error_idx..],
@@ -636,6 +697,7 @@ impl ServerImpl {
             error_idx,
             ModuleId(
                 requested_invalid_modules.0
+                    | requested_disabled_modules.0
                     | result.failure().0 as u64
                     | result.error().0 as u64,
             ),
@@ -643,10 +705,10 @@ impl ServerImpl {
     }
 
     /// This function reads a `ModuleResultNoFailure` and populates error
-    /// information at the end of the trailing data buffer. This means it should
-    /// be called as the last operation before sending the response. For results
-    /// where a `ModuleResult` is returned, use handle_errors_and_failures
-    /// instead.
+    /// information at the end of the trailing data buffer, ignoring
+    /// `self.disabled`. This means it should be called as the last operation
+    /// before sending the response. For results where a `ModuleResult` is
+    /// returned, use `handle_errors_and_failures_and_disabled` instead.
     fn handle_errors(
         &mut self,
         modules: ModuleId,
@@ -656,7 +718,7 @@ impl ServerImpl {
         let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
-        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let requested_invalid_modules = modules & invalid_modules;
         for module in modules.to_indices().map(LogicalPort) {
             if module <= LogicalPortMask::MAX_PORT_INDEX
                 && result.error().is_set(module)
@@ -684,6 +746,68 @@ impl ServerImpl {
         (
             error_idx,
             ModuleId(requested_invalid_modules.0 | result.error().0 as u64),
+        )
+    }
+
+    /// This function reads a `ModuleResultNoFailure` and populates error
+    /// information at the end of the trailing data buffer, taking `self.data`
+    /// into account. This means it should be called as the last operation
+    /// before sending the response. For results where a `ModuleResult` is
+    /// returned, use `handle_errors_and_failures_and_disabled` instead.
+    fn handle_errors_and_disabled(
+        &mut self,
+        modules: ModuleId,
+        result: ModuleResultNoFailure,
+        out: &mut [u8],
+    ) -> (usize, ModuleId) {
+        let mut error_idx: usize = 0;
+        // any modules at index 32->63 are not currently supported.
+        let invalid_modules = ModuleId(0xffffffff00000000);
+        let requested_invalid_modules = modules & invalid_modules;
+
+        // any modules that are listed in self.disabled are also not supported
+        let disabled: ModuleId = self.disabled.into();
+        let requested_disabled_modules = modules & disabled;
+
+        for module in modules.to_indices().map(LogicalPort) {
+            if module <= LogicalPortMask::MAX_PORT_INDEX {
+                if requested_disabled_modules.is_set(module.0).unwrap() {
+                    // let the host know it requested unsupported modules
+                    let err_size = hubpack::serialize(
+                        &mut out[error_idx..],
+                        &HwError::DisabledBySp,
+                    )
+                    .unwrap();
+                    error_idx += err_size;
+                } else if result.error().is_set(module) {
+                    // error: fpga communication issue
+                    let err_size = hubpack::serialize(
+                        &mut out[error_idx..],
+                        &HwError::FpgaError,
+                    )
+                    .unwrap();
+                    error_idx += err_size;
+                }
+            } else if requested_invalid_modules.is_set(module.0).unwrap() {
+                // let the host know it requested unsupported modules
+                let err_size = hubpack::serialize(
+                    &mut out[error_idx..],
+                    &HwError::InvalidModuleIndex,
+                )
+                .unwrap();
+                error_idx += err_size;
+            }
+        }
+
+        // let the caller know how many error bytes we appended and which
+        // modules had problems
+        (
+            error_idx,
+            ModuleId(
+                requested_invalid_modules.0
+                    | requested_disabled_modules.0
+                    | result.error().0 as u64,
+            ),
         )
     }
 
@@ -738,6 +862,63 @@ impl ServerImpl {
             // Convert from Status -> u8 and write to the output buffer
             out[count] = status.bits();
             count += 1;
+        }
+        (count, desired_result)
+    }
+
+    fn get_extended_status(
+        &mut self,
+        modules: LogicalPortMask,
+        out: &mut [u8],
+    ) -> (usize, ModuleResultNoFailure) {
+        // This will get the status of every module, so we will have to only
+        // select the data which was requested.
+        let (mod_status, full_result) = self.transceivers.get_module_status();
+        // adjust the result success mask to be only our requested modules
+        let desired_result = ModuleResultNoFailure::new(
+            full_result.success() & modules,
+            full_result.error() & modules,
+        )
+        .unwrap();
+
+        // Write one u32 bitfield per active port in the ModuleId which was
+        // successfully retrieved above.
+        let mut count = 0;
+        for mask in modules
+            .to_indices()
+            .filter(|&p| desired_result.success().is_set(p))
+            .map(|p| p.as_mask())
+        {
+            let mut status = ExtendedStatus::empty();
+            if (mod_status.power_enable & mask.0) != 0 {
+                status |= ExtendedStatus::ENABLED;
+            }
+            if (!mod_status.resetl & mask.0) != 0 {
+                status |= ExtendedStatus::RESET;
+            }
+            if (mod_status.lpmode_txdis & mask.0) != 0 {
+                status |= ExtendedStatus::LOW_POWER_MODE;
+            }
+            if (!mod_status.modprsl & mask.0) != 0 {
+                status |= ExtendedStatus::PRESENT;
+            }
+            if (!mod_status.intl_rxlosl & mask.0) != 0 {
+                status |= ExtendedStatus::INTERRUPT;
+            }
+            if (mod_status.power_good & mask.0) != 0 {
+                status |= ExtendedStatus::POWER_GOOD;
+            }
+            if (mod_status.power_good_timeout & mask.0) != 0 {
+                status |= ExtendedStatus::FAULT_POWER_TIMEOUT;
+            }
+            if (mod_status.power_good_fault & mask.0) != 0 {
+                status |= ExtendedStatus::FAULT_POWER_LOST;
+            }
+            if !(self.disabled & mask).is_empty() {
+                status |= ExtendedStatus::DISABLED_BY_SP;
+            }
+            count +=
+                hubpack::serialize(&mut out[count..], &status.bits()).unwrap();
         }
         (count, desired_result)
     }

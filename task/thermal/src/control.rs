@@ -226,11 +226,6 @@ pub struct ThermalSensorErrors {
 }
 
 impl ThermalSensorErrors {
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        self.next == 0
-    }
-
     pub fn clear(&mut self) {
         self.values = Default::default();
         self.next = 0;
@@ -1056,6 +1051,7 @@ impl<'a> ThermalControl<'a> {
         // ensuring that we'll wait for that channel to provide us with at least
         // one valid reading before resuming the PID loop.
         if self.dynamic_inputs[index].is_none() {
+            ringbuf_entry!(Trace::AddedDynamicInput(index));
             self.dynamic_inputs[index] = Some(DynamicInputChannel { model });
             self.reset_state();
         }
@@ -1069,6 +1065,7 @@ impl<'a> ThermalControl<'a> {
         if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
             Err(ThermalError::InvalidIndex)
         } else {
+            ringbuf_entry!(Trace::RemovedDynamicInput(index));
             self.dynamic_inputs[index] = None;
 
             // Post this reading to the sensors task as well

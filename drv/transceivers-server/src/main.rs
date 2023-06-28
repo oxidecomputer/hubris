@@ -57,6 +57,7 @@ enum Trace {
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
+    RemovedDisabledModule(usize),
     TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     SensorError(usize, SensorError),
@@ -64,8 +65,23 @@ enum Trace {
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
+    DisablingPorts(LogicalPortMask),
+    DisableFailed(usize, LogicalPortMask),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// After seeing this many NACKs, we disable the port by policy.
+///
+/// This should be **very rare**: it requires a transceiver to correctly report
+/// its type (SFF vs CMIS) over I2C when it's first plugged in, but then begin
+/// NACKing while still physically present (according to the `modprsl` pin).
+///
+/// Despite the weirdness of these pre-requisites, we've seen this happen once
+/// already; without handling it, the thermal loop will eventually shut down the
+/// whole system (because the transceiver stops reporting its temperature).
+const MAX_CONSECUTIVE_NACKS: u8 = 3;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -84,6 +100,12 @@ struct ServerImpl {
     led_states: LedStates,
     blink_on: bool,
     system_led_state: LedState,
+
+    /// Modules that are physically present but disabled by Hubris
+    disabled: LogicalPortMask,
+
+    /// Number of consecutive NACKS seen on a given port
+    consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
     thermal_api: Thermal,
@@ -308,7 +330,8 @@ impl ServerImpl {
             let mask = 1 << i;
             let operational = (!status.modprsl & mask) != 0
                 && (status.power_good & mask) != 0
-                && (status.resetl & mask) != 0;
+                && (status.resetl & mask) != 0
+                && (self.disabled & port).is_empty();
 
             // A wild transceiver just appeared!  Read it to decide whether it's
             // using SFF-8636 or CMIS.
@@ -352,11 +375,18 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::SensorError(i, e));
                 }
 
-                ringbuf_entry!(Trace::UnpluggedModule(i));
+                if (self.disabled & port).is_empty() {
+                    ringbuf_entry!(Trace::UnpluggedModule(i));
+                } else {
+                    ringbuf_entry!(Trace::RemovedDisabledModule(i));
+                }
                 self.thermal_models[i] = None;
             }
         }
 
+        // Accumulate ports to disable (but don't disable them in the loop), to
+        // avoid issues with the borrow checker.
+        let mut to_disable = LogicalPortMask(0);
         for (i, m) in self.thermal_models.iter().enumerate() {
             let port = LogicalPort(i as u8);
             let m = match m {
@@ -386,6 +416,7 @@ impl ServerImpl {
                     continue;
                 }
             };
+            let mut got_nack = false;
             match temperature {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
@@ -403,8 +434,10 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
+                    use Reg::QSFP::PORT0_STATUS::Encoded;
+                    match Encoded::from_u8(e) {
                         Some(val) => {
+                            got_nack |= matches!(val, Encoded::I2cAddressNack);
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
                         None => {
@@ -417,7 +450,41 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::TemperatureReadUnexpectedError(i, e));
                 }
             }
+
+            self.consecutive_nacks[i] = if got_nack {
+                self.consecutive_nacks[i].saturating_add(1)
+            } else {
+                0
+            };
+
+            if self.consecutive_nacks[i] >= MAX_CONSECUTIVE_NACKS {
+                to_disable.set(port);
+            }
         }
+        if !to_disable.is_empty() {
+            self.disable_ports(to_disable);
+        }
+    }
+
+    fn disable_ports(&mut self, mask: LogicalPortMask) {
+        ringbuf_entry!(Trace::DisablingPorts(mask));
+        for (step, f) in [
+            Transceivers::assert_reset,
+            Transceivers::deassert_lpmode,
+            Transceivers::disable_power,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let err = f(&mut self.transceivers, mask).error();
+            if !err.is_empty() {
+                ringbuf_entry!(Trace::DisableFailed(step, err));
+            }
+        }
+        self.disabled |= mask;
+        // We don't modify self.thermal_models here; that's left to
+        // `update_thermal_loop`, which is in charge of communicating with
+        // the `sensors` and `thermal` tasks.
     }
 }
 
@@ -555,6 +622,8 @@ fn main() -> ! {
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
             blink_on: false,
             system_led_state: LedState::Off,
+            disabled: LogicalPortMask(0),
+            consecutive_nacks: [0; NUM_PORTS as usize],
             thermal_api,
             sensor_api,
             thermal_models: [None; NUM_PORTS as usize],
