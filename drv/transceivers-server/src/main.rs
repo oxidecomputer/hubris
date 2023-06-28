@@ -452,7 +452,7 @@ impl ServerImpl {
             }
 
             self.consecutive_nacks[i] = if got_nack {
-                self.consecutive_nacks[i].wrapping_add(1)
+                self.consecutive_nacks[i].saturating_add(1)
             } else {
                 0
             };
