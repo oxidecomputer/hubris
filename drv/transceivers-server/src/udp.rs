@@ -623,7 +623,7 @@ impl ServerImpl {
                     self.handle_errors(modules, result, out);
                 (
                     MessageBody::SpResponse(SpResponse::Ack {
-                        modules: success.into(),
+                        modules: success,
                         failed_modules,
                     }),
                     num_err_bytes,
