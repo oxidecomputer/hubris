@@ -26,6 +26,13 @@ impl FrontIOController {
     }
 
     #[inline]
+    pub fn ready(&self) -> Result<bool, FpgaError> {
+        self.fpga
+            .state()
+            .map(|s| s == DeviceState::RunningUserDesign)
+    }
+
+    #[inline]
     pub fn await_fpga_ready(
         &mut self,
         sleep_ticks: u64,

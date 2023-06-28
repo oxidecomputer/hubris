@@ -7,6 +7,7 @@ use bitfield::bitfield;
 use core::convert::Into;
 use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
+use drv_fpga_app_api::power_rail::*;
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -131,114 +132,35 @@ pub struct TofinoSeqAbort {
     pub error: TofinoSeqError,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum PowerRails {
-    Vdd18,
-    VddCore,
-    VddPcie,
-    Vddt,
-    Vdda15,
-    Vdda18,
-}
-
-#[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
-)]
-#[repr(u8)]
-pub enum PowerRailState {
-    #[default]
-    Disabled = 0,
-    RampingUp = 1,
-    GoodTimeout = 2,
-    Aborted = 3,
-    Enabled = 4,
-}
-
-impl TryFrom<u8> for PowerRailState {
-    type Error = FpgaError;
-
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        Self::from_u8(v).ok_or(FpgaError::InvalidValue)
-    }
-}
-
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, FromPrimitive, PartialEq)]
 #[repr(C)]
-pub struct PowerRailPinState {
-    pub enable: bool,
-    pub good: bool,
-    pub fault: bool,
-    pub vrhot: bool,
-}
-
-impl From<u8> for PowerRailPinState {
-    fn from(v: u8) -> Self {
-        use Reg::TOFINO_POWER_VDD18_STATE::*;
-
-        Self {
-            enable: v & ENABLE != 0,
-            good: v & GOOD != 0,
-            fault: v & FAULT != 0,
-            vrhot: v & VRHOT != 0,
-        }
-    }
+pub enum TofinoPowerRailId {
+    Vdd18 = 0,
+    VddCore = 1,
+    VddPcie = 2,
+    Vddt = 3,
+    Vdda15 = 4,
+    Vdda18 = 5,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
-pub struct PowerRail {
-    pub id: PowerRails,
-    pub state: PowerRailState,
-    pub pin_state: PowerRailPinState,
+pub struct TofinoPowerRail {
+    pub id: TofinoPowerRailId,
+    pub status: PowerRailStatus,
+    pub pins: PowerRailPinState,
 }
 
-impl TryFrom<(PowerRails, u8)> for PowerRail {
+impl TryFrom<(usize, PowerRailState)> for TofinoPowerRail {
     type Error = FpgaError;
 
-    fn try_from(data: (PowerRails, u8)) -> Result<Self, Self::Error> {
-        let (id, v) = data;
-        Ok(PowerRail {
-            id,
-            state: PowerRailState::try_from(v >> 4)?,
-            pin_state: PowerRailPinState::from(v & 0xf),
+    fn try_from(data: (usize, PowerRailState)) -> Result<Self, Self::Error> {
+        Ok(TofinoPowerRail {
+            id: TofinoPowerRailId::from_u8(data.0 as u8)
+                .ok_or(FpgaError::InvalidValue)?,
+            status: PowerRailStatus::try_from(data.1)?,
+            pins: PowerRailPinState::from(data.1),
         })
-    }
-}
-
-impl PowerRail {
-    /// Convert power rail state register data to an array of `PowerRail`
-    /// structs.
-    pub fn from_raw(data: [u8; 6]) -> Result<[PowerRail; 6], FpgaError> {
-        let value = |addr: Addr| {
-            data[(addr as usize) - (Addr::TOFINO_POWER_VDD18_STATE as usize)]
-        };
-
-        Ok([
-            PowerRail::try_from((
-                PowerRails::Vdd18,
-                value(Addr::TOFINO_POWER_VDD18_STATE),
-            ))?,
-            PowerRail::try_from((
-                PowerRails::VddCore,
-                value(Addr::TOFINO_POWER_VDDCORE_STATE),
-            ))?,
-            PowerRail::try_from((
-                PowerRails::VddPcie,
-                value(Addr::TOFINO_POWER_VDDPCIE_STATE),
-            ))?,
-            PowerRail::try_from((
-                PowerRails::Vddt,
-                value(Addr::TOFINO_POWER_VDDT_STATE),
-            ))?,
-            PowerRail::try_from((
-                PowerRails::Vdda15,
-                value(Addr::TOFINO_POWER_VDDA15_STATE),
-            ))?,
-            PowerRail::try_from((
-                PowerRails::Vdda18,
-                value(Addr::TOFINO_POWER_VDDA18_STATE),
-            ))?,
-        ])
     }
 }
 
@@ -353,8 +275,24 @@ impl Sequencer {
     }
 
     #[inline]
-    pub fn raw_power_rails(&self) -> Result<[u8; 6], FpgaError> {
+    pub fn power_rail_states(&self) -> Result<[PowerRailState; 6], FpgaError> {
         self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
+    }
+
+    #[inline]
+    pub fn power_rails(&self) -> Result<[TofinoPowerRail; 6], FpgaError> {
+        let power_rail_states = self.power_rail_states()?;
+        let power_rail =
+            move |id| TofinoPowerRail::try_from((id, power_rail_states[id]));
+
+        Ok([
+            power_rail(0)?,
+            power_rail(1)?,
+            power_rail(2)?,
+            power_rail(3)?,
+            power_rail(4)?,
+            power_rail(5)?,
+        ])
     }
 
     /// The VID is only valid once Tofino is powered up and a delay after PoR

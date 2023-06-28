@@ -235,6 +235,26 @@
             ]
         },
         {
+            "type": "reg",
+            "inst_name": "FPGA_BOARD_VER",
+            "addr_offset": 11,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VERSION",
+                    "lsb": 0,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0x0 = Ver A, 0x1 = Ver B or C"
+                }
+            ]
+        },
+        {
             "type": "addrmap",
             "inst_name": "VSC8562",
             "addr_offset": 16,
@@ -380,8 +400,39 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "PHY_SMI_STATUS",
+                    "inst_name": "PHY_OSC",
                     "addr_offset": 2,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "VALID",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Bit indicating whether or not the GOOD bit is valid"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "GOOD",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Bit indicating whether or not the oscillator is operating nominal"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PHY_SMI_STATUS",
+                    "addr_offset": 3,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -412,7 +463,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_RDATA0",
-                    "addr_offset": 3,
+                    "addr_offset": 4,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -432,7 +483,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_RDATA1",
-                    "addr_offset": 4,
+                    "addr_offset": 5,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -452,7 +503,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_WDATA0",
-                    "addr_offset": 5,
+                    "addr_offset": 6,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -472,7 +523,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_WDATA1",
-                    "addr_offset": 6,
+                    "addr_offset": 7,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -492,7 +543,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_PHY_ADDR",
-                    "addr_offset": 7,
+                    "addr_offset": 8,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -512,7 +563,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_REG_ADDR",
-                    "addr_offset": 8,
+                    "addr_offset": 9,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -532,7 +583,7 @@
                 {
                     "type": "reg",
                     "inst_name": "PHY_SMI_CTRL",
-                    "addr_offset": 9,
+                    "addr_offset": 10,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [

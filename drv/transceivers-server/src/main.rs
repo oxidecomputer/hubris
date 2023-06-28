@@ -42,7 +42,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Trace {
     None,
-    FrontIOReady(bool),
+    FrontIOBoardReady(bool),
     FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
@@ -583,10 +583,11 @@ fn main() -> ! {
         // notification system will be put in place.
         let seq = Sequencer::from(SEQ.get_task_id());
         loop {
-            let ready = seq.front_io_phy_ready();
+            let ready = seq.front_io_board_ready();
+
             match ready {
                 Ok(true) => {
-                    ringbuf_entry!(Trace::FrontIOReady(true));
+                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
                     break;
                 }
                 Err(SeqError::NoFrontIOBoard) => {
@@ -596,8 +597,8 @@ fn main() -> ! {
                     break;
                 }
                 _ => {
-                    ringbuf_entry!(Trace::FrontIOReady(false));
-                    userlib::hl::sleep_for(10)
+                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
+                    userlib::hl::sleep_for(100)
                 }
             }
         }

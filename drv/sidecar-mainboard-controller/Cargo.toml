@@ -13,6 +13,7 @@ zerocopy = { workspace = true }
 
 drv-auxflash-api = { path = "../auxflash-api", optional = true }
 drv-fpga-api = { path = "../fpga-api" }
+drv-fpga-app-api = { path = "../fpga-app-api" }
 drv-ignition-api = { path = "../ignition-api" }
 userlib = { path = "../../sys/userlib" }
 
