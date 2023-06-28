@@ -442,7 +442,7 @@ impl ServerImpl {
                         }
                         None => {
                             // Error code cannot be decoded
-                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e));
+                            ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
                         }
                     }
                 }
