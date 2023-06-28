@@ -648,7 +648,8 @@ impl ServerImpl {
         let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
-        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let requested_invalid_modules = modules & invalid_modules;
+
         let disabled: ModuleId = self.disabled.into();
         let requested_disabled_modules = modules & disabled;
 
@@ -717,7 +718,7 @@ impl ServerImpl {
         let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
-        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let requested_invalid_modules = modules & invalid_modules;
         for module in modules.to_indices().map(LogicalPort) {
             if module <= LogicalPortMask::MAX_PORT_INDEX
                 && result.error().is_set(module)
@@ -762,7 +763,7 @@ impl ServerImpl {
         let mut error_idx: usize = 0;
         // any modules at index 32->63 are not currently supported.
         let invalid_modules = ModuleId(0xffffffff00000000);
-        let requested_invalid_modules = ModuleId(modules.0 & invalid_modules.0);
+        let requested_invalid_modules = modules & invalid_modules;
 
         // any modules that are listed in self.disabled are also not supported
         let disabled: ModuleId = self.disabled.into();
