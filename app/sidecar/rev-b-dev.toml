@@ -235,7 +235,7 @@ task-slots = [
     "thermal",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
-notifications = ["socket", "timer"]
+notifications = ["socket", "spi", "i2c"]
 
 [tasks.packrat]
 name = "task-packrat"
