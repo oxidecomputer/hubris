@@ -226,6 +226,7 @@ pub struct ThermalSensorErrors {
 }
 
 impl ThermalSensorErrors {
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.next == 0
     }
