@@ -72,6 +72,19 @@ ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// After seeing this many NACKs, we disable the port by policy.
+///
+/// This should be **very rare**: it requires a transceiver to correctly report
+/// its type (SFF vs CMIS) over I2C when it's first plugged in, but then begin
+/// NACKing while still physically present (according to the `modprsl` pin).
+///
+/// Despite the weirdness of these pre-requisites, we've seen this happen once
+/// already; without handling it, the thermal loop will eventually shut down the
+/// whole system (because the transceiver stops reporting its temperature).
+const MAX_CONSECUTIVE_NACKS: u8 = 3;
+
+////////////////////////////////////////////////////////////////////////////////
+
 #[derive(Copy, Clone)]
 struct LedStates([LedState; NUM_PORTS as usize]);
 
@@ -443,7 +456,8 @@ impl ServerImpl {
             } else {
                 0
             };
-            if self.consecutive_nacks[i] >= 3 {
+
+            if self.consecutive_nacks[i] >= MAX_CONSECUTIVE_NACKS {
                 to_disable.set(port);
             }
         }
