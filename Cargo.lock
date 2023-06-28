@@ -4882,7 +4882,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=disable-port#bbc7bd99876132af76a4272c0f29a35608fd5e9e"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#84e28d1263d9d07c5410fb0644469c8eb7b5fb5f"
 dependencies = [
  "bitflags 2.1.0",
  "hubpack",
