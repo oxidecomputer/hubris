@@ -14,7 +14,18 @@ use zerocopy::{AsBytes, FromBytes};
 
 pub use task_packrat_api::MacAddressBlock;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    FromPrimitive,
+    IdolError,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(u32)]
 pub enum SendError {
     /// The selected socket is not owned by this task
@@ -32,7 +43,18 @@ pub enum SendError {
     ServerRestarted = 5,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    FromPrimitive,
+    IdolError,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(u32)]
 pub enum RecvError {
     /// The selected socket is not owned by this task
@@ -253,6 +275,23 @@ impl From<smoltcp::wire::Ipv6Address> for Ipv6Address {
 impl From<Ipv6Address> for smoltcp::wire::Ipv6Address {
     fn from(a: Ipv6Address) -> Self {
         Self(a.0)
+    }
+}
+
+/// An error returned from a sprot request
+#[derive(
+    Debug, Copy, Clone, Serialize, Deserialize, SerializedSize, PartialEq,
+)]
+pub enum FancyNetError {
+    Foo(u32),
+    SendError(SendError),
+    RecvError(RecvError),
+    ServerDied,
+}
+
+impl From<idol_runtime::ServerDeath> for FancyNetError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        FancyNetError::ServerDied
     }
 }
 

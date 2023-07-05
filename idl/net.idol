@@ -134,5 +134,12 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "fancy_error": (
+            reply: Result(
+                ok: "()",
+                err: Complex("FancyNetError"),
+            ),
+            encoding: Hubpack,
+        ),
     },
 )

@@ -13,9 +13,9 @@ use crate::generated::VLAN_RANGE;
 use drv_stm32h7_eth as eth;
 use idol_runtime::{ClientError, RequestError};
 use task_net_api::{
-    KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
-    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError, RecvError,
-    SendError, SocketName, UdpMetadata,
+    FancyNetError, KszError, KszMacTableEntry, LargePayloadBehavior,
+    MacAddress, ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+    RecvError, SendError, SocketName, UdpMetadata,
 };
 
 use core::iter::zip;
@@ -238,6 +238,20 @@ where
         let (eth, bsp) = self.eth_bsp();
         let out = bsp.management_counters(eth).map_err(MgmtError::from)?;
         Ok(out)
+    }
+
+    fn fancy_error(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<FancyNetError>> {
+        /*
+        match userlib::sys_get_timer().now.count_ones() % 2 {
+            0 => Err(FancyNetError::SendError(SendError::NotYours).into()),
+            1 => Err(FancyNetError::RecvError(RecvError::NotYours).into()),
+            _ => unreachable!(),
+        }
+        */
+        Err(FancyNetError::Foo(123).into())
     }
 }
 

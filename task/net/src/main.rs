@@ -48,9 +48,9 @@ pub(crate) mod mgmt;
 
 mod idl {
     use task_net_api::{
-        KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
-        MacAddressBlock, ManagementCounters, ManagementLinkStatus, MgmtError,
-        PhyError, RecvError, SendError, SocketName, UdpMetadata,
+        FancyNetError, KszError, KszMacTableEntry, LargePayloadBehavior,
+        MacAddress, MacAddressBlock, ManagementCounters, ManagementLinkStatus,
+        MgmtError, PhyError, RecvError, SendError, SocketName, UdpMetadata,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
