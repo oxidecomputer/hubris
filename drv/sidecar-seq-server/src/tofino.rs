@@ -90,8 +90,8 @@ impl Tofino {
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
 
-                // Keep parts of the PCIe PHY lanes in reset and delay PCIE_INIT
-                // so changes to the config can be made after loading parameters
+                // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
+                // changes to the config can be made after loading parameters
                 // from EEPROM.
                 let mut software_reset =
                     SoftwareReset(self.debug_port.read_direct(
@@ -110,6 +110,36 @@ impl Tofino {
                     self.debug_port.read_direct(
                         DirectBarSegment::Bar0,
                         TofinoBar0Registers::SoftwareReset
+                    )?
+                ));
+
+                // Set additional PCIe reset options.
+                let mut reset_options =
+                    ResetOptions(self.debug_port.read_direct(
+                        DirectBarSegment::Bar0,
+                        TofinoBar0Registers::ResetOptions,
+                    )?);
+
+                reset_options.set_on_pcie_link_down(
+                    TofinoPcieResetOptions::ControllerAndPhyLanes,
+                );
+                reset_options.set_on_pcie_l2_exit(
+                    TofinoPcieResetOptions::ControllerAndPhyLanes,
+                );
+                reset_options.set_on_pcie_host_reset(
+                    TofinoPcieResetOptions::ControllerAndPhyLanes,
+                );
+
+                self.debug_port.write_direct(
+                    DirectBarSegment::Bar0,
+                    TofinoBar0Registers::ResetOptions,
+                    reset_options,
+                )?;
+                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+                    TofinoBar0Registers::ResetOptions,
+                    self.debug_port.read_direct(
+                        DirectBarSegment::Bar0,
+                        TofinoBar0Registers::ResetOptions
                     )?
                 ));
 
@@ -197,8 +227,14 @@ impl Tofino {
                     )?
                 ));
 
-                // Set PCIe present to trigger a hotplug event on the attached
-                // host.
+                // Provide the host with PERST control, allow the mainboard
+                // controller Power Fault control and signal presence to allow
+                // attachment.
+                self.sequencer
+                    .set_pcie_reset(TofinoPcieReset::HostControl)?;
+                self.sequencer.set_pcie_power_fault(
+                    TofinoPciePowerFault::SequencerControl,
+                )?;
                 self.set_pcie_present(true)?;
 
                 return Ok(());
@@ -212,6 +248,10 @@ impl Tofino {
         ringbuf_entry!(Trace::TofinoPowerDown);
         self.set_pcie_present(false)?;
         self.sequencer.set_pcie_reset(TofinoPcieReset::Asserted)?;
+        // The deassertion of presence implicitly gates the ability for the
+        // sequencer to assert Power Fault, so it is not needed for software to
+        // take explicit control over this signal on power down.
+
         self.sequencer
             .set_enable(false)
             .map_err(|_| SeqError::SequencerError)
