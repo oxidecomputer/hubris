@@ -430,65 +430,28 @@ impl ServerImpl<'_> {
     ) -> Result<(u32, u32), UpdateError> {
         // Read the two versions. We do this with smaller buffers so
         // we don't need 2x 512B buffers to read the entire CFPAs.
-        let ping_header =
-            self.read_cfpa_header_if_programmed(CFPA_PING_FLASH_WORD)?;
-        let pong_header =
-            self.read_cfpa_header_if_programmed(CFPA_PONG_FLASH_WORD)?;
+        let mut ping_header = [0u32; 4];
+        let mut pong_header = [0u32; 4];
 
-        match (ping_header, pong_header) {
-            (Some(ping_header), Some(pong_header)) => {
-                // Work out where to read the authoritative contents from.
-                let val = if ping_header[1] >= pong_header[1] {
-                    (CFPA_PING_FLASH_WORD, ping_header[1])
-                } else {
-                    (CFPA_PONG_FLASH_WORD, pong_header[1])
-                };
-                Ok(val)
-            }
-            (Some(ping_header), None) => {
-                Ok((CFPA_PING_FLASH_WORD, ping_header[1]))
-            }
-            (None, Some(pong_header)) => {
-                Ok((CFPA_PONG_FLASH_WORD, pong_header[1]))
-            }
-            (None, None) => Err(UpdateError::FlashReadFail),
-        }
-    }
+        indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_PING_FLASH_WORD,
+            core::slice::from_mut(&mut ping_header),
+        )?;
+        indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_PONG_FLASH_WORD,
+            core::slice::from_mut(&mut pong_header),
+        )?;
 
-    /// Checks whether the given word is programmed
-    ///
-    /// Returns `true` if it is programmed (and can therefore be safely read);
-    /// `false` otherwise.
-    fn is_word_programmed(&mut self, word: u32) -> bool {
-        self.flash.start_blank_check(word..=word);
-        use drv_lpc55_flash::ProgramState;
-        loop {
-            match self.flash.poll_blank_check_result() {
-                Some(ProgramState::Blank) => break false,
-                Some(ProgramState::NotBlank { .. }) => break true,
-                None => (),
-            }
-        }
-    }
-
-    /// Reads a CFPA header (as a 16-byte value) from the given word
-    ///
-    /// Returns `Ok(None)` if the word is unprogrammed.
-    fn read_cfpa_header_if_programmed(
-        &mut self,
-        word: u32,
-    ) -> Result<Option<[u32; 4]>, UpdateError> {
-        if self.is_word_programmed(word) {
-            let mut header = [0u32; 4];
-            indirect_flash_read_words(
-                &mut self.flash,
-                word,
-                core::slice::from_mut(&mut header),
-            )?;
-            Ok(Some(header))
+        // Work out where to read the authoritative contents from.
+        let val = if ping_header[1] >= pong_header[1] {
+            (CFPA_PING_FLASH_WORD, ping_header[1])
         } else {
-            Ok(None)
-        }
+            (CFPA_PONG_FLASH_WORD, pong_header[1])
+        };
+
+        Ok(val)
     }
 
     // Return the persistent and transient boot preferences
@@ -512,9 +475,17 @@ impl ServerImpl<'_> {
         let persistent_boot_preference =
             boot_preference_from_flash_word(&boot_selection_word);
 
-        // Read the scratch boot version
-        let scratch_header =
-            self.read_cfpa_header_if_programmed(CFPA_SCRATCH_FLASH_WORD)?;
+        // Read the scratch boot version, which may be erased
+        let mut scratch_header = [0u32; 4];
+        let scratch_header = match indirect_flash_read_words(
+            &mut self.flash,
+            CFPA_SCRATCH_FLASH_WORD,
+            core::slice::from_mut(&mut scratch_header),
+        ) {
+            Ok(()) => Some(scratch_header),
+            Err(UpdateError::EccDoubleErr) => None,
+            Err(e) => return Err(e),
+        };
 
         // We only have a pending preference if the scratch CFPA page is newer
         // than the authoritative page.
