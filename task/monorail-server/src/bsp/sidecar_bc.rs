@@ -152,10 +152,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let seq = Sequencer::from(SEQ.get_task_id());
-        let has_front_io = match seq.front_io_board_present() {
-            Ok(present) => present,
-            Err(_) => panic!("unable to determine if front IO board present"),
-        };
+        let has_front_io = seq.front_io_board_present();
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
@@ -227,16 +224,10 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // necessary to try and correct the problem.
         let mut osc_good = false;
 
-        while !osc_good {
+        while self.vsc8562.is_some() && !osc_good {
             self.phy_vsc8562_init()?;
 
-            // Determine if the link is up which implies the oscillator is
-            // good.
-            osc_good = self
-                .vsc7448
-                .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(11))?
-                .sync()
-                == 1;
+            osc_good = self.is_front_io_link_good()?;
 
             // Notify the sequencer about the state of the oscillator. If the
             // oscillator is good any future resets of the PHY do not require a
@@ -393,7 +384,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
         if let Some(phy_rw) = &mut self.vsc8562 {
-            // Request a reset of the PHY.
+            // Request a reset of the PHY. If we had previously marked the PHY
+            // oscillator as bad, then this power-cycles the entire front IO
+            // board; otherwise, it only power-cycles the PHY.
             self.seq
                 .reset_front_io_phy()
                 .map_err(|e| VscError::ProxyError(e.into()))?;
@@ -458,6 +451,15 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
         Ok(())
+    }
+
+    fn is_front_io_link_good(&self) -> Result<bool, VscError> {
+        // Determine if the link is up which implies the PHY oscillator is good.
+        Ok(self
+            .vsc7448
+            .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(11))?
+            .sync()
+            == 1)
     }
 
     pub fn wake(&mut self) -> Result<(), VscError> {

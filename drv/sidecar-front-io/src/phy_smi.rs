@@ -89,11 +89,10 @@ impl PhySmi {
     pub fn osc_good(&self) -> Result<Option<bool>, FpgaError> {
         let phy_osc: u8 = self.fpga.read(Addr::VSC8562_PHY_OSC)?;
 
-        Ok(if phy_osc & Reg::VSC8562::PHY_OSC::VALID != 0 {
-            Some(phy_osc & Reg::VSC8562::PHY_OSC::GOOD != 0)
-        } else {
-            None
-        })
+        let good = phy_osc & Reg::VSC8562::PHY_OSC::GOOD != 0;
+        let valid = phy_osc & Reg::VSC8562::PHY_OSC::VALID != 0;
+
+        Ok(Some(good).filter(|_| valid))
     }
 
     pub fn set_osc_good(&self, good: bool) -> Result<(), FpgaError> {

@@ -43,7 +43,6 @@ impl TryFrom<PowerRailState> for PowerRail {
     }
 }
 
-
 /// Status type for the power rail. This type mirrors the State type in
 /// https://github.com/oxidecomputer/quartz/blob/main/hdl/PowerRail.bsv
 /// and should be kept in sync.

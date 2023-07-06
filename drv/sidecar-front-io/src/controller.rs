@@ -27,9 +27,7 @@ impl FrontIOController {
 
     #[inline]
     pub fn ready(&self) -> Result<bool, FpgaError> {
-        self.fpga
-            .state()
-            .map(|s| s == DeviceState::RunningUserDesign)
+        Ok(self.fpga.state()? == DeviceState::RunningUserDesign)
     }
 
     #[inline]

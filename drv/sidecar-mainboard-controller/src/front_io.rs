@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Addr, MainboardController, Reg};
-use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
+use drv_fpga_api::{FpgaError, FpgaUserDesign};
 pub use drv_fpga_app_api::power_rail::*;
 
 pub struct HotSwapController {
@@ -31,13 +31,10 @@ impl HotSwapController {
     }
 
     pub fn set_enable(&self, enable: bool) -> Result<(), FpgaError> {
-        let op = if enable {
-            WriteOp::BitSet
-        } else {
-            WriteOp::BitClear
-        };
-
-        self.fpga
-            .write(op, Addr::FRONT_IO_STATE, Reg::FRONT_IO_STATE::ENABLE)
+        self.fpga.write(
+            enable.into(),
+            Addr::FRONT_IO_STATE,
+            Reg::FRONT_IO_STATE::ENABLE,
+        )
     }
 }

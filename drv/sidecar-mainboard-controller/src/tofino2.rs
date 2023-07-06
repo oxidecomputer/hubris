@@ -134,6 +134,9 @@ pub struct TofinoSeqAbort {
 
 #[derive(Copy, Clone, Debug, Eq, FromPrimitive, PartialEq)]
 #[repr(C)]
+// These id's correspond to the order of status registers in the mainboard
+// controller register map and are used to attach the power rail "name" to fault
+// data sent upstack.
 pub enum TofinoPowerRailId {
     Vdd18 = 0,
     VddCore = 1,
@@ -282,17 +285,13 @@ impl Sequencer {
     #[inline]
     pub fn power_rails(&self) -> Result<[TofinoPowerRail; 6], FpgaError> {
         let power_rail_states = self.power_rail_states()?;
-        let power_rail =
-            move |id| TofinoPowerRail::try_from((id, power_rail_states[id]));
+        let mut maybe_power_rails = [None; 6];
 
-        Ok([
-            power_rail(0)?,
-            power_rail(1)?,
-            power_rail(2)?,
-            power_rail(3)?,
-            power_rail(4)?,
-            power_rail(5)?,
-        ])
+        for (id, o) in maybe_power_rails.iter_mut().enumerate() {
+            *o = Some(TofinoPowerRail::try_from((id, power_rail_states[id]))?);
+        }
+
+        Ok(maybe_power_rails.map(Option::unwrap))
     }
 
     /// The VID is only valid once Tofino is powered up and a delay after PoR

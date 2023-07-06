@@ -148,10 +148,8 @@ Interface(
 
         "front_io_board_present": (
             args: {},
-            reply: Result(
-                ok: "bool",
-                err: CLike("SeqError"),
-            ),
+            reply: Simple("bool"),
+            idempotent: true,
         ),
         "front_io_board_ready": (
             args: {},

@@ -37,12 +37,8 @@ impl FrontIOBoard {
         At24Csw080::validate(&fruid).unwrap_or(false)
     }
 
-    pub fn initialized(&self) -> Result<bool, FpgaError> {
-        Ok(self
-            .controllers
-            .iter()
-            .map(|c| c.ready().unwrap_or(false))
-            .fold(true, |init, ready| init && ready))
+    pub fn initialized(&self) -> bool {
+        self.controllers.iter().all(|c| c.ready().unwrap_or(false))
     }
 
     pub fn init(&mut self) -> Result<bool, FpgaError> {

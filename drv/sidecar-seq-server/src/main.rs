@@ -10,6 +10,7 @@
 use crate::clock_generator::ClockGenerator;
 use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
+use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
@@ -210,7 +211,7 @@ impl ServerImpl {
 
     fn front_io_phy_osc_good(&self) -> Result<bool, SeqError> {
         if let Some(front_io_board) = self.front_io_board.as_ref() {
-            Ok(front_io_board.initialized()?
+            Ok(front_io_board.initialized()
                 && front_io_board.phy().osc_good()?.unwrap_or(false))
         } else {
             Err(SeqError::NoFrontIOBoard)
@@ -219,7 +220,7 @@ impl ServerImpl {
 
     fn actually_reset_front_io_phy(&mut self) -> Result<(), SeqError> {
         if let Some(front_io_board) = self.front_io_board.as_mut() {
-            if front_io_board.initialized()? {
+            if front_io_board.initialized() {
                 // The board was initialized prior and this function is called
                 // by the monorail task because it is initializing the front IO
                 // PHY. Unfortunately some front IO boards have PHY oscillators
@@ -262,7 +263,7 @@ impl ServerImpl {
         if let Some(front_io_board) = self.front_io_board.as_mut() {
             // At this point the front IO board has either not yet been initalized
             // or may have been power cycled and should be initialized.
-            if !front_io_board.initialized()? {
+            if !front_io_board.initialized() {
                 front_io_board.init()?;
             }
 
@@ -447,7 +448,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn front_io_board_present(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<bool, RequestError<SeqError>> {
+    ) -> Result<bool, RequestError<Infallible>> {
         Ok(self.front_io_board.is_some())
     }
 
@@ -731,10 +732,11 @@ impl NotificationHandler for ServerImpl {
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
+    let i2c_task = I2C.get_task_id();
     let mainboard_controller =
         MainboardController::new(MAINBOARD.get_task_id());
-    let clock_generator = ClockGenerator::new(I2C.get_task_id());
-    let tofino = Tofino::new(I2C.get_task_id());
+    let clock_generator = ClockGenerator::new(i2c_task);
+    let tofino = Tofino::new(i2c_task);
     let front_io_hsc = HotSwapController::new(MAINBOARD.get_task_id());
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
 
@@ -853,7 +855,7 @@ fn main() -> ! {
 
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
-    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
+    read_vpd_and_load_packrat(&packrat, i2c_task);
 
     // The sequencer for the clock generator currently does not have a feedback
     // mechanism/register we can read. Sleeping a short while seems to be
@@ -909,7 +911,7 @@ fn main() -> ! {
     // because the Tofino doesn't have built-in protection against thermal
     // overruns.
     let tmp451 = drv_i2c_devices::tmp451::Tmp451::new(
-        &i2c_config::devices::tmp451_tf2(I2C.get_task_id()),
+        &i2c_config::devices::tmp451_tf2(i2c_task),
         drv_i2c_devices::tmp451::Target::Remote,
     );
     tmp451
