@@ -278,7 +278,9 @@ impl Sequencer {
     }
 
     #[inline]
-    pub fn power_rail_states(&self) -> Result<[RawPowerRailState; 6], FpgaError> {
+    pub fn power_rail_states(
+        &self,
+    ) -> Result<[RawPowerRailState; 6], FpgaError> {
         self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
     }
 
