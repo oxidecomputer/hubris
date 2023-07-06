@@ -21,13 +21,13 @@ impl HotSwapController {
     }
 
     #[inline]
-    fn state(&self) -> Result<PowerRailState, FpgaError> {
+    fn raw_state(&self) -> Result<RawPowerRailState, FpgaError> {
         self.fpga.read(Addr::FRONT_IO_STATE)
     }
 
     #[inline]
     pub fn status(&self) -> Result<PowerRailStatus, FpgaError> {
-        PowerRailStatus::try_from(self.state()?)
+        PowerRailStatus::try_from(self.raw_state()?)
     }
 
     pub fn set_enable(&self, enable: bool) -> Result<(), FpgaError> {

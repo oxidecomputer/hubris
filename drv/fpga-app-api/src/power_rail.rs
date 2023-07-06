@@ -23,7 +23,7 @@ use zerocopy::{AsBytes, FromBytes};
     AsBytes,
 )]
 #[repr(C)]
-pub struct PowerRailState(u8);
+pub struct RawPowerRailState(u8);
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, AsBytes)]
 #[repr(C)]
@@ -32,13 +32,13 @@ pub struct PowerRail {
     pub pins: PowerRailPinState,
 }
 
-impl TryFrom<PowerRailState> for PowerRail {
+impl TryFrom<RawPowerRailState> for PowerRail {
     type Error = FpgaError;
 
-    fn try_from(state: PowerRailState) -> Result<Self, Self::Error> {
+    fn try_from(raw_state: RawPowerRailState) -> Result<Self, Self::Error> {
         Ok(Self {
-            status: PowerRailStatus::try_from(state)?,
-            pins: PowerRailPinState::from(state),
+            status: PowerRailStatus::try_from(raw_state)?,
+            pins: PowerRailPinState::from(raw_state),
         })
     }
 }
@@ -59,11 +59,11 @@ pub enum PowerRailStatus {
     Enabled = 4,
 }
 
-impl TryFrom<PowerRailState> for PowerRailStatus {
+impl TryFrom<RawPowerRailState> for PowerRailStatus {
     type Error = FpgaError;
 
-    fn try_from(power_rail: PowerRailState) -> Result<Self, Self::Error> {
-        Self::from_u8(power_rail.0 >> 4).ok_or(FpgaError::InvalidValue)
+    fn try_from(raw_state: RawPowerRailState) -> Result<Self, Self::Error> {
+        Self::from_u8(raw_state.0 >> 4).ok_or(FpgaError::InvalidValue)
     }
 }
 
@@ -79,13 +79,13 @@ pub struct PowerRailPinState {
     pub vrhot: bool,
 }
 
-impl From<PowerRailState> for PowerRailPinState {
-    fn from(state: PowerRailState) -> Self {
+impl From<RawPowerRailState> for PowerRailPinState {
+    fn from(raw_state: RawPowerRailState) -> Self {
         Self {
-            enable: state.0 & 0x1 != 0,
-            good: state.0 & 0x2 != 0,
-            fault: state.0 & 0x4 != 0,
-            vrhot: state.0 & 0x8 != 0,
+            enable: raw_state.0 & (1 << 0) != 0,
+            good: raw_state.0 & (1 << 1) != 0,
+            fault: raw_state.0 & (1 << 2) != 0,
+            vrhot: raw_state.0 & (1 << 3) != 0,
         }
     }
 }

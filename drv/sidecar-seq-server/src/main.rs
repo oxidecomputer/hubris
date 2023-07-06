@@ -251,7 +251,7 @@ impl ServerImpl {
                     // The PHY was initialized properly before and its
                     // oscillator declared operarting nominally. Assume this has
                     // not changed and only a reset the PHY itself is desired.
-                    front_io_board.phy().set_power_enabled(false)?;
+                    front_io_board.phy().set_phy_power_enabled(false)?;
                     userlib::hl::sleep_for(10);
                 }
             }
@@ -269,7 +269,7 @@ impl ServerImpl {
 
             // The PHY is still powered down. Request the sequencer to power up and
             // wait for it to be ready.
-            front_io_board.phy().set_power_enabled(true)?;
+            front_io_board.phy().set_phy_power_enabled(true)?;
 
             while !front_io_board.phy().powered_up_and_ready()? {
                 userlib::hl::sleep_for(20);
@@ -358,7 +358,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn tofino_power_rails(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[PowerRailState; 6], RequestError<SeqError>> {
+    ) -> Result<[RawPowerRailState; 6], RequestError<SeqError>> {
         self.tofino
             .sequencer
             .power_rail_states()

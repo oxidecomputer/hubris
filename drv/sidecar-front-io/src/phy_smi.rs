@@ -45,12 +45,15 @@ impl PhySmi {
     }
 
     #[inline]
-    pub fn power_enabled(&self) -> Result<bool, FpgaError> {
+    pub fn phy_power_enabled(&self) -> Result<bool, FpgaError> {
         Ok((self.phy_ctrl()? & Reg::VSC8562::PHY_CTRL::EN) != 0)
     }
 
     #[inline]
-    pub fn set_power_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
+    pub fn set_phy_power_enabled(
+        &self,
+        enabled: bool,
+    ) -> Result<(), FpgaError> {
         self.fpga.write(
             WriteOp::from(enabled),
             Addr::VSC8562_PHY_CTRL,

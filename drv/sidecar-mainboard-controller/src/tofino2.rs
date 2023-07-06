@@ -154,12 +154,12 @@ pub struct TofinoPowerRail {
     pub pins: PowerRailPinState,
 }
 
-impl TryFrom<(usize, PowerRailState)> for TofinoPowerRail {
+impl TryFrom<(usize, RawPowerRailState)> for TofinoPowerRail {
     type Error = FpgaError;
 
-    fn try_from(data: (usize, PowerRailState)) -> Result<Self, Self::Error> {
+    fn try_from(data: (usize, RawPowerRailState)) -> Result<Self, Self::Error> {
         Ok(TofinoPowerRail {
-            id: TofinoPowerRailId::from_u8(data.0 as u8)
+            id: TofinoPowerRailId::from_usize(data.0)
                 .ok_or(FpgaError::InvalidValue)?,
             status: PowerRailStatus::try_from(data.1)?,
             pins: PowerRailPinState::from(data.1),
@@ -278,7 +278,7 @@ impl Sequencer {
     }
 
     #[inline]
-    pub fn power_rail_states(&self) -> Result<[PowerRailState; 6], FpgaError> {
+    pub fn power_rail_states(&self) -> Result<[RawPowerRailState; 6], FpgaError> {
         self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
     }
 
