@@ -84,9 +84,9 @@ Interface(
             idempotent: true,
         ),
         "get_full_spd_data": (
-            doc: "Read an entire SPD EEPROM (512 bytes)",
+            doc: "Read an entire SPD EEPROM (512 bytes) for the given device",
             args: {
-                "index": "usize",
+                "dev": "usize",
             },
             leases: {
                 "data": (type: "[u8]", write: true, max_len: Some(512)),

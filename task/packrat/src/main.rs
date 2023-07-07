@@ -288,6 +288,28 @@ impl idl::InOrderPackratImpl for ServerImpl {
             idol_runtime::ClientError::BadMessageContents,
         ))
     }
+
+    #[cfg(feature = "gimlet")]
+    fn get_full_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        dev: usize,
+        out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
+    ) -> Result<(), RequestError<Infallible>> {
+        self.gimlet_data.get_full_spd_data(dev, out)
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn get_full_spd_data(
+        &mut self,
+        _: &RecvMessage,
+        _dev: usize,
+        _out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
+    ) -> Result<u8, RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 mod idl {
