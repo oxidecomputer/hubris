@@ -4053,6 +4053,7 @@ dependencies = [
  "enum-map",
  "heapless",
  "host-sp-messages",
+ "hubpack",
  "idol",
  "idol-runtime",
  "multitimer",

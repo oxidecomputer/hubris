@@ -107,6 +107,9 @@ pub enum HostToSp {
         key: u8,
         max_response_len: u16,
     },
+    GetInventoryData {
+        index: u32,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -152,6 +155,10 @@ pub enum SpToHost {
     // blob of length at most `max_response_len` from the corresponding request.
     // For any other result, there is no subsequent binary blob.
     KeyLookupResult(KeyLookupResult),
+    InventoryData {
+        result: InventoryDataResult,
+        name: [u8; 32],
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -159,6 +166,8 @@ pub enum Key {
     // Always sends back b"pong".
     Ping,
     InstallinatorImageId,
+    /// Returns the max inventory size and version
+    InventorySize,
 }
 
 #[derive(
@@ -175,6 +184,18 @@ pub enum KeyLookupResult {
     MaxResponseLenTooShort,
 }
 
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum InventoryDataResult {
+    Ok,
+    /// The given index is larger than our device count
+    InvalidIndex,
+    /// Communication with the device failed in a way that suggests its absence
+    DeviceAbsent,
+    /// Communication with the device failed in some other way
+    DeviceFailed,
+}
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -345,6 +366,10 @@ impl From<HostStartupOptions> for gateway_messages::StartupOptions {
 /// where `data` is provided by the `fill_data` closure, which should populate
 /// the slice it's given and return the length of data written to that slice.
 ///
+/// If the callback fails, then serialize its result (instead of `command`)
+/// immediately after `header`.  These are the same type, meaning the size
+/// checks still applies.
+///
 /// On success, returns the length of the message serialized into `out`.
 ///
 /// # Errors
@@ -357,16 +382,18 @@ impl From<HostStartupOptions> for gateway_messages::StartupOptions {
 ///
 /// Panics if `fill_data` returns a size greater than the length of the slice it
 /// was given.
-pub fn serialize<F>(
+pub fn try_serialize<F, S>(
     out: &mut [u8; MAX_MESSAGE_SIZE],
     header: &Header,
-    command: &impl Serialize,
+    command: &S,
     fill_data: F,
 ) -> Result<usize, HubpackError>
 where
-    F: FnOnce(&mut [u8]) -> usize,
+    F: FnOnce(&mut [u8]) -> Result<usize, S>,
+    S: Serialize,
 {
-    let mut n = hubpack::serialize(out, header)?;
+    let header_len = hubpack::serialize(out, header)?;
+    let mut n = header_len;
 
     // We know `Header::MAX_SIZE` is much smaller than out.len(), so this
     // subtraction can't underflow. We don't know how big `command` will be, but
@@ -377,9 +404,16 @@ where
 
     n += hubpack::serialize(&mut out[n..out_data_end], command)?;
 
-    let data_this_message = fill_data(&mut out[n..out_data_end]);
-    assert!(data_this_message <= out_data_end - n);
-    n += data_this_message;
+    match fill_data(&mut out[n..out_data_end]) {
+        Ok(data_this_message) => {
+            assert!(data_this_message <= out_data_end - n);
+            n += data_this_message;
+        }
+        Err(e) => {
+            n = header_len;
+            n += hubpack::serialize(&mut out[n..out_data_end], &e)?;
+        }
+    }
 
     // Compute checksum over the full message.
     let checksum = fletcher::calc_fletcher16(&out[..n]);

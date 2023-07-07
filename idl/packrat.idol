@@ -83,6 +83,17 @@ Interface(
             reply: Simple("u8"),
             idempotent: true,
         ),
+        "get_full_spd_data": (
+            doc: "Read an entire SPD EEPROM (512 bytes)",
+            args: {
+                "index": "usize",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(512)),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )
 

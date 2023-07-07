@@ -15,8 +15,9 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult, SpToHost,
-    Status, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN,
+    Bsu, DecodeFailureReason, Header, HostToSp, InventoryDataResult, Key,
+    KeyLookupResult, SpToHost, Status, MAX_MESSAGE_SIZE,
+    MIN_SP_TO_HOST_FILL_DATA_LEN,
 };
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
@@ -57,6 +58,11 @@ const UART_ZERO_DELAY: u64 = 200;
 
 // How long of a host panic / boot fail message are we willing to keep?
 const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
+
+/// Number of devices in our inventory
+const INVENTORY_COUNT: u32 = 16;
+/// Inventory API version (always 0 for now)
+const INVENTORY_API_VERSION: u32 = 0;
 
 // How many MAC addresses should we report to the host? Per RFD 320, a gimlet
 // currently needs 5 total:
@@ -744,6 +750,17 @@ impl ServerImpl {
                 }
                 Err(err) => Some(SpToHost::KeyLookupResult(err)),
             },
+            HostToSp::GetInventoryData { index } => {
+                // This function writes either the result or an error, so we
+                // have nothing to serialize.
+                match self.perform_inventory_lookup(header.sequence, index) {
+                    Ok(()) => None,
+                    Err(err) => Some(SpToHost::InventoryData {
+                        result: err,
+                        name: [0; 32],
+                    }),
+                }
+            }
         };
 
         if let Some(response) = response {
@@ -782,13 +799,9 @@ impl ServerImpl {
     ) -> Result<(), KeyLookupResult> {
         let key = Key::from_u8(key).ok_or(KeyLookupResult::InvalidKey)?;
 
-        match key {
+        let response_len = match key {
             Key::Ping => {
                 const PONG: &[u8] = b"pong";
-
-                if max_response_len < PONG.len() {
-                    return Err(KeyLookupResult::MaxResponseLenTooShort);
-                }
 
                 self.tx_buf.encode_response(
                     sequence,
@@ -798,6 +811,7 @@ impl ServerImpl {
                         PONG.len()
                     },
                 );
+                PONG.len()
             }
             Key::InstallinatorImageId => {
                 // Borrow `cp_agent` to avoid borrowing `self` in the closure
@@ -847,14 +861,89 @@ impl ServerImpl {
                 if response_len == 0 {
                     self.tx_buf.reset();
                     return Err(KeyLookupResult::NoValueForKey);
-                } else if response_len > max_response_len {
-                    self.tx_buf.reset();
-                    return Err(KeyLookupResult::MaxResponseLenTooShort);
                 }
+                response_len
+            }
+            Key::InventorySize => {
+                // We reply with a tuple of count, API version:
+                const REPLY: (u32, u32) =
+                    (INVENTORY_COUNT, INVENTORY_API_VERSION);
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        const_assert!(
+                            MIN_SP_TO_HOST_FILL_DATA_LEN
+                                >= core::mem::size_of::<u32>() * 2
+                        );
+                        hubpack::serialize(buf, &REPLY).unwrap_lite()
+                    },
+                );
+                core::mem::size_of_val(&REPLY)
+            }
+        };
+        if response_len > max_response_len {
+            self.tx_buf.reset();
+            return Err(KeyLookupResult::MaxResponseLenTooShort);
+        }
+
+        Ok(())
+    }
+
+    /// On success, we will have already filled `self.tx_buf` with our response.
+    /// On failure, our caller should response with
+    /// `SpToHost::KeyLookupResult(err)` with the error we return.
+    fn perform_inventory_lookup(
+        &mut self,
+        sequence: u64,
+        index: u32,
+    ) -> Result<(), InventoryDataResult> {
+        #[forbid(unreachable_patterns)]
+        match index {
+            i @ 0..=15 => {
+                self.dimm_inventory_lookup(sequence, i);
+            }
+            // We need to specify INVENTORY_COUNT individually here to trigger
+            // an error if we've overlapped it with a previous range
+            INVENTORY_COUNT | INVENTORY_COUNT..=u32::MAX => {
+                return Err(InventoryDataResult::InvalidIndex)
             }
         }
 
         Ok(())
+    }
+
+    fn dimm_inventory_lookup(&mut self, sequence: u64, index: u32) {
+        // Build a name of the form `m{index}`, to match the designator
+        let mut name = [0; 32];
+        name[0] = b'm';
+        if index >= 10 {
+            name[1] = b'0' + (index / 10) as u8;
+            name[2] = b'0' + (index % 10) as u8;
+        } else {
+            name[1] = b'0' + index as u8;
+        }
+
+        let packrat = &self.packrat;
+        self.tx_buf.try_encode_response(
+            sequence,
+            &SpToHost::InventoryData {
+                result: InventoryDataResult::Ok,
+                name,
+            },
+            |buf| {
+                // TODO: does packrat index match PCA designator?
+                if packrat.get_spd_present(index as usize) {
+                    packrat.get_full_spd_data(index as usize, buf);
+                    Ok(512)
+                } else {
+                    Err(SpToHost::InventoryData {
+                        result: InventoryDataResult::DeviceAbsent,
+                        name,
+                    })
+                }
+            },
+        );
     }
 }
 

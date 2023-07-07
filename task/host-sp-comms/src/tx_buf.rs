@@ -148,9 +148,13 @@ impl TxBuf {
 
         // Serializing can only fail if we pass unexpected types as `response`,
         // but we're using `SpToHost`, so it cannot fail.
-        let n =
-            host_sp_messages::serialize(self.msg, &header, &response, |_| 0)
-                .unwrap_lite();
+        let n = host_sp_messages::try_serialize(
+            self.msg,
+            &header,
+            &response,
+            |_| Ok(0),
+        )
+        .unwrap_lite();
 
         // Corncobs-encode the serialized response.
         self.encode_message(n);
@@ -171,20 +175,40 @@ impl TxBuf {
     ) where
         F: FnOnce(&mut [u8]) -> usize,
     {
+        self.try_encode_response(sequence, response, |buf| Ok(fill_data(buf)))
+    }
+
+    /// Encodes `response` into our outgoing buffer, setting the `SEQ_REPLY` bit
+    /// in the header sequence number.  If the `fill_data` callback returns an
+    /// error, serialize that error instead of the given `response` (which is of
+    /// the same type).
+    ///
+    /// # Panics
+    ///
+    /// If we still have data from a previously-encoded message that hasn't been
+    /// sent.
+    pub(crate) fn try_encode_response<F>(
+        &mut self,
+        sequence: u64,
+        response: &SpToHost,
+        fill_data: F,
+    ) where
+        F: FnOnce(&mut [u8]) -> Result<usize, SpToHost>,
+    {
         assert!(!matches!(self.state, State::ToSend(_)));
 
-        let n = self.serialize_response(sequence, response, fill_data);
+        let n = self.try_serialize_response(sequence, response, fill_data);
         self.encode_message(n);
     }
 
-    fn serialize_response<F>(
+    fn try_serialize_response<F>(
         &mut self,
         sequence: u64,
         response: &SpToHost,
         fill_data: F,
     ) -> usize
     where
-        F: FnOnce(&mut [u8]) -> usize,
+        F: FnOnce(&mut [u8]) -> Result<usize, SpToHost>,
     {
         let header = Header {
             magic: host_sp_messages::MAGIC,
@@ -199,8 +223,9 @@ impl TxBuf {
         });
 
         // Serializing can only fail if we pass unexpected types as `response`,
-        // but we're using `SpToHost`, so it cannot fail.
-        host_sp_messages::serialize(self.msg, &header, &response, fill_data)
+        // but we're using `SpToHost` for both the response and error, so it
+        // cannot fail.
+        host_sp_messages::try_serialize(self.msg, &header, response, fill_data)
             .unwrap_lite()
     }
 

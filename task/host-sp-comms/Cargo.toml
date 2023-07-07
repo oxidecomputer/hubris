@@ -9,6 +9,7 @@ corncobs.workspace = true
 cortex-m.workspace = true
 enum-map.workspace = true
 heapless.workspace = true
+hubpack.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
 static_assertions.workspace = true
