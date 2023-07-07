@@ -12,7 +12,7 @@ zerocopy.workspace = true
 
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-fpga-api = { path = "../fpga-api" }
-drv-fpga-app-api = { path = "../fpga-app-api" }
+drv-fpga-user-api = { path = "../fpga-user-api" }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller" }
 userlib = { path = "../../sys/userlib" }
 

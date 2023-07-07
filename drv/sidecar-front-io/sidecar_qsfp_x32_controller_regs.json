@@ -257,7 +257,7 @@
         {
             "type": "addrmap",
             "inst_name": "VSC8562",
-            "addr_offset": 16,
+            "addr_offset": 256,
             "children": [
                 {
                     "type": "reg",
@@ -330,7 +330,7 @@
                             "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Value inverted to drive  FPGA1_TO_PHY_RESET_L."
+                            "desc": "Value of FPGA1_TO_PHY_RESET_L"
                         },
                         {
                             "type": "field",
@@ -383,7 +383,7 @@
                             "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
-                            "desc": "Software control for the COMA_MODE pin."
+                            "desc": "Software control for the FPGA1_TO_PHY_COMA_MODE net. Only effective after PHY initialization."
                         },
                         {
                             "type": "field",
@@ -395,6 +395,28 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "REFCLK_EN",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Software control for the FPGA1_TO_PHY_REFCLK_EN net. Only effective after PHY initialization."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RESET",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Software control for the FPGA1_TO_PHY_RESET_L net. Only effective after PHY initialization."
                         }
                     ]
                 },
@@ -610,13 +632,44 @@
                             "desc": "Write a 1 here to begin a transaction"
                         }
                     ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PHY_RAIL_STATES",
+                    "addr_offset": 11,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "V1P0_STATE",
+                            "lsb": 0,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "V2P5_STATE",
+                            "lsb": 4,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled"
+                        }
+                    ]
                 }
             ]
         },
         {
             "type": "addrmap",
             "inst_name": "QSFP",
-            "addr_offset": 8192,
+            "addr_offset": 4096,
             "children": [
                 {
                     "type": "reg",

@@ -214,6 +214,19 @@ Fan 3 State
 |[0] | rw | ENABLE | Drives FPGA_TO_FANx_HSC_EN. FPGA will clear if FANx_PRESENT not set.
 |===
 
+Front IO State
+[caption="Address: "]
+.0x0030 - FRONT_IO_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] | r | STATE | State of the power rail according to the sequencer
+|[3] | r | VRHOT | Flag indicating the voltage regulator is experiencing a high temperature
+|[2] | r | FAULT | Flag indicating the power rail experienced a fault
+|[1] | r | GOOD | Flag indicating the power rail is operating nominally
+|[0] | r | ENABLE | Flag indicating the power rail is enabled
+|===
+
 Tofino Sequencer Control
 [caption="Address: "]
 .0x0100 - TOFINO_SEQ_CTRL Register

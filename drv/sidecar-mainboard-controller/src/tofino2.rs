@@ -7,7 +7,7 @@ use bitfield::bitfield;
 use core::convert::Into;
 use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use drv_fpga_app_api::power_rail::*;
+use drv_fpga_user_api::power_rail::*;
 use userlib::FromPrimitive;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -154,19 +154,6 @@ pub struct TofinoPowerRail {
     pub pins: PowerRailPinState,
 }
 
-impl TryFrom<(usize, RawPowerRailState)> for TofinoPowerRail {
-    type Error = FpgaError;
-
-    fn try_from(data: (usize, RawPowerRailState)) -> Result<Self, Self::Error> {
-        Ok(TofinoPowerRail {
-            id: TofinoPowerRailId::from_usize(data.0)
-                .ok_or(FpgaError::InvalidValue)?,
-            status: PowerRailStatus::try_from(data.1)?,
-            pins: PowerRailPinState::from(data.1),
-        })
-    }
-}
-
 /// VID to voltage mapping. The VID values are specified in TF2-DS2, with the
 /// actual voltage values derived experimentally after load testing the PDN.
 #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
@@ -284,13 +271,17 @@ impl Sequencer {
         self.fpga.read(Addr::TOFINO_POWER_VDD18_STATE)
     }
 
-    #[inline]
     pub fn power_rails(&self) -> Result<[TofinoPowerRail; 6], FpgaError> {
         let power_rail_states = self.power_rail_states()?;
         let mut maybe_power_rails = [None; 6];
 
-        for (id, o) in maybe_power_rails.iter_mut().enumerate() {
-            *o = Some(TofinoPowerRail::try_from((id, power_rail_states[id]))?);
+        for (i, o) in maybe_power_rails.iter_mut().enumerate() {
+            let id = TofinoPowerRailId::from_usize(i)
+                .ok_or(FpgaError::InvalidValue)?;
+            let status = PowerRailStatus::try_from(power_rail_states[i])?;
+            let pins = PowerRailPinState::from(power_rail_states[i]);
+
+            *o = Some(TofinoPowerRail { id, status, pins });
         }
 
         Ok(maybe_power_rails.map(Option::unwrap))

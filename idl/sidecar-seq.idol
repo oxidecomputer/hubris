@@ -68,7 +68,7 @@ Interface(
         "tofino_power_rails": (
             doc: "Return the Tofino sequencer power rail registers",
             reply: Result(
-                ok: "[drv_fpga_app_api::power_rail::RawPowerRailState; 6]",
+                ok: "[drv_fpga_user_api::power_rail::RawPowerRailState; 6]",
                 err: CLike("SeqError"),
             ),
         ),

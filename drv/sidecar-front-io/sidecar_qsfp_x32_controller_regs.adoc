@@ -103,15 +103,25 @@ LED Controller (PCA9956B) Control Bits
 |[0] | rw | RESET | Control of RESET_L (inverted at pin)
 |===
 
+QSFP Board Version
+[caption="Address: "]
+.0x000b - FPGA_BOARD_VER Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4:0] | r | VERSION | 0x0 = Ver A, 0x1 = Ver B or C
+|===
+
 Status bits related to VSC8562 (valid on FPGA1 only)
 [caption="Address: "]
-.0x0010 - VSC8562_PHY_STATUS Register
+.0x0100 - VSC8562_PHY_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
 |[7] | r | PG_TIMED_OUT | Either the V1P0 or V2P5 rail has failed to come up. V1P0 is first in the sequence, its PG is the EN for V2P5.
 |[6] | r | READY | The VSC8562 has been brought out of reset and is ready for software control
-|[5] | r | RESET | Value inverted to drive  FPGA1_TO_PHY_RESET_L.
+|[5] | r | RESET | Value of FPGA1_TO_PHY_RESET_L
 |[4] | r | REFCLK_EN | Value of FPGA1_TO_PHY_REFCLK_EN
 |[3] | r | COMA_MODE | Value of FPGA1_TO_PHY_COMA_MODE
 |[2] | r | PG_V2P5 | Power Good of V2P5_PHY_A2
@@ -121,19 +131,32 @@ Status bits related to VSC8562 (valid on FPGA1 only)
 
 Control bits related to VSC8562  (valid on FPGA1 only)
 [caption="Address: "]
-.0x0011 - VSC8562_PHY_CTRL Register
+.0x0101 - VSC8562_PHY_CTRL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:3] |  | - | Reserved
+|[7:5] |  | - | Reserved
+|[4] | rw | RESET | Software control for the FPGA1_TO_PHY_RESET_L net. Only effective after PHY initialization.
+|[3] | rw | REFCLK_EN | Software control for the FPGA1_TO_PHY_REFCLK_EN net. Only effective after PHY initialization.
 |[2] | rw | CLEAR_POWER_FAULT | Setting this bit to 1 will clear the timed out state of the V1P0 and V2P5 rail controllers, allowing PHY power sequencing to be attempted again.
-|[1] | rw | COMA_MODE | Software control for the COMA_MODE pin.
+|[1] | rw | COMA_MODE | Software control for the FPGA1_TO_PHY_COMA_MODE net. Only effective after PHY initialization.
 |[0] | rw | EN | Enable for the VSC8562 power up state machine
+|===
+
+State bits indicating the PHY oscillator is operating nominal
+[caption="Address: "]
+.0x0102 - VSC8562_PHY_OSC Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | rw | GOOD | Bit indicating whether or not the oscillator is operating nominal
+|[0] | rw | VALID | Bit indicating whether or not the GOOD bit is valid
 |===
 
 Status bits for the SMI interface to the VSC8562 (valid on FPGA1 only)
 [caption="Address: "]
-.0x0012 - VSC8562_PHY_SMI_STATUS Register
+.0x0103 - VSC8562_PHY_SMI_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -144,7 +167,7 @@ Status bits for the SMI interface to the VSC8562 (valid on FPGA1 only)
 
 SMI Read Data [7:0] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0013 - VSC8562_PHY_SMI_RDATA0 Register
+.0x0104 - VSC8562_PHY_SMI_RDATA0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -153,7 +176,7 @@ SMI Read Data [7:0] (valid on FPGA1 only)
 
 SMI Read Data [15:8] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0014 - VSC8562_PHY_SMI_RDATA1 Register
+.0x0105 - VSC8562_PHY_SMI_RDATA1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -162,7 +185,7 @@ SMI Read Data [15:8] (valid on FPGA1 only)
 
 SMI Write Data [7:0] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0015 - VSC8562_PHY_SMI_WDATA0 Register
+.0x0106 - VSC8562_PHY_SMI_WDATA0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -171,7 +194,7 @@ SMI Write Data [7:0] (valid on FPGA1 only)
 
 SMI Write Data [15:8] (valid on FPGA1 only)
 [caption="Address: "]
-.0x0016 - VSC8562_PHY_SMI_WDATA1 Register
+.0x0107 - VSC8562_PHY_SMI_WDATA1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -180,7 +203,7 @@ SMI Write Data [15:8] (valid on FPGA1 only)
 
 PHY Address (valid on FPGA1 only)
 [caption="Address: "]
-.0x0017 - VSC8562_PHY_SMI_PHY_ADDR Register
+.0x0108 - VSC8562_PHY_SMI_PHY_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -190,7 +213,7 @@ PHY Address (valid on FPGA1 only)
 
 Register Address (valid on FPGA1 only)
 [caption="Address: "]
-.0x0018 - VSC8562_PHY_SMI_REG_ADDR Register
+.0x0109 - VSC8562_PHY_SMI_REG_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -200,7 +223,7 @@ Register Address (valid on FPGA1 only)
 
 SMI control bits, these are one-shot registers and intended to be written in the same transaction. (valid on FPGA1 only)
 [caption="Address: "]
-.0x0019 - VSC8562_PHY_SMI_CTRL Register
+.0x010a - VSC8562_PHY_SMI_CTRL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -209,9 +232,21 @@ SMI control bits, these are one-shot registers and intended to be written in the
 |[0] | rw | RW | Read = 0, Write = 1
 |===
 
+PHY PowerRail state (internal to FPGA)
+[caption="Address: "]
+.0x010b - VSC8562_PHY_RAIL_STATES Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] |  | - | Reserved
+|[6:4] | r | V2P5_STATE | 0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled
+|[3] |  | - | Reserved
+|[2:0] | r | V1P0_STATE | 0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled
+|===
+
 QSFP module I2C address
 [caption="Address: "]
-.0x2000 - QSFP_I2C_BUS_ADDR Register
+.0x1000 - QSFP_I2C_BUS_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -221,7 +256,7 @@ QSFP module I2C address
 
 QSFP module register address
 [caption="Address: "]
-.0x2001 - QSFP_I2C_REG_ADDR Register
+.0x1001 - QSFP_I2C_REG_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -230,7 +265,7 @@ QSFP module register address
 
 I2C_NUM_BYTES
 [caption="Address: "]
-.0x2002 - QSFP_I2C_NUM_BYTES Register
+.0x1002 - QSFP_I2C_NUM_BYTES Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -239,7 +274,7 @@ I2C_NUM_BYTES
 
 Ports 0 -> 7 Broadcast Control
 [caption="Address: "]
-.0x2003 - QSFP_I2C_BCAST0 Register
+.0x1003 - QSFP_I2C_BCAST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -255,7 +290,7 @@ Ports 0 -> 7 Broadcast Control
 
 Ports 8 -> 15 Broadcast Control
 [caption="Address: "]
-.0x2004 - QSFP_I2C_BCAST1 Register
+.0x1004 - QSFP_I2C_BCAST1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -271,7 +306,7 @@ Ports 8 -> 15 Broadcast Control
 
 Control bits for I2C communication.
 [caption="Address: "]
-.0x2005 - QSFP_I2C_CTRL Register
+.0x1005 - QSFP_I2C_CTRL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -282,7 +317,7 @@ Control bits for I2C communication.
 
 Ports 0 -> 7 I2C core status. '1' is busy.
 [caption="Address: "]
-.0x2006 - QSFP_I2C_BUSY0 Register
+.0x1006 - QSFP_I2C_BUSY0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -298,7 +333,7 @@ Ports 0 -> 7 I2C core status. '1' is busy.
 
 Ports 8 -> 15 I2C core status. '1' is busy.
 [caption="Address: "]
-.0x2007 - QSFP_I2C_BUSY1 Register
+.0x1007 - QSFP_I2C_BUSY1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -314,7 +349,7 @@ Ports 8 -> 15 I2C core status. '1' is busy.
 
 STATUS_PORT0
 [caption="Address: "]
-.0x2008 - QSFP_STATUS_PORT0 Register
+.0x1008 - QSFP_STATUS_PORT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -325,7 +360,7 @@ STATUS_PORT0
 
 STATUS_PORT1
 [caption="Address: "]
-.0x2009 - QSFP_STATUS_PORT1 Register
+.0x1009 - QSFP_STATUS_PORT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -336,7 +371,7 @@ STATUS_PORT1
 
 STATUS_PORT2
 [caption="Address: "]
-.0x200a - QSFP_STATUS_PORT2 Register
+.0x100a - QSFP_STATUS_PORT2 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -347,7 +382,7 @@ STATUS_PORT2
 
 STATUS_PORT3
 [caption="Address: "]
-.0x200b - QSFP_STATUS_PORT3 Register
+.0x100b - QSFP_STATUS_PORT3 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -358,7 +393,7 @@ STATUS_PORT3
 
 STATUS_PORT4
 [caption="Address: "]
-.0x200c - QSFP_STATUS_PORT4 Register
+.0x100c - QSFP_STATUS_PORT4 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -369,7 +404,7 @@ STATUS_PORT4
 
 STATUS_PORT5
 [caption="Address: "]
-.0x200d - QSFP_STATUS_PORT5 Register
+.0x100d - QSFP_STATUS_PORT5 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -380,7 +415,7 @@ STATUS_PORT5
 
 STATUS_PORT6
 [caption="Address: "]
-.0x200e - QSFP_STATUS_PORT6 Register
+.0x100e - QSFP_STATUS_PORT6 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -391,7 +426,7 @@ STATUS_PORT6
 
 STATUS_PORT7
 [caption="Address: "]
-.0x200f - QSFP_STATUS_PORT7 Register
+.0x100f - QSFP_STATUS_PORT7 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -402,7 +437,7 @@ STATUS_PORT7
 
 STATUS_PORT8
 [caption="Address: "]
-.0x2010 - QSFP_STATUS_PORT8 Register
+.0x1010 - QSFP_STATUS_PORT8 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -413,7 +448,7 @@ STATUS_PORT8
 
 STATUS_PORT9
 [caption="Address: "]
-.0x2011 - QSFP_STATUS_PORT9 Register
+.0x1011 - QSFP_STATUS_PORT9 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -424,7 +459,7 @@ STATUS_PORT9
 
 STATUS_PORT10
 [caption="Address: "]
-.0x2012 - QSFP_STATUS_PORT10 Register
+.0x1012 - QSFP_STATUS_PORT10 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -435,7 +470,7 @@ STATUS_PORT10
 
 STATUS_PORT11
 [caption="Address: "]
-.0x2013 - QSFP_STATUS_PORT11 Register
+.0x1013 - QSFP_STATUS_PORT11 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -446,7 +481,7 @@ STATUS_PORT11
 
 STATUS_PORT12
 [caption="Address: "]
-.0x2014 - QSFP_STATUS_PORT12 Register
+.0x1014 - QSFP_STATUS_PORT12 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -457,7 +492,7 @@ STATUS_PORT12
 
 STATUS_PORT13
 [caption="Address: "]
-.0x2015 - QSFP_STATUS_PORT13 Register
+.0x1015 - QSFP_STATUS_PORT13 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -468,7 +503,7 @@ STATUS_PORT13
 
 STATUS_PORT14
 [caption="Address: "]
-.0x2016 - QSFP_STATUS_PORT14 Register
+.0x1016 - QSFP_STATUS_PORT14 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -479,7 +514,7 @@ STATUS_PORT14
 
 STATUS_PORT15
 [caption="Address: "]
-.0x2017 - QSFP_STATUS_PORT15 Register
+.0x1017 - QSFP_STATUS_PORT15 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -490,7 +525,7 @@ STATUS_PORT15
 
 CONTROL_PORT0
 [caption="Address: "]
-.0x2018 - QSFP_CONTROL_PORT0 Register
+.0x1018 - QSFP_CONTROL_PORT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -500,7 +535,7 @@ CONTROL_PORT0
 
 CONTROL_PORT1
 [caption="Address: "]
-.0x2019 - QSFP_CONTROL_PORT1 Register
+.0x1019 - QSFP_CONTROL_PORT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -510,7 +545,7 @@ CONTROL_PORT1
 
 CONTROL_PORT2
 [caption="Address: "]
-.0x201a - QSFP_CONTROL_PORT2 Register
+.0x101a - QSFP_CONTROL_PORT2 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -520,7 +555,7 @@ CONTROL_PORT2
 
 CONTROL_PORT3
 [caption="Address: "]
-.0x201b - QSFP_CONTROL_PORT3 Register
+.0x101b - QSFP_CONTROL_PORT3 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -530,7 +565,7 @@ CONTROL_PORT3
 
 CONTROL_PORT4
 [caption="Address: "]
-.0x201c - QSFP_CONTROL_PORT4 Register
+.0x101c - QSFP_CONTROL_PORT4 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -540,7 +575,7 @@ CONTROL_PORT4
 
 CONTROL_PORT5
 [caption="Address: "]
-.0x201d - QSFP_CONTROL_PORT5 Register
+.0x101d - QSFP_CONTROL_PORT5 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -550,7 +585,7 @@ CONTROL_PORT5
 
 CONTROL_PORT6
 [caption="Address: "]
-.0x201e - QSFP_CONTROL_PORT6 Register
+.0x101e - QSFP_CONTROL_PORT6 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -560,7 +595,7 @@ CONTROL_PORT6
 
 CONTROL_PORT7
 [caption="Address: "]
-.0x201f - QSFP_CONTROL_PORT7 Register
+.0x101f - QSFP_CONTROL_PORT7 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -570,7 +605,7 @@ CONTROL_PORT7
 
 CONTROL_PORT8
 [caption="Address: "]
-.0x2020 - QSFP_CONTROL_PORT8 Register
+.0x1020 - QSFP_CONTROL_PORT8 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -580,7 +615,7 @@ CONTROL_PORT8
 
 CONTROL_PORT9
 [caption="Address: "]
-.0x2021 - QSFP_CONTROL_PORT9 Register
+.0x1021 - QSFP_CONTROL_PORT9 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -590,7 +625,7 @@ CONTROL_PORT9
 
 CONTROL_PORT10
 [caption="Address: "]
-.0x2022 - QSFP_CONTROL_PORT10 Register
+.0x1022 - QSFP_CONTROL_PORT10 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -600,7 +635,7 @@ CONTROL_PORT10
 
 CONTROL_PORT11
 [caption="Address: "]
-.0x2023 - QSFP_CONTROL_PORT11 Register
+.0x1023 - QSFP_CONTROL_PORT11 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -610,7 +645,7 @@ CONTROL_PORT11
 
 CONTROL_PORT12
 [caption="Address: "]
-.0x2024 - QSFP_CONTROL_PORT12 Register
+.0x1024 - QSFP_CONTROL_PORT12 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -620,7 +655,7 @@ CONTROL_PORT12
 
 CONTROL_PORT13
 [caption="Address: "]
-.0x2025 - QSFP_CONTROL_PORT13 Register
+.0x1025 - QSFP_CONTROL_PORT13 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -630,7 +665,7 @@ CONTROL_PORT13
 
 CONTROL_PORT14
 [caption="Address: "]
-.0x2026 - QSFP_CONTROL_PORT14 Register
+.0x1026 - QSFP_CONTROL_PORT14 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -640,7 +675,7 @@ CONTROL_PORT14
 
 CONTROL_PORT15
 [caption="Address: "]
-.0x2027 - QSFP_CONTROL_PORT15 Register
+.0x1027 - QSFP_CONTROL_PORT15 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -650,7 +685,7 @@ CONTROL_PORT15
 
 Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
 [caption="Address: "]
-.0x2028 - QSFP_POWER_EN0 Register
+.0x1028 - QSFP_POWER_EN0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -666,7 +701,7 @@ Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
 
 Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
 [caption="Address: "]
-.0x2029 - QSFP_POWER_EN1 Register
+.0x1029 - QSFP_POWER_EN1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -682,7 +717,7 @@ Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
 
 Ports 0 -> 7 HSC power good
 [caption="Address: "]
-.0x202a - QSFP_POWER_GOOD0 Register
+.0x102a - QSFP_POWER_GOOD0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -698,7 +733,7 @@ Ports 0 -> 7 HSC power good
 
 Ports 8 -> 15 HSC power good
 [caption="Address: "]
-.0x202b - QSFP_POWER_GOOD1 Register
+.0x102b - QSFP_POWER_GOOD1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -714,7 +749,7 @@ Ports 8 -> 15 HSC power good
 
 Ports 0 -> 7 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x202c - QSFP_POWER_GOOD_TIMEOUT0 Register
+.0x102c - QSFP_POWER_GOOD_TIMEOUT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -730,7 +765,7 @@ Ports 0 -> 7 HSC power good not asserted within period after enabled
 
 Ports 8 -> 15 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x202d - QSFP_POWER_GOOD_TIMEOUT1 Register
+.0x102d - QSFP_POWER_GOOD_TIMEOUT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -746,7 +781,7 @@ Ports 8 -> 15 HSC power good not asserted within period after enabled
 
 Ports 0 -> 7 HSC power good lost after successful enable
 [caption="Address: "]
-.0x202e - QSFP_POWER_GOOD_LOST0 Register
+.0x102e - QSFP_POWER_GOOD_LOST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -762,7 +797,7 @@ Ports 0 -> 7 HSC power good lost after successful enable
 
 Ports 8 -> 15 HSC power good lost after successful enable
 [caption="Address: "]
-.0x202f - QSFP_POWER_GOOD_LOST1 Register
+.0x102f - QSFP_POWER_GOOD_LOST1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -778,7 +813,7 @@ Ports 8 -> 15 HSC power good lost after successful enable
 
 Ports 0 -> 7 Module ResetL
 [caption="Address: "]
-.0x2030 - QSFP_MOD_RESETL0 Register
+.0x1030 - QSFP_MOD_RESETL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -794,7 +829,7 @@ Ports 0 -> 7 Module ResetL
 
 Ports 8 -> 15 Module ResetL
 [caption="Address: "]
-.0x2031 - QSFP_MOD_RESETL1 Register
+.0x1031 - QSFP_MOD_RESETL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -810,7 +845,7 @@ Ports 8 -> 15 Module ResetL
 
 Ports 0 -> 7 Module LPMode/TxDis
 [caption="Address: "]
-.0x2032 - QSFP_MOD_LPMODE0 Register
+.0x1032 - QSFP_MOD_LPMODE0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -826,7 +861,7 @@ Ports 0 -> 7 Module LPMode/TxDis
 
 Ports 8 -> 15 Module LPMode/TxDis
 [caption="Address: "]
-.0x2033 - QSFP_MOD_LPMODE1 Register
+.0x1033 - QSFP_MOD_LPMODE1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -842,7 +877,7 @@ Ports 8 -> 15 Module LPMode/TxDis
 
 Ports 0 -> 7 Module ModPrsL
 [caption="Address: "]
-.0x2034 - QSFP_MOD_MODPRSL0 Register
+.0x1034 - QSFP_MOD_MODPRSL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -858,7 +893,7 @@ Ports 0 -> 7 Module ModPrsL
 
 Ports 8 -> 15 Module ModPrsL
 [caption="Address: "]
-.0x2035 - QSFP_MOD_MODPRSL1 Register
+.0x1035 - QSFP_MOD_MODPRSL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -874,7 +909,7 @@ Ports 8 -> 15 Module ModPrsL
 
 Ports 0 -> 7 Module IntL/RxLOS
 [caption="Address: "]
-.0x2036 - QSFP_MOD_INTL0 Register
+.0x1036 - QSFP_MOD_INTL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -890,7 +925,7 @@ Ports 0 -> 7 Module IntL/RxLOS
 
 Ports 8 -> 15 Module IntL/RxLOS
 [caption="Address: "]
-.0x2037 - QSFP_MOD_INTL1 Register
+.0x1037 - QSFP_MOD_INTL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -906,7 +941,7 @@ Ports 8 -> 15 Module IntL/RxLOS
 
 PORT0_STATUS
 [caption="Address: "]
-.0x207f - QSFP_PORT0_STATUS Register
+.0x107f - QSFP_PORT0_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -917,7 +952,7 @@ PORT0_STATUS
 
 PORT0_READ_BUFFER
 [caption="Address: "]
-.0x2080 - QSFP_PORT0_READ_BUFFER Register
+.0x1080 - QSFP_PORT0_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -925,7 +960,7 @@ PORT0_READ_BUFFER
 
 PORT1_STATUS
 [caption="Address: "]
-.0x217f - QSFP_PORT1_STATUS Register
+.0x117f - QSFP_PORT1_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -936,7 +971,7 @@ PORT1_STATUS
 
 PORT1_READ_BUFFER
 [caption="Address: "]
-.0x2180 - QSFP_PORT1_READ_BUFFER Register
+.0x1180 - QSFP_PORT1_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -944,7 +979,7 @@ PORT1_READ_BUFFER
 
 PORT2_STATUS
 [caption="Address: "]
-.0x227f - QSFP_PORT2_STATUS Register
+.0x127f - QSFP_PORT2_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -955,7 +990,7 @@ PORT2_STATUS
 
 PORT2_READ_BUFFER
 [caption="Address: "]
-.0x2280 - QSFP_PORT2_READ_BUFFER Register
+.0x1280 - QSFP_PORT2_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -963,7 +998,7 @@ PORT2_READ_BUFFER
 
 PORT3_STATUS
 [caption="Address: "]
-.0x237f - QSFP_PORT3_STATUS Register
+.0x137f - QSFP_PORT3_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -974,7 +1009,7 @@ PORT3_STATUS
 
 PORT3_READ_BUFFER
 [caption="Address: "]
-.0x2380 - QSFP_PORT3_READ_BUFFER Register
+.0x1380 - QSFP_PORT3_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -982,7 +1017,7 @@ PORT3_READ_BUFFER
 
 PORT4_STATUS
 [caption="Address: "]
-.0x247f - QSFP_PORT4_STATUS Register
+.0x147f - QSFP_PORT4_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -993,7 +1028,7 @@ PORT4_STATUS
 
 PORT4_READ_BUFFER
 [caption="Address: "]
-.0x2480 - QSFP_PORT4_READ_BUFFER Register
+.0x1480 - QSFP_PORT4_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1001,7 +1036,7 @@ PORT4_READ_BUFFER
 
 PORT5_STATUS
 [caption="Address: "]
-.0x257f - QSFP_PORT5_STATUS Register
+.0x157f - QSFP_PORT5_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1012,7 +1047,7 @@ PORT5_STATUS
 
 PORT5_READ_BUFFER
 [caption="Address: "]
-.0x2580 - QSFP_PORT5_READ_BUFFER Register
+.0x1580 - QSFP_PORT5_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1020,7 +1055,7 @@ PORT5_READ_BUFFER
 
 PORT6_STATUS
 [caption="Address: "]
-.0x267f - QSFP_PORT6_STATUS Register
+.0x167f - QSFP_PORT6_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1031,7 +1066,7 @@ PORT6_STATUS
 
 PORT6_READ_BUFFER
 [caption="Address: "]
-.0x2680 - QSFP_PORT6_READ_BUFFER Register
+.0x1680 - QSFP_PORT6_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1039,7 +1074,7 @@ PORT6_READ_BUFFER
 
 PORT7_STATUS
 [caption="Address: "]
-.0x277f - QSFP_PORT7_STATUS Register
+.0x177f - QSFP_PORT7_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1050,7 +1085,7 @@ PORT7_STATUS
 
 PORT7_READ_BUFFER
 [caption="Address: "]
-.0x2780 - QSFP_PORT7_READ_BUFFER Register
+.0x1780 - QSFP_PORT7_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1058,7 +1093,7 @@ PORT7_READ_BUFFER
 
 PORT8_STATUS
 [caption="Address: "]
-.0x287f - QSFP_PORT8_STATUS Register
+.0x187f - QSFP_PORT8_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1069,7 +1104,7 @@ PORT8_STATUS
 
 PORT8_READ_BUFFER
 [caption="Address: "]
-.0x2880 - QSFP_PORT8_READ_BUFFER Register
+.0x1880 - QSFP_PORT8_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1077,7 +1112,7 @@ PORT8_READ_BUFFER
 
 PORT9_STATUS
 [caption="Address: "]
-.0x297f - QSFP_PORT9_STATUS Register
+.0x197f - QSFP_PORT9_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1088,7 +1123,7 @@ PORT9_STATUS
 
 PORT9_READ_BUFFER
 [caption="Address: "]
-.0x2980 - QSFP_PORT9_READ_BUFFER Register
+.0x1980 - QSFP_PORT9_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1096,7 +1131,7 @@ PORT9_READ_BUFFER
 
 PORT10_STATUS
 [caption="Address: "]
-.0x2a7f - QSFP_PORT10_STATUS Register
+.0x1a7f - QSFP_PORT10_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1107,7 +1142,7 @@ PORT10_STATUS
 
 PORT10_READ_BUFFER
 [caption="Address: "]
-.0x2a80 - QSFP_PORT10_READ_BUFFER Register
+.0x1a80 - QSFP_PORT10_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1115,7 +1150,7 @@ PORT10_READ_BUFFER
 
 PORT11_STATUS
 [caption="Address: "]
-.0x2b7f - QSFP_PORT11_STATUS Register
+.0x1b7f - QSFP_PORT11_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1126,7 +1161,7 @@ PORT11_STATUS
 
 PORT11_READ_BUFFER
 [caption="Address: "]
-.0x2b80 - QSFP_PORT11_READ_BUFFER Register
+.0x1b80 - QSFP_PORT11_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1134,7 +1169,7 @@ PORT11_READ_BUFFER
 
 PORT12_STATUS
 [caption="Address: "]
-.0x2c7f - QSFP_PORT12_STATUS Register
+.0x1c7f - QSFP_PORT12_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1145,7 +1180,7 @@ PORT12_STATUS
 
 PORT12_READ_BUFFER
 [caption="Address: "]
-.0x2c80 - QSFP_PORT12_READ_BUFFER Register
+.0x1c80 - QSFP_PORT12_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1153,7 +1188,7 @@ PORT12_READ_BUFFER
 
 PORT13_STATUS
 [caption="Address: "]
-.0x2d7f - QSFP_PORT13_STATUS Register
+.0x1d7f - QSFP_PORT13_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1164,7 +1199,7 @@ PORT13_STATUS
 
 PORT13_READ_BUFFER
 [caption="Address: "]
-.0x2d80 - QSFP_PORT13_READ_BUFFER Register
+.0x1d80 - QSFP_PORT13_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1172,7 +1207,7 @@ PORT13_READ_BUFFER
 
 PORT14_STATUS
 [caption="Address: "]
-.0x2e7f - QSFP_PORT14_STATUS Register
+.0x1e7f - QSFP_PORT14_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1183,7 +1218,7 @@ PORT14_STATUS
 
 PORT14_READ_BUFFER
 [caption="Address: "]
-.0x2e80 - QSFP_PORT14_READ_BUFFER Register
+.0x1e80 - QSFP_PORT14_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1191,7 +1226,7 @@ PORT14_READ_BUFFER
 
 PORT15_STATUS
 [caption="Address: "]
-.0x2f7f - QSFP_PORT15_STATUS Register
+.0x1f7f - QSFP_PORT15_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1202,7 +1237,7 @@ PORT15_STATUS
 
 PORT15_READ_BUFFER
 [caption="Address: "]
-.0x2f80 - QSFP_PORT15_READ_BUFFER Register
+.0x1f80 - QSFP_PORT15_READ_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -1210,7 +1245,7 @@ PORT15_READ_BUFFER
 
 WRITE_BUFFER
 [caption="Address: "]
-.0x3000 - QSFP_WRITE_BUFFER Register
+.0x2000 - QSFP_WRITE_BUFFER Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function

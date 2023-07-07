@@ -4,7 +4,7 @@
 
 use crate::{Addr, MainboardController, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign};
-pub use drv_fpga_app_api::power_rail::*;
+pub use drv_fpga_user_api::power_rail::*;
 
 pub struct HotSwapController {
     fpga: FpgaUserDesign,
