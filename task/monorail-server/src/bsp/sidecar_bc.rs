@@ -27,6 +27,7 @@ enum Trace {
         before: Speed,
         after: Speed,
     },
+    FrontIoPhyOscillatorBad,
     SeqError(SeqError),
     AnegCheckFailed(VscError),
     Restarted10GAneg,
@@ -145,26 +146,13 @@ pub fn preinit() {
     while !seq.is_clock_config_loaded().unwrap_or(false) {
         sleep_for(10);
     }
-    // Wait for the front IO board to be configured (or for the board to
-    // be reported as missing).
-    loop {
-        let ready = seq.front_io_phy_ready();
-        match ready {
-            Ok(true) | Err(SeqError::NoFrontIOBoard) => break,
-            _ => sleep_for(10),
-        }
-    }
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let seq = Sequencer::from(SEQ.get_task_id());
-        let has_front_io = match seq.front_io_phy_ready() {
-            Ok(true) => true,
-            Err(SeqError::NoFrontIOBoard) => false,
-            _ => panic!("front IO board went away after preinit()"),
-        };
+        let has_front_io = seq.front_io_board_present();
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
@@ -225,11 +213,33 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.front_io_speed = [Speed::Speed1G; 2];
 
         self.phy_vsc8504_init()?;
-        self.phy_vsc8562_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
         self.vsc7448.configure_vlan_semistrict()?;
         self.vsc7448_postconfig()?;
+
+        // Some front IO boards have a faulty oscillator driving the PHY,
+        // causing its clock to misbehave some fraction of (re-)boots. Init
+        // the PHY in a loop, requesting the sequencer to reset as much as
+        // necessary to try and correct the problem.
+        let mut osc_good = false;
+
+        while self.vsc8562.is_some() && !osc_good {
+            self.phy_vsc8562_init()?;
+
+            osc_good = self.is_front_io_link_good()?;
+
+            // Notify the sequencer about the state of the oscillator. If the
+            // oscillator is good any future resets of the PHY do not require a
+            // full power cycle of the front IO board.
+            self.seq
+                .set_front_io_phy_osc_good(osc_good)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+
+            if !osc_good {
+                ringbuf_entry!(Trace::FrontIoPhyOscillatorBad)
+            }
+        }
 
         if let Some(phy_rw) = &mut self.vsc8562 {
             // Read the MAC_SERDES_PCS_STATUS register to clear a spurious
@@ -374,30 +384,23 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
         if let Some(phy_rw) = &mut self.vsc8562 {
-            // Do a hard power cycle of the PHY; the fine details of sequencing
-            // are handled by the FPGA
-            phy_rw
-                .set_phy_power_enabled(false)
+            // Request a reset of the PHY. If we had previously marked the PHY
+            // oscillator as bad, then this power-cycles the entire front IO
+            // board; otherwise, it only power-cycles the PHY.
+            self.seq
+                .reset_front_io_phy()
                 .map_err(|e| VscError::ProxyError(e.into()))?;
-            sleep_for(10);
-            phy_rw
-                .set_phy_power_enabled(true)
-                .map_err(|e| VscError::ProxyError(e.into()))?;
-            while !phy_rw
-                .phy_powered_up_and_ready()
-                .map_err(|e| VscError::ProxyError(e.into()))?
-            {
-                sleep_for(20);
-            }
+
             for p in 0..2 {
                 let mut phy = vsc85xx::Phy::new(p, phy_rw);
                 let mut v = Vsc8562Phy { phy: &mut phy };
                 v.init_qsgmii()?;
             }
             phy_rw
-                .set_phy_coma_mode(false)
+                .set_coma_mode(false)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
         }
+
         Ok(())
     }
 
@@ -448,6 +451,15 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
         Ok(())
+    }
+
+    fn is_front_io_link_good(&self) -> Result<bool, VscError> {
+        // Determine if the link is up which implies the PHY oscillator is good.
+        Ok(self
+            .vsc7448
+            .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(11))?
+            .sync()
+            == 1)
     }
 
     pub fn wake(&mut self) -> Result<(), VscError> {

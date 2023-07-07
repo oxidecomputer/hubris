@@ -802,6 +802,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-fpga-user-api"
+version = "0.1.0"
+dependencies = [
+ "drv-fpga-api",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
@@ -1426,6 +1436,7 @@ dependencies = [
  "derive_more",
  "drv-auxflash-api",
  "drv-fpga-api",
+ "drv-fpga-user-api",
  "drv-ignition-api",
  "gnarle",
  "num-derive",
@@ -1451,6 +1462,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-fpga-api",
+ "drv-fpga-user-api",
  "drv-sidecar-mainboard-controller",
  "hubpack",
  "idol",
@@ -1471,6 +1483,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "drv-fpga-api",
+ "drv-fpga-user-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-packrat-vpd-loader",

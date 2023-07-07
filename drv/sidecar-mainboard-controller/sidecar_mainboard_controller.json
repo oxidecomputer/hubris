@@ -645,6 +645,70 @@
         },
         {
             "type": "reg",
+            "inst_name": "FRONT_IO_STATE",
+            "addr_offset": 48,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ENABLE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail is enabled"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "GOOD",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail is operating nominally"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FAULT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the power rail experienced a fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VRHOT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flag indicating the voltage regulator is experiencing a high temperature"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "STATE",
+                    "lsb": 4,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the power rail according to the sequencer"
+                }
+            ]
+        },
+        {
+            "type": "reg",
             "inst_name": "TOFINO_SEQ_CTRL",
             "addr_offset": 256,
             "regwidth": 8,

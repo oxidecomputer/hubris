@@ -8,39 +8,37 @@ use drv_sidecar_front_io::{controller::FrontIOController, phy_smi::PhySmi};
 
 #[allow(dead_code)]
 pub(crate) struct FrontIOBoard {
-    pub fruid: I2cDevice,
     pub controllers: [FrontIOController; 2],
-    pub state_reset: bool,
     fpga_task: userlib::TaskId,
     auxflash_task: userlib::TaskId,
-    i2c_task: userlib::TaskId,
 }
 
 impl FrontIOBoard {
     pub fn new(
         fpga_task: userlib::TaskId,
-        i2c_task: userlib::TaskId,
         auxflash_task: userlib::TaskId,
     ) -> Self {
         Self {
-            fruid: i2c_config::devices::at24csw080_front_io(i2c_task)[0],
             controllers: [
                 FrontIOController::new(fpga_task, 0),
                 FrontIOController::new(fpga_task, 1),
             ],
-            state_reset: false,
             fpga_task,
             auxflash_task,
-            i2c_task,
         }
     }
 
-    pub fn phy_smi(&self) -> PhySmi {
+    pub fn phy(&self) -> PhySmi {
         PhySmi::new(self.fpga_task)
     }
 
-    pub fn present(&self) -> bool {
-        At24Csw080::validate(&self.fruid).unwrap_or(false)
+    pub fn present(i2c_task: userlib::TaskId) -> bool {
+        let fruid = i2c_config::devices::at24csw080_front_io(i2c_task)[0];
+        At24Csw080::validate(&fruid).unwrap_or(false)
+    }
+
+    pub fn initialized(&self) -> bool {
+        self.controllers.iter().all(|c| c.ready().unwrap_or(false))
     }
 
     pub fn init(&mut self) -> Result<bool, FpgaError> {

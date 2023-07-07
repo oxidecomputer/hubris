@@ -68,7 +68,7 @@ Interface(
         "tofino_power_rails": (
             doc: "Return the Tofino sequencer power rail registers",
             reply: Result(
-                ok: "[u8; 6]",
+                ok: "[drv_fpga_user_api::power_rail::RawPowerRailState; 6]",
                 err: CLike("SeqError"),
             ),
         ),
@@ -148,15 +148,29 @@ Interface(
 
         "front_io_board_present": (
             args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+        "front_io_board_ready": (
+            args: {},
             reply: Result(
                 ok: "bool",
                 err: CLike("SeqError"),
             ),
         ),
-        "front_io_phy_ready": (
+        "reset_front_io_phy": (
             args: {},
             reply: Result(
-                ok: "bool",
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "set_front_io_phy_osc_good": (
+            args: {
+                "good": "bool",
+            },
+            reply: Result(
+                ok: "()",
                 err: CLike("SeqError"),
             ),
         ),

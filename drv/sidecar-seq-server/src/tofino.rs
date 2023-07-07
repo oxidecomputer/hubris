@@ -12,6 +12,7 @@ pub(crate) struct Tofino {
     pub debug_port: DebugPort,
     pub vddcore: Raa229618,
     pub abort_reported: bool,
+    pub ready_for_power_up: bool,
 }
 
 impl Tofino {
@@ -24,6 +25,7 @@ impl Tofino {
             debug_port: DebugPort::new(MAINBOARD.get_task_id()),
             vddcore,
             abort_reported: false,
+            ready_for_power_up: false,
         }
     }
 
@@ -61,7 +63,7 @@ impl Tofino {
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {
-        ringbuf_entry!(Trace::InitiateTofinoPowerUp);
+        ringbuf_entry!(Trace::TofinoPowerUp);
 
         // Initiate the power up sequence.
         self.abort_reported = false;
@@ -207,7 +209,7 @@ impl Tofino {
     }
 
     pub fn power_down(&mut self) -> Result<(), SeqError> {
-        ringbuf_entry!(Trace::InitiateTofinoPowerDown);
+        ringbuf_entry!(Trace::TofinoPowerDown);
         self.set_pcie_present(false)?;
         self.sequencer.set_pcie_reset(TofinoPcieReset::Asserted)?;
         self.sequencer
@@ -225,16 +227,15 @@ impl Tofino {
             abort.error
         ));
 
-        let power_rails =
-            PowerRail::from_raw(self.sequencer.raw_power_rails()?)
-                .map_err(SeqError::from)?;
-
-        for rail in &power_rails {
-            match rail.state {
-                PowerRailState::GoodTimeout => {
-                    ringbuf_entry!(Trace::TofinoPowerRailGoodTimeout(rail.id));
+        for rail in &self.sequencer.power_rails()? {
+            match rail.status {
+                PowerRailStatus::GoodTimeout => {
+                    ringbuf_entry!(Trace::TofinoPowerRail(
+                        rail.id,
+                        rail.status
+                    ));
                 }
-                PowerRailState::Aborted => {
+                PowerRailStatus::Aborted => {
                     self.report_power_rail_abort(rail)?;
                 }
                 _ => {}
@@ -246,11 +247,11 @@ impl Tofino {
 
     fn report_power_rail_abort(
         &mut self,
-        rail: &PowerRail,
+        rail: &TofinoPowerRail,
     ) -> Result<(), SeqError> {
-        ringbuf_entry!(Trace::TofinoPowerRailAbort(rail.id, rail.pin_state));
+        ringbuf_entry!(Trace::TofinoPowerRail(rail.id, rail.status));
 
-        if rail.pin_state.fault {
+        if rail.pins.fault {
             // TODO (arjen): pull PMBus for additional data in the case of
             // faults.
         }
@@ -290,7 +291,7 @@ impl Tofino {
                 TofinoSequencerPolicy::LatchOffOnFault,
                 TofinoSeqState::A2,
                 TofinoSeqError::None,
-            ) => self.power_up(),
+            ) if self.ready_for_power_up => self.power_up(),
 
             // RestartOnFault not yet implemented because we do not yet know how
             // this should behave. And we probably still want to see/debug if a

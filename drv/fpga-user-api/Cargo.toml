@@ -1,0 +1,10 @@
+[package]
+name = "drv-fpga-user-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-fpga-api = { path = "../../drv/fpga-api" }
+num-traits = { workspace = true }
+userlib = { path = "../../sys/userlib" }
+zerocopy = { workspace = true }

@@ -11,8 +11,9 @@ use drv_fpga_api::FpgaError;
 pub use drv_sidecar_mainboard_controller::{
     fan_modules::{FanModuleStatus, NUM_FAN_MODULES},
     tofino2::{
-        DebugPortState, DirectBarSegment, PowerRail, SpiEepromInstruction,
-        TofinoPcieReset, TofinoSeqError, TofinoSeqState, TofinoSeqStep,
+        DebugPortState, DirectBarSegment, SpiEepromInstruction,
+        TofinoPcieReset, TofinoPowerRail, TofinoSeqError, TofinoSeqState,
+        TofinoSeqStep,
     },
 };
 
@@ -31,6 +32,7 @@ pub enum SeqError {
     InvalidTofinoVid,
     SetVddCoreVoutFailed,
     NoFrontIOBoard,
+    FrontIOBoardPowerFault,
 
     #[idol(server_death)]
     ServerRestarted,
