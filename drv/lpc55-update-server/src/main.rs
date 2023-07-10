@@ -331,6 +331,22 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                     &mut cfpa,
                 )?;
 
+                // Alter the boot setting, if it needs changing. The boot
+                // setting (per RFD 374) is in the lowest bit of the 32-bit word
+                // starting at (byte) offset 0x100. This is flash word offset
+                // 0x10.
+                //
+                // Leave remaining bits undisturbed; they are currently
+                // reserved.
+                let offset = BOOT_PREFERENCE_FLASH_WORD_OFFSET as usize;
+                let bit = cfpa[offset][0] & 1;
+                let new_bit = if slot == SlotId::A { 0 } else { 1 };
+                if bit == new_bit {
+                    // No need to write the CFPA if it's unchanged
+                    return Ok(());
+                }
+                cfpa[offset][0] &= !1;
+                cfpa[offset][0] |= new_bit;
                 // Increment the monotonic version. The manual doesn't specify
                 // how the version numbers are compared or what happens if they
                 // wrap, so, we'll treat wrapping as an error and report it for
@@ -339,15 +355,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 let new_version =
                     cfpa[0][1].checked_add(1).ok_or(UpdateError::SecureErr)?;
                 cfpa[0][1] = new_version;
-                // Alter the boot setting. The boot setting (per RFD 374) is in
-                // the lowest bit of the 32-bit word starting at (byte) offset
-                // 0x100. This is flash word offset 0x10.
-                //
-                // Leave remaining bits undisturbed; they are currently
-                // reserved.
-                let offset = BOOT_PREFERENCE_FLASH_WORD_OFFSET as usize;
-                cfpa[offset][0] &= !1;
-                cfpa[offset][0] |= if slot == SlotId::A { 0 } else { 1 };
                 // The last two flash words are a SHA256 hash of the preceding
                 // data. This means we need to compute a SHA256 hash of the
                 // preceding data -- meaning flash words 0 thru 29 inclusive.
