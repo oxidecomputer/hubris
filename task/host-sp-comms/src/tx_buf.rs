@@ -4,7 +4,9 @@
 
 use crate::{Trace, MAX_MESSAGE_SIZE, MAX_PACKET_SIZE};
 use core::ops::Range;
-use host_sp_messages::{DecodeFailureReason, Header, SpToHost};
+use host_sp_messages::{
+    DecodeFailureReason, Header, InventoryDataResult, SpToHost,
+};
 use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::{sys_get_timer, UnwrapLite};
@@ -176,6 +178,33 @@ impl TxBuf {
         F: FnOnce(&mut [u8]) -> usize,
     {
         self.try_encode_response(sequence, response, |buf| Ok(fill_data(buf)))
+    }
+
+    pub(crate) fn try_encode_inventory<'a, F>(
+        &mut self,
+        sequence: u64,
+        name: &'a [u8],
+        fill_data: F,
+    ) where
+        F: FnOnce(&mut [u8]) -> Result<usize, InventoryDataResult>,
+    {
+        let mut name_array = [0u8; 32];
+        for (a, b) in name_array.iter_mut().zip(name) {
+            *a = *b;
+        }
+        self.try_encode_response(
+            sequence,
+            &SpToHost::InventoryData {
+                result: InventoryDataResult::Ok,
+                name: name_array,
+            },
+            |buf| {
+                fill_data(buf).map_err(|e| SpToHost::InventoryData {
+                    result: e,
+                    name: name_array,
+                })
+            },
+        )
     }
 
     /// Encodes `response` into our outgoing buffer, setting the `SEQ_REPLY` bit

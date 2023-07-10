@@ -11,7 +11,8 @@ use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use static_assertions::const_assert_eq;
+use static_assertions::{const_assert, const_assert_eq};
+use task_sensor_api::SensorId;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -184,6 +185,9 @@ pub enum KeyLookupResult {
     MaxResponseLenTooShort,
 }
 
+/// Results for an inventory data request
+///
+/// These **cannot be reordered**; the host and SP must agree on them.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -195,7 +199,42 @@ pub enum InventoryDataResult {
     DeviceAbsent,
     /// Communication with the device failed in some other way
     DeviceFailed,
+    /// Failed to serialize data
+    SerializationError,
 }
+
+impl From<HubpackError> for InventoryDataResult {
+    fn from(_: HubpackError) -> Self {
+        Self::SerializationError
+    }
+}
+
+/// Data payload for an inventory data request
+///
+/// These **cannot be reordered**; the host and SP must agree on them.  New
+/// variants may be added to the end, and existing variants may be extended with
+/// new data (at the end), but no changes should be made to existing bytes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum InventoryData {
+    /// Raw DIMM data
+    #[serde(with = "BigArray")]
+    DimmSpd([u8; 512]),
+
+    /// Device or board identity, typically stored in a VPD EEPROM
+    VpdIdentity(oxide_barcode::VpdIdentity),
+
+    /// Host-swap controller
+    Max5970 {
+        voltage: [SensorId; 2],
+        current: [SensorId; 2],
+    },
+
+    /// 128-bit serial number baked into every AT24CSW EEPROM
+    At24csw08xSerial([u8; 16]),
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -205,6 +244,25 @@ pub struct Identity {
     pub revision: u32,
     #[serde(with = "BigArray")]
     pub serial: [u8; Identity::SERIAL_LEN],
+}
+
+impl From<oxide_barcode::VpdIdentity> for Identity {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        // The Host/SP protocol has larger fields for model/serial than we
+        // use currently; statically assert that we haven't outgrown them.
+        const_assert!(
+            oxide_barcode::VpdIdentity::PART_NUMBER_LEN <= Identity::MODEL_LEN
+        );
+        const_assert!(
+            oxide_barcode::VpdIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
+        );
+
+        let mut new_id = Self::default();
+        new_id.model[..id.part_number.len()].copy_from_slice(&id.part_number);
+        new_id.revision = id.revision;
+        new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
+        new_id
+    }
 }
 
 impl Default for Identity {

@@ -4,16 +4,17 @@
 
 #![no_std]
 
-//! Driver to read vital product data (VPD) from the local FRU ID EEPROM.
+//! Driver to read vital product data (VPD) from a local FRU ID EEPROM.
 //!
-//! The *local* EEPROM is the one soldered to the PCB itself; the system may
-//! have additional EEPROMs on FRUs that plug into the board (e.g. fans), but
-//! those are *not handled* by this driver. We assume that the local EEPROM is
-//! an AT24CSW080, and that it contains keys in TLV-C format (see RFD 148 for a
-//! general description, or RFD 320 for the specific example of MAC addresses)
+//! `read_config` reads from the *local* EEPROM; i.e. is the one soldered to the
+//! PCB itself.  The app TOML file must have one AT24xx named `local_vpd`; we
+//! use that name to pick which EEPROM to read in `read_config`.
 //!
-//! The app TOML file must have one AT24xx named `local_vpd`; we use that name
-//! to pick which EEPROM to read.
+//! The system may have additional EEPROMs on FRUs that plug into the board
+//! (e.g. fans); those can be read with `read_config_from`. We assume that the
+//! all EEPROMs are AT24CSW080s, and that they contains keys in TLV-C format
+//! (see RFD 148 for a general description, or RFD 320 for the specific example
+//! of MAC addresses)
 
 use drv_i2c_devices::at24csw080::{
     At24Csw080, Error as At24Error, EEPROM_SIZE,
@@ -90,8 +91,18 @@ pub fn read_config<V: AsBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
 ) -> Result<V, LocalVpdError> {
+    let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
+        i2c_config::devices::at24csw080_local_vpd(i2c_task),
+    );
+    read_config_from(eeprom, tag)
+}
+
+pub fn read_config_from<V: AsBytes + FromBytes>(
+    eeprom: At24Csw080,
+    tag: [u8; 4],
+) -> Result<V, LocalVpdError> {
     let mut out = V::new_zeroed();
-    let n = read_config_into(i2c_task, tag, out.as_bytes_mut())?;
+    let n = read_config_into(eeprom, tag, out.as_bytes_mut())?;
 
     // `read_config_into()` fails if the data is too large for `out`, but will
     // succeed if it's less than out; we want to guarantee it's exactly the size
@@ -122,11 +133,11 @@ pub fn read_config<V: AsBytes + FromBytes>(
 /// in the example above).  It will copy the raw byte array (shown as
 /// `[...]`) into `out`, returning the number of bytes written.
 pub fn read_config_into(
-    i2c_task: TaskId,
+    eeprom: At24Csw080,
     tag: [u8; 4],
     out: &mut [u8],
 ) -> Result<usize, LocalVpdError> {
-    match read_config_inner(i2c_task, tag, out) {
+    match read_config_inner(eeprom, tag, out) {
         Ok(n) => Ok(n),
         Err(e) => {
             ringbuf_entry!(Trace::Error(e));
@@ -139,13 +150,10 @@ pub fn read_config_into(
 /// are recorded. Any error returned from this routine will be put into a
 /// ringbuf by its caller, so it needn't worry about it.
 fn read_config_inner(
-    i2c_task: TaskId,
+    eeprom: At24Csw080,
     tag: [u8; 4],
     out: &mut [u8],
 ) -> Result<usize, LocalVpdError> {
-    let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
-        i2c_config::devices::at24csw080_local_vpd(i2c_task),
-    );
     let eeprom_reader = EepromReader { eeprom: &eeprom };
 
     let mut reader = TlvcReader::begin(eeprom_reader)

@@ -6,7 +6,8 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use static_assertions::const_assert;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,7 +23,19 @@ pub enum ParseError {
     BadRevision,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, FromBytes, AsBytes)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    FromBytes,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
 #[repr(C, packed)]
 pub struct VpdIdentity {
     pub part_number: [u8; Self::PART_NUMBER_LEN],
@@ -33,26 +46,6 @@ pub struct VpdIdentity {
 impl VpdIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
-}
-
-impl From<VpdIdentity> for host_sp_messages::Identity {
-    fn from(id: VpdIdentity) -> Self {
-        // The Host/SP protocol has larger fields for model/serial than we
-        // use currently; statically assert that we haven't outgrown them.
-        const_assert!(
-            VpdIdentity::PART_NUMBER_LEN
-                <= host_sp_messages::Identity::MODEL_LEN
-        );
-        const_assert!(
-            VpdIdentity::SERIAL_LEN <= host_sp_messages::Identity::SERIAL_LEN
-        );
-
-        let mut new_id = Self::default();
-        new_id.model[..id.part_number.len()].copy_from_slice(&id.part_number);
-        new_id.revision = id.revision;
-        new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
-        new_id
-    }
 }
 
 impl VpdIdentity {

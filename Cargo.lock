@@ -2335,10 +2335,12 @@ dependencies = [
  "hubpack",
  "num-derive",
  "num-traits",
+ "oxide-barcode",
  "serde",
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
+ "task-sensor-api",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -2952,8 +2954,8 @@ checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
 name = "oxide-barcode"
 version = "0.1.0"
 dependencies = [
- "host-sp-messages",
- "static_assertions",
+ "hubpack",
+ "serde",
  "zerocopy",
 ]
 
@@ -4042,12 +4044,15 @@ dependencies = [
 name = "task-host-sp-comms"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
  "cfg-if",
  "corncobs",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
  "enum-map",
