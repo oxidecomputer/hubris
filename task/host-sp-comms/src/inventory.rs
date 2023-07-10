@@ -7,12 +7,15 @@
 //! This reduces clutter in the main `ServerImpl` implementation
 use super::ServerImpl;
 use drv_i2c_api::I2cDevice;
+use drv_i2c_api::ResponseCode;
+use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
+use drv_local_vpd::LocalVpdError;
 use userlib::task_slot;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
 /// Number of devices in our inventory
-pub(crate) const INVENTORY_COUNT: u32 = 18;
+pub(crate) const INVENTORY_COUNT: u32 = 20;
 
 /// Inventory API version (always 0 for now)
 pub(crate) const INVENTORY_API_VERSION: u32 = 0;
@@ -21,9 +24,22 @@ pub(crate) const INVENTORY_API_VERSION: u32 = 0;
 task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
-    /// On success, we will have already filled `self.tx_buf` with our response.
-    /// On failure, our caller should response with
-    /// `SpToHost::KeyLookupResult(err)` with the error we return.
+    /// Look up a device in our inventory, by index
+    ///
+    /// Indexes are assigned arbitrarily and may change freely with SP
+    /// revisions.
+    ///
+    /// On success, we will have already filled `self.tx_buf` with our response;
+    /// this _may_ be an error if the index is valid but we can't communicate
+    /// with the target device.
+    ///
+    /// On failure, our caller should encode our error with
+    /// ```
+    /// SpToHost::InventoryData{
+    ///     result: err
+    ///     name: [0; u32],
+    /// }
+    /// ```
     pub(crate) fn perform_inventory_lookup(
         &mut self,
         sequence: u64,
@@ -53,6 +69,22 @@ impl ServerImpl {
                     sequence,
                     b"U615",
                     i2c_config::devices::at24csw080_local_vpd,
+                )
+            }
+            18 => {
+                // J180/ID: Fan VPD barcode (not available in packrat)
+                self.read_eeprom_barcode(
+                    sequence,
+                    b"J180/ID",
+                    i2c_config::devices::at24csw080_fan_vpd,
+                )
+            }
+            19 => {
+                // J180: Fan VPD EEPROM
+                self.read_at24csw080_id(
+                    sequence,
+                    b"J180",
+                    i2c_config::devices::at24csw080_fan_vpd,
                 )
             }
             // We need to specify INVENTORY_COUNT individually here to trigger
@@ -91,23 +123,21 @@ impl ServerImpl {
         });
     }
 
+    /// Reads the 128-byte unique ID from an AT24CSW080 EEPROM
     fn read_at24csw080_id(
         &mut self,
         sequence: u64,
         name: &[u8],
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
-        use drv_i2c_api::ResponseCode;
-        use drv_i2c_devices::at24csw080::{At24Csw080, Error};
-
         let dev = At24Csw080::new(f(I2C.get_task_id()));
         self.tx_buf.try_encode_inventory(sequence, name, |buf| {
             let mut id = [0u8; 16];
             for (i, b) in id.iter_mut().enumerate() {
-                // TODO: make this a single IPC call?
+                // TODO: add an API to make this a single IPC call?
                 *b = dev.read_security_register_byte(i as u8).map_err(|e| {
                     match e {
-                        Error::I2cError(ResponseCode::NoDevice) => {
+                        EepromError::I2cError(ResponseCode::NoDevice) => {
                             InventoryDataResult::DeviceAbsent
                         }
                         _ => InventoryDataResult::DeviceFailed,
@@ -118,6 +148,53 @@ impl ServerImpl {
             let n = hubpack::serialize(buf, &d)?;
             Ok(n)
         });
+    }
+
+    /// Reads the "BARC" value from a TLV-C blob in an AT24CSW080 EEPROM
+    ///
+    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
+    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
+    /// other errors).
+    fn read_eeprom_barcode(
+        &mut self,
+        sequence: u64,
+        name: &[u8],
+        f: fn(userlib::TaskId) -> I2cDevice,
+    ) {
+        let dev = f(I2C.get_task_id());
+        let eeprom = At24Csw080::new(dev);
+        self.tx_buf.try_encode_inventory(sequence, name, |buf| {
+            let mut barcode = [0; 32];
+            match drv_local_vpd::read_config_from_into(
+                eeprom,
+                *b"BARC",
+                &mut barcode,
+            ) {
+                Ok(n) => {
+                    // extract barcode!
+                    let identity =
+                        oxide_barcode::VpdIdentity::parse(&barcode[..n])
+                            .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    let d = InventoryData::VpdIdentity(identity);
+                    let n = hubpack::serialize(buf, &d)?;
+                    Ok(n)
+                }
+                Err(
+                    LocalVpdError::ErrorOnBegin(err)
+                    | LocalVpdError::ErrorOnRead(err)
+                    | LocalVpdError::ErrorOnNext(err)
+                    | LocalVpdError::InvalidChecksum(err),
+                ) if err
+                    == tlvc::TlvcReadError::User(EepromError::I2cError(
+                        ResponseCode::NoDevice,
+                    )) =>
+                {
+                    // TODO: ringbuf logging here?
+                    Err(InventoryDataResult::DeviceAbsent)
+                }
+                Err(..) => Err(InventoryDataResult::DeviceFailed),
+            }
+        })
     }
 }
 

@@ -102,7 +102,7 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
     tag: [u8; 4],
 ) -> Result<V, LocalVpdError> {
     let mut out = V::new_zeroed();
-    let n = read_config_into(eeprom, tag, out.as_bytes_mut())?;
+    let n = read_config_from_into(eeprom, tag, out.as_bytes_mut())?;
 
     // `read_config_into()` fails if the data is too large for `out`, but will
     // succeed if it's less than out; we want to guarantee it's exactly the size
@@ -114,7 +114,7 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
     Ok(out)
 }
 
-/// Searches for the given TLV-C tag in the local VPD and reads it
+/// Searches for the given TLV-C tag in the given VPD and reads it
 ///
 /// Returns an error if the tag is not present, the data is too large to fit in
 /// `out`, or any checksum is corrupt.
@@ -132,7 +132,7 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
 /// `read_config` should be called with a tag nested under `FRU0` (e.g. `TAG1`
 /// in the example above).  It will copy the raw byte array (shown as
 /// `[...]`) into `out`, returning the number of bytes written.
-pub fn read_config_into(
+pub fn read_config_from_into(
     eeprom: At24Csw080,
     tag: [u8; 4],
     out: &mut [u8],
@@ -144,6 +144,20 @@ pub fn read_config_into(
             Err(e)
         }
     }
+}
+
+/// Searches for the given TLV-C tag in the local VPD and reads it
+///
+/// Calls into [`read_config_from_into`]; see details in that docstring
+pub fn read_config_into(
+    i2c_task: TaskId,
+    tag: [u8; 4],
+    out: &mut [u8],
+) -> Result<usize, LocalVpdError> {
+    let eeprom = drv_i2c_devices::at24csw080::At24Csw080::new(
+        i2c_config::devices::at24csw080_local_vpd(i2c_task),
+    );
+    read_config_from_into(eeprom, tag, out)
 }
 
 /// Implementation factor of `read_config_into` above to ensure that all errors

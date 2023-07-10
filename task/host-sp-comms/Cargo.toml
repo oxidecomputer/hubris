@@ -13,23 +13,27 @@ hubpack.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
 static_assertions.workspace = true
+tlvc.workspace = true
 zerocopy.workspace = true
 
-drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api" }
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
-drv-i2c-api = { path = "../../drv/i2c-api" }
-drv-i2c-devices = { path = "../../drv/i2c-devices" }
+drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
+drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
+drv-i2c-api.path= "../../drv/i2c-api"
+drv-i2c-devices.path= "../../drv/i2c-devices"
+drv-local-vpd.path= "../../drv/local-vpd"
+drv-stm32xx-sys-api.path= "../../drv/stm32xx-sys-api"
+host-sp-messages.path= "../../lib/host-sp-messages"
+multitimer.path= "../../lib/multitimer"
+mutable-statics.path= "../../lib/mutable-statics"
+oxide-barcode.path = "../../lib/oxide-barcode"
+ringbuf.path= "../../lib/ringbuf"
+task-control-plane-agent-api.path= "../control-plane-agent-api"
+task-host-sp-comms-api.path= "../host-sp-comms-api"
+task-net-api.path= "../net-api"
+task-packrat-api.path= "../packrat-api"
+userlib.path= "../../sys/userlib"
+
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
-drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
-host-sp-messages = { path = "../../lib/host-sp-messages" }
-multitimer = { path = "../../lib/multitimer" }
-mutable-statics = { path = "../../lib/mutable-statics" }
-ringbuf = { path = "../../lib/ringbuf" }
-task-control-plane-agent-api = { path = "../control-plane-agent-api" }
-task-host-sp-comms-api = { path = "../host-sp-comms-api" }
-task-net-api = { path = "../net-api" }
-task-packrat-api = { path = "../packrat-api" }
-userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 build-util.path = "../../build/util"
