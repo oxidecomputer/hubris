@@ -475,18 +475,22 @@ impl ServerImpl<'_> {
         let persistent_boot_preference =
             boot_preference_from_flash_word(&boot_selection_word);
 
-        // Read the scratch boot version
+        // Read the scratch boot version, which may be erased
         let mut scratch_header = [0u32; 4];
-        indirect_flash_read_words(
+        let scratch_header = match indirect_flash_read_words(
             &mut self.flash,
             CFPA_SCRATCH_FLASH_WORD,
             core::slice::from_mut(&mut scratch_header),
-        )?;
+        ) {
+            Ok(()) => Some(scratch_header),
+            Err(UpdateError::EccDoubleErr) => None,
+            Err(e) => return Err(e),
+        };
 
         // We only have a pending preference if the scratch CFPA page is newer
         // than the authoritative page.
         let pending_persistent_boot_preference =
-            if scratch_header[1] > cfpa_version {
+            if scratch_header.map(|s| s[1] > cfpa_version).unwrap_or(false) {
                 // Read the scratch boot selection
                 let scratch_boot_selection_word_number =
                     CFPA_SCRATCH_FLASH_WORD + BOOT_PREFERENCE_FLASH_WORD_OFFSET;
