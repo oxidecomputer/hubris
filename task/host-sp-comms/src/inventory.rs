@@ -10,7 +10,7 @@ use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_local_vpd::LocalVpdError;
-use userlib::task_slot;
+use userlib::{task_slot, TaskId};
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
@@ -97,42 +97,16 @@ impl ServerImpl {
             //
             // Sharkfin connectors start at J206 and are numbered sequentially
             i @ (20..=29) => {
-                let i = i - 20;
-                let fs = [
-                    i2c_config::devices::at24csw080_sharkfin_a_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_b_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_c_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_d_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_e_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_f_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_g_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_h_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_i_vpd,
-                ];
-                let mut name = *b"J200/U7/ID";
-                let designator = 6 + i; // Starts at J206
-                name[2] += (designator / 10) as u8;
-                name[3] += (designator % 10) as u8;
-                self.read_eeprom_barcode(sequence, &name, fs[i as usize])
+                let (designator, f) = Self::get_sharkfin_vpd(i as usize - 20);
+                let mut name = *b"____/U7/ID";
+                name[0..4].copy_from_slice(&designator);
+                self.read_eeprom_barcode(sequence, &name, f)
             }
             i @ (30..=39) => {
-                let i = i - 30;
-                let fs = [
-                    i2c_config::devices::at24csw080_sharkfin_a_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_b_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_c_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_d_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_e_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_f_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_g_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_h_vpd,
-                    i2c_config::devices::at24csw080_sharkfin_i_vpd,
-                ];
-                let mut name = *b"J200/U7";
-                let designator = 6 + i; // Starts at J206
-                name[2] += (designator / 10) as u8;
-                name[3] += (designator % 10) as u8;
-                self.read_at24csw080_id(sequence, &name, fs[i as usize])
+                let (designator, f) = Self::get_sharkfin_vpd(i as usize - 30);
+                let mut name = *b"____/U7";
+                name[0..4].copy_from_slice(&designator);
+                self.read_at24csw080_id(sequence, &name, f)
             }
             /*
             21 => self.read_at24csw080_id(
@@ -151,6 +125,27 @@ impl ServerImpl {
         }
 
         Ok(())
+    }
+
+    /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
+    ///
+    /// Returns a designator (e.g. J206) and constructor function
+    fn get_sharkfin_vpd(i: usize) -> ([u8; 4], fn(TaskId) -> I2cDevice) {
+        let fs = [
+            i2c_config::devices::at24csw080_sharkfin_a_vpd,
+            i2c_config::devices::at24csw080_sharkfin_b_vpd,
+            i2c_config::devices::at24csw080_sharkfin_c_vpd,
+            i2c_config::devices::at24csw080_sharkfin_d_vpd,
+            i2c_config::devices::at24csw080_sharkfin_e_vpd,
+            i2c_config::devices::at24csw080_sharkfin_f_vpd,
+            i2c_config::devices::at24csw080_sharkfin_g_vpd,
+            i2c_config::devices::at24csw080_sharkfin_h_vpd,
+            i2c_config::devices::at24csw080_sharkfin_i_vpd,
+        ];
+        let mut name = *b"J206";
+        name[2] += (i / 10) as u8;
+        name[3] += (i % 10) as u8;
+        (name, fs[i])
     }
 
     fn dimm_inventory_lookup(&mut self, sequence: u64, index: u32) {
