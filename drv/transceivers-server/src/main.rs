@@ -17,7 +17,9 @@ use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
+use enum_map::Enum;
 use idol_runtime::{NotificationHandler, RequestError};
+use multitimer::{Multitimer, Repeat};
 use ringbuf::*;
 use task_sensor_api::{NoData, Sensor, SensorError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
@@ -130,7 +132,13 @@ struct ThermalModel {
 ///
 /// For transceivers that are present and include a thermal model, we measure
 /// their temperature and send it to the `thermal` task.
-const TIMER_INTERVAL: u64 = 500;
+const SPI_INTERVAL: u64 = 500;
+
+/// Controls how often we update the LED controllers (in milliseconds).
+const I2C_INTERVAL: u64 = 100;
+
+/// Blink LEDs at a 50% duty cycle (in milliseconds)
+const BLINK_INTERVAL: u64 = 500;
 
 impl ServerImpl {
     fn led_init(&mut self) {
@@ -190,8 +198,6 @@ impl ServerImpl {
         if let Err(e) = self.leds.update_system_led_state(system_led_on) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
-        // keep track if we are on or off next update when blinking
-        self.blink_on = !self.blink_on;
     }
 }
 
@@ -486,6 +492,38 @@ impl ServerImpl {
         // `update_thermal_loop`, which is in charge of communicating with
         // the `sensors` and `thermal` tasks.
     }
+
+    fn handle_i2c_loop(&mut self) {
+        if self.leds_initialized {
+            self.update_leds();
+            let errors = match self.leds.error_summary() {
+                Ok(errs) => errs,
+                Err(e) => {
+                    ringbuf_entry!(Trace::LEDReadError(e));
+                    Default::default()
+                }
+            };
+            if errors != self.led_error {
+                self.led_error = errors;
+                ringbuf_entry!(Trace::LEDErrorSummary(errors));
+            }
+        } else {
+            ringbuf_entry!(Trace::LEDUninitialized);
+        }
+    }
+
+    fn handle_spi_loop(&mut self) {
+        // Query module presence as this drives other state
+        let (status, _) = self.transceivers.get_module_status();
+
+        let modules_present = LogicalPortMask(!status.modprsl);
+        if modules_present != self.modules_present {
+            self.modules_present = modules_present;
+            ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
+        }
+
+        self.update_thermal_loop(status);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -531,47 +569,12 @@ impl idl::InOrderTransceiversImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK | notifications::SOCKET_MASK
+        notifications::SOCKET_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SOCKET_MASK) != 0 {
-            // Nothing to do here; we'll handle it in the main loop
-        }
-
-        if (bits & notifications::TIMER_MASK) != 0 {
-            // Check for errors
-            if self.leds_initialized {
-                self.update_leds();
-                let errors = match self.leds.error_summary() {
-                    Ok(errs) => errs,
-                    Err(e) => {
-                        ringbuf_entry!(Trace::LEDReadError(e));
-                        Default::default()
-                    }
-                };
-                if errors != self.led_error {
-                    self.led_error = errors;
-                    ringbuf_entry!(Trace::LEDErrorSummary(errors));
-                }
-            } else {
-                ringbuf_entry!(Trace::LEDUninitialized);
-            }
-
-            // Query module presence and update LEDs accordingly
-            let (status, _) = self.transceivers.get_module_status();
-
-            let modules_present = LogicalPortMask(!status.modprsl);
-            if modules_present != self.modules_present {
-                self.modules_present = modules_present;
-                ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
-            }
-
-            self.update_thermal_loop(status);
-
-            let next_deadline = sys_get_timer().now + TIMER_INTERVAL;
-            sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
-        }
+    fn handle_notification(&mut self, _bits: u32) {
+        // Nothing to do here; notifications are just to wake up this task, and
+        // all of the actual work is handled in the main loop
     }
 }
 
@@ -637,12 +640,49 @@ fn main() -> ! {
             Err(e) => ringbuf_entry!(Trace::LEDEnableError(e)),
         };
 
-        // This will put our timer in the past, immediately forcing an update
-        let deadline = sys_get_timer().now;
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        // There are two timers, one for each communication bus:
+        #[derive(Copy, Clone, Enum)]
+        enum Timers {
+            I2C,
+            SPI,
+            Blink,
+        }
+        let mut multitimer =
+            Multitimer::<Timers>::new(notifications::TIMER_BIT);
+        // Immediately fire each timer, then begin to service regularly
+        let now = sys_get_timer().now;
+        multitimer.set_timer(
+            Timers::I2C,
+            now,
+            Some(Repeat::AfterDeadline(I2C_INTERVAL)),
+        );
+        multitimer.set_timer(
+            Timers::SPI,
+            now,
+            Some(Repeat::AfterDeadline(SPI_INTERVAL)),
+        );
+        multitimer.set_timer(
+            Timers::Blink,
+            now,
+            Some(Repeat::AfterDeadline(BLINK_INTERVAL)),
+        );
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
+            multitimer.poll_now();
+            for t in multitimer.iter_fired() {
+                match t {
+                    Timers::I2C => {
+                        server.handle_i2c_loop();
+                    }
+                    Timers::SPI => {
+                        server.handle_spi_loop();
+                    }
+                    Timers::Blink => {
+                        server.blink_on = !server.blink_on;
+                    }
+                }
+            }
             server.check_net(
                 tx_data_buf.as_mut_slice(),
                 rx_data_buf.as_mut_slice(),
