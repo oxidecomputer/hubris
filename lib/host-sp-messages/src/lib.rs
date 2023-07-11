@@ -156,6 +156,8 @@ pub enum SpToHost {
     // blob of length at most `max_response_len` from the corresponding request.
     // For any other result, there is no subsequent binary blob.
     KeyLookupResult(KeyLookupResult),
+    // If `result` is `InventoryDataResult::Ok`, this will be followed by a
+    // binary blob of a hubpack-serialized `InventoryData` value.
     InventoryData {
         result: InventoryDataResult,
         name: [u8; 32],

@@ -208,7 +208,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat", "i2c_driver"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.udpecho]
@@ -484,6 +484,7 @@ segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin A VPD"
+name = "sharkfin_a_vpd"
 refdes = "J206"
 removable = true
 
@@ -496,6 +497,7 @@ device = "max5970"
 description = "U.2 Sharkfin A hot swap controller"
 power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_a_hsc"
 refdes = "J206"
 removable = true
 
@@ -518,6 +520,7 @@ segment = 2
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin B VPD"
+name = "sharkfin_b_vpd"
 refdes = "J207"
 removable = true
 
@@ -530,6 +533,7 @@ device = "max5970"
 description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_b_hsc"
 refdes = "J207"
 removable = true
 
@@ -552,6 +556,7 @@ segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin C VPD"
+name = "sharkfin_c_vpd"
 refdes = "J208"
 removable = true
 
@@ -564,6 +569,7 @@ device = "max5970"
 description = "U.2 Sharkfin C hot swap controller"
 power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_c_hsc"
 refdes = "J208"
 removable = true
 
@@ -586,6 +592,7 @@ segment = 4
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
+name = "sharkfin_d_vpd"
 refdes = "J209"
 removable = true
 
@@ -598,6 +605,7 @@ device = "max5970"
 description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_d_hsc"
 refdes = "J209"
 removable = true
 
@@ -620,6 +628,7 @@ segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
+name = "sharkfin_e_vpd"
 refdes = "J210"
 removable = true
 
@@ -632,6 +641,7 @@ device = "max5970"
 description = "U.2 Sharkfin E hot swap controller"
 power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_e_hsc"
 refdes = "J210"
 removable = true
 
@@ -654,6 +664,7 @@ segment = 2
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
+name = "sharkfin_f_vpd"
 refdes = "J211"
 removable = true
 
@@ -666,6 +677,7 @@ device = "max5970"
 description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_f_hsc"
 refdes = "J211"
 removable = true
 
@@ -688,6 +700,7 @@ segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
+name = "sharkfin_g_vpd"
 refdes = "J212"
 removable = true
 
@@ -700,6 +713,7 @@ device = "max5970"
 description = "U.2 Sharkfin G hot swap controller"
 power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_g_hsc"
 refdes = "J212"
 removable = true
 
@@ -722,6 +736,7 @@ segment = 4
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
+name = "sharkfin_h_vpd"
 refdes = "J213"
 removable = true
 
@@ -734,6 +749,7 @@ device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_h_hsc"
 refdes = "J213"
 removable = true
 
@@ -756,6 +772,7 @@ segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
+name = "sharkfin_i_vpd"
 refdes = "J214"
 removable = true
 
@@ -768,6 +785,7 @@ device = "max5970"
 description = "U.2 Sharkfin I hot swap controller"
 power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_i_hsc"
 refdes = "J214"
 removable = true
 
@@ -790,6 +808,7 @@ segment = 2
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
+name = "sharkfin_j_vpd"
 refdes = "J215"
 removable = true
 
@@ -802,6 +821,7 @@ device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
+name = "sharkfin_j_hsc"
 refdes = "J215"
 removable = true
 

@@ -15,7 +15,7 @@ use userlib::task_slot;
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
 /// Number of devices in our inventory
-pub(crate) const INVENTORY_COUNT: u32 = 20;
+pub(crate) const INVENTORY_COUNT: u32 = 40;
 
 /// Inventory API version (always 0 for now)
 pub(crate) const INVENTORY_API_VERSION: u32 = 0;
@@ -30,10 +30,11 @@ impl ServerImpl {
     /// revisions.
     ///
     /// On success, we will have already filled `self.tx_buf` with our response;
-    /// this _may_ be an error if the index is valid but we can't communicate
+    /// this _may_ be an error if the index was valid but we can't communicate
     /// with the target device.
     ///
-    /// On failure, our caller should encode our error with
+    /// This function should only return an error if the index is invalid;
+    /// in that case, our caller is responsible for encoding the error as
     /// ```
     /// SpToHost::InventoryData{
     ///     result: err
@@ -87,6 +88,61 @@ impl ServerImpl {
                     i2c_config::devices::at24csw080_fan_vpd,
                 )
             }
+            // Welcome to The Sharkfin Zone
+            //
+            // Each Sharkfin has 3 inventory items:
+            // - Oxide barcode
+            // - Raw VPD EEPROM ID register
+            // - Hot-swap controller
+            //
+            // Sharkfin connectors start at J206 and are numbered sequentially
+            i @ (20..=29) => {
+                let i = i - 20;
+                let fs = [
+                    i2c_config::devices::at24csw080_sharkfin_a_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_b_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_c_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_d_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_e_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_f_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_g_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_h_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_i_vpd,
+                ];
+                let mut name = *b"J200/U7/ID";
+                let designator = 6 + i; // Starts at J206
+                name[2] += (designator / 10) as u8;
+                name[3] += (designator % 10) as u8;
+                self.read_eeprom_barcode(sequence, &name, fs[i as usize])
+            }
+            i @ (30..=39) => {
+                let i = i - 30;
+                let fs = [
+                    i2c_config::devices::at24csw080_sharkfin_a_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_b_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_c_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_d_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_e_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_f_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_g_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_h_vpd,
+                    i2c_config::devices::at24csw080_sharkfin_i_vpd,
+                ];
+                let mut name = *b"J200/U7";
+                let designator = 6 + i; // Starts at J206
+                name[2] += (designator / 10) as u8;
+                name[3] += (designator % 10) as u8;
+                self.read_at24csw080_id(sequence, &name, fs[i as usize])
+            }
+            /*
+            21 => self.read_at24csw080_id(
+                sequence,
+                b"J206/U7",
+                i2c_config::devices::at24csw080_sharkfin_a_vpd,
+            ),
+            */
+            // TODO: Sharkfin HSC?
+
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
             INVENTORY_COUNT | INVENTORY_COUNT..=u32::MAX => {
