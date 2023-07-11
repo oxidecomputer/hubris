@@ -188,6 +188,14 @@ pub enum TofinoPcieReset {
     Deasserted,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum TofinoPciePowerFault {
+    SequencerControl,
+    Asserted,
+    Deasserted,
+}
+
 impl Sequencer {
     pub fn new(task_id: userlib::TaskId) -> Self {
         Self {
@@ -324,20 +332,6 @@ impl Sequencer {
         )
     }
 
-    pub fn set_pcie_power_fault(&self, fault: bool) -> Result<(), FpgaError> {
-        self.write_pcie_hotplug_ctrl(
-            fault.into(),
-            Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT,
-        )
-    }
-
-    pub fn set_pcie_alert(&self, alert: bool) -> Result<(), FpgaError> {
-        self.write_pcie_hotplug_ctrl(
-            alert.into(),
-            Reg::PCIE_HOTPLUG_CTRL::ALERT,
-        )
-    }
-
     pub fn pcie_reset(&self) -> Result<TofinoPcieReset, FpgaError> {
         let ctrl = self.pcie_hotplug_ctrl()?;
         let reset = (ctrl & Reg::PCIE_HOTPLUG_CTRL::RESET) != 0;
@@ -368,9 +362,35 @@ impl Sequencer {
                     | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET
             }
             TofinoPcieReset::Deasserted => {
-                // Set HOST_OVERRIDE_RESET, clear RESET.
+                // Set OVERRIDE_HOST_RESET, clear RESET.
                 (ctrl & !Reg::PCIE_HOTPLUG_CTRL::RESET)
                     | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET
+            }
+        };
+
+        self.write_pcie_hotplug_ctrl(WriteOp::Write, ctrl_next)
+    }
+
+    pub fn set_pcie_power_fault(
+        &self,
+        power_fault: TofinoPciePowerFault,
+    ) -> Result<(), FpgaError> {
+        let ctrl = self.pcie_hotplug_ctrl()?;
+        let ctrl_next = match power_fault {
+            TofinoPciePowerFault::SequencerControl => {
+                // Clear POWER_FAULT, OVERRIDE_SEQ_POWER_FAULT.
+                ctrl & !(Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_SEQ_POWER_FAULT)
+            }
+            TofinoPciePowerFault::Asserted => {
+                // Set POWER_FAULT, OVERRIDE_SEQ_POWER_FAULT.
+                ctrl | Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_SEQ_POWER_FAULT
+            }
+            TofinoPciePowerFault::Deasserted => {
+                // Set OVERRIDE_SEQ_POWER_FAULT, clear POWER_FAULT.
+                (ctrl & !Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT)
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_SEQ_POWER_FAULT
             }
         };
 
@@ -472,6 +492,46 @@ bitfield! {
     pub pcie_ctrl, set_pcie_ctrl: 2;
     pub pcie_app, set_pcie_app: 3;
     pub pcie_lanes, set_pcie_lanes: 7, 4;
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, From, FromPrimitive, AsBytes)]
+#[repr(u32)]
+// Valid values for some of the fields in the `ResetOption` register defined below. See the
+// description for bits 7:0 of the register in
+// 631384-0001_TF2-Top-Level_Register_Map_05062021.html.
+pub enum TofinoPcieResetOptions {
+    ControllerOnly = 0b00,
+    ControllerAndPhyLanes = 0b10,
+    EntirePhyAndController = 0b11,
+}
+
+impl From<TofinoPcieResetOptions> for u32 {
+    fn from(r: TofinoPcieResetOptions) -> Self {
+        r as u32
+    }
+}
+
+impl From<u32> for TofinoPcieResetOptions {
+    fn from(v: u32) -> Self {
+        Self::from_u32(v).unwrap_or(TofinoPcieResetOptions::ControllerOnly)
+    }
+}
+
+bitfield! {
+    /// The `ResetOption` register allows for additional control over the reset
+    /// sequence of Tofino. Note that not all fields are represented in this
+    /// struct. See the full set in
+    /// 631384-0001_TF2-Top-Level_Register_Map_05062021.html if additional ones
+    /// are desired.
+    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[repr(C)]
+    pub struct ResetOptions(u32);
+    // Reset the entire PHY, including a full load of SPI EEPROM contents.
+    pub entire_pcie_phy, set_entire_pcie_phy: 0;
+    // Reset options for several PCIe events.
+    pub from into TofinoPcieResetOptions, on_pcie_link_down, set_on_pcie_link_down: 3, 2;
+    pub from into TofinoPcieResetOptions, on_pcie_l2_exit, set_on_pcie_l2_exit: 5, 4;
+    pub from into TofinoPcieResetOptions, on_pcie_host_reset, set_on_pcie_host_reset: 7, 6;
 }
 
 bitfield! {

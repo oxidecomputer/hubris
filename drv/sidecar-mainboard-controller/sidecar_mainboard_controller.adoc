@@ -407,11 +407,11 @@ PCIe Hotplug Control
 |===
 | Bits | SW Access | Name | Function
 |[7:5] |  | - | Reserved
-|[4] | w | OVERRIDE_HOST_RESET | Override host PCIe Reset
-|[3] | w | RESET | PCIe Reset
-|[2] | w | ALERT | Alert
-|[1] | w | POWER_FAULT | Power Fault
-|[0] | w | PRESENT | Present
+|[4] | w | OVERRIDE_SEQ_POWER_FAULT | Override sequencer power fault
+|[3] | w | POWER_FAULT | Bit indicating the desired state of PCIe Power Fault, valid if sequencer override bit set
+|[2] | w | OVERRIDE_HOST_RESET | Override host PCIe Reset
+|[1] | w | RESET | Bit indicating the desired state of Tofino PCIe Reset, valid if host override bit set
+|[0] | w | PRESENT | Bit indicating Tofino Present
 |===
 
 PCIe Hotplug Status
@@ -420,8 +420,10 @@ PCIe Hotplug Status
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | r | HOST_RESET | Host PCIe Reset
+|[7:3] |  | - | Reserved
+|[2] | r | POWER_FAULT | State of PCIe Power Fault signal
+|[1] | r | HOST_RESET | State of PCIe Reset signal
+|[0] | r | PRESENT | State of PCIe Present signal
 |===
 
 Tofino Debug Port Data

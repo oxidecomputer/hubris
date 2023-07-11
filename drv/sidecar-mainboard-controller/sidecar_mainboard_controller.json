@@ -1353,51 +1353,51 @@
                     "sw_access": "w",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Present"
+                    "desc": "Bit indicating Tofino Present"
                 },
                 {
                     "type": "field",
-                    "inst_name": "POWER_FAULT",
+                    "inst_name": "RESET",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "w",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power Fault"
+                    "desc": "Bit indicating the desired state of Tofino PCIe Reset, valid if host override bit set"
                 },
                 {
                     "type": "field",
-                    "inst_name": "ALERT",
+                    "inst_name": "OVERRIDE_HOST_RESET",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "w",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Alert"
+                    "desc": "Override host PCIe Reset"
                 },
                 {
                     "type": "field",
-                    "inst_name": "RESET",
+                    "inst_name": "POWER_FAULT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "w",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "PCIe Reset"
+                    "desc": "Bit indicating the desired state of PCIe Power Fault, valid if sequencer override bit set"
                 },
                 {
                     "type": "field",
-                    "inst_name": "OVERRIDE_HOST_RESET",
+                    "inst_name": "OVERRIDE_SEQ_POWER_FAULT",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
                     "sw_access": "w",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Override host PCIe Reset"
+                    "desc": "Override sequencer power fault"
                 }
             ]
         },
@@ -1410,14 +1410,36 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "HOST_RESET",
+                    "inst_name": "PRESENT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Host PCIe Reset"
+                    "desc": "State of PCIe Present signal"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "HOST_RESET",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of PCIe Reset signal"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "POWER_FAULT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of PCIe Power Fault signal"
                 }
             ]
         },
