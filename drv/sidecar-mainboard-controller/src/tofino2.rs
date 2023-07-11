@@ -496,6 +496,9 @@ bitfield! {
 
 #[derive(Copy, Clone, PartialEq, Eq, From, FromPrimitive, AsBytes)]
 #[repr(u32)]
+// Valid values for some of the fields in the `ResetOption` register defined below. See the
+// description for bits 7:0 of the register in
+// 631384-0001_TF2-Top-Level_Register_Map_05062021.html.
 pub enum TofinoPcieResetOptions {
     ControllerOnly = 0b00,
     ControllerAndPhyLanes = 0b10,
