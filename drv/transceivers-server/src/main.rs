@@ -101,7 +101,6 @@ struct ServerImpl {
     leds_initialized: bool,
     led_states: LedStates,
     blink_on: bool,
-    blink_cntr: u8,
     system_led_state: LedState,
 
     /// Modules that are physically present but disabled by Hubris
@@ -138,12 +137,8 @@ const SPI_INTERVAL: u64 = 500;
 /// Controls how often we update the LED controllers (in milliseconds).
 const I2C_INTERVAL: u64 = 100;
 
-/// Controls how many I2C notifications should pass before adjusting blink state
-///
-/// The I2C notification loop runs much faster than we would want to blink, so
-/// don't update the blink on/off until a counter reaches this value. 50% duty
-/// cycle on a 1 Hz blink would be 500 ms on/off.
-const BLINK_DUTY_CYCLE: u8 = 5;
+/// Blink LEDs at a 50% duty cycle (in milliseconds)
+const BLINK_INTERVAL: u64 = 500;
 
 impl ServerImpl {
     fn led_init(&mut self) {
@@ -202,12 +197,6 @@ impl ServerImpl {
         };
         if let Err(e) = self.leds.update_system_led_state(system_led_on) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
-        }
-        // keep track if we are on or off next update when blinking
-        self.blink_cntr += 1;
-        if self.blink_cntr == BLINK_DUTY_CYCLE {
-            self.blink_on = !self.blink_on;
-            self.blink_cntr = 0;
         }
     }
 }
@@ -583,11 +572,9 @@ impl NotificationHandler for ServerImpl {
         notifications::SOCKET_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SOCKET_MASK | notifications::TIMER_MASK) != 0
-        {
-            // Nothing to do here; we'll handle these in the main loop
-        }
+    fn handle_notification(&mut self, _bits: u32) {
+        // Nothing to do here; notifications are just to wake up this task, and
+        // all of the actual work is handled in the main loop
     }
 }
 
@@ -638,7 +625,6 @@ fn main() -> ! {
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
             blink_on: false,
-            blink_cntr: 0,
             system_led_state: LedState::Off,
             disabled: LogicalPortMask(0),
             consecutive_nacks: [0; NUM_PORTS as usize],
@@ -659,6 +645,7 @@ fn main() -> ! {
         enum Timers {
             I2C,
             SPI,
+            Blink,
         }
         let mut multitimer =
             Multitimer::<Timers>::new(notifications::TIMER_BIT);
@@ -674,6 +661,11 @@ fn main() -> ! {
             now,
             Some(Repeat::AfterDeadline(SPI_INTERVAL)),
         );
+        multitimer.set_timer(
+            Timers::Blink,
+            now,
+            Some(Repeat::AfterDeadline(BLINK_INTERVAL)),
+        );
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
@@ -685,6 +677,9 @@ fn main() -> ! {
                     }
                     Timers::SPI => {
                         server.handle_spi_loop();
+                    }
+                    Timers::Blink => {
+                        server.blink_on = !server.blink_on;
                     }
                 }
             }
