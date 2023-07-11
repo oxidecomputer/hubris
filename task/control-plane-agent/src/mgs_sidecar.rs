@@ -427,6 +427,16 @@ impl SpHandler for MgsHandler {
             PowerState::A1 => return Err(SpError::PowerStateError(0)),
         };
 
+        // Sidecar may be in A2 because of a prior sequencing error. There
+        // currently is no means for the control plane to learn more about such
+        // errors, so simply clear the sequencer before transitioning to A0 in
+        // order to avoid getting stuck.
+        if power_state == PowerState::A0 {
+            self.sequencer
+                .clear_tofino_seq_error()
+                .map_err(|e| SpError::PowerStateError(e as u32))?
+        }
+
         self.sequencer
             .set_tofino_seq_policy(policy)
             .map_err(|e| SpError::PowerStateError(e as u32))
