@@ -34,7 +34,18 @@ use userlib::{
 };
 
 mod inventory;
-use inventory::{INVENTORY_API_VERSION, INVENTORY_COUNT};
+use inventory::INVENTORY_API_VERSION;
+
+#[cfg_attr(
+    any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d"
+    ),
+    path = "bsp/gimlet_bcd.rs"
+)]
+#[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
+mod bsp;
 
 mod tx_buf;
 use tx_buf::TxBuf;
@@ -861,7 +872,7 @@ impl ServerImpl {
             Key::InventorySize => {
                 // We reply with a tuple of count, API version:
                 const REPLY: (u32, u32) =
-                    (INVENTORY_COUNT, INVENTORY_API_VERSION);
+                    (ServerImpl::INVENTORY_COUNT, INVENTORY_API_VERSION);
                 self.tx_buf.encode_response(
                     sequence,
                     &SpToHost::KeyLookupResult(KeyLookupResult::Ok),

@@ -235,6 +235,16 @@ pub enum InventoryData {
 
     /// 128-bit serial number baked into every AT24CSW EEPROM
     At24csw08xSerial([u8; 16]),
+
+    /// STM32H7 UID information
+    Stm32H7 {
+        /// 96-bit unique identifier
+        uid: [u32; 3],
+        /// Revision ID (`REV_ID`) from `DBGMCU_IDC`
+        dbgmcu_rev_id: u16,
+        /// Device ID (`DEV_ID`) from `DBGMCU_IDC`
+        dbgmcu_dev_id: u16,
+    },
 }
 
 #[derive(

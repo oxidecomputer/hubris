@@ -5,7 +5,7 @@
 use crate::{Trace, MAX_MESSAGE_SIZE, MAX_PACKET_SIZE};
 use core::ops::Range;
 use host_sp_messages::{
-    DecodeFailureReason, Header, InventoryDataResult, SpToHost,
+    DecodeFailureReason, Header, InventoryData, InventoryDataResult, SpToHost,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -186,7 +186,7 @@ impl TxBuf {
         name: &'a [u8],
         fill_data: F,
     ) where
-        F: FnOnce(&mut [u8]) -> Result<usize, InventoryDataResult>,
+        F: FnOnce() -> Result<InventoryData, InventoryDataResult>,
     {
         let mut name_array = [0u8; 32];
         for (a, b) in name_array.iter_mut().zip(name) {
@@ -199,10 +199,18 @@ impl TxBuf {
                 name: name_array,
             },
             |buf| {
-                fill_data(buf).map_err(|e| SpToHost::InventoryData {
-                    result: e,
-                    name: name_array,
-                })
+                let n = fill_data()
+                    .and_then(|d| {
+                        hubpack::serialize(buf, &d).map_err(|_| {
+                            InventoryDataResult::SerializationError
+                        })
+                    })
+                    .map_err(|e| SpToHost::InventoryData {
+                        result: e,
+                        name: name_array,
+                    })?;
+
+                Ok(n)
             },
         )
     }

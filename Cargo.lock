@@ -1008,12 +1008,9 @@ name = "drv-local-vpd"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
- "build-util",
  "drv-i2c-api",
  "drv-i2c-devices",
- "ringbuf",
- "serde",
- "tlvc",
+ "drv-oxide-vpd",
  "userlib",
  "zerocopy",
 ]
@@ -1323,6 +1320,17 @@ dependencies = [
  "drv-onewire",
  "num-traits",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-oxide-vpd"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "tlvc",
  "zerocopy",
 ]
 
@@ -4053,7 +4061,7 @@ dependencies = [
  "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-local-vpd",
+ "drv-oxide-vpd",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
  "enum-map",
