@@ -29,8 +29,8 @@ impl ServerImpl {
                 self.tx_buf.try_encode_inventory(sequence, b"U12", || {
                     Ok(InventoryData::Stm32H7 {
                         uid,
-                        dbgmcu_rev_id: 0,
-                        dbgmcu_dev_id: 0,
+                        dbgmcu_rev_id: 0, // TODO
+                        dbgmcu_dev_id: 0, // TODO
                     })
                 });
             }
