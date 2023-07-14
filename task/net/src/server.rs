@@ -257,7 +257,7 @@ pub struct GenServerImpl<'a, B, E, const N: usize>
 where
     E: DeviceExt,
 {
-    eth: &'a eth::Ethernet,
+    pub eth: &'a eth::Ethernet,
 
     vlan_state: [VLanState<E>; N],
     client_waiting_to_send: [bool; SOCKET_COUNT],

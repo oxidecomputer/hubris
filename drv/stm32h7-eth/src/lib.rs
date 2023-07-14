@@ -27,11 +27,11 @@ use crate::ring::BUFSZ;
 /// Control block for ethernet driver.
 pub struct Ethernet {
     /// Pointer to the MAC registers.
-    mac: &'static device::ethernet_mac::RegisterBlock,
+    pub mac: &'static device::ethernet_mac::RegisterBlock,
     /// Pointer to the MTL registers.
-    _mtl: &'static device::ethernet_mtl::RegisterBlock,
+    pub _mtl: &'static device::ethernet_mtl::RegisterBlock,
     /// Pointer to the DMA registers.
-    dma: &'static device::ethernet_dma::RegisterBlock,
+    pub dma: &'static device::ethernet_dma::RegisterBlock,
     /// Control of the TX ring.
     tx_ring: crate::ring::TxRing,
     /// Control of the RX ring.

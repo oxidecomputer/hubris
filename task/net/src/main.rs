@@ -58,9 +58,26 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
+use ringbuf::*;
 use task_jefe_api::Jefe;
 use task_net_api::MacAddressBlock;
 use zerocopy::{AsBytes, U16};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)] // not all variants are used, depending on cargo features
+enum Trace {
+    None,
+    MtlRxQdr(u32),
+    DmaCsr(u32),
+    DmaDsr(u32),
+    DmaSr(u32),
+    DmaCrxCr(u32),
+    DmaCrxDlar(u32),
+    DmaCrxDtpr(u32),
+    DmaCcarxDr(u32),
+    DmaCcarxBr(u32),
+}
+ringbuf!(Trace, 8, Trace::None);
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -269,7 +286,24 @@ fn main() -> ! {
                         // timer is set to auto-repeat
                     }
                     Timers::Watchdog => {
-                        jefe.restart_me();
+                        let v = server.eth._mtl.mtlrx_qdr.read().bits();
+                        ringbuf_entry!(Trace::MtlRxQdr(v));
+                        let v = server.eth.dma.dmacsr.read().bits();
+                        ringbuf_entry!(Trace::DmaCsr(v));
+                        let v = server.eth.dma.dmadsr.read().bits();
+                        ringbuf_entry!(Trace::DmaDsr(v));
+                        let v = server.eth.dma.dmacrx_cr.read().bits();
+                        ringbuf_entry!(Trace::DmaCrxCr(v));
+                        let v = server.eth.dma.dmacrx_dlar.read().bits();
+                        ringbuf_entry!(Trace::DmaCrxDlar(v));
+                        let v = server.eth.dma.dmacrx_dtpr.read().bits();
+                        ringbuf_entry!(Trace::DmaCrxDtpr(v));
+                        let v = server.eth.dma.dmaccarx_dr.read().bits();
+                        ringbuf_entry!(Trace::DmaCcarxDr(v));
+                        let v = server.eth.dma.dmaccarx_br.read().bits();
+                        ringbuf_entry!(Trace::DmaCcarxBr(v));
+
+                        panic!("bye");
                     }
                 }
             }
