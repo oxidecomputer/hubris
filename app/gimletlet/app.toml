@@ -297,8 +297,8 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpecho_slowly", notification = 1}
 port = 7777
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
+tx = { packets = 10, bytes = 1024 }
+rx = { packets = 10, bytes = 1024 }
 
 [config.net.sockets.mgmt_gateway]
 kind = "udp"

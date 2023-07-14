@@ -16,12 +16,22 @@ async fn main() {
     let addr: SocketAddrV6 = addr.parse().unwrap();
 
     let sock = UdpSocket::bind("[::]:0").await.unwrap();
+    let mut consecutive_failures = 0;
     loop {
-        run_one(&sock, addr).await;
+        let okay = run_one(&sock, addr).await;
+        if okay {
+            consecutive_failures = 0;
+        } else {
+            consecutive_failures += 1;
+            if consecutive_failures > 10 {
+                info!("too many consecutive failures; exiting\x07");
+                break;
+            }
+        }
     }
 }
 
-async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) {
+async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
     info!("sending packet to trigger high priority busy loop");
     sock.send_to(b"1", addr).await.unwrap();
 
@@ -45,14 +55,18 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) {
     loop {
         match tokio::time::timeout(Duration::from_secs(1), sock.recv_from(&mut buf)).await {
             Ok(result) => {
-                let (_n, peer) = result.unwrap();
+                let (n, peer) = result.unwrap();
                 recvs += 1;
-                info!("received response {recvs} from {peer}");
+                let s = std::str::from_utf8(&buf[..n]).unwrap();
+                info!("received response {recvs} '{s}' from {peer}");
             }
             Err(_) => {
-                info!("no response after {:?}", start.elapsed());
+                let elapsed = start.elapsed();
+                info!("no response after {elapsed:?}");
                 if recvs >= 3 {
-                    return;
+                    return true;
+                } else if elapsed > Duration::from_secs(10) {
+                    return false;
                 }
             }
         }
