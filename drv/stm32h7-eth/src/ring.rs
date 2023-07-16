@@ -468,7 +468,9 @@ impl RxRing {
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
-        d.rdes[2].store(0, Ordering::Relaxed);
+        d.rdes[2].store(0, Ordering::Release);
+        // See hubris#750 for why we need Ordering::Release and this delay
+        cortex_m::asm::delay(16);
         let rdes3 =
             1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
         d.rdes[3].store(rdes3, Ordering::Release); // <-- release
