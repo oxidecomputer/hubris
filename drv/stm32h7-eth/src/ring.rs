@@ -324,18 +324,34 @@ impl TxRing {
                 | u32::from(vid);
             d.tdes[0][3].store(tdes3, Ordering::Release); // <-- release
 
-            // Program the tx descriptor to represent the packet, using the
-            // same strategy as above for memory access ordering.
-            d.tdes[1][0].store(buffer.as_ptr() as u32, Ordering::Relaxed);
-            d.tdes[1][1].store(0, Ordering::Relaxed);
             let tdes2 = TDES2_VTIR_INSERT << TDES2_VTIR_BIT | len as u32;
-            d.tdes[1][2].store(tdes2, Ordering::Relaxed);
             let tdes3 = 1 << TDES3_OWN_BIT
                 | 1 << TDES3_FD_BIT
                 | 1 << TDES3_LD_BIT
                 | TDES3_CIC_CHECKSUMS_ENABLED << TDES3_CIC_BIT
                 | len as u32;
-            d.tdes[1][3].store(tdes3, Ordering::Release); // <-- release
+
+            // Program the tx descriptor to represent the packet, using the
+            // same strategy as above for memory access ordering.
+            unsafe {
+                core::arch::asm!(
+                    "
+                        str {1}, [{0}, #0]
+                        dmb sy
+                        str {2}, [{0}, #0]
+                        str {3}, [{0}, #4]
+                        str {4}, [{0}, #8]
+                        dmb sy
+                        str {5}, [{0}, #12]
+                    ",
+                    in(reg) d.tdes[1].as_ptr() as u32,
+                    in(reg) 0x123,                  // poison address
+                    in(reg) buffer.as_ptr() as u32, // true address
+                    in(reg) 0,                      // TDES1
+                    in(reg) tdes2,
+                    in(reg) tdes3
+                );
+            }
 
             self.next.set(if self.next.get() + 1 == self.storage.len() {
                 0
@@ -468,7 +484,9 @@ impl RxRing {
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
-        d.rdes[2].store(0, Ordering::Relaxed);
+        d.rdes[2].store(0, Ordering::Release);
+        // See hubris#750 for why we need Ordering::Release and this delay
+        cortex_m::asm::delay(16);
         let rdes3 =
             1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
         d.rdes[3].store(rdes3, Ordering::Release); // <-- release
