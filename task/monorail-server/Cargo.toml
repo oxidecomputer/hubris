@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 drv-monorail-api = { path = "../../drv/monorail-api"  }
+drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller"  }
 drv-sidecar-front-io = { path = "../../drv/sidecar-front-io", features = ["phy_smi"], optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
