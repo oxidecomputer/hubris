@@ -94,14 +94,6 @@ start = true
 task-slots = ["sys"]
 notifications = ["timer"]
 
-[tasks.ping]
-name = "task-ping"
-features = []
-priority = 5
-max-sizes = {flash = 8192, ram = 1024}
-start = true
-task-slots = [{peer = "pong"}]
-
 [tasks.pong]
 name = "task-pong"
 priority = 3
