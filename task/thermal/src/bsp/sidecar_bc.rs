@@ -5,7 +5,8 @@
 //! BSP for Sidecar
 
 use crate::control::{
-    Device, FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
+    ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
+    TemperatureSensor,
 };
 use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
@@ -215,7 +216,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         TF2_THERMALS,
         PowerBitmask::A0,
-        false,
+        ChannelType::MustBePresent,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -225,7 +226,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         VSC7448_THERMALS,
         PowerBitmask::A0_OR_A2,
-        false,
+        ChannelType::MustBePresent,
     ),
 ];
 

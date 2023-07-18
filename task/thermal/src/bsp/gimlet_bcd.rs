@@ -6,7 +6,8 @@
 
 use crate::{
     control::{
-        Device, FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
+        ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
+        TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
@@ -269,7 +270,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         M2_THERMALS,
         PowerBitmask::M2A,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
@@ -286,7 +287,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         M2_THERMALS,
         PowerBitmask::M2B,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -296,7 +297,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         CPU_THERMALS,
         PowerBitmask::A0,
-        false,
+        ChannelType::MustBePresent,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -306,7 +307,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         T6_THERMALS,
         PowerBitmask::A0,
-        false,
+        ChannelType::MustBePresent,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -316,7 +317,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -326,7 +327,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -336,7 +337,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -346,7 +347,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -356,7 +357,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -366,7 +367,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -376,7 +377,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -386,7 +387,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -396,7 +397,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -406,7 +407,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -416,7 +417,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -426,7 +427,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -436,7 +437,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -446,7 +447,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -456,7 +457,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -466,7 +467,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         DIMM_THERMALS,
         PowerBitmask::A0_OR_A2,
-        true,
+        ChannelType::Removable,
     ),
     // U.2 drives
     InputChannel::new(
@@ -477,7 +478,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -487,7 +488,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -497,7 +498,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -507,7 +508,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -517,7 +518,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -527,7 +528,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -537,7 +538,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -547,7 +548,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -557,7 +558,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
     InputChannel::new(
         TemperatureSensor::new(
@@ -567,7 +568,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
         ),
         U2_THERMALS,
         PowerBitmask::A0,
-        true,
+        ChannelType::RemovableAndErrorProne,
     ),
 ];
 
