@@ -226,6 +226,16 @@ impl Ethernet {
             );
         }
 
+        #[cfg(not(feature = "vlan"))]
+        {
+            mac.macvtr.write(|w| unsafe {
+                w.evls()
+                    .bits(0b11) // Always strip VLAN tag on receive
+                    .evlrxs()
+                    .set_bit() // Enable VLAN tag in Rx status
+            });
+        }
+
         // The peripheral seems to want this to be done in a separate write to
         // MACCR, so:
         // Enable transmit and receive.
