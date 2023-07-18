@@ -1,0 +1,14 @@
+// Interface to Busywait.
+
+Interface(
+    name: "Busywait",
+    ops: {
+        "spin": (
+            args: {},
+            leases: {},
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
+)
+

@@ -197,13 +197,19 @@ task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
 
-[tasks.udpecho]
-name = "task-udpecho"
+[tasks.busywait]
+name = "task-busywait"
+priority = 2
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+
+[tasks.udpecho_slowly]
+name = "task-udpecho-slowly"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
-task-slots = ["net"]
+task-slots = ["net", "busywait"]
 features = ["vlan"]
 notifications = ["socket"]
 
@@ -378,12 +384,12 @@ port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-[config.net.sockets.echo]
+[config.net.sockets.echo_slowly]
 kind = "udp"
-owner = {name = "udpecho", notification = "socket"}
-port = 7
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
+owner = {name = "udpecho_slowly", notification = "socket"}
+port = 7777
+tx = { packets = 10, bytes = 1024 }
+rx = { packets = 10, bytes = 1024 }
 
 [config.net.sockets.rpc]
 kind = "udp"

@@ -713,6 +713,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-busywait-api"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-caboose"
 version = "0.1.0"
 dependencies = [
@@ -3889,6 +3900,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-busywait"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-caboose-reader"
 version = "0.1.0"
 dependencies = [
@@ -4532,6 +4554,19 @@ dependencies = [
  "ssmarshal",
  "task-net-api",
  "userlib",
+]
+
+[[package]]
+name = "task-udpecho-slowly"
+version = "0.1.0"
+dependencies = [
+ "drv-busywait-api",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

@@ -1,0 +1,23 @@
+[package]
+name = "task-udpecho-slowly"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+num-traits = {version = "0.2", default-features = false}
+task-net-api = {path = "../net-api"}
+drv-busywait-api.path = "../busywait-api"
+zerocopy = "0.6.1"
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-udpecho-slowly"
+test = false
+bench = false

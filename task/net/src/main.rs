@@ -269,7 +269,7 @@ fn main() -> ! {
                         // timer is set to auto-repeat
                     }
                     Timers::Watchdog => {
-                        jefe.restart_me();
+                        //jefe.restart_me();
                     }
                 }
             }
