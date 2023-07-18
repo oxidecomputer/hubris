@@ -2398,19 +2398,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hypocalls"
-version = "0.1.0"
-dependencies = [
- "abi",
- "lpc55_flash",
- "num-derive",
- "num-traits",
- "serde",
- "ssmarshal",
- "zerocopy",
-]
-
-[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2704,15 +2691,6 @@ dependencies = [
  "bitfield 0.14.0",
  "packed_struct",
  "serde",
-]
-
-[[package]]
-name = "lpc55_flash"
-version = "0.1.0"
-dependencies = [
- "abi",
- "drv-update-api",
- "lpc55_romapi",
 ]
 
 [[package]]
@@ -4336,16 +4314,6 @@ dependencies = [
  "task-sensor-api",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "task-secure"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "hypocalls",
- "lpc55_flash",
- "userlib",
 ]
 
 [[package]]
