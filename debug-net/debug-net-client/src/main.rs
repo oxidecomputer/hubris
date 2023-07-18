@@ -42,18 +42,18 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
                 Ok(_) => break,
                 Err(err) => {
                     error!("failed to send: {err}");
-                    tokio::time::sleep(Duration::from_millis(300)).await;
+                    tokio::time::sleep(Duration::from_millis(30)).await;
                 }
             }
         }
-        tokio::time::sleep(Duration::from_millis(300)).await;
+        tokio::time::sleep(Duration::from_millis(30)).await;
     }
 
     let mut recvs = 0;
     let mut buf = [0; 64];
     let start = Instant::now();
     loop {
-        match tokio::time::timeout(Duration::from_secs(1), sock.recv_from(&mut buf)).await {
+        match tokio::time::timeout(Duration::from_millis(100), sock.recv_from(&mut buf)).await {
             Ok(result) => {
                 let (n, peer) = result.unwrap();
                 recvs += 1;
@@ -65,7 +65,7 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
                 info!("no response after {elapsed:?}");
                 if recvs >= 3 {
                     return true;
-                } else if elapsed > Duration::from_secs(10) {
+                } else if elapsed > Duration::from_secs(1) {
                     return false;
                 }
             }

@@ -17,7 +17,7 @@ impl idl::InOrderBusywaitImpl for ServerImpl {
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         let start = sys_get_timer().now;
         loop {
-            if sys_get_timer().now - start > 5_000 {
+            if sys_get_timer().now - start > 500 {
                 break;
             }
         }
