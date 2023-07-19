@@ -14,6 +14,7 @@ async fn main() {
     let args = env::args().collect::<Vec<_>>();
     let addr = args.get(1).expect("pass addr as command line arg");
     let addr: SocketAddrV6 = addr.parse().unwrap();
+    let start_time = Instant::now();
 
     let sock = UdpSocket::bind("[::]:0").await.unwrap();
     let mut consecutive_failures = 0;
@@ -29,6 +30,8 @@ async fn main() {
             }
         }
     }
+
+    info!("finished in {:?}", Instant::now() - start_time);
 }
 
 async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
