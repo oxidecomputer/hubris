@@ -35,7 +35,8 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
     info!("sending packet to trigger high priority busy loop");
     sock.send_to(b"1", addr).await.unwrap();
 
-    for i in 1..10 {
+    const PACKET_COUNT: usize = 10;
+    for i in 1..PACKET_COUNT {
         info!("sending followup packet {i}");
         loop {
             match sock.send_to(format!("data-{i}").as_bytes(), addr).await {
@@ -53,12 +54,20 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) -> bool {
     let mut buf = [0; 64];
     let start = Instant::now();
     loop {
-        match tokio::time::timeout(Duration::from_millis(100), sock.recv_from(&mut buf)).await {
+        match tokio::time::timeout(
+            Duration::from_millis(100),
+            sock.recv_from(&mut buf),
+        )
+        .await
+        {
             Ok(result) => {
                 let (n, peer) = result.unwrap();
                 recvs += 1;
                 let s = std::str::from_utf8(&buf[..n]).unwrap();
                 info!("received response {recvs} '{s}' from {peer}");
+                if recvs == PACKET_COUNT {
+                    return true;
+                }
             }
             Err(_) => {
                 let elapsed = start.elapsed();
