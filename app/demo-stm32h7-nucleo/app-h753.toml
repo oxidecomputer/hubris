@@ -77,7 +77,7 @@ name = "task-net"
 stacksize = 3000
 priority = 2
 max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
-features = ["h753"]
+features = ["h753", "vlan"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
@@ -115,6 +115,7 @@ max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "busywait"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
@@ -124,6 +125,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udprpc]
@@ -134,6 +136,7 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 notifications = ["socket"]
+features = ["vlan"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -227,6 +230,7 @@ cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo_slowly]
