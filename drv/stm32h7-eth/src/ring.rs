@@ -466,6 +466,24 @@ impl RxRing {
     /// `d` accessible to hardware. The final write to make it accessible is
     /// performed with Release ordering to get a barrier.
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
+        #[cfg(feature = "h743")]
+        use stm32h7::stm32h743 as device;
+        #[cfg(feature = "h753")]
+        use stm32h7::stm32h753 as device;
+
+        let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
+        let dma_desc = dma.dmaccarx_dr.read().bits();
+        let rx_rps = dma.dmadsr.read().rps0().bits();
+
+        let our_desc = d as *const _ as u32;
+
+        // Hard-coded Rx ring size
+        DMA_DESC_OFFSET[((our_desc.wrapping_sub(dma_desc) / 16) % 4) as usize]
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+
+        RX_RPS[rx_rps as usize]
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
         d.rdes[2].store(0, Ordering::Relaxed);
@@ -729,3 +747,8 @@ impl RxRing {
         retval
     }
 }
+
+#[used]
+static RX_RPS: [core::sync::atomic::AtomicU32; 8] = [ATOMIC_ZERO; 8];
+#[used]
+static DMA_DESC_OFFSET: [core::sync::atomic::AtomicU32; 4] = [ATOMIC_ZERO; 4];
