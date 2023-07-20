@@ -619,61 +619,30 @@ impl RxRing {
         &self,
         vid: u16,
         vid_range: core::ops::Range<u16>,
-    ) -> (bool, bool) {
-        let mut any_dropped = false;
-        loop {
-            let d = &self.storage[self.next.get()];
+    ) -> bool {
+        let d = &self.storage[self.next.get()];
 
-            // Check whether the hardware has released this.
-            let rdes3 = d.rdes[3].load(Ordering::Acquire);
-            // If the hardware still owns this descriptor, then return right
-            // away (and wait for the hardware to do more stuff).
-            if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
-                return (false, any_dropped);
-            }
-
-            // Check to see if this is an error descriptor.  If so (or if it's
-            // not a complete packet, which shouldn't happen), then drop it.
-            let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
-            let first_and_last = rdes3
-                & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
-                == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
-            let packet_okay = !errors && first_and_last;
-
-            // If RDES0 is valid, then check for a VLAN match
-            let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
-            if packet_okay && rdes0_valid {
-                let rdes0 = d.rdes[0].load(Ordering::Relaxed);
-                let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
-
-                if this_vid == vid {
-                    // If this matches our target VLAN, then we're good!
-                    return (true, any_dropped);
-                } else if vid_range.contains(&this_vid) {
-                    // If this matches a _different_ valid VLAN, then return
-                    // and trust that another instance will handle it.
-                    return (false, any_dropped);
-                }
-            }
-
-            // If we've gotten to this point in the code, the packet is
-            //  (a) owned by userspace and
-            //  (b) either has no VID or has an invalid VID
-            // so we're going to drop it to avoid clogging the queue.
-
-            // Rewrite to an empty rx descriptor (owned by DMA)
-            let buffer = self.buffers[self.next.get()].0.get();
-            panic!("rdes3: {rdes3},  buf: {}", buffer as *const _ as u32);
-            Self::set_descriptor(d, buffer);
-
-            // Bump index forward.
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
-            any_dropped = true;
+        // Check whether the hardware has released this.
+        let rdes3 = d.rdes[3].load(Ordering::Acquire);
+        // If the hardware still owns this descriptor, then return right
+        // away (and wait for the hardware to do more stuff).
+        if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
+            return false;
         }
+
+        // Check to see if this is an error descriptor.  If so (or if it's
+        // not a complete packet, which shouldn't happen), then drop it.
+        let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+        let first_and_last = rdes3
+            & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+            == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+        let packet_okay = !errors && first_and_last;
+
+        if packet_okay {
+            return true;
+        }
+
+        panic!("invalid packet");
     }
     /// Attempts to grab the next filled-out RX buffer in the ring that
     /// matches the given VLAN id `vid` and show it to you.
@@ -709,12 +678,14 @@ impl RxRing {
         assert!(first_and_last);
 
         // If RDES0 is valid, then check for a VLAN match
+        /*
         let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
         assert!(rdes0_valid);
 
         let rdes0 = d.rdes[0].load(Ordering::Relaxed);
         let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
         assert_eq!(this_vid, vid);
+        */
 
         let buffer = self.buffers[self.next.get()].0.get();
 

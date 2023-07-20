@@ -534,12 +534,7 @@ impl Ethernet {
         vid: u16,
         vid_range: core::ops::Range<u16>,
     ) -> bool {
-        let (can_recv, any_dropped) =
-            self.rx_ring.vlan_is_next_free(vid, vid_range);
-        if any_dropped {
-            panic!();
-            self.rx_notify();
-        }
+        let can_recv = self.rx_ring.vlan_is_next_free(vid, vid_range);
         can_recv
     }
 

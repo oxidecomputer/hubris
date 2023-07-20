@@ -74,7 +74,7 @@ impl bsp_support::Bsp for BspImpl {
             #[cfg(not(feature = "vlan"))]
             let vlan_mode = ksz8463::VLanMode::Optional;
             */
-            let vlan_mode = ksz8463::VLanMode::External;
+            let vlan_mode = ksz8463::VLanMode::Off;
 
             match ksz8463.configure(ksz8463::Mode::Copper, vlan_mode) {
                 Err(err) => {
