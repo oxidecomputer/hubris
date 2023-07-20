@@ -37,6 +37,8 @@ pub struct Ethernet {
     /// Control of the RX ring.
     rx_ring: crate::ring::RxRing,
 
+    should_poke_rx_ring: core::cell::Cell<bool>,
+
     /// Pointer to the timer registers. We use the timer for timing MDIO
     /// transactions, since the MDIO hardware doesn't provide any kind of
     /// interrupts.
@@ -265,6 +267,7 @@ impl Ethernet {
             rx_ring,
             mdio_timer,
             mdio_timer_irq_mask,
+            should_poke_rx_ring: core::cell::Cell::new(false),
         }
     }
 
@@ -329,11 +332,7 @@ impl Ethernet {
         // We have dequeued a packet! The hardware might not realize there is
         // room in the RX queue now. Poke it.
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
+        self.should_poke_rx_ring.set(true);
     }
 
     /// Notifies the DMA hardware that a packet is available in the Tx ring
@@ -515,7 +514,11 @@ impl Ethernet {
         vid: u16,
         readout: impl FnOnce(&mut [u8]) -> R,
     ) -> R {
-        let result = self.rx_ring.vlan_with_next(vid, readout);
+        let result = self.rx_ring.vlan_with_next(
+            vid,
+            readout,
+            self.should_poke_rx_ring.take(),
+        );
         self.rx_notify();
         result
     }
@@ -534,6 +537,7 @@ impl Ethernet {
         let (can_recv, any_dropped) =
             self.rx_ring.vlan_is_next_free(vid, vid_range);
         if any_dropped {
+            panic!();
             self.rx_notify();
         }
         can_recv

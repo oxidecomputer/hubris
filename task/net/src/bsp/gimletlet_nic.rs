@@ -68,10 +68,13 @@ impl bsp_support::Bsp for BspImpl {
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1);
             let ksz8463 = Ksz8463::new(ksz8463_spi);
 
+            /*
             #[cfg(feature = "vlan")]
             let vlan_mode = ksz8463::VLanMode::Mandatory;
             #[cfg(not(feature = "vlan"))]
             let vlan_mode = ksz8463::VLanMode::Optional;
+            */
+            let vlan_mode = ksz8463::VLanMode::External;
 
             match ksz8463.configure(ksz8463::Mode::Copper, vlan_mode) {
                 Err(err) => {

@@ -23,7 +23,7 @@ fn main() -> ! {
 
     loop {
         // Tiiiiiny payload buffer
-        let mut rx_data_buf = [0u8; 64];
+        let mut rx_data_buf = [0u8; 16];
         match net.recv_packet(
             SOCKET,
             LargePayloadBehavior::Discard,

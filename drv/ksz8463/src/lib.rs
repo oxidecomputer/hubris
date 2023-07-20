@@ -39,6 +39,9 @@ pub enum VLanMode {
 
     /// Don't do any configuration of the VLANs.
     Off,
+
+    /// Require that the outside world tag packets with our VID
+    External,
 }
 
 pub enum Mode {
@@ -433,12 +436,41 @@ impl<S: SpiServer> Ksz8463<S> {
             }
 
             VLanMode::Off => (),
+            // In `VLanMode::Mandatory`, we expect tagged frames on all ports.
+            // All ports drop untagged frames; tags are otherwise unmodified as
+            // they pass through the system.
+            VLanMode::External => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x301, and contains ports 1 and 3
+                // - VLAN 1 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 2 has tag 0x3FF, and contains no ports
+                //
+                // This uses slots 0-2 in the table, and FID 0-2 (same as
+                // slot); all other VLANs are disabled (in particular, VLAN
+                // with VID 1, which by default includes all ports).
+                self.write_vlan_table(0, 0b101, 0x301)?;
+                self.write_vlan_table(1, 0b110, 0x302)?;
+                self.write_vlan_table(2, 0b000, 0x3FF)?;
+                for i in 3..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // All untagged packets get sent to the Shadow Realm
+                self.write(Register::P1VIDCR, 0x3FF)?;
+                self.write(Register::P2VIDCR, 0x3FF)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable ingress VLAN filtering on all ports
+                self.modify(Register::P1CR2, |r| *r |= 1 << 14)?;
+                self.modify(Register::P2CR2, |r| *r |= 1 << 14)?;
+                self.modify(Register::P3CR2, |r| *r |= 1 << 14)?;
+            }
         }
 
         // Enable 802.1Q VLAN mode.  This must happen after the VLAN tables
         // are configured.
         match vlan_mode {
-            VLanMode::Optional | VLanMode::Mandatory => {
+            VLanMode::Optional | VLanMode::Mandatory | VLanMode::External => {
                 self.modify(Register::SGCR2, |r| {
                     *r |= 1 << 15;
                 })?

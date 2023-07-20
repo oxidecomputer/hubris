@@ -35,6 +35,11 @@ const ATOMIC_ZERO_FOUR: [AtomicU32; 4] = [ATOMIC_ZERO; 4];
 /// when setting up the controller.
 pub const BUFSZ: usize = 1536;
 
+#[cfg(feature = "h743")]
+use stm32h7::stm32h743 as device;
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
+
 /// Opaque (to you) type alias for an Ethernet packet buffer. To use this module
 /// you need to create a static array of these somehow and provide it to `new`.
 pub struct Buffer(UnsafeCell<[u8; BUFSZ]>);
@@ -465,24 +470,12 @@ impl RxRing {
     /// Programs the words in `d` to prepare to receive into `buffer` and sets
     /// `d` accessible to hardware. The final write to make it accessible is
     /// performed with Release ordering to get a barrier.
+    #[inline(always)]
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
-        #[cfg(feature = "h743")]
-        use stm32h7::stm32h743 as device;
-        #[cfg(feature = "h753")]
-        use stm32h7::stm32h753 as device;
-
+        /*
         let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
-        let dma_desc = dma.dmaccarx_dr.read().bits();
         let rx_rps = dma.dmadsr.read().rps0().bits();
-
-        let our_desc = d as *const _ as u32;
-
-        // Hard-coded Rx ring size
-        DMA_DESC_OFFSET[((our_desc.wrapping_sub(dma_desc) / 16) % 4) as usize]
-            .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-
-        RX_RPS[rx_rps as usize]
-            .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        */
 
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
@@ -490,6 +483,11 @@ impl RxRing {
         let rdes3 =
             1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
         d.rdes[3].store(rdes3, Ordering::Release); // <-- release
+
+        /*
+        RX_RPS[rx_rps as usize]
+            .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        */
     }
 }
 
@@ -665,6 +663,7 @@ impl RxRing {
 
             // Rewrite to an empty rx descriptor (owned by DMA)
             let buffer = self.buffers[self.next.get()].0.get();
+            panic!("rdes3: {rdes3},  buf: {}", buffer as *const _ as u32);
             Self::set_descriptor(d, buffer);
 
             // Bump index forward.
@@ -687,6 +686,7 @@ impl RxRing {
         &self,
         vid: u16,
         body: impl FnOnce(&mut [u8]) -> R,
+        pokey: bool,
     ) -> R {
         let d = &self.storage[self.next.get()];
 
@@ -731,6 +731,15 @@ impl RxRing {
         // Pass in the initialized prefix of the packet.
         let retval = (body)(&mut buffer[..packet_len]);
 
+        if pokey {
+            let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
+            // Poke the tail pointer so the hardware knows to recheck (dropping
+            // two bottom bits because svd2rust)
+            dma.dmacrx_dtpr.write(|w| unsafe {
+                w.rdt().bits(self.tail_ptr() as u32 >> 2)
+            });
+            cortex_m::asm::delay(1300);
+        }
         // We need to consume this descriptor whether or not we handed
         // it off. Rewrite it as an empty rx descriptor:
         Self::set_descriptor(d, buffer);
