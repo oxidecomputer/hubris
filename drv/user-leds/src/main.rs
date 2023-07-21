@@ -440,9 +440,9 @@ cfg_if::cfg_if! {
             } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo boards: LEDs are on PB0, PB14 and PE1.
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
-                    (drv_stm32xx_sys_api::Port::B.pin(0), false),
                     (drv_stm32xx_sys_api::Port::B.pin(14), false),
                     (drv_stm32xx_sys_api::Port::E.pin(1), false),
+                    (drv_stm32xx_sys_api::Port::B.pin(0), false),
                 ];
             } else if #[cfg(target_board = "gemini-bu-1")] {
                 // Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.

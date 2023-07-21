@@ -15,10 +15,14 @@ use vsc85xx::PhyRw;
 /// become configurable.
 const PHYADDR: u8 = 0x0;
 
+userlib::task_slot!(USER_LEDS, user_leds);
+
 // Empty handle
 pub struct BspImpl;
 
 impl crate::bsp_support::Bsp for BspImpl {
+    const WAKE_INTERVAL: Option<u64> = Some(1000);
+
     fn preinit() {}
 
     fn configure_ethernet_pins(sys: &Sys) {
@@ -90,5 +94,13 @@ impl crate::bsp_support::Bsp for BspImpl {
         phy.write_raw(PHYADDR, reg.addr, value)
             .map_err(|_| PhyError::Other)?;
         Ok(())
+    }
+
+    fn wake(&self, eth: &eth::Ethernet) {
+        if eth.rx_is_stopped() {
+            let user_leds =
+                drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+            user_leds.led_on(0).unwrap();
+        }
     }
 }

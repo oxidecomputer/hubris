@@ -17,7 +17,7 @@ pub fn main() -> ! {
 
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-    let mut current = 0;
+    let mut current = 2;
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
     sys_set_timer(Some(dl), notifications::TIMER_MASK);
@@ -42,7 +42,7 @@ pub fn main() -> ! {
                         break;
                     }
                     Err(drv_user_leds_api::LedError::NotPresent) => {
-                        current = 0;
+                        current = 2;
                     }
                 };
             }

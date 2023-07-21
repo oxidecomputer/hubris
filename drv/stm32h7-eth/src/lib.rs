@@ -290,6 +290,10 @@ impl Ethernet {
         self.tx_ring.len()
     }
 
+    pub fn rx_is_stopped(&self) -> bool {
+        self.dma.dmacsr.read().rps().bit_is_set()
+    }
+
     // This function is identical in the VLAN and non-VLAN cases, so it lives
     // in the main impl block
     pub fn can_send(&self) -> bool {

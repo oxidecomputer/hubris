@@ -63,12 +63,12 @@ name = "task-net"
 stacksize = 6000
 priority = 3
 max-sizes = {flash = 131072, ram = 32768, sram1 = 32768}
-features = ["h753"]
+features = ["h753", "user-leds"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer"]
-task-slots = ["sys", "jefe"]
+task-slots = ["sys", "jefe", "user_leds"]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
