@@ -15,6 +15,8 @@ use drv_oxide_vpd::VpdError;
 use userlib::TaskId;
 use zerocopy::{AsBytes, FromBytes};
 
+pub use drv_oxide_vpd::VpdError as LocalVpdError;
+
 /// Searches for the given TLV-C tag in the local VPD and reads it
 ///
 /// Returns an error if the tag is not present, the data is of an unexpected

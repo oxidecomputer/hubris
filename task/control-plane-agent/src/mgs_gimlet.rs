@@ -1025,7 +1025,7 @@ impl SpHandler for MgsHandler {
                     .unwrap_lite();
                 Ok(())
             }
-            Some(Key::Ping) | None => {
+            Some(Key::Ping) | Some(Key::InventorySize) | None => {
                 Err(SpError::SetIpccKeyLookupValueFailed(
                     IpccKeyLookupValueError::InvalidKey,
                 ))

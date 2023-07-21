@@ -894,6 +894,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Fan VPD"
 refdes = "J180"
+name = "fan_vpd"
 removable = true
 
 [[config.i2c.devices]]
