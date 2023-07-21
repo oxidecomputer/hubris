@@ -76,7 +76,7 @@ task-slots = ["sys"]
 [tasks.net]
 name = "task-net"
 stacksize = 6000
-priority = 2
+priority = 3
 max-sizes = {flash = 131072, ram = 32768, sram1 = 32768}
 features = ["h753", "vlan"]
 sections = {eth_bulk = "sram1"}
@@ -111,7 +111,7 @@ start = true
 
 [tasks.udpecho_slowly]
 name = "task-udpecho-slowly"
-priority = 3
+priority = 4
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
@@ -121,7 +121,7 @@ notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 3
+priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -131,7 +131,7 @@ notifications = ["socket"]
 
 [tasks.udprpc]
 name = "task-udprpc"
-priority = 3
+priority = 4
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
