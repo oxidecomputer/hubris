@@ -486,39 +486,29 @@ impl RxRing {
     /// Drops invalid packets from the Rx ring, to prevent them from clogging
     /// things up. Returns a tuple `(next_free, any_dropped)`; if packets have
     /// been dropped, the caller should poke the DMA registers to inform them.
-    pub fn is_next_free(&self) -> (bool, bool) {
-        let mut any_dropped = false;
-        loop {
-            let d = &self.storage[self.next.get()];
-            // Check whether the hardware has released this.
-            let rdes3 = d.rdes[3].load(Ordering::Acquire);
+    pub fn is_next_free(&self) -> bool {
+        let d = &self.storage[self.next.get()];
+        // Check whether the hardware has released this.
+        let rdes3 = d.rdes[3].load(Ordering::Acquire);
 
-            // If the hardware still owns this descriptor, then return right
-            // away (and wait for the hardware to do more stuff).
-            if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
-                return (false, any_dropped);
-            }
-
-            // What sort of descriptor is this?
-            let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
-            let first_and_last = rdes3
-                & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
-                == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
-
-            // If this descriptor is error-free and represents a complete
-            // packet, then return true so that the netstack loads it
-            if !errors && first_and_last {
-                return (true, any_dropped);
-            }
-
-            // Otherwise, drop the packet by bumping our index
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
-            any_dropped = true;
+        // If the hardware still owns this descriptor, then return right
+        // away (and wait for the hardware to do more stuff).
+        if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
+            return false;
         }
+
+        // What sort of descriptor is this?
+        let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+        let first_and_last = rdes3
+            & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+            == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+
+        // If this descriptor is error-free and represents a complete
+        // packet, then return true so that the netstack loads it
+        if !errors && first_and_last {
+            return true;
+        }
+        panic!("invalid packet");
     }
 
     /// Grabs the next filled-out RX buffer in the ring and shows it to you
@@ -545,7 +535,11 @@ impl RxRing {
     /// This should never happen in correctly-written code, as this function
     /// should only be called from an `RxToken`, which is only constructed
     /// after confirming that the next packet is available and valid.
-    pub fn with_next<R>(&self, body: impl FnOnce(&mut [u8]) -> R) -> R {
+    pub fn with_next<R>(
+        &self,
+        body: impl FnOnce(&mut [u8]) -> R,
+        pokey: bool,
+    ) -> R {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let rdes3 = d.rdes[3].load(Ordering::Acquire);
@@ -582,6 +576,15 @@ impl RxRing {
 
         // We need to consume this descriptor whether or not we handed
         // it off. Rewrite it as an empty rx descriptor:
+        if pokey {
+            let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
+            // Poke the tail pointer so the hardware knows to recheck (dropping
+            // two bottom bits because svd2rust)
+            dma.dmacrx_dtpr.write(|w| unsafe {
+                w.rdt().bits(self.tail_ptr() as u32 >> 2)
+            });
+            cortex_m::asm::delay(1300);
+        }
         Self::set_descriptor(d, buffer);
         // At this point the descriptor is no longer free, the buffer is
         // potentially in use, and we must not access either.

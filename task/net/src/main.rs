@@ -84,32 +84,10 @@ task_slot!(PACKRAT, packrat);
 //
 // Much of this needs to move into the board-level configuration.
 
-/// Calculates a locally administered, unicast MAC address from the chip ID
-///
-/// This uses a hash of the chip ID and returns a block with starting MAC
-/// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
-/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
-/// VLANs enabled).
-fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
-    let mut buf = [0u8; 6];
-    let uid = sys.read_uid();
-    // Jenkins hash
-    let mut hash: u32 = 0;
-    for byte in uid.as_bytes() {
-        hash = hash.wrapping_add(*byte as u32);
-        hash = hash.wrapping_add(hash << 10);
-        hash ^= hash >> 6;
-    }
-    hash = hash.wrapping_add(hash << 3);
-    hash ^= hash >> 11;
-    hash = hash.wrapping_add(hash >> 15);
-
+/// Returns a hard-coded MAC address for ease of reproduction
+fn hardcoded_mac_address(sys: &Sys) -> MacAddressBlock {
     // Locally administered, unicast address
-    buf[0] = 0x0e;
-    buf[1] = 0x1d;
-
-    // Set the lower 32-bits based on the hashed UID
-    buf[2..].copy_from_slice(&hash.to_be_bytes());
+    let buf = [0x0e, 0x1d, 0x9a, 0x64, 0xb8, 0xc2];
 
     MacAddressBlock {
         base_mac: buf,
@@ -201,7 +179,7 @@ fn main() -> ! {
         mac_address_from_vpd().unwrap_or_else(|| mac_address_from_uid(&sys));
 
     #[cfg(not(feature = "vpd-mac"))]
-    let mac_address = mac_address_from_uid(&sys);
+    let mac_address = hardcoded_mac_address(&sys);
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = BspImpl::new(&eth, &sys);

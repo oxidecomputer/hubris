@@ -63,7 +63,7 @@ name = "task-net"
 stacksize = 6000
 priority = 3
 max-sizes = {flash = 131072, ram = 32768, sram1 = 32768}
-features = ["h753", "vlan"]
+features = ["h753"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
@@ -87,7 +87,6 @@ max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "busywait"]
-features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.idle]
@@ -98,7 +97,6 @@ stacksize = 256
 start = true
 
 [config.net]
-vlan = { start = 0x301, count = 1 }
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo_slowly]

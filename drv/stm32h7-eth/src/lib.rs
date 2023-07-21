@@ -236,11 +236,18 @@ impl Ethernet {
 
         #[cfg(not(feature = "vlan"))]
         {
+            // Configure for optional VLAN tags
             mac.macvtr.write(|w| unsafe {
                 w.evls()
                     .bits(0b11) // Always strip VLAN tag on receive
                     .evlrxs()
                     .set_bit() // Enable VLAN tag in Rx status
+                    .edvlp()
+                    .set_bit() // Enable Double VLAN mode
+                    .eivlrxs()
+                    .set_bit() // Provide inner VLAN tag in status
+                    .eivls()
+                    .bits(0b11) // Always strip inner VLAN tag
             });
         }
 
@@ -489,10 +496,7 @@ impl Ethernet {
     }
 
     pub fn can_recv(&self) -> bool {
-        let (can_recv, any_dropped) = self.rx_ring.is_next_free();
-        if any_dropped {
-            self.rx_notify();
-        }
+        let can_recv = self.rx_ring.is_next_free();
         can_recv
     }
 
@@ -503,7 +507,9 @@ impl Ethernet {
     /// non-error) descriptor at the front of the ring, as checked by
     /// `can_recv`.  Otherwise, it will panic.
     pub fn recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
-        let result = self.rx_ring.with_next(readout);
+        let result = self
+            .rx_ring
+            .with_next(readout, self.should_poke_rx_ring.take());
         self.rx_notify();
         result
     }
