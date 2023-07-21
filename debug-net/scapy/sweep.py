@@ -42,4 +42,4 @@ while consecutive_failures < 2:
         if pad == 128:
             pad = 16
         consecutive_failures = 0
-print(pad)
+print(f"successfully attacked chip with pad value of {pad}")

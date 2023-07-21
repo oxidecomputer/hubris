@@ -574,8 +574,10 @@ impl RxRing {
         // Pass in the initialized prefix of the packet.
         let result = (body)(&mut buffer[..packet_len]);
 
-        // We need to consume this descriptor whether or not we handed
-        // it off. Rewrite it as an empty rx descriptor:
+        // If the previous descriptor is free, then send a receive poll request.
+        // You'd normally put this right after writing the previous descriptor;
+        // in this case, we delay it to more easily hit the race condition
+        // window.
         if pokey {
             let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
             // Poke the tail pointer so the hardware knows to recheck (dropping
@@ -583,8 +585,11 @@ impl RxRing {
             dma.dmacrx_dtpr.write(|w| unsafe {
                 w.rdt().bits(self.tail_ptr() as u32 >> 2)
             });
+            // Precision delay!
             cortex_m::asm::delay(1300);
         }
+        // We need to consume this descriptor whether or not we handed
+        // it off. Rewrite it as an empty rx descriptor:
         Self::set_descriptor(d, buffer);
         // At this point the descriptor is no longer free, the buffer is
         // potentially in use, and we must not access either.
