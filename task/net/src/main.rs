@@ -58,7 +58,6 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
-use task_jefe_api::Jefe;
 use task_net_api::MacAddressBlock;
 use zerocopy::{AsBytes, U16};
 
@@ -155,7 +154,6 @@ static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
-    let jefe = Jefe::from(JEFE.get_task_id());
 
     // Do any preinit tasks specific to this board.  For hardware which requires
     // explicit clock configuration, this is where the `net` tasks waits for

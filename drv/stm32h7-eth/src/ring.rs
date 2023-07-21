@@ -390,17 +390,6 @@ const RDES3_BUF1_VALID_BIT: u32 = 24;
 /// Mask for the Packet Length portion of RDES3.
 const RDES3_PL_MASK: u32 = (1 << 15) - 1;
 
-// RDES bits which are only used in VLAN code, gated to avoid compiler warnings
-cfg_if::cfg_if! {
-    if #[cfg(feature = "vlan")] {
-        /// Amount to shift RDES0 to read out the VLAN ID as a `u16`
-        const RDES0_OUTER_VID_BIT: u32 = 0;
-        /// Index of Receive Status RDES0 Valid bit, indicating that RDES0 is
-        /// valid and has been written by the DMA.
-        const RDES3_RS0V_BIT: u32 = 25;
-    }
-}
-
 /// Control block for a ring of `RxDesc` records and associated `Buffer`s.
 pub struct RxRing {
     /// The descriptor ring storage.
@@ -615,11 +604,7 @@ impl RxRing {
     /// packets from the Rx ring, to avoid blocking the queue.  It returns a
     /// tuple of `(next_free, any_dropped)`. If packets have been dropped, the
     /// caller should poke the DMA registers to inform them.
-    pub fn vlan_is_next_free(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> bool {
+    pub fn vlan_is_next_free(&self) -> bool {
         let d = &self.storage[self.next.get()];
 
         // Check whether the hardware has released this.
@@ -653,7 +638,6 @@ impl RxRing {
     /// Otherwise, this function will panic.
     pub fn vlan_with_next<R>(
         &self,
-        vid: u16,
         body: impl FnOnce(&mut [u8]) -> R,
         pokey: bool,
     ) -> R {
@@ -677,15 +661,7 @@ impl RxRing {
         assert!(!errors);
         assert!(first_and_last);
 
-        // If RDES0 is valid, then check for a VLAN match
-        /*
-        let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
-        assert!(rdes0_valid);
-
-        let rdes0 = d.rdes[0].load(Ordering::Relaxed);
-        let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
-        assert_eq!(this_vid, vid);
-        */
+        // Ignore the VLAN matching; we accept all packets
 
         let buffer = self.buffers[self.next.get()].0.get();
 

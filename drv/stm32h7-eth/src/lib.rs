@@ -509,32 +509,19 @@ impl Ethernet {
     /// VLAN tag. This is only expected to be called from an `RxToken`,
     /// meaning we know that there's already a valid packet in the buffer;
     /// it will panic if this requirement is broken.
-    pub fn vlan_recv<R>(
-        &self,
-        vid: u16,
-        readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> R {
-        let result = self.rx_ring.vlan_with_next(
-            vid,
-            readout,
-            self.should_poke_rx_ring.take(),
-        );
+    pub fn vlan_recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
+        let result = self
+            .rx_ring
+            .vlan_with_next(readout, self.should_poke_rx_ring.take());
         self.rx_notify();
         result
     }
 
     /// Checks whether the next slot on the Rx buffer is owned by userspace
-    /// and has a matching VLAN id. Packets without a VID or with a VID
-    /// that isn't valid for _any VLAN_ are dropped by the Rx ring during this
-    /// function to prevent them from clogging up the system. Packets with
-    /// a VID that doesn't match `vid` but is in `vid_range` will not be
-    /// dropped, but this function will return `false` in that case.
-    pub fn vlan_can_recv(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> bool {
-        let can_recv = self.rx_ring.vlan_is_next_free(vid, vid_range);
+    ///
+    /// We accept all VIDs here; YOLO
+    pub fn vlan_can_recv(&self) -> bool {
+        let can_recv = self.rx_ring.vlan_is_next_free();
         can_recv
     }
 
