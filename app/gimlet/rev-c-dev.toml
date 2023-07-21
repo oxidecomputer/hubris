@@ -208,7 +208,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat", "i2c_driver"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.udpecho]
