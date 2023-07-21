@@ -24,7 +24,6 @@ start = true
 features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
