@@ -98,7 +98,7 @@ stacksize = 256
 start = true
 
 [config.net]
-vlan = { start = 0x301, count = 2 }
+vlan = { start = 0x301, count = 1 }
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo_slowly]
