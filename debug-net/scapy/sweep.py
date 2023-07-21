@@ -5,12 +5,11 @@ ip = "fe80::c1d:9aff:fe64:b8c2"
 
 consecutive_failures = 0
 pad = 16
-iface = "enp0s25"
 
 while consecutive_failures < 2:
     print(datetime.now())
     print(pad)
-    t = AsyncSniffer(iface=iface, filter = f"udp and host {ip} and (not ip6 multicast) and dst port 2000")
+    t = AsyncSniffer(filter = f"udp and host {ip} and (not ip6 multicast) and dst port 2000")
     t.start()
     base = Ether(dst=mac) / IPv6(dst=ip) / UDP(dport=7777, sport=2000)
 
@@ -23,11 +22,10 @@ while consecutive_failures < 2:
         data = f"data-{i}" + '0' * pad
         packets.append(poison / data)
 
-    sendp(start, iface=iface) # slow packet
+    sendp(start) # slow packet
     time.sleep(0.05)
-    sendp(packets, iface=iface)
+    sendp(packets)
     time.sleep(0.25)
-    sendp(packets, iface=iface)
     t.stop()
 
     for p in t.results:
