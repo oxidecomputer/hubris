@@ -1,5 +1,11 @@
+''' Sends packets to trigger the fault condition.
+
+    Note that if firmware changes, the packet size may need to change as well;
+    it's hitting a very small timing window!
+'''
 from scapy.all import *
 
+# Hard-coded in `hardcoded_mac_address`
 mac = "0e:1d:9a:64:b8:c2"
 ip = "fe80::c1d:9aff:fe64:b8c2"
 
