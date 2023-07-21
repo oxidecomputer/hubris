@@ -76,6 +76,7 @@ fn main() -> ! {
 
     system_init(CLOCKS);
 
+    /*
     // Turn on profiling. We're sneaking around behind the GPIO driver's back
     // for this, but, it's a debug feature.
     //
@@ -140,6 +141,7 @@ fn main() -> ! {
     });
 
     kern::profiling::configure_events_table(&PROFILING);
+    */
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }
