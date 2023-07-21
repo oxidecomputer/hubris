@@ -74,9 +74,9 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3000
+stacksize = 6000
 priority = 2
-max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
+max-sizes = {flash = 131072, ram = 32768, sram1 = 32768}
 features = ["h753", "vlan"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
