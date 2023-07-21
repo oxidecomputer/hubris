@@ -16,14 +16,21 @@ async fn main() {
     let addr: SocketAddrV6 = addr.parse().unwrap();
     let start_time = Instant::now();
 
+    let pad_size: Option<usize> = args.get(2).map(|s| s.parse().unwrap());
+
     let sock = UdpSocket::bind("[::]:0").await.unwrap();
     let mut consecutive_failures = 0;
-    let mut pad = 0;
+    const PAD_MIN: usize = 32;
+    const PAD_MAX: usize = 64;
+    let mut pad = PAD_MIN;
     loop {
-        let okay = run_one(&sock, addr, pad + 32).await;
+        let okay = run_one(&sock, addr, pad_size.unwrap_or(pad)).await;
         if okay {
             consecutive_failures = 0;
-            pad = (pad + 1) % 32;
+            pad += 1;
+            if pad > PAD_MAX {
+                pad = PAD_MIN;
+            }
         } else {
             consecutive_failures += 1;
             if consecutive_failures > 4 {
@@ -34,8 +41,9 @@ async fn main() {
     }
 
     println!(
-        "finished in {:?} with pad {pad}",
-        Instant::now() - start_time
+        "finished in {:?} with pad {}",
+        Instant::now() - start_time,
+        pad_size.unwrap_or(pad)
     );
 }
 
