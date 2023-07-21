@@ -217,6 +217,12 @@ impl Ethernet {
                     .bits(0b11) // Always strip VLAN tag on receive
                     .evlrxs()
                     .set_bit() // Enable VLAN tag in Rx status
+                    .edvlp()
+                    .set_bit() // Enable Double VLAN mode
+                    .eivlrxs()
+                    .set_bit() // Provide inner VLAN tag in status
+                    .eivls()
+                    .bits(0b11) // Always strip inner VLAN tag
             });
 
             // Configure the Tx path to insert the VLAN tag based on the
