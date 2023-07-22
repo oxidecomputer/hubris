@@ -23,7 +23,6 @@ while True:
     base = Ether(dst=mac) / IPv6(dst=ip) / UDP(dport=7777, sport=2000)
     start = base / "1 hello, world"
 
-    outer = Dot1Q(vlan=0x301, prio=0)
     poison = Ether(dst=mac) / outer / inner / IPv6(dst=ip) / UDP(dport=7777, sport=2000)
     packets = []
     for i in range(1, 6):
