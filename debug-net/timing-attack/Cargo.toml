@@ -1,0 +1,13 @@
+[workspace]
+
+[package]
+name = "timing-attack"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1" }
+clap = { version = "4", features = ["derive"] }
+env_logger = { version = "0.9" }
+log = { version = "0.4" }
+pnet = { version = "0.34.0" }
