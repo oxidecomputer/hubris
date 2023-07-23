@@ -213,36 +213,39 @@ impl Worker {
             padding_packets.push(eth);
         }
 
-        // Send our attack sequence
         trace!("sending attack sequence with delay {delay_micros}");
-        let send_start = Instant::now();
 
         // This triggers a 250 ms busywait
+        let send_start = Instant::now();
         self.sender.send_to(self.delay_packet().packet(), None);
+        let send_end = Instant::now();
+        let send_time = send_start + (send_end - send_start) / 2;
+        let mut end_time = send_time + Duration::from_millis(20);
+        if delay_micros > 0 {
+            end_time += Duration::from_micros(delay_micros as u64);
+        } else {
+            end_time -= Duration::from_micros(-delay_micros as u64);
+        }
 
         // Brief pause to make sure that the busy-wait happened
         std::thread::sleep(Duration::from_millis(10));
 
-        // Send three padding packets.  At this point, the descriptor ring should
-        // look like the following:
-        //
-        // -0------1------2------------
-        // | user | user | user | dma |
-        // ----------------------------
-        // ^ user position      ^ dma position (in "waiting for packet" state)
+        // Send four padding packets to put the ring in a known state while the
+        // busy-wait happens.
         for p in &padding_packets {
             self.sender.send_to(p.packet(), None);
         }
 
-        // Sleep until the busy-wait ends
-        let mut sleep_amount = Duration::from_millis(20)
-            .saturating_sub(Instant::now() - send_start);
-        if delay_micros > 0 {
-            sleep_amount += Duration::from_micros(delay_micros as u64);
-        } else {
-            sleep_amount = sleep_amount
-                .saturating_sub(Duration::from_micros(-delay_micros as u64))
-        }
+        //  At this point, the descriptor ring should look like the following:
+        // -0------1------2------3------
+        // | user | user | user | user |
+        // -----------------------------
+        // ^ user position
+        // ^ dma position (in "suspended" state)
+
+        // Sleep until the busy-wait ends, with a user-provided offset to modify
+        // the time, compensating for network and turnaround time.
+        let sleep_amount = end_time.saturating_duration_since(Instant::now());
         std::thread::sleep(sleep_amount);
 
         // Remember, at this point, our descriptor ring looks like the
@@ -263,15 +266,17 @@ impl Worker {
         //        ^ user position
         // ^ dma position (in "waiting for packet" state)
         //
-        // We want the DMA peripheral to finish storing the incoming packet into
-        // slot 0 at the exact same time as the user code releases descriptor 1
-        // in the ring.  This means that we have a window where the DMA
-        // peripheral can read descriptor 0 in the ring at the same time as user
-        // code writes it, triggering our bug.
+        // We now enter the danger zone!
         //
-        // If the packet arrives too early, it will get written to descriptor 0
-        // and when processing the second user packet, we'll notice that the DMA
-        // peripheral is off:
+        // We want the DMA peripheral to finish storing an incoming packet
+        // (packet 5) into slot 0 at the exact same time as the user code
+        // releases descriptor 1 in the ring.  This means that we have a window
+        // where the DMA peripheral can read descriptor 1 in the ring at the
+        // same time as user code writes it, triggering our bug.
+        //
+        // If packet 5 arrives too early, it will get written to descriptor 0
+        // and when processing the packet 1, we'll notice that the DMA
+        // peripheral has turned itself off (in ETH_DMADSR):
         //
         //  -0------1------2------3------
         //  | user | user | user | user |  DMA writes new packet to slot 0
