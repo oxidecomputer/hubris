@@ -235,12 +235,13 @@ impl Worker {
         }
 
         // Sleep until the busy-wait ends
-        let mut sleep_amount =
-            Duration::from_millis(20) - (Instant::now() - send_start);
+        let mut sleep_amount = Duration::from_millis(20)
+            .saturating_sub(Instant::now() - send_start);
         if delay_micros > 0 {
             sleep_amount += Duration::from_micros(delay_micros as u64);
         } else {
-            sleep_amount -= Duration::from_micros(-delay_micros as u64);
+            sleep_amount = sleep_amount
+                .saturating_sub(Duration::from_micros(-delay_micros as u64))
         }
         std::thread::sleep(sleep_amount);
 
@@ -279,9 +280,9 @@ impl Worker {
         //         ^ dma position (off)
         //
         //  -0------1------2------3------
-        //  | user | dma  | user | user |  User code processes slot 0
+        //  | user | dma  | user | user |  User code processes slot 1
         //  -----------------------------
-        //         ^ user position
+        //                ^ user position
         //         ^ dma position (waiting for packet)
         //
         // This will be indicated by a Suspended value in the DMA peripheral
@@ -290,7 +291,7 @@ impl Worker {
         // packet, DMA will still be waiting:
         //
         //  -0------1------2------3------
-        //  | user | dma  | user | user |  user code processes packet in slot 1
+        //  | user | dma  | user | user |  user code processes slot 1
         //  -----------------------------
         //                ^ user position
         //  ^ dma position ("waiting for packet")
