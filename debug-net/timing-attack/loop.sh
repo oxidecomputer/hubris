@@ -11,7 +11,7 @@ printf "got ring start 0x%X\n" $RING_START
 
 while :
 do
-    ./target/release/timing-attack --mac "0e:1d:9a:64:b8:c2" -ienp0s25 sweep --start 750 --end 950
+    ./target/release/timing-attack --mac "0e:1d:9a:64:b8:c2" -ienp0s25 sweep --start -1000 --end 1000
     $HUMILITY readmem $((0x40028000 + 0x1160)) 4 -w
     $HUMILITY readmem $((0x40028000 + 0x115c)) 4 -w
     CURRENT_DESCRIPTOR=$($HUMILITY readmem $((0x40028000 + 0x114c)) 4 -w \

