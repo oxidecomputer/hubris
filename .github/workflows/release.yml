@@ -9,10 +9,24 @@ on:
             
       
 jobs:
+  do-build:
+    uses: ./.github/workflows/build-one.yml
+    with:
+       build: ${{ input.build }}
+       app_name: ${{ input.app_name }}
+       app_toml: ${{ input.app_toml }}
+       target: ${{ input.target }}
+       image: ${{ input.image }}
+       os: ubuntu-latest
+
   release-build:
+    needs: do-build
     runs-on: ubuntu-latest
-   
     steps:
+    - name: grab binary
+      uses: actions/download-artifact@v3
+      with:
+        name: dist-ubuntu-latest-${{ input.build }}
     - name: Echo test
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
@@ -20,3 +34,4 @@ jobs:
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
+        md5sum dist-ubuntu-latest-${{ input.build }}
