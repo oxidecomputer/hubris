@@ -14,5 +14,7 @@ jobs:
     - name: Echo test
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
+        echo a
         echo $VERSION
+        echo b
         echo ${{ inputs.name }}
