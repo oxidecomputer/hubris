@@ -52,11 +52,11 @@ jobs:
       - name: cargo xtask dist
         env:
           RUST_BACKTRACE: 1
-        run: cargo xtask dist ${{ input.app_toml}}
+        run: cargo xtask dist ${{ inputs.app_toml}}
 
       - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
-        if: input.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest'
         with:
           repo: "oxidecomputer/humility"
           version: "59047694"
@@ -66,11 +66,11 @@ jobs:
 
       - name: Test Humility manifest
         # we need to chmod because all artifacts are marked as non-executable
-        if: input.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest'
         run: |
           sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
-          for image in `echo ${{ join(matrix.image) }} | tr "," "\n"`; do \
+          for image in `echo ${{ matrix.image }} | tr "," "\n"`; do \
               mv target/${{ matrix.app_name }}/dist/$image/build-${{ matrix.app_name }}-image-$image.zip target/${{ matrix.app_name }}/dist/; \
               target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-$image.zip manifest; \
           done
@@ -78,7 +78,7 @@ jobs:
       # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v3
-        if: input.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest'
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
           path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
