@@ -8,8 +8,7 @@ on:
 jobs:
   release-rot:
     runs-on: ubuntu-latest
-    steps:
-    - uses: ./.github/workflows/release.yml
+      uses: ./.github/workflows/release.yml
       with:
         machine: oxide-rot-1
     
