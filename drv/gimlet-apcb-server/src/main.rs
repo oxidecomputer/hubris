@@ -10,7 +10,7 @@
 #![no_std]
 #![no_main]
 
-use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId};
+use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId, ByteToken};
 use amd_efs::{
     BhdDirectoryEntry, BhdDirectoryEntryType, DirectoryEntry, Efs,
     ProcessorGeneration,
@@ -18,7 +18,7 @@ use amd_efs::{
 use amd_flash::{
     ErasableLocation, FlashAlign, FlashRead, FlashWrite, Location,
 };
-use drv_gimlet_apcb_api::ApcbError;
+use drv_gimlet_apcb_api::{ApcbError, ApcbWellKnownEffect};
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use userlib::*;
@@ -162,10 +162,34 @@ impl idl::InOrderApcbImpl for ServerImpl {
         }
         Err(ApcbError::FIXME.into())
     }
+
+    fn apcb_well_known_effect(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        effect: ApcbWellKnownEffect,
+    ) -> Result<u32, idol_runtime::RequestError<ApcbError>>
+    where
+        ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType, {
+        match effect {
+            ApcbWellKnownEffect::BmcEnable => {
+                let bmc_function = self.apcb_token_value(
+                    msg,
+                    /* instance */0,
+                    TokenEntryId::Byte.to_u16().unwrap(),
+                    /* FIXME ByteToken::BmcSocket(.).to_u16().unwrap()*/42,
+                ).unwrap();
+                // TODO: more detail.
+                match bmc_function {
+                    0xf => Ok(0), // off
+                    _ => Ok(1), // on
+                }
+            },
+        }
+    }
 }
 
 mod idl {
-    use super::ApcbError;
+    use super::{ApcbError, ApcbWellKnownEffect};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

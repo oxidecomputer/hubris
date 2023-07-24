@@ -26,4 +26,21 @@ pub enum ApcbError {
     ServerRestarted,
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    AsBytes,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u16)]
+pub enum ApcbWellKnownEffect {
+    BmcEnable,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

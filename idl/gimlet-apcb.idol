@@ -6,11 +6,22 @@ Interface(
         "apcb_token_value": (
             args: {
                 // TODO self.board_instance_mask,
-                // TODO self.instance_id,
 
                 "instance_id": "u16",
                 "entry_id": "u16",
                 "token_id": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("ApcbError"),
+            ),
+        ),
+        "apcb_well_known_effect": (
+            args: {
+                "well_known_effect": (
+                    type: "ApcbWellKnownEffect",
+                    recv: FromPrimitive("u16"),
+                )
             },
             reply: Result(
                 ok: "u32",
