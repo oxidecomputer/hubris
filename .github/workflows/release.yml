@@ -32,11 +32,11 @@ jobs:
   do-build:
     uses: ./.github/workflows/build-one.yml
     with:
-       build: ${{ input.build }}
-       app_name: ${{ input.app_name }}
-       app_toml: ${{ input.app_toml }}
-       target: ${{ input.target }}
-       image: ${{ input.image }}
+       build: ${{ inputs.build }}
+       app_name: ${{ inputs.app_name }}
+       app_toml: ${{ inputs.app_toml }}
+       target: ${{ inputs.target }}
+       image: ${{ inputs.image }}
        os: ubuntu-latest
 
   release-build:
@@ -46,7 +46,7 @@ jobs:
     - name: grab binary
       uses: actions/download-artifact@v3
       with:
-        name: dist-ubuntu-latest-${{ input.build }}
+        name: dist-ubuntu-latest-${{ inputs.build }}
     - name: Echo test
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
@@ -54,4 +54,4 @@ jobs:
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
-        md5sum dist-ubuntu-latest-${{ input.build }}
+        md5sum dist-ubuntu-latest-${{ inputs.build }}
