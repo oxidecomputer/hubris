@@ -146,9 +146,10 @@ impl ServerImpl {
             i2c_config::devices::at24csw080_sharkfin_i_vpd,
             i2c_config::devices::at24csw080_sharkfin_j_vpd,
         ];
-        let mut name = *b"J206";
-        name[2] += (i / 10) as u8;
-        name[3] += (i % 10) as u8;
+        // The base name is J206, so we count up from there
+        let mut name = *b"J2__";
+        name[2] = ((i + 6) / 10) as u8 + b'0';
+        name[3] = ((i + 6) % 10) as u8 + b'0';
         (name, fs[i])
     }
 
