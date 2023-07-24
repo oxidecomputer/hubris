@@ -6,6 +6,26 @@ on:
         description: "Machine we are releasing for"
         required: true
         type: string
+      build:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
+      app_name:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
+      app_toml:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
+      target:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
+      image:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
             
       
 jobs:
