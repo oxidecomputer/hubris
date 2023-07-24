@@ -308,7 +308,7 @@ impl Worker {
         //  | user | user | user | user |  DMA writes attack packet to slot 0
         //  -----------------------------
         //         ^ user position
-        //         ^ dma position (off)
+        //         ^ dma position (suspended)
         //
         //  -0------1------2------3------
         //  | user | dma  | user | user |  User code processes slot 1
@@ -316,9 +316,7 @@ impl Worker {
         //                ^ user position
         //         ^ dma position (waiting for packet)
         //
-        // This will be indicated by a Suspended value in the DMA peripheral
-        //
-        // If the packet arrives way too late, when processing the first user
+        // If the packet arrives too late, when processing the first user
         // packet, DMA will still be waiting:
         //
         //  -0------1------2------3------
@@ -333,23 +331,24 @@ impl Worker {
         //                ^ user position
         //         ^ dma position ("waiting for packet")
         //
-        // This means that we can tell our critical timing by examining when we
-        // start seeing "suspended" readings in our 6-packet burst.
+        // To help narrow down the timing window, we can track the Rx channel
+        // state in ETH_DMADSR, and notice when we start seeing "suspended"
+        // readings. (This requires a modified firmware to accumulate those
+        // statistics)
+        //
+        // In practice, we actually send a four-packet burst, which increases
+        // the odds of hitting any of the poisoned descriptors.  Oddly, sending
+        // only one packet doesn't work at all; perhaps there's a buffer or
+        // queue somewhere in the system which doesn't flush?
 
         for a in attack_packets {
             // If we successfully poisoned the descriptor, then the DMA
-            // peripheral is waiting to write to address 0x301, which is
-            // invalid.  Any further communication will fail.
-            //
-            // However, as the system continues processing user packets, it
-            // appears that the DMA peripheral will re-read the descriptor when
-            // we next poke the tail pointer (?).  This means that we have to
-            // send a second packet right away, while the descriptor is poisoned
-            // (??).
+            // peripheral is waiting to write to an invalid address (which is
+            // the VID, so 0x302-4).  Any further communication will fail.
             self.sender.send_to(a.packet(), None);
         }
 
-        // Receive the initial reply
+        // Receive the initial reply, from the delay packet initially.
         if let Some((reply, _reply_time)) =
             self.receive_udp(Duration::from_millis(10))
         {
