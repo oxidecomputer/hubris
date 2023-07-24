@@ -37,8 +37,6 @@ pub struct Ethernet {
     /// Control of the RX ring.
     rx_ring: crate::ring::RxRing,
 
-    should_poke_rx_ring: core::cell::Cell<bool>,
-
     /// Pointer to the timer registers. We use the timer for timing MDIO
     /// transactions, since the MDIO hardware doesn't provide any kind of
     /// interrupts.
@@ -280,7 +278,6 @@ impl Ethernet {
             rx_ring,
             mdio_timer,
             mdio_timer_irq_mask,
-            should_poke_rx_ring: core::cell::Cell::new(false),
         }
     }
 
@@ -349,7 +346,9 @@ impl Ethernet {
         // We have dequeued a packet! The hardware might not realize there is
         // room in the RX queue now. Poke it.
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        self.should_poke_rx_ring.set(true);
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
     }
 
     /// Notifies the DMA hardware that a packet is available in the Tx ring
@@ -511,9 +510,7 @@ impl Ethernet {
     /// non-error) descriptor at the front of the ring, as checked by
     /// `can_recv`.  Otherwise, it will panic.
     pub fn recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
-        let result = self
-            .rx_ring
-            .with_next(readout, self.should_poke_rx_ring.take());
+        let result = self.rx_ring.with_next(readout);
         self.rx_notify();
         result
     }
@@ -526,9 +523,7 @@ impl Ethernet {
     /// meaning we know that there's already a valid packet in the buffer;
     /// it will panic if this requirement is broken.
     pub fn vlan_recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
-        let result = self
-            .rx_ring
-            .vlan_with_next(readout, self.should_poke_rx_ring.take());
+        let result = self.rx_ring.vlan_with_next(readout);
         self.rx_notify();
         result
     }

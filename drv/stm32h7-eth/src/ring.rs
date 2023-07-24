@@ -535,11 +535,7 @@ impl RxRing {
     /// This should never happen in correctly-written code, as this function
     /// should only be called from an `RxToken`, which is only constructed
     /// after confirming that the next packet is available and valid.
-    pub fn with_next<R>(
-        &self,
-        body: impl FnOnce(&mut [u8]) -> R,
-        pokey: bool,
-    ) -> R {
+    pub fn with_next<R>(&self, body: impl FnOnce(&mut [u8]) -> R) -> R {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let rdes3 = d.rdes[3].load(Ordering::Acquire);
@@ -574,20 +570,6 @@ impl RxRing {
         // Pass in the initialized prefix of the packet.
         let result = (body)(&mut buffer[..packet_len]);
 
-        // If the previous descriptor is free, then send a receive poll request.
-        // You'd normally put this right after writing the previous descriptor;
-        // in this case, we delay it to more easily hit the race condition
-        // window.
-        if pokey {
-            let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
-            // Poke the tail pointer so the hardware knows to recheck (dropping
-            // two bottom bits because svd2rust)
-            dma.dmacrx_dtpr.write(|w| unsafe {
-                w.rdt().bits(self.tail_ptr() as u32 >> 2)
-            });
-            // Precision delay!
-            cortex_m::asm::delay(1300);
-        }
         // We need to consume this descriptor whether or not we handed
         // it off. Rewrite it as an empty rx descriptor:
         Self::set_descriptor(d, buffer);
@@ -644,11 +626,7 @@ impl RxRing {
     /// has confirmed that it's valid to receive a packet.
     ///
     /// Otherwise, this function will panic.
-    pub fn vlan_with_next<R>(
-        &self,
-        body: impl FnOnce(&mut [u8]) -> R,
-        pokey: bool,
-    ) -> R {
+    pub fn vlan_with_next<R>(&self, body: impl FnOnce(&mut [u8]) -> R) -> R {
         let d = &self.storage[self.next.get()];
 
         // Check whether the hardware has released this.
@@ -686,15 +664,6 @@ impl RxRing {
         // Pass in the initialized prefix of the packet.
         let retval = (body)(&mut buffer[..packet_len]);
 
-        if pokey {
-            let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
-            // Poke the tail pointer so the hardware knows to recheck (dropping
-            // two bottom bits because svd2rust)
-            dma.dmacrx_dtpr.write(|w| unsafe {
-                w.rdt().bits(self.tail_ptr() as u32 >> 2)
-            });
-            cortex_m::asm::delay(1300);
-        }
         // We need to consume this descriptor whether or not we handed
         // it off. Rewrite it as an empty rx descriptor:
         Self::set_descriptor(d, buffer);
