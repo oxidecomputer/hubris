@@ -70,7 +70,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
-          for image in `echo ${{ matrix.image }} | tr "," "\n"`; do \
+          for image in `echo ${{ inputs.image }} | tr "," "\n"`; do \
               mv target/${{ matrix.app_name }}/dist/$image/build-${{ matrix.app_name }}-image-$image.zip target/${{ matrix.app_name }}/dist/; \
               target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-$image.zip manifest; \
           done
@@ -80,6 +80,6 @@ jobs:
         uses: actions/upload-artifact@v3
         if: inputs.os == 'ubuntu-latest'
         with:
-          name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+          name: dist-${{ inputs.os }}-${{ inputs.build }}
+          path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
 
