@@ -54,4 +54,4 @@ jobs:
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
-        md5sum dist-ubuntu-latest-${{ inputs.build }}
+        md5sum dist-ubuntu-latest-${{ inputs.build }}.zip
