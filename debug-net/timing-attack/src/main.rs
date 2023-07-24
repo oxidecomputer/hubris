@@ -91,11 +91,12 @@ fn main() -> Result<()> {
     )
     .init();
 
+    let args = Args::parse();
+
     // Open a bogus socket to listen on port 2000, which prevents the OS from
     // replying with ICMPv6 messages about the port being unreachable.
     let _socket = std::net::UdpSocket::bind(format!("[::]:{SOURCE_PORT}"))?;
 
-    let args = Args::parse();
     let dest_mac = MacAddr::from_str(&args.mac)
         .with_context(|| format!("failed to parse '{}'", args.mac))?;
     let dest_ip = mac_to_ipv6(dest_mac);
