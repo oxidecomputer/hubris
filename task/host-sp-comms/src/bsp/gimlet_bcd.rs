@@ -144,6 +144,7 @@ impl ServerImpl {
             i2c_config::devices::at24csw080_sharkfin_g_vpd,
             i2c_config::devices::at24csw080_sharkfin_h_vpd,
             i2c_config::devices::at24csw080_sharkfin_i_vpd,
+            i2c_config::devices::at24csw080_sharkfin_j_vpd,
         ];
         let mut name = *b"J206";
         name[2] += (i / 10) as u8;
