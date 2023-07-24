@@ -1,11 +1,11 @@
 name: release
 on:
-  push:
-    branches:
-      - "test-rot-*"
-        include:
-        - build_name: foo
-      - "test-gimlet-*"
+  workflow_call:
+    inputs:
+      machine:
+        description: "Machine we are releasing for"
+        required: true
+        type: string
             
       
 jobs:
@@ -19,4 +19,4 @@ jobs:
         echo a
         echo $VERSION
         echo b
-        echo ${{ inputs.name }}
+        echo ${{ inputs.machine }}

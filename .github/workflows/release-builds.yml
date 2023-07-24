@@ -1,0 +1,15 @@
+name: release-builds
+on:
+  push:
+    branches:
+      - "test-rot-*"
+      - "test-gimlet-*"
+
+jobs:
+  release-rot:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: .github/workflows/release.yml
+      with:
+        machine: oxide-rot-1
+    
