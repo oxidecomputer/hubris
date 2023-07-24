@@ -7,7 +7,6 @@ on:
 jobs:
   build:
     name: dist
-    runs-on: '${{ matrix.os }}'
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -32,7 +31,7 @@ jobs:
             app_name: lpc55xpresso
             app_toml: app/lpc55xpresso/app.toml
             target: thumbv8m.main-none-eabihf
-            image: [a, b]
+            image: "a, b"
           - build: stm32h743
             app_name: demo-stm32h743-nucleo
             app_toml: app/demo-stm32h7-nucleo/app-h743.toml
@@ -52,7 +51,7 @@ jobs:
             app_name: rot-carrier
             app_toml: app/rot-carrier/app.toml
             target: thumbv8m.main-none-eabihf
-            image: [a, b]
+            image: "a, b"
           - build: gimletlet
             app_name: gimletlet
             app_toml: app/gimletlet/app.toml
@@ -157,12 +156,12 @@ jobs:
             app_name: oxide-rot-1
             app_toml: app/oxide-rot-1/app.toml
             target: thumbv8m.main-none-eabihf
-            image: [a, b]
+            image: "a, b"
           - build: oxide-rot-1-dev
             app_name: oxide-rot-1-dev
             app_toml: app/oxide-rot-1/app-dev.toml
             target: thumbv8m.main-none-eabihf
-            image: [a, b]
+            image: "a, b"
           - build: donglet-g031
             app_name: donglet-g031
             app_toml: app/donglet/app-g031.toml
@@ -170,60 +169,11 @@ jobs:
             image: default
           - os: ubuntu-latest
           - os: windows-latest
-    env:
-      VCPKGRS_DYNAMIC: 1
-
-    steps:
-      # check out our code
-      - uses: actions/checkout@v3
-
-      # install rust toolchain
-      - name: Install Rust toolchain
-        run: rustup show
-
-      - name: Cache build output
-        uses: Swatinem/rust-cache@v2
-
-      - name: Cache vcpkg
-        uses: actions/cache@v3
-        with:
-          path: C:\vcpkg\downloads
-          key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
-            ${{ runner.os }}-vcpkg-download-
-
-      # invoke our build
-      - name: cargo xtask dist
-        env:
-          RUST_BACKTRACE: 1
-        run: cargo xtask dist ${{ matrix.app_toml}}
-
-      - name: Fetch Humility
-        uses: dsaltares/fetch-gh-release-asset@master
-        if: matrix.os == 'ubuntu-latest'
-        with:
-          repo: "oxidecomputer/humility"
-          version: "59047694"
-          file: "humility"
-          target: "target/release/humility"
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Test Humility manifest
-        # we need to chmod because all artifacts are marked as non-executable
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
-          sudo chmod +x target/release/humility
-          for image in `echo ${{ join(matrix.image) }} | tr "," "\n"`; do \
-              mv target/${{ matrix.app_name }}/dist/$image/build-${{ matrix.app_name }}-image-$image.zip target/${{ matrix.app_name }}/dist/; \
-              target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-$image.zip manifest; \
-          done
-
-      # upload the output of our build
-      - name: Upload build archive
-        uses: actions/upload-artifact@v3
-        if: matrix.os == 'ubuntu-latest'
-        with:
-          name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      target: ${{ matrix.target }}
+      image: ${{ matrix.image }}
+      os: ${{ matrix.os }}

@@ -1,0 +1,91 @@
+name: build-one
+on:
+  workflow_call:
+    inputs:
+      build:
+        description: "Name output for the build"
+        required: true
+        type: string
+      app_name:
+        description: "Application directory name"
+        required: true
+        type: string
+      app_toml:
+        description: "TOML file name (must be app directory)"
+        required: true
+        type: string
+      target:
+        description: "Compilation target triplet"
+        required: true
+        type: string
+      image:
+        description: "Comma separated string of image names to build"
+        required: true
+        type: string
+      os:
+        description: "OS to build for"
+        required: true
+        type: string
+
+jobs:
+  build-one:
+     name: dist-single
+     runs-on: ${{ inputs.os }}
+     env:
+       VCPKGRS_DYNAMIC: 1
+     steps:
+
+      # check out our code
+      - uses: actions/checkout@v3
+
+      # install rust toolchain
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache build output
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cache vcpkg
+        uses: actions/cache@v3
+        with:
+          path: C:\vcpkg\downloads
+          key: ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-
+            ${{ runner.os }}-vcpkg-download-
+
+      # invoke our build
+      - name: cargo xtask dist
+        env:
+          RUST_BACKTRACE: 1
+        run: cargo xtask dist ${{ inputs.app_toml}}
+
+      - name: Fetch Humility
+        uses: dsaltares/fetch-gh-release-asset@master
+        if: inputs.os == 'ubuntu-latest'
+        with:
+          repo: "oxidecomputer/humility"
+          version: "59047694"
+          file: "humility"
+          target: "target/release/humility"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Humility manifest
+        # we need to chmod because all artifacts are marked as non-executable
+        if: inputs.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
+          sudo chmod +x target/release/humility
+          for image in `echo ${{ inputs.image }} | tr "," "\n"`; do \
+              mv target/${{ inputs.app_name }}/dist/$image/build-${{ inputs.app_name }}-image-$image.zip target/${{ inputs.app_name }}/dist/; \
+              target/release/humility -a target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-$image.zip manifest; \
+          done
+
+      # upload the output of our build
+      - name: Upload build archive
+        uses: actions/upload-artifact@v3
+        if: inputs.os == 'ubuntu-latest'
+        with:
+          name: dist-${{ inputs.os }}-${{ inputs.build }}
+          path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
+

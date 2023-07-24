@@ -1,0 +1,62 @@
+name: release
+on:
+  workflow_call:
+    inputs:
+      build:
+        description: "Name output for the build"
+        required: true
+        type: string
+      app_name:
+        description: "Application directory name"
+        required: true
+        type: string
+      app_toml:
+        description: "TOML file name (must be app directory)"
+        required: true
+        type: string
+      target:
+        description: "Compilation target triplet"
+        required: true
+        type: string
+      image:
+        description: "Comma separated string of image names to build"
+        required: true
+        type: string
+
+jobs:
+  do-build:
+    uses: ./.github/workflows/build-one.yml
+    with:
+       build: ${{ inputs.build }}
+       app_name: ${{ inputs.app_name }}
+       app_toml: ${{ inputs.app_toml }}
+       target: ${{ inputs.target }}
+       image: ${{ inputs.image }}
+       os: ubuntu-latest
+
+  release-build:
+    needs: do-build
+    runs-on: ubuntu-latest
+    steps:
+    - name: grab binary
+      id: grab
+      uses: actions/download-artifact@v3
+      with:
+        name: dist-ubuntu-latest-${{ inputs.build }}
+        path: out
+    - name: prep
+      run: |
+        VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
+        VERSION=`echo $VERSION | awk -F- '{print $NF}'`
+        OUT=${{ steps.grab.outputs.download-path }}
+        for build in `ls $OUT`; do
+           mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
+        done
+
+    - name: cut release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: true
+        fail_on_unmatched_files: true
+        files: |
+          ${{ steps.grab.outputs.download-path }}/*.zip
