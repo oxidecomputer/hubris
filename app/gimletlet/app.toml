@@ -125,7 +125,7 @@ uses = ["uart7"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
 max-sizes = {flash = 32768, ram = 32768}
-stacksize = 2048
+stacksize = 4096
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
 notifications = [
