@@ -199,7 +199,7 @@ task-slots = ["swd"]
 stacksize = 2048
 
 [tasks.sp_measure.config]
-binary_path = "../../target/gemini-bu/dist/final.bin"
+binary_path = "../../target/gimletlet/dist/default/final.bin"
 
 [tasks.attest]
 name = "task-attest"
