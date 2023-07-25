@@ -30,6 +30,7 @@ path = "sys/abi"
 
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
+arrayvec = { version = "0.7.4", default-features = false }
 atty = { version = "0.2", default-features = false }
 bitfield = { version = "0.13", default-features = false }
 bitflags = { version = "1.2.1", default-features = false }
@@ -46,6 +47,7 @@ cortex-m = { version = "0.7", default-features = false, features = ["inline-asm"
 cortex-m-rt = { version = "0.6.12", default-features = false }
 cortex-m-semihosting = { version = "0.5.0", default-features = false }
 crc = { version = "3.0.0", default-features = false }
+crypto-common = { version = "0.1.6", default-features = false }
 ctrlc = { version = "3.1.5", default-features = false }
 derive_more = { version = "0.99", default-features = false, features = ["from", "into"] }
 digest = { version = "0.10", default-features = false }

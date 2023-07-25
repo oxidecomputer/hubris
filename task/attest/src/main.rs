@@ -11,14 +11,17 @@
 
 mod config;
 
-use attest_api::AttestError;
+use arrayvec::ArrayVec;
+use attest_api::{AttestError, HashAlgorithm};
 use config::DataRegion;
 use core::slice;
+use crypto_common::{typenum::Unsigned, OutputSizeUser};
 use hubpack::SerializedSize;
 use idol_runtime::{ClientError, Leased, RequestError, W};
 use lib_dice::{AliasData, CertData};
 use ringbuf::{ringbuf, ringbuf_entry};
 use serde::Deserialize;
+use sha3::Sha3_256Core;
 use stage0_handoff::{HandoffData, HandoffDataLoadError};
 use zerocopy::AsBytes;
 
@@ -42,6 +45,8 @@ enum Trace {
     Index(u32),
     Offset(u32),
     Startup,
+    Record(HashAlgorithm),
+    BadLease(usize),
     None,
 }
 
@@ -70,9 +75,49 @@ fn load_data_from_region<
     }
 }
 
+// the size of the measurements we record
+// NOTE: the rust crypto digest traits don't expose consts for the lengths
+// of various hash functions
+const SHA3_256_DIGEST_SIZE: usize =
+    <Sha3_256Core as OutputSizeUser>::OutputSize::USIZE;
+
+// the number of Measurements we can record
+const CAPACITY: usize = 16;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Digest<const N: usize>([u8; N]);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Measurement {
+    Sha3_256(Digest<SHA3_256_DIGEST_SIZE>),
+}
+
+impl Measurement {
+    fn new(
+        algorithm: HashAlgorithm,
+        data: idol_runtime::Leased<idol_runtime::R, [u8]>,
+    ) -> Result<Self, RequestError<AttestError>> {
+        Ok(match algorithm {
+            HashAlgorithm::Sha3_256 => {
+                if data.len() != SHA3_256_DIGEST_SIZE {
+                    ringbuf_entry!(Trace::BadLease(data.len()));
+                    return Err(AttestError::BadLease.into());
+                }
+
+                let mut digest = Digest([0u8; SHA3_256_DIGEST_SIZE]);
+                data.read_range(0..digest.0.len(), &mut digest.0)
+                    .map_err(|_| RequestError::went_away())?;
+
+                Measurement::Sha3_256(digest)
+            }
+        })
+    }
+}
+
 struct AttestServer {
     alias_data: Option<AliasData>,
     cert_data: Option<CertData>,
+    measurements: ArrayVec<Measurement, CAPACITY>,
 }
 
 impl Default for AttestServer {
@@ -80,6 +125,7 @@ impl Default for AttestServer {
         Self {
             alias_data: load_data_from_region(&ALIAS_DATA),
             cert_data: load_data_from_region(&CERT_DATA),
+            measurements: ArrayVec::<Measurement, CAPACITY>::new(),
         }
     }
 }
@@ -190,6 +236,23 @@ impl idl::InOrderAttestImpl for AttestServer {
 
         Ok(())
     }
+
+    fn record(
+        &mut self,
+        _: &userlib::RecvMessage,
+        algorithm: HashAlgorithm,
+        data: idol_runtime::Leased<idol_runtime::R, [u8]>,
+    ) -> Result<(), RequestError<AttestError>> {
+        ringbuf_entry!(Trace::Record(algorithm));
+
+        if self.measurements.is_full() {
+            return Err(AttestError::MeasurementLogFull.into());
+        }
+
+        self.measurements.push(Measurement::new(algorithm, data)?);
+
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -204,7 +267,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::AttestError;
+    use super::{AttestError, HashAlgorithm};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
