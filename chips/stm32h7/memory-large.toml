@@ -15,13 +15,21 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 # Network buffers are placed in sram1, which is directly accessible by the
-# Ethernet MAC.
-[[sram1]]
+# Ethernet MAC.  Note that we only use half of SRAM1 here; we put descriptors in
+# the second half beginning at 0x30010000, configuring them as device memory.
+[[sram1_bulk]]
 address = 0x30000000
-size = 0x20000
+size = 0x10000
 read = true
 write = true
 dma = true
+
+[[sram1_desc]]
+address = 0x30010000
+size = 0x10000
+read = true
+write = true
+device = true
 
 [[sram2]]
 address = 0x30020000

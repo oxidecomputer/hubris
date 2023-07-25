@@ -64,7 +64,7 @@ stacksize = 6000
 priority = 3
 max-sizes = {flash = 131072, ram = 32768, sram1 = 32768}
 features = ["h753", "user-leds"]
-sections = {eth_bulk = "sram1"}
+sections = {eth_bulk = "sram1_bulk", eth_desc = "sram1_desc"}
 uses = ["eth", "eth_dma", "tim16"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer"]

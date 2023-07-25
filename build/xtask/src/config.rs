@@ -642,6 +642,8 @@ pub struct Output {
     pub execute: bool,
     #[serde(default)]
     pub dma: bool,
+    #[serde(default)]
+    pub device: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

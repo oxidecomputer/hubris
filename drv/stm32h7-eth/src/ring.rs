@@ -461,16 +461,17 @@ impl RxRing {
     /// performed with Release ordering to get a barrier.
     #[inline(always)]
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
-        /*
-        let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
-        let rx_rps = dma.dmadsr.read().rps0().bits();
-        */
-
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
         d.rdes[2].store(0, Ordering::Relaxed);
         let rdes3 =
             1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
+
+        /*
+        let dma = unsafe { &*device::ETHERNET_DMA::ptr() };
+        let rx_rps = dma.dmadsr.read().rps0().bits();
+        */
+
         d.rdes[3].store(rdes3, Ordering::Release); // <-- release
 
         /*
@@ -586,7 +587,7 @@ impl RxRing {
                 w.rdt().bits(self.tail_ptr() as u32 >> 2)
             });
             // Precision delay!
-            cortex_m::asm::delay(1300);
+            cortex_m::asm::delay(1500);
         }
         // We need to consume this descriptor whether or not we handed
         // it off. Rewrite it as an empty rx descriptor:

@@ -2074,6 +2074,9 @@ pub fn make_kconfig(
                         is required to be a power of two, but has size {size}"
                     );
                 }
+                if out.device && out.dma {
+                    bail!("cannot specify both `device` and `dma`");
+                }
 
                 Ok((
                     out_name.to_string(),
@@ -2084,7 +2087,9 @@ pub fn make_kconfig(
                             read: out.read,
                             write: out.write,
                             execute: out.execute,
-                            special_role: if out.dma {
+                            special_role: if out.device {
+                                Some(build_kconfig::SpecialRole::Device)
+                            } else if out.dma {
                                 Some(build_kconfig::SpecialRole::Dma)
                             } else {
                                 None
