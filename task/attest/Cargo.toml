@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+arrayvec.workspace = true
+crypto-common = { workspace = true }
 lib-dice = { path = "../../lib/dice" }
 hubpack = { workspace = true }
 idol-runtime = { workspace = true }
@@ -12,6 +14,7 @@ ringbuf = { path = "../../lib/ringbuf" }
 serde = { workspace = true }
 stage0-handoff = { path = "../../lib/stage0-handoff" }
 attest-api = { path = "../attest-api" }
+sha3 = { workspace = true }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 zerocopy = { workspace = true }

@@ -18,6 +18,23 @@ pub enum AttestError {
     InvalidCertIndex,
     NoCerts,
     OutOfRange,
+    MeasurementLogFull,
+    TaskRestarted,
+    BadLease,
+    UnsupportedAlgorithm,
+}
+
+impl From<idol_runtime::ServerDeath> for AttestError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        AttestError::TaskRestarted
+    }
+}
+
+#[derive(
+    Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize, SerializedSize,
+)]
+pub enum HashAlgorithm {
+    Sha3_256,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
