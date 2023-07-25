@@ -7,8 +7,10 @@ edition = "2021"
 sha3 = { workspace = true }
 
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }
+attest-api = { path = "../../task/attest-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+zerocopy = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }

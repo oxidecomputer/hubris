@@ -5,15 +5,18 @@
 #![no_std]
 #![no_main]
 
+use attest_api::{Attest, AttestError, HashAlgorithm};
 use drv_sp_ctrl_api::*;
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
 use userlib::*;
+use zerocopy::AsBytes;
 
 const READ_SIZE: usize = 256;
 
 const TRANSACTION_SIZE: u32 = 1024;
 
+task_slot!(ATTEST, attest);
 task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
@@ -22,6 +25,7 @@ enum Trace {
     End(u64),
     ShaGood,
     ShaBad,
+    RecordFail(AttestError),
     None,
 }
 
@@ -67,6 +71,14 @@ fn main() -> ! {
         } else {
             ringbuf_entry!(Trace::ShaBad);
         }
+
+        let attest = Attest::from(ATTEST.get_task_id());
+        if let Err(e) =
+            attest.record(HashAlgorithm::Sha3_256, sha_out.as_bytes())
+        {
+            ringbuf_entry!(Trace::RecordFail(e));
+            panic!();
+        };
 
         // Wait for a notification that will never come, politer than
         // busy looping forever
