@@ -56,8 +56,9 @@ jobs:
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
-        for build in `ls ${{ steps.grab.outputs.download-path }}`; do
-           mv $build `basename $build .zip`-$VERSION.zip
+        OUT=${{ steps.grab.outputs.download-path }}
+        for build in `ls $OUT`; do
+           mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
         done
         ls ${{ steps.grab.outputs.download-path }}
         #echo ${{ steps.grab.outputs.download-path }}
