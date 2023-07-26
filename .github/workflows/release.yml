@@ -57,13 +57,10 @@ jobs:
         for build in `ls $OUT`; do
            mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
         done
-     - name: release
+     - name: cut release
        uses: softprops/action-gh-release@v1
        with:
          name: "Testing"
          draft: true
          files: |
            ${{ steps.grab.outputs.download-path }}/*.zip
-        #ls ${{ steps.grab.outputs.download-path }}
-        #echo ${{ steps.grab.outputs.download-path }}
-        #md5sum dist-ubuntu-latest-${{ inputs.build }}.zip
