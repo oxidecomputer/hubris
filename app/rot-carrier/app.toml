@@ -27,6 +27,9 @@ features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 
+[tasks.jefe.config]
+tasks-to-hold = ["sp_measure"]
+
 [tasks.jefe.config.allowed-callers]
 request_reset = ["update_server"]
 
