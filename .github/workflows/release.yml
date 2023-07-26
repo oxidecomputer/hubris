@@ -44,15 +44,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: grab binary
+      id: grab
       uses: actions/download-artifact@v3
       with:
         name: dist-ubuntu-latest-${{ inputs.build }}
-    - name: Echo test
+        path: out
+    - name: Do release things
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
         echo a
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
+        echo ${{ steps.grab.outputs.download-path }}
         #md5sum dist-ubuntu-latest-${{ inputs.build }}.zip
-        ls -R
