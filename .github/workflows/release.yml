@@ -49,17 +49,21 @@ jobs:
       with:
         name: dist-ubuntu-latest-${{ inputs.build }}
         path: out
-    - name: Do release things
+    - name: prep
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
-        echo a
         VERSION=`echo $VERSION | awk -F- '{print $NF}'`
-        echo $VERSION
-        echo ${{ inputs.machine }}
         OUT=${{ steps.grab.outputs.download-path }}
         for build in `ls $OUT`; do
            mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
         done
-        ls ${{ steps.grab.outputs.download-path }}
+     - name: release
+       uses: softprops/action-gh-release@v1
+       with:
+         name: "Testing"
+         draft: true
+         files: |
+           ${{ steps.grab.outputs.download-path }}/*.zip
+        #ls ${{ steps.grab.outputs.download-path }}
         #echo ${{ steps.grab.outputs.download-path }}
         #md5sum dist-ubuntu-latest-${{ inputs.build }}.zip
