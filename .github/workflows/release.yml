@@ -2,10 +2,6 @@ name: release
 on:
   workflow_call:
     inputs:
-      machine:
-        description: "Machine we are releasing for"
-        required: true
-        type: string
       build:
         description: "Machine we are releasing for"
         required: true

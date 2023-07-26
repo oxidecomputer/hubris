@@ -7,13 +7,21 @@ on:
 
 jobs:
   release-rot:
+    if: startsWith(github.ref, 'refs/heads/test-rot')
     uses: ./.github/workflows/release.yml
     with:
-      machine: oxide-rot-1
       build: oxide-rot-1
       app_name: oxide-rot-1
       app_toml: app/oxide-rot-1/app.toml
       target: thumbv8m.main-none-eabihf
       image: "a, b"
 
-    
+  release-gimlet:
+    if: startsWith(github.ref, 'refs/heads/test-gimlet')
+    uses: ./.github/workflows/release.yml
+    with:
+      build: gimlet
+      app_name: gimlet-d
+      app_toml: app/gimlet/rev-d.toml
+      target: thumbv7em.main-none-eabihf
+      image: default
