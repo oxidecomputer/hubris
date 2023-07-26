@@ -53,8 +53,8 @@ jobs:
       run: |
         VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
         echo a
+        VERSION=`echo $VERSION | awk -F- '{print $NF}'`
         echo $VERSION
-        echo b
         echo ${{ inputs.machine }}
         OUT=${{ steps.grab.outputs.download-path }}
         for build in `ls $OUT`; do
