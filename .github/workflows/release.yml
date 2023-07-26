@@ -57,11 +57,11 @@ jobs:
         for build in `ls $OUT`; do
            mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
         done
-     - name: cut release
-       uses: softprops/action-gh-release@v1
-       with:
-         name: Testing
-         draft: true
-         fail_on_unmatched_files: true
-         files: |
-           *.zip
+     #- name: cut release
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+     #    name: Testing
+     #    draft: true
+      #   fail_on_unmatched_files: true
+      #   files: |
+      #     *.zip
