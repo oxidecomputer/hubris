@@ -62,5 +62,6 @@ jobs:
        with:
          name: Testing
          draft: true
+         fail_on_unmatched_files: true
          files: |
-           ${{ steps.grab.outputs.download-path }}/*.zip
+           *.zip
