@@ -43,9 +43,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: C:\vcpkg\downloads
-          key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
+          key: ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
+            ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-
             ${{ runner.os }}-vcpkg-download-
 
       # invoke our build

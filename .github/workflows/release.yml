@@ -56,5 +56,9 @@ jobs:
         echo $VERSION
         echo b
         echo ${{ inputs.machine }}
-        echo ${{ steps.grab.outputs.download-path }}
+        for build in `ls ${{ steps.grab.outputs.download-path }}`; do
+           mv $build `basename $build .zip`-$VERSION.zip
+        done
+        ls ${{ steps.grab.outputs.download-path }}
+        #echo ${{ steps.grab.outputs.download-path }}
         #md5sum dist-ubuntu-latest-${{ inputs.build }}.zip
