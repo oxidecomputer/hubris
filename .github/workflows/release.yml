@@ -60,7 +60,7 @@ jobs:
      - name: cut release
        uses: softprops/action-gh-release@v1
        with:
-         name: "Testing"
+         name: Testing
          draft: true
          files: |
            ${{ steps.grab.outputs.download-path }}/*.zip
