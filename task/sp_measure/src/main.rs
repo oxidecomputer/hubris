@@ -23,8 +23,6 @@ task_slot!(SP_CTRL, swd);
 enum Trace {
     Start(u64),
     End(u64),
-    ShaGood,
-    ShaBad,
     RecordFail(AttestError),
     None,
 }
@@ -66,11 +64,6 @@ fn main() -> ! {
 
         let end = sys_get_timer().now;
         ringbuf_entry!(Trace::End(end));
-        if sha_out.as_slice() == EXPECTED.as_slice() {
-            ringbuf_entry!(Trace::ShaGood);
-        } else {
-            ringbuf_entry!(Trace::ShaBad);
-        }
 
         let attest = Attest::from(ATTEST.get_task_id());
         if let Err(e) =

@@ -198,9 +198,6 @@ max-sizes = {flash = 12400, ram = 8192}
 task-slots = ["attest", "swd"]
 stacksize = 2048
 
-[tasks.sp_measure.config]
-binary_path = "../../target/gimletlet/dist/default/final.bin"
-
 [tasks.attest]
 name = "task-attest"
 priority = 5

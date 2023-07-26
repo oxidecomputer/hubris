@@ -4427,14 +4427,10 @@ dependencies = [
 name = "task-sp-measure"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "attest-api",
  "build-util",
  "drv-sp-ctrl-api",
- "idol",
- "quote",
  "ringbuf",
- "serde",
  "sha3",
  "userlib",
  "zerocopy",
