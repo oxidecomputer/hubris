@@ -305,7 +305,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         _dev: usize,
         _out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
-    ) -> Result<u8, RequestError<Infallible>> {
+    ) -> Result<(), RequestError<Infallible>> {
         Err(RequestError::Fail(
             idol_runtime::ClientError::BadMessageContents,
         ))
