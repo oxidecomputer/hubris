@@ -13,13 +13,13 @@ hubpack.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
 static_assertions.workspace = true
-tlvc.workspace = true
 zerocopy.workspace = true
+
+tlvc = { workspace = true, optional = true }
+pmbus = { workspace = true, optional = true }
 
 drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
 drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
-drv-i2c-api.path= "../../drv/i2c-api"
-drv-i2c-devices.path= "../../drv/i2c-devices"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
 drv-stm32xx-sys-api.path= "../../drv/stm32xx-sys-api"
 host-sp-messages.path= "../../lib/host-sp-messages"
@@ -33,11 +33,13 @@ task-net-api.path= "../net-api"
 task-packrat-api.path= "../packrat-api"
 userlib.path= "../../sys/userlib"
 
+drv-i2c-api = { path = "../../drv/i2c-api", optional = true }
+drv-i2c-devices = { path = "../../drv/i2c-devices", optional = true }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
 
 [build-dependencies]
 build-util.path = "../../build/util"
-build-i2c.path = "../../build/i2c"
+build-i2c = { path = "../../build/i2c", optional = true }
 idol.workspace = true
 
 [features]
@@ -47,6 +49,7 @@ uart7 = []
 baud_rate_3M = []
 hardware_flow_control = []
 vlan = ["task-net-api/vlan"]
+gimlet = ["pmbus", "tlvc", "drv-i2c-api", "drv-i2c-devices", "build-i2c"]
 
 [[bin]]
 name = "task-host-sp-comms"

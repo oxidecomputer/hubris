@@ -19,3 +19,4 @@ zerocopy.workspace = true
 oxide-barcode.path = "../oxide-barcode"
 task-sensor-api.path = "../../task/sensor-api"
 unwrap-lite.path = "../unwrap-lite"
+drv-i2c-api.path = "../../drv/i2c-api" # to implement From<ResponseCode>

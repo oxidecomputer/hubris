@@ -19,7 +19,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 41;
+    pub(crate) const INVENTORY_COUNT: u32 = 42;
 
     /// Look up a device in our inventory, by index
     ///
@@ -118,6 +118,73 @@ impl ServerImpl {
                         dbgmcu_dev_id: 0, // TODO
                     })
                 });
+            }
+            41 => {
+                // U431: BRM491
+                let dev = i2c_config::devices::bmr491_ibc(I2C.get_task_id());
+                let name = b"U431";
+                self.tx_buf.try_encode_inventory(
+                    sequence,
+                    name.as_slice(),
+                    || {
+                        use pmbus::commands::bmr491::CommandCode;
+                        // To be stack-friendly, we declare our output here,
+                        // then bind references to all the member variables.
+                        let mut out = InventoryData::Brm491 {
+                            mfr_id: [0u8; 12],
+                            mfr_model: [0u8; 20],
+                            mfr_revision: [0u8; 12],
+                            mfr_location: [0u8; 12],
+                            mfr_date: [0u8; 12],
+                            mfr_serial: [0u8; 20],
+                            ic_device_id: [0u8; 8],
+                            ic_device_rev: [0u8; 8],
+                            mfr_firmware_data: [0u8; 20],
+                        };
+                        let InventoryData::Brm491 {
+                            mfr_id,
+                            mfr_model,
+                            mfr_revision,
+                            mfr_location,
+                            mfr_date,
+                            mfr_serial,
+                            ic_device_id,
+                            ic_device_rev,
+                            mfr_firmware_data,
+                        } = &mut out else { unreachable!() };
+                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                        dev.read_block(
+                            CommandCode::MFR_MODEL as u8,
+                            mfr_model,
+                        )?;
+                        dev.read_block(
+                            CommandCode::MFR_REVISION as u8,
+                            mfr_revision,
+                        )?;
+                        dev.read_block(
+                            CommandCode::MFR_LOCATION as u8,
+                            mfr_location,
+                        )?;
+                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                        dev.read_block(
+                            CommandCode::MFR_SERIAL as u8,
+                            mfr_serial,
+                        )?;
+                        dev.read_block(
+                            CommandCode::IC_DEVICE_ID as u8,
+                            ic_device_id,
+                        )?;
+                        dev.read_block(
+                            CommandCode::IC_DEVICE_REV as u8,
+                            ic_device_rev,
+                        )?;
+                        dev.read_block(
+                            CommandCode::MFR_FIRMWARE_DATA as u8,
+                            mfr_firmware_data,
+                        )?;
+                        Ok(out)
+                    },
+                )
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger

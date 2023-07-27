@@ -211,6 +211,17 @@ impl From<HubpackError> for InventoryDataResult {
     }
 }
 
+impl From<drv_i2c_api::ResponseCode> for InventoryDataResult {
+    fn from(e: drv_i2c_api::ResponseCode) -> Self {
+        match e {
+            drv_i2c_api::ResponseCode::NoDevice => {
+                InventoryDataResult::DeviceAbsent
+            }
+            _ => InventoryDataResult::DeviceFailed,
+        }
+    }
+}
+
 /// Data payload for an inventory data request
 ///
 /// These **cannot be reordered**; the host and SP must agree on them.  New
@@ -244,6 +255,28 @@ pub enum InventoryData {
         dbgmcu_rev_id: u16,
         /// Device ID (`DEV_ID`) from `DBGMCU_IDC`
         dbgmcu_dev_id: u16,
+    },
+
+    /// BRM491 IBC
+    Brm491 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 12],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 20],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 12],
+        /// MFR_LOCATION (PMBus operation 0x9C)
+        mfr_location: [u8; 12],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 12],
+        /// MFR_SERIAL, PMBus operation 0x9E
+        mfr_serial: [u8; 20],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 8],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 8],
+        /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
+        mfr_firmware_data: [u8; 20],
     },
 }
 
