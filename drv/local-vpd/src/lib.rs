@@ -4,7 +4,7 @@
 
 #![no_std]
 
-//! Driver to read vital product data (VPD) from a local FRU ID EEPROM.
+//! Driver to read vital product data (VPD) from the local FRU ID EEPROM.
 //!
 //! `read_config` reads from the *local* EEPROM; i.e. is the one soldered to the
 //! PCB itself.  The app TOML file must have one AT24xx named `local_vpd`; we

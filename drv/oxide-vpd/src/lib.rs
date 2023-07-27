@@ -4,17 +4,11 @@
 
 #![no_std]
 
-//! Driver to read vital product data (VPD) from a local FRU ID EEPROM.
+//! Driver to read vital product data (VPD) from a FRU ID EEPROM.
 //!
-//! `read_config` reads from the *local* EEPROM; i.e. is the one soldered to the
-//! PCB itself.  The app TOML file must have one AT24xx named `local_vpd`; we
-//! use that name to pick which EEPROM to read in `read_config`.
-//!
-//! The system may have additional EEPROMs on FRUs that plug into the board
-//! (e.g. fans); those can be read with `read_config_from`. We assume that the
-//! all EEPROMs are AT24CSW080s, and that they contains keys in TLV-C format
-//! (see RFD 148 for a general description, or RFD 320 for the specific example
-//! of MAC addresses)
+//! We assume that the all EEPROMs are AT24CSW080s, and that they contains keys
+//! in TLV-C format (see RFD 148 for a general description, or RFD 320 for the
+//! specific example of MAC addresses)
 
 use drv_i2c_devices::at24csw080::{
     At24Csw080, Error as At24Error, EEPROM_SIZE,
