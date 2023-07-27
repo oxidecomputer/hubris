@@ -19,7 +19,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 42;
+    pub(crate) const INVENTORY_COUNT: u32 = 45;
 
     /// Look up a device in our inventory, by index
     ///
@@ -130,26 +130,22 @@ impl ServerImpl {
                         use pmbus::commands::bmr491::CommandCode;
                         // To be stack-friendly, we declare our output here,
                         // then bind references to all the member variables.
-                        let mut out = InventoryData::Brm491 {
+                        let mut out = InventoryData::Bmr491 {
                             mfr_id: [0u8; 12],
                             mfr_model: [0u8; 20],
                             mfr_revision: [0u8; 12],
                             mfr_location: [0u8; 12],
                             mfr_date: [0u8; 12],
                             mfr_serial: [0u8; 20],
-                            ic_device_id: [0u8; 8],
-                            ic_device_rev: [0u8; 8],
                             mfr_firmware_data: [0u8; 20],
                         };
-                        let InventoryData::Brm491 {
+                        let InventoryData::Bmr491 {
                             mfr_id,
                             mfr_model,
                             mfr_revision,
                             mfr_location,
                             mfr_date,
                             mfr_serial,
-                            ic_device_id,
-                            ic_device_rev,
                             mfr_firmware_data,
                         } = &mut out else { unreachable!() };
                         dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
@@ -171,6 +167,52 @@ impl ServerImpl {
                             mfr_serial,
                         )?;
                         dev.read_block(
+                            CommandCode::MFR_FIRMWARE_DATA as u8,
+                            mfr_firmware_data,
+                        )?;
+                        Ok(out)
+                    },
+                )
+            }
+
+            42 => {
+                // U432: ISL68224
+                let dev = i2c_config::devices::isl68224(I2C.get_task_id())[0];
+                let name = b"U432";
+                self.tx_buf.try_encode_inventory(
+                    sequence,
+                    name.as_slice(),
+                    || {
+                        use pmbus::commands::isl68224::CommandCode;
+                        // To be stack-friendly, we declare our output here,
+                        // then bind references to all the member variables.
+                        let mut out = InventoryData::Isl68224 {
+                            mfr_id: [0u8; 4],
+                            mfr_model: [0u8; 4],
+                            mfr_revision: [0u8; 4],
+                            mfr_date: [0u8; 4],
+                            ic_device_id: [0u8; 4],
+                            ic_device_rev: [0u8; 4],
+                        };
+                        let InventoryData::Isl68224 {
+                            mfr_id,
+                            mfr_model,
+                            mfr_revision,
+                            mfr_date,
+                            ic_device_id,
+                            ic_device_rev,
+                        } = &mut out else { unreachable!() };
+                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                        dev.read_block(
+                            CommandCode::MFR_MODEL as u8,
+                            mfr_model,
+                        )?;
+                        dev.read_block(
+                            CommandCode::MFR_REVISION as u8,
+                            mfr_revision,
+                        )?;
+                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                        dev.read_block(
                             CommandCode::IC_DEVICE_ID as u8,
                             ic_device_id,
                         )?;
@@ -178,9 +220,56 @@ impl ServerImpl {
                             CommandCode::IC_DEVICE_REV as u8,
                             ic_device_rev,
                         )?;
+                        Ok(out)
+                    },
+                )
+            }
+            i @ (43 | 44) => {
+                let dev = i2c_config::devices::raa229618(I2C.get_task_id())
+                    [(i - 43) as usize];
+                let mut name = *b"U350";
+                name[3] += (i - 43) as u8;
+
+                self.tx_buf.try_encode_inventory(
+                    sequence,
+                    name.as_slice(),
+                    || {
+                        use pmbus::commands::raa229618::CommandCode;
+                        // To be stack-friendly, we declare our output here,
+                        // then bind references to all the member variables.
+                        let mut out = InventoryData::Raa229618 {
+                            mfr_id: [0u8; 4],
+                            mfr_model: [0u8; 4],
+                            mfr_revision: [0u8; 4],
+                            mfr_date: [0u8; 4],
+                            ic_device_id: [0u8; 4],
+                            ic_device_rev: [0u8; 4],
+                        };
+                        let InventoryData::Raa229618 {
+                            mfr_id,
+                            mfr_model,
+                            mfr_revision,
+                            mfr_date,
+                            ic_device_id,
+                            ic_device_rev,
+                        } = &mut out else { unreachable!() };
+                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                         dev.read_block(
-                            CommandCode::MFR_FIRMWARE_DATA as u8,
-                            mfr_firmware_data,
+                            CommandCode::MFR_MODEL as u8,
+                            mfr_model,
+                        )?;
+                        dev.read_block(
+                            CommandCode::MFR_REVISION as u8,
+                            mfr_revision,
+                        )?;
+                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                        dev.read_block(
+                            CommandCode::IC_DEVICE_ID as u8,
+                            ic_device_id,
+                        )?;
+                        dev.read_block(
+                            CommandCode::IC_DEVICE_REV as u8,
+                            ic_device_rev,
                         )?;
                         Ok(out)
                     },

@@ -257,8 +257,8 @@ pub enum InventoryData {
         dbgmcu_dev_id: u16,
     },
 
-    /// BRM491 IBC
-    Brm491 {
+    /// BMR491 IBC
+    Bmr491 {
         /// MFR_ID (PMBus operation 0x99)
         mfr_id: [u8; 12],
         /// MFR_MODEL (PMBus operation 0x9A)
@@ -271,12 +271,40 @@ pub enum InventoryData {
         mfr_date: [u8; 12],
         /// MFR_SERIAL, PMBus operation 0x9E
         mfr_serial: [u8; 20],
-        /// IC_DEVICE_ID, PMBus operation 0xAD
-        ic_device_id: [u8; 8],
-        /// IC_DEVICE_REV, PMBus operation 0xAE
-        ic_device_rev: [u8; 8],
         /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
         mfr_firmware_data: [u8; 20],
+    },
+
+    /// ISL68224 power converters
+    Isl68224 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
+    },
+
+    /// RAA229618 power converter
+    Raa229618 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
     },
 }
 
