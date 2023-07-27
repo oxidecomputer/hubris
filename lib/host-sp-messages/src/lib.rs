@@ -306,6 +306,23 @@ pub enum InventoryData {
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
     },
+
+    Tps546b24a {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 3],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 3],
+        /// MFR_SERIAL, PMBus operation 0x9E
+        mfr_serial: [u8; 3],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 6],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 2],
+        /// NVM_CHECKSUM, PMBus operation 0xF0
+        nvm_checksum: u16,
+    },
 }
 
 #[derive(

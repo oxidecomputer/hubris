@@ -916,6 +916,7 @@ description = "A2 3.3V rail"
 power = { rails = [ "V3P3_SP_A2" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U522"
+name = "v3p3_sp_a2"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -925,6 +926,7 @@ description = "A0 3.3V rail"
 power = { rails = [ "V3P3_SYS_A0" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U560"
+name = "v3p3_sys_a0"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -934,6 +936,7 @@ description = "A2 5V rail"
 power = { rails = [ "V5_SYS_A2" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U524"
+name = "v5p0_sys_a2"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -943,6 +946,7 @@ description = "A2 1.8V rail"
 power = { rails = [ "V1P8_SYS_A2" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U561"
+name = "v1p8_sys_a2"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -1042,6 +1046,7 @@ description = "T6 power controller"
 power = { rails = [ "V0P96_NIC_VDD_A0HP" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U565"
+name = "v0p96_nic"
 
 [[config.i2c.devices]]
 bus = "rear"

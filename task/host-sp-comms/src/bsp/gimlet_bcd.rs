@@ -12,6 +12,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use userlib::TaskId;
+use zerocopy::AsBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
@@ -19,7 +20,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 45;
+    pub(crate) const INVENTORY_COUNT: u32 = 50;
 
     /// Look up a device in our inventory, by index
     ///
@@ -274,6 +275,60 @@ impl ServerImpl {
                         Ok(out)
                     },
                 )
+            }
+
+            i @ (45..=49) => {
+                const TABLE: [(&[u8], fn(TaskId) -> I2cDevice); 5] = [
+                    (b"u522", i2c_config::devices::tps546b24a_v3p3_sp_a2),
+                    (b"u560", i2c_config::devices::tps546b24a_v3p3_sys_a0),
+                    (b"u524", i2c_config::devices::tps546b24a_v5p0_sys_a2),
+                    (b"u561", i2c_config::devices::tps546b24a_v1p8_sys_a2),
+                    (b"u565", i2c_config::devices::tps546b24a_v0p96_nic),
+                ];
+                let (name, f) = TABLE[(i - 45) as usize];
+
+                let dev = f(I2C.get_task_id());
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    use pmbus::commands::tps546b24a::CommandCode;
+                    let mut out = InventoryData::Tps546b24a {
+                        mfr_id: [0u8; 3],
+                        mfr_model: [0u8; 3],
+                        mfr_revision: [0u8; 3],
+                        mfr_serial: [0u8; 3],
+                        ic_device_id: [0u8; 6],
+                        ic_device_rev: [0u8; 2],
+                        nvm_checksum: 0u16,
+                    };
+                    let InventoryData::Tps546b24a {
+                        mfr_id,
+                        mfr_model,
+                        mfr_revision,
+                        mfr_serial,
+                        ic_device_id,
+                        ic_device_rev,
+                        nvm_checksum,
+                    } = &mut out else { unreachable!() };
+                    dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                    dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
+                    dev.read_block(
+                        CommandCode::MFR_REVISION as u8,
+                        mfr_revision,
+                    )?;
+                    dev.read_block(CommandCode::MFR_SERIAL as u8, mfr_serial)?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_ID as u8,
+                        ic_device_id,
+                    )?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_REV as u8,
+                        ic_device_rev,
+                    )?;
+                    dev.read_block(
+                        CommandCode::NVM_CHECKSUM as u8,
+                        nvm_checksum.as_bytes_mut(),
+                    )?;
+                    Ok(out)
+                })
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
