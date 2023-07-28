@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_sidecar_front_io::phy_smi::PhySmi;
+use drv_sidecar_mainboard_controller::Reg;
 use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
@@ -479,7 +480,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             Ok(TofinoSeqState::A0) => {
                 match self.seq.tofino_pcie_hotplug_status() {
                     Ok(pcie_hotplug_status) => {
-                        let host_reset = pcie_hotplug_status & 1;
+                        let host_reset = pcie_hotplug_status
+                            & Reg::PCIE_HOTPLUG_STATUS::HOST_RESET;
                         host_reset == 0
                     }
                     Err(e) => {

@@ -163,8 +163,47 @@ pub(crate) struct InputChannel {
     /// Mask with bits set based on the Bsp's `power_mode` bits
     power_mode_mask: PowerBitmask,
 
-    /// If we get `NoDevice` for a removable device, ignore it
-    removable: bool,
+    /// Channel type
+    ty: ChannelType,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub(crate) enum ChannelType {
+    /// `MustBePresent` is exactly what it says on the tin
+    ///
+    /// If this sensor isn't present, the thermal loop will remain in the
+    /// `Booting` state until it appears; if the sensor disappears during later
+    /// operation, we will model its temperature based on the simple thermal
+    /// model.
+    MustBePresent,
+
+    /// `Removable` means that this sensor may not be present, and that's okay
+    ///
+    /// Specifically, we can detect its non-presence by I2C NACKs, which are
+    /// translated to `ResponseCode::NoDevice` by the I2C driver and then to
+    /// `SensorError::NotPresent` in the sensors task.
+    ///
+    /// The absense of this sensor does not block exiting `Booting` state, and
+    /// if the sensor is `NotPresent`, we ignore it for the purposes of the
+    /// thermal loop.
+    ///
+    /// Note that other error codes are **not** ignored!  For example, if we got
+    /// a `BusLocked` error code when trying to read the sensor, we would treat
+    /// that as a missed reading but the sensor would remain present; the loop
+    /// would then use the thermal model to estimate temperature based on the
+    /// last known reading.
+    Removable,
+
+    /// The sensor may disappear for reasons other than `NotPresent`
+    ///
+    /// We are living with the unfortunate reality that our U.2 drives very
+    /// occasionally lock up, pulling I2C low and refusing to talk any further
+    /// (hardware-gimlet#1946). The issue appears to be drive-specific, e.g.
+    /// moving a problematic drive to a different position moves the lockup.
+    ///
+    /// `RemovableAndErrorProne` means that we will treat _any_ error as the
+    /// device being not present.
+    RemovableAndErrorProne,
 }
 
 impl InputChannel {
@@ -172,13 +211,13 @@ impl InputChannel {
         sensor: TemperatureSensor,
         model: ThermalProperties,
         power_mode_mask: PowerBitmask,
-        removable: bool,
+        ty: ChannelType,
     ) -> Self {
         Self {
             sensor,
             model,
             power_mode_mask,
-            removable,
+            ty,
         }
     }
 }
@@ -659,8 +698,12 @@ impl<'a> ThermalControl<'a> {
                     Err(e) => {
                         // Record an error errors if the sensor is not removable
                         // or we get a unexpected error from a removable sensor
-                        if !(s.removable
-                            && e == SensorReadError::I2cError(
+                        if !(matches!(
+                            s.ty,
+                            ChannelType::Removable
+                                | ChannelType::RemovableAndErrorProne
+                        ) && e
+                            == SensorReadError::I2cError(
                                 ResponseCode::NoDevice,
                             ))
                         {
@@ -750,9 +793,15 @@ impl<'a> ThermalControl<'a> {
                     Ok(r) => {
                         self.state.write_temperature(i, r);
                     }
-                    Err(SensorError::NotPresent) if s.removable => {
+                    Err(SensorError::NotPresent)
+                        if s.ty == ChannelType::Removable =>
+                    {
                         // Ignore errors if the sensor is removable and the
                         // error indicates that it's not present.
+                        self.state.write_temperature_inactive(i);
+                    }
+                    Err(_) if s.ty == ChannelType::RemovableAndErrorProne => {
+                        // Ignore all errors if this device is error-prone
                         self.state.write_temperature_inactive(i);
                     }
                     Err(_) => (),
