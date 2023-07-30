@@ -323,6 +323,12 @@ pub enum InventoryData {
         /// NVM_CHECKSUM, PMBus operation 0xF0
         nvm_checksum: u16,
     },
+
+    /// Fan subassembly identity
+    FanIdentity {
+        identity: oxide_barcode::VpdIdentity,
+        fans: [oxide_barcode::VpdIdentity; 4],
+    },
 }
 
 #[derive(

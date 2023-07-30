@@ -70,7 +70,7 @@ impl ServerImpl {
             }
             18 => {
                 // J180/ID: Fan VPD barcode (not available in packrat)
-                self.read_eeprom_barcode(
+                self.read_fan_barcodes(
                     sequence,
                     b"J180/ID",
                     i2c_config::devices::at24csw080_fan_vpd,
@@ -425,38 +425,79 @@ impl ServerImpl {
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
         let dev = f(I2C.get_task_id());
-        let eeprom = At24Csw080::new(dev);
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let mut barcode = [0; 32];
-            match drv_oxide_vpd::read_config_from_into(
-                eeprom,
-                *b"BARC",
-                &mut barcode,
-            ) {
-                Ok(n) => {
-                    // extract barcode!
-                    let identity =
-                        oxide_barcode::VpdIdentity::parse(&barcode[..n])
-                            .map_err(|_| InventoryDataResult::DeviceFailed)?;
-                    let d = InventoryData::VpdIdentity(identity);
-                    Ok(d)
-                }
-                Err(
-                    VpdError::ErrorOnBegin(err)
-                    | VpdError::ErrorOnRead(err)
-                    | VpdError::ErrorOnNext(err)
-                    | VpdError::InvalidChecksum(err),
-                ) if err
-                    == tlvc::TlvcReadError::User(EepromError::I2cError(
-                        ResponseCode::NoDevice,
-                    )) =>
-                {
-                    // TODO: ringbuf logging here?
-                    Err(InventoryDataResult::DeviceAbsent)
-                }
-                Err(..) => Err(InventoryDataResult::DeviceFailed),
-            }
+            let identity = read_one_barcode(dev, &[(*b"BARC", 0)])?;
+            Ok(InventoryData::VpdIdentity(identity))
         })
+    }
+
+    /// Reads the fan EEPROM barcode values
+    ///
+    /// The fan EEPROM includes nested barcodes:
+    /// - The top-level `BARC`, for the assembly
+    /// - A nested value `SASY`, which contains four more `BARC` values for each
+    ///   individual fan
+    ///
+    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
+    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
+    /// other errors).
+    fn read_fan_barcodes(
+        &mut self,
+        sequence: u64,
+        name: &[u8],
+        f: fn(userlib::TaskId) -> I2cDevice,
+    ) {
+        let dev = f(I2C.get_task_id());
+        self.tx_buf.try_encode_inventory(sequence, name, || {
+            let identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?;
+            let barc0 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?;
+            let barc1 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?;
+            let barc2 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?;
+            let barc3 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?;
+            Ok(InventoryData::FanIdentity {
+                identity,
+                fans: [barc0, barc1, barc2, barc3],
+            })
+        })
+    }
+}
+
+/// Free function to read a nested barcode, translating errors appropriately
+fn read_one_barcode(
+    dev: I2cDevice,
+    path: &[([u8; 4], usize)],
+) -> Result<oxide_barcode::VpdIdentity, InventoryDataResult> {
+    let eeprom = At24Csw080::new(dev.clone());
+    let mut barcode = [0; 32];
+    match drv_oxide_vpd::read_config_nested_from_into(
+        eeprom,
+        path,
+        &mut barcode,
+    ) {
+        Ok(n) => {
+            // extract barcode!
+            let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
+                .map_err(|_| InventoryDataResult::DeviceFailed)?;
+            Ok(identity)
+        }
+        Err(
+            VpdError::ErrorOnBegin(err)
+            | VpdError::ErrorOnRead(err)
+            | VpdError::ErrorOnNext(err)
+            | VpdError::InvalidChecksum(err),
+        ) if err
+            == tlvc::TlvcReadError::User(EepromError::I2cError(
+                ResponseCode::NoDevice,
+            )) =>
+        {
+            // TODO: ringbuf logging here?
+            Err(InventoryDataResult::DeviceAbsent)
+        }
+        Err(..) => Err(InventoryDataResult::DeviceFailed),
     }
 }
 
