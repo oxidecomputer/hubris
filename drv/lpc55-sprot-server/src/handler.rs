@@ -293,6 +293,13 @@ impl Handler {
                 };
                 Ok((RspBody::Attest(rsp), None))
             }
+            ReqBody::Attest(AttestReq::Record { algorithm }) => {
+                let rsp = match self.attest.record(algorithm, req.blob) {
+                    Ok(()) => Ok(AttestRsp::Record),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
+            }
         }
     }
 }

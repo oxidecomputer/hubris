@@ -6,6 +6,7 @@
 #![no_main]
 #![deny(elided_lifetimes_in_paths)]
 
+use attest_api::HashAlgorithm;
 use core::convert::Into;
 use drv_lpc55_update_api::{RotBootInfo, SlotId, SwitchDuration, UpdateTarget};
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
@@ -881,11 +882,34 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
         }
     }
+
+    fn record(
+        &mut self,
+        _: &userlib::RecvMessage,
+        algorithm: HashAlgorithm,
+        data: idol_runtime::LenLimit<
+            idol_runtime::Leased<idol_runtime::R, [u8]>,
+            MAX_BLOB_SIZE,
+        >,
+    ) -> Result<(), idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::Record { algorithm });
+        let tx_size = Request::pack_with_blob(&body, &mut self.tx_buf, data)?;
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+
+        match rsp.body {
+            Ok(RspBody::Attest(Ok(AttestRsp::Record))) => Ok(()),
+            Ok(_) => Err(AttestOrSprotError::Sprot(SprotError::Protocol(
+                SprotProtocolError::UnexpectedResponse,
+            ))
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
 }
 
 mod idl {
     use super::{
-        AttestOrSprotError, DumpOrSprotError, PulseStatus,
+        AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
         RawCabooseOrSprotError, RotBootInfo, RotState, SlotId, SprotError,
         SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
     };

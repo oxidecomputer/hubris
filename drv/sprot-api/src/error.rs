@@ -223,10 +223,22 @@ impl From<SprotError> for RequestError<AttestOrSprotError> {
     }
 }
 
+impl From<SprotProtocolError> for RequestError<AttestOrSprotError> {
+    fn from(err: SprotProtocolError) -> Self {
+        AttestOrSprotError::Sprot(SprotError::Protocol(err)).into()
+    }
+}
+
 impl<V> From<AttestOrSprotError>
     for Result<V, RequestError<AttestOrSprotError>>
 {
     fn from(err: AttestOrSprotError) -> Self {
         Err(RequestError::Runtime(err))
+    }
+}
+
+impl From<idol_runtime::ServerDeath> for AttestOrSprotError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        AttestOrSprotError::Attest(AttestError::TaskRestarted)
     }
 }

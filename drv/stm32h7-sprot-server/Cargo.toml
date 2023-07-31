@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+attest-api = { path = "../../task/attest-api" }
 cfg-if.workspace = true
 hubpack.workspace = true
 idol-runtime.workspace = true

@@ -1747,6 +1747,7 @@ dependencies = [
 name = "drv-stm32h7-sprot-server"
 version = "0.1.0"
 dependencies = [
+ "attest-api",
  "build-util",
  "cfg-if",
  "drv-caboose",
