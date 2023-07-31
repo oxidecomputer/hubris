@@ -375,12 +375,12 @@ impl ServerImpl {
                 // file and in our list of names below!
                 let dev = i2c_config::devices::tmp117(I2C.get_task_id())[i];
                 let name = match i {
-                    0 => b"J194",
-                    1 => b"J195",
-                    2 => b"J196",
-                    3 => b"J197",
-                    4 => b"J198",
-                    5 => b"J199",
+                    0 => b"J194/U1",
+                    1 => b"J195/U1",
+                    2 => b"J196/U1",
+                    3 => b"J197/U1",
+                    4 => b"J198/U1",
+                    5 => b"J199/U1",
                     _ => unreachable!(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
