@@ -20,7 +20,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 52;
+    pub(crate) const INVENTORY_COUNT: u32 = 58;
 
     /// Look up a device in our inventory, by index
     ///
@@ -279,7 +279,7 @@ impl ServerImpl {
                 )
             }
 
-            i @ (45..=49) => {
+            45..=49 => {
                 const TABLE: [(&[u8], fn(TaskId) -> I2cDevice); 5] = [
                     (b"u522", i2c_config::devices::tps546b24a_v3p3_sp_a2),
                     (b"u560", i2c_config::devices::tps546b24a_v3p3_sys_a0),
@@ -287,7 +287,7 @@ impl ServerImpl {
                     (b"u561", i2c_config::devices::tps546b24a_v1p8_sys_a2),
                     (b"u565", i2c_config::devices::tps546b24a_v0p96_nic),
                 ];
-                let (name, f) = TABLE[(i - 45) as usize];
+                let (name, f) = TABLE[(index - 45) as usize];
 
                 let dev = f(I2C.get_task_id());
                 self.tx_buf.try_encode_inventory(sequence, name, || {
@@ -364,6 +364,34 @@ impl ServerImpl {
                     )?;
                     dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
                     Ok(out)
+                })
+            }
+
+            52..=57 => {
+                let i = index as usize - 52;
+                // XXX this assumes that designator order is matched in the TOML
+                // file and in our list of names below!
+                let dev = i2c_config::devices::tmp117(I2C.get_task_id())[i];
+                let name = match i {
+                    0 => b"J194",
+                    1 => b"J195",
+                    2 => b"J196",
+                    3 => b"J197",
+                    4 => b"J198",
+                    5 => b"J199",
+                    _ => unreachable!(),
+                };
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    let id: u16 = dev.read_reg(0x0F)?;
+                    let eeprom1: u16 = dev.read_reg(0x05)?;
+                    let eeprom2: u16 = dev.read_reg(0x06)?;
+                    let eeprom3: u16 = dev.read_reg(0x08)?;
+                    Ok(InventoryData::Tmp117 {
+                        id,
+                        eeprom1,
+                        eeprom2,
+                        eeprom3,
+                    })
                 })
             }
 

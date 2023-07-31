@@ -340,6 +340,15 @@ pub enum InventoryData {
         /// MFR_DATE, PMBus operation 0x9D
         mfr_date: [u8; 6],
     },
+
+    Tmp117 {
+        /// Device ID (register 0x0F)
+        id: u16,
+        /// 48-bit NIST traceability data
+        eeprom1: u16,
+        eeprom2: u16,
+        eeprom3: u16,
+    },
 }
 
 #[derive(
