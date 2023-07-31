@@ -329,6 +329,17 @@ pub enum InventoryData {
         identity: oxide_barcode::VpdIdentity,
         fans: [oxide_barcode::VpdIdentity; 4],
     },
+
+    Adm1272 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 10],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 2],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 6],
+    },
 }
 
 #[derive(

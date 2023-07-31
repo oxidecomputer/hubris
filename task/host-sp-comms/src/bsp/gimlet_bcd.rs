@@ -20,7 +20,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 50;
+    pub(crate) const INVENTORY_COUNT: u32 = 52;
 
     /// Look up a device in our inventory, by index
     ///
@@ -46,8 +46,8 @@ impl ServerImpl {
     ) -> Result<(), InventoryDataResult> {
         #[forbid(unreachable_patterns)]
         match index {
-            i @ 0..=15 => {
-                self.dimm_inventory_lookup(sequence, i);
+            0..=15 => {
+                self.dimm_inventory_lookup(sequence, index);
             }
             16 => {
                 // U615/ID: SP barcode is available in packrat
@@ -92,14 +92,16 @@ impl ServerImpl {
             // - Hot-swap controller
             //
             // Sharkfin connectors start at J206 and are numbered sequentially
-            i @ (20..=29) => {
-                let (designator, f) = Self::get_sharkfin_vpd(i as usize - 20);
+            20..=29 => {
+                let (designator, f) =
+                    Self::get_sharkfin_vpd(index as usize - 20);
                 let mut name = *b"____/U7/ID";
                 name[0..4].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
-            i @ (30..=39) => {
-                let (designator, f) = Self::get_sharkfin_vpd(i as usize - 30);
+            30..=39 => {
+                let (designator, f) =
+                    Self::get_sharkfin_vpd(index as usize - 30);
                 let mut name = *b"____/U7";
                 name[0..4].copy_from_slice(&designator);
                 self.read_at24csw080_id(sequence, &name, f)
@@ -225,11 +227,11 @@ impl ServerImpl {
                     },
                 )
             }
-            i @ (43 | 44) => {
+            43 | 44 => {
                 let dev = i2c_config::devices::raa229618(I2C.get_task_id())
-                    [(i - 43) as usize];
+                    [(index - 43) as usize];
                 let mut name = *b"U350";
-                name[3] += (i - 43) as u8;
+                name[3] += (index - 43) as u8;
 
                 self.tx_buf.try_encode_inventory(
                     sequence,
@@ -327,6 +329,40 @@ impl ServerImpl {
                         CommandCode::NVM_CHECKSUM as u8,
                         nvm_checksum.as_bytes_mut(),
                     )?;
+                    Ok(out)
+                })
+            }
+            50 | 51 => {
+                let dev = i2c_config::devices::adm1272(I2C.get_task_id())
+                    [(index - 50) as usize];
+                // U452 and U419, both ADM1272
+                let name = match index {
+                    50 => b"U419",
+                    51 => b"U452",
+                    _ => unreachable!(),
+                };
+
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    use pmbus::commands::tps546b24a::CommandCode;
+                    let mut out = InventoryData::Adm1272 {
+                        mfr_id: [0u8; 3],
+                        mfr_model: [0u8; 10],
+                        mfr_revision: [0u8; 2],
+                        mfr_date: [0u8; 6],
+                    };
+                    let InventoryData::Adm1272 {
+                        mfr_id,
+                        mfr_model,
+                        mfr_revision,
+                        mfr_date,
+                    } = &mut out else { unreachable!() };
+                    dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                    dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
+                    dev.read_block(
+                        CommandCode::MFR_REVISION as u8,
+                        mfr_revision,
+                    )?;
+                    dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
                     Ok(out)
                 })
             }
