@@ -406,7 +406,7 @@ impl ServerImpl {
                     // We'll use `write_read_reg` to avoid the possibility of
                     // race conditions here.
                     let hw_rev: u8 = dev.write_read_reg(
-                        0x1e,
+                        0x1eu8,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
                     let major_rel: u8 = dev.write_read_reg(
