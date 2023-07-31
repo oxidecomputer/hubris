@@ -357,6 +357,11 @@ pub enum InventoryData {
         hotfix_rel: u8,
         product_id: u16,
     },
+
+    Ksz8463 {
+        /// Contents of the CIDER register
+        cider: u16,
+    },
 }
 
 #[derive(

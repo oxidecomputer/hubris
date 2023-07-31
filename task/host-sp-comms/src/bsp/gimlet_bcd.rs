@@ -11,16 +11,18 @@ use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
+use drv_spi_api::SpiServer;
 use userlib::TaskId;
 use zerocopy::AsBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(I2C, i2c_driver);
+userlib::task_slot!(SPI, spi_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 59;
+    pub(crate) const INVENTORY_COUNT: u32 = 60;
 
     /// Look up a device in our inventory, by index
     ///
@@ -431,6 +433,22 @@ impl ServerImpl {
                         product_id,
                     })
                 })
+            }
+
+            59 => {
+                let spi = drv_spi_api::Spi::from(SPI.get_task_id());
+                let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
+                let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
+                self.tx_buf.try_encode_inventory(
+                    sequence,
+                    b"U401",
+                    move || {
+                        let cider = ksz8463
+                            .read(ksz8463::Register::CIDER)
+                            .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                        Ok(InventoryData::Ksz8463 { cider })
+                    },
+                );
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
