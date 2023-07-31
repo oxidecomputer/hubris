@@ -405,23 +405,23 @@ impl ServerImpl {
                     // upper address byte, i.e. a paged memory implementation.
                     // We'll use `write_read_reg` to avoid the possibility of
                     // race conditions here.
-                    let hw_rev = dev.write_read_reg(
+                    let hw_rev: u8 = dev.write_read_reg(
                         0x1e,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
-                    let major_rel = dev.write_read_reg(
+                    let major_rel: u8 = dev.write_read_reg(
                         0x24u8,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
-                    let minor_rel = dev.write_read_reg(
+                    let minor_rel: u8 = dev.write_read_reg(
                         0x25u8,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
-                    let hotfix_rel = dev.write_read_reg(
+                    let hotfix_rel: u8 = dev.write_read_reg(
                         0x26u8,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
-                    let product_id = dev.write_read_reg(
+                    let product_id: u16 = dev.write_read_reg(
                         0x32u8,
                         &[0xfc, 0x00, 0xc0, 0x10, 0x20],
                     )?;
