@@ -327,7 +327,7 @@ impl ServerImpl {
                         CommandCode::IC_DEVICE_REV as u8,
                         ic_device_rev,
                     )?;
-                    dev.read_block(
+                    dev.read_reg_into(
                         CommandCode::NVM_CHECKSUM as u8,
                         nvm_checksum.as_bytes_mut(),
                     )?;
