@@ -349,6 +349,14 @@ pub enum InventoryData {
         eeprom2: u16,
         eeprom3: u16,
     },
+
+    Idt8a34003 {
+        hw_rev: u8,
+        major_rel: u8,
+        minor_rel: u8,
+        hotfix_rel: u8,
+        product_id: u16,
+    },
 }
 
 #[derive(

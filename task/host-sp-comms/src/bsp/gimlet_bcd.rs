@@ -20,7 +20,7 @@ userlib::task_slot!(I2C, i2c_driver);
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 58;
+    pub(crate) const INVENTORY_COUNT: u32 = 59;
 
     /// Look up a device in our inventory, by index
     ///
@@ -382,15 +382,53 @@ impl ServerImpl {
                     _ => unreachable!(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
-                    let id: u16 = dev.read_reg(0x0F)?;
-                    let eeprom1: u16 = dev.read_reg(0x05)?;
-                    let eeprom2: u16 = dev.read_reg(0x06)?;
-                    let eeprom3: u16 = dev.read_reg(0x08)?;
+                    let id: u16 = dev.read_reg(0x0Fu8)?;
+                    let eeprom1: u16 = dev.read_reg(0x05u8)?;
+                    let eeprom2: u16 = dev.read_reg(0x06u8)?;
+                    let eeprom3: u16 = dev.read_reg(0x08u8)?;
                     Ok(InventoryData::Tmp117 {
                         id,
                         eeprom1,
                         eeprom2,
                         eeprom3,
+                    })
+                })
+            }
+
+            58 => {
+                let dev = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+                let name = b"U446";
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    // This chip includes a separate register that controls the
+                    // upper address byte, i.e. a paged memory implementation.
+                    // We'll use `write_read_reg` to avoid the possibility of
+                    // race conditions here.
+                    let hw_rev = dev.write_read_reg(
+                        0x1e,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    let major_rel = dev.write_read_reg(
+                        0x24u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    let minor_rel = dev.write_read_reg(
+                        0x25u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    let hotfix_rel = dev.write_read_reg(
+                        0x26u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    let product_id = dev.write_read_reg(
+                        0x32u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    Ok(InventoryData::Idt8a34003 {
+                        hw_rev,
+                        major_rel,
+                        minor_rel,
+                        hotfix_rel,
+                        product_id,
                     })
                 })
             }
