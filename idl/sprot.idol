@@ -205,5 +205,19 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "record": (
+            doc: "Record a measurement",
+            args: {
+                "algorithm": "HashAlgorithm",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(512)),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+        ),
      }
 )

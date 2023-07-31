@@ -9,7 +9,7 @@
 extern crate memoffset;
 
 mod error;
-use attest_api::AttestError;
+use attest_api::{AttestError, HashAlgorithm};
 use drv_caboose::CabooseError;
 use dumper_api::DumperError;
 pub use error::{
@@ -370,6 +370,7 @@ pub enum AttestReq {
     CertChainLen,
     CertLen(u32),
     Cert { index: u32, offset: u32, size: u32 },
+    Record { algorithm: HashAlgorithm },
 }
 
 /// A response used for RoT updates
@@ -394,6 +395,7 @@ pub enum AttestRsp {
     CertChainLen(u32),
     CertLen(u32),
     Cert,
+    Record,
 }
 
 /// The body of a sprot response.
