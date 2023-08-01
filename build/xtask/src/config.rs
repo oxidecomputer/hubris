@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -112,12 +112,17 @@ impl Config {
     fn read_and_flatten_toml(
         cfg: &Path,
         hasher: &mut DefaultHasher,
+        seen: &mut BTreeSet<PathBuf>,
     ) -> Result<toml_edit::Document> {
+        // Prevent diamond inheritance
+        if !seen.insert(cfg.to_owned()) {
+            bail!("{cfg:?} is inherited more than once.  Don't do that.");
+        }
         let cfg_contents = std::fs::read(&cfg)
             .with_context(|| format!("could not read {}", cfg.display()))?;
 
         // Accumulate the contents into the buildhash here, so that we hash both
-        // the inheritance file and the target if this is an `PatchedConfig`
+        // the inheritance file and the target (recursively, if necessary)
         hasher.write(&cfg_contents);
 
         let cfg_contents = std::str::from_utf8(&cfg_contents)
@@ -128,14 +133,41 @@ impl Config {
             .parse::<toml_edit::Document>()
             .context("failed to parse TOML file")?;
         if let Some(inherited_from) = doc.remove("inherit") {
-            // Choose the parent file, which must be in the same directory
-            let file = cfg.parent().unwrap().join(
-                inherited_from.as_str().ok_or_else(|| {
-                    anyhow!("could not read {inherited_from} as str")
-                })?,
-            );
-            let mut original = Config::read_and_flatten_toml(&file, hasher)
-                .context(format!("Could not load template from {file:?}"))?;
+            use toml_edit::{Item, Value};
+            let mut original = match inherited_from {
+                // Single inheritance
+                Item::Value(Value::String(s)) => {
+                    let file = cfg.parent().unwrap().join(s.value());
+                    Config::read_and_flatten_toml(&file, hasher, seen)
+                        .with_context(|| format!("Could not load {file:?}"))?
+                }
+                // Multiple inheritance, applied sequentially
+                Item::Value(Value::Array(a)) => {
+                    let mut doc: Option<toml_edit::Document> = None;
+                    for a in a.iter() {
+                        if let Value::String(s) = a {
+                            let file = cfg.parent().unwrap().join(s.value());
+                            let next = Config::read_and_flatten_toml(
+                                &file, hasher, seen,
+                            )
+                            .with_context(|| {
+                                format!("Could not load {file:?}")
+                            })?;
+                            match doc.as_mut() {
+                                Some(doc) => Self::merge_toml_into(
+                                    doc.as_table_mut(),
+                                    &next,
+                                )?,
+                                None => doc = Some(next),
+                            }
+                        } else {
+                            bail!("could not inherit from {a}; bad type");
+                        }
+                    }
+                    doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
+                }
+                v => bail!("could not inherit from {v}; bad type"),
+            };
             Self::merge_toml_into(original.as_table_mut(), doc.as_table())?;
             return Ok(original);
         }
@@ -227,9 +259,12 @@ impl Config {
         cfg: &Path,
         mut hasher: DefaultHasher,
     ) -> Result<Self> {
-        let doc = Self::read_and_flatten_toml(cfg, &mut hasher)?;
+        let doc = Self::read_and_flatten_toml(
+            cfg,
+            &mut hasher,
+            &mut BTreeSet::new(),
+        )?;
         let cfg_contents = doc.to_string();
-        println!("got cfg contents:\n{cfg_contents}");
 
         let toml: RawConfig = toml::from_str(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
