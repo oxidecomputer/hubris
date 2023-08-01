@@ -20,7 +20,7 @@ use zerocopy::AsBytes;
 
 use crate::{
     caboose_pos,
-    config::{BuildConfig, CabooseConfig, Config, ConfigPatches},
+    config::{BuildConfig, CabooseConfig, Config},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -48,16 +48,9 @@ const HUBRIS_ARCHIVE_VERSION: u32 = 8;
 /// It should be trivial to calculate and kept constant during the build;
 /// mutable build information should be accumulated elsewhere.
 pub struct PackageConfig {
-    /// Path to the `app.toml` file being built
-    ///
-    /// If this app is built using inheritance, `app_toml_file` refers to the
-    /// **root** TOML file (and patches are in `self.patches`)
-    app_toml_file: PathBuf,
-
-    /// Patches from TOML inheritance mechanism
-    patches: Option<ConfigPatches>,
-
     /// Directory containing the `app.toml` file being built
+    ///
+    /// Files specified within the manifest are relative to this directory
     app_src_dir: PathBuf,
 
     /// Loaded configuration
@@ -130,8 +123,6 @@ impl PackageConfig {
         }
 
         Ok(Self {
-            app_toml_file: toml.app_toml_path.to_path_buf(),
-            patches: toml.patches.clone(),
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
             verbose,
@@ -627,17 +618,7 @@ fn build_archive(
     archive
         .text("image-name", image_name)
         .context("failed writing `image-name`")?;
-
-    archive.copy(&cfg.app_toml_file, "app.toml")?;
-    if let Some(patches) = cfg.patches.as_ref() {
-        archive
-            .text(
-                "patches.toml",
-                toml::to_string(patches)
-                    .context("Could not serialize patches")?,
-            )
-            .context("Could not write patches.toml")?;
-    }
+    archive.text("app.toml", &cfg.toml.app_config)?;
 
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");

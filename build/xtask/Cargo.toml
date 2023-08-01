@@ -12,6 +12,7 @@ colored = { workspace = true }
 memchr = { workspace = true }
 ordered-toml = { workspace = true }
 strsim = { workspace = true }
+toml_edit = { workspace = true }
 
 # for dist
 byteorder = { workspace = true }

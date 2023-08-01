@@ -13,33 +13,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 
-/// A `PatchedConfig` allows a minimal form of inheritance between TOML files
-/// Specifically, it allows you to **add features** to specific tasks; nothing
-/// else.
-///
-/// Here's an example:
-/// ```toml
-/// name = "sidecar-c-lab"
-///
-/// [patches]
-/// inherit = "rev-c.toml"
-/// features.sequencer = ["stay-in-a2"]
-/// ```
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PatchedConfig {
-    inherit: String,
-    patches: ConfigPatches,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConfigPatches {
-    name: String,
-    #[serde(default)]
-    features: IndexMap<String, Vec<String>>,
-}
-
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
 /// to load a second file containing peripheral register addresses.
@@ -91,7 +64,8 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
-    pub patches: Option<ConfigPatches>,
+    /// Fully expanded manifest file, with all patches applied
+    pub app_config: String,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
     pub caboose: Option<CabooseConfig>,
@@ -135,10 +109,10 @@ impl Config {
         Self::from_file_with_hasher(cfg, DefaultHasher::new())
     }
 
-    fn from_file_with_hasher(
+    fn read_and_flatten_toml(
         cfg: &Path,
-        mut hasher: DefaultHasher,
-    ) -> Result<Self> {
+        hasher: &mut DefaultHasher,
+    ) -> Result<toml_edit::Document> {
         let cfg_contents = std::fs::read(&cfg)
             .with_context(|| format!("could not read {}", cfg.display()))?;
 
@@ -146,32 +120,118 @@ impl Config {
         // the inheritance file and the target if this is an `PatchedConfig`
         hasher.write(&cfg_contents);
 
-        // Minimal TOML file inheritance, to enable features on a per-task basis
-        if let Ok(inherited) =
-            toml::from_str::<PatchedConfig>(std::str::from_utf8(&cfg_contents)?)
-        {
-            let file = cfg.parent().unwrap().join(&inherited.inherit);
-            let mut original = Config::from_file_with_hasher(&file, hasher)
+        let cfg_contents = std::str::from_utf8(&cfg_contents)
+            .context("failed to read manifest as UTF-8")?;
+
+        // Additive TOML file inheritance
+        let mut doc = cfg_contents
+            .parse::<toml_edit::Document>()
+            .context("failed to parse TOML file")?;
+        if let Some(inherited_from) = doc.remove("inherit") {
+            // Choose the parent file, which must be in the same directory
+            let file = cfg.parent().unwrap().join(
+                inherited_from.as_str().ok_or_else(|| {
+                    anyhow!("could not read {inherited_from} as str")
+                })?,
+            );
+            let mut original = Config::read_and_flatten_toml(&file, hasher)
                 .context(format!("Could not load template from {file:?}"))?;
-            original.name = inherited.patches.name.to_owned();
-            for (task, features) in &inherited.patches.features {
-                let t = original
-                    .tasks
-                    .get_mut(task)
-                    .ok_or_else(|| anyhow!("No such task {task}"))?;
-                for f in features {
-                    if t.features.contains(f) {
-                        bail!("Task {task} already contains feature {f}");
-                    }
-                    t.features.push(f.to_owned());
-                }
-            }
-            original.patches = Some(inherited.patches);
+            Self::merge_toml_into(original.as_table_mut(), doc.as_table())?;
             return Ok(original);
         }
 
-        let toml: RawConfig =
-            toml::from_str(std::str::from_utf8(&cfg_contents)?)?;
+        // Root, return the document itself
+        Ok(doc)
+    }
+
+    fn merge_toml_into<T: toml_edit::TableLike>(
+        original: &mut T,
+        patches: &T,
+    ) -> Result<()> {
+        for (k, v) in patches.iter() {
+            if let Some(u) = original.get_mut(k) {
+                if u.type_name() != v.type_name() {
+                    bail!(
+                        "type mismatch for '{k}': {} != {}",
+                        u.type_name(),
+                        v.type_name()
+                    );
+                }
+                use toml_edit::Item;
+                match u {
+                    Item::None => bail!("can't patch `None`"),
+                    Item::Value(u) => {
+                        // I'm not sure whether it's possible for the Item
+                        // type_name to match and Value type_name to *not*
+                        // match, but better safe than sorry here.
+                        let v = v.as_value().unwrap();
+                        if u.type_name() != v.type_name() {
+                            bail!(
+                                "type mismatch for '{k}': {} != {}",
+                                u.type_name(),
+                                v.type_name()
+                            );
+                        }
+
+                        use toml_edit::Value;
+                        match u {
+                            // Single values replace the previous value
+                            Value::Float(..)
+                            | Value::String(..)
+                            | Value::Integer(..)
+                            | Value::Boolean(..)
+                            | Value::Datetime(..) => *u = v.clone(),
+
+                            // Inline tables are merged
+                            Value::InlineTable(u) => {
+                                Self::merge_toml_into(
+                                    u,
+                                    v.as_inline_table().unwrap(),
+                                )?;
+                            }
+                            // Arrays are extended
+                            Value::Array(u) => {
+                                u.extend(v.as_array().unwrap().iter().cloned());
+                            }
+                        }
+                    }
+                    Item::Table(u) => {
+                        Self::merge_toml_into(u, v.as_table().unwrap())?;
+                    }
+                    Item::ArrayOfTables(..) => {
+                        bail!("cannot patch array of tables")
+                    }
+                }
+            } else {
+                // Wholesale insertion of the new value.  We put it behind the
+                // last table, because order matters in some cases (e.g. the
+                // supervisor has to be task 0).
+                let pos = original
+                    .iter()
+                    .filter_map(|(_k, v)| v.as_table())
+                    .last()
+                    .and_then(|p| p.position())
+                    .unwrap_or(0);
+                original.insert(k, v.clone());
+                original
+                    .get_mut(k)
+                    .unwrap()
+                    .as_table_mut()
+                    .map(|k| k.set_position(pos + 1));
+            }
+        }
+        Ok(())
+    }
+
+    fn from_file_with_hasher(
+        cfg: &Path,
+        mut hasher: DefaultHasher,
+    ) -> Result<Self> {
+        let doc = Self::read_and_flatten_toml(cfg, &mut hasher)?;
+        let cfg_contents = doc.to_string();
+        println!("got cfg contents:\n{cfg_contents}");
+
+        let toml: RawConfig = toml::from_str(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
@@ -242,7 +302,7 @@ impl Config {
             auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
-            patches: None,
+            app_config: cfg_contents,
             dice_mfg,
             caboose: toml.caboose,
         })

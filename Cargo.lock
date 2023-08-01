@@ -5220,6 +5220,7 @@ dependencies = [
  "tlvc-text",
  "toml",
  "toml-task",
+ "toml_edit",
  "walkdir",
  "zerocopy",
  "zip",
