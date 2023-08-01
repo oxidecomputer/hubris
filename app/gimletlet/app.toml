@@ -6,6 +6,7 @@ memory = "memory-large.toml"
 stacksize = 896
 epoch = 0
 version = 0
+fwid = true
 
 [kernel]
 name = "gimletlet"

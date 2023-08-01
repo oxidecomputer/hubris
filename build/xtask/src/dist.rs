@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
@@ -16,6 +17,7 @@ use atty::Stream;
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
+use sha3::{Digest, Sha3_256};
 use zerocopy::AsBytes;
 
 use crate::{
@@ -535,6 +537,10 @@ pub fn package(
             archive.overwrite()?;
         }
 
+        if cfg.toml.fwid {
+            write_fwid(&cfg, &image_name, &flash, &archive_name)?;
+        }
+
         // Unzip the signed + caboose'd images into our build directory
         let archive = hubtools::RawHubrisArchive::load(&archive_name)
             .context("loading archive with hubtools")?;
@@ -547,6 +553,53 @@ pub fn package(
         }
     }
     Ok(allocated)
+}
+
+// generate file with hash of expected flash contents
+fn write_fwid(
+    cfg: &PackageConfig,
+    image_name: &String,
+    flash: &Range<u32>,
+    archive_name: &PathBuf,
+) -> Result<()> {
+    let mut archive = hubtools::RawHubrisArchive::load(archive_name)
+        .context("loading archive with hubtools")?;
+
+    let bin = archive
+        .extract_file("img/final.bin")
+        .context("extracting final.bin after signing & caboosing")?;
+
+    let chip_name = Path::new(&cfg.toml.chip);
+
+    // determine FWID calculation method from chip (directory) name
+    let pad = match chip_name.file_name().and_then(OsStr::to_str) {
+        Some("stm32h7") => {
+            // all unprogrammed flash is read as 0xff
+            Some(vec![
+                0xff_u8;
+                flash.end as usize - flash.start as usize - bin.len()
+            ])
+        }
+        Some(_) => None,
+        None => bail!("Failed to get file name of {}", chip_name.display()),
+    };
+
+    let mut sha = Sha3_256::new();
+    sha.update(&bin);
+
+    if let Some(pad) = pad {
+        sha.update(&pad);
+    }
+
+    let digest = sha.finalize();
+
+    let mut file = File::create(&cfg.img_file("final.fwid", image_name))?;
+    writeln!(file, "{}", hex::encode(&digest))?;
+
+    archive.add_file("img/final.fwid", digest.as_bytes())?;
+    archive.overwrite()?;
+
+    Ok(())
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {

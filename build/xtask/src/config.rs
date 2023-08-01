@@ -27,6 +27,8 @@ struct RawConfig {
     epoch: u32,
     #[serde(default)]
     version: u32,
+    #[serde(default)]
+    fwid: bool,
     memory: Option<String>,
     #[serde(default)]
     image_names: Vec<String>,
@@ -52,6 +54,7 @@ pub struct Config {
     pub chip: String,
     pub epoch: u32,
     pub version: u32,
+    pub fwid: bool,
     pub image_names: Vec<String>,
     pub external_images: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
@@ -177,6 +180,7 @@ impl Config {
             chip: toml.chip,
             epoch: toml.epoch,
             version: toml.version,
+            fwid: toml.fwid,
             signing: toml.signing,
             stacksize: toml.stacksize,
             kernel: toml.kernel,

@@ -5229,6 +5229,7 @@ dependencies = [
  "fnv",
  "gnarle",
  "goblin",
+ "hex",
  "hubtools",
  "indexmap",
  "lpc55_sign",

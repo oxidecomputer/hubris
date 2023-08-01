@@ -21,6 +21,7 @@ dunce = { workspace = true }
 filetime = { workspace = true }
 fnv = { workspace = true }
 goblin = { workspace = true }
+hex = "0.4"
 hubtools = { workspace = true }
 indexmap = { workspace = true }
 multimap = { workspace = true }

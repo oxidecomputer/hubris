@@ -2,6 +2,7 @@ target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"
+fwid = true
 
 [kernel]
 name = "sidecar"
