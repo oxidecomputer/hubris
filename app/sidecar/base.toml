@@ -1,7 +1,6 @@
 # Base file for all Sidecar models
 
 target = "thumbv7em-none-eabihf"
-board = "sidecar-b"
 chip = "../../chips/stm32h7"
 stacksize = 896
 memory = "memory-large.toml"

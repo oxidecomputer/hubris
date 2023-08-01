@@ -230,8 +230,10 @@ impl Config {
                     Item::Table(u) => {
                         Self::merge_toml_into(u, v.as_table().unwrap())?;
                     }
-                    Item::ArrayOfTables(..) => {
-                        bail!("cannot patch array of tables")
+                    Item::ArrayOfTables(u) => {
+                        u.extend(
+                            v.as_array_of_tables().unwrap().iter().cloned(),
+                        );
                     }
                 }
             } else {
