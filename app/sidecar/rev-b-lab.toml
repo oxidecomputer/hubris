@@ -1,5 +1,2 @@
-inherit = "rev-b-dev.toml"
-
 name = "sidecar-b-lab"
-tasks.sequencer.features = ["stay-in-a2"]
-tasks.ignition.features = ["always-transmit"]
+inherit = ["rev-b-dev.toml", "lab.toml"]
