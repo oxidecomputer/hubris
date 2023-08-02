@@ -703,6 +703,8 @@ fn merge_toml_documents(
     impl<'a> VisitMut for OffsetVisitor<'a> {
         fn visit_table_mut(&mut self, t: &mut toml_edit::Table) {
             if let Some(pos) = t.position() {
+                // Find the largest offset with a value <= pos, which determines
+                // the cumulative offset at this point in the document.
                 let (prev_pos, offset) =
                     self.offsets.range(0..=pos).rev().next().unwrap();
                 assert!(*prev_pos <= pos); // sanity-checking
