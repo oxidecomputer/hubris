@@ -858,7 +858,7 @@ fn merge_toml_tables(
                         // Inline tables are not yet supported, but should be
                         // merged once we get around to implementing it
                         Value::InlineTable(..) => {
-                            todo!(
+                            bail!(
                                 "patching inline tables is not yet implemented"
                             );
                         }
@@ -869,6 +869,7 @@ fn merge_toml_tables(
                     }
                 }
                 Item::Table(u) => {
+                    // Recurse!
                     merge_toml_tables(u, v.as_table_mut().unwrap())?;
                 }
                 Item::ArrayOfTables(arr) => {
@@ -881,7 +882,7 @@ fn merge_toml_tables(
                     let mut visitor = TableRangeVisitor::default();
                     visitor.visit_item(v);
                     let start =
-                        visitor.range.map(|r| r.start as isize).unwrap_or(0);
+                        visitor.range.map(|r| r.start as isize).unwrap();
                     let offset = last as isize - start as isize;
 
                     // Apply that offset to the incoming tables
