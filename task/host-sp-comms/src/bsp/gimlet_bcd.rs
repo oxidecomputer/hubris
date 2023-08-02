@@ -54,20 +54,30 @@ impl ServerImpl {
             16 => {
                 // U615/ID: SP barcode is available in packrat
                 let packrat = &self.packrat;
+                let mut data = InventoryData::VpdIdentity(Default::default());
                 self.tx_buf.try_encode_inventory(sequence, b"U615/ID", || {
-                    let id = packrat
+                    let InventoryData::VpdIdentity(identity) = &mut data
+                        else { unreachable!(); };
+                    *identity = packrat
                         .get_identity()
                         .map_err(|_| InventoryDataResult::DeviceAbsent)?;
-                    let d = InventoryData::VpdIdentity(id);
-                    Ok(d)
+                    Ok(&data)
                 });
             }
             17 => {
                 // U615: Gimlet VPD EEPROM
+                //
+                // Note that for VPD AT24CSW080 identities, we allocate our
+                // InventoryData in the outer frame then pass it in as a
+                // reference; `read_at24csw080_id` typically isn't inlined, and
+                // we're already paying a stack frame for the data in this
+                // function, so it saves us 512 bytes of stack.
+                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(
                     sequence,
                     b"U615",
                     i2c_config::devices::at24csw080_local_vpd,
+                    &mut data,
                 )
             }
             18 => {
@@ -80,10 +90,12 @@ impl ServerImpl {
             }
             19 => {
                 // J180: Fan VPD EEPROM
+                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(
                     sequence,
                     b"J180",
                     i2c_config::devices::at24csw080_fan_vpd,
+                    &mut data,
                 )
             }
             // Welcome to The Sharkfin Zone
@@ -106,7 +118,8 @@ impl ServerImpl {
                     Self::get_sharkfin_vpd(index as usize - 30);
                 let mut name = *b"____/U7";
                 name[0..4].copy_from_slice(&designator);
-                self.read_at24csw080_id(sequence, &name, f)
+                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
+                self.read_at24csw080_id(sequence, &name, f, &mut data)
             }
             // TODO: Sharkfin HSC?
             40 => {
@@ -115,35 +128,34 @@ impl ServerImpl {
                 let sys =
                     drv_stm32xx_sys_api::Sys::from(crate::SYS.get_task_id());
                 let uid = sys.read_uid();
-
-                self.tx_buf.try_encode_inventory(sequence, b"U12", || {
-                    Ok(InventoryData::Stm32H7 {
-                        uid,
-                        dbgmcu_rev_id: 0, // TODO
-                        dbgmcu_dev_id: 0, // TODO
-                    })
-                });
+                let data = InventoryData::Stm32H7 {
+                    uid,
+                    dbgmcu_rev_id: 0, // TODO
+                    dbgmcu_dev_id: 0, // TODO
+                };
+                self.tx_buf
+                    .try_encode_inventory(sequence, b"U12", || Ok(&data));
             }
             41 => {
                 // U431: BRM491
                 let dev = i2c_config::devices::bmr491_ibc(I2C.get_task_id());
                 let name = b"U431";
+                // To be stack-friendly, we declare our output here,
+                // then bind references to all the member variables.
+                let mut data = InventoryData::Bmr491 {
+                    mfr_id: [0u8; 12],
+                    mfr_model: [0u8; 20],
+                    mfr_revision: [0u8; 12],
+                    mfr_location: [0u8; 12],
+                    mfr_date: [0u8; 12],
+                    mfr_serial: [0u8; 20],
+                    mfr_firmware_data: [0u8; 20],
+                };
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     name.as_slice(),
                     || {
                         use pmbus::commands::bmr491::CommandCode;
-                        // To be stack-friendly, we declare our output here,
-                        // then bind references to all the member variables.
-                        let mut out = InventoryData::Bmr491 {
-                            mfr_id: [0u8; 12],
-                            mfr_model: [0u8; 20],
-                            mfr_revision: [0u8; 12],
-                            mfr_location: [0u8; 12],
-                            mfr_date: [0u8; 12],
-                            mfr_serial: [0u8; 20],
-                            mfr_firmware_data: [0u8; 20],
-                        };
                         let InventoryData::Bmr491 {
                             mfr_id,
                             mfr_model,
@@ -152,7 +164,7 @@ impl ServerImpl {
                             mfr_date,
                             mfr_serial,
                             mfr_firmware_data,
-                        } = &mut out else { unreachable!() };
+                        } = &mut data else { unreachable!() };
                         dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                         dev.read_block(
                             CommandCode::MFR_MODEL as u8,
@@ -175,7 +187,7 @@ impl ServerImpl {
                             CommandCode::MFR_FIRMWARE_DATA as u8,
                             mfr_firmware_data,
                         )?;
-                        Ok(out)
+                        Ok(&data)
                     },
                 )
             }
@@ -184,21 +196,21 @@ impl ServerImpl {
                 // U432: ISL68224
                 let dev = i2c_config::devices::isl68224(I2C.get_task_id())[0];
                 let name = b"U432";
+                // To be stack-friendly, we declare our output here,
+                // then bind references to all the member variables.
+                let mut data = InventoryData::Isl68224 {
+                    mfr_id: [0u8; 4],
+                    mfr_model: [0u8; 4],
+                    mfr_revision: [0u8; 4],
+                    mfr_date: [0u8; 4],
+                    ic_device_id: [0u8; 4],
+                    ic_device_rev: [0u8; 4],
+                };
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     name.as_slice(),
                     || {
                         use pmbus::commands::isl68224::CommandCode;
-                        // To be stack-friendly, we declare our output here,
-                        // then bind references to all the member variables.
-                        let mut out = InventoryData::Isl68224 {
-                            mfr_id: [0u8; 4],
-                            mfr_model: [0u8; 4],
-                            mfr_revision: [0u8; 4],
-                            mfr_date: [0u8; 4],
-                            ic_device_id: [0u8; 4],
-                            ic_device_rev: [0u8; 4],
-                        };
                         let InventoryData::Isl68224 {
                             mfr_id,
                             mfr_model,
@@ -206,7 +218,7 @@ impl ServerImpl {
                             mfr_date,
                             ic_device_id,
                             ic_device_rev,
-                        } = &mut out else { unreachable!() };
+                        } = &mut data else { unreachable!() };
                         dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                         dev.read_block(
                             CommandCode::MFR_MODEL as u8,
@@ -225,7 +237,7 @@ impl ServerImpl {
                             CommandCode::IC_DEVICE_REV as u8,
                             ic_device_rev,
                         )?;
-                        Ok(out)
+                        Ok(&data)
                     },
                 )
             }
@@ -235,21 +247,21 @@ impl ServerImpl {
                 let mut name = *b"U350";
                 name[3] += (index - 43) as u8;
 
+                // To be stack-friendly, we declare our output here,
+                // then bind references to all the member variables.
+                let mut data = InventoryData::Raa229618 {
+                    mfr_id: [0u8; 4],
+                    mfr_model: [0u8; 4],
+                    mfr_revision: [0u8; 4],
+                    mfr_date: [0u8; 4],
+                    ic_device_id: [0u8; 4],
+                    ic_device_rev: [0u8; 4],
+                };
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     name.as_slice(),
                     || {
                         use pmbus::commands::raa229618::CommandCode;
-                        // To be stack-friendly, we declare our output here,
-                        // then bind references to all the member variables.
-                        let mut out = InventoryData::Raa229618 {
-                            mfr_id: [0u8; 4],
-                            mfr_model: [0u8; 4],
-                            mfr_revision: [0u8; 4],
-                            mfr_date: [0u8; 4],
-                            ic_device_id: [0u8; 4],
-                            ic_device_rev: [0u8; 4],
-                        };
                         let InventoryData::Raa229618 {
                             mfr_id,
                             mfr_model,
@@ -257,7 +269,7 @@ impl ServerImpl {
                             mfr_date,
                             ic_device_id,
                             ic_device_rev,
-                        } = &mut out else { unreachable!() };
+                        } = &mut data else { unreachable!() };
                         dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                         dev.read_block(
                             CommandCode::MFR_MODEL as u8,
@@ -276,7 +288,7 @@ impl ServerImpl {
                             CommandCode::IC_DEVICE_REV as u8,
                             ic_device_rev,
                         )?;
-                        Ok(out)
+                        Ok(&data)
                     },
                 )
             }
@@ -292,17 +304,17 @@ impl ServerImpl {
                 let (name, f) = TABLE[(index - 45) as usize];
 
                 let dev = f(I2C.get_task_id());
+                let mut data = InventoryData::Tps546b24a {
+                    mfr_id: [0u8; 3],
+                    mfr_model: [0u8; 3],
+                    mfr_revision: [0u8; 3],
+                    mfr_serial: [0u8; 3],
+                    ic_device_id: [0u8; 6],
+                    ic_device_rev: [0u8; 2],
+                    nvm_checksum: 0u16,
+                };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
-                    let mut out = InventoryData::Tps546b24a {
-                        mfr_id: [0u8; 3],
-                        mfr_model: [0u8; 3],
-                        mfr_revision: [0u8; 3],
-                        mfr_serial: [0u8; 3],
-                        ic_device_id: [0u8; 6],
-                        ic_device_rev: [0u8; 2],
-                        nvm_checksum: 0u16,
-                    };
                     let InventoryData::Tps546b24a {
                         mfr_id,
                         mfr_model,
@@ -311,7 +323,7 @@ impl ServerImpl {
                         ic_device_id,
                         ic_device_rev,
                         nvm_checksum,
-                    } = &mut out else { unreachable!() };
+                    } = &mut data else { unreachable!() };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -331,7 +343,7 @@ impl ServerImpl {
                         CommandCode::NVM_CHECKSUM as u8,
                         nvm_checksum.as_bytes_mut(),
                     )?;
-                    Ok(out)
+                    Ok(&data)
                 })
             }
             50 | 51 => {
@@ -344,20 +356,20 @@ impl ServerImpl {
                     _ => unreachable!(),
                 };
 
+                let mut data = InventoryData::Adm1272 {
+                    mfr_id: [0u8; 3],
+                    mfr_model: [0u8; 10],
+                    mfr_revision: [0u8; 2],
+                    mfr_date: [0u8; 6],
+                };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
-                    let mut out = InventoryData::Adm1272 {
-                        mfr_id: [0u8; 3],
-                        mfr_model: [0u8; 10],
-                        mfr_revision: [0u8; 2],
-                        mfr_date: [0u8; 6],
-                    };
                     let InventoryData::Adm1272 {
                         mfr_id,
                         mfr_model,
                         mfr_revision,
                         mfr_date,
-                    } = &mut out else { unreachable!() };
+                    } = &mut data else { unreachable!() };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -365,7 +377,7 @@ impl ServerImpl {
                         mfr_revision,
                     )?;
                     dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
-                    Ok(out)
+                    Ok(&data)
                 })
             }
 
@@ -383,55 +395,69 @@ impl ServerImpl {
                     5 => b"J199/U1",
                     _ => unreachable!(),
                 };
+                let mut data = InventoryData::Tmp117 {
+                    id: 0,
+                    eeprom1: 0,
+                    eeprom2: 0,
+                    eeprom3: 0,
+                };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
-                    let id: u16 = dev.read_reg(0x0Fu8)?;
-                    let eeprom1: u16 = dev.read_reg(0x05u8)?;
-                    let eeprom2: u16 = dev.read_reg(0x06u8)?;
-                    let eeprom3: u16 = dev.read_reg(0x08u8)?;
-                    Ok(InventoryData::Tmp117 {
+                    let InventoryData::Tmp117 {
                         id,
                         eeprom1,
                         eeprom2,
-                        eeprom3,
-                    })
+                        eeprom3 } = &mut data else { unreachable!(); };
+                    *id = dev.read_reg(0x0Fu8)?;
+                    *eeprom1 = dev.read_reg(0x05u8)?;
+                    *eeprom2 = dev.read_reg(0x06u8)?;
+                    *eeprom3 = dev.read_reg(0x08u8)?;
+                    Ok(&data)
                 })
             }
 
             58 => {
                 let dev = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
                 let name = b"U446";
+                let mut data = InventoryData::Idt8a34003 {
+                    hw_rev: 0,
+                    major_rel: 0,
+                    minor_rel: 0,
+                    hotfix_rel: 0,
+                    product_id: 0,
+                };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
-                    // This chip includes a separate register that controls the
-                    // upper address byte, i.e. a paged memory implementation.
-                    // We'll use `write_read_reg` to avoid the possibility of
-                    // race conditions here.
-                    let hw_rev: u8 = dev.write_read_reg(
-                        0x1eu8,
-                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
-                    )?;
-                    let major_rel: u8 = dev.write_read_reg(
-                        0x24u8,
-                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
-                    )?;
-                    let minor_rel: u8 = dev.write_read_reg(
-                        0x25u8,
-                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
-                    )?;
-                    let hotfix_rel: u8 = dev.write_read_reg(
-                        0x26u8,
-                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
-                    )?;
-                    let product_id: u16 = dev.write_read_reg(
-                        0x32u8,
-                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
-                    )?;
-                    Ok(InventoryData::Idt8a34003 {
+                    let InventoryData::Idt8a34003 {
                         hw_rev,
                         major_rel,
                         minor_rel,
                         hotfix_rel,
                         product_id,
-                    })
+                    } = &mut data else { unreachable!(); };
+                    // This chip includes a separate register that controls the
+                    // upper address byte, i.e. a paged memory implementation.
+                    // We'll use `write_read_reg` to avoid the possibility of
+                    // race conditions here.
+                    *hw_rev = dev.write_read_reg(
+                        0x1eu8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    *major_rel = dev.write_read_reg(
+                        0x24u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    *minor_rel = dev.write_read_reg(
+                        0x25u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    *hotfix_rel = dev.write_read_reg(
+                        0x26u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    *product_id = dev.write_read_reg(
+                        0x32u8,
+                        &[0xfc, 0x00, 0xc0, 0x10, 0x20],
+                    )?;
+                    Ok(&data)
                 })
             }
 
@@ -439,16 +465,15 @@ impl ServerImpl {
                 let spi = drv_spi_api::Spi::from(SPI.get_task_id());
                 let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
-                self.tx_buf.try_encode_inventory(
-                    sequence,
-                    b"U401",
-                    move || {
-                        let cider = ksz8463
-                            .read(ksz8463::Register::CIDER)
-                            .map_err(|_| InventoryDataResult::DeviceFailed)?;
-                        Ok(InventoryData::Ksz8463 { cider })
-                    },
-                );
+                let mut data = InventoryData::Ksz8463 { cider: 0 };
+                self.tx_buf.try_encode_inventory(sequence, b"U401", || {
+                    let InventoryData::Ksz8463 { cider } = &mut data
+                            else { unreachable!(); };
+                    *cider = ksz8463
+                        .read(ksz8463::Register::CIDER)
+                        .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    Ok(&data)
+                });
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
@@ -496,12 +521,14 @@ impl ServerImpl {
         }
 
         let packrat = &self.packrat; // partial borrow
+        let mut data = InventoryData::DimmSpd([0u8; 512]);
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
             if packrat.get_spd_present(index as usize) {
-                let mut out = [0u8; 512];
-                packrat.get_full_spd_data(index as usize, out.as_mut_slice());
-                Ok(InventoryData::DimmSpd(out))
+                let InventoryData::DimmSpd(out) = &mut data
+                    else { unreachable!(); };
+                packrat.get_full_spd_data(index as usize, out);
+                Ok(&data)
             } else {
                 Err(InventoryDataResult::DeviceAbsent)
             }
@@ -509,15 +536,23 @@ impl ServerImpl {
     }
 
     /// Reads the 128-byte unique ID from an AT24CSW080 EEPROM
+    ///
+    /// `data` is passed in to reduce stack frame size, since we already require
+    /// an allocation for it on the caller's stack frame.
     fn read_at24csw080_id(
         &mut self,
         sequence: u64,
         name: &[u8],
         f: fn(userlib::TaskId) -> I2cDevice,
+        data: &mut InventoryData,
     ) {
+        // This should be done by the caller, but let's make it obviously
+        // correct (since we destructure it below).
+        *data = InventoryData::At24csw08xSerial([0u8; 16]);
         let dev = At24Csw080::new(f(I2C.get_task_id()));
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let mut id = [0u8; 16];
+            let InventoryData::At24csw08xSerial(id) = data
+                else { unreachable!(); };
             for (i, b) in id.iter_mut().enumerate() {
                 // TODO: add an API to make this a single IPC call?
                 *b = dev.read_security_register_byte(i as u8).map_err(|e| {
@@ -529,7 +564,7 @@ impl ServerImpl {
                     }
                 })?;
             }
-            Ok(InventoryData::At24csw08xSerial(id))
+            Ok(&data)
         });
     }
 
@@ -545,9 +580,12 @@ impl ServerImpl {
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
         let dev = f(I2C.get_task_id());
+        let mut data = InventoryData::VpdIdentity(Default::default());
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let identity = read_one_barcode(dev, &[(*b"BARC", 0)])?;
-            Ok(InventoryData::VpdIdentity(identity))
+            let InventoryData::VpdIdentity(identity) = &mut data
+                else { unreachable!(); };
+            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?;
+            Ok(&data)
         })
     }
 
@@ -568,20 +606,25 @@ impl ServerImpl {
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
         let dev = f(I2C.get_task_id());
+        let mut data = InventoryData::FanIdentity {
+            identity: Default::default(),
+            fans: Default::default(),
+        };
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?;
-            let barc0 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?;
-            let barc1 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?;
-            let barc2 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?;
-            let barc3 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?;
-            Ok(InventoryData::FanIdentity {
+            let InventoryData::FanIdentity {
                 identity,
-                fans: [barc0, barc1, barc2, barc3],
-            })
+                fans: [barc0, barc1, barc2, barc3]
+            } = &mut data else { unreachable!(); };
+            *identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?;
+            *barc0 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?;
+            *barc1 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?;
+            *barc2 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?;
+            *barc3 =
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?;
+            Ok(&data)
         })
     }
 }

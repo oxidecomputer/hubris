@@ -186,7 +186,7 @@ impl TxBuf {
         name: &'a [u8],
         fill_data: F,
     ) where
-        F: FnOnce() -> Result<InventoryData, InventoryDataResult>,
+        F: FnOnce() -> Result<&'a InventoryData, InventoryDataResult>,
     {
         let mut name_array = [0u8; 32];
         let n = name_array.len().min(name.len());
@@ -200,7 +200,7 @@ impl TxBuf {
             |buf| {
                 let n = fill_data()
                     .and_then(|d| {
-                        hubpack::serialize(buf, &d).map_err(|_| {
+                        hubpack::serialize(buf, d).map_err(|_| {
                             InventoryDataResult::SerializationError
                         })
                     })
