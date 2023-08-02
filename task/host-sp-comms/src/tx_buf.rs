@@ -189,9 +189,8 @@ impl TxBuf {
         F: FnOnce() -> Result<InventoryData, InventoryDataResult>,
     {
         let mut name_array = [0u8; 32];
-        for (a, b) in name_array.iter_mut().zip(name) {
-            *a = *b;
-        }
+        let n = name_array.len().min(name.len());
+        name_array[..n].copy_from_slice(&name[..n]);
         self.try_encode_response(
             sequence,
             &SpToHost::InventoryData {
