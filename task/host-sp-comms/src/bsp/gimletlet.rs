@@ -25,14 +25,14 @@ impl ServerImpl {
                 let sys =
                     drv_stm32xx_sys_api::Sys::from(crate::SYS.get_task_id());
                 let uid = sys.read_uid();
+                let data = InventoryData::Stm32H7 {
+                    uid,
+                    dbgmcu_rev_id: 0, // TODO
+                    dbgmcu_dev_id: 0, // TODO
+                };
 
-                self.tx_buf.try_encode_inventory(sequence, b"U12", || {
-                    Ok(InventoryData::Stm32H7 {
-                        uid,
-                        dbgmcu_rev_id: 0, // TODO
-                        dbgmcu_dev_id: 0, // TODO
-                    })
-                });
+                self.tx_buf
+                    .try_encode_inventory(sequence, b"U12", || Ok(&data));
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
