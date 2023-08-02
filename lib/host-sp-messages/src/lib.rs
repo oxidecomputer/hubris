@@ -326,8 +326,12 @@ pub enum InventoryData {
 
     /// Fan subassembly identity
     FanIdentity {
+        /// Identity of the fan assembly
         identity: oxide_barcode::VpdIdentity,
-        fans: [oxide_barcode::VpdIdentity; 4],
+        /// Identity of the VPD board within the subassembly
+        vpd_identity: oxide_barcode::VpdIdentity,
+        /// Identity of the individual fans
+        fans: [oxide_barcode::VpdIdentity; 3],
     },
 
     Adm1272 {

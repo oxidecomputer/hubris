@@ -608,21 +608,23 @@ impl ServerImpl {
         let dev = f(I2C.get_task_id());
         let mut data = InventoryData::FanIdentity {
             identity: Default::default(),
+            vpd_identity: Default::default(),
             fans: Default::default(),
         };
         self.tx_buf.try_encode_inventory(sequence, name, || {
             let InventoryData::FanIdentity {
                 identity,
-                fans: [barc0, barc1, barc2, barc3]
+                vpd_identity,
+                fans: [fan0, fan1, fan2]
             } = &mut data else { unreachable!(); };
             *identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?;
-            *barc0 =
+            *vpd_identity =
                 read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?;
-            *barc1 =
+            *fan0 =
                 read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?;
-            *barc2 =
+            *fan1 =
                 read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?;
-            *barc3 =
+            *fan2 =
                 read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?;
             Ok(&data)
         })
