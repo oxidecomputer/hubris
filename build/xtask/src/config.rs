@@ -765,12 +765,17 @@ fn compute_offsets(
             // We are going to insert our new values after all of the old values
             //
             // First, we need to find the maximum position in our original table
-            let last = table_position_range(original).end;
+            let mut visitor = TableRangeVisitor::default();
+            visitor.visit_table(original);
+            let last = visitor.range.unwrap().last;
 
             // We'll be applying an offset based on the size of the incoming
             // list of patches (in table positions)
-            let r = table_position_range(patches);
-            offsets.insert(last + 1, r.len());
+            let mut visitor = TableRangeVisitor::default();
+            visitor.visit_table(patches);
+            if let Some(r) = visitor.range {
+                offsets.insert(last + 1, r.len());
+            }
         }
     }
     Ok(())
@@ -812,17 +817,10 @@ impl VisitMut for TableShiftVisitor {
     }
 }
 
-/// Recursively find the position range spanned by tables
-fn table_position_range(t: &toml_edit::Table) -> std::ops::Range<usize> {
-    let mut visitor = TableRangeVisitor::default();
-    visitor.visit_table(t);
-    visitor.range.unwrap()
-}
-
 /// Merges a pair of TOML tables
 ///
-/// The incoming `patches` table has its position modified to put it at the end
-/// of the original table.
+/// The incoming `patches` table is modified during execution to put its
+/// position at the end of the original table.
 fn merge_toml_tables(
     original: &mut toml_edit::Table,
     patches: &mut toml_edit::Table,
@@ -894,7 +892,9 @@ fn merge_toml_tables(
                 }
             }
         } else {
-            let last = table_position_range(original).end;
+            let mut visitor = TableRangeVisitor::default();
+            visitor.visit_table(original);
+            let last = visitor.range.unwrap().last;
 
             let mut visitor = TableRangeVisitor::default();
             visitor.visit_item(v);

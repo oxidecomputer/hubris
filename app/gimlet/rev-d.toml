@@ -1,5 +1,5 @@
-board = "gimlet-d"
 name = "gimlet-d"
+board = "gimlet-d"
 inherit = "base.toml"
 
 ################################################################################
