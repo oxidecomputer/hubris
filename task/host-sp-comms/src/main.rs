@@ -1063,6 +1063,16 @@ impl idl::InOrderHostSpCommsImpl for ServerImpl {
     ) -> Result<Status, RequestError<HostSpCommsError>> {
         Ok(self.status)
     }
+
+    fn get_inventory(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        self.tx_buf.reset();
+        let _ = self.perform_inventory_lookup(0, index);
+        Ok(())
+    }
 }
 
 // Borrow checker workaround; list of actions we perform in response to a host
