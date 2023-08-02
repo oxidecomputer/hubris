@@ -109,163 +109,12 @@ impl Config {
         Self::from_file_with_hasher(cfg, DefaultHasher::new())
     }
 
-    fn read_and_flatten_toml(
-        cfg: &Path,
-        hasher: &mut DefaultHasher,
-        seen: &mut BTreeSet<PathBuf>,
-    ) -> Result<toml_edit::Document> {
-        // Prevent diamond inheritance
-        if !seen.insert(cfg.to_owned()) {
-            bail!("{cfg:?} is inherited more than once.  Don't do that.");
-        }
-        let cfg_contents = std::fs::read(&cfg)
-            .with_context(|| format!("could not read {}", cfg.display()))?;
-
-        // Accumulate the contents into the buildhash here, so that we hash both
-        // the inheritance file and the target (recursively, if necessary)
-        hasher.write(&cfg_contents);
-
-        let cfg_contents = std::str::from_utf8(&cfg_contents)
-            .context("failed to read manifest as UTF-8")?;
-
-        // Additive TOML file inheritance
-        let mut doc = cfg_contents
-            .parse::<toml_edit::Document>()
-            .context("failed to parse TOML file")?;
-        if let Some(inherited_from) = doc.remove("inherit") {
-            use toml_edit::{Item, Value};
-            let mut original = match inherited_from {
-                // Single inheritance
-                Item::Value(Value::String(s)) => {
-                    let file = cfg.parent().unwrap().join(s.value());
-                    Config::read_and_flatten_toml(&file, hasher, seen)
-                        .with_context(|| format!("Could not load {file:?}"))?
-                }
-                // Multiple inheritance, applied sequentially
-                Item::Value(Value::Array(a)) => {
-                    let mut doc: Option<toml_edit::Document> = None;
-                    for a in a.iter() {
-                        if let Value::String(s) = a {
-                            let file = cfg.parent().unwrap().join(s.value());
-                            let next = Config::read_and_flatten_toml(
-                                &file, hasher, seen,
-                            )
-                            .with_context(|| {
-                                format!("Could not load {file:?}")
-                            })?;
-                            match doc.as_mut() {
-                                Some(doc) => Self::merge_toml_into(
-                                    doc.as_table_mut(),
-                                    &next,
-                                )?,
-                                None => doc = Some(next),
-                            }
-                        } else {
-                            bail!("could not inherit from {a}; bad type");
-                        }
-                    }
-                    doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
-                }
-                v => bail!("could not inherit from {v}; bad type"),
-            };
-            Self::merge_toml_into(original.as_table_mut(), doc.as_table())?;
-            return Ok(original);
-        }
-
-        // Root, return the document itself
-        Ok(doc)
-    }
-
-    fn merge_toml_into<T: toml_edit::TableLike>(
-        original: &mut T,
-        patches: &T,
-    ) -> Result<()> {
-        for (k, v) in patches.iter() {
-            if let Some(u) = original.get_mut(k) {
-                if u.type_name() != v.type_name() {
-                    bail!(
-                        "type mismatch for '{k}': {} != {}",
-                        u.type_name(),
-                        v.type_name()
-                    );
-                }
-                use toml_edit::Item;
-                match u {
-                    Item::None => bail!("can't patch `None`"),
-                    Item::Value(u) => {
-                        // I'm not sure whether it's possible for the Item
-                        // type_name to match and Value type_name to *not*
-                        // match, but better safe than sorry here.
-                        let v = v.as_value().unwrap();
-                        if u.type_name() != v.type_name() {
-                            bail!(
-                                "type mismatch for '{k}': {} != {}",
-                                u.type_name(),
-                                v.type_name()
-                            );
-                        }
-
-                        use toml_edit::Value;
-                        match u {
-                            // Single values replace the previous value
-                            Value::Float(..)
-                            | Value::String(..)
-                            | Value::Integer(..)
-                            | Value::Boolean(..)
-                            | Value::Datetime(..) => *u = v.clone(),
-
-                            // Inline tables are merged
-                            Value::InlineTable(u) => {
-                                Self::merge_toml_into(
-                                    u,
-                                    v.as_inline_table().unwrap(),
-                                )?;
-                            }
-                            // Arrays are extended
-                            Value::Array(u) => {
-                                u.extend(v.as_array().unwrap().iter().cloned());
-                            }
-                        }
-                    }
-                    Item::Table(u) => {
-                        Self::merge_toml_into(u, v.as_table().unwrap())?;
-                    }
-                    Item::ArrayOfTables(u) => {
-                        u.extend(
-                            v.as_array_of_tables().unwrap().iter().cloned(),
-                        );
-                    }
-                }
-            } else {
-                // Wholesale insertion of the new value.  We put it behind the
-                // last table, because order matters in some cases (e.g. the
-                // supervisor has to be task 0).
-                let pos = original
-                    .iter()
-                    .filter_map(|(_k, v)| v.as_table())
-                    .last()
-                    .and_then(|p| p.position())
-                    .unwrap_or(0);
-                original.insert(k, v.clone());
-                original
-                    .get_mut(k)
-                    .unwrap()
-                    .as_table_mut()
-                    .map(|k| k.set_position(pos + 1));
-            }
-        }
-        Ok(())
-    }
-
     fn from_file_with_hasher(
         cfg: &Path,
         mut hasher: DefaultHasher,
     ) -> Result<Self> {
-        let doc = Self::read_and_flatten_toml(
-            cfg,
-            &mut hasher,
-            &mut BTreeSet::new(),
-        )?;
+        let doc =
+            read_and_flatten_toml(cfg, &mut hasher, &mut BTreeSet::new())?;
         let cfg_contents = doc.to_string();
 
         let toml: RawConfig = toml::from_str(&cfg_contents)?;
@@ -815,4 +664,312 @@ impl BuildConfig<'_> {
         }
         cmd
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// TOML inheritance wrangling
+//
+// The `toml_edit` crate is great, but it has a major limitation: tables are
+// ordered with a global `position`.  This means that to insert a new table, you
+// have to shift everthing after that table downwards, and adjust relative
+// positions within the new table.
+
+use toml_edit::{visit::Visit, visit_mut::VisitMut};
+
+fn merge_toml_documents(
+    original: &mut toml_edit::Document,
+    mut patches: toml_edit::Document,
+) -> Result<()> {
+    // Find offsets where we need to insert gaps for incoming patches
+    let mut offsets = BTreeMap::new();
+    compute_offsets(original, &patches, &mut offsets)?;
+    assert!(!offsets.contains_key(&0));
+    offsets.insert(0, 0);
+
+    // Convert from single to cumulative offsets.  Since this is in a BTreeMap,
+    // it's already sorted, so we accumulate in a single pass.
+    let mut sum = 0;
+    for i in offsets.values_mut() {
+        let prev = *i;
+        *i += sum;
+        sum += prev;
+    }
+
+    // Apply offsets to our existing document.  This effectively opens up gaps
+    // where we can put the new fields.
+    struct OffsetVisitor<'a> {
+        offsets: &'a BTreeMap<usize, usize>,
+    }
+    impl<'a> VisitMut for OffsetVisitor<'a> {
+        fn visit_table_mut(&mut self, t: &mut toml_edit::Table) {
+            if let Some(pos) = t.position() {
+                let (prev_pos, offset) =
+                    self.offsets.range(0..=pos).rev().next().unwrap();
+                assert!(*prev_pos <= pos); // sanity-checking
+                t.set_position(offset + pos);
+            }
+            self.visit_table_like_mut(t);
+        }
+    }
+    let mut visitor = OffsetVisitor { offsets: &offsets };
+    visitor.visit_document_mut(original);
+
+    // Now that we've opened up gaps, we can splice in the new data
+    merge_toml_tables(original.as_table_mut(), &mut patches)
+}
+
+/// Computes offsets that will be applied when `patches` is merged
+fn compute_offsets(
+    original: &toml_edit::Table,
+    patches: &toml_edit::Table,
+    offsets: &mut BTreeMap<usize, usize>,
+) -> Result<()> {
+    for (k, v) in patches.iter() {
+        if let Some(u) = original.get(k) {
+            if u.type_name() != v.type_name() {
+                bail!(
+                    "type mismatch for '{k}': {} != {}",
+                    u.type_name(),
+                    v.type_name()
+                );
+            }
+            use toml_edit::Item;
+            match u {
+                Item::None | Item::Value(..) => (),
+                Item::Table(u) => {
+                    // Recurse!
+                    compute_offsets(u, v.as_table().unwrap(), offsets)?;
+                }
+                Item::ArrayOfTables(..) => {
+                    let mut visitor = TableRangeVisitor::default();
+                    visitor.visit_item(u);
+                    let range_in = visitor.range.ok_or_else(|| {
+                        anyhow!("cannot append to an empty array of tables")
+                    })?;
+
+                    // Find the range spanned by the incoming tables, which will
+                    // be appended to the list `u`
+                    let mut visitor = TableRangeVisitor::default();
+                    visitor.visit_item(v);
+                    let patch_span = visitor.range.ok_or_else(|| {
+                        anyhow!("cannot append empty array of tables")
+                    })?;
+
+                    // Record the shift here
+                    offsets.insert(range_in.end, patch_span.len());
+                }
+            }
+        } else {
+            // We are going to insert our new values after all of the old values
+            //
+            // First, we need to find the maximum position in our original table
+            let last = table_position_range(original).end;
+
+            // We'll be applying an offset based on the size of the incoming
+            // list of patches (in table positions)
+            let r = table_position_range(patches);
+            offsets.insert(last + 1, r.len());
+        }
+    }
+    Ok(())
+}
+
+/// Accumulates the full range of table positions
+#[derive(Default)]
+struct TableRangeVisitor {
+    range: Option<std::ops::Range<usize>>,
+}
+
+impl<'doc> Visit<'doc> for TableRangeVisitor {
+    fn visit_table(&mut self, t: &'doc toml_edit::Table) {
+        if let Some(pos) = t.position() {
+            self.range = Some(match self.range.take() {
+                Some(r) => r.start.min(pos)..r.end.max(pos + 1),
+                None => pos..pos + 1,
+            });
+        }
+        // call the default implementation to recurse
+        self.visit_table_like(t);
+    }
+}
+
+/// Applies an offset to every table position
+#[derive(Default)]
+struct TableShiftVisitor {
+    offset: isize,
+}
+
+impl VisitMut for TableShiftVisitor {
+    fn visit_table_mut(&mut self, t: &mut toml_edit::Table) {
+        if let Some(pos) = t.position() {
+            let pos: isize = pos.try_into().unwrap();
+            t.set_position((pos + self.offset).try_into().unwrap())
+        }
+        // call the default implementation to recurse
+        self.visit_table_like_mut(t);
+    }
+}
+
+/// Recursively find the position range spanned by tables
+fn table_position_range(t: &toml_edit::Table) -> std::ops::Range<usize> {
+    let mut visitor = TableRangeVisitor::default();
+    visitor.visit_table(t);
+    visitor.range.unwrap()
+}
+
+/// Merges a pair of TOML tables
+///
+/// The incoming `patches` table has its position modified to put it at the end
+/// of the original table.
+fn merge_toml_tables(
+    original: &mut toml_edit::Table,
+    patches: &mut toml_edit::Table,
+) -> Result<()> {
+    for (k, v) in patches.iter_mut() {
+        if let Some(u) = original.get_mut(k.get()) {
+            assert_eq!(u.type_name(), v.type_name()); // already checked
+            use toml_edit::Item;
+            match u {
+                Item::None => bail!("can't patch `None`"),
+                Item::Value(u) => {
+                    // I'm not sure whether it's possible for the Item
+                    // type_name to match and Value type_name to *not*
+                    // match, but better safe than sorry here.
+                    let v = v.as_value().unwrap();
+                    if u.type_name() != v.type_name() {
+                        bail!(
+                            "type mismatch for '{k}': {} != {}",
+                            u.type_name(),
+                            v.type_name()
+                        );
+                    }
+
+                    use toml_edit::Value;
+                    match u {
+                        // Single values replace the previous value
+                        Value::Float(..)
+                        | Value::String(..)
+                        | Value::Integer(..)
+                        | Value::Boolean(..)
+                        | Value::Datetime(..) => *u = v.clone(),
+
+                        // Inline tables are not yet supported, but should be
+                        // merged once we get around to implementing it
+                        Value::InlineTable(..) => {
+                            todo!(
+                                "patching inline tables is not yet implemented"
+                            );
+                        }
+                        // Arrays are extended
+                        Value::Array(u) => {
+                            u.extend(v.as_array().unwrap().iter().cloned());
+                        }
+                    }
+                }
+                Item::Table(u) => {
+                    merge_toml_tables(u, v.as_table_mut().unwrap())?;
+                }
+                Item::ArrayOfTables(arr) => {
+                    // Compute an offset based on table position
+                    let mut visitor = TableRangeVisitor::default();
+                    visitor.visit_array_of_tables(arr);
+                    let range_in = visitor.range.unwrap();
+                    let last = range_in.end;
+
+                    let mut visitor = TableRangeVisitor::default();
+                    visitor.visit_item(v);
+                    let start =
+                        visitor.range.map(|r| r.start as isize).unwrap_or(0);
+                    let offset = last as isize - start as isize;
+
+                    // Apply that offset to the incoming tables
+                    let mut visitor = TableShiftVisitor { offset };
+                    visitor.visit_item_mut(v);
+
+                    // Merge by extending the table array
+                    arr.extend(v.as_array_of_tables().unwrap().iter().cloned());
+                }
+            }
+        } else {
+            let last = table_position_range(original).end;
+
+            let mut visitor = TableRangeVisitor::default();
+            visitor.visit_item(v);
+            let start = visitor.range.map(|r| r.start as isize).unwrap_or(0);
+            let offset = last as isize - start as isize;
+
+            // Apply that offset to the incoming tables
+            let mut visitor = TableShiftVisitor { offset };
+            visitor.visit_item_mut(v);
+
+            // Merge by inserting the new element
+            original.insert(k.get(), v.clone());
+        }
+    }
+    Ok(())
+}
+
+fn read_and_flatten_toml(
+    cfg: &Path,
+    hasher: &mut DefaultHasher,
+    seen: &mut BTreeSet<PathBuf>,
+) -> Result<toml_edit::Document> {
+    // Prevent diamond inheritance
+    if !seen.insert(cfg.to_owned()) {
+        bail!("{cfg:?} is inherited more than once.  Don't do that.");
+    }
+    let cfg_contents = std::fs::read(&cfg)
+        .with_context(|| format!("could not read {}", cfg.display()))?;
+
+    // Accumulate the contents into the buildhash here, so that we hash both
+    // the inheritance file and the target (recursively, if necessary)
+    hasher.write(&cfg_contents);
+
+    let cfg_contents = std::str::from_utf8(&cfg_contents)
+        .context("failed to read manifest as UTF-8")?;
+
+    // Additive TOML file inheritance
+    let mut doc = cfg_contents
+        .parse::<toml_edit::Document>()
+        .context("failed to parse TOML file")?;
+    if let Some(inherited_from) = doc.remove("inherit") {
+        use toml_edit::{Item, Value};
+        let mut original = match inherited_from {
+            // Single inheritance
+            Item::Value(Value::String(s)) => {
+                let file = cfg.parent().unwrap().join(s.value());
+                read_and_flatten_toml(&file, hasher, seen)
+                    .with_context(|| format!("Could not load {file:?}"))?
+            }
+            // Multiple inheritance, applied sequentially
+            Item::Value(Value::Array(a)) => {
+                let mut doc: Option<toml_edit::Document> = None;
+                for a in a.iter() {
+                    if let Value::String(s) = a {
+                        let file = cfg.parent().unwrap().join(s.value());
+                        let next: toml_edit::Document =
+                            read_and_flatten_toml(&file, hasher, seen)
+                                .with_context(|| {
+                                    format!("Could not load {file:?}")
+                                })?;
+                        match doc.as_mut() {
+                            Some(doc) => merge_toml_documents(doc, next)?,
+                            None => doc = Some(next),
+                        }
+                    } else {
+                        bail!("could not inherit from {a}; bad type");
+                    }
+                }
+                doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
+            }
+            v => bail!("could not inherit from {v}; bad type"),
+        };
+
+        // Finally, apply any changes that are local in this file
+        merge_toml_documents(&mut original, doc)?;
+        return Ok(original);
+    }
+
+    // Root, return the document itself
+    Ok(doc)
 }
