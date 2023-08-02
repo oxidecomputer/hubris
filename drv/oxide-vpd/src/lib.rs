@@ -76,9 +76,9 @@ impl<'a> TlvcRead for EepromReader<'a> {
 /// ```
 /// (where `TAG*` are example tags)
 ///
-/// `read_config` should be called with a tag nested under `FRU0` (e.g. `TAG1`
-/// in the example above).  It will deserialize the raw byte array (shown as
-/// `[...]`) into an object of type `V`.
+/// `read_config_from` should be called with a tag nested under `FRU0` (e.g.
+/// `TAG1` in the example above).  It will deserialize the raw byte array (shown
+/// as `[...]`) into an object of type `V`.
 pub fn read_config_from<V: AsBytes + FromBytes>(
     eeprom: At24Csw080,
     tag: [u8; 4],
@@ -104,8 +104,7 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
 ///
 /// To get the second `TAG2`, `&[(*b"TAG1", 0), (*b"TAG2", 1)]`, and so on.
 ///
-/// The `FRU0` root is mandatory.
-///
+/// The `FRU0` root is mandatory, but not included in the `tags` argument.
 pub fn read_config_nested_from<V: AsBytes + FromBytes>(
     eeprom: At24Csw080,
     tags: &[([u8; 4], usize)],
@@ -113,9 +112,9 @@ pub fn read_config_nested_from<V: AsBytes + FromBytes>(
     let mut out = V::new_zeroed();
     let n = read_config_nested_from_into(eeprom, tags, out.as_bytes_mut())?;
 
-    // `read_config_into()` fails if the data is too large for `out`, but will
-    // succeed if it's less than out; we want to guarantee it's exactly the size
-    // of V.
+    // `read_config_nested_from_into(..)` fails if the data is too large for
+    // `out`, but will succeed if it's less than out; we want to guarantee it's
+    // exactly the size of V.
     if n != core::mem::size_of::<V>() {
         return Err(VpdError::InvalidChunkSize);
     }
@@ -125,22 +124,7 @@ pub fn read_config_nested_from<V: AsBytes + FromBytes>(
 
 /// Searches for the given TLV-C tag in the given VPD and reads it
 ///
-/// Returns an error if the tag is not present, the data is too large to fit in
-/// `out`, or any checksum is corrupt.
-///
-/// The data in the EEPROM is assumed to be of the form
-/// ```ron
-/// ("FRU0", [
-///     ("TAG1", [ [...] ]),
-///     ("TAG2", [ [...] ]),
-///     ("TAG3", [ [...] ]),
-/// ])
-/// ```
-/// (where `TAG*` are example tags)
-///
-/// `read_config` should be called with a tag nested under `FRU0` (e.g. `TAG1`
-/// in the example above).  It will copy the raw byte array (shown as
-/// `[...]`) into `out`, returning the number of bytes written.
+/// See [`read_config_from`] docs for details on EEPROM format
 pub fn read_config_from_into(
     eeprom: At24Csw080,
     tag: [u8; 4],
@@ -151,7 +135,7 @@ pub fn read_config_from_into(
 
 /// Searches for a TLV-C tag which may be nested or repeated
 ///
-/// See [`read_config_nested`] for an example of how this can be used
+/// See [`read_config_nested_from`] for docs on how this can be used
 pub fn read_config_nested_from_into(
     eeprom: At24Csw080,
     tag: &[([u8; 4], usize)],
@@ -166,9 +150,10 @@ pub fn read_config_nested_from_into(
     }
 }
 
-/// Implementation factor of `read_config_into` above to ensure that all errors
-/// are recorded. Any error returned from this routine will be put into a
-/// ringbuf by its caller, so it needn't worry about it.
+/// Inner function, without logging
+///
+/// Any error returned from this routine will be put into a ringbuf by its
+/// caller, so we can return them easily with `?`.
 fn read_config_inner(
     eeprom: At24Csw080,
     tags: &[([u8; 4], usize)],
