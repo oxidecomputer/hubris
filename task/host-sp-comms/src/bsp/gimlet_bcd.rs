@@ -60,7 +60,8 @@ impl ServerImpl {
                         else { unreachable!(); };
                     *identity = packrat
                         .get_identity()
-                        .map_err(|_| InventoryDataResult::DeviceAbsent)?;
+                        .map_err(|_| InventoryDataResult::DeviceAbsent)?
+                        .into();
                     Ok(&data)
                 });
             }
@@ -584,7 +585,7 @@ impl ServerImpl {
         self.tx_buf.try_encode_inventory(sequence, name, || {
             let InventoryData::VpdIdentity(identity) = &mut data
                 else { unreachable!(); };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?;
+            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
             Ok(&data)
         })
     }
@@ -617,15 +618,19 @@ impl ServerImpl {
                 vpd_identity,
                 fans: [fan0, fan1, fan2]
             } = &mut data else { unreachable!(); };
-            *identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?;
+            *identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?.into();
             *vpd_identity =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?;
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?
+                    .into();
             *fan0 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?;
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?
+                    .into();
             *fan1 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?;
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?
+                    .into();
             *fan2 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?;
+                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?
+                    .into();
             Ok(&data)
         })
     }

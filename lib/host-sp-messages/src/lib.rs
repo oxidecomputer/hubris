@@ -12,7 +12,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
-use task_sensor_api::SensorId;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -236,13 +235,7 @@ pub enum InventoryData {
     DimmSpd([u8; 512]),
 
     /// Device or board identity, typically stored in a VPD EEPROM
-    VpdIdentity(oxide_barcode::VpdIdentity),
-
-    /// Host-swap controller
-    Max5970 {
-        voltage: [SensorId; 2],
-        current: [SensorId; 2],
-    },
+    VpdIdentity(Identity),
 
     /// 128-bit serial number baked into every AT24CSW EEPROM
     At24csw08xSerial([u8; 16]),
@@ -327,11 +320,11 @@ pub enum InventoryData {
     /// Fan subassembly identity
     FanIdentity {
         /// Identity of the fan assembly
-        identity: oxide_barcode::VpdIdentity,
+        identity: Identity,
         /// Identity of the VPD board within the subassembly
-        vpd_identity: oxide_barcode::VpdIdentity,
+        vpd_identity: Identity,
         /// Identity of the individual fans
-        fans: [oxide_barcode::VpdIdentity; 3],
+        fans: [Identity; 3],
     },
 
     Adm1272 {
