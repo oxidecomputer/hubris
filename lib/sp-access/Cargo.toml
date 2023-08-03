@@ -1,0 +1,17 @@
+[package]
+name = "sp-access"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+abi = {path = "../../sys/abi"}
+serde = { version = "1.0.114", default-features = false }
+ssmarshal = { version = "1.0.0", default-features = false }
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+num-derive = "0.3.0"
+drv-sp-ctrl-api = {path = "../../drv/sp-ctrl-api"}
+
+[lib]
+test = false
+bench = false

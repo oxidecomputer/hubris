@@ -3646,6 +3646,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-access"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "drv-sp-ctrl-api",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "zerocopy",
+]
+
+[[package]]
 name = "spd"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
@@ -4393,6 +4406,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha3",
+ "sp-access",
  "userlib",
 ]
 

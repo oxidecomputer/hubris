@@ -22,4 +22,25 @@ pub enum SpCtrlError {
     ServerRestarted,
 }
 
+impl SpCtrl {
+    pub fn write_word_32(
+        &self,
+        addr: u32,
+        val: u32,
+    ) -> Result<(), SpCtrlError> {
+        self.write(addr, &val.to_le_bytes())
+    }
+
+    pub fn read_word_32(&self, addr: u32) -> Result<u32, SpCtrlError> {
+        let mut bytes: [u8; 4] = [0; 4];
+
+        match self.read(addr, &mut bytes) {
+            Err(e) => return Err(e),
+            _ => (),
+        }
+
+        Ok(u32::from_le_bytes(bytes))
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
