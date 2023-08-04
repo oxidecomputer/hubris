@@ -107,7 +107,7 @@ impl GimletData {
     }
 
     pub(crate) fn get_spd_present(
-        &mut self,
+        &self,
         index: usize,
     ) -> Result<bool, RequestError<Infallible>> {
         self.spd_present
@@ -117,12 +117,33 @@ impl GimletData {
     }
 
     pub(crate) fn get_spd_data(
-        &mut self,
+        &self,
         index: usize,
     ) -> Result<u8, RequestError<Infallible>> {
         self.spd_data
             .get(index)
             .copied()
             .ok_or(RequestError::Fail(ClientError::BadMessageContents))
+    }
+
+    pub(crate) fn get_full_spd_data(
+        &self,
+        dev: usize,
+        out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
+    ) -> Result<(), RequestError<Infallible>> {
+        if out.len() != spd::MAX_SIZE {
+            Err(RequestError::Fail(idol_runtime::ClientError::BadLease))
+        } else if let Some(s) = self
+            .spd_data
+            .get((dev * spd::MAX_SIZE)..((dev + 1) * spd::MAX_SIZE))
+        {
+            out.write_range(0..spd::MAX_SIZE, s)
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            Ok(())
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
     }
 }

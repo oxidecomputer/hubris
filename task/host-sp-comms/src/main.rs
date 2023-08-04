@@ -33,8 +33,21 @@ use userlib::{
     hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
 };
 
-mod tx_buf;
+mod inventory;
+use inventory::INVENTORY_API_VERSION;
 
+#[cfg_attr(
+    any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d"
+    ),
+    path = "bsp/gimlet_bcd.rs"
+)]
+#[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
+mod bsp;
+
+mod tx_buf;
 use tx_buf::TxBuf;
 
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
@@ -744,6 +757,15 @@ impl ServerImpl {
                 }
                 Err(err) => Some(SpToHost::KeyLookupResult(err)),
             },
+            HostToSp::GetInventoryData { index } => {
+                match self.perform_inventory_lookup(header.sequence, index) {
+                    Ok(()) => None,
+                    Err(err) => Some(SpToHost::InventoryData {
+                        result: err,
+                        name: [0; 32],
+                    }),
+                }
+            }
         };
 
         if let Some(response) = response {
@@ -782,13 +804,9 @@ impl ServerImpl {
     ) -> Result<(), KeyLookupResult> {
         let key = Key::from_u8(key).ok_or(KeyLookupResult::InvalidKey)?;
 
-        match key {
+        let response_len = match key {
             Key::Ping => {
                 const PONG: &[u8] = b"pong";
-
-                if max_response_len < PONG.len() {
-                    return Err(KeyLookupResult::MaxResponseLenTooShort);
-                }
 
                 self.tx_buf.encode_response(
                     sequence,
@@ -798,6 +816,7 @@ impl ServerImpl {
                         PONG.len()
                     },
                 );
+                PONG.len()
             }
             Key::InstallinatorImageId => {
                 // Borrow `cp_agent` to avoid borrowing `self` in the closure
@@ -847,11 +866,33 @@ impl ServerImpl {
                 if response_len == 0 {
                     self.tx_buf.reset();
                     return Err(KeyLookupResult::NoValueForKey);
-                } else if response_len > max_response_len {
-                    self.tx_buf.reset();
-                    return Err(KeyLookupResult::MaxResponseLenTooShort);
                 }
+                response_len
             }
+            Key::InventorySize => {
+                // We reply with a tuple of count, API version:
+                const REPLY: (u32, u32) =
+                    (ServerImpl::INVENTORY_COUNT, INVENTORY_API_VERSION);
+                let mut response_len = 0;
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        const_assert!(
+                            MIN_SP_TO_HOST_FILL_DATA_LEN
+                                >= core::mem::size_of::<u32>() * 2
+                        );
+                        response_len =
+                            hubpack::serialize(buf, &REPLY).unwrap_lite();
+                        response_len
+                    },
+                );
+                response_len
+            }
+        };
+        if response_len > max_response_len {
+            self.tx_buf.reset();
+            return Err(KeyLookupResult::MaxResponseLenTooShort);
         }
 
         Ok(())

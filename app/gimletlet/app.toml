@@ -121,11 +121,11 @@ task-slots = ["sys"]
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
-uses = ["uart7"]
+uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
-max-sizes = {flash = 32768, ram = 32768}
-stacksize = 2048
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 4096
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
 notifications = [

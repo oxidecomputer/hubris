@@ -11,7 +11,7 @@ use hubpack::SerializedSize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use static_assertions::const_assert_eq;
+use static_assertions::{const_assert, const_assert_eq};
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -107,6 +107,9 @@ pub enum HostToSp {
         key: u8,
         max_response_len: u16,
     },
+    GetInventoryData {
+        index: u32,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -152,6 +155,12 @@ pub enum SpToHost {
     // blob of length at most `max_response_len` from the corresponding request.
     // For any other result, there is no subsequent binary blob.
     KeyLookupResult(KeyLookupResult),
+    // If `result` is `InventoryDataResult::Ok`, this will be followed by a
+    // binary blob of a hubpack-serialized `InventoryData` value.
+    InventoryData {
+        result: InventoryDataResult,
+        name: [u8; 32],
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -159,6 +168,8 @@ pub enum Key {
     // Always sends back b"pong".
     Ping,
     InstallinatorImageId,
+    /// Returns the max inventory size and version
+    InventorySize,
 }
 
 #[derive(
@@ -175,6 +186,182 @@ pub enum KeyLookupResult {
     MaxResponseLenTooShort,
 }
 
+/// Results for an inventory data request
+///
+/// These **cannot be reordered**; the host and SP must agree on them.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum InventoryDataResult {
+    Ok,
+    /// The given index is larger than our device count
+    InvalidIndex,
+    /// Communication with the device failed in a way that suggests its absence
+    DeviceAbsent,
+    /// Communication with the device failed in some other way
+    DeviceFailed,
+    /// Failed to serialize data
+    SerializationError,
+}
+
+impl From<HubpackError> for InventoryDataResult {
+    fn from(_: HubpackError) -> Self {
+        Self::SerializationError
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl From<drv_i2c_api::ResponseCode> for InventoryDataResult {
+    fn from(e: drv_i2c_api::ResponseCode) -> Self {
+        match e {
+            drv_i2c_api::ResponseCode::NoDevice => {
+                InventoryDataResult::DeviceAbsent
+            }
+            _ => InventoryDataResult::DeviceFailed,
+        }
+    }
+}
+
+/// Data payload for an inventory data request
+///
+/// These **cannot be reordered**; the host and SP must agree on them.  New
+/// variants may be added to the end, and existing variants may be extended with
+/// new data (at the end), but no changes should be made to existing bytes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum InventoryData {
+    /// Raw DIMM data
+    #[serde(with = "BigArray")]
+    DimmSpd([u8; 512]),
+
+    /// Device or board identity, typically stored in a VPD EEPROM
+    VpdIdentity(Identity),
+
+    /// 128-bit serial number baked into every AT24CSW EEPROM
+    At24csw08xSerial([u8; 16]),
+
+    /// STM32H7 UID information
+    Stm32H7 {
+        /// 96-bit unique identifier
+        uid: [u32; 3],
+        /// Revision ID (`REV_ID`) from `DBGMCU_IDC`
+        dbgmcu_rev_id: u16,
+        /// Device ID (`DEV_ID`) from `DBGMCU_IDC`
+        dbgmcu_dev_id: u16,
+    },
+
+    /// BMR491 IBC
+    Bmr491 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 12],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 20],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 12],
+        /// MFR_LOCATION (PMBus operation 0x9C)
+        mfr_location: [u8; 12],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 12],
+        /// MFR_SERIAL, PMBus operation 0x9E
+        mfr_serial: [u8; 20],
+        /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
+        mfr_firmware_data: [u8; 20],
+    },
+
+    /// ISL68224 power converters
+    Isl68224 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
+    },
+
+    /// RAA229618 power converter
+    Raa229618 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
+    },
+
+    Tps546b24a {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 3],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 3],
+        /// MFR_SERIAL, PMBus operation 0x9E
+        mfr_serial: [u8; 3],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 6],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 2],
+        /// NVM_CHECKSUM, PMBus operation 0xF0
+        nvm_checksum: u16,
+    },
+
+    /// Fan subassembly identity
+    FanIdentity {
+        /// Identity of the fan assembly
+        identity: Identity,
+        /// Identity of the VPD board within the subassembly
+        vpd_identity: Identity,
+        /// Identity of the individual fans
+        fans: [Identity; 3],
+    },
+
+    Adm1272 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 10],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 2],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 6],
+    },
+
+    Tmp117 {
+        /// Device ID (register 0x0F)
+        id: u16,
+        /// 48-bit NIST traceability data
+        eeprom1: u16,
+        eeprom2: u16,
+        eeprom3: u16,
+    },
+
+    Idt8a34003 {
+        hw_rev: u8,
+        major_rel: u8,
+        minor_rel: u8,
+        hotfix_rel: u8,
+        product_id: u16,
+    },
+
+    Ksz8463 {
+        /// Contents of the CIDER register
+        cider: u16,
+    },
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -184,6 +371,25 @@ pub struct Identity {
     pub revision: u32,
     #[serde(with = "BigArray")]
     pub serial: [u8; Identity::SERIAL_LEN],
+}
+
+impl From<oxide_barcode::VpdIdentity> for Identity {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        // The Host/SP protocol has larger fields for model/serial than we
+        // use currently; statically assert that we haven't outgrown them.
+        const_assert!(
+            oxide_barcode::VpdIdentity::PART_NUMBER_LEN <= Identity::MODEL_LEN
+        );
+        const_assert!(
+            oxide_barcode::VpdIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
+        );
+
+        let mut new_id = Self::default();
+        new_id.model[..id.part_number.len()].copy_from_slice(&id.part_number);
+        new_id.revision = id.revision;
+        new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
+        new_id
+    }
 }
 
 impl Default for Identity {
@@ -345,6 +551,10 @@ impl From<HostStartupOptions> for gateway_messages::StartupOptions {
 /// where `data` is provided by the `fill_data` closure, which should populate
 /// the slice it's given and return the length of data written to that slice.
 ///
+/// If the callback fails, then serialize its result (instead of `command`)
+/// immediately after `header`.  These are the same type, meaning the size
+/// checks still applies.
+///
 /// On success, returns the length of the message serialized into `out`.
 ///
 /// # Errors
@@ -357,16 +567,18 @@ impl From<HostStartupOptions> for gateway_messages::StartupOptions {
 ///
 /// Panics if `fill_data` returns a size greater than the length of the slice it
 /// was given.
-pub fn serialize<F>(
+pub fn try_serialize<F, S>(
     out: &mut [u8; MAX_MESSAGE_SIZE],
     header: &Header,
-    command: &impl Serialize,
+    command: &S,
     fill_data: F,
 ) -> Result<usize, HubpackError>
 where
-    F: FnOnce(&mut [u8]) -> usize,
+    F: FnOnce(&mut [u8]) -> Result<usize, S>,
+    S: Serialize,
 {
-    let mut n = hubpack::serialize(out, header)?;
+    let header_len = hubpack::serialize(out, header)?;
+    let mut n = header_len;
 
     // We know `Header::MAX_SIZE` is much smaller than out.len(), so this
     // subtraction can't underflow. We don't know how big `command` will be, but
@@ -377,9 +589,16 @@ where
 
     n += hubpack::serialize(&mut out[n..out_data_end], command)?;
 
-    let data_this_message = fill_data(&mut out[n..out_data_end]);
-    assert!(data_this_message <= out_data_end - n);
-    n += data_this_message;
+    match fill_data(&mut out[n..out_data_end]) {
+        Ok(data_this_message) => {
+            assert!(data_this_message <= out_data_end - n);
+            n += data_this_message;
+        }
+        Err(e) => {
+            n = header_len;
+            n += hubpack::serialize(&mut out[n..out_data_end], &e)?;
+        }
+    }
 
     // Compute checksum over the full message.
     let checksum = fletcher::calc_fletcher16(&out[..n]);
@@ -387,6 +606,18 @@ where
     n += CHECKSUM_SIZE;
 
     Ok(n)
+}
+
+pub fn serialize<F>(
+    out: &mut [u8; MAX_MESSAGE_SIZE],
+    header: &Header,
+    command: &impl Serialize,
+    fill_data: F,
+) -> Result<usize, HubpackError>
+where
+    F: FnOnce(&mut [u8]) -> usize,
+{
+    try_serialize(out, header, command, |buf| Ok(fill_data(buf)))
 }
 
 /// Deserializes a response packet containing
@@ -464,6 +695,7 @@ mod tests {
                     max_response_len: 0,
                 },
             ),
+            (0x0f, HostToSp::GetInventoryData { index: 0 }),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -502,11 +734,247 @@ mod tests {
             (0x08, SpToHost::RotResponse),
             (0x09, SpToHost::Phase2Data),
             (0x0a, SpToHost::KeyLookupResult(KeyLookupResult::Ok)),
+            (
+                0x0b,
+                SpToHost::InventoryData {
+                    result: InventoryDataResult::Ok,
+                    name: [0u8; 32],
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
             assert_eq!(expected_cmd, buf[0]);
         }
+    }
+
+    #[test]
+    fn inventory_data_result_values() {
+        let mut buf = [0; InventoryDataResult::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x0, InventoryDataResult::Ok),
+            (0x1, InventoryDataResult::InvalidIndex),
+            (0x2, InventoryDataResult::DeviceAbsent),
+            (0x3, InventoryDataResult::DeviceFailed),
+            (0x4, InventoryDataResult::SerializationError),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n <= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
+
+    #[test]
+    fn inventory_data() {
+        let mut v = [0; 512];
+        v[0..5].copy_from_slice(&[1, 2, 3, 4, 123]);
+        let d = InventoryData::DimmSpd(v);
+
+        let mut buf = [0; InventoryData::MAX_SIZE];
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 513);
+        assert_eq!(buf[0], 0); // discriminant
+        assert_eq!(buf[1..n], v);
+
+        let i = Identity {
+            model: [
+                1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            revision: 123,
+            serial: [
+                5, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        };
+        let d = InventoryData::VpdIdentity(i);
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 107);
+        assert_eq!(buf[0], 1); // discriminant
+        assert_eq!(&buf[1..52], &i.model);
+        assert_eq!(&buf[52..56], [123, 0, 0, 0]);
+        assert_eq!(&buf[56..107], &i.serial);
+
+        let i = [1, 2, 3, 4, 5, 6, 7, 8, 0, 10, 32, 12, 43, 55, 128, 255];
+        let d = InventoryData::At24csw08xSerial(i);
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(buf[0], 2); // discriminant
+        assert_eq!(&buf[1..n], &i);
+
+        let d = InventoryData::Stm32H7 {
+            uid: [0xabcdef, 1, 0x10000000],
+            dbgmcu_rev_id: 0xaabb,
+            dbgmcu_dev_id: 0xccdd,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(
+            buf[..n],
+            [
+                3, 0xef, 0xcd, 0xab, 0, 1, 0, 0, 0, 0, 0, 0, 0x10, 0xbb, 0xaa,
+                0xdd, 0xcc
+            ]
+        );
+
+        let d = InventoryData::Bmr491 {
+            mfr_id: [1, 2, 3, 4, 5, 4, 3, 2, 1, 9, 9, 9],
+            mfr_model: [
+                37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37,
+                37, 37, 37, 37,
+            ],
+            mfr_revision: [89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 89],
+            mfr_location: [1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6],
+            mfr_date: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1],
+            mfr_serial: *b"there are sooo many ",
+            mfr_firmware_data: *b"fields in this thing",
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 109);
+        assert_eq!(
+            buf[..n],
+            [
+                4, 1, 2, 3, 4, 5, 4, 3, 2, 1, 9, 9, 9, 37, 37, 37, 37, 37, 37,
+                37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 89, 89,
+                89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 1, 2, 3, 4, 5, 6, 7, 8,
+                9, 8, 7, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 116, 104, 101,
+                114, 101, 32, 97, 114, 101, 32, 115, 111, 111, 111, 32, 109,
+                97, 110, 121, 32, 102, 105, 101, 108, 100, 115, 32, 105, 110,
+                32, 116, 104, 105, 115, 32, 116, 104, 105, 110, 103
+            ]
+        );
+
+        let d = InventoryData::Isl68224 {
+            mfr_id: [1, 2, 3, 4],
+            mfr_model: [9, 8, 7, 6],
+            mfr_revision: [0, 10, 0, 15],
+            mfr_date: [24, 25, 26, 27],
+            ic_device_id: [50, 51, 52, 53],
+            ic_device_rev: [60, 61, 62, 63],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 25);
+        assert_eq!(
+            buf[..n],
+            [
+                5, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
+                51, 52, 53, 60, 61, 62, 63
+            ]
+        );
+
+        let d = InventoryData::Raa229618 {
+            mfr_id: [1, 2, 3, 4],
+            mfr_model: [9, 8, 7, 6],
+            mfr_revision: [0, 10, 0, 15],
+            mfr_date: [24, 25, 26, 27],
+            ic_device_id: [50, 51, 52, 53],
+            ic_device_rev: [60, 61, 62, 63],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 25);
+        assert_eq!(
+            buf[..n],
+            [
+                6, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
+                51, 52, 53, 60, 61, 62, 63
+            ]
+        );
+
+        let d = InventoryData::Tps546b24a {
+            mfr_id: [1, 2, 3],
+            mfr_model: [9, 8, 7],
+            mfr_revision: [0, 10, 0],
+            mfr_serial: [24, 25, 26],
+            ic_device_id: [50, 51, 52, 53, 54, 55],
+            ic_device_rev: [60, 61],
+            nvm_checksum: 0xaabb,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 23);
+        assert_eq!(
+            buf[..n],
+            [
+                7, 1, 2, 3, 9, 8, 7, 0, 10, 0, 24, 25, 26, 50, 51, 52, 53, 54,
+                55, 60, 61, 0xbb, 0xaa
+            ]
+        );
+
+        let i = Identity {
+            model: [
+                1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            revision: 123,
+            serial: [
+                5, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        };
+        let d = InventoryData::FanIdentity {
+            identity: i,
+            vpd_identity: i,
+            fans: [i; 3],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 531);
+        assert_eq!(buf[0], 8);
+        let mut b = &buf[1..];
+        while b.is_empty() {
+            assert_eq!(&b[0..51], i.model);
+            assert_eq!(&b[51..55], [123, 0, 0, 0]);
+            assert_eq!(&b[55..106], i.serial);
+            b = &b[106..];
+        }
+
+        let d = InventoryData::Adm1272 {
+            mfr_id: [1, 2, 3],
+            mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+            mfr_revision: [0, 10],
+            mfr_date: [10, 20, 30, 40, 50, 60],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 22);
+        assert_eq!(
+            &buf[..n],
+            [
+                9, 1, 2, 3, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 10, 10, 20, 30,
+                40, 50, 60
+            ]
+        );
+
+        let d = InventoryData::Tmp117 {
+            id: 0xaabb,
+            eeprom1: 0x1234,
+            eeprom2: 0x5678,
+            eeprom3: 0xabcd,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 9);
+        assert_eq!(
+            &buf[..n],
+            [10, 0xbb, 0xaa, 0x34, 0x12, 0x78, 0x56, 0xcd, 0xab]
+        );
+
+        let d = InventoryData::Idt8a34003 {
+            hw_rev: 1,
+            major_rel: 100,
+            minor_rel: 200,
+            hotfix_rel: 255,
+            product_id: 0xaabc,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 7);
+        assert_eq!(&buf[..n], [11, 1, 100, 200, 255, 0xbc, 0xaa]);
+
+        let d = InventoryData::Ksz8463 { cider: 0x1234 };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 3);
+        assert_eq!(&buf[..n], [12, 0x34, 0x12])
     }
 
     #[test]

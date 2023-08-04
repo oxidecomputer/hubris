@@ -4,16 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bitflags = { workspace = true }
-fletcher = { workspace = true }
-gateway-messages = { workspace = true }
-hubpack = { workspace = true }
-num-derive = { workspace = true }
-num-traits = { workspace = true }
-serde = { workspace = true }
-serde-big-array = { workspace = true }
-serde_repr = { workspace = true }
-static_assertions = { workspace = true }
-zerocopy = { workspace = true }
+bitflags.workspace = true
+fletcher.workspace = true
+gateway-messages.workspace = true
+hubpack.workspace = true
+num-derive.workspace = true
+num-traits.workspace = true
+serde-big-array.workspace = true
+serde.workspace = true
+serde_repr.workspace = true
+static_assertions.workspace = true
+zerocopy.workspace = true
 
-unwrap-lite = { path = "../unwrap-lite" }
+oxide-barcode.path = "../oxide-barcode"
+unwrap-lite.path = "../unwrap-lite"
+
+# to implement From<ResponseCode>, which is used in the embedded system but not
+# when running tests on the host
+drv-i2c-api = { path = "../../drv/i2c-api", optional = true }
+
+[features]
+i2c = ["drv-i2c-api"]
