@@ -24,13 +24,5 @@ Interface(
                 err: CLike("HostSpCommsError"),
             ),
         ),
-        "get_inventory": (
-            doc: "reads a single inventory result",
-            args: {
-                "index": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
     },
 )
