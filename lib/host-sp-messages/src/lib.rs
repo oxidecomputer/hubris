@@ -210,7 +210,7 @@ impl From<HubpackError> for InventoryDataResult {
     }
 }
 
-#[cfg(no_std)]
+#[cfg(feature = "i2c")]
 impl From<drv_i2c_api::ResponseCode> for InventoryDataResult {
     fn from(e: drv_i2c_api::ResponseCode) -> Self {
         match e {

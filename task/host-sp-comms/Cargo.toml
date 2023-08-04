@@ -29,7 +29,7 @@ mutable-statics.path= "../../lib/mutable-statics"
 oxide-barcode.path = "../../lib/oxide-barcode"
 ringbuf.path= "../../lib/ringbuf"
 task-control-plane-agent-api.path= "../control-plane-agent-api"
-task-host-sp-comms-api.path= "../host-sp-comms-api"
+task-host-sp-comms-api = { path = "../host-sp-comms-api", features = ["i2c"] }
 task-net-api.path= "../net-api"
 task-packrat-api.path= "../packrat-api"
 userlib.path= "../../sys/userlib"
