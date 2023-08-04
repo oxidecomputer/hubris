@@ -296,11 +296,11 @@ impl ServerImpl {
 
             45..=49 => {
                 const TABLE: [(&[u8], fn(TaskId) -> I2cDevice); 5] = [
-                    (b"u522", i2c_config::devices::tps546b24a_v3p3_sp_a2),
-                    (b"u560", i2c_config::devices::tps546b24a_v3p3_sys_a0),
-                    (b"u524", i2c_config::devices::tps546b24a_v5p0_sys_a2),
-                    (b"u561", i2c_config::devices::tps546b24a_v1p8_sys_a2),
-                    (b"u565", i2c_config::devices::tps546b24a_v0p96_nic),
+                    (b"U522", i2c_config::devices::tps546b24a_v3p3_sp_a2),
+                    (b"U560", i2c_config::devices::tps546b24a_v3p3_sys_a0),
+                    (b"U524", i2c_config::devices::tps546b24a_v5p0_sys_a2),
+                    (b"U561", i2c_config::devices::tps546b24a_v1p8_sys_a2),
+                    (b"U565", i2c_config::devices::tps546b24a_v0p96_nic),
                 ];
                 let (name, f) = TABLE[(index - 45) as usize];
 
@@ -513,7 +513,7 @@ impl ServerImpl {
     fn dimm_inventory_lookup(&mut self, sequence: u64, index: u32) {
         // Build a name of the form `m{index}`, to match the designator
         let mut name = [0; 32];
-        name[0] = b'm';
+        name[0] = b'M';
         if index >= 10 {
             name[1] = b'0' + (index / 10) as u8;
             name[2] = b'0' + (index % 10) as u8;
