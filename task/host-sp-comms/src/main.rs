@@ -873,6 +873,7 @@ impl ServerImpl {
                 // We reply with a tuple of count, API version:
                 const REPLY: (u32, u32) =
                     (ServerImpl::INVENTORY_COUNT, INVENTORY_API_VERSION);
+                let mut response_len = 0;
                 self.tx_buf.encode_response(
                     sequence,
                     &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
@@ -881,10 +882,12 @@ impl ServerImpl {
                             MIN_SP_TO_HOST_FILL_DATA_LEN
                                 >= core::mem::size_of::<u32>() * 2
                         );
-                        hubpack::serialize(buf, &REPLY).unwrap_lite()
+                        response_len =
+                            hubpack::serialize(buf, &REPLY).unwrap_lite();
+                        response_len
                     },
                 );
-                core::mem::size_of_val(&REPLY)
+                response_len
             }
         };
         if response_len > max_response_len {
