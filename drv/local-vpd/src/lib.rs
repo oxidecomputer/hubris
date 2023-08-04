@@ -46,7 +46,8 @@ pub fn read_config<V: AsBytes + FromBytes>(
 
 /// Searches for the given TLV-C tag in the local VPD and reads it
 ///
-/// Calls into [`read_config_from_into`]; see details in that docstring
+/// Calls into [`drv_oxide_vpd::read_config_from_into`]; see details in that
+/// docstring
 pub fn read_config_into(
     i2c_task: TaskId,
     tag: [u8; 4],
