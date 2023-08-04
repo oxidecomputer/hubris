@@ -122,7 +122,6 @@ impl ServerImpl {
                 let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(sequence, &name, f, &mut data)
             }
-            // TODO: Sharkfin HSC?
             40 => {
                 // U12: the service processor itself
                 // The UID is readable by stm32xx_sys
@@ -559,7 +558,6 @@ impl ServerImpl {
             let InventoryData::At24csw08xSerial(id) = data
                 else { unreachable!(); };
             for (i, b) in id.iter_mut().enumerate() {
-                // TODO: add an API to make this a single IPC call?
                 *b = dev.read_security_register_byte(i as u8).map_err(|e| {
                     match e {
                         EepromError::I2cError(ResponseCode::NoDevice) => {
@@ -668,7 +666,6 @@ fn read_one_barcode(
                 ResponseCode::NoDevice,
             )) =>
         {
-            // TODO: ringbuf logging here?
             Err(InventoryDataResult::DeviceAbsent)
         }
         Err(..) => Err(InventoryDataResult::DeviceFailed),
