@@ -18,10 +18,4 @@ zerocopy.workspace = true
 
 oxide-barcode.path = "../oxide-barcode"
 unwrap-lite.path = "../unwrap-lite"
-
-# to implement From<ResponseCode>, which is used in the embedded system but not
-# when running tests on the host
-drv-i2c-api = { path = "../../drv/i2c-api", optional = true }
-
-[features]
-i2c = ["drv-i2c-api"]
+drv-i2c-types.path = "../../drv/i2c-types" # to implement From<ResponseCode>

@@ -4,15 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = { workspace = true }
-zerocopy = { workspace = true }
-hubpack = { workspace = true }
-serde = { workspace = true }
-enum-kinds = { workspace = true }
+zerocopy.workspace = true
 
-derive-idol-err = { path = "../../lib/derive-idol-err" }
-ringbuf = { path = "../../lib/ringbuf" }
-userlib = { path = "../../sys/userlib" }
+drv-i2c-types.path = "../i2c-types"
+userlib.path = "../../sys/userlib"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
