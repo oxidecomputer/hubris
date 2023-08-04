@@ -749,6 +749,235 @@ mod tests {
     }
 
     #[test]
+    fn inventory_data_result_values() {
+        let mut buf = [0; InventoryDataResult::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x0, InventoryDataResult::Ok),
+            (0x1, InventoryDataResult::InvalidIndex),
+            (0x2, InventoryDataResult::DeviceAbsent),
+            (0x3, InventoryDataResult::DeviceFailed),
+            (0x4, InventoryDataResult::SerializationError),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n <= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
+
+    #[test]
+    fn inventory_data() {
+        let mut v = [0; 512];
+        v[0..5].copy_from_slice(&[1, 2, 3, 4, 123]);
+        let d = InventoryData::DimmSpd(v);
+
+        let mut buf = [0; InventoryData::MAX_SIZE];
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 513);
+        assert_eq!(buf[0], 0); // discriminant
+        assert_eq!(buf[1..n], v);
+
+        let i = Identity {
+            model: [
+                1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            revision: 123,
+            serial: [
+                5, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        };
+        let d = InventoryData::VpdIdentity(i);
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 107);
+        assert_eq!(buf[0], 1); // discriminant
+        assert_eq!(&buf[1..52], &i.model);
+        assert_eq!(&buf[52..56], [123, 0, 0, 0]);
+        assert_eq!(&buf[56..107], &i.serial);
+
+        let i = [1, 2, 3, 4, 5, 6, 7, 8, 0, 10, 32, 12, 43, 55, 128, 255];
+        let d = InventoryData::At24csw08xSerial(i);
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(buf[0], 2); // discriminant
+        assert_eq!(&buf[1..n], &i);
+
+        let d = InventoryData::Stm32H7 {
+            uid: [0xabcdef, 1, 0x10000000],
+            dbgmcu_rev_id: 0xaabb,
+            dbgmcu_dev_id: 0xccdd,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(
+            buf[..n],
+            [
+                3, 0xef, 0xcd, 0xab, 0, 1, 0, 0, 0, 0, 0, 0, 0x10, 0xbb, 0xaa,
+                0xdd, 0xcc
+            ]
+        );
+
+        let d = InventoryData::Bmr491 {
+            mfr_id: [1, 2, 3, 4, 5, 4, 3, 2, 1, 9, 9, 9],
+            mfr_model: [
+                37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37,
+                37, 37, 37, 37,
+            ],
+            mfr_revision: [89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 89],
+            mfr_location: [1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6],
+            mfr_date: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1],
+            mfr_serial: *b"there are sooo many ",
+            mfr_firmware_data: *b"fields in this thing",
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 109);
+        assert_eq!(
+            buf[..n],
+            [
+                4, 1, 2, 3, 4, 5, 4, 3, 2, 1, 9, 9, 9, 37, 37, 37, 37, 37, 37,
+                37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 89, 89,
+                89, 89, 89, 89, 89, 89, 89, 89, 89, 89, 1, 2, 3, 4, 5, 6, 7, 8,
+                9, 8, 7, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 116, 104, 101,
+                114, 101, 32, 97, 114, 101, 32, 115, 111, 111, 111, 32, 109,
+                97, 110, 121, 32, 102, 105, 101, 108, 100, 115, 32, 105, 110,
+                32, 116, 104, 105, 115, 32, 116, 104, 105, 110, 103
+            ]
+        );
+
+        let d = InventoryData::Isl68224 {
+            mfr_id: [1, 2, 3, 4],
+            mfr_model: [9, 8, 7, 6],
+            mfr_revision: [0, 10, 0, 15],
+            mfr_date: [24, 25, 26, 27],
+            ic_device_id: [50, 51, 52, 53],
+            ic_device_rev: [60, 61, 62, 63],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 25);
+        assert_eq!(
+            buf[..n],
+            [
+                5, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
+                51, 52, 53, 60, 61, 62, 63
+            ]
+        );
+
+        let d = InventoryData::Raa229618 {
+            mfr_id: [1, 2, 3, 4],
+            mfr_model: [9, 8, 7, 6],
+            mfr_revision: [0, 10, 0, 15],
+            mfr_date: [24, 25, 26, 27],
+            ic_device_id: [50, 51, 52, 53],
+            ic_device_rev: [60, 61, 62, 63],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 25);
+        assert_eq!(
+            buf[..n],
+            [
+                6, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
+                51, 52, 53, 60, 61, 62, 63
+            ]
+        );
+
+        let d = InventoryData::Tps546b24a {
+            mfr_id: [1, 2, 3],
+            mfr_model: [9, 8, 7],
+            mfr_revision: [0, 10, 0],
+            mfr_serial: [24, 25, 26],
+            ic_device_id: [50, 51, 52, 53, 54, 55],
+            ic_device_rev: [60, 61],
+            nvm_checksum: 0xaabb,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 23);
+        assert_eq!(
+            buf[..n],
+            [
+                7, 1, 2, 3, 9, 8, 7, 0, 10, 0, 24, 25, 26, 50, 51, 52, 53, 54,
+                55, 60, 61, 0xbb, 0xaa
+            ]
+        );
+
+        let i = Identity {
+            model: [
+                1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            revision: 123,
+            serial: [
+                5, 6, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        };
+        let d = InventoryData::FanIdentity {
+            identity: i,
+            vpd_identity: i,
+            fans: [i; 3],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 531);
+        assert_eq!(buf[0], 8);
+        let mut b = &buf[1..];
+        while b.is_empty() {
+            assert_eq!(&b[0..51], i.model);
+            assert_eq!(&b[51..55], [123, 0, 0, 0]);
+            assert_eq!(&b[55..106], i.serial);
+            b = &b[106..];
+        }
+
+        let d = InventoryData::Adm1272 {
+            mfr_id: [1, 2, 3],
+            mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+            mfr_revision: [0, 10],
+            mfr_date: [10, 20, 30, 40, 50, 60],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 22);
+        assert_eq!(
+            &buf[..n],
+            [
+                9, 1, 2, 3, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 10, 10, 20, 30,
+                40, 50, 60
+            ]
+        );
+
+        let d = InventoryData::Tmp117 {
+            id: 0xaabb,
+            eeprom1: 0x1234,
+            eeprom2: 0x5678,
+            eeprom3: 0xabcd,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 9);
+        assert_eq!(
+            &buf[..n],
+            [10, 0xbb, 0xaa, 0x34, 0x12, 0x78, 0x56, 0xcd, 0xab]
+        );
+
+        let d = InventoryData::Idt8a34003 {
+            hw_rev: 1,
+            major_rel: 100,
+            minor_rel: 200,
+            hotfix_rel: 255,
+            product_id: 0xaabc,
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 7);
+        assert_eq!(&buf[..n], [11, 1, 100, 200, 255, 0xbc, 0xaa]);
+
+        let d = InventoryData::Ksz8463 { cider: 0x1234 };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 3);
+        assert_eq!(&buf[..n], [12, 0x34, 0x12])
+    }
+
+    #[test]
     fn roundtrip() {
         let header = Header {
             magic: MAGIC,
