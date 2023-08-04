@@ -695,6 +695,7 @@ mod tests {
                     max_response_len: 0,
                 },
             ),
+            (0x0f, HostToSp::GetInventoryData { index: 0 }),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -733,6 +734,13 @@ mod tests {
             (0x08, SpToHost::RotResponse),
             (0x09, SpToHost::Phase2Data),
             (0x0a, SpToHost::KeyLookupResult(KeyLookupResult::Ok)),
+            (
+                0x0b,
+                SpToHost::InventoryData {
+                    result: InventoryDataResult::Ok,
+                    name: [0u8; 32],
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
