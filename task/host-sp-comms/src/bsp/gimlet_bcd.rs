@@ -198,9 +198,9 @@ impl ServerImpl {
             }
 
             42 => {
-                // U432: ISL68224
+                // U352: ISL68224
                 let dev = i2c_config::devices::isl68224(I2C.get_task_id())[0];
-                let name = b"U432";
+                let name = b"U352";
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 let mut data = InventoryData::Isl68224 {
