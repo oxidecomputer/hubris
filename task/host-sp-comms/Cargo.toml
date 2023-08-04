@@ -21,6 +21,7 @@ pmbus = { workspace = true, optional = true }
 drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
 drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
+drv-stm32h7-dbgmcu.path = "../../drv/stm32h7-dbgmcu"
 drv-stm32xx-sys-api.path= "../../drv/stm32xx-sys-api"
 host-sp-messages.path= "../../lib/host-sp-messages"
 multitimer.path= "../../lib/multitimer"
@@ -45,8 +46,8 @@ build-i2c = { path = "../../build/i2c", optional = true }
 idol.workspace = true
 
 [features]
-stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743"]
-stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753"]
+stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-dbgmcu/h743"]
+stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-dbgmcu/h753"]
 uart7 = []
 baud_rate_3M = []
 hardware_flow_control = []

@@ -1611,6 +1611,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-dbgmcu"
+version = "0.1.0"
+dependencies = [
+ "stm32h7",
+]
+
+[[package]]
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
@@ -4063,6 +4070,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-oxide-vpd",
  "drv-spi-api",
+ "drv-stm32h7-dbgmcu",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
  "enum-map",

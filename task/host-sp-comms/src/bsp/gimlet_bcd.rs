@@ -129,10 +129,14 @@ impl ServerImpl {
                 let sys =
                     drv_stm32xx_sys_api::Sys::from(crate::SYS.get_task_id());
                 let uid = sys.read_uid();
+
+                let idc = drv_stm32h7_dbgmcu::read_idc();
+                let dbgmcu_rev_id = (idc >> 16) as u16;
+                let dbgmcu_dev_id = (idc & 4095) as u16;
                 let data = InventoryData::Stm32H7 {
                     uid,
-                    dbgmcu_rev_id: 0, // TODO
-                    dbgmcu_dev_id: 0, // TODO
+                    dbgmcu_rev_id,
+                    dbgmcu_dev_id,
                 };
                 self.tx_buf
                     .try_encode_inventory(sequence, b"U12", || Ok(&data));
