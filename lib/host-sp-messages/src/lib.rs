@@ -210,6 +210,7 @@ impl From<HubpackError> for InventoryDataResult {
     }
 }
 
+#[cfg(no_std)]
 impl From<drv_i2c_api::ResponseCode> for InventoryDataResult {
     fn from(e: drv_i2c_api::ResponseCode) -> Self {
         match e {
@@ -605,6 +606,18 @@ where
     n += CHECKSUM_SIZE;
 
     Ok(n)
+}
+
+pub fn serialize<F>(
+    out: &mut [u8; MAX_MESSAGE_SIZE],
+    header: &Header,
+    command: &impl Serialize,
+    fill_data: F,
+) -> Result<usize, HubpackError>
+where
+    F: FnOnce(&mut [u8]) -> usize,
+{
+    try_serialize(out, header, command, |buf| Ok(fill_data(buf)))
 }
 
 /// Deserializes a response packet containing
