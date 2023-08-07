@@ -22,4 +22,5 @@ idol = { workspace = true }
 [[bin]]
 name = "drv-lpc55-syscon"
 test = false
+doctest = false
 bench = false

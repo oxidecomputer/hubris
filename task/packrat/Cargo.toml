@@ -32,4 +32,5 @@ boot-kmdb = []
 [[bin]]
 name = "task-packrat"
 test = false
+doctest = false
 bench = false

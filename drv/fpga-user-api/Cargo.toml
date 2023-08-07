@@ -8,3 +8,8 @@ drv-fpga-api = { path = "../../drv/fpga-api" }
 num-traits = { workspace = true }
 userlib = { path = "../../sys/userlib" }
 zerocopy = { workspace = true }
+
+[lib]
+test = false
+doctest = false
+bench = false

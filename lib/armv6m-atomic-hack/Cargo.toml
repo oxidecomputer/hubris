@@ -5,3 +5,8 @@ edition = "2021"
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+
+[lib]
+test = false
+doctest = false
+bench = false

@@ -19,4 +19,5 @@ build-util = { path = "../../build/util" }
 [[bin]]
 name = "drv-stm32fx-usart"
 test = false
+doctest = false
 bench = false

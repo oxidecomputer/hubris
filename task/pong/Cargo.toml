@@ -18,4 +18,5 @@ build-util = { path = "../../build/util" }
 [[bin]]
 name = "task-pong"
 test = false
+doctest = false
 bench = false

@@ -21,4 +21,5 @@ drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 # since test builds don't work for cross compilation.
 [lib]
 test = false
+doctest = false
 bench = false

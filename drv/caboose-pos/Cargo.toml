@@ -6,3 +6,8 @@ edition = "2021"
 [dependencies]
 unwrap-lite.path = "../../lib/unwrap-lite"
 volatile-const.path = "../../lib/volatile-const"
+
+[lib]
+test = false
+doctest = false
+bench = false

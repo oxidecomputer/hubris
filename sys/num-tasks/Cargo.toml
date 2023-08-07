@@ -11,4 +11,5 @@ task-enum = []
 
 [lib]
 test = false
+doctest = false
 bench = false

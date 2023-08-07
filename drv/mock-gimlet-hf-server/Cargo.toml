@@ -24,3 +24,9 @@ host_access = []
 hash = []
 h743 = []
 h753 = []
+
+[[bin]]
+name = "drv-mock-gimlet-hf-server"
+test = false
+doctest = false
+bench = false

@@ -20,4 +20,5 @@ f4 = ["stm32f4/stm32f407"]
 [[bin]]
 name = "drv-stm32fx-rcc"
 test = false
+doctest = false
 bench = false

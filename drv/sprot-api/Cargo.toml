@@ -34,3 +34,7 @@ idol = { workspace = true }
 [features]
 sink_test = []
 
+[lib]
+test = false
+doctest = false
+bench = false

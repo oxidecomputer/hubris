@@ -24,4 +24,5 @@ build-util = {path = "../../build/util"}
 [[bin]]
 name = "app-donglet"
 test = false
+doctest = false
 bench = false

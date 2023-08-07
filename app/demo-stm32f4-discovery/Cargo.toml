@@ -19,4 +19,5 @@ kern = { path = "../../sys/kern" }
 [[bin]]
 name = "demo-stm32f4-discovery"
 test = false
+doctest = false
 bench = false

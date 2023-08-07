@@ -21,4 +21,5 @@ idol = { workspace = true }
 [[bin]]
 name = "drv-lpc55-gpio"
 test = false
+doctest = false
 bench = false

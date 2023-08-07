@@ -37,4 +37,5 @@ g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-
 [[bin]]
 name = "drv-stm32xx-sys"
 test = false
+doctest = false
 bench = false

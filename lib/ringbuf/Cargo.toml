@@ -10,3 +10,8 @@ disabled = []
 
 [dependencies]
 static-cell = { path = "../static-cell" }
+
+[lib]
+test = false
+doctest = false
+bench = false

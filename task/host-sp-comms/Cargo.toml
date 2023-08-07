@@ -57,4 +57,5 @@ gimlet = ["pmbus", "tlvc", "drv-i2c-api", "drv-i2c-devices", "drv-spi-api", "ksz
 [[bin]]
 name = "task-host-sp-comms"
 test = false
+doctest = false
 bench = false

@@ -17,4 +17,5 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [[bin]]
 name = "drv-lpc55-i2c"
 test = false
+doctest = false
 bench = false

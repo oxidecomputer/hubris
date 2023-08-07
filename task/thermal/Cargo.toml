@@ -47,4 +47,5 @@ semihosting = [ "userlib/log-semihosting" ]
 [[bin]]
 name = "task-thermal"
 test = false
+doctest = false
 bench = false

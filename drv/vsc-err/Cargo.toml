@@ -11,4 +11,5 @@ idol-runtime = { workspace = true }
 # since test builds don't work for cross compilation.
 [lib]
 test = false
+doctest = false
 bench = false

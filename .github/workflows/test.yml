@@ -17,9 +17,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Run tests
-      run: cargo test --verbose
-           --package host-sp-messages
-           --package lpc55-puf
-           --package multitimer
-           --package oxide-barcode
-           --package phash-gen
+      run: cargo test --verbose --workspace

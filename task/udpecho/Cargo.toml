@@ -22,4 +22,5 @@ vlan = ["task-net-api/vlan"]
 [[bin]]
 name = "task-udpecho"
 test = false
+doctest = false
 bench = false

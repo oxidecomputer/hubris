@@ -33,4 +33,5 @@ panic-messages = ["userlib/panic-messages"]
 [[bin]]
 name = "drv-user-leds"
 test = false
+doctest = false
 bench = false

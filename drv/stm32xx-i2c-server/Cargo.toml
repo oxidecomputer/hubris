@@ -36,4 +36,5 @@ itm = []
 [[bin]]
 name = "drv-stm32xx-i2c-server"
 test = false
+doctest = false
 bench = false

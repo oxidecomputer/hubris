@@ -25,4 +25,5 @@ semihosting = ["cortex-m-semihosting", "userlib/log-semihosting"]
 [[bin]]
 name = "test-runner"
 test = false
+doctest = false
 bench = false

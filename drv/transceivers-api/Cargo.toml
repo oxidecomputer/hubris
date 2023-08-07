@@ -17,3 +17,8 @@ userlib = { path = "../../sys/userlib" }
 [build-dependencies]
 idol = { workspace = true }
 build-i2c = { path = "../../build/i2c" }
+
+[lib]
+test = false
+doctest = false
+bench = false

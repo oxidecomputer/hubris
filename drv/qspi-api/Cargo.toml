@@ -9,4 +9,5 @@ edition = "2021"
 # since test builds don't work for cross compilation.
 [lib]
 test = false
+doctest = false
 bench = false

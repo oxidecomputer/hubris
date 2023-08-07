@@ -18,3 +18,9 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [build-dependencies]
 build-util = { path = "../../build/util" }
 idol = { workspace = true }
+
+[[bin]]
+name = "task-caboose-reader"
+test = false
+doctest = false
+bench = false

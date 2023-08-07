@@ -24,4 +24,5 @@ idol.workspace = true
 [lib]
 name = "drv_rng_api"
 test = false
+doctest = false
 bench = false

@@ -17,4 +17,5 @@ uart = []
 [[bin]]
 name = "task-ping"
 test = false
+doctest = false
 bench = false

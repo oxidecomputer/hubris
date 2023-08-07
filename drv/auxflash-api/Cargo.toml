@@ -18,3 +18,8 @@ userlib = { path = "../../sys/userlib" }
 build-util = {path = "../../build/util"}
 idol.workspace = true
 serde.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false

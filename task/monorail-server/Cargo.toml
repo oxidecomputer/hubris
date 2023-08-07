@@ -45,3 +45,9 @@ spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
 [build-dependencies]
 build-util = {path = "../../build/util"}
 idol = { workspace = true }
+
+[[bin]]
+name = "task-monorail-server"
+test = false
+doctest = false
+bench = false

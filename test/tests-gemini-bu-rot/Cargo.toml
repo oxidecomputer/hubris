@@ -20,5 +20,5 @@ kern = { path = "../../sys/kern" }
 name = "tests-lpc55"
 path = "../../app/lpc55xpresso/src/main.rs"
 test = false
+doctest = false
 bench = false
-

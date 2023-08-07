@@ -80,3 +80,8 @@ has-port-gpiok = []
 # simpler STM32 implementations missing this feature the top 8 values are
 # reserved.)
 has-af8-thru-af15 = []
+
+[lib]
+test = false
+doctest = false
+bench = false

@@ -15,4 +15,5 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [[bin]]
 name = "drv-psc-seq-server"
 test = false
+doctest = false
 bench = false

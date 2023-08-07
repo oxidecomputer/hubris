@@ -29,4 +29,5 @@ build-util = { path = "../../build/util" }
 [[bin]]
 name = "task-attest"
 test = false
+doctest = false
 bench = false

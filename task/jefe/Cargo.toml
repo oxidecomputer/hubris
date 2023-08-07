@@ -40,4 +40,5 @@ dump = []
 [[bin]]
 name = "task-jefe"
 test = false
+doctest = false
 bench = false

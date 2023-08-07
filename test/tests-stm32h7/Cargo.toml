@@ -24,4 +24,5 @@ build-util = { path = "../../build/util" }
 name = "tests-stm32h7"
 path = "../../app/demo-stm32h7-nucleo/src/main.rs"
 test = false
+doctest = false
 bench = false

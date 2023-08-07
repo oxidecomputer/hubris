@@ -22,4 +22,5 @@ build-util.path = "../../build/util"
 # since test builds don't work for cross compilation.
 [lib]
 test = false
+doctest = false
 bench = false

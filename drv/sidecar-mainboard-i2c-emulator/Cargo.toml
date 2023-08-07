@@ -13,4 +13,5 @@ userlib = { path = "../../sys/userlib" }
 [[bin]]
 name = "drv-sidecar-mainboard-i2c-emulator"
 test = false
+doctest = false
 bench = false

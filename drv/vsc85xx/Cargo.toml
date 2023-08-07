@@ -15,4 +15,5 @@ vsc-err = { path = "../vsc-err" }
 # since test builds don't work for cross compilation.
 [lib]
 test = false
+doctest = false
 bench = false

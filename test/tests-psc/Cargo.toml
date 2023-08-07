@@ -8,4 +8,5 @@ version = "0.1.0"
 name = "tests-psc"
 path = "../../app/psc/src/main.rs"
 test = false
+doctest = false
 bench = false
