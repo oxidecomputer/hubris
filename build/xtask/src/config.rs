@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -12,33 +12,6 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
-
-/// A `PatchedConfig` allows a minimal form of inheritance between TOML files
-/// Specifically, it allows you to **add features** to specific tasks; nothing
-/// else.
-///
-/// Here's an example:
-/// ```toml
-/// name = "sidecar-c-lab"
-///
-/// [patches]
-/// inherit = "rev-c.toml"
-/// features.sequencer = ["stay-in-a2"]
-/// ```
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PatchedConfig {
-    inherit: String,
-    patches: ConfigPatches,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConfigPatches {
-    name: String,
-    #[serde(default)]
-    features: IndexMap<String, Vec<String>>,
-}
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -91,7 +64,8 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
-    pub patches: Option<ConfigPatches>,
+    /// Fully expanded manifest file, with all patches applied
+    pub app_config: String,
     pub auxflash: Option<AuxFlashData>,
     pub dice_mfg: Option<Output>,
     pub caboose: Option<CabooseConfig>,
@@ -139,39 +113,11 @@ impl Config {
         cfg: &Path,
         mut hasher: DefaultHasher,
     ) -> Result<Self> {
-        let cfg_contents = std::fs::read(&cfg)
-            .with_context(|| format!("could not read {}", cfg.display()))?;
+        let doc =
+            read_and_flatten_toml(cfg, &mut hasher, &mut BTreeSet::new())?;
+        let cfg_contents = doc.to_string();
 
-        // Accumulate the contents into the buildhash here, so that we hash both
-        // the inheritance file and the target if this is an `PatchedConfig`
-        hasher.write(&cfg_contents);
-
-        // Minimal TOML file inheritance, to enable features on a per-task basis
-        if let Ok(inherited) =
-            toml::from_str::<PatchedConfig>(std::str::from_utf8(&cfg_contents)?)
-        {
-            let file = cfg.parent().unwrap().join(&inherited.inherit);
-            let mut original = Config::from_file_with_hasher(&file, hasher)
-                .context(format!("Could not load template from {file:?}"))?;
-            original.name = inherited.patches.name.to_owned();
-            for (task, features) in &inherited.patches.features {
-                let t = original
-                    .tasks
-                    .get_mut(task)
-                    .ok_or_else(|| anyhow!("No such task {task}"))?;
-                for f in features {
-                    if t.features.contains(f) {
-                        bail!("Task {task} already contains feature {f}");
-                    }
-                    t.features.push(f.to_owned());
-                }
-            }
-            original.patches = Some(inherited.patches);
-            return Ok(original);
-        }
-
-        let toml: RawConfig =
-            toml::from_str(std::str::from_utf8(&cfg_contents)?)?;
+        let toml: RawConfig = toml::from_str(&cfg_contents)?;
         if toml.tasks.contains_key("kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
@@ -242,7 +188,7 @@ impl Config {
             auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
-            patches: None,
+            app_config: cfg_contents,
             dice_mfg,
             caboose: toml.caboose,
         })
@@ -718,4 +664,73 @@ impl BuildConfig<'_> {
         }
         cmd
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+fn read_and_flatten_toml(
+    cfg: &Path,
+    hasher: &mut DefaultHasher,
+    seen: &mut BTreeSet<PathBuf>,
+) -> Result<toml_edit::Document> {
+    use toml_patch::merge_toml_documents;
+
+    // Prevent diamond inheritance
+    if !seen.insert(cfg.to_owned()) {
+        bail!("{cfg:?} is inherited more than once.  Don't do that.");
+    }
+    let cfg_contents = std::fs::read(&cfg)
+        .with_context(|| format!("could not read {}", cfg.display()))?;
+
+    // Accumulate the contents into the buildhash here, so that we hash both
+    // the inheritance file and the target (recursively, if necessary)
+    hasher.write(&cfg_contents);
+
+    let cfg_contents = std::str::from_utf8(&cfg_contents)
+        .context("failed to read manifest as UTF-8")?;
+
+    // Additive TOML file inheritance
+    let mut doc = cfg_contents
+        .parse::<toml_edit::Document>()
+        .context("failed to parse TOML file")?;
+    if let Some(inherited_from) = doc.remove("inherit") {
+        use toml_edit::{Item, Value};
+        let mut original = match inherited_from {
+            // Single inheritance
+            Item::Value(Value::String(s)) => {
+                let file = cfg.parent().unwrap().join(s.value());
+                read_and_flatten_toml(&file, hasher, seen)
+                    .with_context(|| format!("Could not load {file:?}"))?
+            }
+            // Multiple inheritance, applied sequentially
+            Item::Value(Value::Array(a)) => {
+                let mut doc: Option<toml_edit::Document> = None;
+                for a in a.iter() {
+                    if let Value::String(s) = a {
+                        let file = cfg.parent().unwrap().join(s.value());
+                        let next: toml_edit::Document =
+                            read_and_flatten_toml(&file, hasher, seen)
+                                .with_context(|| {
+                                    format!("Could not load {file:?}")
+                                })?;
+                        match doc.as_mut() {
+                            Some(doc) => merge_toml_documents(doc, next)?,
+                            None => doc = Some(next),
+                        }
+                    } else {
+                        bail!("could not inherit from {a}; bad type");
+                    }
+                }
+                doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
+            }
+            v => bail!("could not inherit from {v}; bad type"),
+        };
+
+        // Finally, apply any changes that are local in this file
+        merge_toml_documents(&mut original, doc)?;
+        return Ok(original);
+    }
+
+    // Root, return the document itself
+    Ok(doc)
 }
