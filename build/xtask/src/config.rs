@@ -696,45 +696,44 @@ fn read_and_flatten_toml(
     let mut doc = cfg_contents
         .parse::<toml_edit::Document>()
         .context("failed to parse TOML file")?;
-    let out = if let Some(inherited_from) = doc.remove("inherit") {
-        use toml_edit::{Item, Value};
-        let mut original = match inherited_from {
-            // Single inheritance
-            Item::Value(Value::String(s)) => {
-                let file = cfg.parent().unwrap().join(s.value());
-                read_and_flatten_toml(&file, hasher, seen)
-                    .with_context(|| format!("Could not load {file:?}"))?
-            }
-            // Multiple inheritance, applied sequentially
-            Item::Value(Value::Array(a)) => {
-                let mut doc: Option<toml_edit::Document> = None;
-                for a in a.iter() {
-                    if let Value::String(s) = a {
-                        let file = cfg.parent().unwrap().join(s.value());
-                        let next: toml_edit::Document =
-                            read_and_flatten_toml(&file, hasher, seen)
-                                .with_context(|| {
-                                    format!("Could not load {file:?}")
-                                })?;
-                        match doc.as_mut() {
-                            Some(doc) => merge_toml_documents(doc, next)?,
-                            None => doc = Some(next),
-                        }
-                    } else {
-                        bail!("could not inherit from {a}; bad type");
-                    }
-                }
-                doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
-            }
-            v => bail!("could not inherit from {v}; bad type"),
-        };
-
-        // Finally, apply any changes that are local in this file
-        merge_toml_documents(&mut original, doc)?;
-        original
-    } else {
+    let Some(inherited_from) = doc.remove("inherit") else {
         // No further inheritance, so return the current document
-        doc
+        return Ok(doc);
     };
-    Ok(out)
+
+    use toml_edit::{Item, Value};
+    let mut original = match inherited_from {
+        // Single inheritance
+        Item::Value(Value::String(s)) => {
+            let file = cfg.parent().unwrap().join(s.value());
+            read_and_flatten_toml(&file, hasher, seen)
+                .with_context(|| format!("Could not load {file:?}"))?
+        }
+        // Multiple inheritance, applied sequentially
+        Item::Value(Value::Array(a)) => {
+            let mut doc: Option<toml_edit::Document> = None;
+            for a in a.iter() {
+                if let Value::String(s) = a {
+                    let file = cfg.parent().unwrap().join(s.value());
+                    let next: toml_edit::Document =
+                        read_and_flatten_toml(&file, hasher, seen)
+                            .with_context(|| {
+                                format!("Could not load {file:?}")
+                            })?;
+                    match doc.as_mut() {
+                        Some(doc) => merge_toml_documents(doc, next)?,
+                        None => doc = Some(next),
+                    }
+                } else {
+                    bail!("could not inherit from {a}; bad type");
+                }
+            }
+            doc.ok_or_else(|| anyhow!("inherit array cannot be empty"))?
+        }
+        v => bail!("could not inherit from {v}; bad type"),
+    };
+
+    // Finally, apply any changes that are local in this file
+    merge_toml_documents(&mut original, doc)?;
+    Ok(original)
 }
