@@ -1,0 +1,11 @@
+[package]
+name = "toml-patch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+toml_edit.workspace = true
+
+[dev-dependencies]
+indoc.workspace = true
