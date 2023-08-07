@@ -23,7 +23,7 @@ drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
 drv-stm32h7-dbgmcu.path = "../../drv/stm32h7-dbgmcu"
 drv-stm32xx-sys-api.path= "../../drv/stm32xx-sys-api"
-host-sp-messages = { path= "../../lib/host-sp-messages", features = ["i2c"] }
+host-sp-messages.path= "../../lib/host-sp-messages"
 multitimer.path= "../../lib/multitimer"
 mutable-statics.path= "../../lib/mutable-statics"
 oxide-barcode.path = "../../lib/oxide-barcode"

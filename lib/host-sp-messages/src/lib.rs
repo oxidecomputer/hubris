@@ -210,11 +210,10 @@ impl From<HubpackError> for InventoryDataResult {
     }
 }
 
-#[cfg(feature = "i2c")]
-impl From<drv_i2c_api::ResponseCode> for InventoryDataResult {
-    fn from(e: drv_i2c_api::ResponseCode) -> Self {
+impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
+    fn from(e: drv_i2c_types::ResponseCode) -> Self {
         match e {
-            drv_i2c_api::ResponseCode::NoDevice => {
+            drv_i2c_types::ResponseCode::NoDevice => {
                 InventoryDataResult::DeviceAbsent
             }
             _ => InventoryDataResult::DeviceFailed,
