@@ -696,7 +696,7 @@ fn read_and_flatten_toml(
     let mut doc = cfg_contents
         .parse::<toml_edit::Document>()
         .context("failed to parse TOML file")?;
-    if let Some(inherited_from) = doc.remove("inherit") {
+    let out = if let Some(inherited_from) = doc.remove("inherit") {
         use toml_edit::{Item, Value};
         let mut original = match inherited_from {
             // Single inheritance
@@ -731,9 +731,10 @@ fn read_and_flatten_toml(
 
         // Finally, apply any changes that are local in this file
         merge_toml_documents(&mut original, doc)?;
-        return Ok(original);
-    }
-
-    // Root, return the document itself
-    Ok(doc)
+        original
+    } else {
+        // No further inheritance, so return the current document
+        doc
+    };
+    Ok(out)
 }

@@ -23,8 +23,6 @@ pub fn merge_toml_documents(
     // Find offsets where we need to insert gaps for incoming patches
     let mut offsets = BTreeMap::new();
     compute_offsets(original, &patches, &mut offsets)?;
-    assert!(!offsets.contains_key(&0));
-    offsets.insert(0, 0);
 
     // Convert from single to cumulative offsets.  Since this is in a BTreeMap,
     // it's already sorted, so we accumulate in a single pass.
@@ -158,8 +156,11 @@ impl<'a> VisitMut for OffsetVisitor<'a> {
         if let Some(pos) = t.position() {
             // Find the largest offset with a value <= pos, which determines
             // the cumulative offset at this point in the document.
+            //
+            // If `pos` is _before_ the first offset in the table, then return a
+            // base case with no offset, i.e. (0, 0)
             let (prev_pos, offset) =
-                self.offsets.range(0..=pos).rev().next().unwrap();
+                self.offsets.range(0..=pos).rev().next().unwrap_or((&0, &0));
             assert!(*prev_pos <= pos); // sanity-checking
             t.set_position(offset + pos);
         }
