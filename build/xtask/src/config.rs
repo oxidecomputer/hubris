@@ -677,7 +677,10 @@ fn read_and_flatten_toml(
 
     // Prevent diamond inheritance
     if !seen.insert(cfg.to_owned()) {
-        bail!("{cfg:?} is inherited more than once.  Don't do that.");
+        bail!(
+            "{cfg:?} is inherited more than once; \
+             diamond dependencies are not allowed"
+        );
     }
     let cfg_contents = std::fs::read(&cfg)
         .with_context(|| format!("could not read {}", cfg.display()))?;
