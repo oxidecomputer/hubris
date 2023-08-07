@@ -24,4 +24,5 @@ unwrap-lite = { path = "../../lib/unwrap-lite" }
 [[bin]]
 name = "rot-carrier"
 test = false
+doctest = false
 bench = false

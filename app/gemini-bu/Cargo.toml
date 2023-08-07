@@ -23,4 +23,5 @@ build-util = {path = "../../build/util"}
 [[bin]]
 name = "gemini-bu"
 test = false
+doctest = false
 bench = false

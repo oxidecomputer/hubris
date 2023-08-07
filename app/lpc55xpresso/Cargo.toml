@@ -23,4 +23,5 @@ unwrap-lite = {path = "../../lib/unwrap-lite"}
 [[bin]]
 name = "lpc55xpresso"
 test = false
+doctest = false
 bench = false

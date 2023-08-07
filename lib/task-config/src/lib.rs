@@ -96,7 +96,7 @@ fn config_to_token(
 /// from the Hubris task config.
 ///
 /// For example, the following definition could live in a task's `main.rs`:
-/// ```rust
+/// ```ignore
 /// task_config::task_config! {
 ///     count: usize,
 ///     leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],
@@ -117,7 +117,7 @@ fn config_to_token(
 /// ```
 ///
 /// This would generate the following Rust code:
-/// ```rust
+/// ```ignore
 /// struct TaskConfig {
 ///     count: usize,
 ///     leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],

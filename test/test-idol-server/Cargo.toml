@@ -22,4 +22,5 @@ idol = { workspace = true }
 [[bin]]
 name = "test-idol-server"
 test = false
+doctest = false
 bench = false

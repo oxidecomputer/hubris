@@ -26,4 +26,5 @@ build-util = {path = "../../build/util"}
 [[bin]]
 name = "demo-stm32g0-nucleo"
 test = false
+doctest = false
 bench = false

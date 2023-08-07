@@ -38,4 +38,5 @@ idol = { workspace = true }
 [[bin]]
 name = "drv-sidecar-seq-server"
 test = false
+doctest = false
 bench = false

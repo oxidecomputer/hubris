@@ -31,4 +31,5 @@ baud_rate_3M = []
 [[bin]]
 name = "task-uartecho"
 test = false
+doctest = false
 bench = false

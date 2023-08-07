@@ -38,4 +38,5 @@ toml = { workspace = true }
 
 [lib]
 test = false
+doctest = false
 bench = false

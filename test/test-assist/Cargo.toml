@@ -23,4 +23,5 @@ semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting"]
 [[bin]]
 name = "test-assist"
 test = false
+doctest = false
 bench = false

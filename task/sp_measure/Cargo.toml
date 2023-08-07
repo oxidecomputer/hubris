@@ -24,4 +24,5 @@ build-util = { path = "../../build/util" }
 [[bin]]
 name = "task-sp-measure"
 test = false
+doctest = false
 bench = false

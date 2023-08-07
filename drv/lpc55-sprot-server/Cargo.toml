@@ -43,4 +43,5 @@ spi0 = []
 [[bin]]
 name = "drv-lpc55-sprot-server"
 test = false
+doctest = false
 bench = false

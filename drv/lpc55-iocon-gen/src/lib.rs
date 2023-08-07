@@ -16,9 +16,11 @@ use quote::{format_ident, quote};
 ///
 /// This proc macro generates the following function
 ///
-///        fn set_iocon(pin : Pin, alt : AltFn, mode : Mode,
-///                     slew : Slew, invert : Invert, digimode : Digimode,
-///                     od : Opendrain)
+/// ```ignore
+/// fn set_iocon(pin: Pin, alt: AltFn, mode: Mode,
+///              slew: Slew, invert: Invert, digimode: Digimode,
+///              od : Opendrain)
+/// ```
 ///
 /// Which ends up being a gigantic switch function to call the right port and
 /// pin function.

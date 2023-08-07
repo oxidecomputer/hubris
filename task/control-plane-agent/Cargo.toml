@@ -56,3 +56,9 @@ usart1 = []
 usart1-gimletlet = []
 baud_rate_3M = []
 auxflash = ["drv-auxflash-api"]
+
+[[bin]]
+name = "task-control-plane-agent"
+test = false
+doctest = false
+bench = false

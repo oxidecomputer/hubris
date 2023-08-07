@@ -48,4 +48,5 @@ build-util.path = "../../build/util"
 [[bin]]
 name = "task-dump-agent"
 test = false
+doctest = false
 bench = false

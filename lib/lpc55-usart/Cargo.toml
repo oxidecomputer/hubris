@@ -9,3 +9,8 @@ lpc55-pac = { workspace = true }
 nb = { workspace = true }
 
 unwrap-lite = { path = "../../lib/unwrap-lite" }
+
+[lib]
+test = false
+doctest = false
+bench = false

@@ -19,5 +19,5 @@ kern = { path = "../../sys/kern" }
 [[bin]]
 name = "tests-lpc55xpresso"
 test = false
+doctest = false
 bench = false
-

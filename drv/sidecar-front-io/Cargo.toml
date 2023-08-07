@@ -30,3 +30,8 @@ leds = []
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-util = { path = "../../build/util" }
 gnarle = { path = "../../lib/gnarle", features=["std"] }
+
+[lib]
+test = false
+doctest = false
+bench = false

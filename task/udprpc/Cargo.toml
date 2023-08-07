@@ -20,4 +20,5 @@ vlan = ["task-net-api/vlan"]
 [[bin]]
 name = "task-udprpc"
 test = false
+doctest = false
 bench = false

@@ -8,3 +8,8 @@ lpc55-pac = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 unwrap-lite = { path = "../unwrap-lite" }
+
+[lib]
+test = false
+doctest = false
+bench = false

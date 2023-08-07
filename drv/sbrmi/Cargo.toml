@@ -30,4 +30,5 @@ panic-messages = ["userlib/panic-messages"]
 [[bin]]
 name = "drv-sbrmi"
 test = false
+doctest = false
 bench = false

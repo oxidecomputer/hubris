@@ -38,4 +38,5 @@ tmp117-eeprom = []
 [[bin]]
 name = "task-vpd"
 test = false
+doctest = false
 bench = false

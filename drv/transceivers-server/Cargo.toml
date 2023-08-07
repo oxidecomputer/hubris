@@ -44,4 +44,5 @@ idol = { workspace = true }
 [[bin]]
 name = "drv-transceivers-server"
 test = false
+doctest = false
 bench = false

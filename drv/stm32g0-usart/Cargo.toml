@@ -27,4 +27,5 @@ semihosting = ["userlib/log-semihosting"]
 [[bin]]
 name = "drv-stm32g0-usart"
 test = false
+doctest = false
 bench = false

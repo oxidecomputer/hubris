@@ -45,4 +45,5 @@ spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
 [[bin]]
 name = "drv-stm32h7-sprot-server"
 test = false
+doctest = false
 bench = false

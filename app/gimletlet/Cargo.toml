@@ -23,4 +23,5 @@ build-util = {path = "../../build/util"}
 [[bin]]
 name = "gimletlet"
 test = false
+doctest = false
 bench = false

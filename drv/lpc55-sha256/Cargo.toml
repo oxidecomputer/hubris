@@ -6,3 +6,8 @@ edition = "2021"
 [dependencies]
 userlib.path = "../../sys/userlib"
 lpc55-pac.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false

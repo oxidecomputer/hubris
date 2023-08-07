@@ -41,4 +41,5 @@ h7b3 = ["task-sensor-api/h7b3"]
 [[bin]]
 name = "task-sensor"
 test = false
+doctest = false
 bench = false

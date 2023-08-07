@@ -15,3 +15,8 @@ userlib = { path = "../../sys/userlib" }
 [build-dependencies]
 build-util = { path = "../../build/util" }
 idol.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false

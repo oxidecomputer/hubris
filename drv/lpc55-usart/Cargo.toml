@@ -25,4 +25,5 @@ build-util = { path = "../../build/util" }
 [[bin]]
 name = "drv-lpc55-usart"
 test = false
+doctest = false
 bench = false

@@ -35,4 +35,5 @@ idol = { workspace = true }
 [[bin]]
 name = "lpc55-update-server"
 test = false
+doctest = false
 bench = false

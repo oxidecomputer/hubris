@@ -23,4 +23,5 @@ build-util = { path = "../../build/util" }
 name = "tests-gimletlet"
 path = "../../app/gimletlet/src/main.rs"
 test = false
+doctest = false
 bench = false

@@ -31,4 +31,5 @@ serde = { workspace = true }
 [[bin]]
 name = "drv-lpc55-swd"
 test = false
+doctest = false
 bench = false

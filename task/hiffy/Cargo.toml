@@ -60,4 +60,5 @@ spctrl = ["drv-sp-ctrl-api"]
 [[bin]]
 name = "task-hiffy"
 test = false
+doctest = false
 bench = false

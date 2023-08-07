@@ -50,4 +50,5 @@ h7b3 = ["build-i2c/h7b3"]
 [[bin]]
 name = "task-power"
 test = false
+doctest = false
 bench = false

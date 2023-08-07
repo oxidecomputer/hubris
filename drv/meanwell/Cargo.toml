@@ -28,4 +28,5 @@ panic-messages = ["userlib/panic-messages"]
 [[bin]]
 name = "drv-meanwell"
 test = false
+doctest = false
 bench = false

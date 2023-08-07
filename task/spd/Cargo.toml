@@ -37,4 +37,5 @@ itm = [ "userlib/log-itm" ]
 [[bin]]
 name = "task-spd"
 test = false
+doctest = false
 bench = false

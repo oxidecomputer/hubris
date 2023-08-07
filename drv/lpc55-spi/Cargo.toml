@@ -10,3 +10,8 @@ zerocopy = { workspace = true }
 
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 userlib = { path = "../../sys/userlib" }
+
+[lib]
+test = false
+doctest = false
+bench = false

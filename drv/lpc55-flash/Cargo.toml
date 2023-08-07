@@ -5,3 +5,8 @@ edition = "2021"
 
 [dependencies]
 lpc55-pac = { workspace = true }
+
+[lib]
+test = false
+doctest = false
+bench = false

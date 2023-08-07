@@ -23,4 +23,5 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [[bin]]
 name = "task-udpbroadcast"
 test = false
+doctest = false
 bench = false

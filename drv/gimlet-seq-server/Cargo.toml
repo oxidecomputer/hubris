@@ -43,3 +43,9 @@ sha2 = { workspace = true }
 [features]
 h753 = ["drv-stm32h7-spi/h753", "drv-stm32xx-sys-api/h753"]
 stay-in-a2 = []
+
+[[bin]]
+name = "drv-gimlet-seq-server"
+test = false
+doctest = false
+bench = false

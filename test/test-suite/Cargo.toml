@@ -32,4 +32,5 @@ fru-id-eeprom = ["i2c-devices"]
 [[bin]]
 name = "test-suite"
 test = false
+doctest = false
 bench = false

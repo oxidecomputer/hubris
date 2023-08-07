@@ -24,4 +24,5 @@ idol = { workspace = true }
 [[bin]]
 name = "drv-lpc55-rng"
 test = false
+doctest = false
 bench = false

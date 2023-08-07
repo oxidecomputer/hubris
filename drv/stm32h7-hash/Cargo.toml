@@ -13,3 +13,8 @@ userlib = { path = "../../sys/userlib" }
 
 [features]
 h753 = ["stm32h7/stm32h753"]
+
+[lib]
+test = false
+doctest = false
+bench = false
