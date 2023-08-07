@@ -144,7 +144,7 @@ impl Handler {
                     match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
                         self.attest
                             .cert(index, offset, &mut buf[..size])
-                            .map_err(|e| RspBody::Attest(Err(e.into())))?;
+                            .map_err(|e| RspBody::Attest(Err(e)))?;
                         Ok(size)
                     }) {
                         Ok(size) => size,
