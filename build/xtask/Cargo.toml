@@ -12,6 +12,7 @@ colored = { workspace = true }
 memchr = { workspace = true }
 ordered-toml = { workspace = true }
 strsim = { workspace = true }
+toml_edit = { workspace = true }
 
 # for dist
 byteorder = { workspace = true }
@@ -42,6 +43,7 @@ gnarle = { path = "../../lib/gnarle", features = ["std"] }
 abi.path = "../../sys/abi"
 build-kconfig.path = "../kconfig"
 toml-task.path = "../../lib/toml-task"
+toml-patch.path = "../toml-patch"
 
 # For NXP signing
 lpc55_sign = { workspace = true }

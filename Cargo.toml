@@ -65,6 +65,7 @@ hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
+indoc = { version = "2.0.3", default-features = false }
 itertools = { version = "0.10.5", default-features = false }
 lpc55-pac = { version = "0.4", default-features = false }
 memchr = { version = "2.4", default-features = false }
@@ -106,6 +107,7 @@ stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro"] }
 toml = { version = "0.7", default-features = false, features = ["parse", "display"] }
+toml_edit = { version = "0.19", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
 zerocopy = { version = "0.6.1", default-features = false }
