@@ -428,5 +428,46 @@ mod tests {
                 presence = false
             "#},
         );
+        patch_and_compare(
+            indoc! {r#"
+                name = "foo"
+
+                [tasks.jefe]
+                features = ["hello", "world"]
+                great = true
+
+                [config]
+                [[config.i2c.buses]]
+                i2c0 = "fine"
+
+                [config.spi]
+                spi1 = "great"
+            "#},
+            indoc! {r#"
+                tasks.jefe.features = ["aaaaahhhh!"]
+                [config.pcie]
+                presence = false
+                [[config.i2c.buses]]
+                i2c4 = { status = "running" }
+            "#},
+            indoc! {r#"
+                name = "foo"
+
+                [tasks.jefe]
+                features = ["hello", "world","aaaaahhhh!"]
+                great = true
+
+                [config]
+                [[config.i2c.buses]]
+                i2c0 = "fine"
+                [[config.i2c.buses]]
+                i2c4 = { status = "running" }
+
+                [config.spi]
+                spi1 = "great"
+                [config.pcie]
+                presence = false
+            "#},
+        );
     }
 }
