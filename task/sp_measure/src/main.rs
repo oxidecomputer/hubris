@@ -30,54 +30,50 @@ enum Trace {
 ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
-fn main() -> ! {
-    loop {
-        let mut sha = Sha3_256::new();
-        let sp_ctrl = SpCtrl::from(SP_CTRL.get_task_id());
+fn main() {
+    let mut sha = Sha3_256::new();
+    let sp_ctrl = SpCtrl::from(SP_CTRL.get_task_id());
 
-        if sp_ctrl.setup().is_err() {
-            panic!();
-        }
+    if sp_ctrl.setup().is_err() {
+        panic!();
+    }
 
-        let mut data: [u8; READ_SIZE] = [0; READ_SIZE];
+    let mut data: [u8; READ_SIZE] = [0; READ_SIZE];
 
-        let start = sys_get_timer().now;
-        ringbuf_entry!(Trace::Start(start));
-        for addr in (FLASH_START..FLASH_END).step_by(READ_SIZE) {
-            if addr % TRANSACTION_SIZE == 0
-                && sp_ctrl
-                    .read_transaction_start(addr, addr + TRANSACTION_SIZE)
-                    .is_err()
-            {
-                panic!();
-            }
-
-            data.fill(0);
-            if sp_ctrl.read_transaction(&mut data).is_err() {
-                panic!();
-            }
-
-            sha.update(&data);
-        }
-
-        let sha_out = sha.finalize();
-
-        let end = sys_get_timer().now;
-        ringbuf_entry!(Trace::End(end));
-
-        let attest = Attest::from(ATTEST.get_task_id());
-        if let Err(e) =
-            attest.record(HashAlgorithm::Sha3_256, sha_out.as_bytes())
+    let start = sys_get_timer().now;
+    ringbuf_entry!(Trace::Start(start));
+    for addr in (FLASH_START..FLASH_END).step_by(READ_SIZE) {
+        if addr % TRANSACTION_SIZE == 0
+            && sp_ctrl
+                .read_transaction_start(addr, addr + TRANSACTION_SIZE)
+                .is_err()
         {
-            ringbuf_entry!(Trace::RecordFail(e));
-            panic!();
-        };
-
-        // Wait for a notification that will never come, politer than
-        // busy looping forever
-        if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
             panic!();
         }
+
+        data.fill(0);
+        if sp_ctrl.read_transaction(&mut data).is_err() {
+            panic!();
+        }
+
+        sha.update(&data);
+    }
+
+    let sha_out = sha.finalize();
+
+    let end = sys_get_timer().now;
+    ringbuf_entry!(Trace::End(end));
+
+    let attest = Attest::from(ATTEST.get_task_id());
+    if let Err(e) = attest.record(HashAlgorithm::Sha3_256, sha_out.as_bytes()) {
+        ringbuf_entry!(Trace::RecordFail(e));
+        panic!();
+    };
+
+    // Wait for a notification that will never come, politer than
+    // busy looping forever
+    if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
+        panic!();
     }
 }
 
