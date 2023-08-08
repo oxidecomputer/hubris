@@ -1,2 +1,2 @@
 name = "gimlet-b-dev"
-inherit = ["rev-d.toml", "dev.toml"]
+inherit = ["rev-b.toml", "dev.toml"]
