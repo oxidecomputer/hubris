@@ -1,4 +1,4 @@
-name: Tests
+name: tests
 
 on:
   push:
@@ -11,9 +11,8 @@ env:
 
 jobs:
   build:
-
+    name: tests
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Run tests
