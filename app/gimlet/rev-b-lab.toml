@@ -1,5 +1,2 @@
-inherit = "rev-b-dev.toml"
-
 name = "gimlet-b-lab"
-tasks.gimlet_seq.features = ["stay-in-a2"]
-tasks.packrat.features = ["boot-kmdb"]
+inherit = ["rev-b-dev.toml", "lab.toml"]
