@@ -59,7 +59,7 @@ enum Trace {
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
-    RemovedDisabledModule(usize),
+    RemovedDisabledModuleThermalModel(usize),
     TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     SensorError(usize, SensorError),
@@ -69,6 +69,7 @@ enum Trace {
     InvalidPortStatusError(usize, u8),
     DisablingPorts(LogicalPortMask),
     DisableFailed(usize, LogicalPortMask),
+    ClearDisabledPorts(LogicalPortMask),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -384,7 +385,7 @@ impl ServerImpl {
                 if (self.disabled & port).is_empty() {
                     ringbuf_entry!(Trace::UnpluggedModule(i));
                 } else {
-                    ringbuf_entry!(Trace::RemovedDisabledModule(i));
+                    ringbuf_entry!(Trace::RemovedDisabledModuleThermalModel(i));
                 }
                 self.thermal_models[i] = None;
             }
@@ -518,6 +519,18 @@ impl ServerImpl {
 
         let modules_present = LogicalPortMask(!status.modprsl);
         if modules_present != self.modules_present {
+            // check to see if any disabled ports had their modules removed and
+            // allow their power to be turned on when a module is reinserted
+            let disabled_ports_removed =
+                self.modules_present & !modules_present & self.disabled;
+            if !disabled_ports_removed.is_empty() {
+                self.disabled &= !disabled_ports_removed;
+                self.transceivers.enable_power(disabled_ports_removed);
+                ringbuf_entry!(Trace::ClearDisabledPorts(
+                    disabled_ports_removed
+                ));
+            }
+
             self.modules_present = modules_present;
             ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
         }
