@@ -526,7 +526,9 @@ impl ServerImpl {
             if !disabled_ports_removed.is_empty() {
                 self.disabled &= !disabled_ports_removed;
                 self.transceivers.enable_power(disabled_ports_removed);
-                ringbuf_entry!(Trace::ClearDisabledPorts(disabled_ports_removed));
+                ringbuf_entry!(Trace::ClearDisabledPorts(
+                    disabled_ports_removed
+                ));
             }
 
             self.modules_present = modules_present;
