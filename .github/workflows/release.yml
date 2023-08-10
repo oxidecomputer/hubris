@@ -31,7 +31,7 @@ jobs:
         OUT=${{ steps.grab.outputs.download-path }}
         ls $OUT
         for build in `ls $OUT`; do
-           for f in `ls $OUT/build`; do
+           for f in `ls $OUT/$build`; do
               echo "$OUT/$build"
               echo "$OUT/`basename $build .zip`-$VERSION.zip"
               mv $OUT/$build/$f $OUT/`basename $build .zip`-$VERSION.zip
