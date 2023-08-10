@@ -90,11 +90,11 @@ impl ServerImpl {
                 )
             }
             19 => {
-                // J180: Fan VPD EEPROM
+                // J180: Fan VPD EEPROM (on the daughterboard)
                 let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(
                     sequence,
-                    b"J180",
+                    b"J180/U1",
                     i2c_config::devices::at24csw080_fan_vpd,
                     &mut data,
                 )
