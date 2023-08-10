@@ -1,3 +1,3 @@
 name = "gimlet-b"
 board = "gimlet-b"
-inherit = "base-bc.toml"
+inherit = "base.toml"

@@ -25,12 +25,13 @@ task_slot!(SEQ, gimlet_seq);
 // the control loop.
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 
+// BMC sensors vary depending on hardware revision
 #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
 const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
         + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
-#[cfg(target_board = "gimlet-d")]
+#[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
 const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
@@ -253,8 +254,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
     // powered, and we want to minimize the TOCTOU window between asking the
     // MAX5970 "is it powered?" and actually reading data.
     //
-    // See hardware-gimlet#1804 for details; this will hopefully be fixed in
-    // later Gimlet revisions.
+    // See hardware-gimlet#1804 for details; this is fixed in later revisions.
     InputChannel::new(
         #[cfg(any(target_board = "gimlet-b", target_board = "gimlet-c"))]
         TemperatureSensor::new(
@@ -262,7 +262,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_a,
             sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
         ),
-        #[cfg(target_board = "gimlet-d")]
+        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_a,
@@ -279,7 +279,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_b,
             sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
         ),
-        #[cfg(target_board = "gimlet-d")]
+        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_b,
