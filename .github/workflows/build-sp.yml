@@ -1,0 +1,70 @@
+name: build-gimlet
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: "OS to build for"
+        required: true
+        type: string 
+
+jobs:
+  build:
+    name: build-all
+    strategy:
+      matrix:
+        build: [gimlet-b, gimlet-b-lab, gimlet-b-dev, gimlet-c, gimlet-c-lab, gimlet-c-dev, gimlet-d, gimlet-d-lab, gimlet-d-dev]
+        include:
+          - build: gimlet-b
+            app_name: gimlet-b
+            app_toml: app/gimlet/rev-b.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-b-lab
+            app_name: gimlet-b-lab
+            app_toml: app/gimlet/rev-b-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-b-dev
+            app_name: gimlet-b-dev
+            app_toml: app/gimlet/rev-b-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-c
+            app_name: gimlet-c
+            app_toml: app/gimlet/rev-c.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-c-lab
+            app_name: gimlet-c-lab
+            app_toml: app/gimlet/rev-c-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-c-dev
+            app_name: gimlet-c-dev
+            app_toml: app/gimlet/rev-c-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-d
+            app_name: gimlet-d
+            app_toml: app/gimlet/rev-d.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-d-lab
+            app_name: gimlet-d-lab
+            app_toml: app/gimlet/rev-d-lab.toml
+            target: thumbv7em-none-eabihf
+            image: default
+          - build: gimlet-d-dev
+            app_name: gimlet-d-dev
+            app_toml: app/gimlet/rev-d-dev.toml
+            target: thumbv7em-none-eabihf
+            image: default
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      target: ${{ matrix.target }}
+      image: ${{ matrix.image }}
+      os: ${{ inputs.os }}
+                             

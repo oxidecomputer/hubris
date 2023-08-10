@@ -6,6 +6,8 @@ on:
       - "gimlet-*"
       - "psc-*"
       - "sidecar-*"
+    branches:
+      - "testing-*"
 
 jobs:
   release-rot:
@@ -47,3 +49,11 @@ jobs:
       app_toml: app/sidecar/rev-c.toml
       target: thumbv7em.main-none-eabihf
       image: default
+
+  release-stuff:
+    if: startsWith(github.ref, 'refs/branch/testing')
+    uses: ./.github/workflows/release.yml
+    with:
+      worfklow: ./.github/workflows/build-sp.yml
+
+

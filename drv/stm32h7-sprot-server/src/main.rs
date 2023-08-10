@@ -57,6 +57,7 @@ enum Trace {
     RotReadyTimeout,
     RspTimeout,
     RxBuf([u8; 16]),
+    Hmm(usize),
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -759,6 +760,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         slot: SlotId,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<RawCabooseOrSprotError>> {
+
+        ringbuf_entry!(Trace::Hmm(data.len()));
         let body = ReqBody::Caboose(CabooseReq::Read {
             slot,
             start: offset,
