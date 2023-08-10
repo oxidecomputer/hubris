@@ -1,0 +1,2 @@
+name = "gimlet-e-lab"
+inherit = ["rev-e-dev.toml", "lab.toml"]

@@ -40,9 +40,10 @@ use inventory::INVENTORY_API_VERSION;
     any(
         target_board = "gimlet-b",
         target_board = "gimlet-c",
-        target_board = "gimlet-d"
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
     ),
-    path = "bsp/gimlet_bcd.rs"
+    path = "bsp/gimlet_bcde.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 mod bsp;
@@ -1132,6 +1133,7 @@ cfg_if::cfg_if! {
         target_board = "gimlet-b",
         target_board = "gimlet-c",
         target_board = "gimlet-d",
+        target_board = "gimlet-e",
     ))] {
         const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
     } else if #[cfg(target_board = "gimletlet-2")] {
