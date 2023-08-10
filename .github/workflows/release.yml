@@ -25,9 +25,11 @@ jobs:
         path: out
     - name: prep
       run: |
-        VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
-        VERSION=`echo $VERSION | awk -F- '{print $NF}'`
+        #VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
+        #VERSION=`echo $VERSION | awk -F- '{print $NF}'`
+        VERSION=v3.3.3
         OUT=${{ steps.grab.outputs.download-path }}
+        ls $OUT
         for build in `ls $OUT`; do
            mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
         done
