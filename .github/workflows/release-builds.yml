@@ -10,46 +10,6 @@ on:
       - "testing-*"
 
 jobs:
-  release-rot:
-    if: startsWith(github.ref, 'refs/tags/oxide-rot-1')
-    uses: ./.github/workflows/release.yml
-    with:
-      build: oxide-rot-1
-      app_name: oxide-rot-1
-      app_toml: app/oxide-rot-1/app.toml
-      target: thumbv8m.main-none-eabihf
-      image: "a, b"
-
-  release-gimlet:
-    if: startsWith(github.ref, 'refs/tags/gimlet')
-    uses: ./.github/workflows/release.yml
-    with:
-      build: gimlet
-      app_name: gimlet-d
-      app_toml: app/gimlet/rev-d.toml
-      target: thumbv7em.main-none-eabihf
-      image: default
-
-  release-psc:
-    if: startsWith(github.ref, 'refs/tags/psc')
-    uses: ./.github/workflows/release.yml
-    with:
-      build: psc
-      app_name: psc-c
-      app_toml: app/psc/rev-c.toml
-      target: thumbv7em.main-none-eabihf
-      image: default
-
-  release-sidecar:
-    if: startsWith(github.ref, 'refs/tags/sidecar')
-    uses: ./.github/workflows/release.yml
-    with:
-      build: sidecar
-      app_name: sidecar-c
-      app_toml: app/sidecar/rev-c.toml
-      target: thumbv7em.main-none-eabihf
-      image: default
-
   release-stuff:
     if: startsWith(github.ref, 'refs/branch/testing')
     uses: ./.github/workflows/release.yml

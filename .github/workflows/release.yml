@@ -9,7 +9,7 @@ on:
 
 jobs:
   do-build:
-    uses: fart
+    uses: ${{ inputs.workflow }}
     with:
        os: ubuntu-latest
 
