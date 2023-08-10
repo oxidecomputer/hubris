@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-rot:
-    if: ${{ inputs.system == "rot" || inputs.system == "all" }}
+    if: ${{ inputs.system == 'rot' || inputs.system == 'all' }}
     name: build-rot
     strategy:
       matrix:
@@ -40,7 +40,7 @@ jobs:
  
 
   build-gimlet:
-    if: ${{ inputs.system == "gimlet" || inputs.system == "all" }}
+    if: ${{ inputs.system == 'gimlet' || inputs.system == 'all' }}
     name: build-gimlet
     strategy:
       matrix:
