@@ -31,7 +31,7 @@ jobs:
         OUT=${{ steps.grab.outputs.download-path }}
         ls $OUT
         for build in `ls $OUT`; do
-           mv $OUT/$build/*.zip $OUT/$build-$VERSION.zip
+           mv $OUT/$build/$build.zip $OUT/$build-$VERSION.zip
         done
 
     - name: cut release
