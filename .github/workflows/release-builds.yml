@@ -11,7 +11,7 @@ on:
 
 jobs:
   release-stuff:
-    if: startsWith(github.ref, 'refs/branch/testing')
+    if: startsWith(github.ref, 'refs/heads/testing')
     uses: ./.github/workflows/release.yml
     with:
       set: gimlet
