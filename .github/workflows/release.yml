@@ -32,9 +32,10 @@ jobs:
         ls $OUT
         for build in `ls $OUT`; do
            for f in `ls $OUT/build`; do
-              mv $OUT/$build/$f $OUT/`basename $f .zip`-$VERSION.zip
+              mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
            done
         done
+        ls $OUT
 
     - name: cut release
       uses: softprops/action-gh-release@v1
