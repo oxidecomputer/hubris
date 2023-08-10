@@ -29,7 +29,7 @@ jobs:
         #VERSION=`echo $VERSION | awk -F- '{print $NF}'`
         VERSION=v3.3.3
         OUT=${{ steps.grab.outputs.download-path }}
-        ls $OUT
+        ls -R $OUT
         for build in `ls $OUT`; do
            mv $OUT/$build/$build.zip $OUT/$build-$VERSION.zip
         done
