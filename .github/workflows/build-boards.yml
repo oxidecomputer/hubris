@@ -181,7 +181,7 @@ jobs:
       image: ${{ matrix.image }}
       os: ${{ inputs.os }}
 
-   build-devboards:
+  build-devboards:
     if: ${{ inputs.board-set == 'devboards' || inputs.board-set == 'all' }}
     name: build-devboards
     strategy:
