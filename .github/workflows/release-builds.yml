@@ -14,6 +14,6 @@ jobs:
     if: startsWith(github.ref, 'refs/branch/testing')
     uses: ./.github/workflows/release.yml
     with:
-      worfklow: ./.github/workflows/build-sp.yml
+      set: gimlet
 
 

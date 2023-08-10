@@ -2,16 +2,17 @@ name: release
 on:
   workflow_call:
     inputs:
-      workflow:
-        description: "Which workflow to build"
+      set:
+        description: "Which set to build"
         required: true
         type: string
 
 jobs:
   do-build:
-    uses: ${{ inputs.workflow }}
+    uses: ./.github/workflows/build-sp.yml
     with:
        os: ubuntu-latest
+       system: ${{ inputs.set }}
 
   release-build:
     needs: do-build
