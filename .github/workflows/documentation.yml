@@ -5,7 +5,6 @@
 # * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
 name: documentation
 on:
-  pull_request:
   push:
     branches: [master]
 
