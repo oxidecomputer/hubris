@@ -448,12 +448,18 @@ impl RxRing {
         self.storage.as_ptr()
     }
 
-    /// Returns a pointer to the byte just past the end of the `RxDesc` ring.
-    /// This too gets loaded into the DMA controller, so that it knows what
-    /// section of the ring is initialized and can be read. (The answer is "all
-    /// of it.")
-    pub fn tail_ptr(&self) -> *const RxDesc {
-        self.storage.as_ptr_range().end
+    /// Returns a pointer to the last valid descriptor in the ring.
+    /// We load this into the DMA controller when we first start operation so
+    /// that it knows what section of the ring is initialized and can be read.
+    /// The answer is "all of it," but we can't exactly specify that.
+    pub fn first_tail_ptr(&self) -> *const RxDesc {
+        self.base_ptr().wrapping_add(self.len() - 1)
+    }
+
+    /// Returns a pointer to the "next" descriptor in the ring.  We load this
+    /// into the device so that the DMA engine knows what descriptors are free.
+    pub fn next_tail_ptr(&self) -> *const RxDesc {
+        self.base_ptr().wrapping_add(self.next.get())
     }
 
     /// Returns the count of entries in the descriptor ring / buffers in the
@@ -468,12 +474,10 @@ impl RxRing {
     fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
-        d.rdes[2].store(0, Ordering::Release);
-        // See hubris#750 for why we need Ordering::Release and this delay
-        cortex_m::asm::delay(16);
+        d.rdes[2].store(0, Ordering::Relaxed);
         let rdes3 =
             1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
-        d.rdes[3].store(rdes3, Ordering::Release); // <-- release
+        d.rdes[3].store(rdes3, Ordering::Relaxed);
     }
 }
 
