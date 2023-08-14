@@ -112,7 +112,8 @@ The error-free path:
 Each lease is 12 bytes in size and must be 4-byte aligned. A lease is equivalent
 to the following Rust struct:
 
-....
+[source,rust]
+----
 #[repr(C)]
 struct Lease {
     attributes: u32,
@@ -122,7 +123,7 @@ struct Lease {
 
 const ATT_READ: u32 = 1 << 0;
 const ATT_WRITE: u32 = 1 << 1;
-....
+----
 
 - `attributes` can specify that a lease can be read from, written to, or both.
   Any use of undefined attribute bits will cause a fault.
