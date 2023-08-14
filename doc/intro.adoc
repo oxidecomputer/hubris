@@ -1,5 +1,7 @@
 = Introduction
 
+I love hubris
+
 Hubris is a small operating system intended for deeply-embedded computer systems
 -- the kind that usually don't have any user interface, or way for an operator
 to intervene. Because it's important for systems like that to take care of
