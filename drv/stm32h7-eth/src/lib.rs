@@ -13,6 +13,7 @@
 #![no_std]
 
 use core::convert::TryFrom;
+use core::sync::atomic::{self, Ordering};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -157,8 +158,10 @@ impl Ethernet {
         // above.
         dma.dmactx_dtpr
             .write(|w| unsafe { w.tdt().bits(tx_ring.tail_ptr() as u32 >> 2) });
-        dma.dmacrx_dtpr
-            .write(|w| unsafe { w.rdt().bits(rx_ring.tail_ptr() as u32 >> 2) });
+        atomic::fence(Ordering::Release);
+        dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(rx_ring.first_tail_ptr() as u32 >> 2)
+        });
 
         // Central DMA config:
 
@@ -318,11 +321,11 @@ impl Ethernet {
     fn rx_notify(&self) {
         // We have dequeued a packet! The hardware might not realize there is
         // room in the RX queue now. Poke it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        atomic::fence(Ordering::Release);
         // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
+        // bottom bits because svd2rust).
         self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+            w.rdt().bits(self.rx_ring.next_tail_ptr() as u32 >> 2)
         });
     }
 
