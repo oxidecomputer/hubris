@@ -555,6 +555,9 @@ pub fn package(
     Ok(allocated)
 }
 
+// can we use lpc55-romapi
+const LPC55_FLASH_PAGE_SIZE: usize = 512;
+
 // generate file with hash of expected flash contents
 fn write_fwid(
     cfg: &PackageConfig,
@@ -571,32 +574,39 @@ fn write_fwid(
 
     let chip_name = Path::new(&cfg.toml.chip);
 
-    // determine FWID calculation method from chip (directory) name
+    // determine amount of padding required
     let pad = match chip_name.file_name().and_then(OsStr::to_str) {
+        Some("lpc55") => {
+            // Flash is programmed in 512 blocks. If the final block is not
+            // filled it is padded with 0xff's. Unwritten flash pages cannot
+            // be read and are not included in the FWID calculation.
+            LPC55_FLASH_PAGE_SIZE - bin.len() % LPC55_FLASH_PAGE_SIZE
+        }
         Some("stm32h7") => {
             // all unprogrammed flash is read as 0xff
-            Some(vec![
-                0xff_u8;
-                flash.end as usize - flash.start as usize - bin.len()
-            ])
+            flash.end as usize - flash.start as usize - bin.len()
         }
-        Some(_) => None,
+        Some(_) => bail!("cannot calculate fwid for unknown chip"),
         None => bail!("Failed to get file name of {}", chip_name.display()),
     };
 
+    // FWID is primarily the digest of the final binary image.
     let mut sha = Sha3_256::new();
     sha.update(&bin);
 
-    if let Some(pad) = pad {
-        sha.update(&pad);
+    // FWID also includes the expected padding present in the image when
+    // read from flash.
+    if pad != 0 {
+        sha.update(vec![0xff_u8; pad])
     }
 
     let digest = sha.finalize();
 
     let mut file = File::create(&cfg.img_file("final.fwid", image_name))?;
-    writeln!(file, "{}", hex::encode(&digest))?;
+    let fwid = hex::encode(&digest);
+    writeln!(file, "{}", fwid)?;
 
-    archive.add_file("img/final.fwid", digest.as_bytes())?;
+    archive.add_file("img/final.fwid", fwid)?;
     archive.overwrite()?;
 
     Ok(())
