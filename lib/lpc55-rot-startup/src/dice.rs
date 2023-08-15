@@ -199,11 +199,13 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
     handoff.store(&rng_data);
 }
 
+use crate::images::Image;
+
 // Note: the inline(never) here is to keep this routine's stack usage, which
 // will contain sensitive material, from commingling with the caller. Do not
 // remove it without reconsidering our stack zeroization approach.
 #[inline(never)]
-pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
+pub fn run(image: &Image, handoff: &Handoff, peripherals: &Peripherals) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -227,15 +229,8 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
         handoff,
     );
 
-    // The data we generate has a slot for "firmware ID." This made more sense
-    // when this code and the Hubris image were distributed and signed
-    // separately, and may begin making sense again when we reimplement the
-    // trustzone split and need to attest to the nonsecure code we're about to
-    // boot.
-    //
-    // However, for now, it is moot, and we've agreed to zero it as an
-    // indication of that.
-    let fwid = [0; 32];
+    // TODO: provide justification for turning this back on
+    let fwid = image.get_hash();
 
     // create CDI for layer 1 (L1) firmware (the hubris image we're booting)
     let cdi_l1 = CdiL1::new(&cdi, &fwid);

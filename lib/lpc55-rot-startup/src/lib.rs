@@ -99,14 +99,6 @@ pub fn startup(
 
     apply_memory_protection(mpu);
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&handoff, &peripherals);
-
-    nuke_stack();
-
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    puf_check(&peripherals.PUF);
-
     // Write the image details to handoff RAM. Use the address of the current
     // function to determine which image is running.
     let img_a = images::get_image_a();
@@ -125,6 +117,22 @@ pub fn startup(
     let details = RotBootState { active, a, b };
 
     handoff.store(&details);
+
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    {
+        let image = match active {
+            RotSlot::A => images::get_image_a(),
+            RotSlot::B => images::get_image_b(),
+        };
+        // what to do if the image doesn't `fn validate`?
+        let image = image.unwrap();
+        dice::run(&image, &handoff, &peripherals);
+    }
+
+    nuke_stack();
+
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    puf_check(&peripherals.PUF);
 }
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
