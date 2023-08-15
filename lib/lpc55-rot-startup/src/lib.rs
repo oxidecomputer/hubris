@@ -75,6 +75,46 @@ fn puf_check(puf: &lpc55_pac::PUF) {
     }
 }
 
+fn enable_debug(peripherals: &lpc55_pac::Peripherals) {
+    const HUBRIS_DEBUG_CRED_BEACON: u32 = 10000;
+
+    let beacon = peripherals.SYSCON.debug_auth_beacon.read().bits();
+    // The beacon is made up of two parts: 16 bits of credential beacon
+    // which is signed by the root key and 16 bits of authentication beacon
+    // which can be changed at runtime. Use the sign credential beacon
+    // to decide if debugging should be enabled
+    let cred_beacon = beacon & 0xffff;
+
+    if cred_beacon == HUBRIS_DEBUG_CRED_BEACON {
+        // See Section 4.5.83 of UM11126, this isn't actually named
+        // in the manual apart from `CPU0 SWD-AP: 0x12345678`
+        const SWD_MAGIC: u32 = 0x12345678;
+        // This register is not defined in the LPC55 PAC
+        // This information comes from Section 4.5.83 of UM11126
+        const SYSCON_SWDCPU0: u32 = 0x4000_0FB4;
+        // Enable SWD port access for CPU0
+        // SAFETY: writing anything other than the defined magic will lock
+        // out debug access which is the behavior we want here!
+        unsafe {
+            core::ptr::write_volatile(SYSCON_SWDCPU0 as *mut u32, SWD_MAGIC);
+        }
+        // The debug auth code will set the `SYSCON_DEBUG_FEATURES` but not
+        // the `DP` variant. We'll trust the debug auth code to have set
+        // the options we want
+        let debug_features = peripherals.SYSCON.debug_features.read().bits();
+        peripherals
+            .SYSCON
+            .debug_features_dp
+            .write(|w| unsafe { w.bits(debug_features) });
+
+        // Prevent futher changes to the debug settings
+        peripherals
+            .SYSCON
+            .debug_lock_en
+            .write(|w| w.lock_all().enable());
+    }
+}
+
 /// Run the common startup routine for LPC55-based roots of trust.
 pub fn startup(
     core_peripherals: &cortex_m::Peripherals,
@@ -125,6 +165,10 @@ pub fn startup(
     let details = RotBootState { active, a, b };
 
     handoff.store(&details);
+
+    // This is purposely done as the very last step after all validation
+    // and secret clearing has happened
+    enable_debug(&peripherals);
 }
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
