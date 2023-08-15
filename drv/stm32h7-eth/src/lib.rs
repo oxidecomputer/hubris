@@ -150,14 +150,16 @@ impl Ethernet {
         dma.dmacrx_rlr
             .write(|w| unsafe { w.rdrl().bits(rx_ring_len) });
 
-        // Poke both tail pointers so the hardware looks at the descriptors. We
-        // completely initialize the descriptor array, so the tail pointer is
-        // always the end.
+        // Poke the receive tail pointer so that the hardware looks at
+        // descriptors. We completely initialize the descriptor array, so the
+        // tail pointer is always as close to the end as we can make it.
         //
         // Doing the same drop-bottom-two-bits stuff that we had to do for DLARs
         // above.
-        dma.dmactx_dtpr
-            .write(|w| unsafe { w.tdt().bits(tx_ring.tail_ptr() as u32 >> 2) });
+        //
+        // We don't set the transmit tail pointer until we enqueue a packet,
+        // as we don't want the hardware to race against software filling in
+        // descriptors.
         atomic::fence(Ordering::Release);
         dma.dmacrx_dtpr.write(|w| unsafe {
             w.rdt().bits(rx_ring.first_tail_ptr() as u32 >> 2)
@@ -337,7 +339,7 @@ impl Ethernet {
         // Poke the tail pointer so the hardware knows to recheck (dropping two
         // bottom bits because svd2rust)
         self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+            w.tdt().bits(self.tx_ring.next_tail_ptr() as u32 >> 2)
         });
     }
 
