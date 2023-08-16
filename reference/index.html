@@ -2280,7 +2280,7 @@ like this:</p>
         <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span><span class="p">,</span>
     <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
 
-    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPTS</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPT</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
         <span class="nf">do_interrupt_stuff</span><span class="p">();</span>
         <span class="c1">// Unmask that interrupt so it can fire again.</span>
         <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
@@ -5547,7 +5547,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-08-15 15:02:13 UTC
+Last updated 2023-08-16 15:40:28 UTC
 </div>
 </div>
 </body>
