@@ -1005,12 +1005,19 @@ fn build_kernel(
 
     let image_id = image_id.finish();
 
+    let flash_outputs = if let Some(o) = cfg.toml.outputs.get("flash") {
+        ron::ser::to_string(o)?
+    } else {
+        bail!("no 'flash' output regions defined in config toml");
+    };
+
     // Build the kernel.
     let build_config = cfg.toml.kernel_build_config(
         cfg.verbose,
         &[
             ("HUBRIS_KCONFIG", &kconfig),
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+            ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
         ],
         Some(&cfg.sysroot),
     );
