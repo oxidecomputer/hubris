@@ -2872,17 +2872,17 @@ in the <code>abi</code> crate).</p>
 <p>Each lease is 12 bytes in size and must be 4-byte aligned. A lease is equivalent
 to the following Rust struct:</p>
 </div>
-<div class="literalblock">
+<div class="listingblock">
 <div class="content">
-<pre>#[repr(C)]
-struct Lease {
-    attributes: u32,
-    base_address: usize,
-    length: usize,
-}
+<pre class="rouge highlight"><code data-lang="rust"><span class="nd">#[repr(C)]</span>
+<span class="k">struct</span> <span class="n">Lease</span> <span class="p">{</span>
+    <span class="n">attributes</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
+    <span class="n">base_address</span><span class="p">:</span> <span class="nb">usize</span><span class="p">,</span>
+    <span class="n">length</span><span class="p">:</span> <span class="nb">usize</span><span class="p">,</span>
+<span class="p">}</span>
 
-const ATT_READ: u32 = 1 &lt;&lt; 0;
-const ATT_WRITE: u32 = 1 &lt;&lt; 1;</pre>
+<span class="k">const</span> <span class="n">ATT_READ</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">const</span> <span class="n">ATT_WRITE</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">;</span></code></pre>
 </div>
 </div>
 <div class="ulist">
@@ -5547,7 +5547,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2023-08-16 15:56:12 UTC
+Last updated 2023-08-16 16:06:15 UTC
 </div>
 </div>
 </body>
