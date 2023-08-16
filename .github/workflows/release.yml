@@ -2,37 +2,17 @@ name: release
 on:
   workflow_call:
     inputs:
-      build:
-        description: "Name output for the build"
-        required: true
-        type: string
-      app_name:
-        description: "Application directory name"
-        required: true
-        type: string
-      app_toml:
-        description: "TOML file name (must be app directory)"
-        required: true
-        type: string
-      target:
-        description: "Compilation target triplet"
-        required: true
-        type: string
-      image:
-        description: "Comma separated string of image names to build"
+      board-set:
+        description: "Which set to build"
         required: true
         type: string
 
 jobs:
   do-build:
-    uses: ./.github/workflows/build-one.yml
+    uses: ./.github/workflows/build-boards.yml
     with:
-       build: ${{ inputs.build }}
-       app_name: ${{ inputs.app_name }}
-       app_toml: ${{ inputs.app_toml }}
-       target: ${{ inputs.target }}
-       image: ${{ inputs.image }}
        os: ubuntu-latest
+       board-set: ${{ inputs.board-set }}
 
   release-build:
     needs: do-build
@@ -42,7 +22,6 @@ jobs:
       id: grab
       uses: actions/download-artifact@v3
       with:
-        name: dist-ubuntu-latest-${{ inputs.build }}
         path: out
     - name: prep
       run: |
@@ -50,12 +29,15 @@ jobs:
         VERSION=`echo $VERSION | awk -F- '{print $NF}'`
         OUT=${{ steps.grab.outputs.download-path }}
         for build in `ls $OUT`; do
-           mv $OUT/$build $OUT/`basename $build .zip`-$VERSION.zip
+           for f in `ls $OUT/$build`; do
+              mv $OUT/$build/$f $OUT/`basename $f .zip`-$VERSION.zip
+           done
         done
 
     - name: cut release
       uses: softprops/action-gh-release@v1
       with:
+        name: "${{ inputs.board-set }} release"
         draft: true
         fail_on_unmatched_files: true
         files: |

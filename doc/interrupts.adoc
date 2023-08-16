@@ -114,7 +114,7 @@ loop {
         TaskId::KERNEL,
     ).unwrap();
 
-    if result.operation & MY_INTERRUPTS != 0 {
+    if result.operation & MY_INTERRUPT != 0 {
         do_interrupt_stuff();
         // Unmask that interrupt so it can fire again.
         sys_irq_control(MY_INTERRUPT, true);
