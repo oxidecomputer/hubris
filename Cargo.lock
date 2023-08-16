@@ -2681,6 +2681,7 @@ dependencies = [
  "lpc55-puf",
  "lpc55_romapi",
  "nb 1.0.0",
+ "ron",
  "salty",
  "serde",
  "sha3",
