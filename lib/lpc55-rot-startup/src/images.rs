@@ -120,20 +120,30 @@ impl Image {
         return true;
     }
 
-    // TODO: This is a particularly naive way to calculate the hash of the
-    // hubris image: https://github.com/oxidecomputer/hubris/issues/736
     pub fn get_hash(&self) -> [u8; 32] {
-        let img_ptr = self.get_img_start() as *const u8;
-        // The MPU requires 32 byte alignment and so the compiler pads the
-        // image accordingly. The length field from the image header does not
-        // (and should not) account for this padding so we must do that here.
-        let img_size = self.get_img_size().unwrap_lite() + 31 & !31;
-        let image = unsafe { core::slice::from_raw_parts(img_ptr, img_size) };
+        let start = self.get_img_start();
+        // TODO: build.rs - must work for both A / B images
+        let end = start + 0x40_000_u32;
 
-        let mut img_hash = Sha3_256::new();
-        img_hash.update(image);
+        let mut hash = Sha3_256::new();
+        for start in (start..end).step_by(FLASH_PAGE_SIZE) {
+            if lpc55_romapi::validate_programmed(start, PAGE_SIZE) {
+                // SAFETY: The safety of this code depends on on where we get
+                // the addresses from. The start address comes from the image
+                // header & the range is determiend by a constant defined
+                // here. The integrity of both are established by verified
+                // boot.
+                let page = unsafe {
+                    core::slice::from_raw_parts(
+                        start as *const u8,
+                        FLASH_PAGE_SIZE,
+                    )
+                };
+                hash.update(page);
+            }
+        }
 
-        img_hash.finalize().try_into().unwrap_lite()
+        hash.finalize().try_into().unwrap_lite()
     }
 
     pub fn get_image_version(&self) -> ImageVersion {
