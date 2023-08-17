@@ -172,6 +172,12 @@ impl TxRing {
     pub fn tail_ptr(&self) -> *const TxDesc {
         self.storage.as_ptr_range().end
     }
+
+    /// Increments the `next` descriptor index, modulo the length of the ring.
+    fn incr_next(&self) {
+        let next = self.next.get() + 1;
+        self.next.set(next % self.storage.len());
+    }
 }
 
 #[cfg(not(feature = "vlan"))]
@@ -249,11 +255,7 @@ impl TxRing {
                 | len as u32;
             d.tdes[3].store(tdes3, Ordering::Release); // <-- release
 
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
+            self.incr_next();
 
             Some(result)
         }
@@ -337,11 +339,7 @@ impl TxRing {
                 | len as u32;
             d.tdes[1][3].store(tdes3, Ordering::Release); // <-- release
 
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
+            self.incr_next();
 
             Some(result)
         }
@@ -468,6 +466,12 @@ impl RxRing {
         self.storage.len()
     }
 
+    /// Increments the `next` descriptor index, modulo the length of the ring.
+    fn incr_next(&self) {
+        let next = self.next.get() + 1;
+        self.next.set(next % self.storage.len());
+    }
+
     /// Programs the words in `d` to prepare to receive into `buffer` and sets
     /// `d` accessible to hardware. The final write to make it accessible is
     /// performed with Release ordering to get a barrier.
@@ -513,11 +517,8 @@ impl RxRing {
             }
 
             // Otherwise, drop the packet by bumping our index
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
+            self.incr_next();
+
             any_dropped = true;
         }
     }
@@ -588,11 +589,7 @@ impl RxRing {
         // potentially in use, and we must not access either.
 
         // Bump index forward.
-        self.next.set(if self.next.get() + 1 == self.storage.len() {
-            0
-        } else {
-            self.next.get() + 1
-        });
+        self.incr_next();
 
         result
     }
@@ -656,7 +653,7 @@ impl RxRing {
             Self::set_descriptor(d, buffer);
 
             // Bump index forward.
-            self.next.set((self.next.get() + 1) % self.storage.len());
+            self.incr_next();
 
             any_dropped = true;
         }
@@ -723,7 +720,7 @@ impl RxRing {
         // potentially in use, and we must not access either.
 
         // Bump index forward.
-        self.next.set((self.next.get() + 1) % self.storage.len());
+        self.incr_next();
 
         retval
     }
