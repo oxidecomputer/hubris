@@ -652,11 +652,8 @@ impl RxRing {
             Self::set_descriptor(d, buffer);
 
             // Bump index forward.
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
+            self.next.set((self.next.get() + 1) % self.storage.len());
+
             any_dropped = true;
         }
     }
@@ -722,11 +719,7 @@ impl RxRing {
         // potentially in use, and we must not access either.
 
         // Bump index forward.
-        self.next.set(if self.next.get() + 1 == self.storage.len() {
-            0
-        } else {
-            self.next.get() + 1
-        });
+        self.next.set((self.next.get() + 1) % self.storage.len());
 
         retval
     }
