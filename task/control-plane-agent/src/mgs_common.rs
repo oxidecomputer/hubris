@@ -10,7 +10,7 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
+    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2, SensorError,
     SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -18,9 +18,11 @@ use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
 use task_net_api::MacAddress;
 use task_packrat_api::Packrat;
-use userlib::{kipc, task_slot};
+use task_sensor_api::{Sensor, SensorId};
+use userlib::{kipc, sys_get_timer, task_slot};
 
 task_slot!(PACKRAT, packrat);
+task_slot!(SENSOR, sensor);
 task_slot!(pub SPROT, sprot);
 task_slot!(pub UPDATE_SERVER, update_server);
 
@@ -32,6 +34,7 @@ pub(crate) struct MgsCommon {
     packrat: Packrat,
     sprot: SpRot,
     sp_update: Update,
+    sensor: Sensor,
 }
 
 impl MgsCommon {
@@ -43,6 +46,7 @@ impl MgsCommon {
             packrat: Packrat::from(PACKRAT.get_task_id()),
             sprot: SpRot::from(SPROT.get_task_id()),
             sp_update: Update::from(UPDATE_SERVER.get_task_id()),
+            sensor: Sensor::from(SENSOR.get_task_id()),
         }
     }
 
@@ -325,7 +329,17 @@ impl MgsCommon {
         &mut self,
         req: SensorRequest,
     ) -> Result<SensorResponse, SpError> {
-        todo!()
+        match req {
+            SensorRequest::CurrentTime => {
+                Ok(SensorResponse::CurrentTime(sys_get_timer().now))
+            }
+            SensorRequest::ErrorCount { id } => self
+                .sensor
+                .get_nerrors(SensorId(id))
+                .map(SensorResponse::ErrorCount)
+                .map_err(|_| SpError::Sensor(SensorError::InvalidSensor)),
+            _ => todo!(),
+        }
     }
 }
 
