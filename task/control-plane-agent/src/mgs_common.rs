@@ -10,8 +10,8 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2, SpComponent,
-    SpError, SpPort, SpStateV2,
+    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -319,6 +319,13 @@ impl MgsCommon {
             // Other components might also be served someday.
             _ => return Err(SpError::RequestUnsupportedForComponent),
         }
+    }
+
+    pub(crate) fn read_sensor(
+        &mut self,
+        req: SensorRequest,
+    ) -> Result<SensorResponse, SpError> {
+        todo!()
     }
 }
 
