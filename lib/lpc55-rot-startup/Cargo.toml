@@ -30,6 +30,7 @@ lib-lpc55-usart = { path = "../lpc55-usart", optional = true }
 lpc55_romapi = { path = "../lpc55-romapi" }
 stage0-handoff = { path = "../stage0-handoff"}
 unwrap-lite = { path = "../unwrap-lite" }
+drv-lpc55-flash.path = "../../drv/lpc55-flash"
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

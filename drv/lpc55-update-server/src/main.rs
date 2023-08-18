@@ -11,7 +11,7 @@
 
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
-use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
+use drv_lpc55_flash::BYTES_PER_FLASH_PAGE;
 use drv_lpc55_update_api::{
     RawCabooseError, RotBootInfo, SlotId, SwitchDuration, UpdateTarget,
 };
@@ -403,11 +403,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 // Note that the page write machinery uses page numbers. This
                 // should probably change. But, for now, we must divide our word
                 // number by 32.
-                do_raw_page_write(
-                    &mut self.flash,
-                    CFPA_SCRATCH_FLASH_WORD / 32,
-                    &cfpa_bytes,
-                )?;
+                self.flash
+                    .write_page(
+                        CFPA_SCRATCH_FLASH_WORD,
+                        &cfpa_bytes,
+                        wait_for_flash_interrupt,
+                    )
+                    .map_err(|_| UpdateError::FlashError)?;
             }
         }
 
@@ -713,82 +715,16 @@ fn do_block_write(
         None => return Err(UpdateError::OutOfBounds),
     };
 
-    // write_addr is a byte address; convert it back to a page number, but this
-    // time, an absolute page number in the flash device.
-    let page_num = write_addr / BYTES_PER_FLASH_PAGE as u32;
-
-    do_raw_page_write(flash, page_num, flash_page)
+    flash
+        .write_page(write_addr, flash_page, wait_for_flash_interrupt)
+        .map_err(|_| UpdateError::FlashError)
 }
 
-/// Performs an erase-write sequence to a single page within the raw flash
-/// device. This function is capable of writing outside of any image slot, which
-/// is important for doing CFPA updates. If you're writing to an image slot, use
-/// `do_block_write`.
-fn do_raw_page_write(
-    flash: &mut drv_lpc55_flash::Flash<'_>,
-    page_num: u32,
-    flash_page: &[u8; BYTES_PER_FLASH_PAGE],
-) -> Result<(), UpdateError> {
-    // We regularly need the number of flash words per flash page below, and
-    // specifically as a u32, so:
-    static_assertions::const_assert_eq!(
-        BYTES_PER_FLASH_PAGE % BYTES_PER_FLASH_WORD,
-        0
-    );
-    const WORDS_PER_PAGE: u32 =
-        (BYTES_PER_FLASH_PAGE / BYTES_PER_FLASH_WORD) as u32;
-
-    // The hardware operates in terms of word numbers, never page numbers.
-    // Convert the page number to the number of the first word in that page.
-    // (This is equivalent to multiplying by 32 but named constants are nice.)
-    let word_num = page_num * WORDS_PER_PAGE;
-
-    // Step one: erase the page. Note that this range is INCLUSIVE. The hardware
-    // will happily erase multiple pages if you let it. We don't want that here.
-    flash.start_erase_range(word_num..=word_num + (WORDS_PER_PAGE - 1));
-    wait_for_erase_or_program(flash)?;
-
-    // Step two: Transfer each 16-byte flash word (page row) into the write
-    // registers in the flash controller.
-    for (i, row) in flash_page.chunks_exact(BYTES_PER_FLASH_WORD).enumerate() {
-        // TODO: this will be unnecessary if array_chunks stabilizes
-        let row: &[u8; BYTES_PER_FLASH_WORD] = row.try_into().unwrap_lite();
-
-        flash.start_write_row(i as u32, row);
-        while !flash.poll_write_result() {
-            // spin - supposed to be very quick in hardware.
-        }
-    }
-
-    // Step three: program the whole page into non-volatile storage by naming
-    // the first word in the target page. (Any word in the page will do,
-    // actually, but we've conveniently got the first word available.)
-    flash.start_program(word_num);
-    wait_for_erase_or_program(flash)?;
-
-    Ok(())
-}
-
-/// Utility function that does an interrupt-driven poll and sleep while the
-/// flash controller finishes a write or erase.
-fn wait_for_erase_or_program(
-    flash: &mut drv_lpc55_flash::Flash<'_>,
-) -> Result<(), UpdateError> {
-    loop {
-        if let Some(result) = flash.poll_erase_or_program_result() {
-            return result.map_err(|_| UpdateError::FlashError);
-        }
-
-        flash.enable_interrupt_sources();
-        sys_irq_control(notifications::FLASH_IRQ_MASK, true);
-        // RECV from the kernel cannot produce an error, so ignore it.
-        let _ = sys_recv_closed(
-            &mut [],
-            notifications::FLASH_IRQ_MASK,
-            TaskId::KERNEL,
-        );
-        flash.disable_interrupt_sources();
-    }
+fn wait_for_flash_interrupt() {
+    sys_irq_control(notifications::FLASH_IRQ_MASK, true);
+    // RECV from the kernel cannot produce an error, so ignore it.
+    let _ =
+        sys_recv_closed(&mut [], notifications::FLASH_IRQ_MASK, TaskId::KERNEL);
 }
 
 fn same_image(which: UpdateTarget) -> bool {

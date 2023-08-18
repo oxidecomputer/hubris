@@ -130,6 +130,8 @@ pub fn startup(
 
     let mpu = &core_peripherals.MPU;
 
+    let mut flash = drv_lpc55_flash::Flash::new(&peripherals.FLASH);
+
     // Turn on the memory used by the handoff subsystem to dump
     // `RotUpdateDetails` and DICE information required by hubris.
     //
@@ -140,7 +142,7 @@ pub fn startup(
     apply_memory_protection(mpu);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&handoff, &peripherals);
+    dice::run(&handoff, &peripherals, &mut flash);
 
     nuke_stack();
 
@@ -149,8 +151,8 @@ pub fn startup(
 
     // Write the image details to handoff RAM. Use the address of the current
     // function to determine which image is running.
-    let img_a = images::get_image_a();
-    let img_b = images::get_image_b();
+    let img_a = images::get_image_a(&mut flash);
+    let img_b = images::get_image_b(&mut flash);
     let here = startup as *const u8;
     let active = if img_a.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
         RotSlot::A
@@ -159,8 +161,8 @@ pub fn startup(
     } else {
         panic!();
     };
-    let a = img_a.map(images::image_details);
-    let b = img_b.map(images::image_details);
+    let a = img_a.map(|i| images::image_details(i, &mut flash));
+    let b = img_b.map(|i| images::image_details(i, &mut flash));
 
     let details = RotBootState { active, a, b };
 
