@@ -102,7 +102,7 @@ pub struct FfrKeyStore {
     prince2_key_code: [u32; 13],
 }
 
-pub const FLASH_PAGE_SIZE: usize = 512;
+const FLASH_PAGE_SIZE: usize = 512;
 
 const ACTIVATION_CODE_SIZE: usize = 1192;
 
@@ -383,35 +383,6 @@ struct FlashConfig {
     mode_config: FlashModeConfig,
 }
 
-fn get_system_clock_speed_mhz() -> u32 {
-    let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
-
-    let a = syscon.mainclksela.read().bits();
-    let b = syscon.mainclkselb.read().bits();
-    let div = syscon.ahbclkdiv.read().bits();
-
-    // corresponds to FRO 96 MHz, see 4.5.34 in user manual
-    const EXPECTED_MAINCLKSELA: u32 = 3;
-    // corresponds to Main Clock A, see 4.5.45 in user manual
-    const EXPECTED_MAINCLKSELB: u32 = 0;
-
-    // We expect the 96MHz clock to be used based on the ROM.
-    // If it's not there are probably more (bad) surprises coming
-    // and panicking is reasonable
-    if a != EXPECTED_MAINCLKSELA || b != EXPECTED_MAINCLKSELB {
-        panic!();
-    }
-
-    if div == 0 {
-        96
-    } else {
-        48
-    }
-}
-
-// Magic from the docs!
-const ERASE_KEY: u32 = 0x6b65666c;
-
 const LPC55_ROM_TABLE: *const BootloaderTree =
     0x130010f0 as *const BootloaderTree;
 
@@ -428,18 +399,6 @@ pub struct BootRom {
 
 pub fn bootrom() -> &'static BootRom {
     unsafe { &*(LPC55_BOOT_ROM) }
-}
-
-fn handle_flash_status(ret: u32) -> Result<(), FlashStatus> {
-    let result = match FlashStatus::from_u32(ret) {
-        Some(a) => a,
-        None => return Err(FlashStatus::Unknown),
-    };
-
-    match result {
-        FlashStatus::Success => Ok(()),
-        a => Err(a),
-    }
 }
 
 fn handle_skboot_status(ret: u32) -> Result<(), ()> {
@@ -476,15 +435,6 @@ fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
     match result {
         BootloaderStatus::Success => Ok(()),
         a => Err(a),
-    }
-}
-
-// Checks that address and length are flash page aligned
-fn check_addr_len_alignment(addr: u32, len: u32) -> Result<(), FlashStatus> {
-    if addr % 512 == 0 && len % 512 == 0 {
-        Ok(())
-    } else {
-        Err(FlashStatus::AlignmentError)
     }
 }
 
@@ -538,248 +488,4 @@ pub unsafe fn load_sb2_image(
         image.as_mut_ptr(),
         image.len() as u32,
     ))
-}
-
-pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
-    //   XXX More validation of buffer?
-    //   We expect the caller to have dropped the clocks appropriately
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    check_addr_len_alignment(addr, len)?;
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .flash_init)(&mut f))?;
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .ffr_init)(&mut f))?;
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .flash_erase)(&mut f, addr, len, ERASE_KEY))
-}
-
-pub unsafe fn flash_write(
-    addr: u32,
-    buffer: *mut u8,
-    len: u32,
-) -> Result<(), FlashStatus> {
-    //   XXX More validation of buffer?
-    //   XXX docs say we need to drop the clocks?
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    check_addr_len_alignment(addr, len)?;
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .flash_init)(&mut f))?;
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .ffr_init)(&mut f))?;
-
-    // XXX so much more validation needed
-
-    handle_flash_status((bootloader_tree()
-        .flash_driver
-        .version1_flash_driver
-        .flash_program)(&mut f, addr, buffer, len))
-}
-
-/*
- * The LPC55 will hard fault if it accesses an unprogrammed area. This function
- * uses the ROM APIs to make sure the flash is programmed before we access
- */
-pub fn validate_programmed(start: u32, len: u32) -> bool {
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    let ret = handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_init)(&mut f)
-    });
-
-    if ret.is_err() {
-        return false;
-    }
-
-    let ret = handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_init)(&mut f)
-    });
-
-    if ret.is_err() {
-        return false;
-    }
-
-    // flash_verify_erased returns true iff all flash pages in the range are
-    // erased.  If at least one is programmed, it returns false.  Since we want
-    // to know that all pages are programmed, we need to check each page
-    // individually.
-    let page_size = FLASH_PAGE_SIZE as u32;
-    let page_aligned_start = start - (start % page_size);
-    let page_aligned_end = {
-        let end = start + len;
-        (end + page_size - 1) - ((end + page_size - 1) % page_size)
-    };
-
-    for page in
-        (page_aligned_start..page_aligned_end).step_by(page_size as usize)
-    {
-        let v = handle_flash_status(unsafe {
-            (bootloader_tree()
-                .flash_driver
-                .version1_flash_driver
-                .flash_verify_erase)(&mut f, page, page_size)
-        });
-
-        match v {
-            // Page is erased
-            Ok(_) => return false,
-            // Page is programmed
-            Err(FlashStatus::CommandFailure) => continue,
-            // Some other error was encountered
-            Err(_) => return false,
-        }
-    }
-
-    true
-}
-
-pub fn get_key_code(
-    idx: FFRKeyType,
-    key_code: &mut [u32; 13],
-) -> Result<(), FlashStatus> {
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_keystore_get_kc)(&mut f, key_code, idx as u32)
-    })
-}
-
-pub fn get_activation_code(
-    ac: &mut [u32; ACTIVATION_CODE_SIZE / 4],
-) -> Result<(), FlashStatus> {
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_keystore_get_ac)(&mut f, ac)
-    })
-}
-
-pub fn write_keystore(key_store: &mut FfrKeyStore) -> Result<(), FlashStatus> {
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_keystore_write)(&mut f, key_store)
-    })
-}
-
-pub fn get_cmpa_data(
-    data: &mut [u32],
-    offset: u32,
-    len: u32,
-) -> Result<(), FlashStatus> {
-    assert!(len <= (data.len() as u32));
-
-    let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = get_system_clock_speed_mhz();
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .flash_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_init)(&mut f)
-    })?;
-
-    handle_flash_status(unsafe {
-        (bootloader_tree()
-            .flash_driver
-            .version1_flash_driver
-            .ffr_get_customer_data)(
-            &mut f, data.as_mut_ptr(), offset, len
-        )
-    })
-}
-
-// Keep this as a sample function for now
-pub fn get_bootloader_version() -> u32 {
-    let version = &bootloader_tree().version;
-    (version.bugfix as u32)
-        | ((version.minor as u32) << 8)
-        | ((version.major as u32) << 16)
-        | ((version.name as u32) << 24)
 }

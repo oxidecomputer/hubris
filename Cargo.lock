@@ -2675,6 +2675,7 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "digest",
+ "drv-lpc55-flash",
  "hubpack",
  "lib-dice",
  "lib-lpc55-usart",

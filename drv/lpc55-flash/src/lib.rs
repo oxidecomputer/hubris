@@ -20,6 +20,10 @@ pub const BYTES_PER_FLASH_WORD: usize = 16;
 /// Number of bytes per flash page.
 pub const BYTES_PER_FLASH_PAGE: usize = 512;
 
+/// Flash words per flash page
+pub const WORDS_PER_FLASH_PAGE: usize =
+    BYTES_PER_FLASH_PAGE / BYTES_PER_FLASH_WORD;
+
 /// Flash driver handle. Wraps a pointer to the flash register set and provides
 /// encapsulated operations.
 ///
@@ -335,6 +339,67 @@ impl<'a> Flash<'a> {
             w.fail().set_bit();
             w
         });
+    }
+
+    pub fn write_page(
+        &mut self,
+        addr: u32,
+        flash_page: &[u8; BYTES_PER_FLASH_PAGE],
+        wait: fn() -> (),
+    ) -> Result<(), FlashTimeout> {
+        let start_word = addr / BYTES_PER_FLASH_WORD as u32;
+        self.start_erase_range(
+            start_word..=start_word + ((WORDS_PER_FLASH_PAGE as u32) - 1),
+        );
+        self.wait_for_erase_or_program(wait)?;
+
+        for (i, row) in
+            flash_page.chunks_exact(BYTES_PER_FLASH_WORD).enumerate()
+        {
+            let row: &[u8; BYTES_PER_FLASH_WORD] = row.try_into().unwrap();
+
+            self.start_write_row(i as u32, row);
+            while !self.poll_write_result() {}
+        }
+
+        self.start_program(start_word);
+        self.wait_for_erase_or_program(wait)?;
+        Ok(())
+    }
+
+    fn wait_for_erase_or_program(
+        &mut self,
+        wait: fn() -> (),
+    ) -> Result<(), FlashTimeout> {
+        loop {
+            if let Some(result) = self.poll_erase_or_program_result() {
+                return result;
+            }
+
+            self.enable_interrupt_sources();
+            wait();
+            self.disable_interrupt_sources();
+        }
+    }
+
+    pub fn is_page_range_programmed(&mut self, addr: u32, len: u32) -> bool {
+        for i in (addr..addr + len).step_by(BYTES_PER_FLASH_PAGE) {
+            let word = i / (BYTES_PER_FLASH_WORD as u32);
+            // the blank check is inclusive so we need to end before
+            // the last word
+            let end_word = (word + WORDS_PER_FLASH_PAGE as u32) - 1;
+            self.start_blank_check(word..=end_word);
+            loop {
+                if let Some(s) = self.poll_blank_check_result() {
+                    match s {
+                        ProgramState::Blank => return false,
+                        _ => break,
+                    }
+                }
+            }
+        }
+
+        true
     }
 }
 

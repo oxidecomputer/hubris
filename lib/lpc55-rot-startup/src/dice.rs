@@ -4,6 +4,7 @@
 
 use crate::Handoff;
 use core::mem;
+use drv_lpc55_flash::Flash;
 use lib_dice::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertData,
     CertSerialNumber, DeviceIdCertBuilder, DeviceIdOkm, IntermediateCert,
@@ -32,14 +33,17 @@ pub struct MfgResult {
 }
 
 /// Generate stuff associated with the manufacturing process.
-fn gen_mfg_artifacts(peripherals: &Peripherals) -> MfgResult {
+fn gen_mfg_artifacts(
+    peripherals: &Peripherals,
+    flash: &mut Flash,
+) -> MfgResult {
     // Select manufacturing process based on feature. This module assumes
     // that one of the manufacturing flavors has been enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "dice-mfg")] {
-            dice_mfg_usart::gen_mfg_artifacts_usart(peripherals)
+            dice_mfg_usart::gen_mfg_artifacts_usart(peripherals, flash)
         } else if #[cfg(feature = "dice-self")] {
-            gen_mfg_artifacts_self(peripherals)
+            gen_mfg_artifacts_self(peripherals, flash)
         } else {
             compile_error!("No DICE manufacturing process selected.");
         }
@@ -50,7 +54,10 @@ fn gen_mfg_artifacts(peripherals: &Peripherals) -> MfgResult {
 /// certificates. This is expected to be useful for development systems that
 /// cannot easily have identities certified by an external CA.
 #[cfg(feature = "dice-self")]
-fn gen_mfg_artifacts_self(peripherals: &Peripherals) -> MfgResult {
+fn gen_mfg_artifacts_self(
+    peripherals: &Peripherals,
+    _flash: &mut Flash,
+) -> MfgResult {
     use core::ops::{Deref, DerefMut};
     use lib_dice::{DiceMfg, PersistIdSeed, SelfMfg};
     use zeroize::Zeroizing;
@@ -203,7 +210,7 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
 // will contain sensitive material, from commingling with the caller. Do not
 // remove it without reconsidering our stack zeroization approach.
 #[inline(never)]
-pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
+pub fn run(handoff: &Handoff, peripherals: &Peripherals, flash: &mut Flash) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -215,7 +222,7 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals) {
         None => return,
     };
 
-    let mut mfg_data = gen_mfg_artifacts(&peripherals);
+    let mut mfg_data = gen_mfg_artifacts(&peripherals, flash);
 
     let deviceid_keypair = gen_deviceid_artifacts(
         &cdi,

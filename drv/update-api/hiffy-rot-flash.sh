@@ -11,13 +11,13 @@
 
 # NOTE: Make sure you are not runnning this on an ancient version of bash on Mac OSX
 
-set -x
+set -ex
 
 image=$1
 image_type=$2
 
 block_size=512
-binsize=`ls -la $image | cut -w -f 5`
+binsize=`ls -la $image | cut -d ' ' -f 5`
 numblocks=$(("${binsize}" / "${block_size}"))
 total_before_last_block=$((numblocks * "${block_size}"))
 lastblocksize=$(("${binsize}" - "${total_before_last_block}"))
@@ -63,10 +63,10 @@ write_blocks() {
 humility -a "${ARCHIVE}" hiffy -c Update.prep_image_update -a image_type="${image_type}"
 
 # Begin by invalidating the header which resides at offset 0x130 (in block zero).
-write_blocks 0 0 /dev/zero
-write_blocks 1 "${loopend}" "${image}"
+#write_blocks 0 0 /dev/zero
+write_blocks 0 "${loopend}" "${image}"
 humility -a "${ARCHIVE}" hiffy -c Update.write_one_block -a block_num="${numblocks}" -i <(dd if="${image}" bs=1 count="${lastblocksize}" skip="${total_before_last_block}") 
 # Lastly, write the correct block zero.
-write_blocks 0 0 "${image}"
+#write_blocks 0 0 "${image}"
 
 humility -a "${ARCHIVE}" hiffy -c Update.finish_image_update

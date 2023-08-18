@@ -4,6 +4,7 @@
 
 use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
 use core::ops::{Deref, DerefMut};
+use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use hubpack::SerializedSize;
 use lib_dice::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,
@@ -15,13 +16,13 @@ use lpc55_puf::Puf;
 use salty::signature::Keypair;
 use serde::{Deserialize, Serialize};
 use static_assertions as sa;
+use unwrap_lite::UnwrapLite;
 use zeroize::Zeroizing;
 
 macro_rules! flash_page_align {
     ($size:expr) => {
-        if $size % lpc55_romapi::FLASH_PAGE_SIZE != 0 {
-            ($size & !(lpc55_romapi::FLASH_PAGE_SIZE - 1))
-                + lpc55_romapi::FLASH_PAGE_SIZE
+        if $size % BYTES_PER_FLASH_PAGE != 0 {
+            ($size & !(BYTES_PER_FLASH_PAGE - 1)) + BYTES_PER_FLASH_PAGE
         } else {
             $size
         }
@@ -34,13 +35,9 @@ sa::const_assert!(
         >= flash_page_align!(DiceState::MAX_SIZE)
 );
 
-// ensure FLASH_DICE_MFG start and end are alligned
-sa::const_assert!(
-    FLASH_DICE_MFG.end as usize % lpc55_romapi::FLASH_PAGE_SIZE == 0
-);
-sa::const_assert!(
-    FLASH_DICE_MFG.start as usize % lpc55_romapi::FLASH_PAGE_SIZE == 0
-);
+// ensure DICE_FLASH start and end are alligned
+sa::const_assert!(FLASH_DICE_MFG.end as usize % BYTES_PER_FLASH_PAGE == 0);
+sa::const_assert!(FLASH_DICE_MFG.start as usize % BYTES_PER_FLASH_PAGE == 0);
 
 const VERSION: u32 = 0;
 const MAGIC: [u8; 12] = [
@@ -109,7 +106,7 @@ impl DiceState {
         Ok(state)
     }
 
-    pub fn to_flash(&self) -> Result<usize, DiceStateError> {
+    pub fn to_flash(&self, flash: &mut Flash) -> Result<usize, DiceStateError> {
         let mut buf = [0u8; Self::ALIGNED_MAX_SIZE];
 
         let header = Header::default();
@@ -119,32 +116,35 @@ impl DiceState {
         let offset = hubpack::serialize(&mut buf[offset..], self)
             .map_err(|_| DiceStateError::Serialize)?;
 
-        // SAFETY: This unsafe block relies on the caller verifying that the
-        // flash region being programmed is correctly aligned and sufficiently
-        // large to hold Self::MAX bytes. We do this by static assertion.
-        // TODO: error handling
-        unsafe {
-            lpc55_romapi::flash_erase(
-                FLASH_DICE_MFG.start as *const u32 as u32,
-                Self::ALIGNED_MAX_SIZE as u32,
-            )
-            .expect("flash_erase");
-            lpc55_romapi::flash_write(
-                FLASH_DICE_MFG.start as *const u32 as u32,
-                &mut buf as *mut u8,
-                Self::ALIGNED_MAX_SIZE as u32,
-            )
-            .expect("flash_write");
+        for (i, page) in buf.chunks_exact(BYTES_PER_FLASH_PAGE).enumerate() {
+            let page: &[u8; BYTES_PER_FLASH_PAGE] =
+                page.try_into().unwrap_lite();
+            flash
+                .write_page(
+                    (FLASH_DICE_MFG.start as usize + i * BYTES_PER_FLASH_PAGE)
+                        as u32,
+                    page,
+                    delay,
+                )
+                .expect("flash write");
         }
 
         Ok(offset)
     }
 
-    pub fn is_programmed() -> bool {
-        lpc55_romapi::validate_programmed(
-            FLASH_DICE_MFG.start,
+    pub fn is_programmed(flash: &mut Flash) -> bool {
+        flash.is_page_range_programmed(
+            FLASH_DICE_MFG.start as u32,
             flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE) as u32,
         )
+    }
+}
+
+fn delay() {
+    // Timeouts timeouts etc, this just delays for a few cycles until
+    // we check the flash again
+    for _ in 0..100 {
+        cortex_m::asm::nop();
     }
 }
 
@@ -152,7 +152,10 @@ impl DiceState {
 /// by certifying this identity. The certification process uses the usart
 /// peripheral to exchange manufacturing data, CSR & cert with the
 /// manufacturing line.
-fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
+fn gen_artifacts_from_mfg(
+    peripherals: &Peripherals,
+    flash: &mut Flash,
+) -> MfgResult {
     let puf = Puf::new(&peripherals.PUF);
 
     // Create key code for an ed25519 seed using the PUF. We use this seed
@@ -201,7 +204,7 @@ fn gen_artifacts_from_mfg(peripherals: &Peripherals) -> MfgResult {
         intermediate_cert: dice_data.intermediate_cert,
     };
 
-    dice_state.to_flash().unwrap();
+    dice_state.to_flash(flash).unwrap();
 
     MfgResult {
         cert_serial_number: Default::default(),
@@ -246,11 +249,14 @@ fn gen_artifacts_from_flash(peripherals: &Peripherals) -> MfgResult {
     }
 }
 
-pub fn gen_mfg_artifacts_usart(peripherals: &Peripherals) -> MfgResult {
-    if DiceState::is_programmed() {
+pub fn gen_mfg_artifacts_usart(
+    peripherals: &Peripherals,
+    flash: &mut Flash,
+) -> MfgResult {
+    if DiceState::is_programmed(flash) {
         gen_artifacts_from_flash(peripherals)
     } else {
-        gen_artifacts_from_mfg(peripherals)
+        gen_artifacts_from_mfg(peripherals, flash)
     }
 }
 
