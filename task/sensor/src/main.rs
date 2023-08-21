@@ -57,25 +57,15 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
     fn get_reading(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
         id: SensorId,
     ) -> Result<Reading, RequestError<SensorError>> {
-        let index = id.0 as usize;
-
-        if index < NUM_SENSORS {
-            match self.last_reading[index] {
-                None => Err(SensorError::NoReading.into()),
-                Some(LastReading::Error | LastReading::ErrorOnly) => {
-                    let err: SensorError = self.err_value[index].into();
-                    Err(err.into())
-                }
-                Some(LastReading::Data | LastReading::DataOnly) => Ok(
-                    Reading::new(self.data_value[index], self.data_time[index]),
-                ),
-            }
-        } else {
-            Err(SensorError::InvalidSensor.into())
-        }
+        self.get_raw_reading(msg, id)
+            .map_err(|e| e.map_runtime(SensorError::from))
+            .and_then(|(value, timestamp)| match value {
+                Ok(value) => Ok(Reading { value, timestamp }),
+                Err(e) => Err(<SensorError as From<_>>::from(e).into()),
+            })
     }
 
     fn get_raw_reading(
