@@ -10,8 +10,9 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2, SensorError,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
+    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
+    SensorReading, SensorRequest, SensorResponse, SpComponent, SpError, SpPort,
+    SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -336,10 +337,60 @@ impl MgsCommon {
             SensorRequest::ErrorCount { id } => self
                 .sensor
                 .get_nerrors(SensorId(id))
-                .map(SensorResponse::ErrorCount)
-                .map_err(|_| SpError::Sensor(SensorError::InvalidSensor)),
-            _ => todo!(),
+                .map(SensorResponse::ErrorCount),
+            SensorRequest::LastReading { id } => {
+                self.sensor.get_raw_reading(SensorId(id)).map(|r| match r {
+                    (Ok(value), timestamp) => {
+                        SensorResponse::LastReading(SensorReading {
+                            value: Ok(value),
+                            timestamp,
+                        })
+                    }
+                    (Err(nodata), timestamp) => {
+                        SensorResponse::LastReading(SensorReading {
+                            value: Err(translate_sensor_nodata(nodata)),
+                            timestamp,
+                        })
+                    }
+                })
+            }
+            SensorRequest::LastData { id } => self
+                .sensor
+                .get_last_data(SensorId(id))
+                .map(|(value, timestamp)| SensorResponse::LastData {
+                    value,
+                    timestamp,
+                }),
+            SensorRequest::LastError { id } => self
+                .sensor
+                .get_last_nodata(SensorId(id))
+                .map(|(nodata, timestamp)| SensorResponse::LastError {
+                    value: translate_sensor_nodata(nodata),
+                    timestamp,
+                }),
         }
+        .map_err(|e| {
+            use gateway_messages::SensorError;
+            use task_sensor_api::SensorApiError;
+            SpError::Sensor(match e {
+                SensorApiError::InvalidSensor => SensorError::InvalidSensor,
+                SensorApiError::NoReading => SensorError::NoReading,
+            })
+        })
+    }
+}
+
+fn translate_sensor_nodata(
+    n: task_sensor_api::NoData,
+) -> gateway_messages::SensorDataMissing {
+    use gateway_messages::SensorDataMissing;
+    use task_sensor_api::NoData;
+    match n {
+        NoData::DeviceOff => SensorDataMissing::DeviceOff,
+        NoData::DeviceError => SensorDataMissing::DeviceError,
+        NoData::DeviceNotPresent => SensorDataMissing::DeviceNotPresent,
+        NoData::DeviceUnavailable => SensorDataMissing::DeviceUnavailable,
+        NoData::DeviceTimeout => SensorDataMissing::DeviceTimeout,
     }
 }
 

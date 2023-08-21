@@ -437,8 +437,6 @@ impl From<SensorErrorConvert> for MeasurementError {
             SensorError::DeviceUnavailable => Self::DeviceUnavailable,
             SensorError::DeviceTimeout => Self::DeviceTimeout,
             SensorError::DeviceOff => Self::DeviceOff,
-
-            SensorError::ServerDied => panic!(),
         }
     }
 }

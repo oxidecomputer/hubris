@@ -29,6 +29,48 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "get_raw_reading": (
+            description: "returns the most recent reading (data or error) and its timestamp",
+            args: {
+                "id": (
+                    type: "SensorId",
+                )
+            },
+            reply: Result(
+                ok: "(Result<f32, NoData>, u64)",
+                err: CLike("SensorApiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "get_last_data": (
+            description: "returns the most recent data reading and its timestamp",
+            args: {
+                "id": (
+                    type: "SensorId",
+                )
+            },
+            reply: Result(
+                ok: "(f32, u64)",
+                err: CLike("SensorApiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "get_last_nodata": (
+            description: "returns the most recent error recorded and its timestamp",
+            args: {
+                "id": (
+                    type: "SensorId",
+                )
+            },
+            reply: Result(
+                ok: "(NoData, u64)",
+                err: CLike("SensorApiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
         "post": (
             args: {
                 "id": (
@@ -40,7 +82,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SensorError"),
+                err: CLike("SensorApiError"),
             ),
             idempotent: true,
         ),
@@ -58,7 +100,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SensorError"),
+                err: CLike("SensorApiError"),
             ),
             idempotent: true,
         ),
@@ -71,8 +113,9 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("SensorError"),
+                err: CLike("SensorApiError"),
             ),
+            idempotent: true,
         ),
     },
 )

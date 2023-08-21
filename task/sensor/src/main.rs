@@ -8,14 +8,20 @@
 #![no_main]
 
 use idol_runtime::{NotificationHandler, RequestError};
-use task_sensor_api::{NoData, Reading, SensorError, SensorId};
+use task_sensor_api::{NoData, Reading, SensorApiError, SensorError, SensorId};
 use userlib::*;
 
 use task_sensor_api::config::NUM_SENSORS;
 
 #[derive(Copy, Clone)]
 enum LastReading {
+    /// We have only seen a data reading
+    DataOnly,
+    /// We have only seen an error reading
+    ErrorOnly,
+    /// The most recent reading is a data reading, but we have seen both
     Data,
+    /// The most recent reading is an error reading, but we have seen both
     Error,
 }
 
@@ -59,17 +65,84 @@ impl idl::InOrderSensorImpl for ServerImpl {
         if index < NUM_SENSORS {
             match self.last_reading[index] {
                 None => Err(SensorError::NoReading.into()),
-                Some(LastReading::Error) => {
+                Some(LastReading::Error | LastReading::ErrorOnly) => {
                     let err: SensorError = self.err_value[index].into();
                     Err(err.into())
                 }
-                Some(LastReading::Data) => Ok(Reading::new(
-                    self.data_value[index],
-                    self.data_time[index],
-                )),
+                Some(LastReading::Data | LastReading::DataOnly) => Ok(
+                    Reading::new(self.data_value[index], self.data_time[index]),
+                ),
             }
         } else {
             Err(SensorError::InvalidSensor.into())
+        }
+    }
+
+    fn get_raw_reading(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<(Result<f32, NoData>, u64), RequestError<SensorApiError>> {
+        let index = id.0 as usize;
+
+        if index < NUM_SENSORS {
+            match self.last_reading[index] {
+                Some(LastReading::Data | LastReading::DataOnly) => {
+                    Ok((Ok(self.data_value[index]), self.data_time[index]))
+                }
+                Some(LastReading::Error | LastReading::ErrorOnly) => {
+                    Ok((Err(self.err_value[index]), self.err_time[index]))
+                }
+                None => Err(SensorApiError::NoReading.into()),
+            }
+        } else {
+            Err(SensorApiError::InvalidSensor.into())
+        }
+    }
+
+    fn get_last_data(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
+        let index = id.0 as usize;
+
+        if index < NUM_SENSORS {
+            match self.last_reading[index] {
+                None | Some(LastReading::ErrorOnly) => {
+                    Err(SensorApiError::NoReading.into())
+                }
+                Some(
+                    LastReading::Data
+                    | LastReading::DataOnly
+                    | LastReading::Error,
+                ) => Ok((self.data_value[index], self.data_time[index])),
+            }
+        } else {
+            Err(SensorApiError::InvalidSensor.into())
+        }
+    }
+
+    fn get_last_nodata(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<(NoData, u64), RequestError<SensorApiError>> {
+        let index = id.0 as usize;
+
+        if index < NUM_SENSORS {
+            match self.last_reading[index] {
+                None | Some(LastReading::DataOnly) => {
+                    Err(SensorApiError::NoReading.into())
+                }
+                Some(
+                    LastReading::Data
+                    | LastReading::Error
+                    | LastReading::ErrorOnly,
+                ) => Ok((self.err_value[index], self.err_time[index])),
+            }
+        } else {
+            Err(SensorApiError::InvalidSensor.into())
         }
     }
 
@@ -79,16 +152,23 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
         value: f32,
         timestamp: u64,
-    ) -> Result<(), RequestError<SensorError>> {
+    ) -> Result<(), RequestError<SensorApiError>> {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.last_reading[index] = Some(LastReading::Data);
+            self.last_reading[index] = Some(match self.last_reading[index] {
+                None | Some(LastReading::DataOnly) => LastReading::DataOnly,
+                Some(
+                    LastReading::Data
+                    | LastReading::Error
+                    | LastReading::ErrorOnly,
+                ) => LastReading::Data,
+            });
             self.data_value[index] = value;
             self.data_time[index] = timestamp;
             Ok(())
         } else {
-            Err(SensorError::InvalidSensor.into())
+            Err(SensorApiError::InvalidSensor.into())
         }
     }
 
@@ -98,11 +178,18 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
         nodata: NoData,
         timestamp: u64,
-    ) -> Result<(), RequestError<SensorError>> {
+    ) -> Result<(), RequestError<SensorApiError>> {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
-            self.last_reading[index] = Some(LastReading::Error);
+            self.last_reading[index] = Some(match self.last_reading[index] {
+                None | Some(LastReading::ErrorOnly) => LastReading::ErrorOnly,
+                Some(
+                    LastReading::Data
+                    | LastReading::DataOnly
+                    | LastReading::Error,
+                ) => LastReading::Error,
+            });
             self.err_value[index] = nodata;
             self.err_time[index] = timestamp;
 
@@ -124,7 +211,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
             Ok(())
         } else {
-            Err(SensorError::InvalidSensor.into())
+            Err(SensorApiError::InvalidSensor.into())
         }
     }
 
@@ -132,13 +219,13 @@ impl idl::InOrderSensorImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<u32, RequestError<SensorError>> {
+    ) -> Result<u32, RequestError<SensorApiError>> {
         let index = id.0 as usize;
 
         if index < NUM_SENSORS {
             Ok(self.nerrors[index])
         } else {
-            Err(SensorError::InvalidSensor.into())
+            Err(SensorApiError::InvalidSensor.into())
         }
     }
 }
@@ -190,7 +277,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{NoData, Reading, SensorError, SensorId};
+    use super::{NoData, Reading, SensorApiError, SensorError, SensorId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

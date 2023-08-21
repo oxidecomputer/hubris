@@ -55,7 +55,16 @@ impl Reading {
 // being numbered sequentially.
 //
 #[derive(
-    zerocopy::AsBytes, Copy, Clone, Debug, FromPrimitive, Eq, PartialEq,
+    zerocopy::AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
 )]
 #[repr(u8)]
 pub enum NoData {
@@ -106,6 +115,9 @@ impl From<ResponseCode> for NoData {
     }
 }
 
+/// Flexible sensor error type, indicating either a caller or sensor error
+///
+/// This is effectively a union of [`SensorApiError`] and [`NoData`]
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum SensorError {
     InvalidSensor = 1,
@@ -115,9 +127,13 @@ pub enum SensorError {
     DeviceUnavailable = 5,
     DeviceTimeout = 6,
     DeviceOff = 7,
+}
 
-    #[idol(server_death)]
-    ServerDied,
+/// A non-device sensor error
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+pub enum SensorApiError {
+    InvalidSensor = 1,
+    NoReading = 2,
 }
 
 impl From<NoData> for SensorError {
@@ -132,6 +148,15 @@ impl From<NoData> for SensorError {
     }
 }
 
+impl From<SensorApiError> for SensorError {
+    fn from(e: SensorApiError) -> SensorError {
+        match e {
+            SensorApiError::InvalidSensor => SensorError::InvalidSensor,
+            SensorApiError::NoReading => SensorError::NoReading,
+        }
+    }
+}
+
 impl Sensor {
     /// Post the given data with a timestamp of now
     #[inline]
@@ -139,7 +164,7 @@ impl Sensor {
         &self,
         id: SensorId,
         value: f32,
-    ) -> Result<(), SensorError> {
+    ) -> Result<(), SensorApiError> {
         self.post(id, value, sys_get_timer().now)
     }
 
@@ -149,7 +174,7 @@ impl Sensor {
         &self,
         id: SensorId,
         nodata: NoData,
-    ) -> Result<(), SensorError> {
+    ) -> Result<(), SensorApiError> {
         self.nodata(id, nodata, sys_get_timer().now)
     }
 }
