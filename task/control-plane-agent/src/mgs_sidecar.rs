@@ -16,8 +16,8 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    SpComponent, SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -705,6 +705,13 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
     ) -> Result<(), SpError> {
         self.common.reset_component_trigger(component)
+    }
+
+    fn read_sensor(
+        &mut self,
+        req: SensorRequest,
+    ) -> Result<SensorResponse, SpError> {
+        self.common.read_sensor(req)
     }
 }
 
