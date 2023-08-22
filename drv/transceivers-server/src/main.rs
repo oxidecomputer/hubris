@@ -21,7 +21,7 @@ use enum_map::Enum;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::*;
-use task_sensor_api::{NoData, Sensor, SensorError};
+use task_sensor_api::{NoData, Sensor, SensorApiError};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
@@ -62,7 +62,7 @@ enum Trace {
     RemovedDisabledModuleThermalModel(usize),
     TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
-    SensorError(usize, SensorError),
+    SensorError(usize, SensorApiError),
     ThermalError(usize, ThermalError),
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
