@@ -137,7 +137,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(UpdateError::BadLength.into());
         }
 
-        let mut flash_page = [0u8; BLOCK_SIZE_BYTES];
+        // Match the behvaior of the CMSIS flash driver where erased bytes are
+        // read as 0xff so the image is padded with 0xff
+        const ERASE_BYTE: u8 = 0xff;
+        let mut flash_page = [ERASE_BYTE; BLOCK_SIZE_BYTES];
         let target = self.image.unwrap_lite();
 
         if block_num == HEADER_BLOCK {
@@ -146,7 +149,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             block
                 .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            header_block[len..].fill(0);
+            header_block[len..].fill(ERASE_BYTE);
             if let Err(e) = validate_header_block(target, header_block) {
                 self.header_block = None;
                 return Err(e.into());
@@ -163,7 +166,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 .read_range(0..len, &mut flash_page)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-            flash_page[len..].fill(0);
+            flash_page[len..].fill(ERASE_BYTE);
         }
 
         do_block_write(&mut self.flash, target, block_num, &flash_page)?;
