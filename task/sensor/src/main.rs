@@ -26,23 +26,22 @@ enum LastReading {
 }
 
 /// Zero-cost array wrapper that can be indexed with a `SensorId`
-struct SensorArray<T: 'static, const N: usize>(&'static mut [T; N]);
-impl<T: 'static, const N: usize> core::ops::Index<SensorId>
-    for SensorArray<T, N>
-{
+struct SensorArray<T: 'static>(&'static mut [T; NUM_SENSORS]);
+impl<T: 'static> core::ops::Index<SensorId> for SensorArray<T> {
     type Output = T;
+    #[inline(always)]
     fn index(&self, idx: SensorId) -> &Self::Output {
         &self.0[idx.0 as usize]
     }
 }
-impl<T: 'static, const N: usize> core::ops::IndexMut<SensorId>
-    for SensorArray<T, N>
-{
+impl<T: 'static> core::ops::IndexMut<SensorId> for SensorArray<T> {
+    #[inline(always)]
     fn index_mut(&mut self, idx: SensorId) -> &mut Self::Output {
         &mut self.0[idx.0 as usize]
     }
 }
-impl<T: 'static, const N: usize> SensorArray<T, N> {
+impl<T: 'static> SensorArray<T> {
+    #[inline(always)]
     fn get(&self, idx: SensorId) -> Option<&T> {
         self.0.get(idx.0 as usize)
     }
@@ -55,15 +54,15 @@ struct ServerImpl {
     //
     // The compiler is smart enough to present `None` with an invalid
     // `LastReading` variant tag, so we don't need to store presence separately.
-    last_reading: SensorArray<Option<LastReading>, NUM_SENSORS>,
+    last_reading: SensorArray<Option<LastReading>>,
 
-    data_value: SensorArray<f32, NUM_SENSORS>,
-    data_time: SensorArray<u64, NUM_SENSORS>,
+    data_value: SensorArray<f32>,
+    data_time: SensorArray<u64>,
 
-    err_value: SensorArray<NoData, NUM_SENSORS>,
-    err_time: SensorArray<u64, NUM_SENSORS>,
+    err_value: SensorArray<NoData>,
+    err_time: SensorArray<u64>,
 
-    nerrors: SensorArray<u32, NUM_SENSORS>,
+    nerrors: SensorArray<u32>,
     deadline: u64,
 }
 
@@ -207,6 +206,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
 }
 
 impl ServerImpl {
+    #[inline(always)]
     fn last_reading(
         &self,
         id: SensorId,
