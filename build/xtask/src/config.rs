@@ -67,7 +67,6 @@ pub struct Config {
     /// Fully expanded manifest file, with all patches applied
     pub app_config: String,
     pub auxflash: Option<AuxFlashData>,
-    pub dice_mfg: Option<Output>,
     pub caboose: Option<CabooseConfig>,
 }
 
@@ -163,11 +162,6 @@ impl Config {
             None => None,
         };
 
-        let dice_mfg = match outputs.get("flash") {
-            Some(f) => f.iter().find(|&o| o.name == "dice-mfg").cloned(),
-            None => None,
-        };
-
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -189,7 +183,6 @@ impl Config {
             buildhash,
             app_toml_path: cfg.to_owned(),
             app_config: cfg_contents,
-            dice_mfg,
             caboose: toml.caboose,
         })
     }
@@ -281,13 +274,6 @@ impl Config {
         if let Some(app_config) = &self.config {
             let app_config = toml::to_string(&app_config).unwrap();
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
-        }
-
-        if let Some(output) = &self.dice_mfg {
-            env.insert(
-                "HUBRIS_DICE_MFG".to_string(),
-                toml::to_string(&output).unwrap(),
-            );
         }
 
         let out_path = Path::new("")
