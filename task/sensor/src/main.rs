@@ -64,7 +64,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
             .map_err(|e| e.map_runtime(SensorError::from))
             .and_then(|(value, timestamp)| match value {
                 Ok(value) => Ok(Reading { value, timestamp }),
-                Err(e) => Err(<SensorError as From<_>>::from(e).into()),
+                Err(e) => Err(SensorError::from(e).into()),
             })
     }
 
