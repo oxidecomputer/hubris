@@ -11,8 +11,8 @@ use drv_sprot_api::{
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
-    SensorReading, SensorRequest, SensorResponse, SpComponent, SpError, SpPort,
-    SpStateV2,
+    SensorReading, SensorRequest, SensorRequestKind, SensorResponse,
+    SpComponent, SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -330,16 +330,13 @@ impl MgsCommon {
         &mut self,
         req: SensorRequest,
     ) -> Result<SensorResponse, SpError> {
-        match req {
-            SensorRequest::CurrentTime => {
-                Ok(SensorResponse::CurrentTime(sys_get_timer().now))
+        let id = SensorId(req.id);
+        match req.kind {
+            SensorRequestKind::ErrorCount => {
+                self.sensor.get_nerrors(id).map(SensorResponse::ErrorCount)
             }
-            SensorRequest::ErrorCount { id } => self
-                .sensor
-                .get_nerrors(SensorId(id))
-                .map(SensorResponse::ErrorCount),
-            SensorRequest::LastReading { id } => {
-                self.sensor.get_raw_reading(SensorId(id)).map(|r| match r {
+            SensorRequestKind::LastReading => {
+                self.sensor.get_raw_reading(id).map(|r| match r {
                     (Ok(value), timestamp) => {
                         SensorResponse::LastReading(SensorReading {
                             value: Ok(value),
@@ -354,16 +351,14 @@ impl MgsCommon {
                     }
                 })
             }
-            SensorRequest::LastData { id } => self
+            SensorRequestKind::LastData => {
+                self.sensor.get_last_data(id).map(|(value, timestamp)| {
+                    SensorResponse::LastData { value, timestamp }
+                })
+            }
+            SensorRequestKind::LastError => self
                 .sensor
-                .get_last_data(SensorId(id))
-                .map(|(value, timestamp)| SensorResponse::LastData {
-                    value,
-                    timestamp,
-                }),
-            SensorRequest::LastError { id } => self
-                .sensor
-                .get_last_nodata(SensorId(id))
+                .get_last_nodata(id)
                 .map(|(nodata, timestamp)| SensorResponse::LastError {
                     value: translate_sensor_nodata(nodata),
                     timestamp,
@@ -377,6 +372,10 @@ impl MgsCommon {
                 SensorApiError::NoReading => SensorError::NoReading,
             })
         })
+    }
+
+    pub(crate) fn current_time(&mut self) -> Result<u64, SpError> {
+        Ok(sys_get_timer().now)
     }
 }
 

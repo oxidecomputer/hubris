@@ -604,4 +604,8 @@ impl SpHandler for MgsHandler {
     ) -> Result<SensorResponse, SpError> {
         self.common.read_sensor(req)
     }
+
+    fn current_time(&mut self) -> Result<u64, SpError> {
+        self.common.current_time()
+    }
 }
