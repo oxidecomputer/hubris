@@ -27,7 +27,6 @@ name = "task-jefe"
 priority = 0
 requires = {flash = 4096, ram = 512}
 start = true
-features = ["log-null"]
 stacksize = 352
 
 [tasks.sys]

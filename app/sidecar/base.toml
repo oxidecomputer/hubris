@@ -19,7 +19,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm", "dump"]
+features = ["dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 extern-regions = ["sram2", "sram3", "sram4"]
