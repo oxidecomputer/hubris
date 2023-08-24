@@ -39,70 +39,6 @@ use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::*;
 
-fn log_fault(t: usize, fault: &abi::FaultInfo) {
-    match fault {
-        abi::FaultInfo::MemoryAccess { address, .. } => match address {
-            Some(a) => {
-                sys_log!("Task #{} Memory fault at address {:#x}", t, a);
-            }
-
-            None => {
-                sys_log!("Task #{} Memory fault at unknown address", t);
-            }
-        },
-
-        abi::FaultInfo::BusError { address, .. } => match address {
-            Some(a) => {
-                sys_log!("Task #{} Bus error at address {:#x}", t, a);
-            }
-
-            None => {
-                sys_log!("Task #{} Bus error at unknown address", t);
-            }
-        },
-
-        abi::FaultInfo::StackOverflow { address, .. } => {
-            sys_log!("Task #{} Stack overflow at address {:#x}", t, address);
-        }
-
-        abi::FaultInfo::DivideByZero => {
-            sys_log!("Task #{} Divide-by-zero", t);
-        }
-
-        abi::FaultInfo::IllegalText => {
-            sys_log!("Task #{} Illegal text", t);
-        }
-
-        abi::FaultInfo::IllegalInstruction => {
-            sys_log!("Task #{} Illegal instruction", t);
-        }
-
-        abi::FaultInfo::InvalidOperation(details) => {
-            sys_log!("Task #{} Invalid operation: {:#010x}", t, details);
-        }
-
-        abi::FaultInfo::SyscallUsage(e) => {
-            sys_log!("Task #{} Bad Syscall Usage {:?}", t, e);
-        }
-
-        abi::FaultInfo::Panic => {
-            sys_log!("Task #{} Panic!", t);
-        }
-
-        abi::FaultInfo::Injected(who) => {
-            sys_log!("Task #{} Fault injected by task #{}", t, who.index());
-        }
-        abi::FaultInfo::FromServer(who, what) => {
-            sys_log!(
-                "Task #{} Fault from server #{}: {:?}",
-                t,
-                who.index(),
-                what
-            );
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {
     #[default]
@@ -119,8 +55,6 @@ const TIMER_INTERVAL: u64 = 100;
 
 #[export_name = "main"]
 fn main() -> ! {
-    sys_log!("viva el jefe");
-
     let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
     for held_task in generated::HELD_TASKS {
         task_states[held_task as usize].disposition = Disposition::Hold;
@@ -382,10 +316,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 match kipc::read_task_status(i) {
-                    abi::TaskState::Faulted { fault, .. } => {
-                        // Well! A fault we didn't know about.
-                        log_fault(i, &fault);
-
+                    abi::TaskState::Faulted { .. } => {
                         #[cfg(feature = "dump")]
                         {
                             // We'll ignore the result of dumping; it could fail

@@ -30,9 +30,6 @@ serde = { workspace = true }
 build-util = { path = "../../build/util" }
 
 [features]
-itm = [ "userlib/log-itm" ]
-semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
-log-null = ["userlib/log-null"]
 dump = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
