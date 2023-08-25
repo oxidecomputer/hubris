@@ -33,6 +33,7 @@ unwrap-lite = { path = "../unwrap-lite" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+ron = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
 

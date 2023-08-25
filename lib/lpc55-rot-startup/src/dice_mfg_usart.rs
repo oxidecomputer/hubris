@@ -28,15 +28,19 @@ macro_rules! flash_page_align {
     };
 }
 
-// ensure DiceState object will fit in DICE_FLASH range
+// ensure DiceState object will fit in FLASH_DICE_MFG range
 sa::const_assert!(
-    (DICE_FLASH.end - DICE_FLASH.start)
+    (FLASH_DICE_MFG.end - FLASH_DICE_MFG.start) as usize
         >= flash_page_align!(DiceState::MAX_SIZE)
 );
 
-// ensure DICE_FLASH start and end are alligned
-sa::const_assert!(DICE_FLASH.end % lpc55_romapi::FLASH_PAGE_SIZE == 0);
-sa::const_assert!(DICE_FLASH.start % lpc55_romapi::FLASH_PAGE_SIZE == 0);
+// ensure FLASH_DICE_MFG start and end are alligned
+sa::const_assert!(
+    FLASH_DICE_MFG.end as usize % lpc55_romapi::FLASH_PAGE_SIZE == 0
+);
+sa::const_assert!(
+    FLASH_DICE_MFG.start as usize % lpc55_romapi::FLASH_PAGE_SIZE == 0
+);
 
 const VERSION: u32 = 0;
 const MAGIC: [u8; 12] = [
@@ -84,7 +88,7 @@ impl DiceState {
         // conditional evaluated before executing this unsafe code.
         let src = unsafe {
             core::slice::from_raw_parts(
-                DICE_FLASH.start as *const u8,
+                FLASH_DICE_MFG.start as *const u8,
                 Self::ALIGNED_MAX_SIZE,
             )
         };
@@ -121,12 +125,12 @@ impl DiceState {
         // TODO: error handling
         unsafe {
             lpc55_romapi::flash_erase(
-                DICE_FLASH.start as *const u32 as u32,
+                FLASH_DICE_MFG.start as *const u32 as u32,
                 Self::ALIGNED_MAX_SIZE as u32,
             )
             .expect("flash_erase");
             lpc55_romapi::flash_write(
-                DICE_FLASH.start as *const u32 as u32,
+                FLASH_DICE_MFG.start as *const u32 as u32,
                 &mut buf as *mut u8,
                 Self::ALIGNED_MAX_SIZE as u32,
             )
@@ -138,7 +142,7 @@ impl DiceState {
 
     pub fn is_programmed() -> bool {
         lpc55_romapi::validate_programmed(
-            DICE_FLASH.start as u32,
+            FLASH_DICE_MFG.start,
             flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE) as u32,
         )
     }
@@ -300,4 +304,4 @@ fn flexcomm0_setup(
     syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
 }
 
-include!(concat!(env!("OUT_DIR"), "/dice-mfg.rs"));
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
