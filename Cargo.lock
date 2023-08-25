@@ -2167,7 +2167,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sensor-reading#6b0afefb7f232caba837f38b3e87c426e99ed561"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#1c71aa8101ca3d786f6f8972ff15616154190561"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
