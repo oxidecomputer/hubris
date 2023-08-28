@@ -168,7 +168,7 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
-        "set_front_io_phy_osc_good": (
+        "set_front_io_phy_osc_state": (
             args: {
                 "good": "bool",
             },

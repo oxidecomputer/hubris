@@ -14,6 +14,7 @@ use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_sidecar_front_io::phy_smi::PhyOscState;
 use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
@@ -233,7 +234,11 @@ impl ServerImpl {
     fn front_io_phy_osc_good(&self) -> Result<bool, SeqError> {
         if let Some(front_io_board) = self.front_io_board.as_ref() {
             Ok(front_io_board.initialized()
-                && front_io_board.phy().osc_good()?.unwrap_or(false))
+                && front_io_board
+                    .phy()
+                    .osc_state()
+                    .unwrap_or(PhyOscState::Unknown)
+                    == PhyOscState::Good)
         } else {
             Err(SeqError::NoFrontIOBoard)
         }
@@ -255,27 +260,35 @@ impl ServerImpl {
                 // nominally is recorded in the front IO board controller. Look
                 // up what this value is to determine if a power reset of the
                 // front IO board is needed.
-                let phy_osc_good = front_io_board.phy().osc_good()?;
+                match front_io_board.phy().osc_state()? {
+                    PhyOscState::Bad => {
+                        // The PHY was attempted to be initialized but its
+                        // oscillator was deemed not functional. Unfortunately
+                        // the only course of action is to power cycle the
+                        // entire front IO board, so do so now.
+                        self.front_io_hsc.set_enable(false)?;
+                        ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
 
-                if let Some(false) = phy_osc_good {
-                    // The PHY was attempted to be initialized but its
-                    // oscillator was deemed not functional. Unfortunately the
-                    // only course of action is to power cycle the entire front
-                    // IO board, so do so now.
-                    self.front_io_hsc.set_enable(false)?;
+                        // Wait some cool down period to allow caps to bleed off
+                        // etc.
+                        userlib::hl::sleep_for(1000);
+                    }
+                    PhyOscState::Good => {
+                        // The PHY was initialized properly before and its
+                        // oscillator declared operating nominally. Assume this
+                        // has not changed and only a reset the PHY itself is
+                        // desired.
+                        front_io_board.phy().set_phy_power_enabled(false)?;
+                        ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(
+                            false
+                        ));
 
-                    ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
-
-                    // Wait some cool down period to allow caps to bleed off
-                    // etc.
-                    userlib::hl::sleep_for(1000);
-                } else if let Some(true) = phy_osc_good {
-                    // The PHY was initialized properly before and its
-                    // oscillator declared operarting nominally. Assume this has
-                    // not changed and only a reset the PHY itself is desired.
-                    front_io_board.phy().set_phy_power_enabled(false)?;
-                    ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(false));
-                    userlib::hl::sleep_for(10);
+                        userlib::hl::sleep_for(10);
+                    }
+                    PhyOscState::Unknown => {
+                        // Do nothing (yet) since the oscillator state is
+                        // unknown.
+                    }
                 }
             }
         }
@@ -497,7 +510,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
-    fn set_front_io_phy_osc_good(
+    fn set_front_io_phy_osc_state(
         &mut self,
         _: &RecvMessage,
         good: bool,
@@ -509,23 +522,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
         match front_io_board
             .phy()
-            .osc_good()
+            .osc_state()
             .map_err(SeqError::from)
             .map_err(RequestError::from)?
         {
-            // The oscillator is already marked good and this state only changes
-            // if it (and by extension the whole front IO board) is power
-            // cycled. In that case the value of this register in the FPGA is
-            // automatically reset when the bitstream is loaded and the other
-            // arm of this match would be taken.
-            //
-            // So if the oscillator has been
-            // found good since the last power cycle of the front IO board,
-            // ignore this call.
-            Some(true) => Ok(()),
             // The state of the oscillator has not yet been examined or was
-            // marked bad in the previous run..
-            Some(false) | None => {
+            // marked bad in the previous run. Update as appropriate.
+            PhyOscState::Unknown | PhyOscState::Bad => {
                 ringbuf_entry!(if good {
                     Trace::FrontIOBoardPhyOscGood
                 } else {
@@ -538,6 +541,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                     .map_err(SeqError::from)
                     .map_err(RequestError::from)
             }
+            // The oscillator is already marked good and this state only changes
+            // if it (and by extension the whole front IO board) is power
+            // cycled. In that case the value of this register in the FPGA is
+            // automatically reset when the bitstream is loaded and the other
+            // arm of this match would be taken.
+            //
+            // So ignore this call if the oscillator has been found good since the last power
+            // cycle of the front IO board.
+            PhyOscState::Good => Ok(()),
         }
     }
 

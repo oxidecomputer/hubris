@@ -232,7 +232,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // oscillator is good any future resets of the PHY do not require a
             // full power cycle of the front IO board.
             self.seq
-                .set_front_io_phy_osc_good(osc_good)
+                .set_front_io_phy_osc_state(osc_good)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             if !osc_good {
