@@ -13,6 +13,7 @@ pub(crate) struct Tofino {
     pub vddcore: Raa229618,
     pub abort_reported: bool,
     pub ready_for_power_up: bool,
+    pub pcie_link_up: bool,
 }
 
 impl Tofino {
@@ -26,6 +27,7 @@ impl Tofino {
             vddcore,
             abort_reported: false,
             ready_for_power_up: false,
+            pcie_link_up: false,
         }
     }
 
@@ -60,6 +62,20 @@ impl Tofino {
         self.sequencer
             .set_pcie_present(present)
             .map_err(|_| SeqError::FpgaError)
+    }
+
+    /// Poll the PCIe Dev Info register to determine if the PCIe link with a
+    /// host is up. Note that this function should only be called when Tofino is
+    /// in A0, otherwise it may cause the debug port in the mainboard controller
+    /// to get stuck.
+    pub fn pcie_link_up(&mut self) -> Result<bool, SeqError> {
+        // There is no bit description in the documentation available for this
+        // register, so make use of observed magic values.
+        Ok(self.debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PcieDevInfo,
+        )? & 0xf
+            == 0xf)
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {
@@ -261,11 +277,11 @@ impl Tofino {
         &mut self,
         abort: &TofinoSeqAbort,
     ) -> Result<(), SeqError> {
-        ringbuf_entry!(Trace::TofinoSequencerAbort(
-            abort.state,
-            abort.step,
-            abort.error
-        ));
+        ringbuf_entry!(Trace::TofinoSequencerAbort {
+            state: abort.state,
+            step: abort.step,
+            error: abort.error,
+        });
 
         for rail in &self.sequencer.power_rails()? {
             match rail.status {
@@ -305,16 +321,37 @@ impl Tofino {
             .abort
             .map_or(TofinoSeqError::None, |abort| abort.error);
 
+        // Determine the link up/down state of the PCIe link. This is only valid
+        // in A0 as otherwise the debug port won't properly respond.
+        self.pcie_link_up = if status.state == TofinoSeqState::A0 {
+            self.pcie_link_up().unwrap_or(false)
+        } else {
+            false
+        };
+
         match &status.abort {
             Some(abort) if !self.abort_reported => {
                 self.abort_reported = true;
                 self.report_abort(abort)?;
             }
-            Some(_) | None => {
+            _ => {
                 ringbuf_entry!(Trace::TofinoSequencerTick(
                     self.policy,
-                    status.state,
-                    error
+                    match status.state {
+                        TofinoSeqState::A0 => TofinoStateDetails::A0 {
+                            pcie_link: self.pcie_link_up
+                        },
+                        TofinoSeqState::A2 => TofinoStateDetails::A2 { error },
+                        // Other states are unlikely to be observed due to their
+                        // transient nature and these transitions to be running
+                        // pretty much in sync with the
+                        // `power_up()`/`power_down()` functions above.
+                        _ => TofinoStateDetails::Other {
+                            state: status.state,
+                            step: status.step,
+                            error
+                        },
+                    },
                 ));
             }
         }

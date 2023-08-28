@@ -129,13 +129,16 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "tofino_pcie_link_up": (
+            doc: "Return whether or not the Tofino PCIe link is up",
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
 
         "is_clock_config_loaded": (
             args: {},
-            reply: Result(
-                ok: "bool",
-                err: CLike("SeqError"),
-            ),
+            reply: Simple("bool"),
+            idempotent: true,
         ),
 
         "load_clock_config": (
