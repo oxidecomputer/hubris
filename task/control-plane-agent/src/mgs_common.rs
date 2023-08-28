@@ -10,17 +10,20 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2, SpComponent,
-    SpError, SpPort, SpStateV2,
+    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
+    SensorReading, SensorRequest, SensorRequestKind, SensorResponse,
+    SpComponent, SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
 use task_net_api::MacAddress;
 use task_packrat_api::Packrat;
-use userlib::{kipc, task_slot};
+use task_sensor_api::{Sensor, SensorId};
+use userlib::{kipc, sys_get_timer, task_slot};
 
 task_slot!(PACKRAT, packrat);
+task_slot!(SENSOR, sensor);
 task_slot!(pub SPROT, sprot);
 task_slot!(pub UPDATE_SERVER, update_server);
 
@@ -32,6 +35,7 @@ pub(crate) struct MgsCommon {
     packrat: Packrat,
     sprot: SpRot,
     sp_update: Update,
+    sensor: Sensor,
 }
 
 impl MgsCommon {
@@ -43,6 +47,7 @@ impl MgsCommon {
             packrat: Packrat::from(PACKRAT.get_task_id()),
             sprot: SpRot::from(SPROT.get_task_id()),
             sp_update: Update::from(UPDATE_SERVER.get_task_id()),
+            sensor: Sensor::from(SENSOR.get_task_id()),
         }
     }
 
@@ -319,6 +324,72 @@ impl MgsCommon {
             // Other components might also be served someday.
             _ => return Err(SpError::RequestUnsupportedForComponent),
         }
+    }
+
+    pub(crate) fn read_sensor(
+        &mut self,
+        req: SensorRequest,
+    ) -> Result<SensorResponse, SpError> {
+        let id = SensorId(req.id);
+        match req.kind {
+            SensorRequestKind::ErrorCount => {
+                self.sensor.get_nerrors(id).map(SensorResponse::ErrorCount)
+            }
+            SensorRequestKind::LastReading => {
+                self.sensor.get_raw_reading(id).map(|r| match r {
+                    (Ok(value), timestamp) => {
+                        SensorResponse::LastReading(SensorReading {
+                            value: Ok(value),
+                            timestamp,
+                        })
+                    }
+                    (Err(nodata), timestamp) => {
+                        SensorResponse::LastReading(SensorReading {
+                            value: Err(translate_sensor_nodata(nodata)),
+                            timestamp,
+                        })
+                    }
+                })
+            }
+            SensorRequestKind::LastData => {
+                self.sensor.get_last_data(id).map(|(value, timestamp)| {
+                    SensorResponse::LastData { value, timestamp }
+                })
+            }
+            SensorRequestKind::LastError => self
+                .sensor
+                .get_last_nodata(id)
+                .map(|(nodata, timestamp)| SensorResponse::LastError {
+                    value: translate_sensor_nodata(nodata),
+                    timestamp,
+                }),
+        }
+        .map_err(|e| {
+            use gateway_messages::SensorError;
+            use task_sensor_api::SensorApiError;
+            SpError::Sensor(match e {
+                SensorApiError::InvalidSensor => SensorError::InvalidSensor,
+                SensorApiError::NoReading => SensorError::NoReading,
+            })
+        })
+    }
+
+    pub(crate) fn current_time(&mut self) -> Result<u64, SpError> {
+        Ok(sys_get_timer().now)
+    }
+}
+
+fn translate_sensor_nodata(
+    n: task_sensor_api::NoData,
+) -> gateway_messages::SensorDataMissing {
+    use gateway_messages::SensorDataMissing;
+    use task_sensor_api::NoData;
+    match n {
+        NoData::DeviceOff => SensorDataMissing::DeviceOff,
+        NoData::DeviceError => SensorDataMissing::DeviceError,
+        NoData::DeviceNotPresent => SensorDataMissing::DeviceNotPresent,
+        NoData::DeviceUnavailable => SensorDataMissing::DeviceUnavailable,
+        NoData::DeviceTimeout => SensorDataMissing::DeviceTimeout,
     }
 }
 

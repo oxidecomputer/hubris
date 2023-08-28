@@ -9,7 +9,7 @@
 
 use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
 use ringbuf::*;
-use task_sensor_api::{Sensor, SensorError, SensorId};
+use task_sensor_api::{Sensor, SensorApiError, SensorId};
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
@@ -113,8 +113,8 @@ enum Trace {
     Start,
     SpeedReadFailed(SensorId, Error),
     TemperatureReadFailed(SensorId, Error),
-    SpeedPostFailed(SensorId, SensorError),
-    TemperaturePostFailed(SensorId, SensorError),
+    SpeedPostFailed(SensorId, SensorApiError),
+    TemperaturePostFailed(SensorId, SensorApiError),
 }
 ringbuf!(Trace, 32, Trace::None);
 
