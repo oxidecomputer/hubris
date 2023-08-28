@@ -9,6 +9,13 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use vsc85xx::{PhyRw, VscError};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
+#[derive(Copy, Clone, Eq, Debug, PartialEq)]
+pub enum PhyOscState {
+    Unknown,
+    Bad,
+    Good,
+}
+
 pub struct PhySmi {
     fpga: FpgaUserDesign,
 
@@ -89,13 +96,17 @@ impl PhySmi {
         Ok(())
     }
 
-    pub fn osc_good(&self) -> Result<Option<bool>, FpgaError> {
+    pub fn osc_state(&self) -> Result<PhyOscState, FpgaError> {
         let phy_osc: u8 = self.fpga.read(Addr::VSC8562_PHY_OSC)?;
 
         let good = phy_osc & Reg::VSC8562::PHY_OSC::GOOD != 0;
         let valid = phy_osc & Reg::VSC8562::PHY_OSC::VALID != 0;
 
-        Ok(Some(good).filter(|_| valid))
+        Ok(match (valid, good) {
+            (false, _) => PhyOscState::Unknown,
+            (true, false) => PhyOscState::Bad,
+            (true, true) => PhyOscState::Good,
+        })
     }
 
     pub fn set_osc_good(&self, good: bool) -> Result<(), FpgaError> {

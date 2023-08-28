@@ -14,6 +14,7 @@ use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_sidecar_front_io::phy_smi::PhyOscState;
 use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
@@ -60,8 +61,12 @@ enum Trace {
     ClockConfigurationComplete,
     TofinoSequencerError(SeqError),
     TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
-    TofinoSequencerTick(TofinoSequencerPolicy, TofinoSeqState, TofinoSeqError),
-    TofinoSequencerAbort(TofinoSeqState, TofinoSeqStep, TofinoSeqError),
+    TofinoSequencerTick(TofinoSequencerPolicy, TofinoStateDetails),
+    TofinoSequencerAbort {
+        state: TofinoSeqState,
+        step: TofinoSeqStep,
+        error: TofinoSeqError,
+    },
     TofinoPowerRail(TofinoPowerRailId, PowerRailStatus),
     TofinoVidAck,
     TofinoEepromIdCode(u32),
@@ -73,10 +78,13 @@ enum Trace {
     SetPCIePresent,
     ClearPCIePresent,
     ClearingTofinoSequencerFault(TofinoSeqError),
-    FrontIOPowerEnable(bool),
+    FrontIOBoardPowerEnable(bool),
     FrontIOBoardPowerFault,
     FrontIOBoardPresent,
     FrontIOBoardNotPresent,
+    FrontIOBoardPhyPowerEnable(bool),
+    FrontIOBoardPhyOscGood,
+    FrontIOBoardPhyOscBad,
     LoadingFrontIOControllerBitstream {
         fpga_id: usize,
     },
@@ -92,7 +100,6 @@ enum Trace {
         checksum: [u8; 4],
         expected: [u8; 4],
     },
-    FrontIOVsc8562Ready,
     FpgaFanModuleFailure(FpgaError),
     FanModulePowerFault(FanModuleIndex, FanModuleStatus),
     FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
@@ -101,6 +108,21 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
+
+#[derive(Copy, Clone, PartialEq)]
+enum TofinoStateDetails {
+    A0 {
+        pcie_link: bool,
+    },
+    A2 {
+        error: TofinoSeqError,
+    },
+    Other {
+        state: TofinoSeqState,
+        step: TofinoSeqStep,
+        error: TofinoSeqError,
+    },
+}
 
 struct ServerImpl {
     mainboard_controller: MainboardController,
@@ -193,7 +215,7 @@ impl ServerImpl {
             }
             PowerRailStatus::Disabled => {
                 self.front_io_hsc.set_enable(true)?;
-                ringbuf_entry!(Trace::FrontIOPowerEnable(true));
+                ringbuf_entry!(Trace::FrontIOBoardPowerEnable(true));
 
                 true // Retry HSC status.
             }
@@ -212,7 +234,11 @@ impl ServerImpl {
     fn front_io_phy_osc_good(&self) -> Result<bool, SeqError> {
         if let Some(front_io_board) = self.front_io_board.as_ref() {
             Ok(front_io_board.initialized()
-                && front_io_board.phy().osc_good()?.unwrap_or(false))
+                && front_io_board
+                    .phy()
+                    .osc_state()
+                    .unwrap_or(PhyOscState::Unknown)
+                    == PhyOscState::Good)
         } else {
             Err(SeqError::NoFrontIOBoard)
         }
@@ -234,25 +260,35 @@ impl ServerImpl {
                 // nominally is recorded in the front IO board controller. Look
                 // up what this value is to determine if a power reset of the
                 // front IO board is needed.
-                let phy_osc_good = front_io_board.phy().osc_good()?;
+                match front_io_board.phy().osc_state()? {
+                    PhyOscState::Bad => {
+                        // The PHY was attempted to be initialized but its
+                        // oscillator was deemed not functional. Unfortunately
+                        // the only course of action is to power cycle the
+                        // entire front IO board, so do so now.
+                        self.front_io_hsc.set_enable(false)?;
+                        ringbuf_entry!(Trace::FrontIOBoardPowerEnable(false));
 
-                if let Some(false) = phy_osc_good {
-                    // The PHY was attempted to be initialized but its oscillator
-                    // was deemed not functional. Unfortunately the only course of
-                    // action is to power cycle the entire front IO board, so do so
-                    // now.
-                    self.front_io_hsc.set_enable(false)?;
+                        // Wait some cool down period to allow caps to bleed off
+                        // etc.
+                        userlib::hl::sleep_for(1000);
+                    }
+                    PhyOscState::Good => {
+                        // The PHY was initialized properly before and its
+                        // oscillator declared operating nominally. Assume this
+                        // has not changed and only a reset the PHY itself is
+                        // desired.
+                        front_io_board.phy().set_phy_power_enabled(false)?;
+                        ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(
+                            false
+                        ));
 
-                    ringbuf_entry!(Trace::FrontIOPowerEnable(false));
-
-                    // Wait some cool down period to allow caps to bleed off etc.
-                    userlib::hl::sleep_for(1000);
-                } else if let Some(true) = phy_osc_good {
-                    // The PHY was initialized properly before and its
-                    // oscillator declared operarting nominally. Assume this has
-                    // not changed and only a reset the PHY itself is desired.
-                    front_io_board.phy().set_phy_power_enabled(false)?;
-                    userlib::hl::sleep_for(10);
+                        userlib::hl::sleep_for(10);
+                    }
+                    PhyOscState::Unknown => {
+                        // Do nothing (yet) since the oscillator state is
+                        // unknown.
+                    }
                 }
             }
         }
@@ -261,21 +297,21 @@ impl ServerImpl {
         self.front_io_board_preinit()?;
 
         if let Some(front_io_board) = self.front_io_board.as_mut() {
-            // At this point the front IO board has either not yet been initalized
-            // or may have been power cycled and should be initialized.
+            // At this point the front IO board has either not yet been
+            // initalized or may have been power cycled and should be
+            // initialized.
             if !front_io_board.initialized() {
                 front_io_board.init()?;
             }
 
-            // The PHY is still powered down. Request the sequencer to power up and
-            // wait for it to be ready.
+            // The PHY is still powered down. Request the sequencer to power up
+            // and wait for it to be ready.
             front_io_board.phy().set_phy_power_enabled(true)?;
+            ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(true));
 
             while !front_io_board.phy().powered_up_and_ready()? {
                 userlib::hl::sleep_for(20);
             }
-
-            ringbuf_entry!(Trace::FrontIOVsc8562Ready);
 
             Ok(())
         } else {
@@ -420,6 +456,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .map_err(SeqError::from)?)
     }
 
+    fn tofino_pcie_link_up(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<bool, RequestError<Infallible>> {
+        Ok(self.tofino.pcie_link_up)
+    }
+
     fn tofino_pcie_hotplug_status(
         &mut self,
         _: &userlib::RecvMessage,
@@ -441,7 +484,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn is_clock_config_loaded(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<bool, RequestError<SeqError>> {
+    ) -> Result<bool, RequestError<Infallible>> {
         Ok(self.clock_generator.config_loaded)
     }
 
@@ -467,7 +510,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
-    fn set_front_io_phy_osc_good(
+    fn set_front_io_phy_osc_state(
         &mut self,
         _: &RecvMessage,
         good: bool,
@@ -477,11 +520,37 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .as_ref()
             .ok_or(SeqError::NoFrontIOBoard)?;
 
-        front_io_board
+        match front_io_board
             .phy()
-            .set_osc_good(good)
+            .osc_state()
             .map_err(SeqError::from)
-            .map_err(RequestError::from)
+            .map_err(RequestError::from)?
+        {
+            // The state of the oscillator has not yet been examined or was
+            // marked bad in the previous run. Update as appropriate.
+            PhyOscState::Unknown | PhyOscState::Bad => {
+                ringbuf_entry!(if good {
+                    Trace::FrontIOBoardPhyOscGood
+                } else {
+                    Trace::FrontIOBoardPhyOscBad
+                });
+
+                front_io_board
+                    .phy()
+                    .set_osc_good(good)
+                    .map_err(SeqError::from)
+                    .map_err(RequestError::from)
+            }
+            // The oscillator is already marked good and this state only changes
+            // if it (and by extension the whole front IO board) is power
+            // cycled. In that case the value of this register in the FPGA is
+            // automatically reset when the bitstream is loaded and the other
+            // arm of this match would be taken.
+            //
+            // So ignore this call if the oscillator has been found good since the last power
+            // cycle of the front IO board.
+            PhyOscState::Good => Ok(()),
+        }
     }
 
     fn tofino_debug_port_state(

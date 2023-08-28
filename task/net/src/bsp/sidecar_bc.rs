@@ -62,7 +62,7 @@ impl bsp_support::Bsp for BspImpl {
     fn preinit() {
         // Wait for the sequencer to turn on the clock
         let seq = Sequencer::from(SEQ.get_task_id());
-        while !seq.is_clock_config_loaded().unwrap_or(false) {
+        while !seq.is_clock_config_loaded() {
             sleep_for(10);
         }
     }

@@ -3,8 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_sidecar_front_io::phy_smi::PhySmi;
-use drv_sidecar_mainboard_controller::Reg;
-use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
+use drv_sidecar_seq_api::Sequencer;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{
@@ -29,7 +28,6 @@ enum Trace {
         after: Speed,
     },
     FrontIoPhyOscillatorBad,
-    SeqError(SeqError),
     AnegCheckFailed(VscError),
     Restarted10GAneg,
     Reinit,
@@ -144,7 +142,7 @@ pub use map::PORT_MAP;
 pub fn preinit() {
     // Wait for the sequencer to turn on the clock
     let seq = Sequencer::from(SEQ.get_task_id());
-    while !seq.is_clock_config_loaded().unwrap_or(false) {
+    while !seq.is_clock_config_loaded() {
         sleep_for(10);
     }
 }
@@ -234,7 +232,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // oscillator is good any future resets of the PHY do not require a
             // full power cycle of the front IO board.
             self.seq
-                .set_front_io_phy_osc_good(osc_good)
+                .set_front_io_phy_osc_state(osc_good)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             if !osc_good {
@@ -473,37 +471,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
-        // The 10G link should only be up if we're in A0 and the host isn't
-        // trying to hold us in reset; we won't retrigger autonegotiation /
-        // system reset if that's not the case.
-        let check_10g_link = match self.seq.tofino_seq_state() {
-            Ok(TofinoSeqState::A0) => {
-                match self.seq.tofino_pcie_hotplug_status() {
-                    Ok(pcie_hotplug_status) => {
-                        let host_reset = pcie_hotplug_status
-                            & Reg::PCIE_HOTPLUG_STATUS::HOST_RESET;
-                        host_reset == 0
-                    }
-                    Err(e) => {
-                        // If the sequencer failed to talk to us, then fail safe (i.e.
-                        // in favor of checking the 10G link).
-                        ringbuf_entry!(Trace::SeqError(e));
-                        true
-                    }
-                }
-            }
-            Ok(_) => false,
-            Err(e) => {
-                // If the sequencer failed to talk to us, then fail safe (i.e.
-                // in favor of checking the 10G link).
-                ringbuf_entry!(Trace::SeqError(e));
-                true
-            }
-        };
-
         // Workaround for the link-stuck issue discussed in
-        // https://github.com/oxidecomputer/bf_sde/issues/5
-        if check_10g_link {
+        // https://github.com/oxidecomputer/bf_sde/issues/5. This should only
+        // run if the Tofino PCIe link is up otherwise the Tofino port is almost
+        // certainly down and the condition we are trying to avoid here does not
+        // matter.
+        if self.seq.tofino_pcie_link_up() {
             if self.vsc7448.check_10gbase_kr_aneg(0)? {
                 ringbuf_entry!(Trace::Restarted10GAneg);
             }

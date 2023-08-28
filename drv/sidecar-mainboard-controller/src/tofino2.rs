@@ -448,6 +448,7 @@ pub enum DirectBarSegment {
 pub enum TofinoBar0Registers {
     Scratchpad = 0x0,
     FreeRunningCounter = 0x10,
+    PcieDevInfo = 0x180,
     SoftwareReset = (0x80000 | 0x0),
     ResetOptions = (0x80000 | 0x4),
     PciePhyLaneControl0 = (0x80000 | 0x38),
