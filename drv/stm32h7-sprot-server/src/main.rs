@@ -42,7 +42,6 @@ task_slot!(SYS, sys);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    StatusReq,
     #[allow(unused)]
     Debug(bool),
     Error(SprotError),
@@ -57,8 +56,26 @@ enum Trace {
     RotReadyTimeout,
     RspTimeout,
     RxBuf([u8; 16]),
+    WaitIrqStarted(bool, u64),
+    WaitIrqStopped(bool, u64),
+    RotIrqAsserted,
+    RotIrqNotAsserted,
+    DoSendRecv(u64),
+
+    ReqReadCabooseRegion,
+    ReqReadCabooseSize,
+    ReqReset,
+    ReqSwitchDefaultImage,
+    ReqAbortUpdate,
+    ReqFinishImageUpdate,
+    ReqPrepImageUpdate,
+    ReqBlockSize,
+    ReqRotState,
+    ReqRotBootInfo,
+    ReqStatus,
+    ReqWriteOneBlock,
 }
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 256, Trace::None);
 
 // TODO:These timeouts are somewhat arbitrary.
 // TODO: Make timeouts configurable
@@ -198,6 +215,7 @@ impl<S: SpiServer> Io<S> {
         rx_buf: &mut [u8],
         timeout: u32,
     ) -> Result<usize, SprotError> {
+        ringbuf_entry!(Trace::DoSendRecv(userlib::sys_get_timer().now));
         self.handle_rot_irq()?;
         self.do_send_request(tx_buf)?;
 
@@ -230,6 +248,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART1_DELAY);
         }
         self.spi.write(part1)?;
+
         if !part2.is_empty() {
             if PART2_DELAY != 0 {
                 hl::sleep_for(PART2_DELAY);
@@ -304,6 +323,8 @@ impl<S: SpiServer> Io<S> {
     // Consider making configuration parameters for delays below
     fn handle_rot_irq(&mut self) -> Result<(), SprotError> {
         if self.is_rot_irq_asserted() {
+            ringbuf_entry!(Trace::RotIrqAsserted);
+
             // See if the ROT_IRQ completes quickly.
             // This is the ROT_IRQ from the last request.
             if !self.wait_rot_irq(false, TIMEOUT_QUICK) {
@@ -321,6 +342,8 @@ impl<S: SpiServer> Io<S> {
                     return Err(SprotProtocolError::RotIrqRemainsAsserted)?;
                 }
             }
+        } else {
+            ringbuf_entry!(Trace::RotIrqNotAsserted);
         }
         Ok(())
     }
@@ -373,6 +396,10 @@ impl<S: SpiServer> Io<S> {
     // But, hacking in one interrupt as an example should be ok to start things
     // off.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
+        ringbuf_entry!(Trace::WaitIrqStarted(
+            desired,
+            userlib::sys_get_timer().now
+        ));
         let mut slept = 0;
         while self.is_rot_irq_asserted() != desired {
             if slept == max_sleep {
@@ -383,6 +410,10 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(1);
             slept += 1;
         }
+        ringbuf_entry!(Trace::WaitIrqStopped(
+            desired,
+            userlib::sys_get_timer().now
+        ));
         true
     }
 }
@@ -494,7 +525,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<SprotStatus, RequestError<SprotError>> {
-        ringbuf_entry!(Trace::StatusReq);
+        ringbuf_entry!(Trace::ReqStatus);
         let tx_size = Request::pack(&ReqBody::Status, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
@@ -543,6 +574,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotState, RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqRotState);
         let tx_size = Request::pack(&ReqBody::RotState, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
             tx_size,
@@ -561,6 +593,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<RotBootInfo, RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqRotBootInfo);
         let body = ReqBody::Update(UpdateReq::BootInfo);
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
@@ -580,6 +613,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<u32, RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqBlockSize);
         let body = ReqBody::Update(UpdateReq::GetBlockSize);
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
@@ -600,6 +634,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _msg: &userlib::RecvMessage,
         target: UpdateTarget,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqPrepImageUpdate);
         let body = ReqBody::Update(UpdateReq::Prep(target));
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
@@ -624,6 +659,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             MAX_BLOB_SIZE,
         >,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqWriteOneBlock);
         let body = ReqBody::Update(UpdateReq::WriteBlock { block_num });
         let tx_size = Request::pack_with_blob(&body, &mut self.tx_buf, block)?;
 
@@ -644,6 +680,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqFinishImageUpdate);
         let body = ReqBody::Update(UpdateReq::Finish);
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
@@ -662,6 +699,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqAbortUpdate);
         let body = ReqBody::Update(UpdateReq::Abort);
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(
@@ -682,6 +720,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqSwitchDefaultImage);
         let body =
             ReqBody::Update(UpdateReq::SwitchDefaultImage { slot, duration });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
@@ -702,6 +741,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::ReqReset);
         let body = ReqBody::Update(UpdateReq::Reset);
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
@@ -733,6 +773,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _: &userlib::RecvMessage,
         slot: SlotId,
     ) -> Result<u32, idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        ringbuf_entry!(Trace::ReqReadCabooseSize);
         let body = ReqBody::Caboose(CabooseReq::Size { slot });
         let tx_size = Request::pack(&body, &mut self.tx_buf);
         let rsp = self
@@ -760,6 +801,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         slot: SlotId,
         data: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        ringbuf_entry!(Trace::ReqReadCabooseRegion);
         let body = ReqBody::Caboose(CabooseReq::Read {
             slot,
             start: offset,
