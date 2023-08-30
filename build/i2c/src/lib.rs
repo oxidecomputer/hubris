@@ -1389,12 +1389,13 @@ impl ConfigGenerator {
         &mut self,
         d: &I2cDevice,
         label: String,
+        struct_name: &str,
         sensors: &[DeviceSensor],
     ) -> Result<()> {
         write!(
             &mut self.output,
             "        #[allow(dead_code)]
-        pub const {}_{label}_SENSORS: Sensors_{} = ",
+        pub const {}_{label}_SENSORS: Sensors_{}_{struct_name} = ",
             d.device.to_uppercase(),
             d.device
         )?;
@@ -1408,7 +1409,7 @@ impl ConfigGenerator {
             return Ok(());
         }
 
-        writeln!(&mut self.output, "Sensors_{} {{", d.device)?;
+        writeln!(&mut self.output, "Sensors_{}_{struct_name} {{", d.device)?;
 
         for (kind, values) in sensors_by_kind {
             let field = match kind {
@@ -1462,8 +1463,14 @@ impl ConfigGenerator {
             s.total_sensors
         )?;
 
-        let mut emitted_structs = HashSet::new();
         for (i, d) in self.devices.clone().iter().enumerate() {
+            let struct_name = if let Some(name) = &d.name {
+                name
+            } else if let Some(refdes) = &d.refdes {
+                refdes
+            } else {
+                continue;
+            };
             // Manually unpack the field so that changes to the sensor types
             // will require changes here as well.
             if let Some(I2cSensors {
@@ -1477,49 +1484,55 @@ impl ConfigGenerator {
                 names: _,
             }) = &d.sensors
             {
-                if emitted_structs.insert(d.device.clone()) {
-                    writeln!(
+                writeln!(
+                    &mut self.output,
+                    "\n        #[allow(non_camel_case_types)]
+        pub struct Sensors_{}_{struct_name} {{",
+                    d.device
+                )?;
+                let mut f = |name, count| match count {
+                    0 => Ok(()),
+                    1 => writeln!(
                         &mut self.output,
-                        "\n        #[allow(non_camel_case_types)]
-        pub struct Sensors_{} {{",
-                        d.device
-                    )?;
-                    let mut f = |name, count| match count {
-                        0 => Ok(()),
-                        1 => writeln!(
-                            &mut self.output,
-                            "            pub {name}: SensorId,"
-                        ),
-                        _ => writeln!(
-                            &mut self.output,
-                            "            pub {name}: [SensorId; {count}],"
-                        ),
-                    };
-                    f("temperature", *temperature)?;
-                    f("power", *power)?;
-                    f("current", *current)?;
-                    f("voltage", *voltage)?;
-                    f("input_current", *input_current)?;
-                    f("input_voltage", *input_voltage)?;
-                    f("speed", *speed)?;
-                    writeln!(&mut self.output, "        }}")?;
-                }
+                        "            pub {name}: SensorId,"
+                    ),
+                    _ => writeln!(
+                        &mut self.output,
+                        "            pub {name}: [SensorId; {count}],"
+                    ),
+                };
+                f("temperature", *temperature)?;
+                f("power", *power)?;
+                f("current", *current)?;
+                f("voltage", *voltage)?;
+                f("input_current", *input_current)?;
+                f("input_voltage", *input_voltage)?;
+                f("speed", *speed)?;
+                writeln!(&mut self.output, "        }}")?;
             } else {
-                if emitted_structs.insert(d.device.clone()) {
-                    writeln!(
-                        &mut self.output,
-                        "\n        #[allow(non_camel_case_types)]
-        type Sensors_{} = ();",
-                        d.device
-                    )?;
-                }
+                writeln!(
+                    &mut self.output,
+                    "\n        #[allow(non_camel_case_types)]
+        type Sensors_{}_{struct_name} = ();",
+                    d.device
+                )?;
             }
             let s = s.device_sensors[i].as_slice();
             if let Some(name) = &d.name {
-                self.emit_sensor_struct(d, name.to_uppercase(), s)?;
+                self.emit_sensor_struct(
+                    d,
+                    name.to_uppercase(),
+                    struct_name,
+                    s,
+                )?;
             }
             if let Some(refdes) = &d.refdes {
-                self.emit_sensor_struct(d, refdes.to_uppercase(), s)?;
+                self.emit_sensor_struct(
+                    d,
+                    refdes.to_uppercase(),
+                    struct_name,
+                    s,
+                )?;
             }
         }
 
