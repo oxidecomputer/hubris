@@ -1454,7 +1454,7 @@ impl ConfigGenerator {
             r##"
     pub mod sensors {{
         #[allow(unused_imports)]
-        use crate::SensorId;
+        use super::super::SensorId;
 
         #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};

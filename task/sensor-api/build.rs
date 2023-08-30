@@ -108,12 +108,15 @@ fn main() -> Result<()> {
     writeln!(
         &mut file,
         r#"pub mod config {{
+    #[allow(unused_imports)]
+    use super::SensorId;
+
     // This is only included to determine the number of sensors
     include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
     pub mod other_sensors {{
         #[allow(unused_imports)]
-        use crate::SensorId;
+        use super::SensorId;
 
         #[allow(unused_imports)]
         use super::NUM_I2C_SENSORS; // Used for offsetting

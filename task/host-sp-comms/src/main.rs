@@ -29,7 +29,6 @@ use task_control_plane_agent_api::{
 use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use task_packrat_api::Packrat;
-use task_sensor_api::SensorId;
 use userlib::{
     hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
 };
