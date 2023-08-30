@@ -4,7 +4,7 @@
 
 //! Test suite.
 //!
-//! This task is driven by the `runner` to run test cases (defined below).
+//! This task is driven by another entity (currently hiffy)
 //!
 //! Any test case that fails should indicate this by `panic!` (or equivalent,
 //! like failing an `assert!`).
@@ -18,14 +18,24 @@
 //!
 //! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
 //! included in the image with the name `idol`, but its ID is immaterial.
-
+#![feature(used_with_arg)]
 #![no_std]
 #![no_main]
 
 use hubris_num_tasks::NUM_TASKS;
+use ringbuf::*;
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    TestStart,
+    TestFinish,
+    None,
+}
+
+ringbuf!(Trace, 64, Trace::None);
 
 /// A constant that is known to be in a region we can't access to induce a
 /// memory fault. (Note that if TZ is enabled, this will in fact induce a
@@ -33,8 +43,13 @@ use zerocopy::AsBytes;
 const BAD_ADDRESS: u32 = 0x0;
 
 /// Helper macro for building a list of functions with their names.
+/// We use the humility debug processing to get the name of each
+/// test case and the total number of tests. The #[used(linker)]
+/// is to ensure that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
+        #[no_mangle]
+        #[used(linker)]
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
                 $(#[$attr])*
@@ -1462,34 +1477,25 @@ fn main() -> ! {
             &mut buffer,
             |op, msg| -> Result<(), u32> {
                 match op {
-                    SuiteOp::GetCaseCount => {
-                        let (_, caller) =
-                            msg.fixed::<(), usize>().ok_or(2u32)?;
-                        caller.reply(TESTS.len());
-                    }
-                    SuiteOp::GetCaseName => {
-                        let (&idx, caller) =
-                            msg.fixed::<usize, [u8; 64]>().ok_or(2u32)?;
-                        let mut name_buf = [b' '; 64];
-                        let name = TESTS[idx].0;
-                        let name_len = name.len().min(64);
-                        name_buf[..name_len]
-                            .copy_from_slice(&name.as_bytes()[..name_len]);
-                        caller.reply(name_buf);
-                    }
                     SuiteOp::RunCase => {
                         let (&idx, caller) =
                             msg.fixed::<usize, ()>().ok_or(2u32)?;
-                        let caller_tid = caller.task_id();
                         caller.reply(());
+                        ringbuf_entry!(Trace::TestStart);
 
                         TESTS[idx].1();
 
                         let op = RunnerOp::TestComplete as u16;
 
-                        // Call back with status.
-                        let (rc, len) =
-                            sys_send(caller_tid, op, &[], &mut [], &[]);
+                        ringbuf_entry!(Trace::TestFinish);
+                        // Report back to the runner (aka our monitor)
+                        let (rc, len) = sys_send(
+                            RUNNER.get_task_id(),
+                            op,
+                            &[],
+                            &mut [],
+                            &[],
+                        );
                         assert_eq!(rc, 0);
                         assert_eq!(len, 0);
                     }

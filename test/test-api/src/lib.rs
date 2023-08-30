@@ -41,10 +41,6 @@ pub enum AssistOp {
 /// Operations that are performed by the test-suite
 #[derive(FromPrimitive)]
 pub enum SuiteOp {
-    /// Get the number of test cases (`() -> usize`).
-    GetCaseCount = 1,
-    /// Get the name of a case (`usize -> [u8]`).
-    GetCaseName = 2,
     /// Run a case, replying before it starts (`usize -> ()`).
     RunCase = 3,
 }
@@ -57,5 +53,28 @@ pub enum RunnerOp {
     ReadAndClearNotes = 0,
     /// Signals that a test is complete, and that the runner is switching back
     /// to passive mode (`() -> ()`).
-    TestComplete = 0xFFFF,
+    TestComplete = 0xfffe,
+    /// Returns the result of the last test if it completed
+    TestResult = 0xffff,
+}
+
+#[derive(FromPrimitive)]
+#[repr(u32)]
+pub enum TestResult {
+    Failure = 0,
+    Success = 1,
+    NotDone = 3,
+}
+
+impl TryFrom<u32> for TestResult {
+    type Error = u32;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(TestResult::Failure),
+            1 => Ok(TestResult::Success),
+            3 => Ok(TestResult::NotDone),
+            x => Err(x),
+        }
+    }
 }

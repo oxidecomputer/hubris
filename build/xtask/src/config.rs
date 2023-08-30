@@ -628,6 +628,7 @@ impl BuildConfig<'_> {
             "asm_const",
             "naked_functions",
             "named-profiles",
+            "used_with_arg",
         ]);
         // nightly features that our dependencies use:
         nightly_features.extend([
