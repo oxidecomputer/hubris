@@ -12,6 +12,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
+use task_sensor_api::SensorId;
 use userlib::TaskId;
 use zerocopy::AsBytes;
 
@@ -19,6 +20,18 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
+
+macro_rules! by_refdes {
+    ($refdes:ident, $dev:ident) => {
+        paste::paste! {
+            (
+                stringify!($refdes).as_bytes(),
+                i2c_config::devices::[<$dev _ $refdes:lower >] as fn(TaskId) -> I2cDevice,
+                i2c_config::sensors::[<$dev:upper _ $refdes:upper _SENSORS>]
+            )
+        }
+    };
+}
 
 impl ServerImpl {
     /// Number of devices in our inventory
@@ -73,13 +86,9 @@ impl ServerImpl {
                 // reference; `read_at24csw080_id` typically isn't inlined, and
                 // we're already paying a stack frame for the data in this
                 // function, so it saves us 512 bytes of stack.
+                let (name, f, _sensors) = by_refdes!(U615, at24csw080);
                 let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
-                self.read_at24csw080_id(
-                    sequence,
-                    b"U615",
-                    i2c_config::devices::at24csw080_local_vpd,
-                    &mut data,
-                )
+                self.read_at24csw080_id(sequence, name, f, &mut data)
             }
             18 => {
                 // J180/ID: Fan VPD barcode (not available in packrat)
@@ -142,8 +151,8 @@ impl ServerImpl {
             }
             41 => {
                 // U431: BRM491
-                let dev = i2c_config::devices::bmr491_ibc(I2C.get_task_id());
-                let name = b"U431";
+                let (name, f, sensors) = by_refdes!(U431, bmr491);
+                let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 let mut data = InventoryData::Bmr491 {
@@ -154,13 +163,14 @@ impl ServerImpl {
                     mfr_date: [0u8; 12],
                     mfr_serial: [0u8; 20],
                     mfr_firmware_data: [0u8; 20],
+                    temp_sensor: sensors.temperature,
+                    voltage_sensor: sensors.voltage,
+                    current_sensor: sensors.current,
+                    power_sensor: sensors.power,
                 };
-                self.tx_buf.try_encode_inventory(
-                    sequence,
-                    name.as_slice(),
-                    || {
-                        use pmbus::commands::bmr491::CommandCode;
-                        let InventoryData::Bmr491 {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    use pmbus::commands::bmr491::CommandCode;
+                    let InventoryData::Bmr491 {
                             mfr_id,
                             mfr_model,
                             mfr_revision,
@@ -168,38 +178,34 @@ impl ServerImpl {
                             mfr_date,
                             mfr_serial,
                             mfr_firmware_data,
+                            temp_sensor: _,
+                            voltage_sensor: _,
+                            current_sensor: _,
+                            power_sensor: _,
                         } = &mut data else { unreachable!() };
-                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
-                        dev.read_block(
-                            CommandCode::MFR_MODEL as u8,
-                            mfr_model,
-                        )?;
-                        dev.read_block(
-                            CommandCode::MFR_REVISION as u8,
-                            mfr_revision,
-                        )?;
-                        dev.read_block(
-                            CommandCode::MFR_LOCATION as u8,
-                            mfr_location,
-                        )?;
-                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
-                        dev.read_block(
-                            CommandCode::MFR_SERIAL as u8,
-                            mfr_serial,
-                        )?;
-                        dev.read_block(
-                            CommandCode::MFR_FIRMWARE_DATA as u8,
-                            mfr_firmware_data,
-                        )?;
-                        Ok(&data)
-                    },
-                )
+                    dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                    dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
+                    dev.read_block(
+                        CommandCode::MFR_REVISION as u8,
+                        mfr_revision,
+                    )?;
+                    dev.read_block(
+                        CommandCode::MFR_LOCATION as u8,
+                        mfr_location,
+                    )?;
+                    dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                    dev.read_block(CommandCode::MFR_SERIAL as u8, mfr_serial)?;
+                    dev.read_block(
+                        CommandCode::MFR_FIRMWARE_DATA as u8,
+                        mfr_firmware_data,
+                    )?;
+                    Ok(&data)
+                })
             }
 
             42 => {
-                // U352: ISL68224
-                let dev = i2c_config::devices::isl68224(I2C.get_task_id())[0];
-                let name = b"U352";
+                let (name, f, sensors) = by_refdes!(U352, isl68224);
+                let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 let mut data = InventoryData::Isl68224 {
@@ -209,47 +215,46 @@ impl ServerImpl {
                     mfr_date: [0u8; 4],
                     ic_device_id: [0u8; 4],
                     ic_device_rev: [0u8; 4],
+                    voltage_sensors: sensors.voltage,
+                    current_sensors: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(
-                    sequence,
-                    name.as_slice(),
-                    || {
-                        use pmbus::commands::isl68224::CommandCode;
-                        let InventoryData::Isl68224 {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    use pmbus::commands::isl68224::CommandCode;
+                    let InventoryData::Isl68224 {
                             mfr_id,
                             mfr_model,
                             mfr_revision,
                             mfr_date,
                             ic_device_id,
                             ic_device_rev,
+                            voltage_sensors: _,
+                            current_sensors: _,
                         } = &mut data else { unreachable!() };
-                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
-                        dev.read_block(
-                            CommandCode::MFR_MODEL as u8,
-                            mfr_model,
-                        )?;
-                        dev.read_block(
-                            CommandCode::MFR_REVISION as u8,
-                            mfr_revision,
-                        )?;
-                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
-                        dev.read_block(
-                            CommandCode::IC_DEVICE_ID as u8,
-                            ic_device_id,
-                        )?;
-                        dev.read_block(
-                            CommandCode::IC_DEVICE_REV as u8,
-                            ic_device_rev,
-                        )?;
-                        Ok(&data)
-                    },
-                )
+                    dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                    dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
+                    dev.read_block(
+                        CommandCode::MFR_REVISION as u8,
+                        mfr_revision,
+                    )?;
+                    dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_ID as u8,
+                        ic_device_id,
+                    )?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_REV as u8,
+                        ic_device_rev,
+                    )?;
+                    Ok(&data)
+                })
             }
             43 | 44 => {
-                let dev = i2c_config::devices::raa229618(I2C.get_task_id())
-                    [(index - 43) as usize];
-                let mut name = *b"U350";
-                name[3] += (index - 43) as u8;
+                let (name, f, sensors) = match index - 43 {
+                    0 => by_refdes!(U350, raa229618),
+                    1 => by_refdes!(U351, raa229618),
+                    _ => unreachable!(),
+                };
+                let dev = f(I2C.get_task_id());
 
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
@@ -260,53 +265,53 @@ impl ServerImpl {
                     mfr_date: [0u8; 4],
                     ic_device_id: [0u8; 4],
                     ic_device_rev: [0u8; 4],
+                    temp_sensors: sensors.temperature,
+                    power_sensors: sensors.power,
+                    voltage_sensors: sensors.voltage,
+                    current_sensors: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(
-                    sequence,
-                    name.as_slice(),
-                    || {
-                        use pmbus::commands::raa229618::CommandCode;
-                        let InventoryData::Raa229618 {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
+                    use pmbus::commands::raa229618::CommandCode;
+                    let InventoryData::Raa229618 {
                             mfr_id,
                             mfr_model,
                             mfr_revision,
                             mfr_date,
                             ic_device_id,
                             ic_device_rev,
+                            temp_sensors: _,
+                            power_sensors: _,
+                            voltage_sensors: _,
+                            current_sensors: _,
                         } = &mut data else { unreachable!() };
-                        dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
-                        dev.read_block(
-                            CommandCode::MFR_MODEL as u8,
-                            mfr_model,
-                        )?;
-                        dev.read_block(
-                            CommandCode::MFR_REVISION as u8,
-                            mfr_revision,
-                        )?;
-                        dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
-                        dev.read_block(
-                            CommandCode::IC_DEVICE_ID as u8,
-                            ic_device_id,
-                        )?;
-                        dev.read_block(
-                            CommandCode::IC_DEVICE_REV as u8,
-                            ic_device_rev,
-                        )?;
-                        Ok(&data)
-                    },
-                )
+                    dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
+                    dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
+                    dev.read_block(
+                        CommandCode::MFR_REVISION as u8,
+                        mfr_revision,
+                    )?;
+                    dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_ID as u8,
+                        ic_device_id,
+                    )?;
+                    dev.read_block(
+                        CommandCode::IC_DEVICE_REV as u8,
+                        ic_device_rev,
+                    )?;
+                    Ok(&data)
+                })
             }
 
             45..=49 => {
-                const TABLE: [(&[u8], fn(TaskId) -> I2cDevice); 5] = [
-                    (b"U522", i2c_config::devices::tps546b24a_v3p3_sp_a2),
-                    (b"U560", i2c_config::devices::tps546b24a_v3p3_sys_a0),
-                    (b"U524", i2c_config::devices::tps546b24a_v5p0_sys_a2),
-                    (b"U561", i2c_config::devices::tps546b24a_v1p8_sys_a2),
-                    (b"U565", i2c_config::devices::tps546b24a_v0p96_nic),
-                ];
-                let (name, f) = TABLE[(index - 45) as usize];
-
+                let (name, f, sensors) = match index - 45 {
+                    0 => by_refdes!(U522, tps546b24a),
+                    1 => by_refdes!(U560, tps546b24a),
+                    2 => by_refdes!(U524, tps546b24a),
+                    3 => by_refdes!(U561, tps546b24a),
+                    4 => by_refdes!(U565, tps546b24a),
+                    _ => unreachable!(),
+                };
                 let dev = f(I2C.get_task_id());
                 let mut data = InventoryData::Tps546b24a {
                     mfr_id: [0u8; 3],
@@ -316,6 +321,9 @@ impl ServerImpl {
                     ic_device_id: [0u8; 6],
                     ic_device_rev: [0u8; 2],
                     nvm_checksum: 0u16,
+                    temp_sensor: sensors.temperature,
+                    voltage_sensor: sensors.voltage,
+                    current_sensor: sensors.current,
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
@@ -327,6 +335,9 @@ impl ServerImpl {
                         ic_device_id,
                         ic_device_rev,
                         nvm_checksum,
+                        temp_sensor: _,
+                        voltage_sensor: _,
+                        current_sensor: _,
                     } = &mut data else { unreachable!() };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
@@ -351,20 +362,23 @@ impl ServerImpl {
                 })
             }
             50 | 51 => {
-                let dev = i2c_config::devices::adm1272(I2C.get_task_id())
-                    [(index - 50) as usize];
                 // U452 and U419, both ADM1272
-                let name = match index {
-                    50 => b"U419",
-                    51 => b"U452",
+                let (name, f, sensors) = match index - 50 {
+                    0 => by_refdes!(U419, adm1272),
+                    1 => by_refdes!(U452, adm1272),
                     _ => unreachable!(),
                 };
+                let dev = f(I2C.get_task_id());
 
                 let mut data = InventoryData::Adm1272 {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 10],
                     mfr_revision: [0u8; 2],
                     mfr_date: [0u8; 6],
+
+                    temp_sensor: sensors.temperature,
+                    voltage_sensor: sensors.voltage,
+                    current_sensor: sensors.current,
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
@@ -373,6 +387,9 @@ impl ServerImpl {
                         mfr_model,
                         mfr_revision,
                         mfr_date,
+                        temp_sensor: _,
+                        voltage_sensor: _,
+                        current_sensor: _,
                     } = &mut data else { unreachable!() };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
@@ -386,31 +403,36 @@ impl ServerImpl {
             }
 
             52..=57 => {
-                let i = index as usize - 52;
-                // XXX this assumes that designator order is matched in the TOML
-                // file and in our list of names below!
-                let dev = i2c_config::devices::tmp117(I2C.get_task_id())[i];
-                let name = match i {
-                    0 => b"J194/U1",
-                    1 => b"J195/U1",
-                    2 => b"J196/U1",
-                    3 => b"J197/U1",
-                    4 => b"J198/U1",
-                    5 => b"J199/U1",
+                let (connector_name, f, sensors) = match index - 52 {
+                    0 => by_refdes!(J194, tmp117),
+                    1 => by_refdes!(J195, tmp117),
+                    2 => by_refdes!(J196, tmp117),
+                    3 => by_refdes!(J197, tmp117),
+                    4 => by_refdes!(J198, tmp117),
+                    5 => by_refdes!(J199, tmp117),
                     _ => unreachable!(),
                 };
+                let dev = f(I2C.get_task_id());
+
+                // Convert the name from Jxxx (in the TOML file) -> Jxxx/U1
+                let mut name = *b"Jxxx/U1";
+                name[..connector_name.len()].copy_from_slice(connector_name);
+
                 let mut data = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
                     eeprom2: 0,
                     eeprom3: 0,
+                    temp_sensor: sensors.temperature,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     let InventoryData::Tmp117 {
                         id,
                         eeprom1,
                         eeprom2,
-                        eeprom3 } = &mut data else { unreachable!(); };
+                        eeprom3,
+                        temp_sensor: _
+                    } = &mut data else { unreachable!(); };
                     *id = dev.read_reg(0x0Fu8)?;
                     *eeprom1 = dev.read_reg(0x05u8)?;
                     *eeprom2 = dev.read_reg(0x06u8)?;
@@ -420,8 +442,8 @@ impl ServerImpl {
             }
 
             58 => {
-                let dev = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
-                let name = b"U446";
+                let (name, f, _sensors) = by_refdes!(U446, idt8a34003);
+                let dev = f(I2C.get_task_id());
                 let mut data = InventoryData::Idt8a34003 {
                     hw_rev: 0,
                     major_rel: 0,
@@ -493,24 +515,21 @@ impl ServerImpl {
     /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
     ///
     /// Returns a designator (e.g. J206) and constructor function
-    fn get_sharkfin_vpd(i: usize) -> ([u8; 4], fn(TaskId) -> I2cDevice) {
-        let fs = [
-            i2c_config::devices::at24csw080_sharkfin_a_vpd,
-            i2c_config::devices::at24csw080_sharkfin_b_vpd,
-            i2c_config::devices::at24csw080_sharkfin_c_vpd,
-            i2c_config::devices::at24csw080_sharkfin_d_vpd,
-            i2c_config::devices::at24csw080_sharkfin_e_vpd,
-            i2c_config::devices::at24csw080_sharkfin_f_vpd,
-            i2c_config::devices::at24csw080_sharkfin_g_vpd,
-            i2c_config::devices::at24csw080_sharkfin_h_vpd,
-            i2c_config::devices::at24csw080_sharkfin_i_vpd,
-            i2c_config::devices::at24csw080_sharkfin_j_vpd,
-        ];
-        // The base name is J206, so we count up from there
-        let mut name = *b"J2__";
-        name[2] = ((i + 6) / 10) as u8 + b'0';
-        name[3] = ((i + 6) % 10) as u8 + b'0';
-        (name, fs[i])
+    fn get_sharkfin_vpd(i: usize) -> (&'static [u8], fn(TaskId) -> I2cDevice) {
+        let (name, f, _sensors) = match i {
+            0 => by_refdes!(J206, at24csw080),
+            1 => by_refdes!(J207, at24csw080),
+            2 => by_refdes!(J208, at24csw080),
+            3 => by_refdes!(J209, at24csw080),
+            4 => by_refdes!(J210, at24csw080),
+            5 => by_refdes!(J211, at24csw080),
+            6 => by_refdes!(J212, at24csw080),
+            7 => by_refdes!(J213, at24csw080),
+            8 => by_refdes!(J214, at24csw080),
+            9 => by_refdes!(J215, at24csw080),
+            _ => panic!("bad VPD index"),
+        };
+        (name, f)
     }
 
     fn dimm_inventory_lookup(&mut self, sequence: u64, index: u32) {
@@ -525,13 +544,19 @@ impl ServerImpl {
         }
 
         let packrat = &self.packrat; // partial borrow
-        let mut data = InventoryData::DimmSpd([0u8; 512]);
+        let mut data = InventoryData::DimmSpd {
+            id: [0u8; 512],
+            temp_sensor: SensorId(u32::MAX),
+        };
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
             if packrat.get_spd_present(index as usize) {
-                let InventoryData::DimmSpd(out) = &mut data
+                let InventoryData::DimmSpd { id, temp_sensor } = &mut data
                     else { unreachable!(); };
-                packrat.get_full_spd_data(index as usize, out);
+                packrat.get_full_spd_data(index as usize, id);
+                *temp_sensor =
+                    i2c_config::sensors::TSE2004AV_TEMPERATURE_SENSORS
+                        [index as usize];
                 Ok(&data)
             } else {
                 Err(InventoryDataResult::DeviceAbsent)

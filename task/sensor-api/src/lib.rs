@@ -26,6 +26,12 @@ use userlib::*;
 #[repr(C)]
 pub struct SensorId(pub u32);
 
+impl Default for SensorId {
+    fn default() -> Self {
+        Self(u32::MAX)
+    }
+}
+
 impl From<u32> for SensorId {
     fn from(id: u32) -> Self {
         SensorId(id)

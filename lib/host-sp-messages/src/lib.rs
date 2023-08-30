@@ -12,6 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
+use task_sensor_api::SensorId;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -231,8 +232,11 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 )]
 pub enum InventoryData {
     /// Raw DIMM data
-    #[serde(with = "BigArray")]
-    DimmSpd([u8; 512]),
+    DimmSpd {
+        #[serde(with = "BigArray")]
+        id: [u8; 512],
+        temp_sensor: SensorId,
+    },
 
     /// Device or board identity, typically stored in a VPD EEPROM
     VpdIdentity(Identity),
@@ -266,6 +270,11 @@ pub enum InventoryData {
         mfr_serial: [u8; 20],
         /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
         mfr_firmware_data: [u8; 20],
+
+        temp_sensor: SensorId,
+        power_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     /// ISL68224 power converters
@@ -282,6 +291,9 @@ pub enum InventoryData {
         ic_device_id: [u8; 4],
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
+
+        voltage_sensors: [SensorId; 3],
+        current_sensors: [SensorId; 3],
     },
 
     /// RAA229618 power converter
@@ -298,6 +310,11 @@ pub enum InventoryData {
         ic_device_id: [u8; 4],
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
+
+        temp_sensors: [SensorId; 2],
+        power_sensors: [SensorId; 2],
+        voltage_sensors: [SensorId; 2],
+        current_sensors: [SensorId; 2],
     },
 
     Tps546b24a {
@@ -315,6 +332,10 @@ pub enum InventoryData {
         ic_device_rev: [u8; 2],
         /// NVM_CHECKSUM, PMBus operation 0xF0
         nvm_checksum: u16,
+
+        temp_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     /// Fan subassembly identity
@@ -336,6 +357,10 @@ pub enum InventoryData {
         mfr_revision: [u8; 2],
         /// MFR_DATE, PMBus operation 0x9D
         mfr_date: [u8; 6],
+
+        temp_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     Tmp117 {
@@ -345,6 +370,8 @@ pub enum InventoryData {
         eeprom1: u16,
         eeprom2: u16,
         eeprom3: u16,
+
+        temp_sensor: SensorId,
     },
 
     Idt8a34003 {

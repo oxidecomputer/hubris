@@ -2365,6 +2365,7 @@ dependencies = [
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
+ "task-sensor-api",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -4131,6 +4132,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "oxide-barcode",
+ "paste",
  "pmbus",
  "ringbuf",
  "static_assertions",
@@ -4138,6 +4140,7 @@ dependencies = [
  "task-host-sp-comms-api",
  "task-net-api",
  "task-packrat-api",
+ "task-sensor-api",
  "tlvc",
  "userlib",
  "zerocopy",
