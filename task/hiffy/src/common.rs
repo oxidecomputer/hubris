@@ -27,6 +27,7 @@ where
 /// on the Hubris side.  (The purpose of this function is to allow for
 /// device-mandated sleeps to in turn for allow for bulk device operations.)
 ///
+#[allow(dead_code)]
 pub(crate) fn sleep(
     stack: &[Option<u32>],
     _data: &[u8],

@@ -144,7 +144,6 @@ fn eat_some_pi(highregs: bool) {
 
 #[export_name = "main"]
 fn main() -> ! {
-    sys_log!("assistant starting");
     let mut buffer = [0; 4];
     let mut last_reply = 0u32;
     let mut stored_value = 0;

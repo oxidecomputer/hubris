@@ -14,7 +14,7 @@ task-config = {  path = "../../lib/task-config"  }
 test-api = { path = "../test-api" }
 test-idol-api = { path = "../test-idol-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-
+ringbuf = { path = "../../lib/ringbuf" }
 # Some tests require talking to I2C devices on the target board
 drv-i2c-api = { path = "../../drv/i2c-api", optional = true }
 drv-i2c-devices = {  path = "../../drv/i2c-devices", optional = true }
