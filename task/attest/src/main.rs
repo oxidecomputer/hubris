@@ -11,7 +11,6 @@
 
 mod config;
 
-use arrayvec::ArrayVec;
 use attest_api::{AttestError, HashAlgorithm};
 use config::DataRegion;
 use core::slice;
@@ -84,12 +83,22 @@ const SHA3_256_DIGEST_SIZE: usize =
 // the number of Measurements we can record
 const CAPACITY: usize = 16;
 
+// Digest is a fixed length array of bytes
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Digest<const N: usize>([u8; N]);
 
+impl<const N: usize> Default for Digest<N> {
+    fn default() -> Self {
+        Digest([0u8; N])
+    }
+}
+
+type Sha3_256Digest = Digest<SHA3_256_DIGEST_SIZE>;
+
+// Measurement is an enum that can hold any of the supported hash algorithms
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Measurement {
-    Sha3_256(Digest<SHA3_256_DIGEST_SIZE>),
+    Sha3_256(Sha3_256Digest),
 }
 
 impl Measurement {
@@ -104,7 +113,7 @@ impl Measurement {
                     return Err(AttestError::BadLease.into());
                 }
 
-                let mut digest = Digest([0u8; SHA3_256_DIGEST_SIZE]);
+                let mut digest = Sha3_256Digest::default();
                 data.read_range(0..digest.0.len(), &mut digest.0)
                     .map_err(|_| RequestError::went_away())?;
 
@@ -114,10 +123,52 @@ impl Measurement {
     }
 }
 
+impl Default for Measurement {
+    fn default() -> Self {
+        Measurement::Sha3_256(Sha3_256Digest::default())
+    }
+}
+
+// Would have been nice to use ArrayVec but it's particularly difficult to
+// use with hubpack.
+struct Log<const N: usize> {
+    index: usize,
+    measurements: [Measurement; N],
+}
+
+impl<const N: usize> Log<N> {
+    fn is_full(&self) -> bool {
+        if self.index == N {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn push(&mut self, measurement: Measurement) -> bool {
+        if !self.is_full() {
+            self.measurements[self.index] = measurement;
+            self.index += 1;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<const N: usize> Default for Log<N> {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            measurements: [Measurement::default(); N],
+        }
+    }
+}
+
 struct AttestServer {
     alias_data: Option<AliasData>,
     cert_data: Option<CertData>,
-    measurements: ArrayVec<Measurement, CAPACITY>,
+    measurements: Log<CAPACITY>,
 }
 
 impl Default for AttestServer {
@@ -125,7 +176,7 @@ impl Default for AttestServer {
         Self {
             alias_data: load_data_from_region(&ALIAS_DATA),
             cert_data: load_data_from_region(&CERT_DATA),
-            measurements: ArrayVec::<Measurement, CAPACITY>::new(),
+            measurements: Log::<CAPACITY>::default(),
         }
     }
 }
