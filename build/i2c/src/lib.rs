@@ -80,6 +80,9 @@ struct I2cDevice {
     /// I2C port, if required
     port: Option<String>,
 
+    /// Disambiguation between sensor configurations
+    flavor: Option<String>,
+
     /// I2C address
     address: u8,
 
@@ -216,6 +219,18 @@ struct I2cSensors {
     speed: usize,
 
     names: Option<Vec<String>>,
+}
+
+impl I2cSensors {
+    fn is_compatible_with(&self, other: &Self) -> bool {
+        self.temperature == other.temperature
+            && self.power == other.power
+            && self.current == other.current
+            && self.voltage == other.voltage
+            && self.input_current == other.input_current
+            && self.input_voltage == other.input_voltage
+            && self.speed == other.speed
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -1389,15 +1404,14 @@ impl ConfigGenerator {
         &mut self,
         d: &I2cDevice,
         label: String,
-        struct_name: &str,
+        name: &str,
         sensors: &[DeviceSensor],
     ) -> Result<()> {
         write!(
             &mut self.output,
             "        #[allow(dead_code)]
-        pub const {}_{label}_SENSORS: Sensors_{}_{struct_name} = ",
+        pub const {}_{label}_SENSORS: Sensors_{name} = ",
             d.device.to_uppercase(),
-            d.device
         )?;
 
         let mut sensors_by_kind: HashMap<Sensor, Vec<usize>> = HashMap::new();
@@ -1409,7 +1423,7 @@ impl ConfigGenerator {
             return Ok(());
         }
 
-        writeln!(&mut self.output, "Sensors_{}_{struct_name} {{", d.device)?;
+        writeln!(&mut self.output, "Sensors_{name} {{")?;
 
         for (kind, values) in sensors_by_kind {
             let field = match kind {
@@ -1463,66 +1477,86 @@ impl ConfigGenerator {
             s.total_sensors
         )?;
 
+        let mut emitted_structs: HashMap<String, Option<I2cSensors>> =
+            HashMap::new();
         for (i, d) in self.devices.clone().iter().enumerate() {
-            let struct_name = if let Some(name) = &d.name {
-                name
-            } else if let Some(refdes) = &d.refdes {
-                refdes
+            let mut struct_name = d.device.clone();
+            if let Some(suffix) = &d.flavor {
+                struct_name = format!("{struct_name}_{suffix}");
+            }
+            if let Some(prev) = emitted_structs.get(&struct_name) {
+                match (prev, &d.sensors) {
+                    (Some(a), Some(b)) => {
+                        if !a.is_compatible_with(b) {
+                            panic!(
+                                "I2C device {struct_name} is declared with \
+                                 inconsistent numbers of sensors.  Add a \
+                                 `flavor = \"...\"` key to disambiguate."
+                            );
+                        }
+                    }
+                    (Some(..), None) | (None, Some(..)) => {
+                        panic!(
+                            "I2C device {struct_name} is declared both \
+                             with and without sensors.  Use a \
+                             `flavor = \"...\"` key to disambiguate."
+                        );
+                    }
+                    (None, None) => (),
+                }
             } else {
-                continue;
-            };
-            // Manually unpack the field so that changes to the sensor types
-            // will require changes here as well.
-            if let Some(I2cSensors {
-                temperature,
-                power,
-                current,
-                voltage,
-                input_current,
-                input_voltage,
-                speed,
-                names: _,
-            }) = &d.sensors
-            {
-                writeln!(
-                    &mut self.output,
-                    "\n        #[allow(non_camel_case_types)]
-        pub struct Sensors_{}_{struct_name} {{",
-                    d.device
-                )?;
-                let mut f = |name, count| match count {
-                    0 => Ok(()),
-                    1 => writeln!(
+                emitted_structs.insert(struct_name.clone(), d.sensors.clone());
+                // Manually unpack the field so that changes to the sensor types
+                // will require changes here as well.
+                if let Some(I2cSensors {
+                    temperature,
+                    power,
+                    current,
+                    voltage,
+                    input_current,
+                    input_voltage,
+                    speed,
+                    names: _,
+                }) = &d.sensors
+                {
+                    writeln!(
                         &mut self.output,
-                        "            pub {name}: SensorId,"
-                    ),
-                    _ => writeln!(
+                        "\n        #[allow(non_camel_case_types)]
+        pub struct Sensors_{struct_name} {{",
+                    )?;
+                    let mut f = |name, count| match count {
+                        0 => Ok(()),
+                        1 => writeln!(
+                            &mut self.output,
+                            "            pub {name}: SensorId,"
+                        ),
+                        _ => writeln!(
+                            &mut self.output,
+                            "            pub {name}: [SensorId; {count}],"
+                        ),
+                    };
+                    f("temperature", *temperature)?;
+                    f("power", *power)?;
+                    f("current", *current)?;
+                    f("voltage", *voltage)?;
+                    f("input_current", *input_current)?;
+                    f("input_voltage", *input_voltage)?;
+                    f("speed", *speed)?;
+                    writeln!(&mut self.output, "        }}")?;
+                } else {
+                    writeln!(
                         &mut self.output,
-                        "            pub {name}: [SensorId; {count}],"
-                    ),
-                };
-                f("temperature", *temperature)?;
-                f("power", *power)?;
-                f("current", *current)?;
-                f("voltage", *voltage)?;
-                f("input_current", *input_current)?;
-                f("input_voltage", *input_voltage)?;
-                f("speed", *speed)?;
-                writeln!(&mut self.output, "        }}")?;
-            } else {
-                writeln!(
-                    &mut self.output,
-                    "\n        #[allow(non_camel_case_types)]
-        type Sensors_{}_{struct_name} = ();",
-                    d.device
-                )?;
+                        "\n        #[allow(dead_code, non_camel_case_types)]
+        type Sensors_{struct_name} = ();",
+                    )?;
+                }
             }
             let s = s.device_sensors[i].as_slice();
             if let Some(name) = &d.name {
                 self.emit_sensor_struct(
                     d,
                     name.to_uppercase(),
-                    struct_name,
+                    &struct_name,
                     s,
                 )?;
             }
@@ -1530,7 +1564,7 @@ impl ConfigGenerator {
                 self.emit_sensor_struct(
                     d,
                     refdes.to_uppercase(),
-                    struct_name,
+                    &struct_name,
                     s,
                 )?;
             }
