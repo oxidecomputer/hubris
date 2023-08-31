@@ -222,6 +222,10 @@ struct I2cSensors {
 }
 
 impl I2cSensors {
+    /// Checks whether two sensor sets are compatible
+    ///
+    /// "Compatible" means that they have the same number of sensors in each
+    /// category, meaning they can be represented by the same `struct`.
     fn is_compatible_with(&self, other: &Self) -> bool {
         self.temperature == other.temperature
             && self.power == other.power
