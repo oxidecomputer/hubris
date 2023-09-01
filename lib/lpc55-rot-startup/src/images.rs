@@ -111,18 +111,21 @@ impl Image {
         // which we trust.
         let header = unsafe { &*header_ptr };
 
-        // Next make sure the marked image length is programmed
-        let valid = flash.is_page_range_programmed(
-            img_start,
-            (header.total_image_len + (PAGE_SIZE - 1)) & !(PAGE_SIZE - 1),
-        );
-
-        if !valid {
+        // Does this look correct?
+        if header.magic != abi::HEADER_MAGIC {
             return false;
         }
 
-        // Does this look correct?
-        if header.magic != abi::HEADER_MAGIC {
+        let total_len = match header.total_image_len.checked_add(PAGE_SIZE - 1)
+        {
+            Some(s) => s & !(PAGE_SIZE - 1),
+            None => return false,
+        };
+
+        // Next make sure the marked image length is programmed
+        let valid = flash.is_page_range_programmed(img_start, total_len);
+
+        if !valid {
             return false;
         }
 
