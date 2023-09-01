@@ -29,5 +29,10 @@ Interface(
 		reply: Simple("()"),
 		idempotent: true,
 	),
+	"chip_reset": (
+		reply: Simple("()"),
+		idempotent: true,
+	),
+
    }
 )

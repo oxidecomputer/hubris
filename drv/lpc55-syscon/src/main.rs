@@ -195,6 +195,17 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
 
         Ok(())
     }
+
+    fn chip_reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        // Documented in 4.5.16 Software reset register of UM11126
+        self.syscon
+            .swr_reset
+            .write(|w| unsafe { w.swr_reset().bits(0x5a00_0001) });
+        panic!();
+    }
 }
 
 #[export_name = "main"]
@@ -219,7 +230,13 @@ fn main() -> ! {
     // turning on PLLs and such
     syscon.hslspiclksel.modify(|_, w| w.sel().enum_0x2());
 
-    set_reset_reason();
+    let pmc = unsafe { &*device::PMC::ptr() };
+
+    // Need this to be able to use the syscon reset that works for CFPA
+    // update
+    pmc.resetctrl.write(|w| w.swrresetenable().enable());
+
+    set_reset_reason(pmc);
 
     let mut server = ServerImpl { syscon };
 
@@ -229,9 +246,7 @@ fn main() -> ! {
     }
 }
 
-fn set_reset_reason() {
-    let pmc = unsafe { &*device::PMC::ptr() };
-
+fn set_reset_reason(pmc: &device::pmc::RegisterBlock) {
     // The Reset Reason is stored in the AOREG1 register in the power
     // management block. This crypticly named register is set based
     // on another undocumented register in the power management space.

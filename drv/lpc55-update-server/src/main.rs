@@ -422,7 +422,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         if self.state == UpdateState::InProgress {
             return Err(UpdateError::UpdateInProgress.into());
         }
-        task_jefe_api::Jefe::from(JEFE.get_task_id()).request_reset();
+        self.syscon.chip_reset();
         panic!()
     }
 }
