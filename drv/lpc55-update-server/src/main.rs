@@ -72,6 +72,7 @@ const HEADER_BLOCK: usize = 0;
 const CFPA_PING_FLASH_WORD: u32 = 0x9E00;
 const CFPA_PONG_FLASH_WORD: u32 = 0x9E20;
 const CFPA_SCRATCH_FLASH_WORD: u32 = 0x9DE0;
+const CFPA_SCRATCH_FLASH_ADDR: u32 = CFPA_SCRATCH_FLASH_WORD << 4;
 const BOOT_PREFERENCE_FLASH_WORD_OFFSET: u32 = 0x10;
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
@@ -400,12 +401,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 // we can fail during this operation without corrupting anything
                 // permanent. Yay!
                 //
-                // Note that the page write machinery uses page numbers. This
-                // should probably change. But, for now, we must divide our word
-                // number by 32.
                 self.flash
                     .write_page(
-                        CFPA_SCRATCH_FLASH_WORD,
+                        CFPA_SCRATCH_FLASH_ADDR,
                         &cfpa_bytes,
                         wait_for_flash_interrupt,
                     )
