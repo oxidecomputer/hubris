@@ -115,6 +115,25 @@ fn enable_debug(peripherals: &lpc55_pac::Peripherals) {
     }
 }
 
+#[cfg(feature = "locked")]
+fn lock_flash() {
+    // This mimics what the ROM sets when the CMPA region is locked
+    unsafe {
+        const FLASH_BANK_LOCKOUT: u32 = 0x5000_0FE4;
+        const FLASH_BANK_ENABLE: u32 = 0x5000_0450;
+        // No access to anything, matches what the ROM looks like
+        const BANK_SETTINGS: u32 = 0x110;
+        // Lock all banks
+        const LOCK_SETTINGS: u32 = 0x1d;
+
+        core::ptr::write_volatile(FLASH_BANK_ENABLE as *mut u32, BANK_SETTINGS);
+        core::ptr::write_volatile(
+            FLASH_BANK_LOCKOUT as *mut u32,
+            LOCK_SETTINGS,
+        );
+    }
+}
+
 /// Run the common startup routine for LPC55-based roots of trust.
 pub fn startup(
     core_peripherals: &cortex_m::Peripherals,
@@ -127,6 +146,9 @@ pub fn startup(
     if val & 1 != ROM_VER {
         panic!()
     }
+
+    #[cfg(feature = "locked")]
+    lock_flash();
 
     let mpu = &core_peripherals.MPU;
 
