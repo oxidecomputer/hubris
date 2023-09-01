@@ -69,18 +69,12 @@ impl Handler {
         }
     }
 
-    /// Serialize and return a `SprotError::FlowError`
-    pub fn flow_error(&self, tx_buf: &mut [u8; RESPONSE_BUF_SIZE]) -> usize {
-        let body = Err(SprotProtocolError::FlowError.into());
-        Response::pack(&body, tx_buf)
-    }
-
     pub fn handle(
         &mut self,
         rx_buf: &[u8],
         tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
         stats: &mut RotIoStats,
-    ) -> usize {
+    ) -> Result<usize, SprotProtocolError> {
         stats.rx_received = stats.rx_received.wrapping_add(1);
         let (rsp_body, trailer) = match Request::unpack(rx_buf) {
             Ok(request) => match self.handle_request(request, stats) {
@@ -88,9 +82,11 @@ impl Handler {
                 Err(e) => (Err(e), None),
             },
             Err(e) => {
+                // Request::unpack failed. We don't actually want to return the
+                // is reply to the SP. We'll wait for it to timeout and retry.
                 ringbuf_entry!(Trace::Err(e));
                 stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                (Err(e.into()), None)
+                return Err(e);
             }
         };
 
@@ -105,12 +101,12 @@ impl Handler {
                 let blob_size: usize = blob_size.try_into().unwrap_lite();
                 if blob_size as usize > drv_sprot_api::MAX_BLOB_SIZE {
                     // If there isn't enough room, then pack an error instead
-                    Response::pack(
+                    Ok(Response::pack(
                         &Err(SprotError::Protocol(
                             SprotProtocolError::BadMessageLength,
                         )),
                         tx_buf,
-                    )
+                    ))
                 } else {
                     match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
                         self.update
@@ -122,8 +118,8 @@ impl Handler {
                             .map_err(|e| RspBody::Caboose(Err(e.into())))?;
                         Ok(blob_size)
                     }) {
-                        Ok(size) => size,
-                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                        Ok(size) => Ok(size),
+                        Err(e) => Ok(Response::pack(&Ok(e), tx_buf)),
                     }
                 }
             }
@@ -134,12 +130,12 @@ impl Handler {
             }) => {
                 let size: usize = usize::try_from(size).unwrap_lite();
                 if size > drv_sprot_api::MAX_BLOB_SIZE {
-                    Response::pack(
+                    Ok(Response::pack(
                         &Err(SprotError::Protocol(
                             SprotProtocolError::BadMessageLength,
                         )),
                         tx_buf,
-                    )
+                    ))
                 } else {
                     match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
                         self.attest
@@ -147,12 +143,12 @@ impl Handler {
                             .map_err(|e| RspBody::Attest(Err(e)))?;
                         Ok(size)
                     }) {
-                        Ok(size) => size,
-                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                        Ok(size) => Ok(size),
+                        Err(e) => Ok(Response::pack(&Ok(e), tx_buf)),
                     }
                 }
             }
-            _ => Response::pack(&rsp_body, tx_buf),
+            _ => Ok(Response::pack(&rsp_body, tx_buf)),
         }
     }
 
@@ -180,10 +176,7 @@ impl Handler {
                     };
                     Ok((RspBody::RotState(msg), None))
                 }
-                Err(_e) => {
-                    stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
-                    Err(SprotProtocolError::BadUpdateStatus)?
-                }
+                Err(_e) => Err(SprotProtocolError::BadUpdateStatus)?,
             },
             ReqBody::Sprockets(req) => Ok((
                 RspBody::Sprockets(

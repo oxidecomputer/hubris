@@ -82,9 +82,9 @@ ringbuf!(Trace, 256, Trace::None);
 // All timeouts are in 'ticks'
 
 /// Retry timeout for send_recv_retries
-const RETRY_TIMEOUT: u64 = 5;
+const RETRY_TIMEOUT: u64 = 30;
 
-/// Timeout for status message
+/// Timeout used to wait for ROT_IRQ to complete
 const TIMEOUT_QUICK: u32 = 5;
 /// Default covers fail, pulse, retry
 const DEFAULT_ATTEMPTS: u16 = 3;

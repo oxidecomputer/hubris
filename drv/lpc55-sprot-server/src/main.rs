@@ -8,25 +8,55 @@
 //! Messages are received from the Service Processor (SP) over a SPI interface.
 //!
 //! Only one request from the SP or one reply from the RoT will be handled
-//! inside the io loop. This pattern does allow for potential pipelining of up
-//! to 2 requests from the SP, with no changes on the RoT. Currently, however,
-//! in the happy path, the SP will only send one request, wait for ROT_IRQ,
-//! to be asserted by the RoT, and then clock in a response while clocking
-//! out zeros. In this common case, the RoT will be clocking out zeros while
-//! clocking in the request from the SP.
+//! inside the io loop. The SP will only send one request, wait for ROT_IRQ to
+//! be asserted by the RoT, assert CSn, then clock in a response while clocking
+//! out zeros, and de-assert CSn before the RoT de-asserts ROT_IRQ. The RoT will
+//! be clocking out zeros while clocking in the request from the SP.
+//!
+//! In ordered list form a full request/response interaction looks like this:
+//!   1. SP sends request
+//!     a. SP asserts CSn - detected at RoT via SSA interrupt
+//!     b. SP clocks out request and clocks in zeroes from the RoT
+//!     c. SP de-asserts CSn - detected at RoT via SSD bit in status register
+//!   2. RoT sends a reply
+//!     a. ROT asserts ROT_IRQ to signal it has a reply
+//!     b. SP asserts CSn - detected at RoT via SSA interrupt
+//!     c. SP clocks in a FIFO of data from the RoT while clocking out zeros
+//!     d. SP decodes header, and if more data is to be read, clocks it in
+//!        from the RoT while clocking out zeros
+//!     e. SP de-asserts CSn - detected at RoT via SSD bit in status register
+//!     f. RoT de-asserts ROT_IRQ to indicate it is done replying
+//!     g. RoT goes back to waiting for the next request
 //!
 //! See drv/sprot-api for message layout.
 //!
 //! If the payload length exceeds the maximum size or not all bytes are received
-//! before CSn is de-asserted, the message is malformed and an ErrorRsp message
-//! will be sent to the SP in the next message exchange.
+//! before CSn is de-asserted, the message is malformed. The RoT will not
+//! send an error response to the SP in this case, as it is not clear that the
+//! channel is well-synchronized. Instead, the RoT will prepare for the next
+//! request by calling `io.cleanup()`. The SP will timeout after not receiving a
+//! ROT_IRQ to indicate a reply and retry.
 //!
-//! Messages from the SP are not processed until the SPI chip-select signal
-//! is deasserted.
+//! If for some reason there was a desynchronization, and the initial request
+//! was not complete when the RoT saw an SSD bit set and went back to waiting
+//! for the next request, then the SSD bit will have been from the prior SPI
+//! transaction when we go to handle the next request on an SSA interrupt.
+//! We can detect this scenario by waiting for an interrupt with only the SSD
+//! bit set in the `intstat` register. In this case, we call `io.cleanup()`
+//! again and go back to waiting for an SSA interrupt. It is ok if *both* SSA
+//! and SSD bits are set as this just implies a short request that fits in a
+//! FIFO. Note that without looking for a standalone SSD interrupt to indicate
+//! desynchronization, and only reading the status register, we would not be
+//! able to differentiate whether the SSD bit was already set before the SSA
+//! interrupt or with it/after it for the new request. There is an inherent race
+//! between clearing the status bit and getting an SSA interrupt where the SSD
+//! bit could be set inbetween the clear and the SSA interrupt. Hence we use
+//! a long SP retry and SSD interrupt for detection. See
+//! https://github.com/oxidecomputer/hubris/issues/1507 for an example of why
+//! this is necessary.
 //!
 //! ROT_IRQ is intended to be an edge triggered interrupt on the SP.
 //! TODO: ROT_IRQ is currently sampled by the SP.
-//! ROT_IRQ is de-asserted only after CSn is deasserted.
 //!
 //! TODO: SP RESET needs to be monitored, otherwise, any
 //! forced looping here could be a denial of service attack against
@@ -60,15 +90,18 @@ pub(crate) enum Trace {
     None,
     Dump(u32),
     ReceivedBytes(usize),
-    SentBytes(usize),
-    Flush,
-    FlowError,
+    RxHeader([u8; 6]),
+    IoError(IoError),
     ReplyLen(usize),
     Underrun,
     Err(SprotProtocolError),
     Stats(RotIoStats),
+    WaitForRequest,
+    WaitForCsnAsserted,
+    RotIrqAssert,
+    RotIrqDeassert,
 }
-ringbuf!(Trace, 32, Trace::None);
+ringbuf!(Trace, 64, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -115,18 +148,30 @@ fn configure_spi() -> Io {
     // Drain and configure FIFOs
     spi.enable();
 
-    // We only want interrupts on CSn assert
-    // Once we see that interrupt we enter polling mode
+    // We only want interrupts on CSn assert and CSn deassert
+    //
+    // Once we see an interrupt that contains the SSA bit we enter polling mode
     // and check the registers manually.
+    //
+    // If the interrupt only contains the SSD bit, then it means that we were
+    // desynchronized. In this case we clear our fifos and go back to waiting
+    // for the next interrupt.
+    //
+    // For us to be able to detect a standalone SSD from a prior request that we
+    // started processing in the middle of, most likely due to an RoT reset (see
+    // https://github.com/oxidecomputer/hubris/issues/1507), we must make sure
+    // that the retry timeout at the SP is long enough so that the interrupt
+    // fires before CSn is asserted on the next SP request.
     spi.ssa_enable();
+    spi.ssd_enable();
 
     // Probably not necessary, drain Rx and Tx after config.
     spi.drain();
 
     // Disable the interrupts triggered by the `self.spi.drain_tx()`, which
     // unneccessarily causes spurious interrupts. We really only need to to
-    // respond to CSn asserted interrupts, because after that we always enter a
-    // tight loop.
+    // respond to CSn related interrupts, because after that we always enter a
+    // tight loop or we skip over a stale CSn deasserted interrupt.
     spi.disable_tx();
     spi.disable_rx();
 
@@ -150,9 +195,15 @@ struct Io {
     rot_irq_asserted: bool,
 }
 
+#[derive(Copy, Clone, PartialEq)]
 enum IoError {
     Flush,
     Flow,
+    // A special case of a flow control error, where the RoT started in the
+    // middle of a request being clocked out and saw an SSD bit from a prior
+    // request set. See https://github.com/oxidecomputer/hubris/issues/1507 for
+    // more details.
+    StaleSsd,
 }
 
 #[export_name = "main"]
@@ -166,46 +217,47 @@ fn main() -> ! {
 
     let mut handler = Handler::new();
 
-    // Prime our write fifo, so we clock out zero bytes on the next receive
-    io.spi.drain_tx();
-    while io.spi.can_tx() {
-        io.spi.send_u16(0);
-    }
-
     loop {
-        let rsp_len = match io.wait_for_request(rx_buf) {
+        ringbuf_entry!(Trace::Stats(io.stats));
+        match io.wait_for_request(rx_buf) {
             Ok(rx_len) => {
-                handler.handle(&rx_buf[..rx_len], tx_buf, &mut io.stats)
+                if let Ok(rsp_len) =
+                    handler.handle(&rx_buf[..rx_len], tx_buf, &mut io.stats)
+                {
+                    if let Err(err) = io.reply(&tx_buf[..rsp_len]) {
+                        ringbuf_entry!(Trace::IoError(err));
+                    }
+                }
             }
             Err(IoError::Flush) => {
                 // A flush indicates that the server should de-assert ROT_IRQ
                 // as instructed by the SP. We do that and then proceed to wait
                 // for the next request.
-                ringbuf_entry!(Trace::Flush);
-                io.deassert_rot_irq();
-                continue;
-            }
-            Err(IoError::Flow) => {
-                ringbuf_entry!(Trace::FlowError);
-                handler.flow_error(tx_buf)
-            }
-        };
+                ringbuf_entry!(Trace::IoError(IoError::Flush));
 
-        ringbuf_entry!(Trace::Stats(io.stats));
-        io.reply(&tx_buf[..rsp_len]);
+                // This should not actually be necessary, as it is done in
+                // `io.cleanup()` above if the IRQ is actually asserted.
+                // However, if for some reason  the GPIO driver crashed
+                // and the de-assert failed, then this  gives us an extra
+                // opportunity to clean things up. We *could* unconditionally
+                // call `io.deassert_rot_irq` in `io.cleanup()`, but that adds
+                // an extra call to the GPIO driver that we should be able to
+                // avoid.
+                io.deassert_rot_irq();
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::IoError(err));
+            }
+        }
     }
 }
 
 impl Io {
     // Wait for chip select to be asserted
-    // Assert ROT_IRQ if this is a reply
-    fn wait_for_csn_asserted(&mut self, is_reply: bool) {
+    fn wait_for_csn_asserted(&mut self) -> Result<(), IoError> {
+        ringbuf_entry!(Trace::WaitForCsnAsserted);
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
-
-            if is_reply && !self.rot_irq_asserted {
-                self.assert_rot_irq();
-            }
 
             sys_recv_closed(
                 &mut [],
@@ -214,11 +266,23 @@ impl Io {
             )
             .unwrap_lite();
 
-            // Is CSn asserted by the SP?
             let intstat = self.spi.intstat();
+            if intstat.ssd().bit() && !intstat.ssa().bit() {
+                // This is a stale SSD bit, most likely from poor startup timing
+                // of the RoT.
+                //
+                // See https://github.com/oxidecomputer/hubris/issues/1507
+                self.stats.stale_ssd = self.stats.stale_ssd.wrapping_add(1);
+                return Err(IoError::StaleSsd);
+            }
+
+            // Is CSn asserted by the SP?
+            //
+            // We specifically do *NOT* clear the ssd bit, as it is polled by
+            // the calling code after this returns.
             if intstat.ssa().bit() {
                 self.spi.ssa_clear();
-                break;
+                return Ok(());
             }
         }
     }
@@ -227,7 +291,9 @@ impl Io {
         &mut self,
         rx_buf: &mut [u8],
     ) -> Result<usize, IoError> {
-        self.wait_for_csn_asserted(false);
+        ringbuf_entry!(Trace::WaitForRequest);
+        self.prepare_for_request();
+        self.wait_for_csn_asserted()?;
 
         // Go into a tight loop receiving as many bytes as we can until we see
         // CSn de-asserted.
@@ -243,8 +309,6 @@ impl Io {
                 rx.next().map(|b| *b = lower);
             }
         }
-
-        self.spi.ssd_clear();
 
         // There may be bytes left in the rx fifo after CSn is de-asserted
         while self.spi.has_entry() {
@@ -265,32 +329,21 @@ impl Io {
         }
 
         ringbuf_entry!(Trace::ReceivedBytes(bytes_received));
-
-        // We don't bother sending bytes when receiving. So we must clear
-        // the underrun error condition before we handle a reply.
-        self.spi.txerr_clear();
+        ringbuf_entry!(Trace::RxHeader(rx_buf[0..6].try_into().unwrap()));
 
         Ok(bytes_received)
     }
 
-    fn reply(&mut self, tx_buf: &[u8]) {
+    fn reply(&mut self, tx_buf: &[u8]) -> Result<(), IoError> {
         ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
 
-        let mut idx = 0;
+        self.prepare_for_reply(tx_buf);
+        self.assert_rot_irq();
+        self.wait_for_csn_asserted()?;
 
-        // Fill in the fifo before we assert ROT_IRQ
-        // We assert ROT_IRQ in `wait_for_csn_asserted` so we can
-        // put it after the `sys_irq_control` syscall to minimize time taken to
-        // process a request.
-        self.spi.drain_tx();
-        while self.spi.can_tx() {
-            let entry = get_u16(idx, tx_buf);
-            self.spi.send_u16(entry);
-            idx += 2;
-        }
+        let mut idx = ROT_FIFO_SIZE;
 
-        self.wait_for_csn_asserted(true);
-
+        // If there is room in the fifo, then we must have transmitted some data.
         while !self.spi.ssd() {
             while self.spi.can_tx() {
                 let entry = get_u16(idx, tx_buf);
@@ -299,41 +352,74 @@ impl Io {
             }
         }
 
-        self.spi.ssd_clear();
-
-        // Were any bytes clocked out?
+        // Detect a CSn pulse by seeing if any bytes were clocked out
+        //
         // We check to see if any bytes in the fifo have been sent or any have
         // been pushed into the fifo beyond the initial fill.
         if !self.spi.can_tx() && idx == ROT_FIFO_SIZE {
-            // This was a CSn pulse
-            // There's no need to flush here, since we de-assert ROT_IRQ at the
-            // bottom of this function, which is the purpose of a flush.
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
         } else {
             self.check_for_tx_error();
         }
 
-        ringbuf_entry!(Trace::SentBytes(idx - ROT_FIFO_SIZE));
+        Ok(())
+    }
 
-        // Prime our write fifo, so we clock out zero bytes on the next receive
-        // We also empty our read fifo, since we don't bother reading bytes while writing.
+    // A function to cleanup internal state before we wait for the next request
+    // from the SP.
+    fn prepare_for_request(&mut self) {
+        // Drain our TX and RX fifos
         self.spi.drain();
+
+        // Ensure our write fifo is primed with zeroes, as we let the SPI block
+        // clock these out for us while clocking in a request from the SP.
+        self.prime_write_fifo_with_zeros();
+
+        // Don't call out to the GPIO task unless necessary
+        if self.rot_irq_asserted {
+            self.deassert_rot_irq();
+        }
+
+        // Clear any errors
+        self.spi.rxerr_clear();
+        self.spi.txerr_clear();
+
+        // Ensure our SSA/SSD bits are not set
+        self.spi.ssa_clear();
+        self.spi.ssd_clear();
+    }
+
+    // A function to cleanup internal state before we reply to the SP
+    fn prepare_for_reply(&mut self, tx_buf: &[u8]) {
+        // Drain our TX and RX fifos
+        self.spi.drain();
+
+        // Fill in the TX fifo before we assert ROT_IRQ
+        let mut idx = 0;
+        while self.spi.can_tx() {
+            let entry = get_u16(idx, tx_buf);
+            self.spi.send_u16(entry);
+            idx += 2;
+        }
+
+        // Clear any errors
+        self.spi.rxerr_clear();
+        self.spi.txerr_clear();
+
+        // Ensure our SSA/SSD bits are not set
+        self.spi.ssa_clear();
+        self.spi.ssd_clear();
+    }
+
+    fn prime_write_fifo_with_zeros(&mut self) {
         while self.spi.can_tx() {
             self.spi.send_u16(0);
         }
-        // We don't bother receiving bytes when sending. So we must clear
-        // the overrun error condition for the next time we wait for a reply.
-        self.spi.rxerr_clear();
-
-        // Now that we are ready to handle the next request, let the SP know we
-        // are ready.
-        self.deassert_rot_irq();
     }
 
     fn check_for_rx_error(&mut self) -> Result<(), IoError> {
         let fifostat = self.spi.fifostat();
         if fifostat.rxerr().bit() {
-            self.spi.rxerr_clear();
             self.stats.rx_overrun = self.stats.rx_overrun.wrapping_add(1);
             Err(IoError::Flow)
         } else {
@@ -347,11 +433,10 @@ impl Io {
         let fifostat = self.spi.fifostat();
 
         if fifostat.txerr().bit() {
-            // We don't do anything with tx errors other than record them
+            // We don't do anything with tx errors other than record them.
             // The SP will see a checksum error if this is a reply, or the
             // underrun happened after the number of reply bytes and it
             // doesn't matter.
-            self.spi.txerr_clear();
             self.stats.tx_underrun = self.stats.tx_underrun.wrapping_add(1);
             ringbuf_entry!(Trace::Underrun);
         }
@@ -360,11 +445,13 @@ impl Io {
     fn assert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::Zero);
         self.rot_irq_asserted = true;
+        ringbuf_entry!(Trace::RotIrqAssert);
     }
 
     fn deassert_rot_irq(&mut self) {
         self.gpio.set_val(ROT_IRQ, Value::One);
         self.rot_irq_asserted = false;
+        ringbuf_entry!(Trace::RotIrqDeassert);
     }
 }
 
