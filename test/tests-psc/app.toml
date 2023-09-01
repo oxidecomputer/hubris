@@ -70,9 +70,18 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
+[tasks.hiffy]
+name = "task-hiffy"
+priority = 3
+features = ["testsuite"]
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 2048
+start = true
+task-slots = ["suite", "runner"]
+
 [tasks.idle]
 name = "task-idle"
-priority = 3
+priority = 4
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

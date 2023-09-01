@@ -4092,6 +4092,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static-cell",
+ "test-api",
  "userlib",
  "zerocopy",
 ]
@@ -4679,6 +4680,7 @@ dependencies = [
  "build-util",
  "num-traits",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -4735,6 +4737,7 @@ dependencies = [
  "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
+ "ringbuf",
  "test-api",
  "userlib",
  "zerocopy",
@@ -4752,6 +4755,7 @@ dependencies = [
  "drv-i2c-devices",
  "hubris-num-tasks",
  "num-traits",
+ "ringbuf",
  "task-config",
  "test-api",
  "test-idol-api",

@@ -19,6 +19,7 @@ hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 static-cell = { path = "../../lib/static-cell"  }
 userlib = { path = "../../sys/userlib" }
+test-api = { path = "../../test/test-api", optional = true}
 
 byteorder.workspace = true
 cfg-if.workspace = true
@@ -36,6 +37,7 @@ anyhow.workspace = true
 cfg-if.workspace = true
 
 [features]
+testsuite = [ "test-api" ]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 i2c = []
