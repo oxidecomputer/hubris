@@ -512,8 +512,12 @@ pub struct RotIoStats {
     /// Number of incomplete transmissions (valid data not fetched by SP).
     pub tx_incomplete: u32,
 
-    /// Number of StaleSSd interrupts
+    /// Number of Stale SSD interrupts
     pub stale_ssd: u32,
+
+    /// If we have an unexpected SSA interrupt bit set when we are about to send
+    /// a reply to a valid request.
+    pub unexpected_ssa: u32,
 }
 
 /// Stats from the SP side of sprot

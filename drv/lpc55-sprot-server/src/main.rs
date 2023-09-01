@@ -101,7 +101,7 @@ pub(crate) enum Trace {
     RotIrqAssert,
     RotIrqDeassert,
 }
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 48, Trace::None);
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -362,7 +362,38 @@ impl Io {
             self.check_for_tx_error();
         }
 
+        // We clear any remaining SSD interrupts here. ROT_IRQ is still
+        // asserted at this point, and so we don't expect the next request to
+        // come in until after this. We specifically don't clear interrupts
+        // in `prepare_for_request` because we always do that regardless of
+        // if there was an actual reply attempt or not. In other words, we
+        // specifically are looking for any stale SSDs at that point unless
+        // otherwise cleared.
+        self.clear_intstat();
+
         Ok(())
+    }
+
+    // Clear the interrupt register, so we don't mistakenly treat a valid
+    // SSD as a stale SSD. This works because, we know that we have received
+    // no errors when handling a request at this point.
+    //
+    // The stale SSD check is only to get us out of the situation where
+    // there was an error and we don't want to misinterpret the SSD and do a
+    // short read on the next request and keep repeating the error cycle.
+    //
+    // We should not be getting any interrupts until we raise ROT_IRQ, so it
+    // is safe to clear this register. If by chance, a new request comes in,
+    // we may end up in a desynchronization scenario, but that will result
+    // in a timeout and clear itself up.
+    //
+    // However, just as a check, lets count any times we see SSA set here.
+    fn clear_intstat(&mut self) {
+        let intstat = self.spi.intstat();
+        if intstat.ssa().bit() {
+            self.stats.unexpected_ssa =
+                self.stats.unexpected_ssa.wrapping_add(1);
+        }
     }
 
     // A function to cleanup internal state before we wait for the next request
@@ -391,6 +422,8 @@ impl Io {
 
     // A function to cleanup internal state before we reply to the SP
     fn prepare_for_reply(&mut self, tx_buf: &[u8]) {
+        self.clear_intstat();
+
         // Drain our TX and RX fifos
         self.spi.drain();
 
