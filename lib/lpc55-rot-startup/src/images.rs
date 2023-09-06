@@ -57,12 +57,10 @@ impl Image {
     //
     //   - Define the address boundaries.
     //   - Determine the bounds of the initial programmed extent.
-    //   - Count the total number of fully programmed pages.
     //   - Measure all programmed pages including those outside of the
     //     initial programmed extent.
     //
-    // Note: if partially programmed pages is a possibility then that could be
-    // a problem with respect to catching exfiltration attempts.
+    // Note: Flash pages from the the image end and the flash slot could someday be put to use, but for now they should be erased.
     pub fn new(dev: &mut Flash, flash: Range<u32>) -> Image {
         let mut end: Option<u32> = None;
         let mut hash = Sha3_256::new();
