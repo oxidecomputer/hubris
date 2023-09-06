@@ -2,21 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use abi::{ImageHeader, ImageVectors};
+use abi::ImageHeader;
 use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{ImageVersion, RotImageDetails};
 use unwrap_lite::UnwrapLite;
 
 pub fn get_image_b(flash: &mut Flash<'_>) -> Option<Image> {
-    let imageb = unsafe { &__IMAGE_B_BASE };
-
-    let img = Image {
-        flash: FLASH_B,
-        vector: imageb,
-    };
-
-    if img.validate(flash) {
+    let img = Image::new(flash, FLASH_B);
+    if img.validate() {
         Some(img)
     } else {
         None
@@ -24,14 +18,8 @@ pub fn get_image_b(flash: &mut Flash<'_>) -> Option<Image> {
 }
 
 pub fn get_image_a(flash: &mut Flash<'_>) -> Option<Image> {
-    let imagea = unsafe { &__IMAGE_A_BASE };
-
-    let img = Image {
-        flash: FLASH_A,
-        vector: imagea,
-    };
-
-    if img.validate(flash) {
+    let img = Image::new(flash, FLASH_A);
+    if img.validate() {
         Some(img)
     } else {
         None
@@ -39,8 +27,6 @@ pub fn get_image_a(flash: &mut Flash<'_>) -> Option<Image> {
 }
 
 extern "C" {
-    static __IMAGE_A_BASE: abi::ImageVectors;
-    static __IMAGE_B_BASE: abi::ImageVectors;
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -56,20 +42,85 @@ extern "C" {
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 pub struct Image {
+    // The boundaries of the flash slot.
     flash: Range<u32>,
-    vector: &'static ImageVectors,
+    // The initial span of programmed flash pages.
+    programmed: Range<u32>,
+    // The number of pages that contain no erased flash words.
+    // _count: usize,
+    // Measurement over the `count`ed pages.
+    fwid: [u8; 32],
 }
 
-pub fn image_details(img: Image, flash: &mut Flash<'_>) -> RotImageDetails {
+impl Image {
+    // Before doing any other work with a chunk of flash memory:
+    //
+    //   - Define the address boundaries.
+    //   - Determine the bounds of the initial programmed extent.
+    //   - Count the total number of fully programmed pages.
+    //   - Measure all programmed pages including those outside of the
+    //     initial programmed extent.
+    //
+    // Note: if partially programmed pages is a possibility then that could be
+    // a problem with respect to catching exfiltration attempts.
+    pub fn new(dev: &mut Flash, flash: Range<u32>) -> Image {
+        // let mut _count = 0;
+        let mut end: Option<u32> = None;
+        let mut hash = Sha3_256::new();
+        for start in flash.clone().step_by(BYTES_PER_FLASH_PAGE) {
+            if dev.is_page_range_programmed(start, PAGE_SIZE) {
+                // _count += 1;
+                let page = unsafe {
+                    core::slice::from_raw_parts(
+                        start as *const u8,
+                        BYTES_PER_FLASH_PAGE,
+                    )
+                };
+                hash.update(page);
+            } else if end.is_none() {
+                end = Some(start);
+            }
+        }
+        let fwid = hash.finalize().try_into().unwrap_lite();
+        let programmed = Range {
+            start: flash.start,
+            end: end.unwrap_or(flash.start),
+        };
+        Image {
+            flash,
+            programmed,
+            // _count,
+            fwid,
+        }
+    }
+
+    pub fn is_programmed(&self, addr: &u32) -> bool {
+        return self.programmed.contains(addr);
+    }
+
+    pub fn is_span_programmed(&self, start: u32, length: u32) -> bool {
+        if let Some(end) = start.checked_add(length) {
+            if !self.is_programmed(&start) || !self.is_programmed(&end) {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+}
+
+pub fn image_details(img: Image) -> RotImageDetails {
     RotImageDetails {
-        digest: img.get_fwid(flash),
+        digest: img.fwid,
         version: img.get_image_version(),
     }
 }
 
 impl Image {
     fn get_img_start(&self) -> u32 {
-        self.vector as *const ImageVectors as u32
+        self.flash.start
     }
 
     fn get_img_size(&self) -> Option<usize> {
@@ -86,23 +137,18 @@ impl Image {
     }
 
     /// Make sure all of the image flash is programmed
-    fn validate(&self, flash: &mut Flash<'_>) -> bool {
+    fn validate(&self) -> bool {
         let img_start = self.get_img_start();
 
         // Start by making sure we can access the page where the vectors live
-        let valid = flash.is_page_range_programmed(img_start, PAGE_SIZE);
-
-        if !valid {
+        if !self.is_span_programmed(self.flash.start, PAGE_SIZE) {
             return false;
         }
 
         let header_ptr = self.get_header();
 
         // Next validate the header location is programmed
-        let valid =
-            flash.is_page_range_programmed(header_ptr as u32, PAGE_SIZE);
-
-        if !valid {
+        if !self.is_span_programmed(header_ptr as u32, PAGE_SIZE) {
             return false;
         }
 
@@ -111,7 +157,7 @@ impl Image {
         // which we trust.
         let header = unsafe { &*header_ptr };
 
-        // Does this look correct?
+        // Does this look like a header?
         if header.magic != abi::HEADER_MAGIC {
             return false;
         }
@@ -123,29 +169,7 @@ impl Image {
         };
 
         // Last step is to make sure the entire range is programmed
-        flash.is_page_range_programmed(img_start, total_len)
-    }
-
-    pub fn get_fwid(&self, flash: &mut Flash<'_>) -> [u8; 32] {
-        let mut hash = Sha3_256::new();
-
-        for start in self.flash.clone().step_by(BYTES_PER_FLASH_PAGE) {
-            if flash.is_page_range_programmed(start, PAGE_SIZE) {
-                // SAFETY: The addresses used in this unsafe code are all
-                // generated by build.rs from data in the build environment.
-                // The safety of this code is an extension of our trust in
-                // the build.
-                let page = unsafe {
-                    core::slice::from_raw_parts(
-                        start as *const u8,
-                        BYTES_PER_FLASH_PAGE,
-                    )
-                };
-                hash.update(page);
-            }
-        }
-
-        hash.finalize().try_into().unwrap_lite()
+        if !self.is_span_programmed(img_start, total_len) {
     }
 
     pub fn get_image_version(&self) -> ImageVersion {

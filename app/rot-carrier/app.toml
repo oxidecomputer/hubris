@@ -11,7 +11,7 @@ fwid = true
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 53000, ram = 4096}
+requires = {flash = 53100, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
