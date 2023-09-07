@@ -15,6 +15,8 @@ num-derive = { workspace = true }
 num-traits = { workspace = true }
 cfg-if = { workspace = true }
 
+lpc55-rom-data.path = "../lpc55-rom-data"
+
 [lib]
 test = false
 doctest = false

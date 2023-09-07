@@ -5,6 +5,7 @@
 #![feature(naked_functions)]
 #![no_std]
 
+pub use lpc55_rom_data::FLASH_PAGE_SIZE;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -101,8 +102,6 @@ pub struct FfrKeyStore {
     prince2_header: u32,
     prince2_key_code: [u32; 13],
 }
-
-const FLASH_PAGE_SIZE: usize = 512;
 
 const ACTIVATION_CODE_SIZE: usize = 1192;
 

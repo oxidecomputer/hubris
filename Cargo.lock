@@ -2665,6 +2665,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55-rom-data"
+version = "0.1.0"
+
+[[package]]
 name = "lpc55-rot-startup"
 version = "0.1.0"
 dependencies = [
@@ -2739,6 +2743,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "lpc55-pac",
+ "lpc55-rom-data",
  "num-derive",
  "num-traits",
 ]
