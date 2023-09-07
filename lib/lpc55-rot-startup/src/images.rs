@@ -82,7 +82,7 @@ impl Image {
         let fwid = hash.finalize().try_into().unwrap_lite();
         let programmed = Range {
             start: flash.start,
-            end: end.unwrap_or(flash.start),
+            end: end.unwrap_or(flash.end),
         };
         Image {
             flash,
