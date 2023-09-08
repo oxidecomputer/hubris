@@ -44,11 +44,11 @@ const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 pub struct Image {
     // The boundaries of the flash slot.
     flash: Range<u32>,
-    // The initial span of programmed flash pages.
+    // The contiguous span of programmed flash pages starting at offset zero.
+    // Note that any additional programmed pages after the first erased
+    // page are not interesting for image sanity checks and are not included.
     programmed: Range<u32>,
-    // The number of pages that contain no erased flash words.
-    // _count: usize,
-    // Measurement over the `count`ed pages.
+    // Measurement over all pages includeing those that follow any erased page.
     fwid: [u8; 32],
 }
 
@@ -64,12 +64,10 @@ impl Image {
     // Note: if partially programmed pages is a possibility then that could be
     // a problem with respect to catching exfiltration attempts.
     pub fn new(dev: &mut Flash, flash: Range<u32>) -> Image {
-        // let mut _count = 0;
         let mut end: Option<u32> = None;
         let mut hash = Sha3_256::new();
         for start in flash.clone().step_by(BYTES_PER_FLASH_PAGE) {
             if dev.is_page_range_programmed(start, PAGE_SIZE) {
-                // _count += 1;
                 let page = unsafe {
                     core::slice::from_raw_parts(
                         start as *const u8,
@@ -89,7 +87,6 @@ impl Image {
         Image {
             flash,
             programmed,
-            // _count,
             fwid,
         }
     }
@@ -98,6 +95,8 @@ impl Image {
         return self.programmed.contains(addr);
     }
 
+    // True if the flash slot's span of contiguous programmed pages
+    // starting at offset zero includes the given span.
     pub fn is_span_programmed(&self, start: u32, length: u32) -> bool {
         if let Some(end) = start.checked_add(length) {
             if !self.is_programmed(&start) || !self.is_programmed(&end) {
