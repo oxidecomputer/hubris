@@ -2358,7 +2358,6 @@ dependencies = [
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
- "task-sensor-types",
  "unwrap-lite",
  "zerocopy",
 ]
