@@ -69,9 +69,16 @@ impl Handler {
         }
     }
 
-    /// Serialize and return a `SprotError::FlowError`
     pub fn flow_error(&self, tx_buf: &mut [u8; RESPONSE_BUF_SIZE]) -> usize {
         let body = Err(SprotProtocolError::FlowError.into());
+        Response::pack(&body, tx_buf)
+    }
+
+    pub fn desynchronized_error(
+        &self,
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
+    ) -> usize {
+        let body = Err(SprotProtocolError::Desynchronized.into());
         Response::pack(&body, tx_buf)
     }
 
