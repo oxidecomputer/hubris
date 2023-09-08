@@ -2167,7 +2167,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1c71aa8101ca3d786f6f8972ff15616154190561"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#65744c516cb528776dc9b36d44b11c1ae4269f62"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -5295,9 +5295,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.6.1"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "332f188cc1bcf1fe1064b8c58d150f497e697f49774aa846f2dc949d9a25f236"
+checksum = "20707b61725734c595e840fb3704378a0cd2b9c74cc9e6e20724838fc6a1e2f9"
 dependencies = [
  "byteorder",
  "zerocopy-derive",
@@ -5305,13 +5305,13 @@ dependencies = [
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.3.1"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0fbc82b82efe24da867ee52e015e58178684bd9dd64c34e66bdf21da2582a9f"
+checksum = "56097d5b91d711293a42be9289403896b68654625021732067eac7a4ca388a1f"
 dependencies = [
  "proc-macro2",
- "syn 1.0.94",
- "synstructure",
+ "quote",
+ "syn 2.0.29",
 ]
 
 [[package]]
