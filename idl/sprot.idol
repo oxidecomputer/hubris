@@ -219,5 +219,21 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "read_rot_page": (
+            doc: "Read a CMPA/CFPA page from the RoT",
+            args: {
+                "page": "RotPage",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+
      }
 )

@@ -62,7 +62,7 @@ Interface(
             doc: "Get info about installed images (deprecated - use rot_boot_info)",
             args: { },
             reply : Result(
-                ok: "RotBootState",
+                ok: "stage0_handoff::RotBootState",
                 err: Complex("HandoffDataLoadError"),
             ),
             idempotent: true,
@@ -122,6 +122,21 @@ Interface(
         "reset": (
             doc: "Reset unless an update is in progress.",
             reply : Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "read_rot_page": (
+            doc: "Read CMPA/CFPA page",
+            args: {
+		"page": "RotPage",
+	    },
+            leases : {
+                "data": (type: "[u8]", write: true, max_len: Some(512)),
+            },
+            reply: Result (
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),

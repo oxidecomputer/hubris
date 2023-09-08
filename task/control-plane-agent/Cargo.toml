@@ -30,6 +30,7 @@ drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-update-api = { path = "../../drv/update-api" }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
+lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }

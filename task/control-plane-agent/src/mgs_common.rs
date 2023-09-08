@@ -10,9 +10,9 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    DiscoverResponse, PowerState, RotError, RotSlotId, RotStateV2,
-    SensorReading, SensorRequest, SensorRequestKind, SensorResponse,
-    SpComponent, SpError, SpPort, SpStateV2,
+    CfpaPage, DiscoverResponse, PowerState, RotError, RotRequest, RotResponse,
+    RotSlotId, RotStateV2, SensorReading, SensorRequest, SensorRequestKind,
+    SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -376,6 +376,34 @@ impl MgsCommon {
 
     pub(crate) fn current_time(&mut self) -> Result<u64, SpError> {
         Ok(sys_get_timer().now)
+    }
+
+    pub(crate) fn read_rot_page(
+        &mut self,
+        req: RotRequest,
+        buf: &mut [u8],
+    ) -> Result<RotResponse, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::ReadRotPage));
+        let page = match req {
+            RotRequest::ReadCmpa => drv_sprot_api::RotPage::Cmpa,
+            RotRequest::ReadCfpa(CfpaPage::Scratch) => {
+                drv_sprot_api::RotPage::CfpaScratch
+            }
+            RotRequest::ReadCfpa(CfpaPage::Active) => {
+                drv_sprot_api::RotPage::CfpaActive
+            }
+            RotRequest::ReadCfpa(CfpaPage::Inactive) => {
+                drv_sprot_api::RotPage::CfpaInactive
+            }
+        };
+
+        match self
+            .sprot
+            .read_rot_page(page, &mut buf[..lpc55_rom_data::FLASH_PAGE_SIZE])
+        {
+            Ok(_) => Ok(RotResponse::Ok),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

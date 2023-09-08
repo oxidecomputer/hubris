@@ -1140,6 +1140,7 @@ dependencies = [
  "hubpack",
  "idol-runtime",
  "lpc55-pac",
+ "lpc55-rom-data",
  "lpc55_romapi",
  "mutable-statics",
  "num-traits",
@@ -2167,7 +2168,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#65744c516cb528776dc9b36d44b11c1ae4269f62"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#7f0bdd583be56510780cee5b008361d9eed86d9d"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -3992,6 +3993,7 @@ dependencies = [
  "host-sp-messages",
  "idol",
  "idol-runtime",
+ "lpc55-rom-data",
  "mutable-statics",
  "num-traits",
  "ringbuf",

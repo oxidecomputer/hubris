@@ -18,9 +18,10 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort, SpRequest, SpStateV2, SpUpdatePrepare,
-    UpdateChunk, UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1071,6 +1072,14 @@ impl SpHandler for MgsHandler {
 
     fn current_time(&mut self) -> Result<u64, SpError> {
         self.common.current_time()
+    }
+
+    fn read_rot(
+        &mut self,
+        req: RotRequest,
+        buf: &mut [u8],
+    ) -> Result<RotResponse, SpError> {
+        self.common.read_rot_page(req, buf)
     }
 }
 
