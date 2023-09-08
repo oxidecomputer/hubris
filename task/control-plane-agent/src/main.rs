@@ -65,6 +65,7 @@ enum Log {
     SprotCabooseSize(u32),
     ReadCaboose(u32, usize),
     GotCabooseChunk([u8; 4]),
+    ReadRotPage,
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -149,6 +150,7 @@ enum MgsMessage {
         key: u8,
         value_len: usize,
     },
+    ReadRotPage,
 }
 
 ringbuf!(Log, 16, Log::Empty);
