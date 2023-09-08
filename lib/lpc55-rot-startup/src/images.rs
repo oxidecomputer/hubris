@@ -165,7 +165,7 @@ impl Image {
             None => return false,
         };
 
-        // Next make sure the marked image length is programmed
+        // Last step is to make sure the entire range is programmed
         if !self.is_span_programmed(img_start, total_len) {
             return false;
         }
