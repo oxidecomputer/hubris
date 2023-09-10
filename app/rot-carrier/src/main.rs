@@ -6,6 +6,7 @@
 #![no_main]
 
 use cortex_m_rt::entry;
+use lpc55_romapi::{set_hashcrypt_handler, set_hashcrypt_handler_to_rom};
 use lpc55_rot_startup::{get_clock_speed, startup};
 use unwrap_lite::UnwrapLite;
 
@@ -16,7 +17,16 @@ fn main() -> ! {
 
     let (cycles_per_ms, _div) = get_clock_speed(&peripherals);
 
+    // Pre-main code makes calls to the ROM-based signature
+    // verification routines and requires its own HASHCRYPT IRQ handler.
+    set_hashcrypt_handler_to_rom();
+
     startup(&core_peripherals, &peripherals);
+
+    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
+    // be active.
+    let irq_handler: unsafe extern "C" fn() -> () = kern::arch::DefaultHandler;
+    set_hashcrypt_handler(irq_handler);
 
     unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }

@@ -2414,6 +2414,7 @@ dependencies = [
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
+ "task-sensor-types",
  "unwrap-lite",
  "zerocopy 0.6.4",
 ]
@@ -2832,6 +2833,7 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
+ "lpc55_romapi",
  "unwrap-lite",
 ]
 
@@ -3068,6 +3070,7 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
+ "lpc55_romapi",
  "unwrap-lite",
 ]
 
@@ -3421,6 +3424,7 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
+ "lpc55_romapi",
  "unwrap-lite",
 ]
 

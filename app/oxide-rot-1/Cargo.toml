@@ -19,6 +19,7 @@ cfg-if = { workspace = true }
 abi = { path = "../../sys/abi"}
 kern = { path = "../../sys/kern" }
 lpc55-rot-startup = { path = "../../lib/lpc55-rot-startup" }
+lpc55_romapi = { path = "../../lib/lpc55-romapi" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 
 # this lets you use `cargo fix`!
