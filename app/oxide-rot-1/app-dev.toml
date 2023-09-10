@@ -10,7 +10,7 @@ fwid = true
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 52512, ram = 4096}
+requires = {flash = 60644, ram = 4096}
 features = ["dice-self"]
 
 [caboose]
@@ -77,7 +77,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 45792, ram = 32768}
+max-sizes = {flash = 46400, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

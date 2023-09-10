@@ -524,9 +524,17 @@ pub struct ImageHeader {
 
 // Corresponds to the ARM vector table, limited to what we need
 // see ARMv8m B3.30 and B1.5.3 ARMv7m for the full description
+// NXP uses reserved vectors for image information.
+// See UM11126 Table 177 for details.
 #[repr(C)]
 #[derive(Default, AsBytes)]
 pub struct ImageVectors {
     pub sp: u32,
     pub entry: u32,
+    _unrelated_vectors_0: [u32; 6],
+    pub nxp_image_length: u32,
+    pub nxp_image_type: u32,
+    pub nxp_offset_to_specific_header: u32,
+    _unrelated_vectors_1: [u32; 2],
+    pub nxp_image_execution_address: u32,
 }

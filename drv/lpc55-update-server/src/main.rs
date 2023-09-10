@@ -254,13 +254,22 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             transient_boot_preference,
         ) = self.boot_preferences()?;
 
+        // During this transition, map new bootinfo onto the old values
+        let a_digest = match boot_state.a.status {
+            Ok(()) => Some(boot_state.a.digest),
+            Err(_image_error) => None,
+        };
+        let b_digest = match boot_state.b.status {
+            Ok(()) => Some(boot_state.a.digest),
+            Err(_image_error) => None,
+        };
         let info = RotBootInfo {
             active: boot_state.active.into(),
             persistent_boot_preference,
             pending_persistent_boot_preference,
             transient_boot_preference,
-            slot_a_sha3_256_digest: boot_state.a.map(|details| details.digest),
-            slot_b_sha3_256_digest: boot_state.b.map(|details| details.digest),
+            slot_a_sha3_256_digest: a_digest,
+            slot_b_sha3_256_digest: b_digest,
         };
         Ok(info)
     }
@@ -982,7 +991,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
         HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
-        RotPage, SlotId, SwitchDuration, UpdateTarget,
+        RotBootState, RotPage, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

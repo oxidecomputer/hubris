@@ -2,28 +2,24 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use abi::ImageHeader;
+use abi::{ImageHeader, ImageVectors};
 use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::{ImageVersion, RotImageDetails};
+use stage0_handoff::{ImageError, ImageVersion, RotImageDetails};
 use unwrap_lite::UnwrapLite;
 
-pub fn get_image_b(flash: &mut Flash<'_>) -> Option<Image> {
-    let img = Image::new(flash, FLASH_B);
-    if img.validate() {
-        Some(img)
-    } else {
-        None
-    }
+const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
+
+macro_rules! set_bit {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) })
+    };
 }
 
-pub fn get_image_a(flash: &mut Flash<'_>) -> Option<Image> {
-    let img = Image::new(flash, FLASH_A);
-    if img.validate() {
-        Some(img)
-    } else {
-        None
-    }
+macro_rules! clear_bit {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) })
+    };
 }
 
 extern "C" {
@@ -44,26 +40,67 @@ const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 pub struct Image {
     // The boundaries of the flash slot.
     flash: Range<u32>,
+    // The runtime address range (stage0next flash != run).
+    run: Range<u32>,
     // The contiguous span of programmed flash pages starting at offset zero.
     // Note that any additional programmed pages after the first erased
     // page are not interesting for image sanity checks and are not included.
     programmed: Range<u32>,
     // Measurement over all pages includeing those that follow any erased page.
     fwid: [u8; 32],
+    status: Result<(), ImageError>,
 }
 
 impl Image {
+    pub fn get_image_b(flash: &mut Flash) -> Image {
+        let mut img = Image::new(flash, FLASH_B, FLASH_B);
+        img.status = img.validate(true);
+        img
+    }
+
+    pub fn get_image_a(flash: &mut Flash) -> Image {
+        let mut img = Image::new(flash, FLASH_A, FLASH_A);
+        img.status = img.validate(true);
+        img
+    }
+
+    pub fn get_image_stage0(flash: &mut Flash) -> Image {
+        let mut img = Image::new(flash, FLASH_STAGE0, FLASH_STAGE0);
+        img.status = img.validate(false);
+        img
+    }
+
+    pub fn get_image_stage0next(flash: &mut Flash) -> Image {
+        let mut img = Image::new(flash, FLASH_STAGE0_NEXT, FLASH_STAGE0);
+        img.status = img.validate(false);
+        img
+    }
+
+    pub fn image_details(&self) -> RotImageDetails {
+        RotImageDetails {
+            digest: self.fwid,
+            version: self.get_image_version(),
+            status: self.status,
+        }
+    }
+
+    pub fn slot_contains(&self, addr: u32) -> bool {
+        self.flash.contains(&addr)
+    }
+
     // Before doing any other work with a chunk of flash memory:
     //
     //   - Define the address boundaries.
     //   - Determine the bounds of the initial programmed extent.
-    //   - Count the total number of fully programmed pages.
     //   - Measure all programmed pages including those outside of the
     //     initial programmed extent.
     //
-    // Note: if partially programmed pages is a possibility then that could be
+    // Note: if partially programmed pages are a possibility then that could be
     // a problem with respect to catching exfiltration attempts.
-    pub fn new(dev: &mut Flash, flash: Range<u32>) -> Image {
+    //
+    // Later functions are safe to access flash if they are relying on
+    // self.programmed.contains() directly or indirectly.
+    fn new(dev: &mut Flash, flash: Range<u32>, run: Range<u32>) -> Image {
         let mut end: Option<u32> = None;
         let mut hash = Sha3_256::new();
         for start in flash.clone().step_by(BYTES_PER_FLASH_PAGE) {
@@ -86,18 +123,20 @@ impl Image {
         };
         Image {
             flash,
+            run,
             programmed,
             fwid,
+            status: Err(ImageError::Unchecked),
         }
     }
 
-    pub fn is_programmed(&self, addr: &u32) -> bool {
+    fn is_programmed(&self, addr: &u32) -> bool {
         return self.programmed.contains(addr);
     }
 
     // True if the flash slot's span of contiguous programmed pages
     // starting at offset zero includes the given span.
-    pub fn is_span_programmed(&self, start: u32, length: u32) -> bool {
+    fn is_span_programmed(&self, start: u32, length: u32) -> bool {
         if let Some(end) = start.checked_add(length) {
             if !self.is_programmed(&start) || !self.is_programmed(&end) {
                 false
@@ -122,12 +161,37 @@ impl Image {
         self.flash.start
     }
 
-    fn get_img_size(&self) -> Option<usize> {
-        usize::try_from((unsafe { &*self.get_header() }).total_image_len).ok()
+    // Return a pointer to the NXP vector table in flash.
+    // N.B: Before calling, check that the first flash page is programmed.
+    fn get_nxp_vectors(&self) -> &ImageVectors {
+        let vectors = self.flash.start as *const u8 as *const ImageVectors;
+        // SAFETY: The address derives from a link-time constant and
+        // the caller has ensured that the first page of flash is not
+        // erased.
+        unsafe { &*vectors }
     }
 
-    fn get_header(&self) -> *const ImageHeader {
-        // SAFETY: This generated by the linker script which we trust
+    fn get_nxp_image_length(&self) -> u32 {
+        self.get_nxp_vectors().nxp_image_length
+    }
+
+    fn get_reset_vector(&self) -> u32 {
+        self.get_nxp_vectors().entry
+    }
+
+    fn get_image_type(&self) -> u32 {
+        self.get_nxp_vectors().nxp_image_type
+    }
+
+    fn get_type_specific_header(&self) -> u32 {
+        self.get_nxp_vectors().nxp_offset_to_specific_header
+    }
+
+    // Get a pointer to where the ImageHeader should be.
+    // Note that it may not be present if the image
+    // is corrupted or is a bootloader.
+    fn get_header_ptr(&self) -> *const ImageHeader {
+        // SAFETY: This is generated by the linker script which we trust
         // Note that this is generated from _this_ image's linker script
         // as opposed to the _image_ linker script but those two _must_
         // be the same value!
@@ -167,8 +231,12 @@ impl Image {
             None => return false,
         };
 
-        // Last step is to make sure the entire range is programmed
+        // Next make sure the marked image length is programmed
         if !self.is_span_programmed(img_start, total_len) {
+            return false;
+        }
+
+        return true;
     }
 
     pub fn get_image_version(&self) -> ImageVersion {
@@ -186,7 +254,7 @@ impl Image {
         // The MPU requires 32 byte alignment and so the compiler pads the
         // image accordingly. The length field from the image header does not
         // (and should not) account for this padding so we must do that here.
-        let img_size = (self.get_img_size().unwrap_lite() + 31) & !31;
+        let img_size = self.get_img_size().unwrap_lite() + 31 & !31;
 
         // Safety: this is unsafe because the pointer addition could overflow.
         // If that happens, we'll produce an empty range or crash with a panic.

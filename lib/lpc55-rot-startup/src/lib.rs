@@ -173,20 +173,31 @@ pub fn startup(
 
     // Write the image details to handoff RAM. Use the address of the current
     // function to determine which image is running.
-    let img_a = images::get_image_a(&mut flash);
-    let img_b = images::get_image_b(&mut flash);
-    let here = startup as *const u8;
-    let active = if img_a.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    let img_a = images::Image::get_image_a(&mut flash);
+    let img_b = images::Image::get_image_b(&mut flash);
+    let img_stage0 = images::Image::get_image_stage0(&mut flash);
+    let img_stage0next = images::Image::get_image_stage0next(&mut flash);
+
+    let here = startup as *const u8 as u32;
+    let active = if img_a.slot_contains(here) {
         RotSlot::A
-    } else if img_b.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    } else if img_b.slot_contains(here) {
         RotSlot::B
     } else {
         panic!();
     };
-    let a = img_a.map(|i| images::image_details(i));
-    let b = img_b.map(|i| images::image_details(i));
 
-    let details = RotBootState { active, a, b };
+    let a = img_a.image_details();
+    let b = img_b.image_details();
+    let stage0 = img_stage0.image_details();
+    let stage0next = img_stage0next.image_details();
+    let details = RotBootState {
+        active,
+        a,
+        b,
+        stage0,
+        stage0next,
+    };
 
     handoff.store(&details);
 
