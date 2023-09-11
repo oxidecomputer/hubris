@@ -192,11 +192,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         let len = self.get_cert_bytes_from_index(index)?.len();
         ringbuf_entry!(Trace::CertLen(len));
 
-        let len = u32::try_from(len).map_err(|_| {
-            <AttestError as Into<RequestError<AttestError>>>::into(
-                AttestError::CertTooBig,
-            )
-        })?;
+        let len = u32::try_from(len).map_err(|_| AttestError::CertTooBig)?;
 
         Ok(len)
     }
