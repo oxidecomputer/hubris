@@ -204,8 +204,8 @@ binary_path = "../../target/gemini-bu/dist/final.bin"
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 13600, ram = 16384}
-stacksize = 9304
+max-sizes = {flash = 14800, ram = 16384}
+stacksize = 9952
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 
