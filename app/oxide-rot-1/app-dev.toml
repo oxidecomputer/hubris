@@ -158,7 +158,7 @@ binary_path = "../../target/gimlet-c/dist/default/final.bin"
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 13600, ram = 16384}
+max-sizes = {flash = 14800, ram = 16384}
 stacksize = 9304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]

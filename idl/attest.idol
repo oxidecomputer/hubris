@@ -55,5 +55,28 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "log": (
+            doc: "Get the measurement log",
+            args: {
+                "offset" : "u32",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "log_len": (
+            doc: "Get length of the serialized measurement log",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )
