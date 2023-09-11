@@ -21,6 +21,7 @@ dunce = { workspace = true }
 filetime = { workspace = true }
 fnv = { workspace = true }
 goblin = { workspace = true }
+hex = "0.4"
 hubtools = { workspace = true }
 indexmap = { workspace = true }
 multimap = { workspace = true }
@@ -42,6 +43,7 @@ zip = { workspace = true }
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
 abi.path = "../../sys/abi"
 build-kconfig.path = "../kconfig"
+lpc55-rom-data.path = "../../lib/lpc55-rom-data"
 toml-task.path = "../../lib/toml-task"
 toml-patch.path = "../toml-patch"
 
