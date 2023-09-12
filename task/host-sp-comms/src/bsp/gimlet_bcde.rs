@@ -130,14 +130,14 @@ impl ServerImpl {
             //
             // Sharkfin connectors start at J206 and are numbered sequentially
             20..=29 => {
-                let (designator, f) =
+                let (designator, f): ([u8; 4], _) =
                     Self::get_sharkfin_vpd(index as usize - 20);
                 let mut name = *b"____/U7/ID";
                 name[0..4].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             30..=39 => {
-                let (designator, f) =
+                let (designator, f): ([u8; 4], _) =
                     Self::get_sharkfin_vpd(index as usize - 30);
                 let mut name = *b"____/U7";
                 name[0..4].copy_from_slice(&designator);
