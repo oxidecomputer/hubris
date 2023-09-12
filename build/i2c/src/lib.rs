@@ -448,7 +448,9 @@ pub enum Disposition {
     Validation,
 }
 
-#[derive(Copy, Clone, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(
+    Copy, Clone, Deserialize, Debug, PartialEq, Eq, Hash, Ord, PartialOrd,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum Sensor {
     Temperature,
@@ -1287,7 +1289,7 @@ impl ConfigGenerator {
                         let mut all = HashSet::new();
 
                         if let Some(p) =
-                            p.into_iter().flatten().find(|&p| !all.insert(p))
+                            p.iter().flatten().find(|&p| !all.insert(p))
                         {
                             bail!("phase {p} appears multiple times in {d:?}");
                         }
@@ -1482,7 +1484,7 @@ impl ConfigGenerator {
             d.device.to_uppercase(),
         )?;
 
-        let mut sensors_by_kind: HashMap<Sensor, Vec<usize>> = HashMap::new();
+        let mut sensors_by_kind: BTreeMap<Sensor, Vec<usize>> = BTreeMap::new();
         for s in sensors {
             sensors_by_kind.entry(s.kind).or_default().push(s.id);
         }
