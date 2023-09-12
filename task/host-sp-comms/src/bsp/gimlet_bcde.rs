@@ -21,15 +21,28 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
 
+/// `const` function to convert a `&'static str` to a fixed-size byte array
+///
+/// This must be called a `const` parameter of `s.len()`
+const fn byteify<const N: usize>(s: &'static [u8]) -> [u8; N] {
+    let mut out = [0u8; N];
+    let mut i = 0;
+    while i < s.len() {
+        out[i] = s[i];
+        i += 1;
+    }
+    out
+}
 macro_rules! by_refdes {
     ($refdes:ident, $dev:ident) => {
-        paste::paste! {
+        paste::paste! {{
+            const BYTE_ARRAY: &'static [u8] = stringify!($refdes).as_bytes();
             (
-                stringify!($refdes).as_bytes(),
+                byteify::<{ BYTE_ARRAY.len() }>(BYTE_ARRAY),
                 i2c_config::devices::[<$dev _ $refdes:lower >] as fn(TaskId) -> I2cDevice,
                 i2c_config::sensors::[<$dev:upper _ $refdes:upper _SENSORS>]
             )
-        }
+        }}
     };
 }
 
@@ -88,7 +101,7 @@ impl ServerImpl {
                 // function, so it saves us 512 bytes of stack.
                 let (name, f, _sensors) = by_refdes!(U615, at24csw080);
                 let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
-                self.read_at24csw080_id(sequence, name, f, &mut data)
+                self.read_at24csw080_id(sequence, &name, f, &mut data)
             }
             18 => {
                 // J180/ID: Fan VPD barcode (not available in packrat)
@@ -168,7 +181,7 @@ impl ServerImpl {
                     current_sensor: sensors.current,
                     power_sensor: sensors.power,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::bmr491::CommandCode;
                     let InventoryData::Bmr491 {
                             mfr_id,
@@ -218,7 +231,7 @@ impl ServerImpl {
                     voltage_sensors: sensors.voltage,
                     current_sensors: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::isl68224::CommandCode;
                     let InventoryData::Isl68224 {
                             mfr_id,
@@ -270,7 +283,7 @@ impl ServerImpl {
                     voltage_sensors: sensors.voltage,
                     current_sensors: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::raa229618::CommandCode;
                     let InventoryData::Raa229618 {
                             mfr_id,
@@ -325,7 +338,7 @@ impl ServerImpl {
                     voltage_sensor: sensors.voltage,
                     current_sensor: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
                     let InventoryData::Tps546b24a {
                         mfr_id,
@@ -380,7 +393,7 @@ impl ServerImpl {
                     voltage_sensor: sensors.voltage,
                     current_sensor: sensors.current,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
                     let InventoryData::Adm1272 {
                         mfr_id,
@@ -403,20 +416,23 @@ impl ServerImpl {
             }
 
             52..=57 => {
-                let (connector_name, f, sensors) = match index - 52 {
-                    0 => by_refdes!(J194, tmp117),
-                    1 => by_refdes!(J195, tmp117),
-                    2 => by_refdes!(J196, tmp117),
-                    3 => by_refdes!(J197, tmp117),
-                    4 => by_refdes!(J198, tmp117),
-                    5 => by_refdes!(J199, tmp117),
-                    _ => unreachable!(),
-                };
+                let (connector_name, f, sensors): ([u8; 4], _, _) =
+                    match index - 52 {
+                        0 => by_refdes!(J194, tmp117),
+                        1 => by_refdes!(J195, tmp117),
+                        2 => by_refdes!(J196, tmp117),
+                        3 => by_refdes!(J197, tmp117),
+                        4 => by_refdes!(J198, tmp117),
+                        5 => by_refdes!(J199, tmp117),
+                        _ => unreachable!(),
+                    };
                 let dev = f(I2C.get_task_id());
 
                 // Convert the name from Jxxx (in the TOML file) -> Jxxx/U1
                 let mut name = *b"Jxxx/U1";
-                name[..connector_name.len()].copy_from_slice(connector_name);
+                // All connector names should have length 4; that's checked by
+                // the type in the tuple assignment above.
+                name[..4].copy_from_slice(&connector_name);
 
                 let mut data = InventoryData::Tmp117 {
                     id: 0,
@@ -451,7 +467,7 @@ impl ServerImpl {
                     hotfix_rel: 0,
                     product_id: 0,
                 };
-                self.tx_buf.try_encode_inventory(sequence, name, || {
+                self.tx_buf.try_encode_inventory(sequence, &name, || {
                     let InventoryData::Idt8a34003 {
                         hw_rev,
                         major_rel,
@@ -515,7 +531,7 @@ impl ServerImpl {
     /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
     ///
     /// Returns a designator (e.g. J206) and constructor function
-    fn get_sharkfin_vpd(i: usize) -> (&'static [u8], fn(TaskId) -> I2cDevice) {
+    fn get_sharkfin_vpd(i: usize) -> ([u8; 4], fn(TaskId) -> I2cDevice) {
         let (name, f, _sensors) = match i {
             0 => by_refdes!(J206, at24csw080),
             1 => by_refdes!(J207, at24csw080),
