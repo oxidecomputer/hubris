@@ -48,7 +48,7 @@ macro_rules! by_refdes {
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 60;
+    pub(crate) const INVENTORY_COUNT: u32 = 71;
 
     /// Look up a device in our inventory, by index
     ///
@@ -516,6 +516,29 @@ impl ServerImpl {
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
                     Ok(&data)
                 });
+            }
+            60..=70 => {
+                let i = index - 60;
+                let (name, _f, sensors) = match i {
+                    0 => by_refdes!(J206, max5970),
+                    1 => by_refdes!(J207, max5970),
+                    2 => by_refdes!(J208, max5970),
+                    3 => by_refdes!(J209, max5970),
+                    4 => by_refdes!(J210, max5970),
+                    5 => by_refdes!(J211, max5970),
+                    6 => by_refdes!(J212, max5970),
+                    7 => by_refdes!(J213, max5970),
+                    8 => by_refdes!(J214, max5970),
+                    9 => by_refdes!(J215, max5970),
+                    10 => by_refdes!(U275, max5970),
+                    _ => panic!(),
+                };
+                let data = InventoryData::Max5970 {
+                    voltage_sensors: sensors.voltage,
+                    current_sensors: sensors.current,
+                };
+                self.tx_buf
+                    .try_encode_inventory(sequence, &name, || Ok(&data));
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
