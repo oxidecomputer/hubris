@@ -227,13 +227,25 @@ impl I2cSensors {
     /// "Compatible" means that they have the same number of sensors in each
     /// category, meaning they can be represented by the same `struct`.
     fn is_compatible_with(&self, other: &Self) -> bool {
-        self.temperature == other.temperature
-            && self.power == other.power
-            && self.current == other.current
-            && self.voltage == other.voltage
-            && self.input_current == other.input_current
-            && self.input_voltage == other.input_voltage
-            && self.speed == other.speed
+        // Manually unpack the struct, so that any new sensor types have to be
+        // updated here!
+        let &Self {
+            temperature,
+            power,
+            current,
+            voltage,
+            input_current,
+            input_voltage,
+            speed,
+            names: _,
+        } = self;
+        temperature == other.temperature
+            && power == other.power
+            && current == other.current
+            && voltage == other.voltage
+            && input_current == other.input_current
+            && input_voltage == other.input_voltage
+            && speed == other.speed
     }
 }
 
