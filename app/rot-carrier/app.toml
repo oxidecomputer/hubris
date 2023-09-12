@@ -27,6 +27,9 @@ start = true
 stacksize = 1536
 notifications = ["fault", "timer"]
 
+[tasks.jefe.config]
+tasks-to-hold = ["sp_measure"]
+
 [tasks.jefe.config.allowed-callers]
 request_reset = ["update_server"]
 
@@ -194,12 +197,9 @@ task-slots = ["gpio_driver", "swd", "update_server"]
 [tasks.sp_measure]
 name = "task-sp-measure"
 priority = 6
-max-sizes = {flash = 131072, ram = 8192}
-task-slots = ["swd"]
+max-sizes = {flash = 12400, ram = 8192}
+task-slots = ["attest", "swd"]
 stacksize = 2048
-
-[tasks.sp_measure.config]
-binary_path = "../../target/gemini-bu/dist/final.bin"
 
 [tasks.attest]
 name = "task-attest"
