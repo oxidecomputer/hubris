@@ -386,6 +386,11 @@ pub enum InventoryData {
         /// Contents of the CIDER register
         cider: u16,
     },
+
+    Max5970 {
+        voltage_sensors: [SensorId; 2],
+        current_sensors: [SensorId; 2],
+    },
 }
 
 #[derive(
@@ -1043,7 +1048,18 @@ mod tests {
         let d = InventoryData::Ksz8463 { cider: 0x1234 };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 3);
-        assert_eq!(&buf[..n], [12, 0x34, 0x12])
+        assert_eq!(&buf[..n], [12, 0x34, 0x12]);
+
+        let d = InventoryData::Max5970 {
+            voltage_sensors: [SensorId(1), SensorId(2)],
+            current_sensors: [SensorId(3), SensorId(4)],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(
+            &buf[..n],
+            [13, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0]
+        );
     }
 
     #[test]
