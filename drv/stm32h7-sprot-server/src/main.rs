@@ -948,6 +948,67 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(e) => Err(e.into()),
         }
     }
+
+    fn log(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        offset: u32,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::Log {
+            offset,
+            size: data.len() as u32,
+        });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp =
+            self.do_send_recv_retries(tx_size, DUMP_TIMEOUT, DEFAULT_ATTEMPTS)?;
+
+        match rsp.body {
+            Ok(RspBody::Attest(Ok(AttestRsp::Log))) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
+                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
+            }
+            Ok(RspBody::Attest(Err(e))) => {
+                Err(AttestOrSprotError::Attest(e).into())
+            }
+            Ok(RspBody::Attest(_)) | Ok(_) => Err(AttestOrSprotError::Sprot(
+                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
+            )
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn log_len(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<u32, idol_runtime::RequestError<AttestOrSprotError>> {
+        let body = ReqBody::Attest(AttestReq::LogLen);
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        match rsp.body {
+            Ok(RspBody::Attest(Ok(AttestRsp::LogLen(s)))) => Ok(s),
+            Ok(RspBody::Attest(Err(e))) => {
+                Err(AttestOrSprotError::Attest(e).into())
+            }
+            Ok(RspBody::Attest(_)) | Ok(_) => Err(AttestOrSprotError::Sprot(
+                SprotError::Protocol(SprotProtocolError::UnexpectedResponse),
+            )
+            .into()),
+            Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
+        }
+    }
 }
 
 mod idl {
