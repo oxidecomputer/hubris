@@ -2366,6 +2366,7 @@ dependencies = [
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
+ "task-sensor-types",
  "unwrap-lite",
  "zerocopy",
 ]
@@ -4133,6 +4134,7 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "oxide-barcode",
+ "paste",
  "pmbus",
  "ringbuf",
  "static_assertions",
@@ -4140,6 +4142,7 @@ dependencies = [
  "task-host-sp-comms-api",
  "task-net-api",
  "task-packrat-api",
+ "task-sensor-api",
  "tlvc",
  "userlib",
  "zerocopy",
@@ -4431,13 +4434,13 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "derive-idol-err",
  "drv-i2c-api",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
  "serde",
+ "task-sensor-types",
  "userlib",
  "zerocopy",
 ]
@@ -4455,6 +4458,19 @@ dependencies = [
  "ringbuf",
  "task-sensor-api",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-sensor-types"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "drv-i2c-types",
+ "hubpack",
+ "num-derive",
+ "num-traits",
+ "serde",
  "zerocopy",
 ]
 
