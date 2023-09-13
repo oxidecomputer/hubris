@@ -29,7 +29,6 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
 stacksize = 1536
 notifications = ["fault", "timer"]
 extern-regions = ["sram2"]
@@ -184,7 +183,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 44000, ram = 32768}
+max-sizes = {flash = 44384, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
