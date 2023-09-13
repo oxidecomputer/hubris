@@ -45,7 +45,8 @@ pub struct StartupState {
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData {
     Caboose { slot: SlotId, start: u32, size: u32 },
-    Attest { index: u32, offset: u32, size: u32 },
+    AttestCert { index: u32, offset: u32, size: u32 },
+    AttestLog { offset: u32, size: u32 },
     RotPage { page: RotPage },
 }
 
@@ -135,7 +136,7 @@ impl Handler {
                     }
                 }
             }
-            Some(TrailingData::Attest {
+            Some(TrailingData::AttestCert {
                 index,
                 offset,
                 size,
@@ -174,6 +175,27 @@ impl Handler {
                 }) {
                     Ok(size) => size,
                     Err(e) => Response::pack(&Ok(e), tx_buf),
+                }
+            }
+            Some(TrailingData::AttestLog { offset, size }) => {
+                let size: usize = usize::try_from(size).unwrap_lite();
+                if size > drv_sprot_api::MAX_BLOB_SIZE {
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                        self.attest
+                            .log(offset, &mut buf[..size])
+                            .map_err(|e| RspBody::Attest(Err(e)))?;
+                        Ok(size)
+                    }) {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
                 }
             }
             _ => Response::pack(&rsp_body, tx_buf),
@@ -296,7 +318,7 @@ impl Handler {
                 // the work can be done elsewhere.
                 Ok((
                     RspBody::Attest(Ok(AttestRsp::Cert)),
-                    Some(TrailingData::Attest {
+                    Some(TrailingData::AttestCert {
                         index,
                         offset,
                         size,
@@ -333,6 +355,17 @@ impl Handler {
                     RspBody::Page(Ok(RotPageRsp::RotPage)),
                     Some(TrailingData::RotPage { page }),
                 ))
+            }
+            ReqBody::Attest(AttestReq::Log { offset, size }) => Ok((
+                RspBody::Attest(Ok(AttestRsp::Log)),
+                Some(TrailingData::AttestLog { offset, size }),
+            )),
+            ReqBody::Attest(AttestReq::LogLen) => {
+                let rsp = match self.attest.log_len() {
+                    Ok(l) => Ok(AttestRsp::LogLen(l)),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
             }
         }
     }

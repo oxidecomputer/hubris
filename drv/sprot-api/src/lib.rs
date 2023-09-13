@@ -385,6 +385,8 @@ pub enum AttestReq {
     CertLen(u32),
     Cert { index: u32, offset: u32, size: u32 },
     Record { algorithm: HashAlgorithm },
+    Log { offset: u32, size: u32 },
+    LogLen,
 }
 
 /// A response used for RoT updates
@@ -410,6 +412,8 @@ pub enum AttestRsp {
     CertLen(u32),
     Cert,
     Record,
+    Log,
+    LogLen(u32),
 }
 
 /// The body of a sprot response.
