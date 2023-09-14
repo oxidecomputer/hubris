@@ -2635,6 +2635,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55-hashcrypt"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.94",
+ "zerocopy",
+]
+
+[[package]]
 name = "lpc55-iocon-gen"
 version = "0.1.0"
 dependencies = [
@@ -2685,6 +2697,7 @@ dependencies = [
  "hubpack",
  "lib-dice",
  "lib-lpc55-usart",
+ "lpc55-hashcrypt",
  "lpc55-pac",
  "lpc55-puf",
  "lpc55_romapi",
@@ -2783,8 +2796,10 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
+ "lpc55-hashcrypt",
  "lpc55-pac",
  "lpc55-rot-startup",
+ "lpc55_romapi",
  "unwrap-lite",
 ]
 
