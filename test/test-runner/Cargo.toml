@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
-cortex-m-semihosting = { workspace = true, optional = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
@@ -20,8 +19,6 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 build-util = { path = "../../build/util" }
 
 [features]
-itm = [ "userlib/log-itm" ]
-semihosting = ["cortex-m-semihosting", "userlib/log-semihosting"]
 
 [[bin]]
 name = "test-runner"

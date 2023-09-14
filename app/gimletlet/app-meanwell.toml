@@ -50,7 +50,7 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "gpio"] 
+features = ["h753", "stm32h7", "gpio"] 
 priority = 4
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048

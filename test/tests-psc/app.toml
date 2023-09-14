@@ -13,7 +13,6 @@ name = "test-runner"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["itm"]
 
 [tasks.suite]
 name = "test-suite"
@@ -21,7 +20,7 @@ priority = 2
 max-sizes = {flash = 65536, ram = 4096}
 start = true
 stacksize = 2048
-features = ["itm", "fru-id-eeprom"]
+features = ["fru-id-eeprom"]
 task-slots = ["assist", "idol", "suite", "runner", "i2c_driver"]
 
 # This block is used to test the task_config macro
@@ -36,7 +35,6 @@ name = "test-assist"
 priority = 1
 max-sizes = {flash = 16384, ram = 1024}
 start = true
-features = ["itm"]
 
 [tasks.idol]
 name = "test-idol-server"
@@ -55,7 +53,7 @@ start = true
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["h753", "itm"]
+features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c2", "i2c3", "i2c4"]
