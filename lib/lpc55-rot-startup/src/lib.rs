@@ -19,7 +19,6 @@ use handoff::Handoff;
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
 use stage0_handoff::{RotBootState, RotImageDetails, RotSlot};
-use lpc55_romapi::{set_hashcrypt_handler_to_rom,set_hashcrypt_handler};
 
 const ROM_VER: u32 = 1;
 
@@ -176,7 +175,7 @@ pub fn startup(
 
     // Pre-main code makes calls to the ROM-based signature
     // verification routines and requires its own HASHCRYPT IRQ handler.
-    set_hashcrypt_handler_to_rom();
+    set_hashcrypt_rom();
 
     let (slot_a, img_a) = images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
     let (slot_b, img_b) = images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
@@ -186,8 +185,7 @@ pub fn startup(
 
     // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
     // be active.
-    let irq_handler: unsafe extern "C" fn() -> () = kern::arch::DefaultHandler;
-    set_hashcrypt_handler(irq_handler);
+    set_hashcrypt_default();
 
     // Use the address of the current function to determine which image
     // is running.
@@ -332,3 +330,5 @@ extern "C" fn nuke_stack() {
         )
     }
 }
+
+lpc55_hashcrypt::dynamic_hashcrypt!();

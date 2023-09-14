@@ -2789,7 +2789,6 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "kern",
- "lpc55-hashcrypt",
  "lpc55-pac",
  "lpc55-rot-startup",
  "lpc55_romapi",
