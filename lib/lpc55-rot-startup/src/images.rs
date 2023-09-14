@@ -7,6 +7,7 @@ use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{ImageError, ImageVersion};
 use unwrap_lite::UnwrapLite;
+use lpc55_pac::SYSCON;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 
@@ -116,34 +117,38 @@ pub struct Image {
 impl Image {
     pub fn get_image_a(
         flash: &mut Flash,
+        syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_A);
-        let img = Image::new(&slot, FLASH_A, true);
+        let img = Image::new(&slot, FLASH_A, true, syscon);
         (slot, img)
     }
 
     pub fn get_image_b(
         flash: &mut Flash,
+        syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_B);
-        let img = Image::new(&slot, FLASH_B, true);
+        let img = Image::new(&slot, FLASH_B, true, syscon);
         (slot, img)
     }
 
     pub fn get_image_stage0(
         flash: &mut Flash,
+        syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_STAGE0);
-        let img = Image::new(&slot, FLASH_STAGE0, false);
+        let img = Image::new(&slot, FLASH_STAGE0, false, syscon);
         (slot, img)
     }
 
     pub fn get_image_stage0next(
         flash: &mut Flash,
+        syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         // Note that Stage0Next is not XIP until it gets copied to slot Stage0.
         let slot = FlashSlot::new(flash, FLASH_STAGE0_NEXT);
-        let img = Image::new(&slot, FLASH_STAGE0, false);
+        let img = Image::new(&slot, FLASH_STAGE0, false, syscon);
         (slot, img)
     }
 
@@ -182,6 +187,7 @@ impl Image {
         slot: &FlashSlot,
         run: Range<u32>,
         header_required: bool,
+        syscon: &SYSCON,
     ) -> Result<Image, ImageError> {
         // Make sure we can access the page where the vectors live.
         // SAFETY: Link time constants from our own image.
@@ -230,7 +236,10 @@ impl Image {
         };
 
         match img.validate(header_required) {
-            Ok(()) => Ok(img),
+            Ok(()) => {
+                img.check_signature(syscon)?;
+                Ok(img)
+            },
             Err(e) => Err(e),
         }
     }
@@ -342,14 +351,6 @@ impl Image {
             return Err(ImageError::ResetVector);
         }
 
-        self.check_signature()
-    }
-
-    // Assuming a well-formed image, get the result of the ROM signature check
-    // routine.
-    fn check_signature(&self) -> Result<(), ImageError> {
-        // The following code is adapted to fit here from bootleby.
-
         // The image type is at offset 0x24. We only allow type 4.
         //   - 0x0000 Normal image for unsecure boot
         //   - 0x0001 Plain signed Image
@@ -361,9 +362,12 @@ impl Image {
             return Err(ImageError::UnsupportedType);
         }
 
-        let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
-        // Time to check the signatures!
+        Ok(())
+    }
 
+    // Assuming a well-formed image, get the result of the ROM signature check
+    // routine.
+    fn check_signature(&self, syscon: &SYSCON) -> Result<(), ImageError> {
         const HASHAES: u32 = 32 + 32 + 18;
         const PMASK: u32 = 1 << (HASHAES % 32);
         const REG_NUM: u32 = HASHAES / 32; // XXX must be 0, 1, or 2
