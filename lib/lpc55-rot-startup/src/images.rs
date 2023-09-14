@@ -4,10 +4,10 @@
 
 use abi::{ImageHeader, ImageVectors};
 use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{ImageError, ImageVersion};
 use unwrap_lite::UnwrapLite;
-use lpc55_pac::SYSCON;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 
@@ -239,7 +239,7 @@ impl Image {
             Ok(()) => {
                 img.check_signature(syscon)?;
                 Ok(img)
-            },
+            }
             Err(e) => Err(e),
         }
     }
