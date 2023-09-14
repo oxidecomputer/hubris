@@ -5,7 +5,6 @@
 #![feature(naked_functions)]
 #![no_std]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
 pub use lpc55_rom_data::FLASH_PAGE_SIZE;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -488,49 +487,4 @@ pub unsafe fn load_sb2_image(
         image.as_mut_ptr(),
         image.len() as u32,
     ))
-}
-
-//
-// The ROM's skboot_authenticate() function uses the HASHCRYPT interrupt
-// to call into the ROM's own interrupt handler.
-//
-// The same HASHCRYPT interrupt needs to call into the Hubris DefaultHandler
-// once the kernel is running so that `update_server` can use the hash HW block.
-//
-// This flag directs the HASHCRYPT interrupt service routine.
-// On power-on/reset, contents may be garbage or be left-over from the previous
-// run of the same Hubris image.
-// Safety: Ensure that
-static mut HASHCRYPT_HANDLER: AtomicUsize = AtomicUsize::new(0);
-
-pub type IrqHandler = unsafe extern "C" fn() -> ();
-
-pub fn set_hashcrypt_handler(handler: IrqHandler) {
-    unsafe {
-        HASHCRYPT_HANDLER.store(handler as usize, Ordering::Relaxed);
-    }
-}
-
-pub fn set_hashcrypt_handler_to_rom() {
-    set_hashcrypt_handler(
-        bootloader_tree().skboot.skboot_hashcrypt_irq_handler,
-    );
-}
-
-/// Interrupt handler for HASHCRYPT.
-///
-/// The ROM uses the HASHCRYPT when doing image authentication.
-/// As a side effect, it requires the user to route this
-/// interrupt into the ROM handler, whose address is available in the
-/// skboot table.
-///
-#[allow(non_snake_case)]
-#[no_mangle]
-pub unsafe extern "C" fn HASHCRYPT() {
-    // XXX Set low order bit for thumb mode or not?
-    let handler =
-        unsafe { HASHCRYPT_HANDLER.load(Ordering::Relaxed) as *const () };
-    unsafe {
-        core::mem::transmute::<*const (), extern "C" fn()>(handler)();
-    }
 }
