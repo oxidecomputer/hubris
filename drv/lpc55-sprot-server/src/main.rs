@@ -212,8 +212,6 @@ fn main() -> ! {
 
 struct DesynchronizedError;
 impl Io {
-    // Wait for chip select to be asserted
-    // Assert ROT_IRQ if this is a reply
     fn wait_for_csn_asserted(&self) {
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
@@ -251,8 +249,8 @@ impl Io {
             if result.is_ok() {
                 self.stats.desynchronized =
                     self.stats.desynchronized.wrapping_add(1);
+                result = Err(DesynchronizedError);
             }
-            result = Err(DesynchronizedError);
         }
         result
     }
@@ -337,7 +335,11 @@ impl Io {
     }
 
     // Reply to the SP
-    // Our fifos are guaranteed to be empty at this point
+    //
+    // At this point, our fifos have been drained as we prepare to send the next
+    // reply. If the fifo's are not empty it means that a new request has begun
+    // while we have started to reply. This will end up with either the SP or
+    // RoT detecting an error and resynchronizing.
     pub fn reply(&mut self, tx_buf: &[u8]) {
         ringbuf_entry!(Trace::ReplyLen(tx_buf.len()));
 
