@@ -8,7 +8,9 @@
 
 use attest_api::HashAlgorithm;
 use core::convert::Into;
-use drv_lpc55_update_api::{RotBootInfo, SlotId, SwitchDuration, UpdateTarget};
+use drv_lpc55_update_api::{
+    RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
+};
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
@@ -57,6 +59,7 @@ enum Trace {
     RotReadyTimeout,
     RspTimeout,
     RxBuf([u8; 16]),
+    RotPage,
 }
 ringbuf!(Trace, 64, Trace::None);
 
@@ -71,8 +74,8 @@ const RETRY_TIMEOUT: u64 = 5;
 const TIMEOUT_QUICK: u32 = 5;
 /// Default covers fail, pulse, retry
 const DEFAULT_ATTEMPTS: u16 = 3;
-// Tune the RoT flash write timeout
-const TIMEOUT_WRITE_ONE_BLOCK: u32 = 50;
+/// Slightly longer timeout
+const TIMEOUT_MEDIUM: u32 = 50;
 
 // Delay between asserting CSn and sending the portion of a message
 // that fits entierly in the RoT's FIFO.
@@ -629,7 +632,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
         let rsp = self.do_send_recv_retries(
             tx_size,
-            TIMEOUT_WRITE_ONE_BLOCK,
+            TIMEOUT_MEDIUM,
             MAX_UPDATE_ATTEMPTS,
         )?;
 
@@ -906,13 +909,51 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
         }
     }
+
+    fn read_rot_page(
+        &mut self,
+        _: &userlib::RecvMessage,
+        page: RotPage,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        ringbuf_entry!(Trace::RotPage);
+        let body = ReqBody::RotPage { page };
+        let tx_size = Request::pack(&body, &mut self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_MEDIUM,
+            DEFAULT_ATTEMPTS,
+        )?;
+
+        match rsp.body {
+            Ok(RspBody::Page(Ok(RotPageRsp::RotPage))) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
+                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
+            }
+            Ok(RspBody::Page(_)) | Ok(_) => {
+                Err(SprotProtocolError::UnexpectedResponse)?
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 mod idl {
     use super::{
         AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
-        RawCabooseOrSprotError, RotBootInfo, RotState, SlotId, SprotError,
-        SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        RawCabooseOrSprotError, RotBootInfo, RotPage, RotState, SlotId,
+        SprotError, SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

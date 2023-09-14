@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 dice-mfg = ["lib-dice", "lpc55-puf", "salty", "static_assertions",  "lib-lpc55-usart"]
 dice-self = ["lib-dice", "lpc55-puf", "salty"]
+locked = []
 
 [dependencies]
 cfg-if = { workspace = true }

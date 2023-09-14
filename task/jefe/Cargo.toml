@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 cortex-m = { workspace = true }
-cortex-m-semihosting = { workspace = true, optional = true }
 idol-runtime = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }

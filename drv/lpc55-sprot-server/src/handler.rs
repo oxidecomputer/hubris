@@ -5,10 +5,10 @@
 use crate::Trace;
 use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{SlotId, Update};
+use drv_lpc55_update_api::{RotPage, SlotId, Update};
 use drv_sprot_api::{
     AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
-    Request, Response, RotIoStats, RotState, RotStatus, RspBody,
+    Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
     SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
     CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
@@ -46,6 +46,7 @@ pub struct StartupState {
 pub enum TrailingData {
     Caboose { slot: SlotId, start: u32, size: u32 },
     Attest { index: u32, offset: u32, size: u32 },
+    RotPage { page: RotPage },
 }
 
 pub struct Handler {
@@ -157,6 +158,22 @@ impl Handler {
                         Ok(size) => size,
                         Err(e) => Response::pack(&Ok(e), tx_buf),
                     }
+                }
+            }
+            Some(TrailingData::RotPage { page }) => {
+                let size: usize = lpc55_rom_data::FLASH_PAGE_SIZE;
+                static_assertions::const_assert!(
+                    lpc55_rom_data::FLASH_PAGE_SIZE
+                        <= drv_sprot_api::MAX_BLOB_SIZE
+                );
+                match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                    self.update
+                        .read_rot_page(page, &mut buf[..size])
+                        .map_err(|e| RspBody::Page(Err(e)))?;
+                    Ok(size)
+                }) {
+                    Ok(size) => size,
+                    Err(e) => Response::pack(&Ok(e), tx_buf),
                 }
             }
             _ => Response::pack(&rsp_body, tx_buf),
@@ -306,6 +323,16 @@ impl Handler {
                     Err(e) => Err(e),
                 };
                 Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::RotPage { page } => {
+                // This command returns a variable amount of data that belongs
+                // in the trailing data region of the response. We return a
+                // marker struct with the data necessary retrieve this data so
+                // the work can be done elsewhere.
+                Ok((
+                    RspBody::Page(Ok(RotPageRsp::RotPage)),
+                    Some(TrailingData::RotPage { page }),
+                ))
             }
         }
     }

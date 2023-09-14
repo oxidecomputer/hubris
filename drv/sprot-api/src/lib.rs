@@ -20,9 +20,10 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotSlot,
-    SlotId, SwitchDuration, UpdateTarget,
+    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotPage,
+    RotSlot, SlotId, SwitchDuration, UpdateTarget,
 };
+pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -46,7 +47,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(3);
+pub const CURRENT_VERSION: Version = Version(4);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -316,6 +317,21 @@ where
 )]
 pub struct Version(pub u32);
 
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CfpaState {
+    /// The CFPA page used by the ROM
+    Active,
+    /// The CFPA that will be applied on the next update
+    Pending,
+    /// The CFPA region that is neither pending or active
+    Alternate,
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum PageReq {
+    Page(RotPage),
+}
+
 /// The body of a sprot request.
 ///
 /// See [`Msg`] for details about versioning and message evolution.
@@ -330,6 +346,8 @@ pub enum ReqBody {
     // Added in sprot protocol version 3
     Caboose(CabooseReq),
     Attest(AttestReq),
+    // Added in sprot protocol version 4
+    RotPage { page: RotPage },
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -424,6 +442,14 @@ pub enum RspBody {
     Caboose(Result<CabooseRsp, RawCabooseError>),
 
     Attest(Result<AttestRsp, AttestError>),
+
+    Page(Result<RotPageRsp, UpdateError>),
+}
+
+/// A response for reading a ROT page
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum RotPageRsp {
+    RotPage,
 }
 
 /// A response from the Dumper

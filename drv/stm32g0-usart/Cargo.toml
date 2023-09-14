@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 cortex-m = { workspace = true }
-cortex-m-semihosting = { workspace = true }
 num-traits = { workspace = true }
 stm32g0 = { workspace = true }
 zerocopy = { workspace = true }
@@ -20,7 +19,6 @@ build-util = { path = "../../build/util" }
 g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]
 g070 = ["stm32g0/stm32g070", "drv-stm32xx-sys-api/g070"]
 g0b1 = ["stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1"]
-semihosting = ["userlib/log-semihosting"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

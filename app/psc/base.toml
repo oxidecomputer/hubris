@@ -43,7 +43,7 @@ task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["h753", "itm"]
+features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3"]
@@ -85,7 +85,7 @@ notifications = ["flash-irq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1024

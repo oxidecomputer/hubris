@@ -12,6 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
+use task_sensor_types::SensorId;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -231,8 +232,11 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 )]
 pub enum InventoryData {
     /// Raw DIMM data
-    #[serde(with = "BigArray")]
-    DimmSpd([u8; 512]),
+    DimmSpd {
+        #[serde(with = "BigArray")]
+        id: [u8; 512],
+        temp_sensor: SensorId,
+    },
 
     /// Device or board identity, typically stored in a VPD EEPROM
     VpdIdentity(Identity),
@@ -266,6 +270,11 @@ pub enum InventoryData {
         mfr_serial: [u8; 20],
         /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
         mfr_firmware_data: [u8; 20],
+
+        temp_sensor: SensorId,
+        power_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     /// ISL68224 power converters
@@ -282,6 +291,9 @@ pub enum InventoryData {
         ic_device_id: [u8; 4],
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
+
+        voltage_sensors: [SensorId; 3],
+        current_sensors: [SensorId; 3],
     },
 
     /// RAA229618 power converter
@@ -298,6 +310,11 @@ pub enum InventoryData {
         ic_device_id: [u8; 4],
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
+
+        temp_sensors: [SensorId; 2],
+        power_sensors: [SensorId; 2],
+        voltage_sensors: [SensorId; 2],
+        current_sensors: [SensorId; 2],
     },
 
     Tps546b24a {
@@ -315,6 +332,10 @@ pub enum InventoryData {
         ic_device_rev: [u8; 2],
         /// NVM_CHECKSUM, PMBus operation 0xF0
         nvm_checksum: u16,
+
+        temp_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     /// Fan subassembly identity
@@ -336,6 +357,10 @@ pub enum InventoryData {
         mfr_revision: [u8; 2],
         /// MFR_DATE, PMBus operation 0x9D
         mfr_date: [u8; 6],
+
+        temp_sensor: SensorId,
+        voltage_sensor: SensorId,
+        current_sensor: SensorId,
     },
 
     Tmp117 {
@@ -345,6 +370,8 @@ pub enum InventoryData {
         eeprom1: u16,
         eeprom2: u16,
         eeprom3: u16,
+
+        temp_sensor: SensorId,
     },
 
     Idt8a34003 {
@@ -358,6 +385,11 @@ pub enum InventoryData {
     Ksz8463 {
         /// Contents of the CIDER register
         cider: u16,
+    },
+
+    Max5970 {
+        voltage_sensors: [SensorId; 2],
+        current_sensors: [SensorId; 2],
     },
 }
 
@@ -768,13 +800,17 @@ mod tests {
     fn inventory_data() {
         let mut v = [0; 512];
         v[0..5].copy_from_slice(&[1, 2, 3, 4, 123]);
-        let d = InventoryData::DimmSpd(v);
+        let d = InventoryData::DimmSpd {
+            id: v,
+            temp_sensor: SensorId(0x1234),
+        };
 
         let mut buf = [0; InventoryData::MAX_SIZE];
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 513);
+        assert_eq!(n, 517);
         assert_eq!(buf[0], 0); // discriminant
-        assert_eq!(buf[1..n], v);
+        assert_eq!(buf[1..513], v);
+        assert_eq!(&buf[513..n], &[0x34, 0x12, 0, 0]);
 
         let i = Identity {
             model: [
@@ -830,9 +866,14 @@ mod tests {
             mfr_date: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1],
             mfr_serial: *b"there are sooo many ",
             mfr_firmware_data: *b"fields in this thing",
+
+            temp_sensor: SensorId(0x1234),
+            power_sensor: SensorId(0x5678),
+            voltage_sensor: SensorId(0x9abc),
+            current_sensor: SensorId(0xdef0),
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 109);
+        assert_eq!(n, 125);
         assert_eq!(
             buf[..n],
             [
@@ -842,7 +883,9 @@ mod tests {
                 9, 8, 7, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 116, 104, 101,
                 114, 101, 32, 97, 114, 101, 32, 115, 111, 111, 111, 32, 109,
                 97, 110, 121, 32, 102, 105, 101, 108, 100, 115, 32, 105, 110,
-                32, 116, 104, 105, 115, 32, 116, 104, 105, 110, 103
+                32, 116, 104, 105, 115, 32, 116, 104, 105, 110, 103, 0x34,
+                0x12, 0, 0, 0x78, 0x56, 0, 0, 0xbc, 0x9a, 0, 0, 0xf0, 0xde, 0,
+                0,
             ]
         );
 
@@ -853,14 +896,27 @@ mod tests {
             mfr_date: [24, 25, 26, 27],
             ic_device_id: [50, 51, 52, 53],
             ic_device_rev: [60, 61, 62, 63],
+
+            voltage_sensors: [
+                SensorId(0x1234),
+                SensorId(0x5678),
+                SensorId(0x9abc),
+            ],
+            current_sensors: [
+                SensorId(0x1122),
+                SensorId(0x3344),
+                SensorId(0x5566),
+            ],
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 25);
+        assert_eq!(n, 49);
         assert_eq!(
             buf[..n],
             [
                 5, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
-                51, 52, 53, 60, 61, 62, 63
+                51, 52, 53, 60, 61, 62, 63, 0x34, 0x12, 0, 0, 0x78, 0x56, 0, 0,
+                0xbc, 0x9a, 0, 0, 0x22, 0x11, 0, 0, 0x44, 0x33, 0, 0, 0x66,
+                0x55, 0, 0
             ]
         );
 
@@ -871,14 +927,21 @@ mod tests {
             mfr_date: [24, 25, 26, 27],
             ic_device_id: [50, 51, 52, 53],
             ic_device_rev: [60, 61, 62, 63],
+
+            temp_sensors: [SensorId(0x1234), SensorId(0x5678)],
+            power_sensors: [SensorId(0x9abc), SensorId(0xdef0)],
+            voltage_sensors: [SensorId(0x1122), SensorId(0x3344)],
+            current_sensors: [SensorId(0x5566), SensorId(0x6677)],
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 25);
+        assert_eq!(n, 57);
         assert_eq!(
             buf[..n],
             [
                 6, 1, 2, 3, 4, 9, 8, 7, 6, 0, 10, 0, 15, 24, 25, 26, 27, 50,
-                51, 52, 53, 60, 61, 62, 63
+                51, 52, 53, 60, 61, 62, 63, 0x34, 0x12, 0, 0, 0x78, 0x56, 0, 0,
+                0xbc, 0x9a, 0, 0, 0xf0, 0xde, 0, 0, 0x22, 0x11, 0, 0, 0x44,
+                0x33, 0, 0, 0x66, 0x55, 0, 0, 0x77, 0x66, 0, 0
             ]
         );
 
@@ -890,14 +953,18 @@ mod tests {
             ic_device_id: [50, 51, 52, 53, 54, 55],
             ic_device_rev: [60, 61],
             nvm_checksum: 0xaabb,
+            temp_sensor: SensorId(0x1234),
+            voltage_sensor: SensorId(0x5678),
+            current_sensor: SensorId(0x9abc),
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 23);
+        assert_eq!(n, 35);
         assert_eq!(
             buf[..n],
             [
                 7, 1, 2, 3, 9, 8, 7, 0, 10, 0, 24, 25, 26, 50, 51, 52, 53, 54,
-                55, 60, 61, 0xbb, 0xaa
+                55, 60, 61, 0xbb, 0xaa, 0x34, 0x12, 0, 0, 0x78, 0x56, 0, 0,
+                0xbc, 0x9a, 0, 0,
             ]
         );
 
@@ -935,14 +1002,18 @@ mod tests {
             mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
             mfr_revision: [0, 10],
             mfr_date: [10, 20, 30, 40, 50, 60],
+            temp_sensor: SensorId(0x1234),
+            voltage_sensor: SensorId(0x5678),
+            current_sensor: SensorId(0x9abc),
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 22);
+        assert_eq!(n, 34);
         assert_eq!(
             &buf[..n],
             [
                 9, 1, 2, 3, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 10, 10, 20, 30,
-                40, 50, 60
+                40, 50, 60, 0x34, 0x12, 0, 0, 0x78, 0x56, 0, 0, 0xbc, 0x9a, 0,
+                0,
             ]
         );
 
@@ -951,12 +1022,16 @@ mod tests {
             eeprom1: 0x1234,
             eeprom2: 0x5678,
             eeprom3: 0xabcd,
+            temp_sensor: SensorId(0x5599),
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
-        assert_eq!(n, 9);
+        assert_eq!(n, 13);
         assert_eq!(
             &buf[..n],
-            [10, 0xbb, 0xaa, 0x34, 0x12, 0x78, 0x56, 0xcd, 0xab]
+            [
+                10, 0xbb, 0xaa, 0x34, 0x12, 0x78, 0x56, 0xcd, 0xab, 0x99, 0x55,
+                0x00, 0x00
+            ]
         );
 
         let d = InventoryData::Idt8a34003 {
@@ -973,7 +1048,18 @@ mod tests {
         let d = InventoryData::Ksz8463 { cider: 0x1234 };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 3);
-        assert_eq!(&buf[..n], [12, 0x34, 0x12])
+        assert_eq!(&buf[..n], [12, 0x34, 0x12]);
+
+        let d = InventoryData::Max5970 {
+            voltage_sensors: [SensorId(1), SensorId(2)],
+            current_sensors: [SensorId(3), SensorId(4)],
+        };
+        let n = hubpack::serialize(&mut buf, &d).unwrap();
+        assert_eq!(n, 17);
+        assert_eq!(
+            &buf[..n],
+            [13, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0]
+        );
     }
 
     #[test]

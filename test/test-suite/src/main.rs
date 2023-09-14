@@ -663,7 +663,6 @@ mod at24csw080 {
                 dev.write(0, 0x0A_u8).unwrap();
             }
         }
-        sys_log!("Completed EEPROM test with seed {}", seed);
     }
 
     /// Simple maximal LFSR to generate a stream of pseudo-random bytes
