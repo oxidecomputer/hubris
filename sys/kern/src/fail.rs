@@ -19,21 +19,24 @@
 //!   number of bytes written isn't recorded anywhere; instead, for printing,
 //!   trim off any trailing NUL bytes.
 
-use core::fmt::{Display, Write};
-use core::sync::atomic::Ordering;
+#[cfg(not(feature = "nano"))]
+use core::{fmt::{Display, Write}, sync::atomic::Ordering};
 
 /// Flag that gets set to `true` by all failure reporting functions, giving
 /// tools a one-stop-shop for doing kernel triage.
 #[used]
 static mut KERNEL_HAS_FAILED: bool = false;
 
+#[cfg(not(feature = "nano"))]
 const EPITAPH_LEN: usize = 128;
 
 /// The "epitaph" buffer records up to `EPITAPH_LEN` bytes of description of the
 /// event that caused the kernel to fail, padded with NULs.
+#[cfg(not(feature = "nano"))]
 #[used]
 static mut KERNEL_EPITAPH: [u8; EPITAPH_LEN] = [0; EPITAPH_LEN];
 
+#[cfg(not(feature = "nano"))]
 fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
     // We'd love to use an AtomicBool here but we gotta support ARMv6M.
     let previous_fail =
@@ -53,11 +56,13 @@ fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
     unsafe { &mut KERNEL_EPITAPH }
 }
 
+#[cfg(not(feature = "nano"))]
 #[inline(always)]
 pub fn die(msg: impl Display) -> ! {
     die_impl(&msg)
 }
 
+#[cfg(not(feature = "nano"))]
 #[inline(never)]
 fn die_impl(msg: &dyn Display) -> ! {
     let buf = begin_epitaph();
@@ -70,10 +75,12 @@ fn die_impl(msg: &dyn Display) -> ! {
     }
 }
 
+#[cfg(not(feature = "nano"))]
 struct Eulogist {
     dest: &'static mut [u8],
 }
 
+#[cfg(not(feature = "nano"))]
 impl Write for Eulogist {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let s = s.as_bytes();
@@ -88,7 +95,19 @@ impl Write for Eulogist {
     }
 }
 
+#[cfg(not(feature = "nano"))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     die(info)
+}
+
+#[cfg(feature = "nano")]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo<'_>) -> ! {
+    unsafe {
+        KERNEL_HAS_FAILED = true;
+    }
+    loop {
+        cortex_m::asm::nop();
+    }
 }
