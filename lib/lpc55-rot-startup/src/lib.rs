@@ -19,6 +19,7 @@ use handoff::Handoff;
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
 use stage0_handoff::{RotBootState, RotImageDetails, RotSlot};
+use lpc55_romapi::{set_hashcrypt_handler_to_rom,set_hashcrypt_handler};
 
 const ROM_VER: u32 = 1;
 
@@ -171,19 +172,31 @@ pub fn startup(
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     puf_check(&peripherals.PUF);
 
-    // Write the image details to handoff RAM. Use the address of the current
-    // function to determine which image is running.
-    let (slot_a, img_a) = images::Image::get_image_a(&mut flash);
-    let (slot_b, img_b) = images::Image::get_image_b(&mut flash);
-    let (slot_stage0, img_stage0) = images::Image::get_image_stage0(&mut flash);
-    let (slot_stage0next, img_stage0next) =
-        images::Image::get_image_stage0next(&mut flash);
+    // Write the image details to handoff RAM.
 
+    // Pre-main code makes calls to the ROM-based signature
+    // verification routines and requires its own HASHCRYPT IRQ handler.
+    set_hashcrypt_handler_to_rom();
+
+    let (slot_a, img_a) = images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
+    let (slot_b, img_b) = images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0, img_stage0) = images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0next, img_stage0next) =
+        images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
+
+    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
+    // be active.
+    let irq_handler: unsafe extern "C" fn() -> () = kern::arch::DefaultHandler;
+    set_hashcrypt_handler(irq_handler);
+
+    // Use the address of the current function to determine which image
+    // is running.
+    //
     // It would be unusual if we don't consider ourselves to be valid
     // yet the bootloader has selected us to run.
     // However, if we are in the midst of changing to some new policy, that
     // may happen. So, compare against the entire flash slot instead of the
-    // image when determining the active slot.
+    // (possibly invalid) image when determining the active slot.
     let here = startup as *const u8 as u32;
     let active = if slot_a.contains(&here) {
         RotSlot::A
