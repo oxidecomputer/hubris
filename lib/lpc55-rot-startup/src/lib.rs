@@ -18,7 +18,7 @@ use handoff::Handoff;
 
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
-use stage0_handoff::{RotBootState, RotSlot};
+use stage0_handoff::{RotBootState, RotImageDetails, RotSlot};
 
 const ROM_VER: u32 = 1;
 
@@ -173,30 +173,48 @@ pub fn startup(
 
     // Write the image details to handoff RAM. Use the address of the current
     // function to determine which image is running.
-    let img_a = images::Image::get_image_a(&mut flash);
-    let img_b = images::Image::get_image_b(&mut flash);
-    let img_stage0 = images::Image::get_image_stage0(&mut flash);
-    let img_stage0next = images::Image::get_image_stage0next(&mut flash);
+    let (slot_a, img_a) = images::Image::get_image_a(&mut flash);
+    let (slot_b, img_b) = images::Image::get_image_b(&mut flash);
+    let (slot_stage0, img_stage0) = images::Image::get_image_stage0(&mut flash);
+    let (slot_stage0next, img_stage0next) =
+        images::Image::get_image_stage0next(&mut flash);
 
+    // It would be unusual if we don't consider ourselves to be valid
+    // yet the bootloader has selected us to run.
+    // However, if we are in the midst of changing to some new policy, that
+    // may happen. So, compare against the entire flash slot instead of the
+    // image when determining the active slot.
     let here = startup as *const u8 as u32;
-    let active = if img_a.slot_contains(here) {
+    let active = if slot_a.contains(&here) {
         RotSlot::A
-    } else if img_b.slot_contains(here) {
+    } else if slot_b.contains(&here) {
         RotSlot::B
     } else {
         panic!();
     };
 
-    let a = img_a.image_details();
-    let b = img_b.image_details();
-    let stage0 = img_stage0.image_details();
-    let stage0next = img_stage0next.image_details();
+    let version_a = img_a.map(|i| i.get_image_version());
+    let version_b = img_b.map(|i| i.get_image_version());
+    let version_stage0 = img_stage0.map(|i| i.get_image_version());
+    let version_stage0next = img_stage0next.map(|i| i.get_image_version());
     let details = RotBootState {
         active,
-        a,
-        b,
-        stage0,
-        stage0next,
+        a: RotImageDetails {
+            digest: slot_a.fwid(),
+            version: version_a,
+        },
+        b: RotImageDetails {
+            digest: slot_b.fwid(),
+            version: version_b,
+        },
+        stage0: RotImageDetails {
+            digest: slot_stage0.fwid(),
+            version: version_stage0,
+        },
+        stage0next: RotImageDetails {
+            digest: slot_stage0next.fwid(),
+            version: version_stage0next,
+        },
     };
 
     handoff.store(&details);

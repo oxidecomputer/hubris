@@ -80,9 +80,7 @@ fits_in_ram!(RotBootState);
 pub struct RotImageDetails {
     // The SHA3-256 measurement of all programmed pages in the flash slot.
     pub digest: [u8; 32],
-    pub version: ImageVersion,
-    // Image sanity check and signature validation.
-    pub status: Result<(), ImageError>,
+    pub version: Result<ImageVersion, ImageError>,
 }
 
 #[derive(

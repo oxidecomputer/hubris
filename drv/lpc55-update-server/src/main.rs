@@ -255,12 +255,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ) = self.boot_preferences()?;
 
         // During this transition, map new bootinfo onto the old values
-        let a_digest = match boot_state.a.status {
-            Ok(()) => Some(boot_state.a.digest),
+        let a_digest = match boot_state.a.version {
+            Ok(_version) => Some(boot_state.a.digest),
             Err(_image_error) => None,
         };
-        let b_digest = match boot_state.b.status {
-            Ok(()) => Some(boot_state.a.digest),
+        let b_digest = match boot_state.b.version {
+            Ok(_version) => Some(boot_state.a.digest),
             Err(_image_error) => None,
         };
         let info = RotBootInfo {
