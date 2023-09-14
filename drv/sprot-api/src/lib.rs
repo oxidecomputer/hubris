@@ -537,6 +537,11 @@ pub struct RotIoStats {
 
     /// Number of incomplete transmissions (valid data not fetched by SP).
     pub tx_incomplete: u32,
+
+    /// Number of times when the RoT thinks its receiving for a request, while
+    /// the SP thinks it is receiving a response, or the RoT thinks it is
+    /// sending a response while the SP thinks it is sending a request.
+    pub desynchronized: u32,
 }
 
 /// Stats from the SP side of sprot
@@ -546,32 +551,35 @@ pub struct RotIoStats {
     Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
 )]
 pub struct SpIoStats {
-    // Number of messages sent successfully
+    /// Number of messages sent successfully
     pub tx_sent: u32,
 
-    // Number of messages that failed to be sent
+    /// Number of messages that failed to be sent
     pub tx_errors: u32,
 
-    // Number of messages received successfully
+    /// Number of messages received successfully
     pub rx_received: u32,
 
-    // Number of error replies received
+    /// Number of error replies received
     pub rx_errors: u32,
 
-    // Number of invalid messages received. They don't parse properly.
+    /// Number of invalid messages received. They don't parse properly.
     pub rx_invalid: u32,
 
-    // Total Number of retries issued
+    /// Total Number of retries issued
     pub retries: u32,
 
-    // Number of times the SP pulsed CSn
+    /// Number of times the SP pulsed CSn
     pub csn_pulses: u32,
 
-    // Number of times pulsing CSn failed.
+    /// Number of times pulsing CSn failed.
     pub csn_pulse_failures: u32,
 
-    // Number of timeouts, while waiting for a reply
+    /// Number of timeouts, while waiting for a reply
     pub timeouts: u32,
+
+    /// Number of times the RoT has reported that it was desynchronized
+    pub desynchronized: u32,
 }
 
 /// Sprot related stats

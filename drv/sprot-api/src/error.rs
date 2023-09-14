@@ -86,12 +86,13 @@ pub enum SprotProtocolError {
     // This should basically be impossible. We only include it so we can
     // return this error when unpacking a RspBody in idol calls.
     UnexpectedResponse,
-
     // Failed to load update status
     BadUpdateStatus,
-
     // Used for mapping From<idol_runtime::ServerDeath>
     TaskRestarted,
+    // The SP and RoT did not agree on whether the SP is sending
+    // a request or waiting for a reply.
+    Desynchronized,
 }
 
 impl From<SprotProtocolError> for GwSprotProtocolError {
@@ -113,6 +114,7 @@ impl From<SprotProtocolError> for GwSprotProtocolError {
             SprotProtocolError::UnexpectedResponse => Self::UnexpectedResponse,
             SprotProtocolError::BadUpdateStatus => Self::BadUpdateStatus,
             SprotProtocolError::TaskRestarted => Self::TaskRestarted,
+            SprotProtocolError::Desynchronized => Self::Desynchronized,
         }
     }
 }
@@ -142,7 +144,7 @@ impl SprotError {
                 use SprotProtocolError::*;
                 match err {
                     InvalidCrc | FlowError | Timeout | TaskRestarted
-                    | Deserialization => true,
+                    | Deserialization | Desynchronized => true,
                     _ => false,
                 }
             }

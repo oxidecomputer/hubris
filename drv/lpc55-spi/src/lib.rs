@@ -179,7 +179,7 @@ impl Spi {
     }
 
     /// Clear Slave Select Asserted interrupt
-    pub fn ssa_clear(&mut self) {
+    pub fn ssa_clear(&self) {
         self.reg.stat.write(|w| w.ssa().set_bit());
     }
 
@@ -248,7 +248,7 @@ impl Spi {
     /// but that would leave us in a weird place where we wouldn't know what state
     /// the fifo was in. Since FIFOWR is write-only, we just set the frame size
     /// on each wite and ensure we pair writes and reads of the same width.
-    pub fn send_u16(&mut self, entry: u16) {
+    pub fn send_u16(&self, entry: u16) {
         self.reg.fifowr.write(|w| unsafe {
             w.len()
                 // 0xF = Data transfer is 16 bits in length.
@@ -339,5 +339,10 @@ impl Spi {
     /// Mixing and matching different frame sizes is not recommended.
     pub fn read_u16(&mut self) -> u16 {
         self.reg.fiford.read().rxdata().bits() as u16
+    }
+
+    pub fn read_u16_with_sot(&self) -> (u16, bool) {
+        let reader = self.reg.fiford.read();
+        (reader.rxdata().bits() as u16, reader.sot().bit_is_set())
     }
 }

@@ -68,7 +68,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 45248, ram = 32768}
+max-sizes = {flash = 45792, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
@@ -86,7 +86,7 @@ pins = [
     # HS_SPI_SCK = P1_2 = FUN6
     { pin = { port = 1, pin = 2}, alt = 6},
     # HS_SSEL1 = P1_1 = FUN5
-    { pin = { port = 1, pin = 1}, alt = 5},
+    { name = "CHIP_SELECT", pin = { port = 1, pin = 1}, alt = 5},
     # ROT_IRQ = P0_18 = FUN0
     { name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
     # SP_RESET = P0_9 = FUN0
