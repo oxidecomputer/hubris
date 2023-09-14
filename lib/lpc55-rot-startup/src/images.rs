@@ -84,10 +84,12 @@ impl FlashSlot {
     // starting at offset zero includes the given span.
     fn is_span_programmed(&self, start: u32, length: u32) -> bool {
         if let Some(end) = start.checked_add(length) {
-            if !self.is_programmed(&start) || !self.is_programmed(&end) {
-                false
-            } else {
+            if self.is_programmed(&start)
+                && end <= self.initial_programmed_extent.end
+            {
                 true
+            } else {
+                false
             }
         } else {
             false

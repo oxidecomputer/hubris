@@ -27,7 +27,7 @@ use zerocopy::{AsBytes, FromBytes};
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Slot(u8, Result<ImageVersion, ImageError>),
+    Slot(u32, Result<ImageVersion, ImageError>),
     NoBootstate(HandoffDataLoadError),
 }
 ringbuf!(Trace, 64, Trace::None);
@@ -994,10 +994,10 @@ fn main() -> ! {
 
     match bootstate() {
         Ok(bs) => {
-            ringbuf_entry!(Trace::Slot(1, bs.a.version));
-            ringbuf_entry!(Trace::Slot(2, bs.b.version));
-            ringbuf_entry!(Trace::Slot(3, bs.stage0.version));
-            ringbuf_entry!(Trace::Slot(4, bs.stage0next.version));
+            ringbuf_entry!(Trace::Slot(0x10000, bs.a.version));
+            ringbuf_entry!(Trace::Slot(0x50000, bs.b.version));
+            ringbuf_entry!(Trace::Slot(0x00000, bs.stage0.version));
+            ringbuf_entry!(Trace::Slot(0x08000, bs.stage0next.version));
         }
         Err(e) => ringbuf_entry!(Trace::NoBootstate(e)),
     }
