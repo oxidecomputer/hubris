@@ -17,11 +17,20 @@ use drv_lpc55_update_api::{
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use ringbuf::*;
 use stage0_handoff::{
-    HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
+    HandoffData, HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
 };
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Slot(u8, Result<ImageVersion, ImageError>),
+    NoBootstate(HandoffDataLoadError),
+}
+ringbuf!(Trace, 64, Trace::None);
 
 // We shouldn't actually dereference these. The types are not correct.
 // They are just here to allow a mechanism for getting the addresses.
@@ -235,19 +244,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootState, RequestError<HandoffDataLoadError>> {
-        // Safety: Data is published by stage0
-        let addr = unsafe { BOOTSTATE.assume_init_ref() };
-        RotBootState::load_from_addr(addr).map_err(|e| e.into())
+        bootstate().map_err(|e| e.into())
     }
 
     fn rot_boot_info(
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootInfo, RequestError<UpdateError>> {
-        // Safety: Data is published by pre-kernel main
-        let addr = unsafe { BOOTSTATE.assume_init_ref() };
-        let boot_state = RotBootState::load_from_addr(addr)
-            .map_err(|_| UpdateError::MissingHandoffData)?;
+        let boot_state =
+            bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
         let (
             persistent_boot_preference,
             pending_persistent_boot_preference,
@@ -959,6 +964,12 @@ fn copy_from_flash_range(
     Ok(())
 }
 
+fn bootstate() -> Result<RotBootState, HandoffDataLoadError> {
+    // Safety: Data is published by stage0
+    let addr = unsafe { BOOTSTATE.assume_init_ref() };
+    RotBootState::load_from_addr(addr).map_err(|e| e.into())
+}
+
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
@@ -980,6 +991,16 @@ fn main() -> ! {
         syscon,
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
+
+    match bootstate() {
+        Ok(bs) => {
+            ringbuf_entry!(Trace::Slot(1, bs.a.version));
+            ringbuf_entry!(Trace::Slot(2, bs.b.version));
+            ringbuf_entry!(Trace::Slot(3, bs.stage0.version));
+            ringbuf_entry!(Trace::Slot(4, bs.stage0next.version));
+        }
+        Err(e) => ringbuf_entry!(Trace::NoBootstate(e)),
+    }
 
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
