@@ -4,10 +4,10 @@
 
 use abi::{ImageHeader, ImageVectors};
 use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{ImageError, ImageVersion};
 use unwrap_lite::UnwrapLite;
-use lpc55_pac::SYSCON;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 
@@ -49,7 +49,7 @@ pub struct FlashSlot {
 }
 
 impl FlashSlot {
-    pub fn new(flash: &mut Flash, slot: Range<u32>) -> FlashSlot {
+    pub fn new(flash: &mut Flash<'_>, slot: Range<u32>) -> FlashSlot {
         // Find the extent of initial programmed pages while
         // hashing all programmed pages in the flash slot.
         let mut end: Option<u32> = None;
@@ -77,18 +77,15 @@ impl FlashSlot {
     }
 
     fn is_programmed(&self, addr: &u32) -> bool {
-        return self.initial_programmed_extent.contains(addr);
+        self.initial_programmed_extent.contains(addr)
     }
 
     // True if the flash slot's span of contiguous programmed pages
     // starting at offset zero includes the given span.
     fn is_span_programmed(&self, start: u32, length: u32) -> bool {
         if let Some(end) = start.checked_add(length) {
-            if !self.is_programmed(&start) || !self.is_programmed(&end) {
-                false
-            } else {
-                true
-            }
+            self.is_programmed(&start)
+                && end <= self.initial_programmed_extent.end
         } else {
             false
         }
@@ -116,7 +113,7 @@ pub struct Image {
 
 impl Image {
     pub fn get_image_a(
-        flash: &mut Flash,
+        flash: &mut Flash<'_>,
         syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_A);
@@ -125,7 +122,7 @@ impl Image {
     }
 
     pub fn get_image_b(
-        flash: &mut Flash,
+        flash: &mut Flash<'_>,
         syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_B);
@@ -134,7 +131,7 @@ impl Image {
     }
 
     pub fn get_image_stage0(
-        flash: &mut Flash,
+        flash: &mut Flash<'_>,
         syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         let slot = FlashSlot::new(flash, FLASH_STAGE0);
@@ -143,7 +140,7 @@ impl Image {
     }
 
     pub fn get_image_stage0next(
-        flash: &mut Flash,
+        flash: &mut Flash<'_>,
         syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         // Note that Stage0Next is not XIP until it gets copied to slot Stage0.
@@ -239,7 +236,7 @@ impl Image {
             Ok(()) => {
                 img.check_signature(syscon)?;
                 Ok(img)
-            },
+            }
             Err(e) => Err(e),
         }
     }
@@ -290,7 +287,7 @@ impl Image {
         if header.magic != abi::HEADER_MAGIC {
             return Err(ImageError::BadMagic);
         }
-        Ok(&header)
+        Ok(header)
     }
 
     fn get_imageheader_total_image_len(&self) -> Result<u32, ImageError> {

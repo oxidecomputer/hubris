@@ -177,9 +177,12 @@ pub fn startup(
     // verification routines and requires its own HASHCRYPT IRQ handler.
     set_hashcrypt_rom();
 
-    let (slot_a, img_a) = images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
-    let (slot_b, img_b) = images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
-    let (slot_stage0, img_stage0) = images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
+    let (slot_a, img_a) =
+        images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
+    let (slot_b, img_b) =
+        images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0, img_stage0) =
+        images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
     let (slot_stage0next, img_stage0next) =
         images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
 
