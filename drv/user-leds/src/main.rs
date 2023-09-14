@@ -81,6 +81,7 @@ cfg_if::cfg_if! {
         target_board = "psc-a",
         target_board = "psc-b",
         target_board = "psc-c",
+        target_board = "oxcon2023g0",
     ))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
@@ -353,6 +354,10 @@ cfg_if::cfg_if! {
                     target_board = "donglet-g031"
                 ))] {
                     (drv_stm32xx_sys_api::Port::A.pin(12), true)
+                } else if #[cfg(any(
+                    target_board = "oxcon2023g0",
+                ))] {
+                    (drv_stm32xx_sys_api::Port::B.pin(7), true)
                 } else {
                     (drv_stm32xx_sys_api::Port::A.pin(5), true)
                 }
