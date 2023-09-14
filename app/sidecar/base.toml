@@ -149,7 +149,7 @@ interrupts = {"spi2.irq" = "spi-irq"}
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["h753", "itm"]
+features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
@@ -169,7 +169,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1024
@@ -178,7 +178,7 @@ task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.sensor]
 name = "task-sensor"
-features = ["itm"]
+features = []
 priority = 4
 max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1024
@@ -250,7 +250,7 @@ notifications = ["timer"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["itm", "sidecar"]
+features = ["sidecar"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 8096
@@ -260,7 +260,7 @@ notifications = ["timer"]
 
 [tasks.power]
 name = "task-power"
-features = ["itm", "sidecar"]
+features = ["sidecar"]
 priority = 6
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 2048

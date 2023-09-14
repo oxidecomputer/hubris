@@ -10,5 +10,3 @@ for use in task programs.
   binary size and worst-case stack usage. Generally this feature should only be
   set in the top-level task, _not_ in libraries.
 
-- `log-itm` / `log-semihosting`: select one of two backends for the `log!`
-  macros. If you provide neither, the log macros won't compile.

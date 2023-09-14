@@ -30,8 +30,6 @@ idol = { workspace = true }
 build-util = { path = "../../build/util" }
 
 [features]
-itm = [ "userlib/log-itm" ]
-semihosting = [ "userlib/log-semihosting" ]
 h743 = ["task-sensor-api/h743"]
 h753 = ["task-sensor-api/h753"]
 h7b3 = ["task-sensor-api/h7b3"]

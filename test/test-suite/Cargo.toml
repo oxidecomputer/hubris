@@ -24,8 +24,6 @@ build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c", optional = true }
 
 [features]
-itm = [ "userlib/log-itm" ]
-semihosting = [ "userlib/log-semihosting" ]
 i2c-devices = ["drv-i2c-api", "drv-i2c-devices", "build-i2c"]
 fru-id-eeprom = ["i2c-devices"]
 

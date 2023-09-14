@@ -452,15 +452,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cortex-m-semihosting"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c23234600452033cc77e4b761e740e02d2c4168e11dbf36ab14a0f58973592b0"
-dependencies = [
- "cortex-m",
-]
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1610,7 +1601,6 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-stm32xx-sys-api",
  "num-traits",
  "stm32g0",
@@ -4180,7 +4170,6 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "cortex-m-semihosting",
  "hubpack",
  "hubris-num-tasks",
  "humpty",
@@ -4712,7 +4701,6 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
- "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
  "test-api",
@@ -4757,7 +4745,6 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
