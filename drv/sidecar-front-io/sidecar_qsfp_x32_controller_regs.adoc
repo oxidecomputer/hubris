@@ -683,137 +683,9 @@ CONTROL_PORT15
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
-Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
+SW control of eFuse enable for ports 0 -> 7
 [caption="Address: "]
-.0x1028 - QSFP_POWER_EN0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
-[caption="Address: "]
-.0x1029 - QSFP_POWER_EN1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good
-[caption="Address: "]
-.0x102a - QSFP_POWER_GOOD0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good
-[caption="Address: "]
-.0x102b - QSFP_POWER_GOOD1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good not asserted within period after enabled
-[caption="Address: "]
-.0x102c - QSFP_POWER_GOOD_TIMEOUT0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good not asserted within period after enabled
-[caption="Address: "]
-.0x102d - QSFP_POWER_GOOD_TIMEOUT1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good lost after successful enable
-[caption="Address: "]
-.0x102e - QSFP_POWER_GOOD_LOST0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good lost after successful enable
-[caption="Address: "]
-.0x102f - QSFP_POWER_GOOD_LOST1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 Module ResetL
-[caption="Address: "]
-.0x1030 - QSFP_MOD_RESETL0 Register
+.0x1028 - QSFP_POWER_EN_CTRL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -827,9 +699,9 @@ Ports 0 -> 7 Module ResetL
 |[0] | rw | PORT0 | None
 |===
 
-Ports 8 -> 15 Module ResetL
+SW control of eFuse enable for ports 8 -> 15
 [caption="Address: "]
-.0x1031 - QSFP_MOD_RESETL1 Register
+.0x1029 - QSFP_POWER_EN_CTRL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -843,9 +715,9 @@ Ports 8 -> 15 Module ResetL
 |[0] | rw | PORT8 | None
 |===
 
-Ports 0 -> 7 Module LPMode/TxDis
+SW control of ResetL for ports 0 -> 7
 [caption="Address: "]
-.0x1032 - QSFP_MOD_LPMODE0 Register
+.0x102a - QSFP_MOD_RESETL_CTRL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -859,9 +731,9 @@ Ports 0 -> 7 Module LPMode/TxDis
 |[0] | rw | PORT0 | None
 |===
 
-Ports 8 -> 15 Module LPMode/TxDis
+SW control of ResetL for ports 8 -> 15
 [caption="Address: "]
-.0x1033 - QSFP_MOD_LPMODE1 Register
+.0x102b - QSFP_MOD_RESETL_CTRL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -875,9 +747,41 @@ Ports 8 -> 15 Module LPMode/TxDis
 |[0] | rw | PORT8 | None
 |===
 
-Ports 0 -> 7 Module ModPrsL
+SW control of LPMode/TxDis for ports 0 -> 7
 [caption="Address: "]
-.0x1034 - QSFP_MOD_MODPRSL0 Register
+.0x102c - QSFP_MOD_LPMODE_CTRL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+SW control of LPMode/TxDis for ports 8 -> 15
+[caption="Address: "]
+.0x102d - QSFP_MOD_LPMODE_CTRL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Physical eFuse enable pins of ports 0 -> 7
+[caption="Address: "]
+.0x102e - QSFP_POWER_EN_PINS0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -891,9 +795,9 @@ Ports 0 -> 7 Module ModPrsL
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 Module ModPrsL
+Physical eFuse enable pins of ports 8 -> 15
 [caption="Address: "]
-.0x1035 - QSFP_MOD_MODPRSL1 Register
+.0x102f - QSFP_POWER_EN_PINS1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -907,9 +811,9 @@ Ports 8 -> 15 Module ModPrsL
 |[0] | r | PORT8 | None
 |===
 
-Ports 0 -> 7 Module IntL/RxLOS
+Physical eFuse power good pins of ports 0 -> 7
 [caption="Address: "]
-.0x1036 - QSFP_MOD_INTL0 Register
+.0x1030 - QSFP_POWER_GOOD_PINS0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -923,9 +827,201 @@ Ports 0 -> 7 Module IntL/RxLOS
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 Module IntL/RxLOS
+Physical eFuse power good pins of ports 8 -> 15
 [caption="Address: "]
-.0x1037 - QSFP_MOD_INTL1 Register
+.0x1031 - QSFP_POWER_GOOD_PINS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 eFuse power good not asserted within period after enabled
+[caption="Address: "]
+.0x1032 - QSFP_POWER_GOOD_TIMEOUT0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 eFuse power good not asserted within period after enabled
+[caption="Address: "]
+.0x1033 - QSFP_POWER_GOOD_TIMEOUT1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 eFuse power good lost after successful enable
+[caption="Address: "]
+.0x1034 - QSFP_POWER_GOOD_LOST0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 eFuse power good lost after successful enable
+[caption="Address: "]
+.0x1035 - QSFP_POWER_GOOD_LOST1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Physical module ResetL pins of ports 0 -> 7
+[caption="Address: "]
+.0x1036 - QSFP_MOD_RESETL_PINS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Physical module ResetL pins of ports 8 -> 15
+[caption="Address: "]
+.0x1037 - QSFP_MOD_RESETL_PINS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Physical module LPMode/TxDis pins of ports 0 -> 7
+[caption="Address: "]
+.0x1038 - QSFP_MOD_LPMODE_PINS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Physical module LPMode/TxDis pins of ports 8 -> 15
+[caption="Address: "]
+.0x1039 - QSFP_MOD_LPMODE_PINS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Physical module ModPrsL pins of ports 0 -> 7
+[caption="Address: "]
+.0x103a - QSFP_MOD_MODPRSL_PINS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Physical module ModPrsL pins of ports 8 -> 15
+[caption="Address: "]
+.0x103b - QSFP_MOD_MODPRSL_PINS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Physical module IntL/RxLOS pins of ports 0 -> 7
+[caption="Address: "]
+.0x103c - QSFP_MOD_INTL_PINS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Physical module IntL/RxLOS pins of ports 8 -> 15
+[caption="Address: "]
+.0x103d - QSFP_MOD_INTL_PINS1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function

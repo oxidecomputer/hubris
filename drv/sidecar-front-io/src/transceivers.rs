@@ -753,7 +753,7 @@ impl Transceivers {
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
     pub fn enable_power(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN_CTRL0)
     }
 
     /// Clear power enable bits per the specified `mask`.
@@ -767,7 +767,7 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN_CTRL0)
     }
 
     /// Set ResetL bits per the specified `mask`.
@@ -780,7 +780,7 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_RESETL0)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_RESETL_CTRL0)
     }
 
     /// Clear ResetL bits per the specified `mask`.
@@ -790,7 +790,7 @@ impl Transceivers {
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
     pub fn assert_reset(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL0)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL_CTRL0)
     }
 
     /// Set LpMode bits per the specified `mask`.
@@ -803,7 +803,7 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_LPMODE0)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_MOD_LPMODE_CTRL0)
     }
 
     /// Clear LpMode bits per the specified `mask`.
@@ -816,7 +816,7 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE0)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE_CTRL0)
     }
 
     /// Get the current status of all low speed signals for all ports.
@@ -829,11 +829,11 @@ impl Transceivers {
     pub fn get_module_status(&self) -> (ModuleStatus, ModuleResultNoFailure) {
         let ldata: Option<[U16<byteorder::LittleEndian>; 8]> = self
             .fpga(FpgaController::Left)
-            .read(Addr::QSFP_POWER_EN0)
+            .read(Addr::QSFP_POWER_EN_PINS0)
             .ok();
         let rdata: Option<[U16<byteorder::LittleEndian>; 8]> = self
             .fpga(FpgaController::Right)
-            .read(Addr::QSFP_POWER_EN0)
+            .read(Addr::QSFP_POWER_EN_PINS0)
             .ok();
 
         let mut status_masks: [u32; 8] = [0; 8];
