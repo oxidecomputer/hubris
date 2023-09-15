@@ -142,6 +142,8 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
     let config = build_util::task_config::<toml::Value>().unwrap();
 
     let input = parse_macro_input!(tokens as Config);
+    let fields = input.items.iter();
+
     let values = input
         .items
         .iter()
@@ -158,7 +160,6 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
 
     let app_toml_path = std::env::var("HUBRIS_APP_TOML")
         .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
-    let fields = input.items.iter();
 
     // Once `proc_macro::tracked_env::var` is stable, we won't need to use
     // this hack, but until then, we include the app TOML file to force
@@ -171,6 +172,56 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
         const TASK_CONFIG: Config = Config {
             #(#values),*
         };
+    }
+    .into()
+}
+
+/// Equivalent of `task_config!` for cases where a task has optional
+/// configuration that can be replaced by defaults if required. This will
+/// generate a `TASK_CONFIG` that is of type `Option<TaskConfig>`.
+#[proc_macro]
+pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(tokens as Config);
+    let fields = input.items.iter();
+    let app_toml_path = std::env::var("HUBRIS_APP_TOML")
+        .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
+
+    let cfg_val = if let Ok(config) = build_util::task_config::<toml::Value>() {
+        let values = input
+            .items
+            .iter()
+            .map(|f| {
+                let ident = f.ident.as_ref().expect("Missing ident");
+                let v = config.get(ident.to_string()).expect(&format!(
+                    "Missing config parameter in TOML file: {}",
+                    ident.to_string()
+                ));
+                let vs = config_to_token(&f.ty, v);
+                quote! { #ident: #vs }
+            })
+            .collect::<Vec<_>>();
+
+        // Once `proc_macro::tracked_env::var` is stable, we won't need to use
+        // this hack, but until then, we include the app TOML file to force
+        // rebuilds if it changes (and trust it's optimized out by the compiler)
+        quote! {
+            Some(Config {
+                #(#values),*
+            })
+        }
+        .into()
+    } else {
+        quote! { None }
+    };
+    // Once `proc_macro::tracked_env::var` is stable, we won't need to use
+    // this hack, but until then, we include the app TOML file to force
+    // rebuilds if it changes (and trust it's optimized out by the compiler)
+    quote! {
+        const APP_TOML_TO_ENSURE_REBUILD: &[u8] = include_bytes!(#app_toml_path);
+        struct Config {
+            #(#fields),*
+        }
+        const TASK_CONFIG: Option<Config> = #cfg_val;
     }
     .into()
 }

@@ -37,6 +37,7 @@ start = true
 task-slots = ["sys"]
 stacksize = 256
 notifications = ["timer"]
+config = { blink_at_start = [ "Led::Zero" ] }
 
 [tasks.hiffy]
 name = "task-hiffy"

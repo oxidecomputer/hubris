@@ -20,7 +20,10 @@
 //!   trim off any trailing NUL bytes.
 
 #[cfg(not(feature = "nano"))]
-use core::{fmt::{Display, Write}, sync::atomic::Ordering};
+use core::{
+    fmt::{Display, Write},
+    sync::atomic::Ordering,
+};
 
 /// Flag that gets set to `true` by all failure reporting functions, giving
 /// tools a one-stop-shop for doing kernel triage.
