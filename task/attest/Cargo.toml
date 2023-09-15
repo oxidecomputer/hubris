@@ -11,11 +11,13 @@ idol-runtime = { workspace = true }
 mutable-statics = { path = "../../lib/mutable-statics" }
 num-traits = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
+salty.workspace = true
 serde = { workspace = true }
 serde_with = { version = "3.3.0", default-features = false, features = ["macros"] }
 stage0-handoff = { path = "../../lib/stage0-handoff" }
 attest-api = { path = "../attest-api" }
 attest-data.workspace = true
+sha3.workspace = true
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 zerocopy = { workspace = true }
