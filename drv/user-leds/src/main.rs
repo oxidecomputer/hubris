@@ -41,6 +41,10 @@ use enum_map::EnumMap;
 use idol_runtime::RequestError;
 use userlib::*;
 
+task_config::optional_task_config! {
+    blink_at_start: &'static [Led],
+}
+
 const BLINK_INTERVAL: u64 = 500;
 
 cfg_if::cfg_if! {
@@ -187,8 +191,14 @@ fn main() -> ! {
 
     // Handle messages.
     let mut incoming = [0u8; idl::INCOMING_SIZE];
+    let mut blinking: EnumMap<Led, bool> = Default::default();
+    if let Some(config) = TASK_CONFIG {
+        for &led in config.blink_at_start {
+            blinking[led] = true;
+        }
+    }
     let mut server = ServerImpl {
-        blinking: Default::default(),
+        blinking,
         blink_state: false,
     };
     loop {

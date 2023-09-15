@@ -1963,6 +1963,7 @@ dependencies = [
  "num-traits",
  "stm32f3",
  "stm32f4",
+ "task-config",
  "userlib",
  "zerocopy",
 ]
