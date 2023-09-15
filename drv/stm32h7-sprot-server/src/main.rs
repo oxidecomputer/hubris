@@ -172,7 +172,8 @@ fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(ROT_SPI_DEVICE);
 
-    sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None);
+    sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::Up);
+
     debug_config(&sys);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
