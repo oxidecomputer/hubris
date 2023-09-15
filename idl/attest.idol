@@ -78,5 +78,26 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "attest": (
+            doc: "Get an attestation",
+            leases: {
+                "nonce": (type: "[u8]", read: true, max_len: Some(128)),
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "attest_len": (
+            doc: "Get the length of an attestation",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )

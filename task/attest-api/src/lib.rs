@@ -24,6 +24,8 @@ pub enum AttestError {
     BadLease,
     UnsupportedAlgorithm,
     SerializeLog,
+    SerializeSignature,
+    SignatureTooBig,
 }
 
 impl From<idol_runtime::ServerDeath> for AttestError {
@@ -38,5 +40,8 @@ impl From<idol_runtime::ServerDeath> for AttestError {
 pub enum HashAlgorithm {
     Sha3_256,
 }
+
+pub const NONCE_MIN_SIZE: usize = 32;
+pub const NONCE_MAX_SIZE: usize = 128;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
