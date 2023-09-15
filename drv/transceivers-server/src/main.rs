@@ -332,6 +332,7 @@ impl ServerImpl {
     }
 
     fn update_thermal_loop(&mut self, status: ModuleStatus) {
+        #[allow(clippy::needless_range_loop)]
         for i in 0..self.thermal_models.len() {
             let port = LogicalPort(i as u8);
             let mask = 1 << i;
@@ -655,6 +656,7 @@ fn main() -> ! {
 
         // There are two timers, one for each communication bus:
         #[derive(Copy, Clone, Enum)]
+        #[allow(clippy::upper_case_acronyms)]
         enum Timers {
             I2C,
             SPI,

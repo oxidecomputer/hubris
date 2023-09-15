@@ -111,7 +111,7 @@ impl Handler {
                 size: blob_size,
             }) => {
                 let blob_size: usize = blob_size.try_into().unwrap_lite();
-                if blob_size as usize > drv_sprot_api::MAX_BLOB_SIZE {
+                if blob_size > drv_sprot_api::MAX_BLOB_SIZE {
                     // If there isn't enough room, then pack an error instead
                     Response::pack(
                         &Err(SprotError::Protocol(
@@ -125,9 +125,9 @@ impl Handler {
                             .read_raw_caboose(
                                 slot,
                                 start,
-                                &mut buf[..blob_size as usize],
+                                &mut buf[..blob_size],
                             )
-                            .map_err(|e| RspBody::Caboose(Err(e.into())))?;
+                            .map_err(|e| RspBody::Caboose(Err(e)))?;
                         Ok(blob_size)
                     }) {
                         Ok(size) => size,
@@ -182,7 +182,7 @@ impl Handler {
 
     pub fn handle_request(
         &mut self,
-        req: Request,
+        req: Request<'_>,
         stats: &mut RotIoStats,
     ) -> Result<(RspBody, Option<TrailingData>), SprotError> {
         match req.body {
@@ -195,7 +195,7 @@ impl Handler {
                 };
                 Ok((RspBody::Status(status), None))
             }
-            ReqBody::IoStats => Ok((RspBody::IoStats(stats.clone()), None)),
+            ReqBody::IoStats => Ok((RspBody::IoStats(*stats), None)),
             ReqBody::RotState => match self.update.status() {
                 Ok(state) => {
                     let msg = RotState::V1 {
@@ -240,7 +240,7 @@ impl Handler {
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
-                self.update.write_one_block(block_num as usize, &req.blob)?;
+                self.update.write_one_block(block_num as usize, req.blob)?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::Abort) => {
@@ -266,7 +266,7 @@ impl Handler {
                 CabooseReq::Size { slot } => {
                     let rsp = match self.update.caboose_size(slot) {
                         Ok(v) => Ok(CabooseRsp::Size(v)),
-                        Err(e) => Err(e.into()),
+                        Err(e) => Err(e),
                     };
                     Ok((RspBody::Caboose(rsp), None))
                 }

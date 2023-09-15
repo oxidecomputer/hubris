@@ -388,7 +388,7 @@ impl DiceMfg for SerialMfg<'_> {
 
 /// Write all bytes in buf to usart fifo, poll if fifo is full.
 /// NOTE: This does not guarantee transmission of all bytes. See flush_all.
-fn write_all(usart: &mut Usart, src: &[u8]) -> Result<(), Error> {
+fn write_all(usart: &mut Usart<'_>, src: &[u8]) -> Result<(), Error> {
     for b in src {
         let _ = nb::block!(usart.write(*b)).map_err(|_| Error::UsartWrite);
     }
@@ -398,7 +398,7 @@ fn write_all(usart: &mut Usart, src: &[u8]) -> Result<(), Error> {
 /// Poll the usart reading bytes into dst until a termination sequence is
 /// found.
 pub fn read_until_zero(
-    usart: &mut Usart,
+    usart: &mut Usart<'_>,
     dst: &mut [u8],
 ) -> Result<usize, Error> {
     if dst.is_empty() {
@@ -425,7 +425,7 @@ pub fn read_until_zero(
 
 /// Like 'flush' from embedded-hal 'Write' trait but polls till the transmit
 /// FIFO is empty.
-pub fn flush_all(usart: &mut Usart) {
+pub fn flush_all(usart: &mut Usart<'_>) {
     // flush only returns WouldBlock and nb::block eats that
     let _ = nb::block!(usart.flush());
 }

@@ -51,20 +51,16 @@ pub const CURRENT_VERSION: Version = Version(4);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
-// We add 1 byte for padding a maximum sized message to an even number of bytes
-// if necessary.
 const_assert!(
     REQUEST_BUF_SIZE
-        >= Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+        > Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE
 );
 
 /// We allow room in the buffer for message evolution
 pub const RESPONSE_BUF_SIZE: usize = 1024;
-// We add 1 byte for padding a maximum sized message to an even number of bytes
-// if necessary.
 const_assert!(
     RESPONSE_BUF_SIZE
-        >= Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+        > Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE
 );
 
 // For simplicity we want to be able to retrieve the header
@@ -420,6 +416,7 @@ pub enum AttestRsp {
 ///
 /// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
+#[allow(clippy::large_enum_variant)]
 pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
@@ -596,7 +593,7 @@ impl SpRot {
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let reader = RotCabooseReader::new(slot_id, &self)?;
+        let reader = RotCabooseReader::new(slot_id, self)?;
         let len = reader.get(key, buf)?;
         Ok(len)
     }

@@ -273,15 +273,15 @@ fn reset(
 }
 
 fn reset_needed(code: ResponseCode) -> bool {
-    match code {
+    matches!(
+        code,
         ResponseCode::BusLocked
-        | ResponseCode::BusLockedMux
-        | ResponseCode::BusReset
-        | ResponseCode::BusResetMux
-        | ResponseCode::BusError
-        | ResponseCode::ControllerBusy => true,
-        _ => false,
-    }
+            | ResponseCode::BusLockedMux
+            | ResponseCode::BusReset
+            | ResponseCode::BusResetMux
+            | ResponseCode::BusError
+            | ResponseCode::ControllerBusy
+    )
 }
 
 fn reset_if_needed(

@@ -77,7 +77,7 @@ pub fn initialize_dump_areas() -> u32 {
 /// that this will only check for containment, not overlap.)
 ///
 fn in_dump_area(address: u32, length: u32) -> bool {
-    if address < DUMP_ADDRESS_MIN || address >= DUMP_ADDRESS_MAX {
+    if !(DUMP_ADDRESS_MIN..DUMP_ADDRESS_MAX).contains(&address) {
         return false;
     }
 
@@ -291,11 +291,11 @@ pub fn dump_task_region(
     });
 
     if start & 0b11 != 0 {
-        return Err(DumpAgentError::UnalignedSegmentAddress.into());
+        return Err(DumpAgentError::UnalignedSegmentAddress);
     }
 
     if (length as usize) & 0b11 != 0 {
-        return Err(DumpAgentError::UnalignedSegmentLength.into());
+        return Err(DumpAgentError::UnalignedSegmentLength);
     }
 
     let area = dump_task_setup(base, DumpTaskContents::TaskRegion)?;

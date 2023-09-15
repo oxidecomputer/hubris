@@ -138,7 +138,7 @@ fn i2c_read(
             };
 
             let res = if let Some(reg) = register {
-                device.read_reg_into::<u8>(reg as u8, buf)
+                device.read_reg_into::<u8>(reg, buf)
             } else {
                 device.read_into(buf)
             };
@@ -152,7 +152,7 @@ fn i2c_read(
                 };
 
                 device
-                    .read_block::<u8>(reg as u8, buf)
+                    .read_block::<u8>(reg, buf)
                     .map_err(|e| Failure::FunctionError(u32::from(e)))
             } else {
                 Err(Failure::Fault(Fault::EmptyParameter(6)))

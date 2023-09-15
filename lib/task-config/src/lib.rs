@@ -12,7 +12,7 @@ struct Config {
     items: Punctuated<Field, Token![,]>,
 }
 impl Parse for Config {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         Ok(Self {
             items: input.parse_terminated(Field::parse_named)?,
         })
@@ -32,12 +32,14 @@ fn config_to_token(
         syn::Type::Tuple(a) => {
             let v: Vec<proc_macro2::TokenStream> = v
                 .as_array()
-                .expect(&format!(
-                    "Expected TOML array for tuple type {}; got {}",
-                    ty.to_token_stream().to_string(),
-                    v
-                ))
-                .into_iter()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Expected TOML array for tuple type {}; got {}",
+                        ty.to_token_stream(),
+                        v
+                    )
+                })
+                .iter()
                 .zip(a.elems.iter())
                 .map(|(v, t)| config_to_token(t, v))
                 .collect();
@@ -46,12 +48,14 @@ fn config_to_token(
         syn::Type::Array(a) => {
             let v: Vec<proc_macro2::TokenStream> = v
                 .as_array()
-                .expect(&format!(
-                    "Expected TOML array for array type {}; got {}",
-                    ty.to_token_stream().to_string(),
-                    v
-                ))
-                .into_iter()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Expected TOML array for array type {}; got {}",
+                        ty.to_token_stream(),
+                        v
+                    )
+                })
+                .iter()
                 .map(|v| config_to_token(&a.elem, v))
                 .collect();
             quote! { [ #(#v),* ] }
@@ -59,12 +63,14 @@ fn config_to_token(
         syn::Type::Slice(s) => {
             let v: Vec<proc_macro2::TokenStream> = v
                 .as_array()
-                .expect(&format!(
-                    "Expected TOML array for slice type {}; got {}",
-                    ty.to_token_stream().to_string(),
-                    v
-                ))
-                .into_iter()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Expected TOML array for slice type {}; got {}",
+                        ty.to_token_stream(),
+                        v
+                    )
+                })
+                .iter()
                 .map(|v| config_to_token(&s.elem, v))
                 .collect();
             quote! { [ #(#v),* ] }
@@ -84,10 +90,10 @@ fn config_to_token(
                 v.to_string()
             };
             v.parse()
-                .expect(&format!("Could not parse {}", v.to_string()))
+                .unwrap_or_else(|_| panic!("Could not parse {}", v))
         }
         _ => {
-            panic!("Got unhandled type {}", ty.to_token_stream().to_string())
+            panic!("Got unhandled type {}", ty.to_token_stream())
         }
     }
 }
@@ -149,10 +155,9 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
         .iter()
         .map(|f| {
             let ident = f.ident.as_ref().expect("Missing ident");
-            let v = config.get(ident.to_string()).expect(&format!(
-                "Missing config parameter in TOML file: {}",
-                ident.to_string()
-            ));
+            let v = config.get(ident.to_string()).unwrap_or_else(|| {
+                panic!("Missing config parameter in TOML file: {}", ident)
+            });
             let vs = config_to_token(&f.ty, v);
             quote! { #ident: #vs }
         })
@@ -192,10 +197,9 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
             .iter()
             .map(|f| {
                 let ident = f.ident.as_ref().expect("Missing ident");
-                let v = config.get(ident.to_string()).expect(&format!(
-                    "Missing config parameter in TOML file: {}",
-                    ident.to_string()
-                ));
+                let v = config.get(ident.to_string()).unwrap_or_else(|| {
+                    panic!("Missing config parameter in TOML file: {}", ident)
+                });
                 let vs = config_to_token(&f.ty, v);
                 quote! { #ident: #vs }
             })
@@ -209,7 +213,6 @@ pub fn optional_task_config(tokens: TokenStream) -> TokenStream {
                 #(#values),*
             })
         }
-        .into()
     } else {
         quote! { None }
     };

@@ -19,7 +19,7 @@ struct TaskConfig {
 fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("swd.rs");
-    let mut file = std::fs::File::create(&dest_path)?;
+    let mut file = std::fs::File::create(dest_path)?;
 
     let out_cfg = &config.out_cfg;
     let in_cfg = &config.in_cfg;
@@ -53,7 +53,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
                 use drv_lpc55_gpio_api::*;
 
                 let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#out_cfg);
-                let base = iocon_base + 4 * (pin as u32);
+                let base = iocon_base + 4 * pin;
                 unsafe {
                     core::ptr::write_volatile(base as *mut u32, conf);
                 }
@@ -67,7 +67,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
             {
                 use drv_lpc55_gpio_api::*;
                 let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#in_cfg);
-                let base = iocon_base + 4 * (pin as u32);
+                let base = iocon_base + 4 * pin;
                 unsafe {
                     core::ptr::write_volatile(base as *mut u32, conf);
                 }

@@ -456,10 +456,10 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
 
             // S0-S31
             | 0b1000000..=0b1011111 => Ok::<u16, SpCtrlError>(register),
-            _ => Err(SpCtrlError::InvalidCoreRegister.into())
+            _ => Err(SpCtrlError::InvalidCoreRegister)
         }?;
 
-        if let Err(_) = self.write_single_target_addr(DCRSR, r as u32) {
+        if self.write_single_target_addr(DCRSR, r as u32).is_err() {
             return Err(SpCtrlError::Fault.into());
         }
 
@@ -674,7 +674,7 @@ impl ServerImpl {
     }
 
     fn write_word(&mut self, val: u32) {
-        let parity: u32 = if val.count_ones() % 2 == 0 { 0 } else { 1 };
+        let parity: u32 = u32::from(val.count_ones() % 2 != 0);
 
         let rev = val.reverse_bits();
 

@@ -42,7 +42,7 @@ fn main() -> Result<()> {
             writeln!(
                 out,
                 "    ({task}::{name}, crate::notifications::{name}::{}_MASK),",
-                rec.to_ascii_uppercase().replace("-", "_"),
+                rec.to_ascii_uppercase().replace('-', "_"),
             )?;
         }
         writeln!(out, "];")?;
@@ -97,7 +97,7 @@ struct DumpRegion {
 fn output_dump_areas(out: &mut std::fs::File) -> Result<()> {
     let dump_regions = build_util::task_extern_regions::<DumpRegion>()?;
 
-    if dump_regions.len() == 0 {
+    if dump_regions.is_empty() {
         anyhow::bail!(
             "jefe is configured for dumping, but no dump regions have been \
             specified via extern_regions"

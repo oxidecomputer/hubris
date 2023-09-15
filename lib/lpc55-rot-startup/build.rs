@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(
             cfg,
             "#[allow(dead_code)]\npub const FLASH_{}: Range<u32> = {:#x}..{:#x};",
-            region.name.replace("-", "_").to_uppercase(),
+            region.name.replace('-', "_").to_uppercase(),
             region.address,
             region.address + region.size
         )?;

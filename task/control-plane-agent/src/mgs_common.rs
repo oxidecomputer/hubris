@@ -166,7 +166,7 @@ impl MgsCommon {
                         .map_err(caboose_to_sp_error)?;
                     Ok(len as usize)
                 }
-                _ => return Err(SpError::InvalidSlotForComponent),
+                _ => Err(SpError::InvalidSlotForComponent),
             },
             SpComponent::ROT => {
                 let slot_id = slot
@@ -178,7 +178,7 @@ impl MgsCommon {
                     .map_err(caboose_or_sprot_to_sp_error)?;
                 Ok(len as usize)
             }
-            _ => return Err(SpError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -291,7 +291,7 @@ impl MgsCommon {
                 };
                 Ok(slot)
             }
-            _ => return Err(SpError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -322,7 +322,7 @@ impl MgsCommon {
             // enables SwitchDuration::Once.
             //
             // Other components might also be served someday.
-            _ => return Err(SpError::RequestUnsupportedForComponent),
+            _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
 

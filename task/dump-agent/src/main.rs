@@ -53,11 +53,11 @@ impl ServerImpl {
         length: u32,
     ) -> Result<(), DumpAgentError> {
         if addr & 0b11 != 0 {
-            return Err(DumpAgentError::UnalignedSegmentAddress.into());
+            return Err(DumpAgentError::UnalignedSegmentAddress);
         }
 
         if (length as usize) & 0b11 != 0 {
-            return Err(DumpAgentError::UnalignedSegmentLength.into());
+            return Err(DumpAgentError::UnalignedSegmentLength);
         }
 
         let area = self.dump_area(0)?;
@@ -106,8 +106,12 @@ impl ServerImpl {
             let base = area.region.address as *const u8;
             let base = unsafe { base.add(offset as usize) };
 
-            for i in 0..usize::min(to_read as usize, DUMP_READ_SIZE) {
-                rval[i] = unsafe { core::ptr::read_volatile(base.add(i)) };
+            for (i, entry) in rval
+                .iter_mut()
+                .enumerate()
+                .take(usize::min(to_read as usize, DUMP_READ_SIZE))
+            {
+                *entry = unsafe { core::ptr::read_volatile(base.add(i)) };
             }
 
             Ok(rval)
@@ -152,7 +156,7 @@ impl ServerImpl {
 
         match sprot.dump(area.region.address) {
             Err(DumpOrSprotError::Dump(e)) => Err(e.into()),
-            Err(_) => Err(DumpAgentError::DumpMessageFailed.into()),
+            Err(_) => Err(DumpAgentError::DumpMessageFailed),
             Ok(()) => Ok(()),
         }
     }

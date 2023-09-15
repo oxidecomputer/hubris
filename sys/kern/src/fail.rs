@@ -89,7 +89,7 @@ impl Write for Eulogist {
         let s = s.as_bytes();
         let n = s.len().min(self.dest.len());
         let (dest, leftovers) = {
-            let taken = core::mem::replace(&mut self.dest, &mut []);
+            let taken = core::mem::take(&mut self.dest);
             taken.split_at_mut(n)
         };
         dest.copy_from_slice(&s[..n]);

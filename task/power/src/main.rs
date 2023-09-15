@@ -802,7 +802,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
                 if phase < phases.len() {
                     return match dev.read_phase_current(Phase(phases[phase])) {
-                        Err(e) => Err(ResponseCode::from(e).into()),
+                        Err(e) => Err(e.into()),
                         Ok(val) => Ok(val.0),
                     };
                 }

@@ -185,17 +185,17 @@ fn read_config_inner(
     chunk
         .read_exact(0, &mut out[..chunk_len])
         .map_err(VpdError::ErrorOnRead)?;
-    return Ok(chunk_len);
+    Ok(chunk_len)
 }
 
 /// Searches for a single tag, which may appear multiple times
 ///
 /// Returns the `index`'th chunk with a matching tag.
-fn get_chunk_for_tag<'a, 'b>(
-    mut reader: TlvcReader<EepromReader<'b>>,
+fn get_chunk_for_tag(
+    mut reader: TlvcReader<EepromReader<'_>>,
     tag: [u8; 4],
     index: usize,
-) -> Result<ChunkHandle<EepromReader<'b>>, VpdError> {
+) -> Result<ChunkHandle<EepromReader<'_>>, VpdError> {
     let mut count = 0;
     loop {
         match reader.next() {

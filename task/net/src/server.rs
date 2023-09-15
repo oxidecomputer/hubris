@@ -530,6 +530,7 @@ where
             let socket = vlan
                 .get_socket_mut(socket_index)
                 .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+            #[allow(clippy::while_let_loop)]
             loop {
                 match socket.recv() {
                     Ok((body, endp)) => {

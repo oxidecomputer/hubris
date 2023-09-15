@@ -31,7 +31,7 @@ const ROM_VER: u32 = 1;
 // them to apply for now while we write that memory.
 fn apply_memory_protection(mpu: &MPU) {
     unsafe {
-        disable_mpu(&mpu);
+        disable_mpu(mpu);
     }
 
     const USB_RAM_BASE: u32 = 0x4010_0000;
@@ -59,7 +59,7 @@ fn apply_memory_protection(mpu: &MPU) {
     }
 
     unsafe {
-        enable_mpu(&mpu, true);
+        enable_mpu(mpu, true);
     }
 }
 
@@ -164,7 +164,7 @@ pub fn startup(
     apply_memory_protection(mpu);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&handoff, &peripherals, &mut flash);
+    dice::run(&handoff, peripherals, &mut flash);
 
     nuke_stack();
 
@@ -192,7 +192,7 @@ pub fn startup(
 
     // This is purposely done as the very last step after all validation
     // and secret clearing has happened
-    enable_debug(&peripherals);
+    enable_debug(peripherals);
 }
 
 // When we're secure we don't have access to read the CMPA/NMPA where the
