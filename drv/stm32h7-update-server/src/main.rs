@@ -171,8 +171,7 @@ impl<'a> ServerImpl<'a> {
         // SAFETY: these are symbols populated by the linker.
         let bank_addr = unsafe { __REGION_BANK2_BASE.as_ptr() } as usize;
         let bank_end = unsafe { __REGION_BANK2_END.as_ptr() } as usize;
-        let bank_word_limit =
-            (bank_end - bank_addr) as usize / FLASH_WORD_BYTES;
+        let bank_word_limit = (bank_end - bank_addr) / FLASH_WORD_BYTES;
 
         if word_number > bank_word_limit {
             panic!();

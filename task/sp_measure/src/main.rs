@@ -55,7 +55,7 @@ fn main() -> ! {
                 panic!();
             }
 
-            sha.update(&data);
+            sha.update(data);
         }
 
         let sha_out = sha.finalize();

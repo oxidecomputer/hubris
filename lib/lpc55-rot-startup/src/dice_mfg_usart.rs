@@ -106,7 +106,10 @@ impl DiceState {
         Ok(state)
     }
 
-    pub fn to_flash(&self, flash: &mut Flash) -> Result<usize, DiceStateError> {
+    pub fn to_flash(
+        &self,
+        flash: &mut Flash<'_>,
+    ) -> Result<usize, DiceStateError> {
         let mut buf = [0u8; Self::ALIGNED_MAX_SIZE];
 
         let header = Header::default();
@@ -132,9 +135,9 @@ impl DiceState {
         Ok(offset)
     }
 
-    pub fn is_programmed(flash: &mut Flash) -> bool {
+    pub fn is_programmed(flash: &mut Flash<'_>) -> bool {
         flash.is_page_range_programmed(
-            FLASH_DICE_MFG.start as u32,
+            FLASH_DICE_MFG.start,
             flash_page_align!(Header::MAX_SIZE + Self::MAX_SIZE) as u32,
         )
     }
@@ -154,7 +157,7 @@ fn delay() {
 /// manufacturing line.
 fn gen_artifacts_from_mfg(
     peripherals: &Peripherals,
-    flash: &mut Flash,
+    flash: &mut Flash<'_>,
 ) -> MfgResult {
     let puf = Puf::new(&peripherals.PUF);
 
@@ -251,7 +254,7 @@ fn gen_artifacts_from_flash(peripherals: &Peripherals) -> MfgResult {
 
 pub fn gen_mfg_artifacts_usart(
     peripherals: &Peripherals,
-    flash: &mut Flash,
+    flash: &mut Flash<'_>,
 ) -> MfgResult {
     if DiceState::is_programmed(flash) {
         gen_artifacts_from_flash(peripherals)

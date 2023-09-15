@@ -40,7 +40,9 @@ jobs:
 
       # install rust toolchain
       - name: Install Rust toolchain
-        run: rustup show
+        run: |
+          rustup show
+          rustup component add clippy
 
       - name: Cache build output
         uses: Swatinem/rust-cache@v2
@@ -80,6 +82,11 @@ jobs:
               mv target/${{ inputs.app_name }}/dist/$image/build-${{ inputs.app_name }}-image-$image.zip target/${{ inputs.app_name }}/dist/; \
               target/release/humility -a target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-$image.zip manifest; \
           done
+
+      - name: Clippy
+        if: inputs.os == 'ubuntu-latest'
+        run: |
+          cargo xtask clippy ${{ inputs.app_toml}} -- --deny warnings
 
       # upload the output of our build
       - name: Upload build archive

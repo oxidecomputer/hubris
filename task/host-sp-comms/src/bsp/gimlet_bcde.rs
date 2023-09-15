@@ -631,7 +631,7 @@ impl ServerImpl {
                     }
                 })?;
             }
-            Ok(&data)
+            Ok(data)
         });
     }
 
@@ -684,19 +684,15 @@ impl ServerImpl {
                 vpd_identity,
                 fans: [fan0, fan1, fan2]
             } = &mut data else { unreachable!(); };
-            *identity = read_one_barcode(dev.clone(), &[(*b"BARC", 0)])?.into();
+            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
             *vpd_identity =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 0)])?
-                    .into();
+                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 0)])?.into();
             *fan0 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 1)])?
-                    .into();
+                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?.into();
             *fan1 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 2)])?
-                    .into();
+                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?.into();
             *fan2 =
-                read_one_barcode(dev.clone(), &[(*b"SASY", 0), (*b"BARC", 3)])?
-                    .into();
+                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?.into();
             Ok(&data)
         })
     }
@@ -707,7 +703,7 @@ fn read_one_barcode(
     dev: I2cDevice,
     path: &[([u8; 4], usize)],
 ) -> Result<oxide_barcode::VpdIdentity, InventoryDataResult> {
-    let eeprom = At24Csw080::new(dev.clone());
+    let eeprom = At24Csw080::new(dev);
     let mut barcode = [0; 32];
     match drv_oxide_vpd::read_config_nested_from_into(
         eeprom,

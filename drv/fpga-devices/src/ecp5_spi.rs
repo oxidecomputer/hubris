@@ -62,7 +62,8 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     }
 
     fn set_program_n(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.program_n, asserted))
+        self.sys.gpio_set_to(self.program_n, asserted);
+        Ok(())
     }
 
     fn init_n(&self) -> Result<bool, Self::Error> {
@@ -70,7 +71,8 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     }
 
     fn set_init_n(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.init_n, !asserted))
+        self.sys.gpio_set_to(self.init_n, !asserted);
+        Ok(())
     }
 
     fn done(&self) -> Result<bool, Self::Error> {
@@ -78,7 +80,8 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     }
 
     fn set_done(&self, asserted: bool) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.done, asserted))
+        self.sys.gpio_set_to(self.done, asserted);
+        Ok(())
     }
 
     fn user_design_reset_n(&self) -> Result<bool, Self::Error> {
@@ -89,7 +92,8 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
         &self,
         asserted: bool,
     ) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.user_design_reset_n, asserted))
+        self.sys.gpio_set_to(self.user_design_reset_n, asserted);
+        Ok(())
     }
 
     fn user_design_reset_duration(&self) -> u64 {
@@ -97,11 +101,13 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     }
 
     fn configuration_read(&self, data: &mut [u8]) -> Result<(), Self::Error> {
-        Ok(self.configuration_port.read(data)?)
+        self.configuration_port.read(data)?;
+        Ok(())
     }
 
     fn configuration_write(&self, data: &[u8]) -> Result<(), Self::Error> {
-        Ok(self.configuration_port.write(data)?)
+        self.configuration_port.write(data)?;
+        Ok(())
     }
 
     fn configuration_write_command(
@@ -109,15 +115,18 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
         c: Command,
     ) -> Result<(), Self::Error> {
         let buffer: [u8; 4] = [c as u8, 0, 0, 0];
-        Ok(self.configuration_port.write(&buffer)?)
+        self.configuration_port.write(&buffer)?;
+        Ok(())
     }
 
     fn configuration_lock(&self) -> Result<(), Self::Error> {
-        Ok(self.configuration_port.lock(spi_api::CsState::Asserted)?)
+        self.configuration_port.lock(spi_api::CsState::Asserted)?;
+        Ok(())
     }
 
     fn configuration_release(&self) -> Result<(), Self::Error> {
-        Ok(self.configuration_port.release()?)
+        self.configuration_port.release()?;
+        Ok(())
     }
 }
 

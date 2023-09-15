@@ -34,6 +34,7 @@ fn main() -> ! {
     rcc.pllsyscfgr.write(|w| {
         unsafe {
             w.pllsrc().bits(0b10); // HSI16, I promise
+            #[allow(clippy::eq_op)]
             w.pllm().bits(1 - 1);
             w.plln().bits(8); // _not_ an n-1 field
             w.pllr().bits(2 - 1);

@@ -400,7 +400,7 @@ impl ServerImpl {
         if addr as usize / SECTOR_SIZE_BYTES == 0
             && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
         {
-            return Err(HfError::Sector0IsReserved.into());
+            return Err(HfError::Sector0IsReserved);
         }
         self.check_muxed_to_sp()?;
         self.set_and_check_write_enable()?;

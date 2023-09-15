@@ -264,6 +264,7 @@ impl Validate<ResponseCode> for Ltc4282 {
         // naturally need to change.)  We deliberately do not depend on the
         // mode settings because these can be strapped to different values.
         //
+        #[allow(clippy::bool_comparison)]
         Ok(control.on_fault_mask() == true
             && control.on_delay() == false
             && control.on_enb() == true

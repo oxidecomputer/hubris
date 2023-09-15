@@ -328,10 +328,7 @@ impl<'a> Puf<'a> {
     }
 
     fn is_locked(&self, idxblk: u32) -> bool {
-        match self.get_lock_state(idxblk) {
-            Some(LockState::Locked) => true,
-            _ => false,
-        }
+        matches!(self.get_lock_state(idxblk), Some(LockState::Locked))
     }
 
     pub fn is_idxblk_l_locked(&self) -> bool {

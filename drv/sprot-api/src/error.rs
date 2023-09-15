@@ -142,11 +142,15 @@ impl SprotError {
         match *self {
             SprotError::Protocol(err) => {
                 use SprotProtocolError::*;
-                match err {
-                    InvalidCrc | FlowError | Timeout | TaskRestarted
-                    | Deserialization | Desynchronized => true,
-                    _ => false,
-                }
+                matches!(
+                    err,
+                    InvalidCrc
+                        | FlowError
+                        | Timeout
+                        | TaskRestarted
+                        | Deserialization
+                        | Desynchronized
+                )
             }
             _ => false,
         }
@@ -186,7 +190,7 @@ impl From<SprotError> for RequestError<DumpOrSprotError> {
 
 impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
     fn from(err: DumpOrSprotError) -> Self {
-        Err(RequestError::Runtime(err.into()))
+        Err(RequestError::Runtime(err))
     }
 }
 

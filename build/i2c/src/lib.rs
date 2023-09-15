@@ -1008,6 +1008,7 @@ impl ConfigGenerator {
             &mut self.output,
             r##"
         #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
         pub fn lookup_controller(index: usize) -> Option<Controller> {{
             match index {{"##
         )?;
@@ -1038,6 +1039,7 @@ impl ConfigGenerator {
             &mut self.output,
             r##"
         #[allow(dead_code)]
+        #[allow(clippy::match_single_binding)]
         pub fn lookup_port(index: usize) -> Option<PortIndex> {{
             match index {{"##
         )?;
@@ -1219,6 +1221,7 @@ impl ConfigGenerator {
         }}
 
         #[allow(unused_variables)]
+        #[allow(clippy::match_single_binding)]
         pub fn validate(
             task: TaskId,
             index: usize,

@@ -201,7 +201,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         self.nerrors
             .get(id)
             .cloned()
-            .ok_or(SensorApiError::InvalidSensor.into())
+            .ok_or_else(|| SensorApiError::InvalidSensor.into())
     }
 }
 

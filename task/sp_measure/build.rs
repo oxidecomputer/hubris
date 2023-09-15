@@ -17,7 +17,7 @@ const TEST_SIZE: usize = 0x0010_0000;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("expected.rs");
-    let mut file = std::fs::File::create(&dest_path)?;
+    let mut file = std::fs::File::create(dest_path)?;
 
     let task_config = build_util::task_config::<TaskConfig>()?;
 

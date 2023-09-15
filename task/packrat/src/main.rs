@@ -161,7 +161,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         macs: MacAddressBlock,
     ) -> Result<(), RequestError<CacheSetError>> {
-        Self::set_once(&mut self.mac_address_block, macs).map_err(Into::into)
+        Self::set_once(self.mac_address_block, macs).map_err(Into::into)
     }
 
     fn get_identity(
@@ -177,7 +177,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         identity: VpdIdentity,
     ) -> Result<(), RequestError<CacheSetError>> {
-        Self::set_once(&mut self.identity, identity).map_err(Into::into)
+        Self::set_once(self.identity, identity).map_err(Into::into)
     }
 
     #[cfg(feature = "gimlet")]

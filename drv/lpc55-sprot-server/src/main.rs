@@ -283,8 +283,12 @@ impl Io {
                 }
                 let upper = (read >> 8) as u8;
                 let lower = read as u8;
-                rx.next().map(|b| *b = upper);
-                rx.next().map(|b| *b = lower);
+                if let Some(b) = rx.next() {
+                    *b = upper;
+                }
+                if let Some(b) = rx.next() {
+                    *b = lower;
+                }
             }
             Ok(())
         };

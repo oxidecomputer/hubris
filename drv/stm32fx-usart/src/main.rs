@@ -130,7 +130,7 @@ fn main() -> ! {
                     let txe = usart.sr.read().txe().bit();
                     if txe {
                         // TX register empty. Do we need to send something?
-                        step_transmit(&usart, txref);
+                        step_transmit(usart, txref);
                     }
 
                     sys_irq_control(notifications::USART_IRQ_MASK, true);
@@ -241,7 +241,7 @@ fn step_transmit(
         state: &mut Option<Transmit>,
     ) -> hl::Caller<()> {
         usart.cr1.modify(|_, w| w.txeie().disabled());
-        core::mem::replace(state, None).unwrap().caller
+        state.take().unwrap().caller
     }
 
     let txs = if let Some(txs) = tx { txs } else { return };

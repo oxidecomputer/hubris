@@ -338,11 +338,11 @@ impl Spi {
     ///
     /// Mixing and matching different frame sizes is not recommended.
     pub fn read_u16(&mut self) -> u16 {
-        self.reg.fiford.read().rxdata().bits() as u16
+        self.reg.fiford.read().rxdata().bits()
     }
 
     pub fn read_u16_with_sot(&self) -> (u16, bool) {
         let reader = self.reg.fiford.read();
-        (reader.rxdata().bits() as u16, reader.sot().bit_is_set())
+        (reader.rxdata().bits(), reader.sot().bit_is_set())
     }
 }
