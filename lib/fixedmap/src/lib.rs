@@ -75,7 +75,7 @@ impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
             }
         }
 
-        panic!("FixedMap overflow");
+        panic!();
     }
 
     ///
