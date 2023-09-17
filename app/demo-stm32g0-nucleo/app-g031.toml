@@ -54,7 +54,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 task-slots = ["sys"]
 stacksize = 912
-features = ["stm32g0", "gpio", "micro"]
+features = ["stm32g0", "gpio", "micro", "send"]
 
 [tasks.idle]
 name = "task-idle"

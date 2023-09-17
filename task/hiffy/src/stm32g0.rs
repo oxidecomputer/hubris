@@ -3,9 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use hif::*;
+#[cfg(feature = "send")]
 use hubris_num_tasks::Task;
 
-#[cfg(any(feature = "gpio"))]
+#[cfg(any(feature = "gpio", feature = "i2c"))]
 use userlib::*;
 
 #[cfg(feature = "gpio")]
@@ -27,8 +28,11 @@ pub struct Buffer(u8);
 //
 pub enum Functions {
     Sleep(u16, u32),
+    #[cfg(feature = "send")]
     Send((Task, u16, Buffer, usize), u32),
+    #[cfg(feature = "send")]
     SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    #[cfg(feature = "send")]
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "i2c")]
     I2cRead(
@@ -455,8 +459,11 @@ fn gpio_configure(
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
+    #[cfg(feature = "send")]
     crate::common::send,
+    #[cfg(feature = "send")]
     crate::common::send_lease_read,
+    #[cfg(feature = "send")]
     crate::common::send_lease_write,
     #[cfg(feature = "i2c")]
     i2c_read,
