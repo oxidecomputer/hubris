@@ -13,8 +13,8 @@ use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
     sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
-    sys_recv, sys_recv_closed, sys_recv_open, sys_reply, sys_set_timer,
-    BorrowInfo, ClosedRecvError, FromPrimitive,
+    sys_recv, sys_recv_closed, sys_recv_open, sys_reply, sys_reply_fault,
+    sys_set_timer, BorrowInfo, ClosedRecvError, FromPrimitive,
 };
 
 const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;
@@ -94,14 +94,18 @@ pub fn recv<'a, O, E, S>(
     if rm.sender == TaskId::KERNEL {
         notify(state, rm.operation);
     } else if let Some(op) = O::from_u32(rm.operation) {
-        let m = Message {
-            buffer: &buffer[..rm.message_len],
-            sender: rm.sender,
-            response_capacity: rm.response_capacity,
-            lease_count: rm.lease_count,
-        };
-        if let Err(e) = msg(state, op, m) {
-            sys_reply(sender, e.into(), &[]);
+        if let Some(buffer) = buffer.get(..rm.message_len) {
+            let m = Message {
+                buffer,
+                sender: rm.sender,
+                response_capacity: rm.response_capacity,
+                lease_count: rm.lease_count,
+            };
+            if let Err(e) = msg(state, op, m) {
+                sys_reply(sender, e.into(), &[]);
+            }
+        } else {
+            sys_reply_fault(sender, abi::ReplyFaultReason::BadMessageSize);
         }
     } else {
         sys_reply(sender, 1, &[]);
