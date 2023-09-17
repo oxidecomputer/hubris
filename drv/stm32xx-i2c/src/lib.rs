@@ -25,10 +25,23 @@ pub type Isr = device::i2c3::isr::R;
 #[cfg(feature = "g031")]
 use stm32g0::stm32g031 as device;
 
-#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
+#[cfg(feature = "g030")]
+use stm32g0::stm32g030 as device;
+
+#[cfg(any(
+    feature = "h743",
+    feature = "h753",
+    feature = "g031",
+    feature = "g030"
+))]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
-#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
+#[cfg(any(
+    feature = "h743",
+    feature = "h753",
+    feature = "g031",
+    feature = "g030"
+))]
 pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
@@ -291,7 +304,7 @@ impl I2cController<'_> {
                     .scldel().bits(scldel)
                     .sdadel().bits(0)
                 });
-            } else if #[cfg(feature = "g031")] {
+            } else if #[cfg(any(feature = "g031", feature = "g030"))] {
                 // On the G0, our APB peripheral clock is 16MHz, yielding:
                 //
                 // - A PRESC of 0, yielding a t_presc of 62 ns
@@ -339,7 +352,7 @@ impl I2cController<'_> {
                     .timeouta().bits(3417)          // Timeout value
                     .tidle().clear_bit()            // Want SCL, not IDLE
                 });
-            } else if #[cfg(feature = "g031")] {
+            } else if #[cfg(any(feature = "g030", feature = "g031"))] {
                 i2c.timeoutr.write(|w| { w
                     .timouten().set_bit()           // Enable SCL timeout
                     .timeouta().bits(196)           // Timeout value

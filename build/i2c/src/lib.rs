@@ -650,7 +650,9 @@ impl ConfigGenerator {
         use stm32h7::stm32h7b3 as device;
 
         #[cfg(feature = "g031")]
-        use stm32g0::stm32g031 as device;"##
+        use stm32g0::stm32g031 as device;
+        #[cfg(feature = "g030")]
+        use stm32g0::stm32g030 as device;"##
             )?;
         }
 

@@ -6,7 +6,7 @@ board = "oxcon2023g0"
 
 [kernel]
 name = "oxcon2023g0"
-requires = {flash = 10752, ram = 1200}
+requires = {flash = 11008, ram = 1296}
 stacksize = 640
 
 [tasks.jefe]
@@ -24,7 +24,7 @@ priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio", "system_flash"]
 start = true
-features = ["g031"]
+features = ["g030"]
 stacksize = 256
 task-slots = ["jefe"]
 
@@ -48,9 +48,32 @@ task-slots = ["sys"]
 stacksize = 912
 features = ["stm32g0", "gpio", "micro"]
 
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+features = ["g030"]
+priority = 2
+max-sizes = {flash = 16384, ram = 1024}
+uses = ["i2c1"]
+start = true
+task-slots = ["sys"]
+stacksize = 896
+notifications = ["i2c1-irq"]
+
+[tasks.i2c_driver.interrupts]
+"i2c1.irq" = "i2c1-irq"
+
 [tasks.idle]
 name = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64
 start = true
+
+[config]
+[[config.i2c.controllers]]
+controller = 1
+
+[config.i2c.controllers.ports.A]
+scl.pin = 11
+sda.pin = 10
+af = 6
