@@ -585,7 +585,7 @@ fn configure_port(
 /// [0] Analog Devices. AN-686: Implementing an I2C Reset. 2003.
 ///
 fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
-    let mut wiggles = 0;
+    let mut wiggles = 0_u8;
     sys.gpio_set(scl);
 
     sys.gpio_configure_output(
@@ -618,7 +618,7 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
             //
             sys.gpio_reset(scl);
             sys.gpio_set(scl);
-            wiggles += 1;
+            wiggles = wiggles.wrapping_add(1);
         } else {
             //
             // SDA is high. We're going to flip it back to an output, pull the
