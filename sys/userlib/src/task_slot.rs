@@ -20,15 +20,12 @@ pub struct TaskSlot(VolatileConst<u16>);
 impl TaskSlot {
     /// A TaskSlot that has not been resolved by a later processing step.
     ///
-    /// Calling get_task_id() on an unbound TaskSlot will panic.
+    /// Calling get_task_id() on an unbound TaskSlot will cause a fault from the
+    /// kernel.
     pub const UNBOUND: Self = Self(VolatileConst::new(TaskId::UNBOUND.0));
 
     pub fn get_task_id(&self) -> TaskId {
         let task_index = self.get_task_index();
-
-        if task_index == TaskId::UNBOUND.0 {
-            panic!("Attempted to get task id of unbound TaskSlot");
-        }
 
         let prototype =
             TaskId::for_index_and_gen(task_index.into(), Generation::default());
