@@ -9,6 +9,7 @@
 
 use abi::TaskId;
 use core::marker::PhantomData;
+use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
@@ -464,5 +465,10 @@ pub fn sleep_for(ticks: u64) {
     // `sleep_for(x)` will sleep for at least `x` full ticks. Note that the task
     // calling `sleep_for` may get woken arbitrarily later if preempted by
     // higher priority tasks, so at-least is generally the best we can do.
-    sleep_until(sys_get_timer().now + ticks + 1)
+    let deadline = sys_get_timer()
+        .now
+        .checked_add(ticks)
+        .and_then(|t| t.checked_add(1))
+        .unwrap_lite();
+    sleep_until(deadline)
 }
