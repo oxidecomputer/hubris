@@ -441,9 +441,8 @@ impl I2cController<'_> {
         // failure mode for a condition expected to be unusual.)
         //
         const BUSY_SLEEP_THRESHOLD: u32 = 300;
-        let mut laps = 0;
 
-        loop {
+        for lap in 0..=BUSY_SLEEP_THRESHOLD + 1 {
             let isr = i2c.isr.read();
             ringbuf_entry!(Trace::WaitISR(isr.bits()));
 
@@ -454,20 +453,17 @@ impl I2cController<'_> {
             // up to the controller, the timeout flag is set, we clear it and
             // ignore it -- we know that it's spurious.
             //
-            if laps == 0 && isr.timeout().is_timeout() {
+            if lap == 0 && isr.timeout().is_timeout() {
                 i2c.icr.write(|w| w.timoutcf().set_bit());
             }
 
             if !isr.busy().is_busy() {
-                break;
+                return Ok(());
             }
 
             self.check_errors(&isr)?;
 
-            laps += 1;
-
-            #[allow(clippy::comparison_chain)] // clippy misfire
-            if laps == BUSY_SLEEP_THRESHOLD {
+            if lap == BUSY_SLEEP_THRESHOLD {
                 //
                 // If we have taken BUSY_SLEEP_THRESHOLD laps, we are going to
                 // sleep for two ticks -- which should be far greater than the
@@ -475,21 +471,19 @@ impl I2cController<'_> {
                 //
                 ringbuf_entry!(Trace::BusySleep);
                 hl::sleep_for(2);
-            } else if laps > BUSY_SLEEP_THRESHOLD {
-                //
-                // We have already taken BUSY_SLEEP_THRESHOLD laps AND a two
-                // tick sleep -- and the busy bit is still set.  At this point,
-                // we need to return an error indicating that we need to reset
-                // the controller.  We return a disjoint error code here to
-                // be able to know that we hit this condition rather than our
-                // more expected conditions on bus lockup (namely, a timeout
-                // or arbitration lost).
-                //
-                return Err(drv_i2c_api::ResponseCode::ControllerBusy);
             }
+            // On lap == BUSY_SLEEP_THRESHOLD + 1 we'll fall out.
         }
 
-        Ok(())
+        //
+        // We have already taken BUSY_SLEEP_THRESHOLD laps AND a two tick sleep
+        // -- and the busy bit is still set.  At this point, we need to return
+        // an error indicating that we need to reset the controller.  We return
+        // a disjoint error code here to be able to know that we hit this
+        // condition rather than our more expected conditions on bus lockup
+        // (namely, a timeout or arbitration lost).
+        //
+        Err(drv_i2c_api::ResponseCode::ControllerBusy)
     }
 
     /// Perform a write to and then a read from the specified device.  Either
