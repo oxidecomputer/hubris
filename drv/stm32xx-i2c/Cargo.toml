@@ -29,3 +29,6 @@ amd_erratum_1394 = []
 test = false
 doctest = false
 bench = false
+
+[build-dependencies]
+build-util = { path = "../../build/util" }

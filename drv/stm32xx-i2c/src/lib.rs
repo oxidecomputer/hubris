@@ -237,6 +237,11 @@ impl I2cController<'_> {
     }
 
     fn configure_timing(&self, i2c: &RegisterBlock) {
+        // TODO: this configuration mechanism is getting increasingly hairy. It
+        // generally assumes that a given processor runs at a given speed on all
+        // boards, which is not at all true. As of recently it's now doing a
+        // hybrid of "CPU model" and "board name" sensing. Should move to
+        // configuration!
         cfg_if::cfg_if! {
             if #[cfg(feature = "h7b3")] {
                 // We want to set our timing to achieve a 100kHz SCL. Given
@@ -302,6 +307,25 @@ impl I2cController<'_> {
                     .sclh().bits(118)
                     .scll().bits(127)
                     .scldel().bits(scldel)
+                    .sdadel().bits(0)
+                });
+            } else if #[cfg(target_board = "oxcon2023g0")] {
+                // This board runs at 64 MHz, yielding:
+                //
+                // - A PRESC of 4, yielding a t_presc of 62 ns
+                // - An SCLH of 61, yielding a t_sclh of 3844 ns
+                // - An SCLL of 91, yielding a t_scll of 5704 ns
+                //
+                // Taken together, this yields a t_scl of 9548 ns.  Which,
+                // when added to our t_sync1 and t_sync2 will be close to our
+                // target of 10000 ns.  Finally, we set SCLDEL to 3 and SDADEL
+                // to 0 -- values that come from the STM32CubeMX tool (as
+                // advised by 47.4.5).
+                i2c.timingr.write(|w| { w
+                    .presc().bits(4)
+                    .sclh().bits(61)
+                    .scll().bits(91)
+                    .scldel().bits(3)
                     .sdadel().bits(0)
                 });
             } else if #[cfg(any(feature = "g031", feature = "g030"))] {

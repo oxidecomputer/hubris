@@ -104,7 +104,6 @@ cfg_if::cfg_if! {
 
 struct ServerImpl {
     blinking: EnumMap<Led, bool>,
-    blink_state: bool,
 }
 
 impl idl::InOrderUserLedsImpl for ServerImpl {
@@ -144,11 +143,10 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         index: usize,
     ) -> Result<(), RequestError<LedError>> {
         let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
-        let already_blinking = self.blinking.values().any(|b| *b);
+        let any_blinking = self.blinking.values().any(|b| *b);
         self.blinking[led] = true;
-        if !already_blinking {
-            led_on(led);
-            self.blink_state = false;
+
+        if !any_blinking {
             sys_set_timer(
                 Some(sys_get_timer().now + BLINK_INTERVAL),
                 notifications::TIMER_MASK,
@@ -163,24 +161,21 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        let mut any_blinking = false;
-        for (led, blinking) in &self.blinking {
-            if *blinking {
-                any_blinking = true;
-                if self.blink_state {
-                    led_on(led);
-                } else {
-                    led_off(led);
+    fn handle_notification(&mut self, bits: u32) {
+        if bits & notifications::TIMER_MASK != 0 {
+            let mut any_blinking = false;
+            for (led, blinking) in &self.blinking {
+                if *blinking {
+                    any_blinking = true;
+                    led_toggle(led);
                 }
             }
-        }
-        self.blink_state = !self.blink_state;
-        if any_blinking {
-            sys_set_timer(
-                Some(sys_get_timer().now + BLINK_INTERVAL),
-                notifications::TIMER_MASK,
-            );
+            if any_blinking {
+                sys_set_timer(
+                    Some(sys_get_timer().now + BLINK_INTERVAL),
+                    notifications::TIMER_MASK,
+                );
+            }
         }
     }
 }
@@ -196,11 +191,14 @@ fn main() -> ! {
         for &led in config.blink_at_start {
             blinking[led] = true;
         }
+        if !config.blink_at_start.is_empty() {
+            sys_set_timer(
+                Some(sys_get_timer().now + BLINK_INTERVAL),
+                notifications::TIMER_MASK,
+            );
+        }
     }
-    let mut server = ServerImpl {
-        blinking,
-        blink_state: false,
-    };
+    let mut server = ServerImpl { blinking };
     loop {
         idol_runtime::dispatch_n(&mut incoming, &mut server);
     }

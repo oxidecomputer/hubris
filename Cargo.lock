@@ -1811,6 +1811,7 @@ name = "drv-stm32xx-i2c"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
+ "build-util",
  "cfg-if",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
