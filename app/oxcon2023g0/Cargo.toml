@@ -1,30 +1,24 @@
 [package]
 edition = "2021"
 readme = "README.md"
-name = "demo-stm32g0-nucleo"
+name = "oxcon2023g0"
 version = "0.1.0"
 
 [features]
-g030 = ["stm32g0/stm32g030", "kern/nano"]
-g031 = ["stm32g0/stm32g031", "kern/nano"]
-g070 = ["stm32g0/stm32g070"]
-g0b1 = ["stm32g0/stm32g0b1"]
-dump = ["kern/dump"]
 
 [dependencies]
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 cfg-if = { workspace = true }
-stm32g0 = { workspace = true, features = ["rt"] }
+stm32g0 = { workspace = true, features = ["rt", "stm32g030"] }
 
-kern = { path = "../../sys/kern" }
+kern = { path = "../../sys/kern", features = ["nano"] }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "demo-stm32g0-nucleo"
+name = "oxcon2023g0"
 test = false
-doctest = false
 bench = false

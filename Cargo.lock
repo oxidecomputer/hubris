@@ -1811,6 +1811,7 @@ name = "drv-stm32xx-i2c"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
+ "build-util",
  "cfg-if",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
@@ -1963,6 +1964,7 @@ dependencies = [
  "num-traits",
  "stm32f3",
  "stm32f4",
+ "task-config",
  "userlib",
  "zerocopy",
 ]
@@ -2315,7 +2317,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "hif"
 version = "0.3.1"
-source = "git+https://github.com/oxidecomputer/hif#34aace65cbf458129dcd8007715a94bc488b2931"
+source = "git+https://github.com/oxidecomputer/hif#0e9a9d0774afe3c4eca5cb147fb64ad05d0bfcd8"
 dependencies = [
  "pkg-version",
  "postcard",
@@ -2978,6 +2980,18 @@ name = "os_str_bytes"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
+
+[[package]]
+name = "oxcon2023g0"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "stm32g0",
+]
 
 [[package]]
 name = "oxide-barcode"
