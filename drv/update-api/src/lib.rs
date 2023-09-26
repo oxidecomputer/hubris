@@ -59,6 +59,10 @@ pub enum UpdateError {
     NotImplemented,
 
     MissingHandoffData,
+    BlockOutOfOrder,
+    InvalidSlotIdForOperation,
+    ImageMismatch,
+    SignatureNotValidated,
 }
 
 impl From<UpdateError> for GwUpdateError {
@@ -90,6 +94,12 @@ impl From<UpdateError> for GwUpdateError {
             UpdateError::TaskRestarted => Self::TaskRestarted,
             UpdateError::NotImplemented => Self::NotImplemented,
             UpdateError::MissingHandoffData => Self::MissingHandoffData,
+            UpdateError::BlockOutOfOrder => Self::BlockOutOfOrder,
+            UpdateError::InvalidSlotIdForOperation => {
+                Self::InvalidSlotIdForOperation
+            }
+            UpdateError::ImageMismatch => Self::ImageMismatch,
+            UpdateError::SignatureNotValidated => Self::SignatureNotValidated,
         }
     }
 }

@@ -2207,7 +2207,6 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#7f0bdd583be56510780cee5b008361d9eed86d9d"
 dependencies = [
  "bitflags 1.3.2",
  "hubpack",
@@ -2781,6 +2780,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lpc55-pac",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
@@ -2848,7 +2848,6 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
- "lpc55_romapi",
  "unwrap-lite",
 ]
 
@@ -3085,7 +3084,6 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
- "lpc55_romapi",
  "unwrap-lite",
 ]
 
@@ -3439,7 +3437,6 @@ dependencies = [
  "kern",
  "lpc55-pac",
  "lpc55-rot-startup",
- "lpc55_romapi",
  "unwrap-lite",
 ]
 
@@ -5153,9 +5150,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.1.2"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
+checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
 
 [[package]]
 name = "vcell"

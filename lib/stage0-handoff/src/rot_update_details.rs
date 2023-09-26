@@ -41,8 +41,6 @@ pub enum ImageError {
     ResetVectorNotThumb2,
     /// Reset vector points outside of image execution range.
     ResetVector,
-    /// A CRC validated image has an invalid CRC.
-    Crc,
     /// Signature check on image failed.
     Signature,
 }
@@ -66,8 +64,9 @@ pub struct RotBootState {
 impl RotBootState {
     pub fn active_image(&self) -> RotImageDetails {
         match self.active {
-            RotSlot::A => self.a.clone(),
-            RotSlot::B => self.b.clone(),
+            RotSlot::A => self.a,
+            RotSlot::B => self.b,
+            _ => unreachable!(), // Unreachable by inspection.
         }
     }
 }
@@ -75,7 +74,7 @@ impl RotBootState {
 fits_in_ram!(RotBootState);
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotImageDetails {
     // The SHA3-256 measurement of all programmed pages in the flash slot.
@@ -97,4 +96,6 @@ pub struct ImageVersion {
 pub enum RotSlot {
     A = 0,
     B = 1,
+    Stage0 = 2,
+    Stage0Next = 3,
 }

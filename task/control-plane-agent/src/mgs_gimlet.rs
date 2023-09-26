@@ -19,7 +19,7 @@ use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
     MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
+    SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV3,
     SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
@@ -541,7 +541,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-    ) -> Result<SpStateV2, SpError> {
+    ) -> Result<SpStateV3, SpError> {
         let power_state = self.power_state_impl()?;
         self.common.sp_state(power_state)
     }

@@ -4,6 +4,9 @@
 
 use crate::{inventory::Inventory, Log, MgsMessage};
 use drv_caboose::{CabooseError, CabooseReader};
+use drv_lpc55_update_api::{
+    ImageError as SpImageError, ImageVersion as SpImageVersion,
+};
 use drv_sprot_api::{
     CabooseOrSprotError, RotState as SprotRotState, SpRot, SprotError,
     SprotProtocolError, SwitchDuration,
@@ -11,9 +14,10 @@ use drv_sprot_api::{
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CfpaPage, DiscoverResponse, PowerState, RotError, RotRequest, RotResponse,
-    RotSlotId, RotStateV2, SensorReading, SensorRequest, SensorRequestKind,
-    SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
+    RotSlotId, RotStateV3, SensorReading, SensorRequest, SensorRequestKind,
+    SensorResponse, SpComponent, SpError, SpPort, SpStateV3,
 };
+use gateway_messages::{ImageError, ImageVersion};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
 use task_control_plane_agent_api::VpdIdentity;
@@ -76,7 +80,7 @@ impl MgsCommon {
     pub(crate) fn sp_state(
         &mut self,
         power_state: PowerState,
-    ) -> Result<SpStateV2, SpError> {
+    ) -> Result<SpStateV3, SpError> {
         // SpState has extra-wide fields for the serial and model number. Below
         // when we fill them in we use `usize::min` to pick the right length
         // regardless of which is longer, but really we want to know we aren't
@@ -90,7 +94,7 @@ impl MgsCommon {
 
         let id = self.identity();
 
-        let mut state = SpStateV2 {
+        let mut state = SpStateV3 {
             serial_number: [0; SP_STATE_FIELD_WIDTH],
             model: [0; SP_STATE_FIELD_WIDTH],
             revision: id.revision,
@@ -288,6 +292,7 @@ impl MgsCommon {
                 let slot = match state.active {
                     drv_sprot_api::RotSlot::A => 0,
                     drv_sprot_api::RotSlot::B => 1,
+                    _ => return Err(SpError::InvalidSlotIdForOperation),
                 };
                 Ok(slot)
             }
@@ -421,13 +426,33 @@ fn translate_sensor_nodata(
     }
 }
 
+fn udapi_ie_to_gm_ie(ie: SpImageError) -> ImageError {
+    match ie {
+        SpImageError::Unchecked => ImageError::Unchecked,
+        SpImageError::FirstPageErased => ImageError::FirstPageErased,
+        SpImageError::PartiallyProgrammed => ImageError::PartiallyProgrammed,
+        SpImageError::InvalidLength => ImageError::InvalidLength,
+        SpImageError::HeaderNotProgrammed => ImageError::HeaderNotProgrammed,
+        SpImageError::Short => ImageError::Short,
+        SpImageError::BadMagic => ImageError::BadMagic,
+        SpImageError::HeaderImageSize => ImageError::HeaderImageSize,
+        SpImageError::UnalignedLength => ImageError::UnalignedLength,
+        SpImageError::UnsupportedType => ImageError::UnsupportedType,
+        SpImageError::ResetVectorNotThumb2 => ImageError::ResetVectorNotThumb2,
+        SpImageError::ResetVector => ImageError::ResetVector,
+        SpImageError::Signature => ImageError::Signature,
+    }
+}
+
 // conversion between gateway_messages types and hubris types is quite tedious.
-fn rot_state(sprot: &SpRot) -> Result<RotStateV2, RotError> {
+fn rot_state(sprot: &SpRot) -> Result<RotStateV3, RotError> {
     let boot_info = sprot.rot_boot_info()?;
 
     let convert_slot_id = |s| match s {
         drv_lpc55_update_api::SlotId::A => RotSlotId::A,
         drv_lpc55_update_api::SlotId::B => RotSlotId::B,
+        // In this context, only slots A and B are possible inputs.
+        _ => unreachable!(),
     };
 
     let active = convert_slot_id(boot_info.active);
@@ -439,12 +464,25 @@ fn rot_state(sprot: &SpRot) -> Result<RotStateV2, RotError> {
     let transient_boot_preference =
         boot_info.transient_boot_preference.map(convert_slot_id);
 
-    Ok(RotStateV2 {
+    let to_mgs_status = |r: Result<SpImageVersion, SpImageError>| -> Result<ImageVersion, ImageError> {
+        match r {
+            Ok(v) => Ok(gateway_messages::ImageVersion { epoch: v.epoch, version: v.version }),
+            Err(err) => Err(udapi_ie_to_gm_ie(err)),
+        }
+    };
+
+    Ok(RotStateV3 {
         active,
         persistent_boot_preference,
         pending_persistent_boot_preference,
         transient_boot_preference,
         slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
         slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
+        stage0_sha3_256_digest: boot_info.stage0_sha3_256_digest,
+        stage0_next_sha3_256_digest: boot_info.stage0_next_sha3_256_digest,
+        slot_a_status: to_mgs_status(boot_info.slot_a_status),
+        slot_b_status: to_mgs_status(boot_info.slot_b_status),
+        stage0_status: to_mgs_status(boot_info.stage0_status),
+        stage0_next_status: to_mgs_status(boot_info.stage0_next_status),
     })
 }

@@ -60,7 +60,7 @@ use userlib::{sys_irq_control, sys_recv_closed, TaskId};
 // These constants describe intrinsic properties of the SHA256 algorithm and
 // should not be changed.
 const WORDS_PER_BLOCK: usize = 512 / 32; // which is to say, 16
-const WORDS_PER_HASH: usize = 256 / 32; // which is to say, 8
+pub const WORDS_PER_HASH: usize = 256 / 32; // which is to say, 8
 
 // It's also convenient to have one as Wrapping u64:
 const WORDS_PER_BLOCK64: Wrapping<u64> = Wrapping(WORDS_PER_BLOCK as u64);

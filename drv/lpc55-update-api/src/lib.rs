@@ -67,10 +67,19 @@ pub struct RotBootInfo {
     ///
     /// This is a magic ram value that is cleared by bootleby
     pub transient_boot_preference: Option<SlotId>,
-    /// Sha3-256 Digest of Slot A in Flash      
-    pub slot_a_sha3_256_digest: Option<[u8; 32]>,
-    /// Sha3-256 Digest of Slot B in Flash      
-    pub slot_b_sha3_256_digest: Option<[u8; 32]>,
+    /// Sha3-256 Digest of Slot A in Flash
+    pub slot_a_sha3_256_digest: [u8; 32],
+    /// Sha3-256 Digest of Slot B in Flash
+    pub slot_b_sha3_256_digest: [u8; 32],
+    /// Sha3-256 Digest of Stage0 in Flash
+    pub stage0_sha3_256_digest: [u8; 32],
+    /// Sha3-256 Digest of Stage0Next in Flash
+    pub stage0_next_sha3_256_digest: [u8; 32],
+    /// If readable, the result of checking an image using the ROM code.
+    pub slot_a_status: Result<ImageVersion, ImageError>,
+    pub slot_b_status: Result<ImageVersion, ImageError>,
+    pub stage0_status: Result<ImageVersion, ImageError>,
+    pub stage0_next_status: Result<ImageVersion, ImageError>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
@@ -127,6 +136,8 @@ pub enum UpdateTarget {
 pub enum SlotId {
     A,
     B,
+    Stage0,
+    Stage0Next,
 }
 
 impl From<RotSlot> for SlotId {
@@ -134,6 +145,8 @@ impl From<RotSlot> for SlotId {
         match value {
             RotSlot::A => SlotId::A,
             RotSlot::B => SlotId::B,
+            RotSlot::Stage0 => SlotId::Stage0,
+            RotSlot::Stage0Next => SlotId::Stage0Next,
         }
     }
 }
@@ -173,7 +186,8 @@ pub enum SwitchDuration {
 
 // Re-export
 pub use stage0_handoff::{
-    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
+    HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
+    RotImageDetails, RotSlot,
 };
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
