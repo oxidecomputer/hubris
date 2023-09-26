@@ -19,7 +19,7 @@ use handoff::Handoff;
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
 use stage0_handoff::{
-    ImageError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
+    RotBootState, RotImageDetails, RotSlot,
 };
 
 const ROM_VER: u32 = 1;

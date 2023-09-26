@@ -1012,7 +1012,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
         HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
-        RotBootState, RotPage, SlotId, SwitchDuration, UpdateTarget,
+        RotPage, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
