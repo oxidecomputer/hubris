@@ -1026,11 +1026,13 @@ impl SpHandler for MgsHandler {
                     .unwrap_lite();
                 Ok(())
             }
-            Some(Key::Ping) | Some(Key::InventorySize) | None => {
-                Err(SpError::SetIpccKeyLookupValueFailed(
-                    IpccKeyLookupValueError::InvalidKey,
-                ))
-            }
+            Some(Key::Ping)
+            | Some(Key::InventorySize)
+            | Some(Key::EtcSystem)
+            | Some(Key::DtraceConf)
+            | None => Err(SpError::SetIpccKeyLookupValueFailed(
+                IpccKeyLookupValueError::InvalidKey,
+            )),
         }
     }
 
