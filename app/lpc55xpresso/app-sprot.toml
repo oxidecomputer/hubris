@@ -17,7 +17,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dice-self"]
-requires = {flash = 53248, ram = 4096}
+requires = {flash = 53600, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -55,7 +55,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 4096}
+max-sizes = {flash = 32768, ram = 8192}
 stacksize = 3000
 start = true
 sections = {bootstate = "usbsram"}
@@ -201,7 +201,7 @@ pins = [
     # HS_SPI_SCK = P1_2 = FUN6
     { pin = { port = 1, pin = 2}, alt = 6},
     # HS_SSEL1 = P1_1 = FUN5
-    { pin = { port = 1, pin = 1}, alt = 5},
+    { name = "CHIP_SELECT", pin = { port = 1, pin = 1}, alt = 5},
     # ROT_IRQ = P0_16 = FUN0
     { name = "ROT_IRQ", pin = { port = 0, pin = 16}, alt = 0, direction = "output"},
     # SP_RESET = P1_5 = FUN0 (not connected)

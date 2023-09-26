@@ -967,7 +967,7 @@ fn copy_from_flash_range(
 fn bootstate() -> Result<RotBootState, HandoffDataLoadError> {
     // Safety: Data is published by stage0
     let addr = unsafe { BOOTSTATE.assume_init_ref() };
-    RotBootState::load_from_addr(addr).map_err(|e| e.into())
+    RotBootState::load_from_addr(addr)
 }
 
 task_slot!(SYSCON, syscon);
