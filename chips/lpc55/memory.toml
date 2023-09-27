@@ -15,9 +15,19 @@ execute = true
 [[flash]]
 name = "stage0"
 address = 0x00000000
-size = 0x10000
+size = 0x08000
 read = true
 execute = true
+
+# We split the stage0 area in half to accomodate an area for the
+# candidate stage0 update (stage0_next).
+# As long as stage0 stays below 32kB only update_server cares.
+[[flash]]
+name = "stage0_next"
+address = 0x00008000
+size = 0x08000
+read = true
+execute = false
 
 [[flash]]
 name = "dice-mfg"
