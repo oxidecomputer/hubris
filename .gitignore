@@ -1,5 +1,3 @@
 target/
 itm.txt
 *.swp
-rusty-tags.vi
-cscope.*
