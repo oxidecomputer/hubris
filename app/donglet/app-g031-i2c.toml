@@ -49,7 +49,7 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 912
-features = ["stm32g0", "g031", "i2c", "gpio"]
+features = ["stm32g0", "g031", "i2c", "gpio", "send"]
 
 [tasks.idle]
 name = "task-idle"

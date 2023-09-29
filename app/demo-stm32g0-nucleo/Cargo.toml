@@ -5,8 +5,8 @@ name = "demo-stm32g0-nucleo"
 version = "0.1.0"
 
 [features]
-g030 = ["stm32g0/stm32g030"]
-g031 = ["stm32g0/stm32g031"]
+g030 = ["stm32g0/stm32g030", "kern/nano"]
+g031 = ["stm32g0/stm32g031", "kern/nano"]
 g070 = ["stm32g0/stm32g070"]
 g0b1 = ["stm32g0/stm32g0b1"]
 dump = ["kern/dump"]

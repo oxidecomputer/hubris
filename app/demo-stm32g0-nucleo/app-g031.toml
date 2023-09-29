@@ -6,7 +6,7 @@ board = "stm32g031-nucleo"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 18000, ram = 1424}
+requires = {flash = 10752, ram = 1296}
 features = ["g031"]
 stacksize = 640
 
@@ -54,7 +54,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 task-slots = ["sys"]
 stacksize = 912
-features = ["stm32g0", "gpio", "micro"]
+features = ["stm32g0", "gpio", "micro", "send"]
 
 [tasks.idle]
 name = "task-idle"

@@ -28,6 +28,7 @@ mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
+lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
 
 [build-dependencies]
 build-lpc55pins = { path = "../../build/lpc55pins" }

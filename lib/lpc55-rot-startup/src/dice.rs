@@ -35,7 +35,7 @@ pub struct MfgResult {
 /// Generate stuff associated with the manufacturing process.
 fn gen_mfg_artifacts(
     peripherals: &Peripherals,
-    flash: &mut Flash,
+    flash: &mut Flash<'_>,
 ) -> MfgResult {
     // Select manufacturing process based on feature. This module assumes
     // that one of the manufacturing flavors has been enabled.
@@ -56,7 +56,7 @@ fn gen_mfg_artifacts(
 #[cfg(feature = "dice-self")]
 fn gen_mfg_artifacts_self(
     peripherals: &Peripherals,
-    _flash: &mut Flash,
+    _flash: &mut Flash<'_>,
 ) -> MfgResult {
     use core::ops::{Deref, DerefMut};
     use lib_dice::{DiceMfg, PersistIdSeed, SelfMfg};
@@ -115,7 +115,7 @@ fn gen_deviceid_artifacts(
     persistid_keypair: Keypair,
     persistid_cert: PersistIdCert,
     intermediate_cert: Option<IntermediateCert>,
-    handoff: &Handoff,
+    handoff: &Handoff<'_>,
 ) -> Keypair {
     let devid_okm = DeviceIdOkm::from_cdi(cdi);
 
@@ -123,7 +123,7 @@ fn gen_deviceid_artifacts(
 
     let deviceid_cert = DeviceIdCertBuilder::new(
         &cert_serial_number.next_num(),
-        &platform_id,
+        platform_id,
         &deviceid_keypair.public,
     )
     .sign(&persistid_keypair);
@@ -146,9 +146,9 @@ fn gen_alias_artifacts(
     cert_serial_number: &mut CertSerialNumber,
     deviceid_keypair: &Keypair,
     fwid: &[u8; 32],
-    handoff: &Handoff,
+    handoff: &Handoff<'_>,
 ) {
-    let alias_okm = AliasOkm::from_cdi(&cdi_l1);
+    let alias_okm = AliasOkm::from_cdi(cdi_l1);
     let alias_keypair = Keypair::from(alias_okm.as_bytes());
 
     let alias_cert = AliasCertBuilder::new(
@@ -156,9 +156,9 @@ fn gen_alias_artifacts(
         &alias_keypair.public,
         fwid,
     )
-    .sign(&deviceid_keypair);
+    .sign(deviceid_keypair);
 
-    let tqdhe_okm = TrustQuorumDheOkm::from_cdi(&cdi_l1);
+    let tqdhe_okm = TrustQuorumDheOkm::from_cdi(cdi_l1);
     let tqdhe_keypair = Keypair::from(tqdhe_okm.as_bytes());
 
     let tqdhe_cert = TrustQuorumDheCertBuilder::new(
@@ -166,7 +166,7 @@ fn gen_alias_artifacts(
         &tqdhe_keypair.public,
         fwid,
     )
-    .sign(&deviceid_keypair);
+    .sign(deviceid_keypair);
 
     let alias_data =
         AliasData::new(alias_okm, alias_cert, tqdhe_okm, tqdhe_cert);
@@ -181,9 +181,9 @@ fn gen_spmeasure_artifacts(
     cert_serial_number: &mut CertSerialNumber,
     deviceid_keypair: &Keypair,
     fwid: &[u8; 32],
-    handoff: &Handoff,
+    handoff: &Handoff<'_>,
 ) {
-    let spmeasure_okm = SpMeasureOkm::from_cdi(&cdi_l1);
+    let spmeasure_okm = SpMeasureOkm::from_cdi(cdi_l1);
     let spmeasure_keypair = Keypair::from(spmeasure_okm.as_bytes());
 
     let spmeasure_cert = SpMeasureCertBuilder::new(
@@ -191,7 +191,7 @@ fn gen_spmeasure_artifacts(
         &spmeasure_keypair.public,
         fwid,
     )
-    .sign(&deviceid_keypair);
+    .sign(deviceid_keypair);
 
     let spmeasure_data = SpMeasureData::new(spmeasure_okm, spmeasure_cert);
 
@@ -199,7 +199,7 @@ fn gen_spmeasure_artifacts(
 }
 
 /// Generate seed for the RNG task to seed its RNG.
-fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
+fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff<'_>) {
     let rng_seed = RngSeed::from_cdi(cdi_l1);
     let rng_data = RngData::new(rng_seed);
 
@@ -210,7 +210,11 @@ fn gen_rng_artifacts(cdi_l1: &CdiL1, handoff: &Handoff) {
 // will contain sensitive material, from commingling with the caller. Do not
 // remove it without reconsidering our stack zeroization approach.
 #[inline(never)]
-pub fn run(handoff: &Handoff, peripherals: &Peripherals, flash: &mut Flash) {
+pub fn run(
+    handoff: &Handoff<'_>,
+    peripherals: &Peripherals,
+    flash: &mut Flash<'_>,
+) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
 
@@ -222,7 +226,7 @@ pub fn run(handoff: &Handoff, peripherals: &Peripherals, flash: &mut Flash) {
         None => return,
     };
 
-    let mut mfg_data = gen_mfg_artifacts(&peripherals, flash);
+    let mut mfg_data = gen_mfg_artifacts(peripherals, flash);
 
     let deviceid_keypair = gen_deviceid_artifacts(
         &cdi,

@@ -5,9 +5,6 @@ edition = "2021"
 
 [features]
 panic-messages = []
-log-itm = []
-log-semihosting = []
-log-null = []
 
 [dependencies]
 bstringify = { workspace = true }

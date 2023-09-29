@@ -119,7 +119,7 @@ impl ToTokens for PinConfig {
 pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("pin_config.rs");
-    let mut file = std::fs::File::create(&dest_path)?;
+    let mut file = std::fs::File::create(dest_path)?;
 
     let mut buf = BufWriter::new(Vec::new());
     if pins.iter().any(|p| p.name.is_some()) {

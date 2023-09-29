@@ -1,0 +1,24 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "oxcon2023g0"
+version = "0.1.0"
+
+[features]
+
+[dependencies]
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+cfg-if = { workspace = true }
+stm32g0 = { workspace = true, features = ["rt", "stm32g030"] }
+
+kern = { path = "../../sys/kern", features = ["nano"] }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "oxcon2023g0"
+test = false
+bench = false

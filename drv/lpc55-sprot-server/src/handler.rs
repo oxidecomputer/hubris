@@ -5,10 +5,10 @@
 use crate::Trace;
 use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{SlotId, Update};
+use drv_lpc55_update_api::{RotPage, SlotId, Update};
 use drv_sprot_api::{
     AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
-    Request, Response, RotIoStats, RotState, RotStatus, RspBody,
+    Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
     SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
     CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
@@ -45,7 +45,9 @@ pub struct StartupState {
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData {
     Caboose { slot: SlotId, start: u32, size: u32 },
-    Attest { index: u32, offset: u32, size: u32 },
+    AttestCert { index: u32, offset: u32, size: u32 },
+    AttestLog { offset: u32, size: u32 },
+    RotPage { page: RotPage },
 }
 
 pub struct Handler {
@@ -69,9 +71,16 @@ impl Handler {
         }
     }
 
-    /// Serialize and return a `SprotError::FlowError`
     pub fn flow_error(&self, tx_buf: &mut [u8; RESPONSE_BUF_SIZE]) -> usize {
         let body = Err(SprotProtocolError::FlowError.into());
+        Response::pack(&body, tx_buf)
+    }
+
+    pub fn desynchronized_error(
+        &self,
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
+    ) -> usize {
+        let body = Err(SprotProtocolError::Desynchronized.into());
         Response::pack(&body, tx_buf)
     }
 
@@ -103,7 +112,7 @@ impl Handler {
                 size: blob_size,
             }) => {
                 let blob_size: usize = blob_size.try_into().unwrap_lite();
-                if blob_size as usize > drv_sprot_api::MAX_BLOB_SIZE {
+                if blob_size > drv_sprot_api::MAX_BLOB_SIZE {
                     // If there isn't enough room, then pack an error instead
                     Response::pack(
                         &Err(SprotError::Protocol(
@@ -117,9 +126,9 @@ impl Handler {
                             .read_raw_caboose(
                                 slot,
                                 start,
-                                &mut buf[..blob_size as usize],
+                                &mut buf[..blob_size],
                             )
-                            .map_err(|e| RspBody::Caboose(Err(e.into())))?;
+                            .map_err(|e| RspBody::Caboose(Err(e)))?;
                         Ok(blob_size)
                     }) {
                         Ok(size) => size,
@@ -127,7 +136,7 @@ impl Handler {
                     }
                 }
             }
-            Some(TrailingData::Attest {
+            Some(TrailingData::AttestCert {
                 index,
                 offset,
                 size,
@@ -152,13 +161,50 @@ impl Handler {
                     }
                 }
             }
+            Some(TrailingData::RotPage { page }) => {
+                let size: usize = lpc55_rom_data::FLASH_PAGE_SIZE;
+                static_assertions::const_assert!(
+                    lpc55_rom_data::FLASH_PAGE_SIZE
+                        <= drv_sprot_api::MAX_BLOB_SIZE
+                );
+                match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                    self.update
+                        .read_rot_page(page, &mut buf[..size])
+                        .map_err(|e| RspBody::Page(Err(e)))?;
+                    Ok(size)
+                }) {
+                    Ok(size) => size,
+                    Err(e) => Response::pack(&Ok(e), tx_buf),
+                }
+            }
+            Some(TrailingData::AttestLog { offset, size }) => {
+                let size: usize = usize::try_from(size).unwrap_lite();
+                if size > drv_sprot_api::MAX_BLOB_SIZE {
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                        self.attest
+                            .log(offset, &mut buf[..size])
+                            .map_err(|e| RspBody::Attest(Err(e)))?;
+                        Ok(size)
+                    }) {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
+                }
+            }
             _ => Response::pack(&rsp_body, tx_buf),
         }
     }
 
     pub fn handle_request(
         &mut self,
-        req: Request,
+        req: Request<'_>,
         stats: &mut RotIoStats,
     ) -> Result<(RspBody, Option<TrailingData>), SprotError> {
         match req.body {
@@ -171,7 +217,7 @@ impl Handler {
                 };
                 Ok((RspBody::Status(status), None))
             }
-            ReqBody::IoStats => Ok((RspBody::IoStats(stats.clone()), None)),
+            ReqBody::IoStats => Ok((RspBody::IoStats(*stats), None)),
             ReqBody::RotState => match self.update.status() {
                 Ok(state) => {
                     let msg = RotState::V1 {
@@ -216,7 +262,7 @@ impl Handler {
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
-                self.update.write_one_block(block_num as usize, &req.blob)?;
+                self.update.write_one_block(block_num as usize, req.blob)?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::Abort) => {
@@ -242,7 +288,7 @@ impl Handler {
                 CabooseReq::Size { slot } => {
                     let rsp = match self.update.caboose_size(slot) {
                         Ok(v) => Ok(CabooseRsp::Size(v)),
-                        Err(e) => Err(e.into()),
+                        Err(e) => Err(e),
                     };
                     Ok((RspBody::Caboose(rsp), None))
                 }
@@ -272,7 +318,7 @@ impl Handler {
                 // the work can be done elsewhere.
                 Ok((
                     RspBody::Attest(Ok(AttestRsp::Cert)),
-                    Some(TrailingData::Attest {
+                    Some(TrailingData::AttestCert {
                         index,
                         offset,
                         size,
@@ -296,6 +342,27 @@ impl Handler {
             ReqBody::Attest(AttestReq::Record { algorithm }) => {
                 let rsp = match self.attest.record(algorithm, req.blob) {
                     Ok(()) => Ok(AttestRsp::Record),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::RotPage { page } => {
+                // This command returns a variable amount of data that belongs
+                // in the trailing data region of the response. We return a
+                // marker struct with the data necessary retrieve this data so
+                // the work can be done elsewhere.
+                Ok((
+                    RspBody::Page(Ok(RotPageRsp::RotPage)),
+                    Some(TrailingData::RotPage { page }),
+                ))
+            }
+            ReqBody::Attest(AttestReq::Log { offset, size }) => Ok((
+                RspBody::Attest(Ok(AttestRsp::Log)),
+                Some(TrailingData::AttestLog { offset, size }),
+            )),
+            ReqBody::Attest(AttestReq::LogLen) => {
+                let rsp = match self.attest.log_len() {
+                    Ok(l) => Ok(AttestRsp::LogLen(l)),
                     Err(e) => Err(e),
                 };
                 Ok((RspBody::Attest(rsp), None))

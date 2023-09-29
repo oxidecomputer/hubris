@@ -120,8 +120,7 @@ fn check_spi_config(
         return Err(anyhow!(
             "bad controller {}, valid values are 1 thru 6",
             config.controller
-        )
-        .into());
+        ));
     }
 
     for mux in config.mux_options.values() {
@@ -137,8 +136,7 @@ fn check_spi_config(
                 "device {} names undefined mux {}",
                 devname,
                 dev.mux
-            )
-            .into());
+            ));
         }
 
         for pin in &dev.cs {
@@ -156,16 +154,14 @@ fn check_afpinset(config: &AfPinSetConfig) -> Result<()> {
                 "pin {:?}{} is invalid, pins are numbered 0-15",
                 config.port,
                 pin
-            )
-            .into());
+            ));
         }
     }
     if config.af.0 > 15 {
         return Err(anyhow!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af
-        )
-        .into());
+        ));
     }
     Ok(())
 }
@@ -176,8 +172,7 @@ fn check_afpin(config: &AfPinConfig) -> Result<()> {
         return Err(anyhow!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af
-        )
-        .into());
+        ));
     }
     Ok(())
 }
@@ -188,8 +183,7 @@ fn check_gpiopin(config: &GpioPinConfig) -> Result<()> {
             "pin {:?}{} is invalid, pins are numbered 0-15",
             config.port,
             config.pin
-        )
-        .into());
+        ));
     }
     Ok(())
 }

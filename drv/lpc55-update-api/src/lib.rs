@@ -73,6 +73,19 @@ pub struct RotBootInfo {
     pub slot_b_sha3_256_digest: Option<[u8; 32]>,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
+pub enum RotPage {
+    // The manufacturing area that cannot be changed
+    Cmpa,
+    // The field page that is currently active (highest version)
+    CfpaActive,
+    // The field page that will be applied after the next reboot (assuming
+    // version is incremented)
+    CfpaScratch,
+    // The field page that is not currently active (lower version, ignoring scratch)
+    CfpaInactive,
+}
+
 /// Target for an update operation
 ///
 /// This `enum` is used as part of the wire format for SP-RoT communication, and

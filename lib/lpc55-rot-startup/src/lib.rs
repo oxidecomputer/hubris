@@ -31,7 +31,7 @@ const ROM_VER: u32 = 1;
 // them to apply for now while we write that memory.
 fn apply_memory_protection(mpu: &MPU) {
     unsafe {
-        disable_mpu(&mpu);
+        disable_mpu(mpu);
     }
 
     const USB_RAM_BASE: u32 = 0x4010_0000;
@@ -59,7 +59,7 @@ fn apply_memory_protection(mpu: &MPU) {
     }
 
     unsafe {
-        enable_mpu(&mpu, true);
+        enable_mpu(mpu, true);
     }
 }
 
@@ -115,6 +115,25 @@ fn enable_debug(peripherals: &lpc55_pac::Peripherals) {
     }
 }
 
+#[cfg(feature = "locked")]
+fn lock_flash() {
+    // This mimics what the ROM sets when the CMPA region is locked
+    unsafe {
+        const FLASH_BANK_LOCKOUT: u32 = 0x5000_0FE4;
+        const FLASH_BANK_ENABLE: u32 = 0x5000_0450;
+        // No access to anything, matches what the ROM looks like
+        const BANK_SETTINGS: u32 = 0x110;
+        // Lock all banks
+        const LOCK_SETTINGS: u32 = 0x1d;
+
+        core::ptr::write_volatile(FLASH_BANK_ENABLE as *mut u32, BANK_SETTINGS);
+        core::ptr::write_volatile(
+            FLASH_BANK_LOCKOUT as *mut u32,
+            LOCK_SETTINGS,
+        );
+    }
+}
+
 /// Run the common startup routine for LPC55-based roots of trust.
 pub fn startup(
     core_peripherals: &cortex_m::Peripherals,
@@ -127,6 +146,9 @@ pub fn startup(
     if val & 1 != ROM_VER {
         panic!()
     }
+
+    #[cfg(feature = "locked")]
+    lock_flash();
 
     let mpu = &core_peripherals.MPU;
 
@@ -142,7 +164,7 @@ pub fn startup(
     apply_memory_protection(mpu);
 
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&handoff, &peripherals, &mut flash);
+    dice::run(&handoff, peripherals, &mut flash);
 
     nuke_stack();
 
@@ -170,7 +192,7 @@ pub fn startup(
 
     // This is purposely done as the very last step after all validation
     // and secret clearing has happened
-    enable_debug(&peripherals);
+    enable_debug(peripherals);
 }
 
 // When we're secure we don't have access to read the CMPA/NMPA where the

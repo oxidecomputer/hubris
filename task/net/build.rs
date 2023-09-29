@@ -94,7 +94,7 @@ fn generate_owner_info(config: &NetConfig) -> Result<TokenStream> {
             let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
             let note: syn::Ident = syn::parse_str(&format!(
                 "{}_MASK",
-                socket.owner.notification.to_uppercase().replace("-", "_")
+                socket.owner.notification.to_uppercase().replace('-', "_")
             ))
             .unwrap();
             Ok(quote::quote! {

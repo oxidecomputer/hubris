@@ -90,17 +90,15 @@ impl idl::InOrderDumperImpl for ServerImpl {
 
         let mut nread = 0;
         let mut nwritten = 0;
-        let mut reg = 0;
 
         let r = humpty::dump::<DumperError, 512, { humpty::DUMPER_EXTERNAL }>(
             header.address,
             None,
             || {
-                for r in reg..=31 {
+                for r in 0..=31 {
                     ringbuf_entry!(Trace::ReadingRegister(r));
                     match sp_ctrl.read_core_register(r) {
                         Ok(val) => {
-                            reg = r + 1;
                             return Ok(Some(humpty::RegisterRead(r, val)));
                         }
                         Err(SpCtrlError::InvalidCoreRegister) => {}
@@ -152,12 +150,10 @@ impl idl::InOrderDumperImpl for ServerImpl {
             //
             if sp_ctrl.setup().is_err() {
                 ringbuf_entry!(Trace::ReinitFailed);
+            } else if sp_ctrl.resume().is_err() {
+                ringbuf_entry!(Trace::ReinitSucceededButResumeFailed);
             } else {
-                if sp_ctrl.resume().is_err() {
-                    ringbuf_entry!(Trace::ReinitSucceededButResumeFailed);
-                } else {
-                    ringbuf_entry!(Trace::ReinitResumed);
-                }
+                ringbuf_entry!(Trace::ReinitResumed);
             }
 
             if r.is_err() {

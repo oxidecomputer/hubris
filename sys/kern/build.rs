@@ -200,10 +200,10 @@ fn process_config() -> Result<Generated> {
 
         quote::quote! {
             pub const HUBRIS_IRQ_TASK_LOOKUP:
-                phash::SortedList<abi::InterruptNum, abi::InterruptOwner>
+                phash::SortedList<'_, abi::InterruptNum, abi::InterruptOwner>
                 = #irq_task_literal;
             pub const HUBRIS_TASK_IRQ_LOOKUP:
-                phash::SortedList<
+                phash::SortedList<'_,
                 abi::InterruptOwner,
                 &'static [abi::InterruptNum],
                 > = #task_irq_literal;

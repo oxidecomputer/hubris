@@ -6,8 +6,6 @@ edition = "2021"
 [features]
 default = ["panic-messages"]
 panic-messages = []
-log-itm = []
-log-semihosting = []
 
 [dependencies]
 lpc55-pac = { workspace = true }

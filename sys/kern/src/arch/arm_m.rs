@@ -489,11 +489,11 @@ pub fn apply_memory_protection(task: &task::Task) {
             mpu.rlar.write(rlar); // configure but leave disabled
             if rnr < 4 {
                 let mut mair0 = mpu.mair[0].read();
-                mair0 |= (mair as u32) << (rnr * 8);
+                mair0 |= mair << (rnr * 8);
                 mpu.mair[0].write(mair0);
             } else {
                 let mut mair1 = mpu.mair[1].read();
-                mair1 |= (mair as u32) << ((rnr - 4) * 8);
+                mair1 |= mair << ((rnr - 4) * 8);
                 mpu.mair[1].write(mair1);
             }
             mpu.rbar.write(rbar);
@@ -814,7 +814,7 @@ pub unsafe extern "C" fn SVCall() {
                     mov lr, r0
                     bx lr                   @ branch into user mode
                     ",
-                    exc_return = const EXC_RETURN_CONST as u32,
+                    exc_return = const EXC_RETURN_CONST,
                     options(noreturn),
                 )
             } else if #[cfg(any(armv7m, armv8m))] {

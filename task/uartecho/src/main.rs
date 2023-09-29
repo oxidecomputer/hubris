@@ -72,9 +72,9 @@ fn main() -> ! {
                     // transmit the first, and if we send all of it, try to
                     // transmit the second.
                     let (line_buf0, line_buf1) = line_buf.as_slices();
-                    let mut n = tx_until_fifo_full(&uart, &line_buf0);
+                    let mut n = tx_until_fifo_full(&uart, line_buf0);
                     if n == line_buf0.len() {
-                        n += tx_until_fifo_full(&uart, &line_buf1);
+                        n += tx_until_fifo_full(&uart, line_buf1);
                     }
 
                     // Remove all the data we sent from our buffer.
@@ -190,10 +190,6 @@ fn configure_uart_device() -> Usart {
 
     let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
-    let usart;
-    let peripheral;
-    let pins;
-
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
             const PINS: &[(PinSet, Alternate)] = {
@@ -216,9 +212,8 @@ fn configure_uart_device() -> Usart {
             // essentially a static, and we access it through a & reference so
             // aliasing is not a concern. Were it literally a static, we could
             // just reference it.
-            usart = unsafe { &*device::USART1::ptr() };
-            peripheral = Peripheral::Usart1;
-            pins = PINS;
+            let usart = unsafe { &*device::USART1::ptr() };
+            let peripheral = Peripheral::Usart1;
         } else if #[cfg(feature = "usart2")] {
             const PINS: &[(PinSet, Alternate)] = {
                 if cfg!(feature = "hardware_flow_control") {
@@ -230,9 +225,8 @@ fn configure_uart_device() -> Usart {
                     &[(Port::D.pin(5).and_pin(6), Alternate::AF7)]
                 }
             };
-            usart = unsafe { &*device::USART2::ptr() };
-            peripheral = Peripheral::Usart2;
-            pins = PINS;
+            let usart = unsafe { &*device::USART2::ptr() };
+            let peripheral = Peripheral::Usart2;
         } else if #[cfg(feature = "uart7")] {
             const PINS: &[(PinSet, Alternate)] = {
                 if cfg!(feature = "hardware_flow_control") {
@@ -244,9 +238,8 @@ fn configure_uart_device() -> Usart {
                     &[(Port::E.pin(7).and_pin(8), Alternate::AF7)]
                 }
             };
-            usart = unsafe { &*device::UART7::ptr() };
-            peripheral = Peripheral::Uart7;
-            pins = PINS;
+            let usart = unsafe { &*device::UART7::ptr() };
+            let peripheral = Peripheral::Uart7;
         } else {
             compile_error!("no usartX/uartX feature specified");
         }
@@ -256,7 +249,7 @@ fn configure_uart_device() -> Usart {
         &Sys::from(SYS.get_task_id()),
         usart,
         peripheral,
-        pins,
+        PINS,
         CLOCK_HZ,
         BAUD_RATE,
         hardware_flow_control,

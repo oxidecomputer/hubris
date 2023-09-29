@@ -308,7 +308,7 @@ fn main() -> ! {
         // programming the FPGA image (e.g. if this task restarts or the SP
         // itself is reflashed), and used to decide whether FPGA programming
         // is required.
-        seq.write_checksum().unwrap();
+        seq.write_checksum().unwrap_lite();
     }
 
     ringbuf_entry!(Trace::Programmed);
@@ -316,13 +316,13 @@ fn main() -> ! {
     vcore_soc_off();
     ringbuf_entry!(Trace::RailsOff);
 
-    let ident = seq.read_ident().unwrap();
+    let ident = seq.read_ident().unwrap_lite();
     ringbuf_entry!(Trace::Ident(ident));
 
     loop {
         let mut status = [0u8];
 
-        seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap();
+        seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap_lite();
         ringbuf_entry!(Trace::A2Status(status[0]));
 
         if status[0] == 0 {
@@ -350,7 +350,7 @@ fn main() -> ! {
             Ok(())
         }
     })
-    .unwrap();
+    .unwrap_lite();
 
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -451,7 +451,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
 
         let addr = spd::Function::PageAddress(spd::Page(0))
             .to_device_code()
-            .unwrap();
+            .unwrap_lite();
         let page = I2cDevice::new(i2c_task, controller, port, None, addr);
 
         if page.write(&[0]).is_err() {
@@ -462,7 +462,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
         }
 
         for i in 0..spd::MAX_DEVICES {
-            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
             let ndx = (nbank * spd::MAX_DEVICES) + i;
 
@@ -483,7 +483,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
 
-            spd.read_into(&mut tmp[1..]).unwrap();
+            spd.read_into(&mut tmp[1..]).unwrap_lite();
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
         }
@@ -491,12 +491,12 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
         // Now flip over to the top page.
         let addr = spd::Function::PageAddress(spd::Page(1))
             .to_device_code()
-            .unwrap();
+            .unwrap_lite();
         let page = I2cDevice::new(i2c_task, controller, port, None, addr);
 
         // We really don't expect this to fail, and if it does, tossing here
         // seems to be best option:  things are pretty wrong.
-        page.write(&[0]).unwrap();
+        page.write(&[0]).unwrap_lite();
 
         // ...and two more reads for each (present) device.
         for i in 0..spd::MAX_DEVICES {
@@ -506,13 +506,13 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
                 continue;
             }
 
-            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap();
+            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap_lite();
 
-            spd.read_into(&mut tmp[chunk..]).unwrap();
+            spd.read_into(&mut tmp[chunk..]).unwrap_lite();
 
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
@@ -539,10 +539,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
     fn handle_notification(&mut self, _bits: u32) {
         ringbuf_entry!(Trace::Status {
-            ier: self.seq.read_byte(Addr::IER).unwrap(),
-            ifr: self.seq.read_byte(Addr::IFR).unwrap(),
-            amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
-            amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap(),
+            ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
+            ifr: self.seq.read_byte(Addr::IFR).unwrap_lite(),
+            amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap_lite(),
+            amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap_lite(),
         });
 
         if self.state == PowerState::A0 || self.state == PowerState::A0PlusHP {
@@ -553,7 +553,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             // if both are indicated, we will clear both conditions -- but
             // land in A0Thermtrip).
             //
-            let ifr = self.seq.read_byte(Addr::IFR).unwrap();
+            let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
             self.check_reset(ifr);
             self.check_thermtrip(ifr);
 
@@ -570,13 +570,17 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
-                    self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                    self.seq
+                        .clear_bytes(Addr::NIC_CTRL, &[cld_rst])
+                        .unwrap_lite();
                     self.update_state_internal(PowerState::A0PlusHP);
                 }
 
                 (PowerState::A0PlusHP, true) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
-                    self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                    self.seq
+                        .set_bytes(Addr::NIC_CTRL, &[cld_rst])
+                        .unwrap_lite();
                     self.update_state_internal(PowerState::A0);
                 }
 
@@ -632,22 +636,22 @@ impl<S: SpiServer> ServerImpl<S> {
         ringbuf_entry_v3p3_sys_a0_vout();
 
         ringbuf_entry!(Trace::PGStatus {
-            b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap(),
-            c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap(),
-            nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap(),
+            b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap_lite(),
+            c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap_lite(),
+            nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap_lite(),
         });
 
         ringbuf_entry!(Trace::SMStatus {
-            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap(),
-            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap(),
+            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite(),
+            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite(),
         });
 
         ringbuf_entry!(Trace::PowerControl(
-            self.seq.read_byte(Addr::PWR_CTRL).unwrap(),
+            self.seq.read_byte(Addr::PWR_CTRL).unwrap_lite(),
         ));
 
         ringbuf_entry!(Trace::InterruptFlags(
-            self.seq.read_byte(Addr::IFR).unwrap(),
+            self.seq.read_byte(Addr::IFR).unwrap_lite(),
         ));
 
         match (self.state, state) {
@@ -671,12 +675,14 @@ impl<S: SpiServer> ServerImpl<S> {
                 // failing to sequence.
                 //
                 let a1 = Reg::PWR_CTRL::A1PWREN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap();
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
 
-                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut status).unwrap();
+                    self.seq
+                        .read_bytes(Addr::A1SMSTATUS, &mut status)
+                        .unwrap_lite();
                     ringbuf_entry!(Trace::A1Status(status[0]));
 
                     if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
@@ -725,12 +731,14 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Onward to A0!
                 //
                 let a0 = Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap();
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
 
-                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    self.seq
+                        .read_bytes(Addr::A0SMSTATUS, &mut status)
+                        .unwrap_lite();
                     ringbuf_entry!(Trace::A0Status(status[0]));
 
                     if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
@@ -756,7 +764,9 @@ impl<S: SpiServer> ServerImpl<S> {
                 loop {
                     let mut status = [0u8];
 
-                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut status).unwrap();
+                    self.seq
+                        .read_bytes(Addr::A0SMSTATUS, &mut status)
+                        .unwrap_lite();
                     ringbuf_entry!(Trace::A0Power(status[0]));
 
                     if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
@@ -801,7 +811,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // in NIC_CTRL on our way back to A2.
                 //
                 let cld_rst = Reg::NIC_CTRL::CLD_RST;
-                self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap_lite();
 
                 //
                 // Start FPGA down-sequence. Clearing the enables immediately
@@ -811,7 +821,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // so as not to trip a MAPO fault.
                 //
                 let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
-                self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+                self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap_lite();
 
                 //
                 // FPGA de-asserts PWR_GOOD for 2 ms before yanking enables,
@@ -851,7 +861,7 @@ impl<S: SpiServer> ServerImpl<S> {
         let record_reg = |addr| {
             ringbuf_entry!(Trace::A0FailureDetails(
                 addr,
-                self.seq.read_byte(addr).unwrap(),
+                self.seq.read_byte(addr).unwrap_lite(),
             ));
         };
 
@@ -872,7 +882,7 @@ impl<S: SpiServer> ServerImpl<S> {
         // Now put ourselves back in A2.
         //
         let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
-        self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
+        self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap_lite();
 
         hl::sleep_for(1);
 
@@ -891,7 +901,7 @@ impl<S: SpiServer> ServerImpl<S> {
         let thermtrip = Reg::IFR::THERMTRIP;
 
         if ifr & thermtrip != 0 {
-            self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
+            self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
             self.update_state_internal(PowerState::A0Thermtrip);
         }
     }
@@ -911,7 +921,9 @@ impl<S: SpiServer> ServerImpl<S> {
             let mut cnts = [0u8; 2];
 
             const_assert!(Addr::AMD_RSTN_CNTS.precedes(Addr::AMD_PWROKN_CNTS));
-            self.seq.read_bytes(Addr::AMD_RSTN_CNTS, &mut cnts).unwrap();
+            self.seq
+                .read_bytes(Addr::AMD_RSTN_CNTS, &mut cnts)
+                .unwrap_lite();
 
             let (rstn, pwrokn) = (cnts[0], cnts[1]);
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
@@ -920,9 +932,11 @@ impl<S: SpiServer> ServerImpl<S> {
             // Clear the counts to denote that we wish to re-latch any
             // falling PWROK/RESET_L edge.
             //
-            self.seq.write_bytes(Addr::AMD_RSTN_CNTS, &[0, 0]).unwrap();
+            self.seq
+                .write_bytes(Addr::AMD_RSTN_CNTS, &[0, 0])
+                .unwrap_lite();
             let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
-            self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap();
+            self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap_lite();
 
             self.update_state_internal(PowerState::A0Reset);
         }
@@ -964,7 +978,9 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
         let on = Reg::EARLY_POWER_CTRL::FANPWREN;
-        self.seq.set_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
+        self.seq
+            .set_bytes(Addr::EARLY_POWER_CTRL, &[on])
+            .unwrap_lite();
         Ok(())
     }
 
@@ -975,7 +991,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         let off = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
-            .unwrap();
+            .unwrap_lite();
         Ok(())
     }
 
@@ -1150,8 +1166,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_off().unwrap();
-            vddcr_soc.turn_off().unwrap();
+            vdd_vcore.turn_off().unwrap_lite();
+            vddcr_soc.turn_off().unwrap_lite();
         }
 
         fn vcore_soc_on() {
@@ -1164,8 +1180,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_on().unwrap();
-            vddcr_soc.turn_on().unwrap();
+            vdd_vcore.turn_on().unwrap_lite();
+            vddcr_soc.turn_on().unwrap_lite();
         }
 
         //
@@ -1188,7 +1204,7 @@ cfg_if::cfg_if! {
             let v3p3_sys_a0 = Tps546B24A::new(&device, rail);
 
             ringbuf_entry!(
-                Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap())
+                Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite())
             );
         }
     } else {

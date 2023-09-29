@@ -20,9 +20,10 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotSlot,
-    SlotId, SwitchDuration, UpdateTarget,
+    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotPage,
+    RotSlot, SlotId, SwitchDuration, UpdateTarget,
 };
+pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -46,24 +47,20 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(3);
+pub const CURRENT_VERSION: Version = Version(4);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
-// We add 1 byte for padding a maximum sized message to an even number of bytes
-// if necessary.
 const_assert!(
     REQUEST_BUF_SIZE
-        >= Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+        > Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE
 );
 
 /// We allow room in the buffer for message evolution
 pub const RESPONSE_BUF_SIZE: usize = 1024;
-// We add 1 byte for padding a maximum sized message to an even number of bytes
-// if necessary.
 const_assert!(
     RESPONSE_BUF_SIZE
-        >= Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE + 1
+        > Header::MAX_SIZE + RspBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE
 );
 
 // For simplicity we want to be able to retrieve the header
@@ -316,6 +313,21 @@ where
 )]
 pub struct Version(pub u32);
 
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum CfpaState {
+    /// The CFPA page used by the ROM
+    Active,
+    /// The CFPA that will be applied on the next update
+    Pending,
+    /// The CFPA region that is neither pending or active
+    Alternate,
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum PageReq {
+    Page(RotPage),
+}
+
 /// The body of a sprot request.
 ///
 /// See [`Msg`] for details about versioning and message evolution.
@@ -330,6 +342,8 @@ pub enum ReqBody {
     // Added in sprot protocol version 3
     Caboose(CabooseReq),
     Attest(AttestReq),
+    // Added in sprot protocol version 4
+    RotPage { page: RotPage },
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -371,6 +385,8 @@ pub enum AttestReq {
     CertLen(u32),
     Cert { index: u32, offset: u32, size: u32 },
     Record { algorithm: HashAlgorithm },
+    Log { offset: u32, size: u32 },
+    LogLen,
 }
 
 /// A response used for RoT updates
@@ -396,12 +412,15 @@ pub enum AttestRsp {
     CertLen(u32),
     Cert,
     Record,
+    Log,
+    LogLen(u32),
 }
 
 /// The body of a sprot response.
 ///
 /// See [`Msg`] for details about versioning and message evolution.
 #[derive(Clone, Serialize, Deserialize, SerializedSize, From)]
+#[allow(clippy::large_enum_variant)]
 pub enum RspBody {
     // General Ok status shared among response variants
     Ok,
@@ -424,6 +443,14 @@ pub enum RspBody {
     Caboose(Result<CabooseRsp, RawCabooseError>),
 
     Attest(Result<AttestRsp, AttestError>),
+
+    Page(Result<RotPageRsp, UpdateError>),
+}
+
+/// A response for reading a ROT page
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum RotPageRsp {
+    RotPage,
 }
 
 /// A response from the Dumper
@@ -511,6 +538,11 @@ pub struct RotIoStats {
 
     /// Number of incomplete transmissions (valid data not fetched by SP).
     pub tx_incomplete: u32,
+
+    /// Number of times when the RoT thinks its receiving for a request, while
+    /// the SP thinks it is receiving a response, or the RoT thinks it is
+    /// sending a response while the SP thinks it is sending a request.
+    pub desynchronized: u32,
 }
 
 /// Stats from the SP side of sprot
@@ -520,32 +552,35 @@ pub struct RotIoStats {
     Default, Copy, Clone, PartialEq, Serialize, Deserialize, SerializedSize,
 )]
 pub struct SpIoStats {
-    // Number of messages sent successfully
+    /// Number of messages sent successfully
     pub tx_sent: u32,
 
-    // Number of messages that failed to be sent
+    /// Number of messages that failed to be sent
     pub tx_errors: u32,
 
-    // Number of messages received successfully
+    /// Number of messages received successfully
     pub rx_received: u32,
 
-    // Number of error replies received
+    /// Number of error replies received
     pub rx_errors: u32,
 
-    // Number of invalid messages received. They don't parse properly.
+    /// Number of invalid messages received. They don't parse properly.
     pub rx_invalid: u32,
 
-    // Total Number of retries issued
+    /// Total Number of retries issued
     pub retries: u32,
 
-    // Number of times the SP pulsed CSn
+    /// Number of times the SP pulsed CSn
     pub csn_pulses: u32,
 
-    // Number of times pulsing CSn failed.
+    /// Number of times pulsing CSn failed.
     pub csn_pulse_failures: u32,
 
-    // Number of timeouts, while waiting for a reply
+    /// Number of timeouts, while waiting for a reply
     pub timeouts: u32,
+
+    /// Number of times the RoT has reported that it was desynchronized
+    pub desynchronized: u32,
 }
 
 /// Sprot related stats
@@ -562,7 +597,7 @@ impl SpRot {
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let reader = RotCabooseReader::new(slot_id, &self)?;
+        let reader = RotCabooseReader::new(slot_id, self)?;
         let len = reader.get(key, buf)?;
         Ok(len)
     }

@@ -14,14 +14,12 @@ name = "test-runner"
 priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
-features = ["itm"]
 
 [tasks.suite]
 name = "test-suite"
 priority = 2
 max-sizes = {flash = 65536, ram = 4096}
 start = true
-features = ["itm"]
 task-slots = ["assist", "idol", "suite", "runner"]
 
 # This block is used to test the task_config macro
@@ -36,7 +34,6 @@ name = "test-assist"
 priority = 1
 max-sizes = {flash = 16384, ram = 4096}
 start = true
-features = ["itm"]
 
 [tasks.idol]
 name = "test-idol-server"

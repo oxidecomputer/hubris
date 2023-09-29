@@ -89,13 +89,13 @@ pub struct Fans<const N: usize>([Option<SensorId>; N]);
 impl core::ops::Index<usize> for Fans<{ bsp::NUM_FANS }> {
     type Output = Option<SensorId>;
 
-    fn index<'a>(&'a self, index: usize) -> &'a Option<SensorId> {
+    fn index(&self, index: usize) -> &Option<SensorId> {
         &self.0[index]
     }
 }
 
 impl core::ops::IndexMut<usize> for Fans<{ bsp::NUM_FANS }> {
-    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Option<SensorId> {
+    fn index_mut(&mut self, index: usize) -> &mut Option<SensorId> {
         &mut self.0[index]
     }
 }
@@ -1093,6 +1093,7 @@ impl<'a> ThermalControl<'a> {
         index: usize,
         model: ThermalProperties,
     ) -> Result<(), ThermalError> {
+        #[allow(clippy::absurd_extreme_comparisons)]
         if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
             return Err(ThermalError::InvalidIndex);
         }
@@ -1111,6 +1112,7 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         index: usize,
     ) -> Result<(), ThermalError> {
+        #[allow(clippy::absurd_extreme_comparisons)]
         if index >= bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS {
             Err(ThermalError::InvalidIndex)
         } else {

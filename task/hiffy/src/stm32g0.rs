@@ -3,9 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use hif::*;
+#[cfg(feature = "send")]
 use hubris_num_tasks::Task;
 
-#[cfg(any(feature = "gpio"))]
+#[cfg(any(feature = "gpio", feature = "i2c"))]
 use userlib::*;
 
 #[cfg(feature = "gpio")]
@@ -27,8 +28,11 @@ pub struct Buffer(u8);
 //
 pub enum Functions {
     Sleep(u16, u32),
+    #[cfg(feature = "send")]
     Send((Task, u16, Buffer, usize), u32),
+    #[cfg(feature = "send")]
     SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    #[cfg(feature = "send")]
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "i2c")]
     I2cRead(
@@ -68,64 +72,48 @@ pub enum Functions {
     ),
 }
 
+/// Expected stack frame:
+/// ```text
+/// [0] controller index (integer)
+/// [1] port index (integer)
+/// [2] mux index (optional integer)
+/// [3] segment index (optional integer)
+/// [4] i2c address (integer)
+/// [5] register index (optional integer)
+/// ```
 #[cfg(feature = "i2c")]
-#[allow(clippy::type_complexity)] // TODO - type is indeed not fantastic
-fn i2c_args(
+fn i2c_args_to_device(
     stack: &[Option<u32>],
-) -> Result<
-    (
-        Controller,
-        PortIndex,
-        Option<(Mux, Segment)>,
-        u8,
-        Option<u8>,
-    ),
-    Failure,
-> {
-    let controller = match stack[0] {
-        Some(controller) => match Controller::from_u32(controller) {
-            Some(controller) => controller,
-            None => return Err(Failure::Fault(Fault::BadParameter(0))),
-        },
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
+) -> Result<(I2cDevice, Option<u8>), Failure> {
+    let controller =
+        Controller::from_u32(stack[0].ok_or(Fault::EmptyParameter(0))?)
+            .ok_or(Fault::BadParameter(0))?;
 
-    let port = match stack[1] {
-        Some(port) => {
-            if port > core::u8::MAX.into() {
-                return Err(Failure::Fault(Fault::BadParameter(1)));
-            }
-
-            PortIndex(port as u8)
-        }
-        None => {
-            //
-            // While we once upon a time allowed HIF consumers to specify
-            // a default port, we now expect all HIF consumers to read the
-            // device configuration and correctly specify a port index:
-            // this is an error.
-            //
-            return Err(Failure::Fault(Fault::EmptyParameter(1)));
-        }
+    //
+    // While we once upon a time allowed HIF consumers to specify a default
+    // port, we now expect all HIF consumers to read the device configuration
+    // and correctly specify a port index: this is an error.
+    //
+    let port = stack[1].ok_or(Fault::EmptyParameter(1))?;
+    let port = if port > core::u8::MAX.into() {
+        return Err(Failure::Fault(Fault::BadParameter(1)));
+    } else {
+        PortIndex(port as u8)
     };
 
     let mux = match (stack[2], stack[3]) {
         (Some(mux), Some(segment)) => Some((
-            Mux::from_u32(mux).ok_or(Failure::Fault(Fault::BadParameter(2)))?,
-            Segment::from_u32(segment)
-                .ok_or(Failure::Fault(Fault::BadParameter(3)))?,
+            Mux::from_u32(mux).ok_or(Fault::BadParameter(2))?,
+            Segment::from_u32(segment).ok_or(Fault::BadParameter(3))?,
         )),
         _ => None,
     };
 
-    let addr = match stack[4] {
-        Some(addr) => addr as u8,
-        None => return Err(Failure::Fault(Fault::EmptyParameter(4))),
-    };
-
+    let addr = stack[4].ok_or(Fault::EmptyParameter(4))? as u8;
     let register = stack[5].map(|r| r as u8);
 
-    Ok((controller, port, mux, addr, register))
+    let task = I2C.get_task_id();
+    Ok((I2cDevice::new(task, controller, port, mux, addr), register))
 }
 
 #[cfg(feature = "i2c")]
@@ -139,41 +127,33 @@ fn i2c_read(
     }
 
     let fp = stack.len() - 7;
-    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
-
-    let task = I2C.get_task_id();
-    let device = I2cDevice::new(task, controller, port, mux, addr);
+    let (device, register) = i2c_args_to_device(&stack[fp..])?;
 
     match stack[fp + 6] {
         Some(nbytes) => {
             let n = nbytes as usize;
 
-            if rval.len() < n {
+            let Some(buf) = rval.get_mut(..n) else {
                 return Err(Failure::Fault(Fault::ReturnValueOverflow));
-            }
-
-            let res = if let Some(reg) = register {
-                device.read_reg_into::<u8>(reg as u8, &mut rval[0..n])
-            } else {
-                device.read_into(&mut rval[0..n])
             };
 
-            match res {
-                Ok(rlen) => Ok(rlen),
-                Err(err) => Err(Failure::FunctionError(err.into())),
-            }
+            let res = if let Some(reg) = register {
+                device.read_reg_into::<u8>(reg, buf)
+            } else {
+                device.read_into(buf)
+            };
+            res.map_err(|e| Failure::FunctionError(u32::from(e)))
         }
 
         None => {
             if let Some(reg) = register {
-                if rval.len() < 256 {
+                let Some(buf) = rval.get_mut(..256) else {
                     return Err(Failure::Fault(Fault::ReturnValueOverflow));
-                }
+                };
 
-                match device.read_block::<u8>(reg as u8, &mut rval[0..0xff]) {
-                    Ok(rlen) => Ok(rlen),
-                    Err(err) => Err(Failure::FunctionError(err.into())),
-                }
+                device
+                    .read_block::<u8>(reg, buf)
+                    .map_err(|e| Failure::FunctionError(u32::from(e)))
             } else {
                 Err(Failure::Fault(Fault::EmptyParameter(6)))
             }
@@ -201,16 +181,14 @@ fn i2c_write(
         Some(len) if len > 0 && (len as usize) < buf.len() => Ok(len as usize),
         _ => Err(Failure::Fault(Fault::BadParameter(7))),
     }?;
+    let frame_size = len.checked_add(7).ok_or(Fault::BadParameter(7))?;
 
-    if stack.len() < 7 + len {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - (7 + len);
-    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
-
-    let task = I2C.get_task_id();
-    let device = I2cDevice::new(task, controller, port, mux, addr);
+    let fp = stack
+        .len()
+        .checked_sub(frame_size)
+        .ok_or(Fault::MissingParameters)?;
+    let frame = &stack[fp..];
+    let (device, register) = i2c_args_to_device(frame)?;
 
     let mut offs = 0;
 
@@ -219,18 +197,14 @@ fn i2c_write(
         offs += 1;
     }
 
-    let bp = stack.len() - (1 + len);
+    let bp = 6;
+    let bufsec = &mut buf[..len + offs];
 
     for i in 0..len {
-        buf[i + offs] = match stack[bp + i] {
-            None => {
-                return Err(Failure::Fault(Fault::BadParameter(7)));
-            }
-            Some(val) => val as u8,
-        }
+        bufsec[i + offs] = frame[bp + i].ok_or(Fault::BadParameter(7))? as u8;
     }
 
-    match device.write(&buf[0..len + offs]) {
+    match device.write(bufsec) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -264,14 +238,11 @@ fn i2c_bulk_write(
     }?;
 
     let fp = stack.len() - 8;
-    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
+    let (device, register) = i2c_args_to_device(&stack[fp..])?;
 
     if register.is_some() {
         return Err(Failure::Fault(Fault::BadParameter(5)));
     }
-
-    let task = I2C.get_task_id();
-    let device = I2cDevice::new(task, controller, port, mux, addr);
 
     match device.write(&data[offset..offset + len]) {
         Ok(_) => Ok(0),
@@ -455,8 +426,11 @@ fn gpio_configure(
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
+    #[cfg(feature = "send")]
     crate::common::send,
+    #[cfg(feature = "send")]
     crate::common::send_lease_read,
+    #[cfg(feature = "send")]
     crate::common::send_lease_write,
     #[cfg(feature = "i2c")]
     i2c_read,

@@ -11,7 +11,6 @@
 
 mod config;
 
-use arrayvec::ArrayVec;
 use attest_api::{AttestError, HashAlgorithm};
 use config::DataRegion;
 use core::slice;
@@ -19,8 +18,10 @@ use crypto_common::{typenum::Unsigned, OutputSizeUser};
 use hubpack::SerializedSize;
 use idol_runtime::{ClientError, Leased, RequestError, W};
 use lib_dice::{AliasData, CertData};
+use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use sha3::Sha3_256Core;
 use stage0_handoff::{HandoffData, HandoffDataLoadError};
 use zerocopy::AsBytes;
@@ -47,6 +48,8 @@ enum Trace {
     Startup,
     Record(HashAlgorithm),
     BadLease(usize),
+    LogLen(u32),
+    Log,
     None,
 }
 
@@ -84,12 +87,23 @@ const SHA3_256_DIGEST_SIZE: usize =
 // the number of Measurements we can record
 const CAPACITY: usize = 16;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct Digest<const N: usize>([u8; N]);
+// Digest is a fixed length array of bytes
+#[serde_as]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, SerializedSize)]
+struct Digest<const N: usize>(#[serde_as(as = "[_; N]")] [u8; N]);
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+impl<const N: usize> Default for Digest<N> {
+    fn default() -> Self {
+        Digest([0u8; N])
+    }
+}
+
+type Sha3_256Digest = Digest<SHA3_256_DIGEST_SIZE>;
+
+// Measurement is an enum that can hold any of the supported hash algorithms
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, SerializedSize)]
 enum Measurement {
-    Sha3_256(Digest<SHA3_256_DIGEST_SIZE>),
+    Sha3_256(Sha3_256Digest),
 }
 
 impl Measurement {
@@ -104,7 +118,7 @@ impl Measurement {
                     return Err(AttestError::BadLease.into());
                 }
 
-                let mut digest = Digest([0u8; SHA3_256_DIGEST_SIZE]);
+                let mut digest = Sha3_256Digest::default();
                 data.read_range(0..digest.0.len(), &mut digest.0)
                     .map_err(|_| RequestError::went_away())?;
 
@@ -114,18 +128,64 @@ impl Measurement {
     }
 }
 
+impl Default for Measurement {
+    fn default() -> Self {
+        Measurement::Sha3_256(Sha3_256Digest::default())
+    }
+}
+
+// ArrayVec has everything we need but isn't compatible with hubpack. We only
+// need a small subset of its functionality so this saves us some flash.
+#[serde_as]
+#[derive(Serialize, SerializedSize)]
+struct Log<const N: usize> {
+    index: u32,
+    #[serde_as(as = "[_; N]")]
+    measurements: [Measurement; N],
+}
+
+impl<const N: usize> Log<N> {
+    fn is_full(&self) -> bool {
+        self.index as usize == N
+    }
+
+    fn push(&mut self, measurement: Measurement) -> bool {
+        if !self.is_full() {
+            self.measurements[self.index as usize] = measurement;
+            self.index += 1;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<const N: usize> Default for Log<N> {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            measurements: [Measurement::default(); N],
+        }
+    }
+}
+
 struct AttestServer {
     alias_data: Option<AliasData>,
+    buf: &'static mut [u8; Log::<CAPACITY>::MAX_SIZE],
     cert_data: Option<CertData>,
-    measurements: ArrayVec<Measurement, CAPACITY>,
+    measurements: Log<CAPACITY>,
 }
 
 impl Default for AttestServer {
     fn default() -> Self {
+        let buf = mutable_statics! {
+            static mut LOG_BUF: [u8; Log::<CAPACITY>::MAX_SIZE] = [|| 0; _];
+        };
         Self {
             alias_data: load_data_from_region(&ALIAS_DATA),
+            buf,
             cert_data: load_data_from_region(&CERT_DATA),
-            measurements: ArrayVec::<Measurement, CAPACITY>::new(),
+            measurements: Log::<CAPACITY>::default(),
         }
     }
 }
@@ -192,11 +252,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         let len = self.get_cert_bytes_from_index(index)?.len();
         ringbuf_entry!(Trace::CertLen(len));
 
-        let len = u32::try_from(len).map_err(|_| {
-            <AttestError as Into<RequestError<AttestError>>>::into(
-                AttestError::CertTooBig,
-            )
-        })?;
+        let len = u32::try_from(len).map_err(|_| AttestError::CertTooBig)?;
 
         Ok(len)
     }
@@ -246,12 +302,49 @@ impl idl::InOrderAttestImpl for AttestServer {
         ringbuf_entry!(Trace::Record(algorithm));
 
         if self.measurements.is_full() {
-            return Err(AttestError::MeasurementLogFull.into());
+            return Err(AttestError::LogFull.into());
         }
 
         self.measurements.push(Measurement::new(algorithm, data)?);
 
         Ok(())
+    }
+
+    fn log(
+        &mut self,
+        _: &userlib::RecvMessage,
+        offset: u32,
+        dest: Leased<W, [u8]>,
+    ) -> Result<(), RequestError<AttestError>> {
+        ringbuf_entry!(Trace::Log);
+
+        let offset = offset as usize;
+        let log_len = hubpack::serialize(self.buf, &self.measurements)
+            .map_err(|_| AttestError::SerializeLog)?;
+
+        if log_len < offset || dest.len() > log_len - offset {
+            let err = AttestError::OutOfRange;
+            ringbuf_entry!(Trace::AttestError(err));
+            return Err(err.into());
+        }
+
+        dest.write_range(0..dest.len(), &self.buf[offset..offset + dest.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        Ok(())
+    }
+
+    fn log_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u32, RequestError<AttestError>> {
+        let len = hubpack::serialize(self.buf, &self.measurements)
+            .map_err(|_| AttestError::SerializeLog)?;
+        let len = u32::try_from(len).map_err(|_| AttestError::LogTooBig)?;
+
+        ringbuf_entry!(Trace::LogLen(len));
+
+        Ok(len)
     }
 }
 

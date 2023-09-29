@@ -315,30 +315,27 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     continue;
                 }
 
-                match kipc::read_task_status(i) {
-                    abi::TaskState::Faulted { .. } => {
-                        #[cfg(feature = "dump")]
-                        {
-                            // We'll ignore the result of dumping; it could fail
-                            // if we're out of space, but we don't have a way of
-                            // dealing with that right now.
-                            //
-                            // TODO: some kind of circular buffer?
-                            _ = dump::dump_task(self.dump_areas, i);
-                        }
-
-                        if status.disposition == Disposition::Restart {
-                            // Stand it back up
-                            kipc::restart_task(i, true);
-                        } else {
-                            // Mark this one off so we don't revisit it until
-                            // requested.
-                            status.holding_fault = true;
-                        }
+                if let abi::TaskState::Faulted { .. } =
+                    kipc::read_task_status(i)
+                {
+                    #[cfg(feature = "dump")]
+                    {
+                        // We'll ignore the result of dumping; it could fail
+                        // if we're out of space, but we don't have a way of
+                        // dealing with that right now.
+                        //
+                        // TODO: some kind of circular buffer?
+                        _ = dump::dump_task(self.dump_areas, i);
                     }
 
-                    // For the purposes of this loop, ignore all other tasks.
-                    _ => (),
+                    if status.disposition == Disposition::Restart {
+                        // Stand it back up
+                        kipc::restart_task(i, true);
+                    } else {
+                        // Mark this one off so we don't revisit it until
+                        // requested.
+                        status.holding_fault = true;
+                    }
                 }
             }
         }

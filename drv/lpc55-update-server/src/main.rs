@@ -13,10 +13,10 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use drv_lpc55_flash::BYTES_PER_FLASH_PAGE;
 use drv_lpc55_update_api::{
-    RawCabooseError, RotBootInfo, SlotId, SwitchDuration, UpdateTarget,
+    RawCabooseError, RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_update_api::UpdateError;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
 };
@@ -69,11 +69,18 @@ const BLOCK_SIZE_BYTES: usize = BYTES_PER_FLASH_PAGE;
 const MAX_LEASE: usize = 1024;
 const HEADER_BLOCK: usize = 0;
 
+const CMPA_FLASH_WORD: u32 = 0x9E40;
 const CFPA_PING_FLASH_WORD: u32 = 0x9E00;
 const CFPA_PONG_FLASH_WORD: u32 = 0x9E20;
 const CFPA_SCRATCH_FLASH_WORD: u32 = 0x9DE0;
 const CFPA_SCRATCH_FLASH_ADDR: u32 = CFPA_SCRATCH_FLASH_WORD << 4;
 const BOOT_PREFERENCE_FLASH_WORD_OFFSET: u32 = 0x10;
+
+#[derive(PartialEq)]
+enum CfpaPage {
+    Active,
+    Inactive,
+}
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
@@ -325,12 +332,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 // Ping     0x9_E000    0x9E00
                 // Pong     0x9_E200    0x9E20
                 let (cfpa_word_number, _) =
-                    self.cfpa_word_number_and_version()?;
+                    self.cfpa_word_number_and_version(CfpaPage::Active)?;
 
                 // Read current CFPA contents.
                 let mut cfpa = [[0u32; 4]; 512 / 16];
                 indirect_flash_read_words(
-                    &mut self.flash,
+                    &self.flash,
                     cfpa_word_number,
                     &mut cfpa,
                 )?;
@@ -344,7 +351,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 // reserved.
                 let offset = BOOT_PREFERENCE_FLASH_WORD_OFFSET as usize;
                 let bit = cfpa[offset][0] & 1;
-                let new_bit = if slot == SlotId::A { 0 } else { 1 };
+                let new_bit = u32::from(slot != SlotId::A);
                 if bit == new_bit {
                     // No need to write the CFPA if it's unchanged
                     return Ok(());
@@ -404,7 +411,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 self.flash
                     .write_page(
                         CFPA_SCRATCH_FLASH_ADDR,
-                        &cfpa_bytes,
+                        cfpa_bytes,
                         wait_for_flash_interrupt,
                     )
                     .map_err(|_| UpdateError::FlashError)?;
@@ -425,11 +432,44 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.syscon.chip_reset();
         panic!()
     }
+
+    fn read_rot_page(
+        &mut self,
+        _: &RecvMessage,
+        page: RotPage,
+        dest: LenLimit<Leased<W, [u8]>, BYTES_PER_FLASH_PAGE>,
+    ) -> Result<(), RequestError<UpdateError>> {
+        let start_addr = match page {
+            RotPage::Cmpa => CMPA_FLASH_WORD << 4,
+            RotPage::CfpaScratch => CFPA_SCRATCH_FLASH_ADDR,
+            RotPage::CfpaActive => {
+                let (cfpa_word, _) =
+                    self.cfpa_word_number_and_version(CfpaPage::Active)?;
+                cfpa_word << 4
+            }
+            RotPage::CfpaInactive => {
+                let (cfpa_word, _) =
+                    self.cfpa_word_number_and_version(CfpaPage::Inactive)?;
+                cfpa_word << 4
+            }
+        };
+
+        const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
+
+        copy_from_flash_range(
+            &self.flash,
+            start_addr..(start_addr + PAGE_SIZE),
+            0..PAGE_SIZE,
+            dest,
+        )?;
+        Ok(())
+    }
 }
 
 impl ServerImpl<'_> {
     fn cfpa_word_number_and_version(
         &mut self,
+        page: CfpaPage,
     ) -> Result<(u32, u32), UpdateError> {
         // Read the two versions. We do this with smaller buffers so
         // we don't need 2x 512B buffers to read the entire CFPAs.
@@ -437,22 +477,22 @@ impl ServerImpl<'_> {
         let mut pong_header = [0u32; 4];
 
         indirect_flash_read_words(
-            &mut self.flash,
+            &self.flash,
             CFPA_PING_FLASH_WORD,
             core::slice::from_mut(&mut ping_header),
         )?;
         indirect_flash_read_words(
-            &mut self.flash,
+            &self.flash,
             CFPA_PONG_FLASH_WORD,
             core::slice::from_mut(&mut pong_header),
         )?;
 
-        // Work out where to read the authoritative contents from.
-        let val = if ping_header[1] >= pong_header[1] {
-            (CFPA_PING_FLASH_WORD, ping_header[1])
-        } else {
-            (CFPA_PONG_FLASH_WORD, pong_header[1])
-        };
+        let val =
+            if ping_header[1] >= pong_header[1] && page == CfpaPage::Active {
+                (CFPA_PING_FLASH_WORD, ping_header[1])
+            } else {
+                (CFPA_PONG_FLASH_WORD, pong_header[1])
+            };
 
         Ok(val)
     }
@@ -462,14 +502,14 @@ impl ServerImpl<'_> {
         &mut self,
     ) -> Result<(SlotId, Option<SlotId>, Option<SlotId>), UpdateError> {
         let (cfpa_word_number, cfpa_version) =
-            self.cfpa_word_number_and_version()?;
+            self.cfpa_word_number_and_version(CfpaPage::Active)?;
 
         // Read the authoritative boot selection
         let boot_selection_word_number =
             cfpa_word_number + BOOT_PREFERENCE_FLASH_WORD_OFFSET;
         let mut boot_selection_word = [0u32; 4];
         indirect_flash_read_words(
-            &mut self.flash,
+            &self.flash,
             boot_selection_word_number,
             core::slice::from_mut(&mut boot_selection_word),
         )?;
@@ -481,7 +521,7 @@ impl ServerImpl<'_> {
         // Read the scratch boot version, which may be erased
         let mut scratch_header = [0u32; 4];
         let scratch_header = match indirect_flash_read_words(
-            &mut self.flash,
+            &self.flash,
             CFPA_SCRATCH_FLASH_WORD,
             core::slice::from_mut(&mut scratch_header),
         ) {
@@ -499,7 +539,7 @@ impl ServerImpl<'_> {
                     CFPA_SCRATCH_FLASH_WORD + BOOT_PREFERENCE_FLASH_WORD_OFFSET;
                 let mut scratch_boot_selection_word = [0u32; 4];
                 indirect_flash_read_words(
-                    &mut self.flash,
+                    &self.flash,
                     scratch_boot_selection_word_number,
                     core::slice::from_mut(&mut scratch_boot_selection_word),
                 )?;
@@ -610,7 +650,7 @@ fn indirect_flash_read(
     mut addr: u32,
     mut output: &mut [u8],
 ) -> Result<(), UpdateError> {
-    while output.len() > 0 {
+    while !output.is_empty() {
         // Convert from memory (byte) address to word address, per comments in
         // `lpc55_flash` driver.
         let word = (addr / 16) & ((1 << 18) - 1);
@@ -814,7 +854,7 @@ fn caboose_slice(
     )
     .map_err(|_| RawCabooseError::ReadFailed)?;
     if header.magic != HEADER_MAGIC {
-        return Err(RawCabooseError::NoImageHeader.into());
+        return Err(RawCabooseError::NoImageHeader);
     }
 
     // Calculate where the image header implies that the image should end
@@ -826,7 +866,7 @@ fn caboose_slice(
     //
     // SAFETY: populated by the linker, so this should be valid
     if image_end > image_region_end {
-        return Err(RawCabooseError::MissingCaboose.into());
+        return Err(RawCabooseError::MissingCaboose);
     }
 
     // By construction, the last word of the caboose is its size as a `u32`
@@ -839,7 +879,7 @@ fn caboose_slice(
         // This branch will be encountered if there's no caboose, because
         // then the nominal caboose size will be 0xFFFFFFFF, which will send
         // us out of the bank2 region.
-        return Err(RawCabooseError::MissingCaboose.into());
+        return Err(RawCabooseError::MissingCaboose);
     } else {
         // SAFETY: we know this pointer is within the programmed flash region,
         // since it's checked above.
@@ -849,7 +889,7 @@ fn caboose_slice(
         if v == CABOOSE_MAGIC {
             caboose_start + 4..image_end - 4
         } else {
-            return Err(RawCabooseError::MissingCaboose.into());
+            return Err(RawCabooseError::MissingCaboose);
         }
     };
     Ok(caboose_range)
@@ -875,6 +915,33 @@ fn copy_from_caboose_chunk(
         let buf = &mut buf[..count as usize];
         indirect_flash_read(flash, caboose.start + pos.start + offset, buf)
             .map_err(|_| RequestError::from(RawCabooseError::ReadFailed))?;
+        data.write_range(offset as usize..(offset + count) as usize, buf)
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        offset += count;
+        remaining -= count;
+    }
+    Ok(())
+}
+
+fn copy_from_flash_range(
+    flash: &drv_lpc55_flash::Flash<'_>,
+    range: core::ops::Range<u32>,
+    pos: core::ops::Range<u32>,
+    data: LenLimit<Leased<W, [u8]>, BYTES_PER_FLASH_PAGE>,
+) -> Result<(), RequestError<UpdateError>> {
+    // Early exit if the caller didn't provide enough space in the lease
+    let mut remaining = pos.end - pos.start;
+    if remaining as usize > data.len() {
+        return Err(RequestError::Fail(ClientError::BadLease))?;
+    }
+
+    const BUF_SIZE: usize = 128;
+    let mut offset = 0;
+    let mut buf = [0u8; BUF_SIZE];
+    while remaining > 0 {
+        let count = remaining.min(buf.len() as u32);
+        let buf = &mut buf[..count as usize];
+        indirect_flash_read(flash, range.start + pos.start + offset, buf)?;
         data.write_range(offset as usize..(offset + count) as usize, buf)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         offset += count;
@@ -915,7 +982,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
         HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
-        RotBootState, SlotId, SwitchDuration, UpdateTarget,
+        RotPage, SlotId, SwitchDuration, UpdateTarget,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

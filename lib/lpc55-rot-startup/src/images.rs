@@ -8,7 +8,7 @@ use sha3::{Digest, Sha3_256};
 use stage0_handoff::{ImageVersion, RotImageDetails};
 use unwrap_lite::UnwrapLite;
 
-pub fn get_image_b(flash: &mut Flash) -> Option<Image> {
+pub fn get_image_b(flash: &mut Flash<'_>) -> Option<Image> {
     let imageb = unsafe { &__IMAGE_B_BASE };
 
     let img = Image {
@@ -23,7 +23,7 @@ pub fn get_image_b(flash: &mut Flash) -> Option<Image> {
     }
 }
 
-pub fn get_image_a(flash: &mut Flash) -> Option<Image> {
+pub fn get_image_a(flash: &mut Flash<'_>) -> Option<Image> {
     let imagea = unsafe { &__IMAGE_A_BASE };
 
     let img = Image {
@@ -60,7 +60,7 @@ pub struct Image {
     vector: &'static ImageVectors,
 }
 
-pub fn image_details(img: Image, flash: &mut Flash) -> RotImageDetails {
+pub fn image_details(img: Image, flash: &mut Flash<'_>) -> RotImageDetails {
     RotImageDetails {
         digest: img.get_fwid(flash),
         version: img.get_image_version(),
@@ -86,7 +86,7 @@ impl Image {
     }
 
     /// Make sure all of the image flash is programmed
-    fn validate(&self, flash: &mut Flash) -> bool {
+    fn validate(&self, flash: &mut Flash<'_>) -> bool {
         let img_start = self.get_img_start();
 
         // Start by making sure we can access the page where the vectors live
@@ -122,17 +122,11 @@ impl Image {
             None => return false,
         };
 
-        // Next make sure the marked image length is programmed
-        let valid = flash.is_page_range_programmed(img_start, total_len);
-
-        if !valid {
-            return false;
-        }
-
-        return true;
+        // Last step is to make sure the entire range is programmed
+        flash.is_page_range_programmed(img_start, total_len)
     }
 
-    pub fn get_fwid(&self, flash: &mut Flash) -> [u8; 32] {
+    pub fn get_fwid(&self, flash: &mut Flash<'_>) -> [u8; 32] {
         let mut hash = Sha3_256::new();
 
         for start in self.flash.clone().step_by(BYTES_PER_FLASH_PAGE) {
@@ -169,7 +163,7 @@ impl Image {
         // The MPU requires 32 byte alignment and so the compiler pads the
         // image accordingly. The length field from the image header does not
         // (and should not) account for this padding so we must do that here.
-        let img_size = self.get_img_size().unwrap_lite() + 31 & !31;
+        let img_size = (self.get_img_size().unwrap_lite() + 31) & !31;
 
         // Safety: this is unsafe because the pointer addition could overflow.
         // If that happens, we'll produce an empty range or crash with a panic.
