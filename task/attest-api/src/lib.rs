@@ -18,10 +18,12 @@ pub enum AttestError {
     InvalidCertIndex,
     NoCerts,
     OutOfRange,
-    MeasurementLogFull,
+    LogFull,
+    LogTooBig,
     TaskRestarted,
     BadLease,
     UnsupportedAlgorithm,
+    SerializeLog,
 }
 
 impl From<idol_runtime::ServerDeath> for AttestError {

@@ -9,9 +9,11 @@ crypto-common = { workspace = true }
 lib-dice = { path = "../../lib/dice" }
 hubpack = { workspace = true }
 idol-runtime = { workspace = true }
+mutable-statics = { path = "../../lib/mutable-statics" }
 num-traits = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
 serde = { workspace = true }
+serde_with = { version = "3.3.0", default-features = false, features = ["macros"] }
 stage0-handoff = { path = "../../lib/stage0-handoff" }
 attest-api = { path = "../attest-api" }
 sha3 = { workspace = true }

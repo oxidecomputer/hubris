@@ -291,7 +291,8 @@ Here are some highlights.
 As with most operating systems, tasks can be in a number of states: stopped,
 runnable, blocked, etc. A common way to express this might be:
 
-....
+[source,rust]
+----
 struct Task {
     state: State,
     // other stuff omitted
@@ -302,14 +303,15 @@ enum State {
     Runnable,
     Blocked,
 }
-....
+----
 
 A fault event causes a task to no longer be schedulable, until the fault is
 resolved or the task is restarted. A fault cannot *replace* the task's state,
 because we want to remember it -- for debugging, at the least. And so we might
 be tempted to do this:
 
-....
+[source,rust]
+----
 struct Task {
     state: State,
     fault: Option<Fault>,
@@ -326,19 +328,20 @@ enum Fault {
     MemoryAccess(Address),
     OtherReasons,
 }
-....
+----
 
 But this makes it really easy to schedule a faulted task _by accident,_ in a way
 that's hard to spot with local reasoning. Specifically:
 
-....
+[source,rust]
+----
 for task in tasks {
     if task.state == State::Runnable {
         schedule(task);
         break;
     }
 }
-....
+----
 
 Looks correct! Is not correct. (The same issue could happen when replying to a
 blocked task, setting it runnable without noticing a fault.)
@@ -349,7 +352,9 @@ but are _not_: a fault makes the other state temporarily irrelevant.
 We can express this at the type level to make this class of mistake much less
 likely:
 
-....
+
+[source,rust]
+----
 struct Task {
     state: HealthState,
     // other stuff omitted
@@ -373,7 +378,7 @@ enum Fault {
     MemoryAccess(Address),
     OtherReasons,
 }
-....
+----
 
 That is, while the original `State` is preserved when a fault is taken, it's
 moved inside the `HealthState::Faulted` variant where it's structurally distinct
@@ -382,14 +387,15 @@ from `Healthy`.
 Our scheduler loop above no longer compiles, because `task.state` is not a
 `State`. Instead, we write the code like this:
 
-....
+[source,rust]
+----
 for task in tasks {
     if task.state == HealthState::Healthy(State::Runnable) {
         schedule(task);
         break;
     }
 }
-....
+----
 
 Any faulted state fails that equality test without further thought.
 
@@ -412,14 +418,15 @@ the next scheduling round without checking.
 
 Hubris currently addresses this with the `NextTask` enum, which looks like this:
 
-....
+[source,rust]
+----
 #[must_use]
 enum NextTask {
     Same,
     Specific(usize),
     Other,
 }
-....
+----
 
 An operation returns `NextTask` if it *may* affect scheduling. `Same` indicates
 that no context switch is required; `Specific(x)` indicates that a switch to a
@@ -440,7 +447,8 @@ When two `NextTask` values meet, they can be combined; this provides better
 composition of operations than a simple "switch needed" flag. Combining two
 `NextTask` values works as follows (expressed as a Rust `match`):
 
-....
+[source,rust]
+----
 match (self, other) {
     // If both agree, our job is easy.
     (x, y) if x == y => x,
@@ -454,7 +462,7 @@ match (self, other) {
     // All we have left is...
     (Same, Same) => Same,
 }
-....
+----
 
 (That's copied verbatim from the kernel source.)
 
