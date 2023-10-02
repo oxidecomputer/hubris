@@ -15,9 +15,11 @@ use drv_usart::Usart;
 use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
-    Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult, SpToHost,
-    Status, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN,
+    Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult,
+    KeySetResult, SpToHost, Status, MAX_MESSAGE_SIZE,
+    MIN_SP_TO_HOST_FILL_DATA_LEN,
 };
+use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use mutable_statics::mutable_statics;
@@ -166,6 +168,76 @@ enum RebootState {
     WaitingInA2RebootDelay,
 }
 
+const MAX_ETC_SYSTEM_LEN: usize = 256;
+const MAX_DTRACE_CONF_LEN: usize = 4096;
+
+// Storage we set aside for any messages where the host wants us to remember
+// data for later read back (either by the host itself or by the control plane
+// via MGS).
+struct HostKeyValueStorage {
+    last_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+    last_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+    etc_system: &'static mut [u8; MAX_ETC_SYSTEM_LEN],
+    etc_system_len: usize,
+    dtrace_conf: &'static mut [u8; MAX_DTRACE_CONF_LEN],
+    dtrace_conf_len: usize,
+}
+
+impl HostKeyValueStorage {
+    fn claim_static_resources() -> Self {
+        let (last_boot_fail, last_panic, etc_system, dtrace_conf) = mutable_statics! {
+            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
+                [|| 0; _];
+            static mut HOST_ETC_SYSTEM: [u8; MAX_ETC_SYSTEM_LEN] =
+                [|| 0; _];
+            static mut HOST_DTRACE_CONF: [u8; MAX_DTRACE_CONF_LEN] =
+                [|| 0; _];
+        };
+
+        Self {
+            last_boot_fail,
+            last_panic,
+            etc_system,
+            etc_system_len: 0,
+            dtrace_conf,
+            dtrace_conf_len: 0,
+        }
+    }
+
+    fn key_set(&mut self, key: u8, data: &[u8]) -> KeySetResult {
+        let Some(key) = Key::from_u8(key) else {
+            return KeySetResult::InvalidKey;
+        };
+
+        let (buf, buf_len) = match key {
+            // Some keys should not be set by the host:
+            //
+            // * `Ping` always returns PONG
+            // * InstallinatorImageId is set via MGS
+            // * InventorySize always returns our static inventory size
+            Key::Ping | Key::InstallinatorImageId | Key::InventorySize => {
+                return KeySetResult::ReadOnlyKey;
+            }
+            Key::EtcSystem => {
+                (self.etc_system.as_mut_slice(), &mut self.etc_system_len)
+            }
+            Key::DtraceConf => {
+                (self.dtrace_conf.as_mut_slice(), &mut self.dtrace_conf_len)
+            }
+        };
+
+        if data.len() > buf.len() {
+            KeySetResult::DataTooLong
+        } else {
+            buf[..data.len()].copy_from_slice(data);
+            *buf_len = data.len();
+            KeySetResult::Ok
+        }
+    }
+}
+
 struct ServerImpl {
     uart: Usart,
     sys: sys_api::Sys,
@@ -179,9 +251,7 @@ struct ServerImpl {
     cp_agent: ControlPlaneAgent,
     packrat: Packrat,
     reboot_state: Option<RebootState>,
-
-    last_host_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
-    last_host_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+    host_kv_storage: HostKeyValueStorage,
 }
 
 impl ServerImpl {
@@ -196,13 +266,6 @@ impl ServerImpl {
             sys_get_timer().now,
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
-
-        let (last_host_boot_fail, last_host_panic) = mutable_statics! {
-            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-        };
 
         Self {
             uart,
@@ -219,8 +282,7 @@ impl ServerImpl {
             ),
             packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
-            last_host_boot_fail,
-            last_host_panic,
+            host_kv_storage: HostKeyValueStorage::claim_static_resources(),
         }
     }
 
@@ -681,9 +743,13 @@ impl ServerImpl {
                 //
                 // For now, copy it into a static var we can pull out via
                 // `humility readvar LAST_HOST_BOOT_FAIL`.
-                let n = usize::min(data.len(), self.last_host_boot_fail.len());
-                self.last_host_boot_fail[..n].copy_from_slice(&data[..n]);
-                for b in &mut self.last_host_boot_fail[n..] {
+                let n = usize::min(
+                    data.len(),
+                    self.host_kv_storage.last_boot_fail.len(),
+                );
+                self.host_kv_storage.last_boot_fail[..n]
+                    .copy_from_slice(&data[..n]);
+                for b in &mut self.host_kv_storage.last_boot_fail[n..] {
                     *b = 0;
                 }
                 Some(SpToHost::Ack)
@@ -693,9 +759,13 @@ impl ServerImpl {
                 //
                 // For now, copy it into a static var we can pull out via
                 // `humility readvar LAST_HOST_PANIC`.
-                let n = usize::min(data.len(), self.last_host_panic.len());
-                self.last_host_panic[..n].copy_from_slice(&data[..n]);
-                for b in &mut self.last_host_panic[n..] {
+                let n = usize::min(
+                    data.len(),
+                    self.host_kv_storage.last_panic.len(),
+                );
+                self.host_kv_storage.last_panic[..n]
+                    .copy_from_slice(&data[..n]);
+                for b in &mut self.host_kv_storage.last_panic[n..] {
                     *b = 0;
                 }
                 Some(SpToHost::Ack)
@@ -758,6 +828,9 @@ impl ServerImpl {
                 }
                 Err(err) => Some(SpToHost::KeyLookupResult(err)),
             },
+            HostToSp::KeySet { key } => Some(SpToHost::KeySetResult(
+                self.host_kv_storage.key_set(key, data),
+            )),
             HostToSp::GetInventoryData { index } => {
                 match self.perform_inventory_lookup(header.sequence, index) {
                     Ok(()) => None,
@@ -890,13 +963,70 @@ impl ServerImpl {
                 );
                 response_len
             }
+            Key::EtcSystem => {
+                let response_len = self.host_kv_storage.etc_system_len;
+                if response_len == 0 {
+                    return Err(KeyLookupResult::NoValueForKey);
+                }
+
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        // Statically guarantee we have sufficient space in
+                        // `buf` for longest possible ETC_SYSTEM blob.
+                        const_assert!(
+                            MIN_SP_TO_HOST_FILL_DATA_LEN >= MAX_ETC_SYSTEM_LEN
+                        );
+                        buf[..response_len].copy_from_slice(
+                            &self.host_kv_storage.etc_system[..response_len],
+                        );
+                        response_len
+                    },
+                );
+                response_len
+            }
+            Key::DtraceConf => {
+                let response_len = self.host_kv_storage.dtrace_conf_len;
+                if response_len == 0 {
+                    return Err(KeyLookupResult::NoValueForKey);
+                }
+
+                self.tx_buf.encode_response(
+                    sequence,
+                    &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
+                    |buf| {
+                        // `MIN_SP_TO_HOST_FILL_DATA_LEN` is calculated assuming
+                        // `SpToHost::MAX_SIZE`, but we know in this callback
+                        // we're appending to
+                        // `SpToHost::KeyLookupResult(KeyLookupResult::Ok)`,
+                        // which is only 2 bytes. Recompute the exact max space
+                        // we have for our response, then statically guarantee
+                        // we have sufficient space in `buf` for longest
+                        // possible DTRACE_CONF blob.
+                        const SP_TO_HOST_FILL_DATA_LEN: usize =
+                            MIN_SP_TO_HOST_FILL_DATA_LEN + SpToHost::MAX_SIZE
+                                - 2;
+                        const_assert!(
+                            SP_TO_HOST_FILL_DATA_LEN >= MAX_DTRACE_CONF_LEN
+                        );
+
+                        buf[..response_len].copy_from_slice(
+                            &self.host_kv_storage.dtrace_conf[..response_len],
+                        );
+                        response_len
+                    },
+                );
+                response_len
+            }
         };
+
         if response_len > max_response_len {
             self.tx_buf.reset();
-            return Err(KeyLookupResult::MaxResponseLenTooShort);
+            Err(KeyLookupResult::MaxResponseLenTooShort)
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 }
 

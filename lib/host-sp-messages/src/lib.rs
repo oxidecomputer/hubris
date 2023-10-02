@@ -111,6 +111,11 @@ pub enum HostToSp {
     GetInventoryData {
         index: u32,
     },
+    // KeySet is followed by a binary data blob (the value to set the key to)
+    KeySet {
+        // We use a raw `u8` here for the same reason as in `KeyLookup` above.
+        key: u8,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -162,6 +167,7 @@ pub enum SpToHost {
         result: InventoryDataResult,
         name: [u8; 32],
     },
+    KeySetResult(KeySetResult),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -171,6 +177,10 @@ pub enum Key {
     InstallinatorImageId,
     /// Returns the max inventory size and version
     InventorySize,
+    /// `/etc/system` file content
+    EtcSystem,
+    /// `/kernel/drv/dtrace.conf` file content
+    DtraceConf,
 }
 
 #[derive(
@@ -185,6 +195,20 @@ pub enum KeyLookupResult {
     /// The `max_response_len` in the request is too short for the value
     /// associated with the requested key.
     MaxResponseLenTooShort,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum KeySetResult {
+    Ok,
+    /// We don't know the requested key.
+    InvalidKey,
+    /// Key is read-only.
+    ReadOnlyKey,
+    /// The data in the request is too long for the value associated with the
+    /// requested key.
+    DataTooLong,
 }
 
 /// Results for an inventory data request
@@ -727,6 +751,7 @@ mod tests {
                 },
             ),
             (0x0f, HostToSp::GetInventoryData { index: 0 }),
+            (0x10, HostToSp::KeySet { key: 0 }),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
@@ -772,9 +797,42 @@ mod tests {
                     name: [0u8; 32],
                 },
             ),
+            (0x0c, SpToHost::KeySetResult(KeySetResult::Ok)),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
+
+    #[test]
+    fn key_lookup_result_values() {
+        let mut buf = [0; KeyLookupResult::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x0, KeyLookupResult::Ok),
+            (0x1, KeyLookupResult::InvalidKey),
+            (0x2, KeyLookupResult::NoValueForKey),
+            (0x3, KeyLookupResult::MaxResponseLenTooShort),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n <= 1);
+            assert_eq!(expected_cmd, buf[0]);
+        }
+    }
+
+    #[test]
+    fn key_set_result_values() {
+        let mut buf = [0; KeySetResult::MAX_SIZE];
+
+        for (expected_cmd, variant) in [
+            (0x0, KeySetResult::Ok),
+            (0x1, KeySetResult::InvalidKey),
+            (0x2, KeySetResult::ReadOnlyKey),
+            (0x3, KeySetResult::DataTooLong),
+        ] {
+            let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
+            assert!(n <= 1);
             assert_eq!(expected_cmd, buf[0]);
         }
     }
