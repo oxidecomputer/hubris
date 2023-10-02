@@ -207,9 +207,8 @@ impl HostKeyValueStorage {
     }
 
     fn key_set(&mut self, key: u8, data: &[u8]) -> KeySetResult {
-        let key = match Key::from_u8(key) {
-            Some(key) => key,
-            None => return KeySetResult::InvalidKey,
+        let Some(key) = Key::from_u8(key) else {
+            return KeySetResult::InvalidKey;
         };
 
         let (buf, buf_len) = match key {
