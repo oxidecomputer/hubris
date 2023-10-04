@@ -28,7 +28,7 @@ pub enum ImageError {
     /// The header flash page is erased.
     HeaderNotProgrammed,
     /// An image not requiring an ImageHeader is too short.
-    Short,
+    BootloaderTooSmall,
     /// A required ImageHeader is missing.
     BadMagic,
     /// The image size in ImageHeader is unreasonable.

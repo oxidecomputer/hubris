@@ -13,7 +13,7 @@ use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use core::ops::Range;
 use drv_lpc55_flash::{
-    ProgramState, BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD,
+    BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD,
 };
 use drv_lpc55_sha256::WORDS_PER_HASH;
 use drv_lpc55_syscon_api::Syscon;
@@ -22,6 +22,7 @@ use drv_lpc55_update_api::{
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use sha3::{Digest, Sha3_256};
 use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
 };
@@ -33,13 +34,29 @@ use crate::images::*;
 use ringbuf::*;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
+const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Trace {
     None,
+    Line,
     NoBootstate(HandoffDataLoadError),
     Slot(u32, Result<ImageVersion, ImageError>),
+    PrepImageUpdate(UpdateTarget),
+    SwitchDefaultImage(Result<(), RequestError<UpdateError>>),
+    CacheHash(u32),
+    Stage0Hash(u32),
+    Stage0NextHash(u32),
+    Systick(u64),
+    NotBlank(SlotId, u32, u32),
+    Blank(SlotId, u32),
+    ProgrammedPagesRange(SlotId, u32, u32),
+    ErasedPagesRange(SlotId, u32, u32),
+    ValidCacheImageLen(u32),
+    ValidFlashImageLen(u32),
+    WroteHeaderBlock{slot: SlotId, erase_len: usize},
+    Nop,
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -60,7 +77,7 @@ enum UpdateState {
 // Doing a round-trip to the control plane for each chunk for each block write
 // effectively makes that window infinite since the upper layers are allowed to
 // wait forever or quit mid-update.
-const FW_CACHE_MAX: usize = 4096_usize;
+const FW_CACHE_MAX: usize = 8192_usize;
 struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
@@ -98,14 +115,18 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
         image_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::PrepImageUpdate(image_type));
+
         // The LPC55 doesn't have an easily accessible mass erase mechanism
         // so this is just bookkeeping
         match self.state {
             UpdateState::InProgress => {
-                return Err(UpdateError::UpdateInProgress.into())
+                ringbuf_entry!(Trace::Line);
+                return Err(UpdateError::UpdateInProgress.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                ringbuf_entry!(Trace::Line);
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::NoUpdate => (),
         }
@@ -123,7 +144,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                ringbuf_entry!(Trace::Line);
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
@@ -131,6 +153,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.state = UpdateState::NoUpdate;
         self.next_block = None;
         self.fw_cache.fill(0);
+        ringbuf_entry!(Trace::Line);
         Ok(())
     }
 
@@ -153,6 +176,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // Check that blocks are delivered in order.
         let next = self.next_block.get_or_insert(0);
         if block_num != *next {
+            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::BlockOutOfOrder.into());
         }
         *next += 1;
@@ -163,6 +187,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // check that here. We share the API with other targets and there isn't
         // a nice way to define the lease length based on a constant.
         if len > BLOCK_SIZE_BYTES {
+            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::BadLength.into());
         }
 
@@ -245,6 +270,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             HEADER_BLOCK,
             self.header_block.as_ref().unwrap_lite(),
         )?;
+
+        // Now erase the unused portion of the flash slot so that
+        // flash slot has predictable contents and the FWID for it
+        // has some meaning.
+        let range = image_range(slot).0;
+        let erase_start = range.start + (endblock as u32 * PAGE_SIZE);
+        self.flash_erase_range(erase_start..range.end)?;
+        ringbuf_entry!(Trace::WroteHeaderBlock{slot, erase_len: (erase_start..range.end).len()});
 
         self.state = UpdateState::Finished;
         self.image = None;
@@ -342,7 +375,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
-        match slot {
+        let r = match slot {
             SlotId::A | SlotId::B => {
                 self.switch_default_hubris_image(slot, duration)
             }
@@ -350,7 +383,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             SlotId::Stage0 => {
                 Err(UpdateError::InvalidSlotIdForOperation.into())
             }
-        }
+        };
+        ringbuf_entry!(Trace::SwitchDefaultImage(r));
+        r
     }
 
     /// Reset.
@@ -385,8 +420,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 cfpa_word << 4
             }
         };
-
-        const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
         copy_from_flash_range(
             &self.flash,
@@ -498,87 +531,97 @@ impl ServerImpl<'_> {
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
         if duration != SwitchDuration::Forever {
+            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::NotImplemented.into());
         }
+        ringbuf_entry!(Trace::Line);
 
-        // Any image can be written to the staging area provided
-        // that checks on the NXP image header pass.
-        // These checks ensure that the boot ROM will be able
+        // Any image that passes the NXP image checks can be written to
+        // stage0next flash slot.
+        // The image checks ensure that the boot ROM will be able
         // to check the image signature without crashing.
         //
-        // Only an image that has a valid signature seen at kernel pre-main
-        // time will be copied to the stage0 partition.
+        // Only an image that has a valid signature seen at rot-startup
+        // time will be copied by update-server to the stage0 partition.
         //
-        // Note that within those constraints, both images can be
+        // Note that both stage0 and stage0next images can be
         // modified multiple times between resets.
+        // So, although we trust the bootstate(), we do not implicitly trust
+        // the current contents of stage0 or stage0next unless the image
+        // hash matches an image seen at rot-startup.
         //
-        // Normally, a new bootloader image is staged, the RoT is reset,
-        // signatures are evaluated, the validated staged image is copied
-        // to the bootloader slot and the RoT is again rebooted into the
-        // new image.
+        // The typical flow is that:
+        //   1. A new bootloader image is staged by update-server.
+        //   2. The RoT is reset.
+        //   3. Signatures are evaluated in rot-startup.
+        //   4. The validated staged image is copied by update-server
+        //      to the bootloader slot.
+        //   5. The RoT is rebooted into the new stage0 image.
         //
-        // It is reasonable to stage a new bootloader to all of the RoTs
-        // in the entire rack to ensure that all systems find that image
-        // acceptable by whatever the current staging criteria is. If some
-        // staging operation fails, the system likely needs a compatible
-        // Hubris update. The staging operation is never service affecting.
+        // During step 4, there is a time where the RoT is not bootable.
+        // Failures during step 4 may require a service call or RMA to fix
+        // the system.
         //
-        // Resetting the RoT to evaluate the signature on the staged image
-        // may be service affecting and appropriate measures should be taken
-        // to minimize customer impact.
+        // Only one Gimlet, PSC, or SideCar in a rack should have their RoT
+        // bootloader updated at a time to minimize the blast-radius of
+        // failures such as a rack wide power issue.
         //
-        // After that reset, it is known which RoTs in the rack consider the
-        // new image valid.
+        // All of the stage0next slots in the rack can be updated (steps 1
+        // through 3) to ensure that RoT image signatures are valid before any
+        // system continues to step 4.
         //
-        // If there are systems that do not successfully verify the staged
-        // image, then the choice may be made to stop the rack RoT updates
-        // there or take some other plan of action.
+        // TBD: While Failures up to step 3 do not adversly affect the RoT,
+        // resetting the RoT to evaluate signatures may be service affecting
+        // to the system depending on how the RoT and SP interact with respect
+        // to their reset handling and the RoT measurement of the SP.
+        // Appropriate measures should be taken to minimize customer impact.
         //
-        // If all RoTs can verify the new staged image then those images can
-        // be copied over to the bootloader slot.
+        // Note that after copying stage0next to stage0, but before step 5
+        // (reset), it is still possible to revert to the old stage0 by
+        // updating stage0next to the original stage0 contents that were
+        // validated reset and then copying those to stage0.
         //
-        // Note that during this time, there is a small window of time where
-        // there isn't a valid bootloader image. If there is a power failure
-        // during the erase/copy then that system will need to be returned
-        // for repairs. Only one system should be put at rist at a time.
-        // Do not perform the copy-to-bootloader operation in parallel.
-        // There is still a very small risk that the image thought to be good
-        // does not actually work because of some bug we are unaware of or
-        // some transient error in the copy. Therefore, it is advised that
-        // a reset is done soon after the copy. The rack-wode update should be
-        // stopped if any single RoT update fails.
-        //
-        // After the copy but before the RoT reset, it is possible to revert
-        // to the old image by writing to the staging area and again performing
-        // the copy operation.
-        //
-        // Because the pre-main check reports signature status and hash
-        // of the image that was checked, there could be a vulnerability
-        // if a hash collision can be found.
+        // It is assumed that a hash collision is not computaionally feasible
+        // for either the image hash done by rot-startup or used by the ROM
+        // signature routine.
 
-        //
+        // Read stage0next contents into RAM.
         let staged = image_range(SlotId::Stage0Next);
-        // let bootloader = &self.fw_cache[..len as usize/core::mem::size_of::<u32>()];
-        // This is the second flash read. TOCTOU is out of scope but should
-        // still do this correctly.
-        let _len = self.read_cache_from_flash(staged.0)?; // ? Err
-                                                          // XXX See PR 1506 for discussion on this.
-                                                          // The image has already been sanity checked.
-        let len = (self.fw_cache[LENGTH_OFFSET / core::mem::size_of::<u32>()]
-            + 31)
-            & !31;
+        let len = self.read_flash_image_to_cache(staged.0)?;
         let bootloader =
             &self.fw_cache[..len as usize / core::mem::size_of::<u32>()];
-        let cache_hash =
-            rom_based_hasher(&self.syscon, self.hashcrypt, bootloader);
+
+        let mut hash = Sha3_256::new();
+        for page_start in (0..(bootloader.len() * 4)).step_by(512) { // XXX
+            hash.update(bootloader.as_bytes()[page_start..page_start+512].as_ref());
+        }
+        let cache_hash: [u8; 32] = hash.finalize().try_into().unwrap_lite();
+        let prefix = 
+            (cache_hash[0] as u32) << 0
+            | (cache_hash[1] as u32) << 8
+            | (cache_hash[2] as u32) << 16
+            | (cache_hash[3] as u32) << 24;
+        ringbuf_entry!(Trace::CacheHash(prefix));
+
+
+        // let cache_hash = rom_based_hasher(&self.syscon, self.hashcrypt, bootloader);
+        // ringbuf_entry!(Trace::CacheHash(cache_hash[0]));
 
         let boot_state =
             bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
 
-        // The cached image needs to match a properly signed image seen at boot time.
-        // Since stage0 and stage0next can be mutated after boot, we don't compare to their current contents.
-        // We are trusting that the recorded hash and signature status have not been altered since
-        // boot and that hash collisions are not an issue.
+        // XXX Remove:
+        let a = boot_state.stage0.digest[0..=3].as_ref();
+        ringbuf_entry!(Trace::Stage0Hash((a[0] as u32) << 24 | (a[1] as u32) << 16 | (a[2] as u32) << 8 | (a[3] as u32)));
+        let a = boot_state.stage0next.digest[0..=3].as_ref();
+        ringbuf_entry!(Trace::Stage0NextHash((a[0] as u32) << 24 | (a[1] as u32) << 16 | (a[2] as u32) << 8 | (a[3] as u32)));
+
+        // The cached image needs to match a properly signed image seen at
+        // boot time.
+        // Since stage0 and stage0next can be mutated after boot, we don't
+        // compare to their current contents.
+        // We are trusting that the recorded hash and signature status have
+        // not been altered since boot and that hash collisions are not an issue.
         if !(boot_state.stage0next.version.is_ok()
             && cache_hash.as_bytes() == boot_state.stage0next.digest
             || boot_state.stage0.version.is_ok()
@@ -591,6 +634,7 @@ impl ServerImpl<'_> {
         let stage0 = image_range(SlotId::Stage0);
         match self.compare_cache_to_flash(&stage0.0) {
             Err(UpdateError::ImageMismatch) => {
+                ringbuf_entry!(Trace::Systick(userlib::sys_get_timer().now));
                 if let Err(e) = self.write_cache_to_flash(SlotId::Stage0) {
                     // N.B. An error here is bad since it means we've likely
                     // bricked the machine if we reset now.
@@ -601,8 +645,10 @@ impl ServerImpl<'_> {
                     // has been corrupted.
 
                     // Restart update_server
+                    ringbuf_entry!(Trace::Systick(userlib::sys_get_timer().now));
                     return Err(e.into());
                 }
+                Trace::Systick(userlib::sys_get_timer().now);
             }
             Ok(()) => {
                 // Programmed pages after an image will contribute to the
@@ -616,8 +662,12 @@ impl ServerImpl<'_> {
                 // corruption, they might not be erased.  following the image
                 // since they are also part of the hash calculation and may
                 // have caused a mis-compare.
+                ringbuf_entry!(Trace::Nop);
             }
-            Err(e) => return Err(e.into()), // Non-fatal error. We did not alter stage0.
+            Err(e) => {
+                ringbuf_entry!(Trace::Line);
+                return Err(e.into()); // Non-fatal error. We did not alter stage0.
+            },
         }
 
         // Finish by erasing the unused portion of flash bank.
@@ -625,7 +675,7 @@ impl ServerImpl<'_> {
         // it has the intended bootloader written.
         // TODO: There should be a unique error here as well as anywhere else
         // in the bootloader update flow.
-        let erase_start = stage0.0.start.checked_add(len).unwrap_lite();
+        let erase_start = stage0.0.start.checked_add(len as u32).unwrap_lite();
         self.flash_erase_range(erase_start..stage0.0.end)?;
         Ok(())
     }
@@ -634,29 +684,18 @@ impl ServerImpl<'_> {
         &mut self,
         span: Range<u32>,
     ) -> Result<(), UpdateError> {
-        // TODO: safe math
+        // It's assumed that the caller has done safe math and that
+        // there is no danger here.
         let word_span = (span.start / (BYTES_PER_FLASH_WORD as u32))
             ..=(span.end / (BYTES_PER_FLASH_WORD as u32) - 1);
 
-        self.flash.start_blank_check(word_span.clone());
-        match loop {
-            match self.flash.poll_blank_check_result() {
+        self.flash.start_erase_range(word_span);
+        loop {
+            match self.flash.poll_erase_or_program_result() {
                 None => continue,
-                Some(state) => break state,
+                Some(Ok(())) => return Ok(()),
+                Some(Err(_)) => return Err(UpdateError::FlashError),
             }
-        } {
-            ProgramState::NotBlank { word_number } => {
-                let (_start, end) = word_span.into_inner();
-                self.flash.start_erase_range(word_number..=end);
-                loop {
-                    match self.flash.poll_erase_or_program_result() {
-                        None => continue,
-                        Some(Ok(())) => return Ok(()),
-                        Some(Err(_)) => return Err(UpdateError::FlashError),
-                    }
-                }
-            }
-            ProgramState::Blank => Ok(()),
         }
     }
 
@@ -699,7 +738,7 @@ impl ServerImpl<'_> {
 
     // Looking at a region of flash, determine if there is a possible NXP
     // image programmed. Return the length in bytes of the flash pages
-    // comprising the image.
+    // comprising the image including padding to fill to a page boundary.
     fn valid_flash_image_present(
         &self,
         span: &Range<u32>,
@@ -716,6 +755,7 @@ impl ServerImpl<'_> {
                     // but this is enough bytes for an NXP header and not
                     // bigger than the flash slot.
                     if len as usize <= span.len() && len >= HEADER_OFFSET {
+                        ringbuf_entry!(Trace::ValidFlashImageLen(len));
                         return Ok(len as usize);
                     }
                 }
@@ -737,10 +777,11 @@ impl ServerImpl<'_> {
         {
             return Err(UpdateError::BadLength);
         }
+        ringbuf_entry!(Trace::ValidCacheImageLen(len));
         Ok(len as usize)
     }
 
-    fn read_cache_from_flash(
+    fn read_flash_image_to_cache(
         &mut self,
         span: Range<u32>,
     ) -> Result<usize, UpdateError> {
@@ -1226,7 +1267,7 @@ fn bootstate() -> Result<RotBootState, HandoffDataLoadError> {
     RotBootState::load_from_addr(addr)
 }
 
-fn rom_based_hasher(
+fn _rom_based_hasher(
     syscon: &Syscon,
     engine: &lpc55_pac::hashcrypt::RegisterBlock,
     data: &[u32],
@@ -1283,12 +1324,38 @@ fn main() -> ! {
 
     match bootstate() {
         Ok(bs) => {
-            ringbuf_entry!(Trace::Slot(0x10000, bs.a.version));
-            ringbuf_entry!(Trace::Slot(0x50000, bs.b.version));
             ringbuf_entry!(Trace::Slot(0x00000, bs.stage0.version));
             ringbuf_entry!(Trace::Slot(0x08000, bs.stage0next.version));
+            ringbuf_entry!(Trace::Slot(0x10000, bs.a.version));
+            ringbuf_entry!(Trace::Slot(0x50000, bs.b.version));
         }
         Err(e) => ringbuf_entry!(Trace::NoBootstate(e)),
+    }
+    for slot in [SlotId::Stage0, SlotId::Stage0Next, SlotId::A, SlotId::B] {
+        let range = image_range(slot).0;
+        let mut first_erased = None;
+        let mut last_erased = None;
+        let mut first_programmed = None;
+        let mut last_programmed = None;
+        for page in (range.start..=range.end-1).step_by(BYTES_PER_FLASH_PAGE) {
+            if server.flash.is_page_range_programmed(page, PAGE_SIZE) {
+                if first_programmed.is_none() {
+                    first_programmed = Some(page);
+                }
+                last_programmed = Some(page);
+            } else {
+                if first_erased.is_none() {
+                    first_erased = Some(page);
+                }
+                last_erased = Some(page);
+            }
+        }
+        if first_programmed.is_some() {
+            ringbuf_entry!(Trace::ProgrammedPagesRange(slot, first_programmed.unwrap_lite(),last_programmed.unwrap_lite()+PAGE_SIZE-1));
+        }
+        if first_erased.is_some() {
+            ringbuf_entry!(Trace::ErasedPagesRange(slot, first_erased.unwrap_lite(),last_erased.unwrap_lite()+PAGE_SIZE-1));
+        }
     }
 
     loop {

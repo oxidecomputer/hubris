@@ -14,6 +14,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 drv-lpc55-flash.path = "../lpc55-flash"
 drv-lpc55-sha256.path = "../lpc55-sha256"
 drv-lpc55-syscon-api.path = "../lpc55-syscon-api"
+sha3 = { workspace = true, optional = false }
 task-jefe-api = { path = "../../task/jefe-api" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 

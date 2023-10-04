@@ -218,7 +218,7 @@ impl Image {
             if header_required {
                 return Err(ImageError::HeaderNotProgrammed);
             } else {
-                return Err(ImageError::Short);
+                return Err(ImageError::BootloaderTooSmall);
             }
         }
 

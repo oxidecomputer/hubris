@@ -40,8 +40,8 @@ pub fn validate_header_block(
     let slot = match target {
         UpdateTarget::ImageA => SlotId::A,
         UpdateTarget::ImageB => SlotId::B,
-        UpdateTarget::Bootloader => SlotId::Stage0,
-        _ => panic!(),
+        UpdateTarget::Bootloader => SlotId::Stage0Next,
+        _ => return Err(UpdateError::InvalidSlotIdForOperation),
     };
     let exec = image_range(slot).1;
 
@@ -63,7 +63,7 @@ pub fn validate_header_block(
     // Bootloaders have been released without an ImageHeader. Allow those.
     let magic =
         u32::from_le_bytes(block[MAGIC_OFFSET..][..4].try_into().unwrap_lite());
-    if slot != SlotId::Stage0 && magic != abi::HEADER_MAGIC {
+    if slot != SlotId::Stage0Next && magic != abi::HEADER_MAGIC {
         return Err(UpdateError::InvalidHeaderBlock);
     }
 

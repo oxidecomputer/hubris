@@ -102,7 +102,7 @@ pub enum RotPage {
 ///
 /// In particular, the order of variants cannot change!
 #[derive(
-    Eq, PartialEq, Clone, Copy, Serialize, Deserialize, SerializedSize,
+    Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize, SerializedSize,
 )]
 pub enum UpdateTarget {
     // This variant was previously used for Alternate, when this enum was shared

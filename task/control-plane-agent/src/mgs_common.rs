@@ -433,7 +433,7 @@ fn udapi_ie_to_gm_ie(ie: SpImageError) -> ImageError {
         SpImageError::PartiallyProgrammed => ImageError::PartiallyProgrammed,
         SpImageError::InvalidLength => ImageError::InvalidLength,
         SpImageError::HeaderNotProgrammed => ImageError::HeaderNotProgrammed,
-        SpImageError::Short => ImageError::Short,
+        SpImageError::BootloaderTooSmall => ImageError::BootloaderTooSmall,
         SpImageError::BadMagic => ImageError::BadMagic,
         SpImageError::HeaderImageSize => ImageError::HeaderImageSize,
         SpImageError::UnalignedLength => ImageError::UnalignedLength,

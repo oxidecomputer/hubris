@@ -316,7 +316,7 @@ impl SpHandler for MgsHandler {
         }));
 
         match update.component {
-            SpComponent::ROT | SpComponent::STAGE0 => {
+            SpComponent::ROT => {
                 self.rot_update.prepare(&UPDATE_MEMORY, update)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -362,7 +362,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
-            SpComponent::ROT | SpComponent::STAGE0 => {
+            SpComponent::ROT => {
                 Ok(self.rot_update.status())
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -385,7 +385,7 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
-            SpComponent::ROT | SpComponent::STAGE0 => {
+            SpComponent::ROT => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -405,7 +405,7 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
-            SpComponent::ROT | SpComponent::STAGE0 => {
+            SpComponent::ROT => {
                 self.rot_update.abort(&id)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),

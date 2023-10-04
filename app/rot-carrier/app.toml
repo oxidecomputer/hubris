@@ -46,8 +46,8 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 8192, usbsram = 4096}
-stacksize = 2560
+max-sizes = {flash = 32768, ram = 32769, usbsram = 4096}
+stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
@@ -108,7 +108,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 47360, ram = 32768}
+max-sizes = {flash = 50944, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
