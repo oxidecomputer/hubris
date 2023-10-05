@@ -37,6 +37,6 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/devboards')
     uses: ./.github/workflows/release.yml
     with:
-      board-set: psc
+      board-set: devboards
 
 

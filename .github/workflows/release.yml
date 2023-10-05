@@ -38,7 +38,6 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         name: "${{ inputs.board-set }} release"
-        draft: true
         fail_on_unmatched_files: true
         files: |
           ${{ steps.grab.outputs.download-path }}/*.zip
