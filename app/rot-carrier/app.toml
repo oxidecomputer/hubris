@@ -11,7 +11,7 @@ fwid = true
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 53100, ram = 4096}
+requires = {flash = 53300, ram = 4096}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
@@ -108,7 +108,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 46300, ram = 32768}
+max-sizes = {flash = 46272, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
