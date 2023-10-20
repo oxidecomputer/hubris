@@ -14,10 +14,6 @@ on:
         description: "TOML file name (must be app directory)"
         required: true
         type: string
-      target:
-        description: "Compilation target triplet"
-        required: true
-        type: string
       image:
         description: "Comma separated string of image names to build"
         required: true
