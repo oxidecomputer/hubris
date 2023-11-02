@@ -115,6 +115,16 @@ fn main() -> ! {
     let jefe = Jefe::from(JEFE.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
 
+    // Ensure the SP fault pin is configured as an open-drain output, and pull
+    // it low to make the sequencer restart externally visible.
+    sys.gpio_configure_output(
+        FAULT_PIN_L,
+        sys_api::OutputType::OpenDrain,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+    sys.gpio_reset(FAULT_PIN_L);
+
     // Turn off the chassis LED, in case this is a task restart (and not a
     // full chip restart, which would leave the GPIO unconfigured).
     sys.gpio_configure_output(
@@ -402,6 +412,10 @@ fn main() -> ! {
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );
+
+    // Clear the external fault now that we're about to start serving messages
+    // and fewer things can go wrong.
+    sys.gpio_set(FAULT_PIN_L);
 
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
@@ -1135,6 +1149,8 @@ cfg_if::cfg_if! {
 
         // SP_STATUS_LED
         const CHASSIS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
+        // SP_TO_IGNIT_FAULT_L
+        const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
 
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
