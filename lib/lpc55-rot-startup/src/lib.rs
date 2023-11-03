@@ -183,8 +183,8 @@ pub fn startup(
     } else {
         panic!();
     };
-    let a = img_a.map(|i| images::image_details(i, &mut flash));
-    let b = img_b.map(|i| images::image_details(i, &mut flash));
+    let a = img_a.map(|i| images::image_details(i));
+    let b = img_b.map(|i| images::image_details(i));
 
     let details = RotBootState { active, a, b };
 
