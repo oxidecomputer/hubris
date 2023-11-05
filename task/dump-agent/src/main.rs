@@ -12,6 +12,7 @@ use idol_runtime::RequestError;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 use userlib::*;
+use ringbuf::*;
 
 #[cfg(feature = "net")]
 mod udp;
@@ -28,6 +29,15 @@ struct ServerImpl {
     #[cfg(feature = "net")]
     net: task_net_api::Net,
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Dump,
+    DumpResult(Result<(), DumpAgentError>),
+    None,
+}
+
+ringbuf!(Trace, 4, Trace::None);
 
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
@@ -149,16 +159,21 @@ impl ServerImpl {
 
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
 
+        ringbuf_entry!(Trace::Dump);
+
         let area = self.dump_area(0)?;
         if area.contents != humpty::DumpContents::WholeSystem {
             return Err(DumpAgentError::UnclaimedDumpArea);
         }
 
-        match sprot.dump(area.region.address) {
+        let res = match sprot.dump(area.region.address) {
             Err(DumpOrSprotError::Dump(e)) => Err(e.into()),
             Err(_) => Err(DumpAgentError::DumpMessageFailed),
             Ok(()) => Ok(()),
-        }
+        };
+
+        ringbuf_entry!(Trace::DumpResult(res));
+        res
     }
 
     #[cfg(feature = "no-rot")]

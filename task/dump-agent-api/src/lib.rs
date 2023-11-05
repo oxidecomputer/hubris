@@ -54,6 +54,7 @@ impl From<DumperError> for DumpAgentError {
             DumperError::FailedToHalt
             | DumperError::FailedToResumeAfterFailure
             | DumperError::FailedToResume => DumpAgentError::DumpFailedControl,
+            DumperError::DumpFailed => DumpAgentError::DumpFailed,
             _ => DumpAgentError::DumpFailedUnknown,
         }
     }
