@@ -9,10 +9,10 @@
 
 use dump_agent_api::*;
 use idol_runtime::RequestError;
+use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 use userlib::*;
-use ringbuf::*;
 
 #[cfg(feature = "net")]
 mod udp;
