@@ -32,8 +32,10 @@ struct ServerImpl {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Dump,
-    DumpResult(Result<(), DumpAgentError>),
+    #[cfg(not(feature = "no-rot"))]
+    SpRotDump,
+    #[cfg(not(feature = "no-rot"))]
+    SpRotDumpResult(Result<(), DumpAgentError>),
     None,
 }
 
@@ -159,7 +161,7 @@ impl ServerImpl {
 
         let sprot = drv_sprot_api::SpRot::from(SPROT.get_task_id());
 
-        ringbuf_entry!(Trace::Dump);
+        ringbuf_entry!(Trace::SpRotDump);
 
         let area = self.dump_area(0)?;
         if area.contents != humpty::DumpContents::WholeSystem {
@@ -172,7 +174,7 @@ impl ServerImpl {
             Ok(()) => Ok(()),
         };
 
-        ringbuf_entry!(Trace::DumpResult(res));
+        ringbuf_entry!(Trace::SpRotDumpResult(res));
         res
     }
 
