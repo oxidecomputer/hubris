@@ -51,7 +51,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 24, Trace::None);
+ringbuf!(Trace, 16, Trace::None);
 
 use sensor_api::{NoData, SensorId};
 
