@@ -218,6 +218,58 @@ pub enum Register {
     cubf_ba_chx_i = 0x47,
 }
 
+/// A newtype for the MON input range setting register
+struct MonRange(u8);
+
+impl MonRange {
+    fn full_scale_voltage(&self, rail: u8) -> u8 {
+        let range = if rail == 0 {
+            self.0 & 0b11
+        } else {
+            (self.0 >> 2) & 0b11
+        };
+
+        match range {
+            0b00 => 16,
+            0b01 => 8,
+            0b10 => 4,
+            0b11 => 2,
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// A newtype for the fast-trip threshold maximum range register
+struct Status2(u8);
+
+impl Status2 {
+    fn max_current_sense_range(&self, rail: u8) -> Option<u8> {
+        //
+        // The datasheet is enragingly inconsistent about how it refers to the
+        // channels.  For most registers that have different settings for
+        // channels, it refers to them as Channel 1 and Channel 2 -- except
+        // for status2, which refers to Channel 0 and Channel 1.
+        //
+        let range = if rail == 0 {
+            self.0 & 0b11
+        } else {
+            (self.0 >> 2) & 0b11
+        };
+
+        //
+        // Our maximum current-sense range is 25mV, 50mV, or 100mV. (Contrary
+        // to the implication of the datasheet, there is no fourth maximum
+        // current-sense range.)
+        //
+        match range {
+            0b00 => Some(100),
+            0b01 => Some(50),
+            0b10 => Some(25),
+            _ => None,
+        }
+    }
+}
+
 pub struct Max5970 {
     device: I2cDevice,
     rail: u8,
@@ -240,99 +292,26 @@ impl Max5970 {
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
     }
-}
 
-impl Validate<ResponseCode> for Max5970 {
-    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device, 0, Ohms(0.0))
-            .read_reg(Register::cbuf_dly_stop)?;
-        Ok(val == 0x19)
-    }
-}
-
-impl VoltageSensor<ResponseCode> for Max5970 {
-    fn read_vout(&self) -> Result<Volts, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::adc_chx_mon_msb_ch1)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch1)?,
-            )
-        } else {
-            (
-                self.read_reg(Register::adc_chx_mon_msb_ch2)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch2)?,
-            )
-        };
-
-        let mon_range = self.read_reg(Register::mon_range)?;
-
-        let range = if self.rail == 0 {
-            mon_range & 0b11
-        } else {
-            (mon_range >> 2) & 0b11
-        };
-
-        let volts = match range {
-            0b00 => 16,
-            0b01 => 8,
-            0b10 => 4,
-            0b11 => 2,
-            _ => unreachable!(),
-        };
-
+    fn convert_volts(&self, mon_range: MonRange, msb: u8, lsb: u8) -> Volts {
         //
         // The 10-bit value from the ADC is a fraction of the full-scale
         // voltage setting.
         //
-        let divisor = 1024.0 / volts as f32;
+        let divisor = 1024.0 / mon_range.full_scale_voltage(self.rail) as f32;
 
-        Ok(Volts(
-            ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor,
-        ))
+        Volts(((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor)
     }
-}
 
-impl CurrentSensor<ResponseCode> for Max5970 {
-    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::adc_chx_cs_msb_ch1)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch1)?,
-            )
-        } else {
-            (
-                self.read_reg(Register::adc_chx_cs_msb_ch2)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch2)?,
-            )
-        };
-
-        let status2 = self.read_reg(Register::status2)?;
-
-        //
-        // The datasheet is enragingly inconsistent about how it refers to the
-        // channels.  For most registers that have different settings for
-        // channels, it refers to them as Channel 1 and Channel 2 -- except
-        // for status2, which refers to Channel 0 and Channel 1.
-        //
-        let range = if self.rail == 0 {
-            status2 & 0b11
-        } else {
-            (status2 >> 2) & 0b11
-        };
-
-        //
-        // Our maximum current-sense range is 25mV, 50mV, or 100mV. (Contrary
-        // to the implication of the datasheet, there is no fourth maximum
-        // current-sense range.)
-        //
-        let millivolts = match range {
-            0b00 => 100,
-            0b01 => 50,
-            0b10 => 25,
-            _ => {
-                return Err(ResponseCode::BadDeviceState);
-            }
-        };
+    fn convert_current(
+        &self,
+        status2: Status2,
+        msb: u8,
+        lsb: u8,
+    ) -> Result<Amperes, ResponseCode> {
+        let millivolts = status2
+            .max_current_sense_range(self.rail)
+            .ok_or(ResponseCode::BadDeviceState)?;
 
         //
         // The 10-bit value from the ADC is a fraction of the maximum
@@ -346,5 +325,77 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         // determine current, we divide voltage by resistance (I = V / R).
         //
         Ok(Amperes(delta / self.rsense as f32))
+    }
+
+    pub fn max_vout(&self) -> Result<Volts, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::max_chx_mon_msb_ch1, Register::max_chx_mon_lsb_ch1)
+        } else {
+            (Register::max_chx_mon_msb_ch2, Register::max_chx_mon_lsb_ch2)
+        };
+
+        Ok(self.convert_volts(
+            MonRange(self.read_reg(Register::mon_range)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        ))
+    }
+
+    pub fn max_iout(&self) -> Result<Amperes, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::max_chx_cs_msb_ch1, Register::max_chx_cs_lsb_ch1)
+        } else {
+            (Register::max_chx_cs_msb_ch2, Register::max_chx_cs_lsb_ch2)
+        };
+
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        )
+    }
+
+    pub fn status0(&self) -> Result<u8, ResponseCode> {
+        self.read_reg(Register::status0)
+    }
+}
+
+impl Validate<ResponseCode> for Max5970 {
+    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
+        let val = Max5970::new(device, 0, Ohms(0.0))
+            .read_reg(Register::cbuf_dly_stop)?;
+        Ok(val == 0x19)
+    }
+}
+
+impl VoltageSensor<ResponseCode> for Max5970 {
+    fn read_vout(&self) -> Result<Volts, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::adc_chx_mon_msb_ch1, Register::adc_chx_mon_lsb_ch1)
+        } else {
+            (Register::adc_chx_mon_msb_ch2, Register::adc_chx_mon_lsb_ch2)
+        };
+
+        Ok(self.convert_volts(
+            MonRange(self.read_reg(Register::mon_range)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        ))
+    }
+}
+
+impl CurrentSensor<ResponseCode> for Max5970 {
+    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::adc_chx_cs_msb_ch1, Register::adc_chx_cs_lsb_ch1)
+        } else {
+            (Register::adc_chx_cs_msb_ch2, Register::adc_chx_cs_lsb_ch2)
+        };
+
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        )
     }
 }
