@@ -368,7 +368,7 @@ fn trace_max5970(dev: &Max5970, sensor: SensorId) {
         }
 
         ringbuf_entry!(Trace::Max5970 {
-            sensor: sensor,
+            sensor,
             status0: match dev.read_reg(Register::status0) {
                 Ok(reg) => reg,
                 _ => return,
