@@ -108,7 +108,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 46300, ram = 32768}
+max-sizes = {flash = 46592, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
@@ -205,7 +205,7 @@ binary_path = "../../target/gemini-bu/dist/final.bin"
 name = "task-attest"
 priority = 5
 max-sizes = {flash = 14800, ram = 16384}
-stacksize = 9952
+stacksize = 11264
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 

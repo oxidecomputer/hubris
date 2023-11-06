@@ -143,7 +143,7 @@ extern-regions = ["sram2"]
 name = "task-attest"
 priority = 5
 max-sizes = {flash = 14800, ram = 16384}
-stacksize = 9304
+stacksize = 11264
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 
