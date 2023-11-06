@@ -41,6 +41,7 @@ enum Trace {
     Max5970 {
         sensor: SensorId,
         status0: u8,
+        status1: u8,
         status3: u8,
         fault0: u8,
         fault1: u8,
@@ -363,13 +364,22 @@ fn trace_max5970(dev: &Max5970, sensor: SensorId) {
     if let Ok(Volts(volts)) = dev.max_vout() {
         use drv_i2c_devices::max5970::Register;
 
-        if volts < 12.0 {
+        //
+        // We want to *not* trace the 3.3V rails on the MAX5970 on the
+        // Sharkfin (U8), so anything that has either never powered on or
+        // never seen a voltage greater than ~4V we will not record.
+        //
+        if volts < 4.0 {
             return;
         }
 
         ringbuf_entry!(Trace::Max5970 {
             sensor,
             status0: match dev.read_reg(Register::status0) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            status1: match dev.read_reg(Register::status1) {
                 Ok(reg) => reg,
                 _ => return,
             },

@@ -218,6 +218,7 @@ pub enum Register {
     cubf_ba_chx_i = 0x47,
 }
 
+/// A newtype for the MON input range setting register
 struct MonRange(u8);
 
 impl MonRange {
@@ -238,6 +239,7 @@ impl MonRange {
     }
 }
 
+/// A newtype for the fast-trip threshold maximum range register
 struct Status2(u8);
 
 impl Status2 {
@@ -326,37 +328,31 @@ impl Max5970 {
     }
 
     pub fn max_vout(&self) -> Result<Volts, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::max_chx_mon_msb_ch1)?,
-                self.read_reg(Register::max_chx_mon_lsb_ch1)?,
-            )
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::max_chx_mon_msb_ch1, Register::max_chx_mon_lsb_ch1)
         } else {
-            (
-                self.read_reg(Register::max_chx_mon_msb_ch2)?,
-                self.read_reg(Register::max_chx_mon_lsb_ch2)?,
-            )
+            (Register::max_chx_mon_msb_ch2, Register::max_chx_mon_lsb_ch2)
         };
 
-        let mon_range = MonRange(self.read_reg(Register::mon_range)?);
-        Ok(self.convert_volts(mon_range, msb, lsb))
+        Ok(self.convert_volts(
+            MonRange(self.read_reg(Register::mon_range)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        ))
     }
 
     pub fn max_iout(&self) -> Result<Amperes, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::max_chx_cs_msb_ch1)?,
-                self.read_reg(Register::max_chx_cs_lsb_ch1)?,
-            )
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::max_chx_cs_msb_ch1, Register::max_chx_cs_lsb_ch1)
         } else {
-            (
-                self.read_reg(Register::max_chx_cs_msb_ch2)?,
-                self.read_reg(Register::max_chx_cs_lsb_ch2)?,
-            )
+            (Register::max_chx_cs_msb_ch2, Register::max_chx_cs_lsb_ch2)
         };
 
-        let status2 = Status2(self.read_reg(Register::status2)?);
-        self.convert_current(status2, msb, lsb)
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        )
     }
 
     pub fn status0(&self) -> Result<u8, ResponseCode> {
@@ -374,38 +370,32 @@ impl Validate<ResponseCode> for Max5970 {
 
 impl VoltageSensor<ResponseCode> for Max5970 {
     fn read_vout(&self) -> Result<Volts, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::adc_chx_mon_msb_ch1)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch1)?,
-            )
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::adc_chx_mon_msb_ch1, Register::adc_chx_mon_lsb_ch1)
         } else {
-            (
-                self.read_reg(Register::adc_chx_mon_msb_ch2)?,
-                self.read_reg(Register::adc_chx_mon_lsb_ch2)?,
-            )
+            (Register::adc_chx_mon_msb_ch2, Register::adc_chx_mon_lsb_ch2)
         };
 
-        let mon_range = MonRange(self.read_reg(Register::mon_range)?);
-        Ok(self.convert_volts(mon_range, msb, lsb))
+        Ok(self.convert_volts(
+            MonRange(self.read_reg(Register::mon_range)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        ))
     }
 }
 
 impl CurrentSensor<ResponseCode> for Max5970 {
     fn read_iout(&self) -> Result<Amperes, ResponseCode> {
-        let (msb, lsb) = if self.rail == 0 {
-            (
-                self.read_reg(Register::adc_chx_cs_msb_ch1)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch1)?,
-            )
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::adc_chx_cs_msb_ch1, Register::adc_chx_cs_lsb_ch1)
         } else {
-            (
-                self.read_reg(Register::adc_chx_cs_msb_ch2)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch2)?,
-            )
+            (Register::adc_chx_cs_msb_ch2, Register::adc_chx_cs_lsb_ch2)
         };
 
-        let status2 = Status2(self.read_reg(Register::status2)?);
-        self.convert_current(status2, msb, lsb)
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        )
     }
 }
