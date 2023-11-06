@@ -38,10 +38,20 @@ use drv_i2c_devices::{
 enum Trace {
     GotVersion(u32),
     GotAddr(u32),
+    Max5970 {
+        sensor: SensorId,
+        status0: u8,
+        status3: u8,
+        fault0: u8,
+        fault1: u8,
+        fault2: u8,
+        max_current: f32,
+        max_voltage: f32,
+    },
     None,
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 24, Trace::None);
 
 use sensor_api::{NoData, SensorId};
 
@@ -349,6 +359,45 @@ macro_rules! max5970_controller {
     };
 }
 
+fn trace_max5970(dev: &Max5970, sensor: SensorId) {
+    if let Ok(Volts(volts)) = dev.max_vout() {
+        use drv_i2c_devices::max5970::Register;
+
+        if volts < 12.0 {
+            return;
+        }
+
+        ringbuf_entry!(Trace::Max5970 {
+            sensor: sensor,
+            status0: match dev.read_reg(Register::status0) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            status3: match dev.read_reg(Register::status3) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            fault0: match dev.read_reg(Register::fault0) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            fault1: match dev.read_reg(Register::fault1) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            fault2: match dev.read_reg(Register::fault2) {
+                Ok(reg) => reg,
+                _ => return,
+            },
+            max_current: match dev.max_iout() {
+                Ok(Amperes(amps)) => amps,
+                _ => return,
+            },
+            max_voltage: volts,
+        });
+    }
+}
+
 #[allow(unused_macros)]
 macro_rules! mwocp68_controller {
     ($which:ident, $rail:ident, $state:ident) => {
@@ -412,6 +461,7 @@ fn main() -> ! {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
+        fired: 0,
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -428,6 +478,7 @@ struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
+    fired: u32,
 }
 
 impl ServerImpl {
@@ -500,7 +551,18 @@ impl ServerImpl {
                     }
                 }
             }
+
+            //
+            // Every 10 seconds, gather max5970 data
+            //
+            if self.fired % 10 == 0 {
+                if let Device::Max5970(dev) = dev {
+                    trace_max5970(dev, c.current);
+                }
+            }
         }
+
+        self.fired += 1;
     }
 
     /// Find the BMR491 and return an `I2cDevice` handle
