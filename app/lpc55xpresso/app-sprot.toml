@@ -183,7 +183,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 46272, ram = 32768}
+max-sizes = {flash = 46592, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
@@ -212,7 +212,7 @@ pins = [
 name = "task-attest"
 priority = 5
 max-sizes = {flash = 14528, ram = 16384}
-stacksize = 9304
+stacksize = 11264
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 

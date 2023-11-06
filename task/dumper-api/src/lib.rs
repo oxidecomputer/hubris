@@ -43,6 +43,7 @@ pub enum DumperError {
     FailedToResume = 9,
     FailedToResumeAfterFailure = 10,
     RegisterReadFailed = 11,
+    DumpFailed = 12,
 
     #[idol(server_death)]
     ServerRestarted,
