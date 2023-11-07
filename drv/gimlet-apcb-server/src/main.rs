@@ -172,6 +172,7 @@ impl idl::InOrderApcbImpl for ServerImpl {
         ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType, {
         match effect {
             ApcbWellKnownEffect::BmcEnable => {
+                // TODO: Or just tokens()?.bmc_socket()?
                 let token_entry = TOKEN_ENTRY::try_from(&ByteToken::BmcSocket(0)).unwrap();
                 let bmc_function = self.apcb_token_value(
                     msg,
