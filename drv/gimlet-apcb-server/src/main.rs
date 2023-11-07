@@ -10,7 +10,7 @@
 #![no_std]
 #![no_main]
 
-use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId, ByteToken};
+use amd_apcb::{Apcb, ApcbIoOptions, BoardInstances, TokenEntryId, ByteToken, TOKEN_ENTRY};
 use amd_efs::{
     BhdDirectoryEntry, BhdDirectoryEntryType, DirectoryEntry, Efs,
     ProcessorGeneration,
@@ -172,11 +172,12 @@ impl idl::InOrderApcbImpl for ServerImpl {
         ApcbError: idol_runtime::IHaveConsideredServerDeathWithThisErrorType, {
         match effect {
             ApcbWellKnownEffect::BmcEnable => {
+                let token_entry = TOKEN_ENTRY::try_from(&ByteToken::BmcSocket(0)).unwrap();
                 let bmc_function = self.apcb_token_value(
                     msg,
                     /* instance */0,
                     TokenEntryId::Byte.to_u16().unwrap(),
-                    /* FIXME ByteToken::BmcSocket(.).to_u16().unwrap()*/42,
+                    token_entry.key.into(),
                 ).unwrap();
                 // TODO: more detail.
                 match bmc_function {
