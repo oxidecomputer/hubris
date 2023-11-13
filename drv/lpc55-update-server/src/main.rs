@@ -12,54 +12,28 @@
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use core::ops::Range;
-use drv_lpc55_flash::{
-    BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD,
-};
+use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_sha256::WORDS_PER_HASH;
 use drv_lpc55_syscon_api::Syscon;
 use drv_lpc55_update_api::{
-    RawCabooseError, RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
+    RawCabooseError, RotBootInfo, RotBootInfoV2, RotPage, SlotId,
+    SwitchDuration, UpdateTarget, VersionedRotBootInfo,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::{
-    HandoffData, HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
+    HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
+    RotBootStateV2,
 };
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
 mod images;
 use crate::images::*;
-use ringbuf::*;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
-
-#[allow(dead_code)] // Not all cases are used by all variants
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Trace {
-    None,
-    Line,
-    NoBootstate(HandoffDataLoadError),
-    Slot(u32, Result<ImageVersion, ImageError>),
-    PrepImageUpdate(UpdateTarget),
-    SwitchDefaultImage(Result<(), RequestError<UpdateError>>),
-    CacheHash(u32),
-    Stage0Hash(u32),
-    Stage0NextHash(u32),
-    Systick(u64),
-    NotBlank(SlotId, u32, u32),
-    Blank(SlotId, u32),
-    ProgrammedPagesRange(SlotId, u32, u32),
-    ErasedPagesRange(SlotId, u32, u32),
-    ValidCacheImageLen(u32),
-    ValidFlashImageLen(u32),
-    WroteHeaderBlock{slot: SlotId, erase_len: usize},
-    Nop,
-}
-
-ringbuf!(Trace, 16, Trace::None);
 
 #[used]
 #[link_section = ".bootstate"]
@@ -72,22 +46,28 @@ enum UpdateState {
     Finished,
 }
 
-// We cache the full stage0 image before flashing it to reduce the window where
-// there is a partially written stage0.
+// The erase/flash of stage0 could be interrupted by a power failure or
+// reset rendering the RoT inoperable.
+// The full stage0 image is cached before flashing to reduce that window
+// of vulnerability.
+//
 // Doing a round-trip to the control plane for each chunk for each block write
 // effectively makes that window infinite since the upper layers are allowed to
 // wait forever or quit mid-update.
+// TODO: Minimize FW_CACHE_MAX while accommodating the largest production
+// bootloader image and allowing some room for growth.
 const FW_CACHE_MAX: usize = 8192_usize;
 struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
     image: Option<UpdateTarget>,
-    next_block: Option<usize>,
 
     flash: drv_lpc55_flash::Flash<'a>,
     hashcrypt: &'a lpc55_pac::hashcrypt::RegisterBlock,
     syscon: drv_lpc55_syscon_api::Syscon,
 
+    // Used to enforce sequential writes from the control plane.
+    next_block: Option<usize>,
     // Keep the fw cache 32-bit aligned to make NXP header access easier.
     fw_cache: &'a mut [u32; FW_CACHE_MAX / core::mem::size_of::<u32>()],
 }
@@ -115,18 +95,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
         image_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
-        ringbuf_entry!(Trace::PrepImageUpdate(image_type));
-
         // The LPC55 doesn't have an easily accessible mass erase mechanism
         // so this is just bookkeeping
         match self.state {
             UpdateState::InProgress => {
-                ringbuf_entry!(Trace::Line);
-                return Err(UpdateError::UpdateInProgress.into());
+                return Err(UpdateError::UpdateInProgress.into())
             }
             UpdateState::Finished => {
-                ringbuf_entry!(Trace::Line);
-                return Err(UpdateError::UpdateAlreadyFinished.into());
+                return Err(UpdateError::UpdateAlreadyFinished.into())
             }
             UpdateState::NoUpdate => (),
         }
@@ -144,8 +120,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::Finished => {
-                ringbuf_entry!(Trace::Line);
-                return Err(UpdateError::UpdateAlreadyFinished.into());
+                return Err(UpdateError::UpdateAlreadyFinished.into())
             }
             UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
@@ -153,7 +128,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.state = UpdateState::NoUpdate;
         self.next_block = None;
         self.fw_cache.fill(0);
-        ringbuf_entry!(Trace::Line);
         Ok(())
     }
 
@@ -176,7 +150,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // Check that blocks are delivered in order.
         let next = self.next_block.get_or_insert(0);
         if block_num != *next {
-            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::BlockOutOfOrder.into());
         }
         *next += 1;
@@ -187,7 +160,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // check that here. We share the API with other targets and there isn't
         // a nice way to define the lease length based on a constant.
         if len > BLOCK_SIZE_BYTES {
-            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::BadLength.into());
         }
 
@@ -277,8 +249,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         let range = image_range(slot).0;
         let erase_start = range.start + (endblock as u32 * PAGE_SIZE);
         self.flash_erase_range(erase_start..range.end)?;
-        ringbuf_entry!(Trace::WroteHeaderBlock{slot, erase_len: (erase_start..range.end).len()});
-
         self.state = UpdateState::Finished;
         self.image = None;
         Ok(())
@@ -307,7 +277,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootState, RequestError<HandoffDataLoadError>> {
-        bootstate().map_err(|e| e.into())
+        bootstate()
+            .map(|state| RotBootState::from(state))
+            .map_err(|e| e.into())
     }
 
     fn rot_boot_info(
@@ -327,18 +299,59 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             persistent_boot_preference,
             pending_persistent_boot_preference,
             transient_boot_preference,
-
-            slot_a_sha3_256_digest: boot_state.a.digest,
-            slot_b_sha3_256_digest: boot_state.b.digest,
-            stage0_sha3_256_digest: boot_state.stage0.digest,
-            stage0_next_sha3_256_digest: boot_state.stage0next.digest,
-
-            slot_a_status: boot_state.a.version,
-            slot_b_status: boot_state.b.version,
-            stage0_status: boot_state.stage0.version,
-            stage0_next_status: boot_state.stage0next.version,
+            // There is a change in meaning from the original
+            // RotBootInfo:
+            // Previously, None meant that the image did not
+            // validate, but there was no inidication of the
+            // contents of the flash slot. Now, the FWID (hash
+            // of all programmed pages in the slot) is always
+            // available. The "valid image in the slot" semantic
+            // was not being used and is no longer available in
+            // this version of RotBootInfo.
+            slot_a_sha3_256_digest: Some(boot_state.a.digest),
+            slot_b_sha3_256_digest: Some(boot_state.b.digest),
         };
         Ok(info)
+    }
+
+    fn versioned_rot_boot_info(
+        &mut self,
+        _: &RecvMessage,
+        version: u8,
+    ) -> Result<VersionedRotBootInfo, RequestError<UpdateError>> {
+        let boot_state =
+            bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
+        let (
+            persistent_boot_preference,
+            pending_persistent_boot_preference,
+            transient_boot_preference,
+        ) = self.boot_preferences()?;
+
+        match version {
+            1 => Ok(VersionedRotBootInfo::V1(RotBootInfo {
+                active: boot_state.active.into(),
+                persistent_boot_preference,
+                pending_persistent_boot_preference,
+                transient_boot_preference,
+                slot_a_sha3_256_digest: Some(boot_state.a.digest),
+                slot_b_sha3_256_digest: Some(boot_state.b.digest),
+            })),
+            2 => Ok(VersionedRotBootInfo::V2(RotBootInfoV2 {
+                active: boot_state.active.into(),
+                persistent_boot_preference,
+                pending_persistent_boot_preference,
+                transient_boot_preference,
+                slot_a_sha3_256_digest: boot_state.a.digest,
+                slot_b_sha3_256_digest: boot_state.b.digest,
+                stage0_sha3_256_digest: boot_state.stage0.digest,
+                stage0_next_sha3_256_digest: boot_state.stage0next.digest,
+                slot_a_status: boot_state.a.version,
+                slot_b_status: boot_state.b.version,
+                stage0_status: boot_state.stage0.version,
+                stage0_next_status: boot_state.stage0next.version,
+            })),
+            _ => Err(UpdateError::VersionNotSupported.into()),
+        }
     }
 
     fn read_raw_caboose(
@@ -384,8 +397,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 Err(UpdateError::InvalidSlotIdForOperation.into())
             }
         };
-        ringbuf_entry!(Trace::SwitchDefaultImage(r));
-        r
+        r // XXX
     }
 
     /// Reset.
@@ -531,10 +543,8 @@ impl ServerImpl<'_> {
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
         if duration != SwitchDuration::Forever {
-            ringbuf_entry!(Trace::Line);
             return Err(UpdateError::NotImplemented.into());
         }
-        ringbuf_entry!(Trace::Line);
 
         // Any image that passes the NXP image checks can be written to
         // stage0next flash slot.
@@ -592,29 +602,15 @@ impl ServerImpl<'_> {
             &self.fw_cache[..len as usize / core::mem::size_of::<u32>()];
 
         let mut hash = Sha3_256::new();
-        for page_start in (0..(bootloader.len() * 4)).step_by(512) { // XXX
-            hash.update(bootloader.as_bytes()[page_start..page_start+512].as_ref());
+        for page_start in (0..(bootloader.len() * 4)).step_by(512) {
+            // XXX
+            hash.update(
+                bootloader.as_bytes()[page_start..page_start + 512].as_ref(),
+            );
         }
         let cache_hash: [u8; 32] = hash.finalize().try_into().unwrap_lite();
-        let prefix = 
-            (cache_hash[0] as u32) << 0
-            | (cache_hash[1] as u32) << 8
-            | (cache_hash[2] as u32) << 16
-            | (cache_hash[3] as u32) << 24;
-        ringbuf_entry!(Trace::CacheHash(prefix));
-
-
-        // let cache_hash = rom_based_hasher(&self.syscon, self.hashcrypt, bootloader);
-        // ringbuf_entry!(Trace::CacheHash(cache_hash[0]));
-
         let boot_state =
             bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
-
-        // XXX Remove:
-        let a = boot_state.stage0.digest[0..=3].as_ref();
-        ringbuf_entry!(Trace::Stage0Hash((a[0] as u32) << 24 | (a[1] as u32) << 16 | (a[2] as u32) << 8 | (a[3] as u32)));
-        let a = boot_state.stage0next.digest[0..=3].as_ref();
-        ringbuf_entry!(Trace::Stage0NextHash((a[0] as u32) << 24 | (a[1] as u32) << 16 | (a[2] as u32) << 8 | (a[3] as u32)));
 
         // The cached image needs to match a properly signed image seen at
         // boot time.
@@ -634,7 +630,6 @@ impl ServerImpl<'_> {
         let stage0 = image_range(SlotId::Stage0);
         match self.compare_cache_to_flash(&stage0.0) {
             Err(UpdateError::ImageMismatch) => {
-                ringbuf_entry!(Trace::Systick(userlib::sys_get_timer().now));
                 if let Err(e) = self.write_cache_to_flash(SlotId::Stage0) {
                     // N.B. An error here is bad since it means we've likely
                     // bricked the machine if we reset now.
@@ -645,29 +640,18 @@ impl ServerImpl<'_> {
                     // has been corrupted.
 
                     // Restart update_server
-                    ringbuf_entry!(Trace::Systick(userlib::sys_get_timer().now));
                     return Err(e.into());
                 }
-                Trace::Systick(userlib::sys_get_timer().now);
             }
             Ok(()) => {
                 // Programmed pages after an image will contribute to the
                 // flash slot digest which can cause an image to mismatch with
                 // a flash slot digest even though the contained image is
                 // the same.
-                //
-                // TODO: Add an API call to erase flash pages following an image.
-                // Those pages should always be erased but if there is a power
-                // fail or reset during update or some other cause of
-                // corruption, they might not be erased.  following the image
-                // since they are also part of the hash calculation and may
-                // have caused a mis-compare.
-                ringbuf_entry!(Trace::Nop);
             }
             Err(e) => {
-                ringbuf_entry!(Trace::Line);
                 return Err(e.into()); // Non-fatal error. We did not alter stage0.
-            },
+            }
         }
 
         // Finish by erasing the unused portion of flash bank.
@@ -755,7 +739,6 @@ impl ServerImpl<'_> {
                     // but this is enough bytes for an NXP header and not
                     // bigger than the flash slot.
                     if len as usize <= span.len() && len >= HEADER_OFFSET {
-                        ringbuf_entry!(Trace::ValidFlashImageLen(len));
                         return Ok(len as usize);
                     }
                 }
@@ -777,7 +760,6 @@ impl ServerImpl<'_> {
         {
             return Err(UpdateError::BadLength);
         }
-        ringbuf_entry!(Trace::ValidCacheImageLen(len));
         Ok(len as usize)
     }
 
@@ -1261,12 +1243,13 @@ fn copy_from_flash_range(
     Ok(())
 }
 
-fn bootstate() -> Result<RotBootState, HandoffDataLoadError> {
+fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
     // Safety: Data is published by stage0
     let addr = unsafe { BOOTSTATE.assume_init_ref() };
-    RotBootState::load_from_addr(addr)
+    RotBootStateV2::load_from_addr(addr)
 }
 
+// TODO: Sha{2,3}-256 feature in case we need to save flash & RAM.
 fn _rom_based_hasher(
     syscon: &Syscon,
     engine: &lpc55_pac::hashcrypt::RegisterBlock,
@@ -1322,42 +1305,6 @@ fn main() -> ! {
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
 
-    match bootstate() {
-        Ok(bs) => {
-            ringbuf_entry!(Trace::Slot(0x00000, bs.stage0.version));
-            ringbuf_entry!(Trace::Slot(0x08000, bs.stage0next.version));
-            ringbuf_entry!(Trace::Slot(0x10000, bs.a.version));
-            ringbuf_entry!(Trace::Slot(0x50000, bs.b.version));
-        }
-        Err(e) => ringbuf_entry!(Trace::NoBootstate(e)),
-    }
-    for slot in [SlotId::Stage0, SlotId::Stage0Next, SlotId::A, SlotId::B] {
-        let range = image_range(slot).0;
-        let mut first_erased = None;
-        let mut last_erased = None;
-        let mut first_programmed = None;
-        let mut last_programmed = None;
-        for page in (range.start..=range.end-1).step_by(BYTES_PER_FLASH_PAGE) {
-            if server.flash.is_page_range_programmed(page, PAGE_SIZE) {
-                if first_programmed.is_none() {
-                    first_programmed = Some(page);
-                }
-                last_programmed = Some(page);
-            } else {
-                if first_erased.is_none() {
-                    first_erased = Some(page);
-                }
-                last_erased = Some(page);
-            }
-        }
-        if first_programmed.is_some() {
-            ringbuf_entry!(Trace::ProgrammedPagesRange(slot, first_programmed.unwrap_lite(),last_programmed.unwrap_lite()+PAGE_SIZE-1));
-        }
-        if first_erased.is_some() {
-            ringbuf_entry!(Trace::ErasedPagesRange(slot, first_erased.unwrap_lite(),last_erased.unwrap_lite()+PAGE_SIZE-1));
-        }
-    }
-
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
     }
@@ -1368,7 +1315,7 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
         HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
-        RotPage, SlotId, SwitchDuration, UpdateTarget,
+        RotPage, SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

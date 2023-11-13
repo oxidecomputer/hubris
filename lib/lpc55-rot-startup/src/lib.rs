@@ -18,7 +18,7 @@ use handoff::Handoff;
 
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
-use stage0_handoff::{RotBootState, RotImageDetails, RotSlot};
+use stage0_handoff::{RotBootStateV2, RotImageDetailsV2, RotSlot};
 
 const ROM_VER: u32 = 1;
 
@@ -211,21 +211,21 @@ pub fn startup(
     let version_b = img_b.map(|i| i.get_image_version());
     let version_stage0 = img_stage0.map(|i| i.get_image_version());
     let version_stage0next = img_stage0next.map(|i| i.get_image_version());
-    let details = RotBootState {
+    let details = RotBootStateV2 {
         active,
-        a: RotImageDetails {
+        a: RotImageDetailsV2 {
             digest: slot_a.fwid(),
             version: version_a,
         },
-        b: RotImageDetails {
+        b: RotImageDetailsV2 {
             digest: slot_b.fwid(),
             version: version_b,
         },
-        stage0: RotImageDetails {
+        stage0: RotImageDetailsV2 {
             digest: slot_stage0.fwid(),
             version: version_stage0,
         },
-        stage0next: RotImageDetails {
+        stage0next: RotImageDetailsV2 {
             digest: slot_stage0next.fwid(),
             version: version_stage0next,
         },

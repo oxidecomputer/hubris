@@ -131,8 +131,8 @@ Interface(
         "read_rot_page": (
             doc: "Read CMPA/CFPA page",
             args: {
-		"page": "RotPage",
-	    },
+                "page": "RotPage",
+            },
             leases : {
                 "data": (type: "[u8]", write: true, max_len: Some(512)),
             },
@@ -142,6 +142,18 @@ Interface(
             ),
             encoding: Hubpack,
             idempotent: true,
+        ),
+        "versioned_rot_boot_info": (
+            doc: "RoT Boot selection and preference info",
+            args: {
+                "version": "u8"
+            },
+            reply : Result(
+                ok: "VersionedRotBootInfo",
+                err: CLike("drv_update_api::UpdateError")
+            ),
+            idempotent: true,
+            encoding: Hubpack
         ),
     },
 )

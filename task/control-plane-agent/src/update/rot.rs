@@ -75,7 +75,7 @@ impl ComponentUpdater for RotUpdate {
             .map_err(SpError::OtherComponentUpdateInProgress)?;
 
         // Which target are we updating?
-        ringbuf_entry!(Trace::Target(update.component.id[0].into(), update.slot));
+        ringbuf_entry!(Trace::Target(update.component.id[0], update.slot));
         let target = match (update.component, update.slot) {
             (SpComponent::ROT, 0) => UpdateTarget::ImageA,
             (SpComponent::ROT, 1) => UpdateTarget::ImageB,

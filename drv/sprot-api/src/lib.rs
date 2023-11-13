@@ -20,8 +20,9 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotPage,
-    RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
+    RotBootInfo, RotBootInfoV2, RotBootState, RotBootStateV2, RotPage, RotSlot,
+    SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
 };
 pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
@@ -371,6 +372,9 @@ pub enum UpdateReq {
     Reset,
     // Added in sprot protocol version 3
     BootInfo,
+    VersionedBootInfo {
+        version: u8,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -397,6 +401,7 @@ pub enum UpdateRsp {
     BlockSize(u32),
     // Added in sprot protocol version 3
     BootInfo(RotBootInfo),
+    VersionedBootInfo(VersionedRotBootInfo),
 }
 
 /// A response used for caboose requests

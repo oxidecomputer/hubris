@@ -12,6 +12,7 @@ use drv_lpc55_update_api::{
     RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
+use drv_sprot_api::VersionedRotBootInfo;
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
@@ -581,6 +582,28 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
+    /// Return more useful boot info about the RoT
+    fn versioned_rot_boot_info(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        version: u8,
+    ) -> Result<VersionedRotBootInfo, RequestError<SprotError>> {
+        let body = ReqBody::Update(UpdateReq::VersionedBootInfo { version });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::Update(UpdateRsp::VersionedBootInfo(vboot_info)) =
+            rsp.body?
+        {
+            Ok(vboot_info)
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
     /// Return the block size of the update server
     fn block_size(
         &mut self,
@@ -1101,6 +1124,7 @@ mod idl {
         AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
         RawCabooseOrSprotError, RotBootInfo, RotPage, RotState, SlotId,
         SprotError, SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        VersionedRotBootInfo,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

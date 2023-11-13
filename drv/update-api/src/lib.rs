@@ -63,6 +63,7 @@ pub enum UpdateError {
     InvalidSlotIdForOperation,
     ImageMismatch,
     SignatureNotValidated,
+    VersionNotSupported,
 }
 
 impl From<UpdateError> for GwUpdateError {
@@ -100,6 +101,7 @@ impl From<UpdateError> for GwUpdateError {
             }
             UpdateError::ImageMismatch => Self::ImageMismatch,
             UpdateError::SignatureNotValidated => Self::SignatureNotValidated,
+            UpdateError::VersionNotSupported => Self::VersionNotSupported,
         }
     }
 }

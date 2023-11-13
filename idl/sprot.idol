@@ -275,6 +275,14 @@ Interface(
             reply: Result(
                 ok: "u32",
                 err: Complex("AttestOrSprotError"),
+        "versioned_rot_boot_info": (
+            doc: "Get a specific verions of RoT boot info if availabe.",
+            args: {
+                "version" : "u8",
+            },
+            reply: Result(
+                ok: "VersionedRotBootInfo",
+                err: Complex("SprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,

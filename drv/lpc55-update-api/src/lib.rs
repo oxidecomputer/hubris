@@ -68,6 +68,32 @@ pub struct RotBootInfo {
     /// This is a magic ram value that is cleared by bootleby
     pub transient_boot_preference: Option<SlotId>,
     /// Sha3-256 Digest of Slot A in Flash
+    pub slot_a_sha3_256_digest: Option<[u8; 32]>,
+    /// Sha3-256 Digest of Slot B in Flash
+    pub slot_b_sha3_256_digest: Option<[u8; 32]>,
+}
+
+/// ROT boot state and preferences retrieved from the lpc55-update-server
+///
+/// SW version information is in the caboose and is read from a different
+/// API
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct RotBootInfoV2 {
+    /// Ths slot of the currently running image
+    pub active: SlotId,
+    /// The persistent boot preference written into the current authoritative
+    /// CFPA page (ping or pong).
+    pub persistent_boot_preference: SlotId,
+    /// The persistent boot preference written into the CFPA scratch page that
+    /// will become the persistent boot preference in the authoritative CFPA
+    /// page upon reboot, unless CFPA update of the authoritative page fails
+    /// for some reason.
+    pub pending_persistent_boot_preference: Option<SlotId>,
+    /// Override persistent preference selection for a single boot
+    ///
+    /// This is a magic ram value that is cleared by bootleby
+    pub transient_boot_preference: Option<SlotId>,
+    /// Sha3-256 Digest of Slot A in Flash
     pub slot_a_sha3_256_digest: [u8; 32],
     /// Sha3-256 Digest of Slot B in Flash
     pub slot_b_sha3_256_digest: [u8; 32],
@@ -80,6 +106,12 @@ pub struct RotBootInfo {
     pub slot_b_status: Result<ImageVersion, ImageError>,
     pub stage0_status: Result<ImageVersion, ImageError>,
     pub stage0_next_status: Result<ImageVersion, ImageError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum VersionedRotBootInfo {
+    V1(RotBootInfo),
+    V2(RotBootInfoV2),
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
@@ -187,7 +219,7 @@ pub enum SwitchDuration {
 // Re-export
 pub use stage0_handoff::{
     HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
-    RotImageDetails, RotSlot,
+    RotBootStateV2, RotImageDetails, RotSlot,
 };
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`

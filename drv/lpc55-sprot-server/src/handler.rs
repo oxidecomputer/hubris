@@ -405,6 +405,11 @@ impl<'a> Handler {
                 };
                 Ok((RspBody::Attest(rsp), None))
             }
+            ReqBody::Update(UpdateReq::VersionedBootInfo { version }) => {
+                let versioned_boot_info =
+                    self.update.versioned_rot_boot_info(version)?;
+                Ok((RspBody::Update(versioned_boot_info.into()), None))
+            }
         }
     }
 }

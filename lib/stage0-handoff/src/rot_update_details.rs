@@ -7,7 +7,7 @@ use core::ops::Range;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
-unsafe impl HandoffData for RotBootState {
+unsafe impl HandoffData for RotBootStateV2 {
     const VERSION: u32 = 0;
     const MAGIC: [u8; 12] = *b"whatwhatwhat";
     const MEM_RANGE: Range<usize> = UPDATE_RANGE;
@@ -55,14 +55,12 @@ pub enum ImageError {
 )]
 pub struct RotBootState {
     pub active: RotSlot,
-    pub a: RotImageDetails,
-    pub b: RotImageDetails,
-    pub stage0: RotImageDetails,
-    pub stage0next: RotImageDetails,
+    pub a: Option<RotImageDetails>,
+    pub b: Option<RotImageDetails>,
 }
 
 impl RotBootState {
-    pub fn active_image(&self) -> RotImageDetails {
+    pub fn active_image(&self) -> Option<RotImageDetails> {
         match self.active {
             RotSlot::A => self.a,
             RotSlot::B => self.b,
@@ -71,12 +69,63 @@ impl RotBootState {
     }
 }
 
-fits_in_ram!(RotBootState);
+impl From<RotBootStateV2> for RotBootState {
+    // Conversion to handle deprecated APIs.
+    fn from(v2: RotBootStateV2) -> Self {
+        let a = match v2.a.version {
+            Ok(v) => Some(RotImageDetails {
+                digest: v2.a.digest,
+                version: v,
+            }),
+            Err(_) => None,
+        };
+        let b = match v2.b.version {
+            Ok(v) => Some(RotImageDetails {
+                digest: v2.b.digest,
+                version: v,
+            }),
+            Err(_) => None,
+        };
+        RotBootState {
+            active: v2.active,
+            a,
+            b,
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct RotBootStateV2 {
+    pub active: RotSlot,
+    pub a: RotImageDetailsV2,
+    pub b: RotImageDetailsV2,
+    pub stage0: RotImageDetailsV2,
+    pub stage0next: RotImageDetailsV2,
+}
+
+impl RotBootStateV2 {
+    pub fn active_image(&self) -> Option<RotImageDetails> {
+        RotBootState::from(*self).active_image()
+    }
+}
+
+fits_in_ram!(RotBootStateV2);
 
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotImageDetails {
+    // The SHA3-256 measurement of all programmed pages in the flash slot.
+    pub digest: [u8; 32],
+    pub version: ImageVersion,
+}
+
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct RotImageDetailsV2 {
     // The SHA3-256 measurement of all programmed pages in the flash slot.
     pub digest: [u8; 32],
     pub version: Result<ImageVersion, ImageError>,
