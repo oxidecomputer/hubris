@@ -1,7 +1,6 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
@@ -590,21 +589,19 @@ impl ModuleResult {
         // supercede failures, so make sure to clear any failures where an error
         // has subsequently occurred.
         let failure = (self.failure() | next.failure()) & !self.error();
-
         // merge the failure types observed, prefering newer failure types
         // should both results have a failure at the same port.
-        let mut combined_failures = LogicalPortFailureTypes::default();
+        let mut failure_types = LogicalPortFailures::default();
         for p in failure.to_indices() {
-            if next.failure().is_set(p) {
-                combined_failures.0[p.0 as usize] =
-                    next.failure_types().0[p.0 as usize];
-            } else if self.failure().is_set(p) {
-                combined_failures.0[p.0 as usize] =
-                    self.failure_types().0[p.0 as usize];
+            if next.failure.is_set(p) {
+                failure_types.0[p.0 as usize] =
+                    next.failure_types.0[p.0 as usize]
+            } else if self.failure.is_set(p) {
+                failure_types.0[p.0 as usize] =
+                    self.failure_types.0[p.0 as usize]
             }
         }
-
-        Self::new(success, failure, error, combined_failures).unwrap_lite()
+        Self::new(success, failure, error, failure_types).unwrap_lite()
     }
 
     /// Helper to provide a nice way to get a ModuleResultSlim from this result
@@ -790,7 +787,11 @@ impl Transceivers {
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
     pub fn assert_reset(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_RESETL_CTRL0)
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask,
+            Addr::QSFP_MOD_RESETL_CTRL0,
+        )
     }
 
     /// Set LpMode bits per the specified `mask`.
@@ -816,7 +817,11 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_MOD_LPMODE_CTRL0)
+        self.masked_port_op(
+            WriteOp::BitClear,
+            mask,
+            Addr::QSFP_MOD_LPMODE_CTRL0,
+        )
     }
 
     /// Get the current status of all low speed signals for all ports.
@@ -1204,7 +1209,7 @@ impl Transceivers {
             let fpga = self.fpga(fpga_index);
             // This loop should break immediately, because I2C is fast
             let status_all = loop {
-                // Two bytes of BUSY, followed by 816bytes of port status
+                // Two bytes of BUSY, followed by 16 bytes of port status
                 let status_all = match fpga.read(Addr::QSFP_I2C_BUSY0) {
                     Ok(data) => data,
                     // If there is an FPGA communication error, mark that as an
