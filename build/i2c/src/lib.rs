@@ -61,7 +61,7 @@ struct I2cController {
 // a controller *and* a named bus), so the validation code should go to
 // additional lengths to assure that these mistakes are caught in compilation.
 //
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cDevice {
@@ -166,7 +166,7 @@ struct I2cMux {
     nreset: Option<I2cGpio>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord)]
 #[allow(dead_code)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPower {
@@ -193,7 +193,7 @@ impl I2cPower {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cSensors {
@@ -249,20 +249,20 @@ impl I2cSensors {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceKey {
     device: String,
     kind: Sensor,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceNameKey {
     device: String,
     name: String,
     kind: Sensor,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceRefdesKey {
     device: String,
     refdes: String,
@@ -1013,9 +1013,14 @@ impl ConfigGenerator {
             match index {{"##
         )?;
 
-        for (controller, indices) in by_controller.iter_all() {
-            let s: Vec<String> =
+        let mut all: Vec<_> = by_controller.iter_all().collect();
+        all.sort();
+
+        for (controller, indices) in all {
+            let mut s: Vec<String> =
                 indices.iter().map(|f| format!("{}", f)).collect::<_>();
+
+            s.sort();
 
             write!(
                 &mut self.output,
@@ -1044,9 +1049,14 @@ impl ConfigGenerator {
             match index {{"##
         )?;
 
-        for (port, indices) in by_port.iter_all() {
-            let s: Vec<String> =
+        let mut all: Vec<_> = by_port.iter_all().collect();
+        all.sort();
+
+        for (port, indices) in all {
+            let mut s: Vec<String> =
                 indices.iter().map(|f| format!("{}", f)).collect::<_>();
+
+            s.sort();
 
             write!(
                 &mut self.output,
@@ -1066,7 +1076,10 @@ impl ConfigGenerator {
 "##
         )?;
 
-        for (device, devices) in by_device.iter_all() {
+        let mut all: Vec<_> = by_device.iter_all().collect();
+        all.sort();
+
+        for (device, devices) in all {
             write!(
                 &mut self.output,
                 r##"
@@ -1090,7 +1103,10 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, bus), devices) in by_bus.iter_all() {
+        let mut all: Vec<_> = by_bus.iter_all().collect();
+        all.sort();
+
+        for ((device, bus), devices) in all {
             write!(
                 &mut self.output,
                 r##"
@@ -1114,7 +1130,9 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, name), d) in &by_name {
+        let mut all: Vec<_> = by_name.iter().collect();
+        all.sort();
+        for ((device, name), d) in &all {
             write!(
                 &mut self.output,
                 r##"
@@ -1134,7 +1152,10 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, name), d) in &by_refdes {
+        let mut all: Vec<_> = by_refdes.iter().collect();
+        all.sort();
+
+        for ((device, name), d) in &all {
             write!(
                 &mut self.output,
                 r##"
@@ -1332,7 +1353,10 @@ impl ConfigGenerator {
                 }
             )?;
 
-            for (rail, (device, index)) in &byrail {
+            let mut all: Vec<_> = byrail.iter().collect();
+            all.sort();
+
+            for (rail, (device, index)) in &all {
                 write!(
                     &mut self.output,
                     r##"
@@ -1602,16 +1626,25 @@ impl ConfigGenerator {
             }
         }
 
-        for (k, ids) in s.by_device.iter_all() {
+        let mut by_device_sorted: Vec<_> = s.by_device.iter_all().collect();
+        by_device_sorted.sort();
+
+        for (k, ids) in &by_device_sorted {
             self.emit_sensor(&k.device, &format!("{}", k.kind), ids)?;
         }
 
-        for (k, ids) in s.by_name.iter_all() {
+        let mut by_name_sorted: Vec<_> = s.by_name.iter_all().collect();
+        by_name_sorted.sort();
+
+        for (k, ids) in &by_name_sorted {
             let label = format!("{}_{}", k.name.to_uppercase(), k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
 
-        for (k, ids) in s.by_refdes.iter_all() {
+        let mut by_refdes_sorted: Vec<_> = s.by_refdes.iter_all().collect();
+        by_refdes_sorted.sort();
+
+        for (k, ids) in &by_refdes_sorted {
             let label = format!("{}_{}", k.refdes.to_uppercase(), k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
