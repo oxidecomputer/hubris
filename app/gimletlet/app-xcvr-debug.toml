@@ -1,0 +1,15 @@
+name = "xcvr-debug"
+board = "gimletlet-2"
+inherit = "app.toml"
+
+[tasks.ecp5_front_io]
+name = "drv-fpga-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 2048
+start = true
+features = ["h753", "use-spi-core", "spi6"]
+uses = ["spi6"]
+task-slots = ["sys"]
+interrupts = {"spi6.irq" = "spi-irq"}
+notifications = ["spi-irq"]
