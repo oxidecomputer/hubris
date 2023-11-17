@@ -19,8 +19,19 @@ pub(crate) fn get_state() -> PowerState {
     PowerState::A2
 }
 
-pub fn preinit() {
-    // Nothing to do here
+pub(crate) struct State(());
+
+impl State {
+    pub(crate) fn init() -> Self {
+        State(())
+    }
+
+    pub(crate) fn handle_timer_fired(
+        &self,
+        _devices: &[crate::Device],
+        _state: PowerState,
+    ) {
+    }
 }
 
 pub const HAS_RENDMP_BLACKBOX: bool = false;
