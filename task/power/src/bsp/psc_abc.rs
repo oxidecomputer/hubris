@@ -28,22 +28,35 @@ pub(crate) fn get_state() -> PowerState {
     PowerState::A2
 }
 
-pub fn preinit() {
-    // Before talking to the power shelves, we have to enable an I2C buffer
-    userlib::task_slot!(SYS, sys);
-    use drv_stm32xx_sys_api::*;
+pub(crate) struct State(());
 
-    let sys_task = SYS.get_task_id();
-    let sys = Sys::from(sys_task);
+impl State {
+    pub(crate) fn init() -> Self {
+        // Before talking to the power shelves, we have to enable an I2C buffer
+        userlib::task_slot!(SYS, sys);
+        use drv_stm32xx_sys_api::*;
 
-    let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
-    sys.gpio_set(i2c_en);
-    sys.gpio_configure_output(
-        i2c_en,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-    );
+        let sys_task = SYS.get_task_id();
+        let sys = Sys::from(sys_task);
+
+        let i2c_en = Port::E.pin(15); // SP_TO_BP_I2C_EN
+        sys.gpio_set(i2c_en);
+        sys.gpio_configure_output(
+            i2c_en,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        );
+
+        State(())
+    }
+
+    pub(crate) fn handle_timer_fired(
+        &self,
+        _devices: &[crate::Device],
+        _state: PowerState,
+    ) {
+    }
 }
 
 pub const HAS_RENDMP_BLACKBOX: bool = false;
