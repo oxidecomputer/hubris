@@ -1,4 +1,4 @@
-name = "gimletlet"
+name = "gimletlet-meanwell"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
 chip = "../../chips/stm32h7"
