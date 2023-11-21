@@ -839,6 +839,21 @@ impl idl::InOrderPowerImpl for ServerImpl {
         Ok(out)
     }
 
+    fn bmr491_fault_log_clear(
+        &mut self,
+        _msg: &userlib::RecvMessage
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let dev = self.bmr491()?;
+        // Writing the special value 0xAA to the event index register
+        // results in the fault log being cleared.
+        dev.write(&[
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+            0xaa,
+        ])?;
+
+        Ok(())
+    }
+
     fn bmr491_max_fault_event_index(
         &mut self,
         _msg: &userlib::RecvMessage,
