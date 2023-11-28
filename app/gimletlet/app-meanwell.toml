@@ -1,66 +1,21 @@
 name = "gimletlet-meanwell"
-target = "thumbv7em-none-eabihf"
-board = "gimletlet-2"
-chip = "../../chips/stm32h7"
-stacksize = 896
-fwid = true
+inherit = "base-gimletlet2.toml"
 
-[kernel]
-name = "gimletlet"
-requires = {flash = 32768, ram = 8192}
-
-[tasks.jefe]
-name = "task-jefe"
-priority = 0
-max-sizes = {flash = 8192, ram = 2048}
-start = true
-stacksize = 1536
-notifications = ["fault", "timer"]
+[tasks.hiffy]
+features = ["h753", "stm32h7", "gpio"]
+task-slots = ["sys", "user_leds"]
 
 [tasks.jefe.config.allowed-callers]
-set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
-
-[tasks.sys]
-name = "drv-stm32xx-sys"
-features = ["h753"]
-priority = 1
-max-sizes = {flash = 2048, ram = 1024}
-uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
-start = true
-task-slots = ["jefe"]
-
-[tasks.user_leds]
-name = "drv-user-leds"
-features = ["stm32h7"]
-priority = 2
-max-sizes = {flash = 2048, ram = 1024}
-start = true
-task-slots = ["sys"]
-notifications = ["timer"]
 
 [tasks.meanwell]
 name = "drv-meanwell"
 features = ["stm32h7"]
-priority = 3
+priority = 6
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys", "user_leds"]
 notifications = ["timer"]
 
-[tasks.hiffy]
-name = "task-hiffy"
-features = ["h753", "stm32h7", "gpio"] 
-priority = 4
-max-sizes = {flash = 32768, ram = 32768}
-stacksize = 2048
-start = true
-task-slots = ["sys", "user_leds"]
-
-[tasks.idle]
-name = "task-idle"
-priority = 5
-max-sizes = {flash = 128, ram = 256}
-stacksize = 256
-start = true
-
+[caboose]
+tasks = ["caboose_reader"]
