@@ -12,17 +12,15 @@
 mod config;
 
 use attest_api::{AttestError, HashAlgorithm};
+use attest_data::{Log, Measurement, Sha3_256Digest};
 use config::DataRegion;
 use core::slice;
-use crypto_common::{typenum::Unsigned, OutputSizeUser};
 use hubpack::SerializedSize;
 use idol_runtime::{ClientError, Leased, RequestError, W};
 use lib_dice::{AliasData, CertData};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
-use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use sha3::Sha3_256Core;
+use serde::Deserialize;
 use stage0_handoff::{HandoffData, HandoffDataLoadError};
 use zerocopy::AsBytes;
 
@@ -78,114 +76,23 @@ fn load_data_from_region<
     }
 }
 
-// the size of the measurements we record
-// NOTE: the rust crypto digest traits don't expose consts for the lengths
-// of various hash functions
-const SHA3_256_DIGEST_SIZE: usize =
-    <Sha3_256Core as OutputSizeUser>::OutputSize::USIZE;
-
-// the number of Measurements we can record
-const CAPACITY: usize = 16;
-
-// Digest is a fixed length array of bytes
-#[serde_as]
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, SerializedSize)]
-struct Digest<const N: usize>(#[serde_as(as = "[_; N]")] [u8; N]);
-
-impl<const N: usize> Default for Digest<N> {
-    fn default() -> Self {
-        Digest([0u8; N])
-    }
-}
-
-type Sha3_256Digest = Digest<SHA3_256_DIGEST_SIZE>;
-
-// Measurement is an enum that can hold any of the supported hash algorithms
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, SerializedSize)]
-enum Measurement {
-    Sha3_256(Sha3_256Digest),
-}
-
-impl Measurement {
-    fn new(
-        algorithm: HashAlgorithm,
-        data: idol_runtime::Leased<idol_runtime::R, [u8]>,
-    ) -> Result<Self, RequestError<AttestError>> {
-        Ok(match algorithm {
-            HashAlgorithm::Sha3_256 => {
-                if data.len() != SHA3_256_DIGEST_SIZE {
-                    ringbuf_entry!(Trace::BadLease(data.len()));
-                    return Err(AttestError::BadLease.into());
-                }
-
-                let mut digest = Sha3_256Digest::default();
-                data.read_range(0..digest.0.len(), &mut digest.0)
-                    .map_err(|_| RequestError::went_away())?;
-
-                Measurement::Sha3_256(digest)
-            }
-        })
-    }
-}
-
-impl Default for Measurement {
-    fn default() -> Self {
-        Measurement::Sha3_256(Sha3_256Digest::default())
-    }
-}
-
-// ArrayVec has everything we need but isn't compatible with hubpack. We only
-// need a small subset of its functionality so this saves us some flash.
-#[serde_as]
-#[derive(Serialize, SerializedSize)]
-struct Log<const N: usize> {
-    index: u32,
-    #[serde_as(as = "[_; N]")]
-    measurements: [Measurement; N],
-}
-
-impl<const N: usize> Log<N> {
-    fn is_full(&self) -> bool {
-        self.index as usize == N
-    }
-
-    fn push(&mut self, measurement: Measurement) -> bool {
-        if !self.is_full() {
-            self.measurements[self.index as usize] = measurement;
-            self.index += 1;
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl<const N: usize> Default for Log<N> {
-    fn default() -> Self {
-        Self {
-            index: 0,
-            measurements: [Measurement::default(); N],
-        }
-    }
-}
-
 struct AttestServer {
     alias_data: Option<AliasData>,
-    buf: &'static mut [u8; Log::<CAPACITY>::MAX_SIZE],
+    buf: &'static mut [u8; Log::MAX_SIZE],
     cert_data: Option<CertData>,
-    measurements: Log<CAPACITY>,
+    measurements: Log,
 }
 
 impl Default for AttestServer {
     fn default() -> Self {
         let buf = mutable_statics! {
-            static mut LOG_BUF: [u8; Log::<CAPACITY>::MAX_SIZE] = [|| 0; _];
+            static mut LOG_BUF: [u8; Log::MAX_SIZE] = [|| 0; _];
         };
         Self {
             alias_data: load_data_from_region(&ALIAS_DATA),
             buf,
             cert_data: load_data_from_region(&CERT_DATA),
-            measurements: Log::<CAPACITY>::default(),
+            measurements: Log::default(),
         }
     }
 }
@@ -305,7 +212,22 @@ impl idl::InOrderAttestImpl for AttestServer {
             return Err(AttestError::LogFull.into());
         }
 
-        self.measurements.push(Measurement::new(algorithm, data)?);
+        let measurement = match algorithm {
+            HashAlgorithm::Sha3_256 => {
+                if data.len() != Sha3_256Digest::LENGTH {
+                    ringbuf_entry!(Trace::BadLease(data.len()));
+                    return Err(AttestError::BadLease.into());
+                }
+
+                let mut digest = Sha3_256Digest::default();
+                data.read_range(0..digest.0.len(), &mut digest.0)
+                    .map_err(|_| RequestError::went_away())?;
+
+                Measurement::Sha3_256(digest)
+            }
+        };
+
+        self.measurements.push(measurement);
 
         Ok(())
     }
