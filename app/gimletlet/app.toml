@@ -29,15 +29,6 @@ task-slots = []
 
 [caboose]
 tasks = ["control_plane_agent", "caboose_reader"]
-region = "flash"
-size = 256
-default = true
-
-[tasks.caboose_reader]
-name = "task-caboose-reader"
-priority = 2
-max-sizes = {flash = 16384, ram = 2048}
-start = true
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
