@@ -1,0 +1,241 @@
+name = "gimletlet"
+inherit = "base-gimletlet2.toml"
+
+[kernel]
+features = ["dump"]
+
+[tasks.hiffy]
+features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "rng", "hash", "sprot"]
+task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "update_server", "user_leds"]
+
+[tasks.jefe]
+features = ["dump"]
+extern-regions = ["sram2", "sram3", "sram4"]
+
+[tasks.jefe.config.allowed-callers]
+set_state = ["gimlet_seq"]
+request_reset = ["hiffy", "control_plane_agent", "udprpc"]
+
+[tasks.jefe.config.on-state-change]
+host_sp_comms = "jefe-state-change"
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
+[caboose]
+tasks = ["control_plane_agent", "caboose_reader"]
+region = "flash"
+size = 256
+default = true
+
+[tasks.caboose_reader]
+name = "task-caboose-reader"
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+start = true
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+max-sizes = {flash = 131072, ram = 32768}
+stacksize = 4096
+start = true
+uses = ["usart1"]
+task-slots = [
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "hf",
+    "gimlet_seq",
+    "validate",
+    "sensor",
+    "sprot",
+    "packrat",
+    "user_leds",
+]
+features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
+[tasks.sensor]
+name = "task-sensor"
+features = []
+priority = 5
+max-sizes = {flash = 8192, ram = 2048 }
+stacksize = 1024
+start = true
+notifications = ["timer"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192 }
+start = true
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
+extern-regions = ["sram2", "sram3", "sram4"]
+notifications = ["socket"]
+features = ["net", "vlan"]
+
+[tasks.gimlet_seq]
+name = "drv-mock-gimlet-seq-server"
+priority = 2
+max-sizes = {flash = 2048, ram = 1024 }
+start = true
+task-slots = ["jefe"]
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
+uses = ["uart7", "dbgmcu"]
+interrupts = {"uart7.irq" = "usart-irq"}
+priority = 8
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 4096
+start = true
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
+notifications = [
+    "jefe-state-change",
+     "usart-irq",
+     "multitimer",
+     "control-plane-agent"
+]
+
+[tasks.hf]
+# If you do not have a gimletlet qspi-let adapter but want to test the hf API
+# (e.g., from control-plane-agent / MGS), switch to `drv-mock-gimlet-hf-server`.
+name = "drv-gimlet-hf-server"
+features = ["h753", "hash"]
+priority = 6
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 1920
+start = true
+uses = ["quadspi"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+task-slots = ["sys", "hash_driver"]
+notifications = ["qspi-irq"]
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = "hash-irq"}
+task-slots = ["sys"]
+notifications = ["hash-irq"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 6040
+priority = 3
+features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
+max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "tim16", "spi4"]
+start = true
+task-slots = ["sys", "jefe"]
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi4.irq" = "spi-irq"
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 4
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[config.net]
+vlan = { start = 0x301, count = 2 }
+# UDP ports in sockets below are assigned in oxidecomputer/oana
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = "socket"}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753", "spi3"]
+uses = ["spi3"]
+notifications = ["spi-irq"]
+interrupts = {"spi3.irq" = "spi-irq"}
+
+[config.sprot]
+# TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
+pins = [
+    # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
+    { name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+    # SPI6 CS repurposed for debugging
+    { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
+]
