@@ -66,7 +66,7 @@ support and a continuous build for Illumos or macOS, we'd love the help.
 
 To submit changes for review, push them to a branch in a fork and submit a pull
 request to merge that branch into `master`. For details, see
-[`CONTRIBUING.md`](CONTRIBUTING.md).
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Prereqs
 
