@@ -45,6 +45,7 @@ mod server;
     all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
     path = "bsp/gimletlet_nic.rs"
 )]
+#[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
 mod bsp;
 
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
