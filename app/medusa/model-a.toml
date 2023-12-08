@@ -1,0 +1,3 @@
+name = "medusa-a"
+board = "medusa-a"
+inherit = "base.toml"
