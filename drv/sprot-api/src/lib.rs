@@ -20,9 +20,10 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
-    RotBootInfo, RotBootInfoV2, RotBootState, RotBootStateV2, RotPage, RotSlot,
-    SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
+    Fwid, HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
+    RotBootInfo, RotBootInfoV2, RotBootState, RotBootStateV2, RotComponent,
+    RotImageDetails, RotPage, RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    VersionedRotBootInfo,
 };
 pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
@@ -375,12 +376,35 @@ pub enum UpdateReq {
     VersionedBootInfo {
         version: u8,
     },
+    ComponentPrep {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    ComponentSwitchDefaultImage {
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum CabooseReq {
+    /// Size of the caboose for Hubris slot A or B
     Size { slot: SlotId },
+    /// Read caboose of Hubris slot A or B
     Read { slot: SlotId, start: u32, size: u32 },
+    /// Size of the caboose of a component's slot A or B
+    ComponentSize {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    /// Read caboose of component's slot A or B
+    ComponentRead {
+        component: RotComponent,
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -411,6 +435,8 @@ pub enum UpdateRsp {
 pub enum CabooseRsp {
     Size(u32),
     Read,
+    ComponentSize(u32),
+    ComponentRead,
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -520,6 +546,9 @@ pub enum RotState {
         /// its boot ROM contents and there are known issues with old boot
         /// ROMs.
         bootrom_crc32: u32,
+    },
+    V2 {
+        state: RotBootStateV2,
     },
 }
 

@@ -4,7 +4,7 @@
 
 use core::ops::Range;
 use drv_lpc55_update_api::BLOCK_SIZE_BYTES;
-use drv_lpc55_update_api::{SlotId, UpdateTarget};
+use drv_lpc55_update_api::{RotComponent, SlotId};
 use drv_update_api::UpdateError;
 use userlib::UnwrapLite;
 
@@ -14,11 +14,11 @@ extern "C" {
     static __IMAGE_A_BASE: [u32; 0];
     static __IMAGE_B_BASE: [u32; 0];
     static __IMAGE_STAGE0_BASE: [u32; 0];
-    static __IMAGE_STAGE0_NEXT_BASE: [u32; 0];
+    static __IMAGE_STAGE0NEXT_BASE: [u32; 0];
     static __IMAGE_A_END: [u32; 0];
     static __IMAGE_B_END: [u32; 0];
     static __IMAGE_STAGE0_END: [u32; 0];
-    static __IMAGE_STAGE0_NEXT_END: [u32; 0];
+    static __IMAGE_STAGE0NEXT_END: [u32; 0];
 
     static __this_image: [u32; 0];
 }
@@ -34,16 +34,11 @@ const MAGIC_OFFSET: usize = HEADER_OFFSET as usize;
 
 // Perform some sanity checking on the header block.
 pub fn validate_header_block(
-    target: crate::UpdateTarget,
+    component: RotComponent,
+    slot: SlotId,
     block: &[u8; BLOCK_SIZE_BYTES],
 ) -> Result<(), UpdateError> {
-    let slot = match target {
-        UpdateTarget::ImageA => SlotId::A,
-        UpdateTarget::ImageB => SlotId::B,
-        UpdateTarget::Bootloader => SlotId::Stage0Next,
-        _ => return Err(UpdateError::InvalidSlotIdForOperation),
-    };
-    let exec = image_range(slot).1;
+    let exec = image_range(component, slot).1;
 
     // This part aliases flash in two positions that differ in bit 28. To allow
     // for either position to be used in new images, we clear bit 28 in all of
@@ -63,40 +58,44 @@ pub fn validate_header_block(
     // Bootloaders have been released without an ImageHeader. Allow those.
     let magic =
         u32::from_le_bytes(block[MAGIC_OFFSET..][..4].try_into().unwrap_lite());
-    if slot != SlotId::Stage0Next && magic != abi::HEADER_MAGIC {
+    if component == RotComponent::Hubris && magic != abi::HEADER_MAGIC {
         return Err(UpdateError::InvalidHeaderBlock);
     }
 
     Ok(())
 }
 
-pub fn same_image(which: crate::SlotId) -> bool {
+pub fn same_image(component: RotComponent, slot: SlotId) -> bool {
     // SAFETY: We are trusting the linker.
-    image_range(which).0.start == unsafe { &__this_image } as *const _ as u32
+    image_range(component, slot).0.start
+        == unsafe { &__this_image } as *const _ as u32
 }
 
 /// Return the flash storage address range and flash execution address range.
 /// These are only different for the staged stage0 image.
-pub fn image_range(slot: SlotId) -> (Range<u32>, Range<u32>) {
+pub fn image_range(
+    component: RotComponent,
+    slot: SlotId,
+) -> (Range<u32>, Range<u32>) {
     unsafe {
-        match slot {
-            SlotId::A => (
+        match (component, slot) {
+            (RotComponent::Hubris, SlotId::A) => (
                 __IMAGE_A_BASE.as_ptr() as u32..__IMAGE_A_END.as_ptr() as u32,
                 __IMAGE_A_BASE.as_ptr() as u32..__IMAGE_A_END.as_ptr() as u32,
             ),
-            SlotId::B => (
+            (RotComponent::Hubris, SlotId::B) => (
                 __IMAGE_B_BASE.as_ptr() as u32..__IMAGE_B_END.as_ptr() as u32,
                 __IMAGE_B_BASE.as_ptr() as u32..__IMAGE_B_END.as_ptr() as u32,
             ),
-            SlotId::Stage0 => (
+            (RotComponent::Stage0, SlotId::A) => (
                 __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
                 __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
             ),
-            SlotId::Stage0Next => (
-                __IMAGE_STAGE0_NEXT_BASE.as_ptr() as u32
-                    ..__IMAGE_STAGE0_NEXT_END.as_ptr() as u32,
+            (RotComponent::Stage0, SlotId::B) => (
+                __IMAGE_STAGE0NEXT_BASE.as_ptr() as u32
+                    ..__IMAGE_STAGE0NEXT_END.as_ptr() as u32,
                 __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
             ),

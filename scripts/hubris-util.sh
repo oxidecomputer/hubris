@@ -135,12 +135,12 @@ extract_rot_from_json() {
 # Test for the two SP APIs
 # TODO: Extract RoT API as well.
 get_api_versions() {
-    case $(fm state -r1 | jq -r -c ".${INTERFACE} | keys[0]") in
+    case $(fm state | jq -r -c ".${INTERFACE} | keys[0]") in
         Ok) SP_V1=true;;
         *) SP_V1=false;;
     esac
 
-    case $(fm state -r2 | jq -r -c ".${INTERFACE} | keys[0]") in
+    case $(fm state | jq -r -c ".${INTERFACE} | keys[0]") in
         Ok) SP_V2=true;;
         *) SP_V2=false;;
     esac
@@ -192,7 +192,7 @@ get_rot_state() {
         # shellcheck disable=SC2046
         STAGE0_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0_sha3_256_digest[]"))"
         # shellcheck disable=SC2046
-        STAGE0_NEXT_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0_next_sha3_256_digest[]"))"
+        STAGE0NEXT_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0next_sha3_256_digest[]"))"
 
         SLOT_A_STATUS="$(echo "$J" | jq -c -r ".slot_a_status | keys[0]")" # Ok or Err
         if [[ "${SLOT_A_STATUS}" = "Ok" ]]
@@ -230,23 +230,23 @@ get_rot_state() {
             STAGE0_STATUS_ERR="$(echo "$J" | jq ".stage0_status.Err")"
         fi
 
-        STAGE0_NEXT_STATUS="$(echo "$J" | jq -c -r ".stage0_next_status | keys[0]")" # Ok or Err
-        if [[ "${STAGE0_NEXT_STATUS}" = "Ok" ]]
+        STAGE0NEXT_STATUS="$(echo "$J" | jq -c -r ".stage0next_status | keys[0]")" # Ok or Err
+        if [[ "${STAGE0NEXT_STATUS}" = "Ok" ]]
         then
-            STAGE0_NEXT_STATUS_EPOCH="$(echo "$J" | jq ".stage0_next_status.Ok.epoch")"
-            STAGE0_NEXT_STATUS_VERSION="$(echo "$J" | jq ".stage0_next_status.Ok.version")"
-            STAGE0_NEXT_STATUS_ERR=""
+            STAGE0NEXT_STATUS_EPOCH="$(echo "$J" | jq ".stage0next_status.Ok.epoch")"
+            STAGE0NEXT_STATUS_VERSION="$(echo "$J" | jq ".stage0next_status.Ok.version")"
+            STAGE0NEXT_STATUS_ERR=""
         else
-            STAGE0_NEXT_STATUS_EPOCH=0
-            STAGE0_NEXT_STATUS_VERSION=0
-            STAGE0_NEXT_STATUS_ERR="$(echo "$J" | jq ".stage0_next_status.Err")"
+            STAGE0NEXT_STATUS_EPOCH=0
+            STAGE0NEXT_STATUS_VERSION=0
+            STAGE0NEXT_STATUS_ERR="$(echo "$J" | jq ".stage0next_status.Err")"
         fi
     else
         STAGE0_SHA3_256_DIGEST=""
-        STAGE0_NEXT_SHA3_256_DIGEST=""
+        STAGE0NEXT_SHA3_256_DIGEST=""
         SLOT_A_STATUS=""
         SLOT_B_STATUS=""
-        STAGE0_NEXT_STATUS=""
+        STAGE0NEXT_STATUS=""
         STAGE0_STATUS=""
         SLOT_A_STATUS_EPOCH=""
         SLOT_A_STATUS_VERSION=""
@@ -257,9 +257,9 @@ get_rot_state() {
         STAGE0_STATUS_EPOCH=""
         STAGE0_STATUS_VERSION=""
         STAGE0_STATUS_ERR=""
-        STAGE0_NEXT_STATUS_EPOCH=""
-        STAGE0_NEXT_STATUS_VERSION=""
-        STAGE0_NEXT_STATUS_ERR=""
+        STAGE0NEXT_STATUS_EPOCH=""
+        STAGE0NEXT_STATUS_VERSION=""
+        STAGE0NEXT_STATUS_ERR=""
     fi
     set +x
 }
@@ -287,9 +287,9 @@ print_rot_state() {
         "${STAGE0_STATUS_EPOCH}" "${STAGE0_STATUS_VERSION}" \
         "${STAGE0_STATUS_ERR}"
 
-    printf "STAGE0_NEXT: %s %s,%s/%s\n" "${STAGE0_NEXT_SHA3_256_DIGEST}" \
-        "${STAGE0_NEXT_STATUS_EPOCH}" "${STAGE0_NEXT_STATUS_VERSION}" \
-        "${STAGE0_NEXT_STATUS_ERR}"
+    printf "STAGE0NEXT: %s %s,%s/%s\n" "${STAGE0NEXT_SHA3_256_DIGEST}" \
+        "${STAGE0NEXT_STATUS_EPOCH}" "${STAGE0NEXT_STATUS_VERSION}" \
+        "${STAGE0NEXT_STATUS_ERR}"
 }
 
 predict() {
@@ -412,7 +412,8 @@ reset_rot_and_sleep() {
 }
 
 fwid_from_zip() {
-    rot-image-hash -d sha3-256 "${1:?Missing file}" | cut -d' ' -f3
+	[[ -x "${ROT_FWID}" ]] || fatal 'No rot-fwid executable'
+    "${ROT_FWID}" -d sha3-256 "${1:?Missing file}" | cut -d' ' -f3
 }
 
 image_gitc() {

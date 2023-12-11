@@ -21,7 +21,7 @@ use gateway_messages::{
     MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
     SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
     SpStateV3, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    SERIAL_CONSOLE_IDLE_TIMEOUT,
+    VersionedRotState, SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -546,16 +546,6 @@ impl SpHandler for MgsHandler {
         self.common.sp_state(power_state)
     }
 
-    fn sp_state_rot_version(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        version: u8,
-    ) -> Result<SpStateV3, SpError> {
-        let power_state = self.power_state_impl()?;
-        self.common.sp_state_rot_version(power_state, version)
-    }
-
     fn sp_update_prepare(
         &mut self,
         _sender: SocketAddrV6,
@@ -589,7 +579,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -636,7 +628,7 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -663,7 +655,7 @@ impl SpHandler for MgsHandler {
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
             SpComponent::SP_ITSELF => self.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            SpComponent::ROT => self.rot_update.status(),
+            SpComponent::ROT | SpComponent::STAGE0 => self.rot_update.status(),
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -693,7 +685,9 @@ impl SpHandler for MgsHandler {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -1113,6 +1107,15 @@ impl SpHandler for MgsHandler {
         buf: &mut [u8],
     ) -> Result<RotResponse, SpError> {
         self.common.read_rot_page(req, buf)
+    }
+
+    fn versioned_rot_state(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        version: u8,
+    ) -> Result<VersionedRotState, SpError> {
+        self.common.versioned_rot_state(version)
     }
 }
 

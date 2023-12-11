@@ -5,7 +5,7 @@
 use crate::Trace;
 use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{RotPage, SlotId, Update};
+use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
     AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
     Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
@@ -44,11 +44,33 @@ pub struct StartupState {
 
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData<'a> {
-    Caboose { slot: SlotId, start: u32, size: u32 },
-    AttestCert { index: u32, offset: u32, size: u32 },
-    AttestLog { offset: u32, size: u32 },
-    Attest { nonce: &'a [u8], write_size: u32 },
-    RotPage { page: RotPage },
+    Caboose {
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
+    AttestCert {
+        index: u32,
+        offset: u32,
+        size: u32,
+    },
+    AttestLog {
+        offset: u32,
+        size: u32,
+    },
+    Attest {
+        nonce: &'a [u8],
+        write_size: u32,
+    },
+    RotPage {
+        page: RotPage,
+    },
+    ComponentCaboose {
+        component: RotComponent,
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
 }
 
 pub struct Handler {
@@ -323,6 +345,36 @@ impl<'a> Handler {
                         Some(TrailingData::Caboose { slot, start, size }),
                     ))
                 }
+                CabooseReq::ComponentSize { component, slot } => {
+                    let rsp = match self
+                        .update
+                        .component_caboose_size(component, slot)
+                    {
+                        Ok(v) => Ok(CabooseRsp::ComponentSize(v)),
+                        Err(e) => Err(e),
+                    };
+                    Ok((RspBody::Caboose(rsp), None))
+                }
+                CabooseReq::ComponentRead {
+                    component,
+                    slot,
+                    start,
+                    size,
+                } => {
+                    // In this case, we're going to be sending back a variable
+                    // amount of data in the trailing section of the packet.  We
+                    // don't know exactly where that data will be placed, so
+                    // we'll return a marker here and copy it later.
+                    Ok((
+                        RspBody::Caboose(Ok(CabooseRsp::ComponentRead)),
+                        Some(TrailingData::ComponentCaboose {
+                            component,
+                            slot,
+                            start,
+                            size,
+                        }),
+                    ))
+                }
             },
             ReqBody::Update(UpdateReq::BootInfo) => {
                 let boot_info = self.update.rot_boot_info()?;
@@ -409,6 +461,20 @@ impl<'a> Handler {
                 let versioned_boot_info =
                     self.update.versioned_rot_boot_info(version)?;
                 Ok((RspBody::Update(versioned_boot_info.into()), None))
+            }
+            ReqBody::Update(UpdateReq::ComponentPrep { component, slot }) => {
+                self.update.component_prep_image_update(component, slot)?;
+                Ok((RspBody::Ok, None))
+            }
+            ReqBody::Update(UpdateReq::ComponentSwitchDefaultImage {
+                component,
+                slot,
+                duration,
+            }) => {
+                self.update.component_switch_default_image(
+                    component, slot, duration,
+                )?;
+                Ok((RspBody::Ok, None))
             }
         }
     }

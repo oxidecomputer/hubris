@@ -36,9 +36,10 @@ INTERFACE="enp65s0f0"
 SP_PROBE="usb-1"
 ROT_PROBE="usb-0"
 MASTER_TARGET="${HOME}/Oxide/src/hubris/master/target"
-US0_TARGET="${HOME}/Oxide/src/hubris/update-stage0/target"
-FAUX_MGS="${HOME}/bin/faux-mgs"
+US0_TARGET="${HOME}/Oxide/src/hubris/update-stage0-v2/target"
+FAUX_MGS="${HOME}/bin/faux-mgs-dev"
 HUMILITY="${HOME}/bin/humility"
+ROT_FWID="${HOME}/.cargo/bin/rot-fwid"
 
 # Initial images to be flashed to the SP and RoT.
 MASTER_SP_ZIP="${MASTER_TARGET}/gimletlet/dist/default/build-gimletlet-image-default.zip"
@@ -97,8 +98,8 @@ check_dependencies() {
     check_readable "${ALL_IMAGES[@]}"
 
     DEPEND=( )
-    DEPEND+=( rot-image-hash )
-    DEPEND+=( faux-mgs )
+    DEPEND+=( "${ROT_FWID}" )
+    DEPEND+=( "${FAUX_MGS}" )
     DEPEND+=( jq )
     DEPEND+=( unzip )
     DEPEND+=( stat )
@@ -123,12 +124,17 @@ section Show the FWID and GITC values from each image
 for image in "${ALL_IMAGES[@]}"
 do
     fwid="$(fwid_from_zip "${image}")"
-    gitc="$(image_gitc "${image}")"
-    fact "$(printf "Image: %s\n\tFWID: %s\n\tGITC: %s\n" "${image}" "${fwid}" "${gitc}")"
+    gitc="$(image_gitc "${image}" 2>/dev/null)"
+    if [[ -z "${gitc}" ]]
+    then
+	    fact "$(printf "Image: %s\n\tFWID: %s\n\tGITC: \x1b[43mNone" "${image}" "${fwid}")"
+    else
+	    fact "$(printf "Image: %s\n\tFWID: %s\n\tGITC: %s\n" "${image}" "${fwid}" "${gitc}")"
+    fi
 done
 
 power_state() {
-    faux-mgs --log-level=CRITICAL --json pretty state -r1 |
+    "${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V2.power_state"
 }
 
@@ -188,7 +194,7 @@ initialize_test
 
 # A master branch image will not suport the new status message.
 new_rot_status_supported() {
-    ERROR="$(faux-mgs --log-level=CRITICAL --json pretty state -r2 | jq -c -r ".${INTERFACE}.Err")"
+    ERROR="$("${FAUX_MGS}" --log-level=CRITICAL --json pretty state -r2 | jq -c -r ".${INTERFACE}.Err")"
     [[ -n "${ERROR}" ]]
 }
 
@@ -262,13 +268,13 @@ get_api_versions
 # False positives and negatives are not likely, but not impossible.
 sp_v2_archive_id() {
     # shellcheck disable=SC2046
-    printf "%02x" $(faux-mgs --log-level=CRITICAL --json pretty state |
+    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V2.hubris_archive_id[]" )
 }
 
 sp_v3_archive_id() {
     # shellcheck disable=SC2046
-    printf "%02x" $(faux-mgs --log-level=CRITICAL --json pretty state |
+    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V3.hubris_archive_id[]" )
 }
 
@@ -420,20 +426,20 @@ get_rot_state
 # These vars are now set/refreshed from V3 state:
 #  ACTIVE, PENDING_PERSISTENT_BOOT_PREFERENCE, PERSISTENT_BOOT_PREFERENCE,
 #  TRANSIENT_BOOT_PREFERENCE, SLOT_A_SHA3_256_DIGEST, SLOT_B_SHA3_256_DIGEST,
-#  STAGE0_SHA3_256_DIGEST, STAGE0_NEXT_SHA3_256_DIGEST, SLOT_A_STATUS_EPOCH,
+#  STAGE0_SHA3_256_DIGEST, STAGE0NEXT_SHA3_256_DIGEST, SLOT_A_STATUS_EPOCH,
 #  SLOT_A_STATUS_VERSION, SLOT_A_STATUS_ERR, SLOT_B_STATUS_EPOCH,
 #  SLOT_B_STATUS_VERSION, SLOT_B_STATUS_ERR, STAGE0_STATUS_EPOCH,
-#  STAGE0_STATUS_VERSION, STAGE0_STATUS_ERR, STAGE0_NEXT_STATUS_EPOCH,
-#  STAGE0_NEXT_STATUS_VERSION, STAGE0_NEXT_STATUS_ERR
+#  STAGE0_STATUS_VERSION, STAGE0_STATUS_ERR, STAGE0NEXT_STATUS_EPOCH,
+#  STAGE0NEXT_STATUS_VERSION, STAGE0NEXT_STATUS_ERR
 fact "Installed stage0 fwid=${STAGE0_SHA3_256_DIGEST}"
-fact "Installed stage0next fwid=${STAGE0_NEXT_SHA3_256_DIGEST}"
+fact "Installed stage0next fwid=${STAGE0NEXT_SHA3_256_DIGEST}"
 
 section "Show that stage0 can be updated by installing a different image"
 
 select_different_stage0() {
     BEGIN_STAGE0_FWID="${STAGE0_SHA3_256_DIGEST}"
-    BEGIN_STAGE0_NEXT_FWID="${STAGE0_NEXT_SHA3_256_DIGEST}"
-    _CONTENTS=( "${BEGIN_STAGE0_FWID}" "${BEGIN_STAGE0_NEXT_FWID}" )
+    BEGIN_STAGE0NEXT_FWID="${STAGE0NEXT_SHA3_256_DIGEST}"
+    _CONTENTS=( "${BEGIN_STAGE0_FWID}" "${BEGIN_STAGE0NEXT_FWID}" )
     INSTALL_IMAGE_ZIP=None
     INSTALL_IMAGE_FWID=None
     INSTALL_IMAGE_ZIP="None found"
@@ -473,9 +479,9 @@ update_stage0next() {
     section "Reset RoT to evaluate stage0next"
     reset_rot_and_sleep
     get_rot_state
-    if [[ "${STAGE0_NEXT_SHA3_256_DIGEST}" != "${INSTALL_FWID}" ]]
+    if [[ "${STAGE0NEXT_SHA3_256_DIGEST}" != "${INSTALL_FWID}" ]]
     then
-        error "stage0next did not update: reading:${STAGE0_NEXT_SHA3_256_DIGEST} != goal:$INSTALL_FWID"
+        error "stage0next did not update: reading:${STAGE0NEXT_SHA3_256_DIGEST} != goal:$INSTALL_FWID"
         set | grep DIGEST
         false
     else
@@ -503,7 +509,7 @@ persist_to_stage0_reset_and_test() {
         section reboot to new stage0 image
         reset_rot_and_sleep
         get_rot_state
-        if [[ "${STAGE0_NEXT_SHA3_256_DIGEST}" != "${GOAL_FWID}" ]]
+        if [[ "${STAGE0NEXT_SHA3_256_DIGEST}" != "${GOAL_FWID}" ]]
         then
             error "Intended stage0 image is not present"
             false

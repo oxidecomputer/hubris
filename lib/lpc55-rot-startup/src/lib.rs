@@ -207,27 +207,35 @@ pub fn startup(
         panic!();
     };
 
-    let version_a = img_a.map(|i| i.get_image_version());
-    let version_b = img_b.map(|i| i.get_image_version());
-    let version_stage0 = img_stage0.map(|i| i.get_image_version());
-    let version_stage0next = img_stage0next.map(|i| i.get_image_version());
     let details = RotBootStateV2 {
         active,
         a: RotImageDetailsV2 {
             digest: slot_a.fwid(),
-            version: version_a,
+            status: match img_a {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
         },
         b: RotImageDetailsV2 {
             digest: slot_b.fwid(),
-            version: version_b,
+            status: match img_b {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
         },
         stage0: RotImageDetailsV2 {
             digest: slot_stage0.fwid(),
-            version: version_stage0,
+            status: match img_stage0 {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
         },
         stage0next: RotImageDetailsV2 {
             digest: slot_stage0next.fwid(),
-            version: version_stage0next,
+            status: match img_stage0next {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
         },
     };
 

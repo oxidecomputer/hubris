@@ -151,6 +151,9 @@ enum MgsMessage {
         value_len: usize,
     },
     ReadRotPage,
+    VersionedRotState {
+        version: u8,
+    },
 }
 
 ringbuf!(Log, 16, Log::Empty);

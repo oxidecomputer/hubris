@@ -13,6 +13,11 @@ unsafe impl HandoffData for RotBootStateV2 {
     const MEM_RANGE: Range<usize> = UPDATE_RANGE;
 }
 
+// The pre-kernel Hubris code evaluates all flash slots.
+// It is expected that the stage0 and running Hubris image will be ok.
+// The information on stage0next and the other Hubris partition is used
+// by the update_server to qualify stage0next before promotion to stage0 and
+// can be used by the control plane to diagnose failing updates.
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -64,7 +69,6 @@ impl RotBootState {
         match self.active {
             RotSlot::A => self.a,
             RotSlot::B => self.b,
-            _ => unreachable!(), // Unreachable by inspection.
         }
     }
 }
@@ -72,17 +76,23 @@ impl RotBootState {
 impl From<RotBootStateV2> for RotBootState {
     // Conversion to handle deprecated APIs.
     fn from(v2: RotBootStateV2) -> Self {
-        let a = match v2.a.version {
-            Ok(v) => Some(RotImageDetails {
+        let a = match v2.a.status {
+            Ok(_status) => Some(RotImageDetails {
                 digest: v2.a.digest,
-                version: v,
+                version: ImageVersion {
+                    version: 0,
+                    epoch: 0,
+                },
             }),
             Err(_) => None,
         };
-        let b = match v2.b.version {
-            Ok(v) => Some(RotImageDetails {
+        let b = match v2.b.status {
+            Ok(_status) => Some(RotImageDetails {
                 digest: v2.b.digest,
-                version: v,
+                version: ImageVersion {
+                    version: 0,
+                    epoch: 0,
+                },
             }),
             Err(_) => None,
         };
@@ -122,13 +132,45 @@ pub struct RotImageDetails {
     pub version: ImageVersion,
 }
 
+/// A measurement of all programmed pages in the flash slot.
+///
+/// FWID is not a simple digest of the image bytes.
+/// The image is padded to the next native flash page with 0xff bytes.
+/// Any additional programmed pages in the flash slot beyond the image are
+/// included.
+/// If there is no valid image, then the digest is over all the programmed
+/// pages.
+///
+/// The intent is to detect incomplete updates where unused pages are not
+/// erased or possible exfiltration of date in the unused pages.
+///
+/// The unused pages in a flash slot could be put to use in some later release
+/// to store state. But, no use case has been identified at this time.
+///
+/// Note that no page is supposed to be partially programmed/partially erased.
+/// The LPC55 might reasonably report any page that does not have the final
+/// internal ECC syndrome written as being erased. If that
+/// is the case, then one would not expect to
+/// TODO: There should be testing that creates a partially programmed page if
+/// that is possible.
+///
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum Fwid {
+    /// Image should have been written with the last flash page padded with
+    /// 0xff bytes. All non-erased pages in the flash slot are included in the
+    /// digest.
+    Sha3_256([u8; 32]),
+}
+
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotImageDetailsV2 {
-    // The SHA3-256 measurement of all programmed pages in the flash slot.
     pub digest: [u8; 32],
-    pub version: Result<ImageVersion, ImageError>,
+    // Version may be deprecated later in favor of data in the caboose.
+    pub status: Result<(), ImageError>,
 }
 
 #[derive(
@@ -145,6 +187,4 @@ pub struct ImageVersion {
 pub enum RotSlot {
     A = 0,
     B = 1,
-    Stage0 = 2,
-    Stage0Next = 3,
 }

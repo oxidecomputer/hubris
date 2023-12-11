@@ -16,8 +16,8 @@ use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_sha256::WORDS_PER_HASH;
 use drv_lpc55_syscon_api::Syscon;
 use drv_lpc55_update_api::{
-    RawCabooseError, RotBootInfo, RotBootInfoV2, RotPage, SlotId,
-    SwitchDuration, UpdateTarget, VersionedRotBootInfo,
+    Fwid, RawCabooseError, RotBootInfo, RotBootInfoV2, RotComponent, RotPage,
+    SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
@@ -60,7 +60,7 @@ const FW_CACHE_MAX: usize = 8192_usize;
 struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
-    image: Option<UpdateTarget>,
+    image: Option<(RotComponent, SlotId)>,
 
     flash: drv_lpc55_flash::Flash<'a>,
     hashcrypt: &'a lpc55_pac::hashcrypt::RegisterBlock,
@@ -107,7 +107,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             UpdateState::NoUpdate => (),
         }
 
-        self.image = Some(image_type);
+        self.image = match image_type {
+            UpdateTarget::ImageA => Some((RotComponent::Hubris, SlotId::A)),
+            UpdateTarget::ImageB => Some((RotComponent::Hubris, SlotId::B)),
+            UpdateTarget::Bootloader => Some((RotComponent::Stage0, SlotId::B)),
+            _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
+        };
         self.state = UpdateState::InProgress;
         self.next_block = None;
         self.fw_cache.fill(0);
@@ -167,7 +172,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // read as 0xff so the image is padded with 0xff
         const ERASE_BYTE: u8 = 0xff;
         let mut flash_page = [ERASE_BYTE; BLOCK_SIZE_BYTES];
-        let target = self.image.unwrap_lite();
+        let (component, slot) = self.image.unwrap_lite();
 
         if block_num == HEADER_BLOCK {
             let header_block =
@@ -176,7 +181,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             header_block[len..].fill(ERASE_BYTE);
-            if let Err(e) = validate_header_block(target, header_block) {
+            if let Err(e) = validate_header_block(component, slot, header_block)
+            {
                 self.header_block = None;
                 return Err(e.into());
             }
@@ -190,15 +196,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             flash_page[len..].fill(ERASE_BYTE);
         }
 
-        // Bootloader data is written to a staging area for later signature
-        // verification before committing to the image.
-        let slot = match target {
-            UpdateTarget::ImageA => SlotId::A,
-            UpdateTarget::ImageB => SlotId::B,
-            UpdateTarget::Bootloader => SlotId::Stage0Next,
-            _ => unreachable!(),
-        };
-        do_block_write(&mut self.flash, slot, block_num, &flash_page)?;
+        do_block_write(
+            &mut self.flash,
+            component,
+            slot,
+            block_num,
+            &flash_page,
+        )?;
 
         Ok(())
     }
@@ -229,15 +233,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(UpdateError::MissingHeaderBlock.into());
         }
 
-        let slot = match self.image {
-            Some(UpdateTarget::ImageA) => SlotId::A,
-            Some(UpdateTarget::ImageB) => SlotId::B,
-            Some(UpdateTarget::Bootloader) => SlotId::Stage0Next,
-            _ => unreachable!(),
-        };
-
+        let (component, slot) = self.image.unwrap_lite();
         do_block_write(
             &mut self.flash,
+            component,
             slot,
             HEADER_BLOCK,
             self.header_block.as_ref().unwrap_lite(),
@@ -246,7 +245,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // Now erase the unused portion of the flash slot so that
         // flash slot has predictable contents and the FWID for it
         // has some meaning.
-        let range = image_range(slot).0;
+        let range = image_range(component, slot).0;
         let erase_start = range.start + (endblock as u32 * PAGE_SIZE);
         self.flash_erase_range(erase_start..range.end)?;
         self.state = UpdateState::Finished;
@@ -341,14 +340,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 persistent_boot_preference,
                 pending_persistent_boot_preference,
                 transient_boot_preference,
-                slot_a_sha3_256_digest: boot_state.a.digest,
-                slot_b_sha3_256_digest: boot_state.b.digest,
-                stage0_sha3_256_digest: boot_state.stage0.digest,
-                stage0_next_sha3_256_digest: boot_state.stage0next.digest,
-                slot_a_status: boot_state.a.version,
-                slot_b_status: boot_state.b.version,
-                stage0_status: boot_state.stage0.version,
-                stage0_next_status: boot_state.stage0next.version,
+                slot_a_fwid: Fwid::Sha3_256(boot_state.a.digest),
+                slot_b_fwid: Fwid::Sha3_256(boot_state.b.digest),
+                stage0_fwid: Fwid::Sha3_256(boot_state.stage0.digest),
+                stage0next_fwid: Fwid::Sha3_256(boot_state.stage0next.digest),
+                slot_a_status: boot_state.a.status,
+                slot_b_status: boot_state.b.status,
+                stage0_status: boot_state.stage0.status,
+                stage0next_status: boot_state.stage0next.status,
             })),
             _ => Err(UpdateError::VersionNotSupported.into()),
         }
@@ -361,7 +360,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         offset: u32,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, slot)?;
+        let caboose = caboose_slice(&self.flash, RotComponent::Hubris, slot)?;
         if offset as usize + data.len() > caboose.len() {
             return Err(RawCabooseError::InvalidRead.into());
         }
@@ -378,7 +377,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
         slot: SlotId,
     ) -> Result<u32, RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, slot)?;
+        let caboose = caboose_slice(&self.flash, RotComponent::Hubris, slot)?;
         Ok(caboose.end - caboose.start)
     }
 
@@ -388,16 +387,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
-        let r = match slot {
-            SlotId::A | SlotId::B => {
-                self.switch_default_hubris_image(slot, duration)
-            }
-            SlotId::Stage0Next => self.switch_default_boot_image(duration),
-            SlotId::Stage0 => {
-                Err(UpdateError::InvalidSlotIdForOperation.into())
-            }
-        };
-        r // XXX
+        self.switch_default_hubris_image(slot, duration)
     }
 
     /// Reset.
@@ -440,6 +430,92 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             dest,
         )?;
         Ok(())
+    }
+
+    fn component_caboose_size(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+    ) -> Result<u32, idol_runtime::RequestError<RawCabooseError>> {
+        let caboose = caboose_slice(&self.flash, component, slot)?;
+        Ok(caboose.end - caboose.start)
+    }
+
+    fn component_read_raw_caboose(
+        &mut self,
+        _msg: &RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+        offset: u32,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<RawCabooseError>> {
+        let caboose = caboose_slice(&self.flash, component, slot)?;
+        if offset as usize + data.len() > caboose.len() {
+            return Err(RawCabooseError::InvalidRead.into());
+        }
+        copy_from_caboose_chunk(
+            &self.flash,
+            caboose,
+            offset..offset + data.len() as u32,
+            data,
+        )
+    }
+
+    fn component_prep_image_update(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+    ) -> Result<(), idol_runtime::RequestError<drv_update_api::UpdateError>>
+    where
+        drv_update_api::UpdateError:
+            idol_runtime::IHaveConsideredServerDeathWithThisErrorType,
+    {
+        match self.state {
+            UpdateState::InProgress => {
+                return Err(UpdateError::UpdateInProgress.into())
+            }
+            UpdateState::Finished => {
+                return Err(UpdateError::UpdateAlreadyFinished.into())
+            }
+            UpdateState::NoUpdate => (),
+        }
+
+        self.image = match (component, slot) {
+            (RotComponent::Hubris, SlotId::A)
+            | (RotComponent::Hubris, SlotId::B)
+            | (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
+            _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
+        };
+        self.state = UpdateState::InProgress;
+        self.next_block = None;
+        self.fw_cache.fill(0);
+        Ok(())
+    }
+
+    fn component_switch_default_image(
+        &mut self,
+        _: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), RequestError<UpdateError>> {
+        match component {
+            RotComponent::Hubris => {
+                self.switch_default_hubris_image(slot, duration)
+            }
+            RotComponent::Stage0 => {
+                match slot {
+                    // Stage0
+                    SlotId::A => {
+                        Err(UpdateError::InvalidSlotIdForOperation.into())
+                    }
+                    // Stage0Next
+                    SlotId::B => self.switch_default_boot_image(duration),
+                }
+            }
+        }
     }
 }
 
@@ -596,7 +672,7 @@ impl ServerImpl<'_> {
         // signature routine.
 
         // Read stage0next contents into RAM.
-        let staged = image_range(SlotId::Stage0Next);
+        let staged = image_range(RotComponent::Stage0, SlotId::B);
         let len = self.read_flash_image_to_cache(staged.0)?;
         let bootloader =
             &self.fw_cache[..len as usize / core::mem::size_of::<u32>()];
@@ -618,19 +694,21 @@ impl ServerImpl<'_> {
         // compare to their current contents.
         // We are trusting that the recorded hash and signature status have
         // not been altered since boot and that hash collisions are not an issue.
-        if !(boot_state.stage0next.version.is_ok()
+        if !(boot_state.stage0next.status.is_ok()
             && cache_hash.as_bytes() == boot_state.stage0next.digest
-            || boot_state.stage0.version.is_ok()
+            || boot_state.stage0.status.is_ok()
                 && cache_hash.as_bytes() == boot_state.stage0.digest)
         {
             return Err(UpdateError::SignatureNotValidated.into());
         };
 
         // Don't risk an update if the cache already matches the bootloader.
-        let stage0 = image_range(SlotId::Stage0);
+        let stage0 = image_range(RotComponent::Stage0, SlotId::A);
         match self.compare_cache_to_flash(&stage0.0) {
             Err(UpdateError::ImageMismatch) => {
-                if let Err(e) = self.write_cache_to_flash(SlotId::Stage0) {
+                if let Err(e) =
+                    self.write_cache_to_flash(RotComponent::Stage0, SlotId::A)
+                {
                     // N.B. An error here is bad since it means we've likely
                     // bricked the machine if we reset now.
                     // We do not want the RoT reset.
@@ -768,7 +846,7 @@ impl ServerImpl<'_> {
         span: Range<u32>,
     ) -> Result<usize, UpdateError> {
         // Returns error if flash page is erased.
-        let staged = image_range(SlotId::Stage0Next);
+        let staged = image_range(RotComponent::Stage0, SlotId::B);
         let len = self.valid_flash_image_present(&staged.0)?;
         if len as u32 > span.end || len > self.fw_cache.as_bytes().len() {
             return Err(UpdateError::BadLength); // XXX unique error
@@ -785,13 +863,14 @@ impl ServerImpl<'_> {
     // The lower level routines are being replaced in PR 1500
     fn write_cache_to_flash(
         &mut self,
+        component: RotComponent,
         slot: SlotId,
     ) -> Result<(), UpdateError> {
         let clen = self.valid_cache_image_present()?;
         if clen % BYTES_PER_FLASH_PAGE != 0 {
             return Err(UpdateError::BadLength); // XXX need unique error
         }
-        let span = image_range(slot).0;
+        let span = image_range(component, slot).0;
         if span.end < span.start + clen as u32 {
             return Err(UpdateError::BadLength); // XXX need unique error
         }
@@ -802,7 +881,13 @@ impl ServerImpl<'_> {
             .chunks_exact(BYTES_PER_FLASH_PAGE);
         for (block_num, block) in chunks.enumerate() {
             let flash_page = block.try_into().unwrap_lite();
-            do_block_write(&mut self.flash, slot, block_num, flash_page)?;
+            do_block_write(
+                &mut self.flash,
+                component,
+                slot,
+                block_num,
+                flash_page,
+            )?;
         }
         Ok(())
     }
@@ -1060,6 +1145,7 @@ fn indirect_flash_read(
 /// image.
 fn do_block_write(
     flash: &mut drv_lpc55_flash::Flash<'_>,
+    component: RotComponent,
     slot: SlotId,
     block_num: usize,
     flash_page: &[u8; BLOCK_SIZE_BYTES],
@@ -1069,11 +1155,11 @@ fn do_block_write(
     let page_num = block_num as u32;
 
     // Can only update opposite image
-    if same_image(slot) {
+    if same_image(component, slot) {
         return Err(UpdateError::RunningImage);
     }
 
-    let write_addr = match target_addr(slot, page_num) {
+    let write_addr = match target_addr(component, slot, page_num) {
         Some(addr) => addr,
         None => return Err(UpdateError::OutOfBounds),
     };
@@ -1093,15 +1179,19 @@ fn wait_for_flash_interrupt() {
 /// Computes the byte address of the first byte in a particular (slot, page)
 /// combination.
 ///
-/// `image_target` designates the flash slot and must be `ImageA`, `ImageB`, or
+/// `component` and `slot` designates the flash slot.
 /// `Bootloader`, despite containing other variants.  All other choices will
 /// panic. (TODO: fix this when time permits.)
 ///
 /// `page_num` designates a flash page (called a block elsewhere in this file, a
 /// 512B unit) within the flash slot. If the page is out range for the target
 /// slot, returns `None`.
-fn target_addr(slot: SlotId, page_num: u32) -> Option<u32> {
-    let range = image_range(slot).0;
+fn target_addr(
+    component: RotComponent,
+    slot: SlotId,
+    page_num: u32,
+) -> Option<u32> {
+    let range = image_range(component, slot).0;
 
     // This is safely calculating addr = base + page_num * PAGE_SIZE
     let addr = page_num
@@ -1122,9 +1212,10 @@ fn target_addr(slot: SlotId, page_num: u32) -> Option<u32> {
 /// but uses indirect reads instead of mapping the alternate bank into flash.
 fn caboose_slice(
     flash: &drv_lpc55_flash::Flash<'_>,
+    component: RotComponent,
     slot: SlotId,
 ) -> Result<core::ops::Range<u32>, RawCabooseError> {
-    let flash_range = image_range(slot).0;
+    let flash_range = image_range(component, slot).0;
 
     // If all is going according to plan, there will be a valid Hubris image
     // flashed into the other slot, delimited by `__IMAGE_A/B_BASE` and
@@ -1315,7 +1406,8 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{
         HandoffDataLoadError, ImageVersion, RawCabooseError, RotBootInfo,
-        RotPage, SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
+        RotComponent, RotPage, SlotId, SwitchDuration, UpdateTarget,
+        VersionedRotBootInfo,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

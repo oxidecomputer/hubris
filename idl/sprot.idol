@@ -192,7 +192,7 @@ Interface(
         "cert": (
             doc: "Get a cert from the alias cert chaing",
             args: {
-				"index" : "u32",
+                "index" : "u32",
                 "offset" : "u32",
             },
             leases: {
@@ -275,6 +275,10 @@ Interface(
             reply: Result(
                 ok: "u32",
                 err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
         "versioned_rot_boot_info": (
             doc: "Get a specific verions of RoT boot info if availabe.",
             args: {
@@ -287,5 +291,62 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
-    }
+        "component_caboose_size": (
+            doc: "Returns the size of the caboose",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("RawCabooseOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "component_read_caboose_region": (
+            doc: "Reads a subset of the caboose memory",
+            args: {
+                "offset": "u32",
+                "component": "RotComponent",
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("RawCabooseOrSprotError"),
+            ),
+            leases : {
+                "out": (type: "[u8]", write: true),
+            },
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "component_prep_image_update": (
+            doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
+            args : {
+                "component": "RotComponent",
+                "slot": "SlotId",
+            },
+            reply : Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "component_switch_default_image": (
+            doc: "Prefer a specific image slot for one or many boots",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply : Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+    },
 )

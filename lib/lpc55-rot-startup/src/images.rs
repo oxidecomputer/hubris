@@ -6,7 +6,7 @@ use abi::{ImageHeader, ImageVectors};
 use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
-use stage0_handoff::{ImageError, ImageVersion};
+use stage0_handoff::ImageError;
 use unwrap_lite::UnwrapLite;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
@@ -144,28 +144,9 @@ impl Image {
         syscon: &SYSCON,
     ) -> (FlashSlot, Result<Image, ImageError>) {
         // Note that Stage0Next is not XIP until it gets copied to slot Stage0.
-        let slot = FlashSlot::new(flash, FLASH_STAGE0_NEXT);
+        let slot = FlashSlot::new(flash, FLASH_STAGE0NEXT);
         let img = Image::new(&slot, FLASH_STAGE0, false, syscon);
         (slot, img)
-    }
-
-    // Get the epoch and version from a flash slot or (0,0) if there
-    // is no valid image.
-    pub fn get_image_version(&self) -> ImageVersion {
-        let header_ptr = self.get_header_ptr();
-        // SAFETY: header page is available.
-        let header = unsafe { &*header_ptr };
-        if header.magic == abi::HEADER_MAGIC {
-            return ImageVersion {
-                epoch: header.epoch,
-                version: header.version,
-            };
-        }
-        // Default for erased slots and images without ImageHeaders is 0,0
-        ImageVersion {
-            epoch: 0,
-            version: 0,
-        }
     }
 
     // Before treating a span from a FlashSlot as an image:
