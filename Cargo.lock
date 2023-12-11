@@ -2054,11 +2054,11 @@ checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
 
 [[package]]
 name = "ed25519"
-version = "1.5.3"
+version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91cff35c70bba8a626e3185d8cd48cc11b5437e1a5bcd15b9b5fa3c64b6dfee7"
+checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
- "signature 1.6.4",
+ "signature",
 ]
 
 [[package]]
@@ -3421,7 +3421,7 @@ dependencies = [
  "pkcs8",
  "rand_core",
  "sha2",
- "signature 2.0.0",
+ "signature",
  "subtle",
  "zeroize",
 ]
@@ -3472,8 +3472,9 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "salty"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/salty?branch=v0.2.0-zeroize#eb3c31858f631a7fb9934246c8efdef080d05726"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b947325a585e90733e0e9ec097228f40b637cc346f9bd68f84d5c6297d0fcfef"
 dependencies = [
  "ed25519",
  "subtle",
@@ -3705,12 +3706,6 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "1.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
-
-[[package]]
-name = "signature"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fe458c98333f9c8152221191a77e2a44e8325d0193484af2e9421a53019e57d"
@@ -3784,7 +3779,7 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git#7c9bcb262cb117795976056a9102b96c9971d80b"
+source = "git+https://github.com/oxidecomputer/sprockets.git#3906cf08db604f0805324bb7aeafe3b96c51b38e"
 dependencies = [
  "derive_more",
  "hubpack",
@@ -3796,7 +3791,7 @@ dependencies = [
 [[package]]
 name = "sprockets-rot"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git#7c9bcb262cb117795976056a9102b96c9971d80b"
+source = "git+https://github.com/oxidecomputer/sprockets.git#3906cf08db604f0805324bb7aeafe3b96c51b38e"
 dependencies = [
  "corncobs",
  "derive_more",
@@ -5394,9 +5389,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.5.7"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
 dependencies = [
  "zeroize_derive",
 ]
