@@ -66,7 +66,7 @@ support and a continuous build for Illumos or macOS, we'd love the help.
 
 To submit changes for review, push them to a branch in a fork and submit a pull
 request to merge that branch into `master`. For details, see
-[`CONTRIBUING.md`](CONTRIBUTING.md).
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Prereqs
 
@@ -104,6 +104,7 @@ You will need:
   file present in the root of this repository; if you run the following command
   verbatim to install Humility, do so from a different directory:
   - `cargo install --git https://github.com/oxidecomputer/humility.git --locked humility`
+    - Requires `cargo-readme` as a dependency: `cargo install cargo-readme`
 
 ### Windows
 

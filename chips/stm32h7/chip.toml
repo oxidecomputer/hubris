@@ -2,17 +2,9 @@
 address = 0x58024400
 size = 1024
 
-[gpios1]
+[gpios]
 address = 0x58020000
-size = 0x2000
-
-[gpios2]
-address = 0x58022000
-size = 0x0800
-
-[gpios3]
-address = 0x58022800
-size = 0x0400
+size = 0x4000
 
 [spi1]
 address = 0x40013000
