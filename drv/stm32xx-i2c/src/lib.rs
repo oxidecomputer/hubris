@@ -159,6 +159,7 @@ enum Trace {
     KonamiISR(u32),
     Konami(I2cKonamiCode),
     ResetISR(u32),
+    ResetCR2(u32),
     AddrISR(u32),
     AddrMatch,
     AddrNack(u8),
@@ -434,6 +435,8 @@ impl I2cController<'_> {
 
         // And then finally set it
         i2c.cr1.modify(|_, w| w.pe().set_bit());
+
+        ringbuf_entry!(Trace::ResetCR2(i2c.cr2.read().bits()));
     }
 
     ///
@@ -555,6 +558,7 @@ impl I2cController<'_> {
             i2c.cr2.modify(|_, w| { w
                 .nbytes().bits(wlen as u8)
                 .autoend().clear_bit()
+                .reload().clear_bit()
                 .add10().clear_bit()
                 .sadd().bits((addr << 1).into())
                 .rd_wrn().clear_bit()
@@ -614,6 +618,8 @@ impl I2cController<'_> {
             }
         }
 
+        let mut overrun = false;
+
         if rlen != ReadLength::Fixed(0) {
             //
             // If we have both a write and a read, we deliberately do not send
@@ -626,6 +632,7 @@ impl I2cController<'_> {
                 i2c.cr2.modify(|_, w| { w
                     .nbytes().bits(rlen as u8)
                     .autoend().clear_bit()
+                    .reload().clear_bit()
                     .add10().clear_bit()
                     .sadd().bits((addr << 1).into())
                     .rd_wrn().set_bit()
@@ -686,7 +693,15 @@ impl I2cController<'_> {
                     continue;
                 }
 
-                putbyte(pos, byte).ok_or(drv_i2c_api::ResponseCode::BadArg)?;
+                if !overrun && putbyte(pos, byte).is_none() {
+                    //
+                    // If we're unable to accept what we just read, we need to
+                    // keep reading to complete the transfer -- but we will
+                    // not call putbyte again and we will return failure.
+                    //
+                    overrun = true;
+                }
+
                 pos += 1;
             }
 
@@ -712,7 +727,11 @@ impl I2cController<'_> {
         //
         i2c.cr2.modify(|_, w| w.stop().set_bit());
 
-        Ok(())
+        if overrun {
+            Err(drv_i2c_api::ResponseCode::TooMuchData)
+        } else {
+            Ok(())
+        }
     }
 
     ///
@@ -751,6 +770,7 @@ impl I2cController<'_> {
             i2c.cr2.modify(|_, w| { w
                 .nbytes().bits(0u8)
                 .autoend().clear_bit()
+                .reload().clear_bit()
                 .add10().clear_bit()
                 .sadd().bits((addr << 1).into())
                 .rd_wrn().bit(opval)

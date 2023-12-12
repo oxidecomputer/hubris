@@ -79,7 +79,9 @@ pub enum Operation {
     MfrMaxTemp3,
 }
 
-pub const MAX_BLOCK_LEN: usize = 17;
+// This is a bit of an arbitrary number, but is set to the maximum read block
+// size that we expect given the devices that we interact with.
+pub const MAX_BLOCK_LEN: usize = 32;
 
 // We use a `u8` for the actual block length; ensure `MAX_BLOCK_LEN` fits.
 static_assertions::const_assert!(MAX_BLOCK_LEN <= u8::MAX as usize);
