@@ -8,7 +8,7 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
-use drv_gimlet_hf_api::{HfDevSelect, HostFlash};
+use drv_gimlet_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
 use drv_stm32xx_sys_api as sys_api;
 use drv_usart::Usart;
@@ -97,6 +97,10 @@ enum Trace {
         now: u64,
         state: PowerState,
     },
+    HfMux {
+        now: u64,
+        state: Option<HfMuxState>,
+    },
     JefeNotification {
         now: u64,
         state: PowerState,
@@ -118,7 +122,7 @@ enum Trace {
     },
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 20, Trace::None);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TimerDisposition {
@@ -252,6 +256,7 @@ struct ServerImpl {
     packrat: Packrat,
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
+    hf_mux_state: Option<HfMuxState>,
 }
 
 impl ServerImpl {
@@ -283,6 +288,7 @@ impl ServerImpl {
             packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
             host_kv_storage: HostKeyValueStorage::claim_static_resources(),
+            hf_mux_state: None,
         }
     }
 
@@ -296,6 +302,23 @@ impl ServerImpl {
             } else {
                 self.sys.gpio_reset(SP_TO_SP3_INT_L);
             }
+        }
+    }
+
+    fn update_hf_mux_state(&mut self) {
+        self.hf_mux_state = self.hf.get_mux().ok();
+        ringbuf_entry!(Trace::HfMux {
+            now: sys_get_timer().now,
+            state: self.hf_mux_state,
+        });
+    }
+
+    fn set_hf_mux_to_sp(&mut self) {
+        if self.hf_mux_state != Some(HfMuxState::SP) {
+            // This can only fail if the `hf` task panics, in which case the
+            // MUX will be set to the SP when it restarts.
+            let _ = self.hf.set_mux(HfMuxState::SP);
+            self.update_hf_mux_state();
         }
     }
 
@@ -384,6 +407,7 @@ impl ServerImpl {
     fn handle_jefe_notification(&mut self, state: PowerState) {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::JefeNotification { now, state });
+        self.update_hf_mux_state();
         // If we're rebooting and jefe has notified us that we're now in A2,
         // move to A0. Otherwise, ignore this notification.
         match state {
@@ -770,10 +794,21 @@ impl ServerImpl {
                 }
                 Some(SpToHost::Ack)
             }
-            HostToSp::GetStatus => Some(SpToHost::Status {
-                status: self.status,
-                startup: self.packrat.get_next_boot_host_startup_options(),
-            }),
+            HostToSp::GetStatus => {
+                // This status request is the first IPCC command that the OS
+                // kernel sends once it has started. When we receive it, we
+                // know that we're far enough along that the host no longer
+                // needs access to the flash.
+                // Set the mux back to the SP to remove the host's access,
+                // which has the added benefit of enabling host flash updates
+                // while the host OS is running.
+                action = Some(Action::HfMuxToSP);
+
+                Some(SpToHost::Status {
+                    status: self.status,
+                    startup: self.packrat.get_next_boot_host_startup_options(),
+                })
+            }
             HostToSp::AckSpStart => {
                 action =
                     Some(Action::ClearStatusBits(Status::SP_TASK_RESTARTED));
@@ -858,6 +893,7 @@ impl ServerImpl {
                 Action::ClearStatusBits(to_clear) => {
                     self.set_status_impl(self.status.difference(to_clear))
                 }
+                Action::HfMuxToSP => self.set_hf_mux_to_sp(),
             }
         }
 
@@ -1205,6 +1241,7 @@ enum Action {
     RebootHost,
     PowerOffHost,
     ClearStatusBits(Status),
+    HfMuxToSP,
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
