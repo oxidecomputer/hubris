@@ -106,6 +106,8 @@ pub enum ResponseCode {
     OperationNotSupported,
     /// Illegal number of leases
     IllegalLeaseCount,
+    /// Too much data -- or not enough buffer
+    TooMuchData,
 }
 
 ///
