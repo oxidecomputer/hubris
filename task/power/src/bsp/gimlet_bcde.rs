@@ -181,6 +181,17 @@ impl Default for Max5970Peak {
 }
 
 impl Max5970Peak {
+    ///
+    /// If we see the drives lose power, it is helpful to disambiguate PDN issues
+    /// from the power being explicitly disabled via system software (e.g., via
+    /// CEM_TO_PCIEHP_PWREN on Sharkfin).  The MAX5970 doesn't have a way of
+    /// recording power cycles, but we know that if we see the peaks travel in
+    /// the wrong direction (that is, a max that is less than the previous max
+    /// or a minimum that is greater than our previous minimum) then there must
+    /// have been a power cycle.  This can clearly yield false negatives, but
+    /// it will not yield false positives:  if [`bounced`] returns true, one can
+    /// know with confidence that the power has been cycled.
+    ///
     fn bounced(&mut self, min: f32, max: f32) -> bool {
         let bounced = min > self.min || max < self.max;
         self.min = min;
@@ -214,6 +225,9 @@ impl State {
         devices: &[Device],
         state: PowerState,
     ) {
+        //
+        // Trace the detailed state every ten seconds, provided that we are in A0.
+        //
         if state == PowerState::A0 && self.fired % 10 == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
