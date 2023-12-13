@@ -841,7 +841,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
     fn bmr491_fault_log_clear(
         &mut self,
-        _msg: &userlib::RecvMessage
+        _msg: &userlib::RecvMessage,
     ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
         let dev = self.bmr491()?;
         // Writing the special value 0xAA to the event index register

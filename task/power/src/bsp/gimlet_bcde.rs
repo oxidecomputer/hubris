@@ -214,8 +214,6 @@ impl State {
         devices: &[Device],
         state: PowerState,
     ) {
-        let mut idx = 0;
-
         if state == PowerState::A0 && self.fired % 10 == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
