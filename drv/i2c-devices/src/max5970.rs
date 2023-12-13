@@ -289,6 +289,10 @@ impl Max5970 {
         self.device.read_reg::<u8, u8>(reg as u8)
     }
 
+    fn write_reg(&self, reg: Register, value: u8) -> Result<(), ResponseCode> {
+        self.device.write(&[reg as u8, value])
+    }
+
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
     }
@@ -327,6 +331,18 @@ impl Max5970 {
         Ok(Amperes(delta / self.rsense as f32))
     }
 
+    fn peak_vout(
+        &self,
+        msb_reg: Register,
+        lsb_reg: Register,
+    ) -> Result<Volts, ResponseCode> {
+        Ok(self.convert_volts(
+            MonRange(self.read_reg(Register::mon_range)?),
+            self.read_reg(msb_reg)?,
+            self.read_reg(lsb_reg)?,
+        ))
+    }
+
     pub fn max_vout(&self) -> Result<Volts, ResponseCode> {
         let (msb_reg, lsb_reg) = if self.rail == 0 {
             (Register::max_chx_mon_msb_ch1, Register::max_chx_mon_lsb_ch1)
@@ -334,11 +350,29 @@ impl Max5970 {
             (Register::max_chx_mon_msb_ch2, Register::max_chx_mon_lsb_ch2)
         };
 
-        Ok(self.convert_volts(
-            MonRange(self.read_reg(Register::mon_range)?),
+        self.peak_vout(msb_reg, lsb_reg)
+    }
+
+    pub fn min_vout(&self) -> Result<Volts, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::min_chx_mon_msb_ch1, Register::min_chx_mon_lsb_ch1)
+        } else {
+            (Register::min_chx_mon_msb_ch2, Register::min_chx_mon_lsb_ch2)
+        };
+
+        self.peak_vout(msb_reg, lsb_reg)
+    }
+
+    fn peak_iout(
+        &self,
+        msb_reg: Register,
+        lsb_reg: Register,
+    ) -> Result<Amperes, ResponseCode> {
+        self.convert_current(
+            Status2(self.read_reg(Register::status2)?),
             self.read_reg(msb_reg)?,
             self.read_reg(lsb_reg)?,
-        ))
+        )
     }
 
     pub fn max_iout(&self) -> Result<Amperes, ResponseCode> {
@@ -348,15 +382,28 @@ impl Max5970 {
             (Register::max_chx_cs_msb_ch2, Register::max_chx_cs_lsb_ch2)
         };
 
-        self.convert_current(
-            Status2(self.read_reg(Register::status2)?),
-            self.read_reg(msb_reg)?,
-            self.read_reg(lsb_reg)?,
-        )
+        self.peak_iout(msb_reg, lsb_reg)
+    }
+
+    pub fn min_iout(&self) -> Result<Amperes, ResponseCode> {
+        let (msb_reg, lsb_reg) = if self.rail == 0 {
+            (Register::min_chx_cs_msb_ch1, Register::min_chx_cs_lsb_ch1)
+        } else {
+            (Register::min_chx_cs_msb_ch2, Register::min_chx_cs_lsb_ch2)
+        };
+
+        self.peak_iout(msb_reg, lsb_reg)
     }
 
     pub fn status0(&self) -> Result<u8, ResponseCode> {
         self.read_reg(Register::status0)
+    }
+
+    pub fn clear_peaks(&self) -> Result<(), ResponseCode> {
+        let rst = if self.rail == 0 { 0b00_11 } else { 0b11_00 };
+
+        self.write_reg(Register::peak_log_rst, rst)?;
+        self.write_reg(Register::peak_log_rst, 0)
     }
 }
 

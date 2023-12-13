@@ -38,21 +38,10 @@ use drv_i2c_devices::{
 enum Trace {
     GotVersion(u32),
     GotAddr(u32),
-    Max5970 {
-        sensor: SensorId,
-        status0: u8,
-        status1: u8,
-        status3: u8,
-        fault0: u8,
-        fault1: u8,
-        fault2: u8,
-        max_current: f32,
-        max_voltage: f32,
-    },
     None,
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 2, Trace::None);
 
 use sensor_api::{NoData, SensorId};
 
@@ -360,54 +349,6 @@ macro_rules! max5970_controller {
     };
 }
 
-fn trace_max5970(dev: &Max5970, sensor: SensorId) {
-    if let Ok(Volts(volts)) = dev.max_vout() {
-        use drv_i2c_devices::max5970::Register;
-
-        //
-        // We want to *not* trace the 3.3V rails on the MAX5970 on the
-        // Sharkfin (U8), so anything that has either never powered on or
-        // never seen a voltage greater than ~4V we will not record.
-        //
-        if volts < 4.0 {
-            return;
-        }
-
-        ringbuf_entry!(Trace::Max5970 {
-            sensor,
-            status0: match dev.read_reg(Register::status0) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            status1: match dev.read_reg(Register::status1) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            status3: match dev.read_reg(Register::status3) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            fault0: match dev.read_reg(Register::fault0) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            fault1: match dev.read_reg(Register::fault1) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            fault2: match dev.read_reg(Register::fault2) {
-                Ok(reg) => reg,
-                _ => return,
-            },
-            max_current: match dev.max_iout() {
-                Ok(Amperes(amps)) => amps,
-                _ => return,
-            },
-            max_voltage: volts,
-        });
-    }
-}
-
 #[allow(unused_macros)]
 macro_rules! mwocp68_controller {
     ($which:ident, $rail:ident, $state:ident) => {
@@ -463,15 +404,13 @@ mod bsp;
 
 #[export_name = "main"]
 fn main() -> ! {
-    bsp::preinit();
-
     let i2c_task = I2C.get_task_id();
 
     let mut server = ServerImpl {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
-        fired: 0,
+        bsp: bsp::State::init(),
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -488,7 +427,7 @@ struct ServerImpl {
     i2c_task: TaskId,
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
-    fired: u32,
+    bsp: bsp::State,
 }
 
 impl ServerImpl {
@@ -561,18 +500,9 @@ impl ServerImpl {
                     }
                 }
             }
-
-            //
-            // Every 10 seconds, gather max5970 data
-            //
-            if self.fired % 10 == 0 {
-                if let Device::Max5970(dev) = dev {
-                    trace_max5970(dev, c.current);
-                }
-            }
         }
 
-        self.fired += 1;
+        self.bsp.handle_timer_fired(self.devices, state);
     }
 
     /// Find the BMR491 and return an `I2cDevice` handle
@@ -907,6 +837,21 @@ impl idl::InOrderPowerImpl for ServerImpl {
         )?;
 
         Ok(out)
+    }
+
+    fn bmr491_fault_log_clear(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        let dev = self.bmr491()?;
+        // Writing the special value 0xAA to the event index register
+        // results in the fault log being cleared.
+        dev.write(&[
+            pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
+            0xaa,
+        ])?;
+
+        Ok(())
     }
 
     fn bmr491_max_fault_event_index(
