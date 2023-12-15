@@ -20,8 +20,8 @@ use gateway_messages::{
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
     MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
     SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
-    SpStateV3, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    VersionedRotState, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, VersionedRotBootInfo,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -1109,13 +1109,13 @@ impl SpHandler for MgsHandler {
         self.common.read_rot_page(req, buf)
     }
 
-    fn versioned_rot_state(
+    fn versioned_rot_boot_info(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
         version: u8,
-    ) -> Result<VersionedRotState, SpError> {
-        self.common.versioned_rot_state(version)
+    ) -> Result<VersionedRotBootInfo, SpError> {
+        self.common.versioned_rot_boot_info(version)
     }
 }
 

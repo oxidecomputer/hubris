@@ -62,7 +62,8 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
 /// If no valid image is detected, then the digest is over all the
 /// programmed pages.
 ///
-/// Note that a completly erased flash slot will return an FWID equal to:
+/// Any completly erased flash slot will return an FWID equal to
+/// `const _FWID_ERASED_SLOT` defined below as:
 ///
 ///     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 ///

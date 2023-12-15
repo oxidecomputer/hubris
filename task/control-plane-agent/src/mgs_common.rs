@@ -7,9 +7,9 @@ use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
     CabooseOrSprotError, Fwid as SpFwid, ImageError as SpImageError,
     ImageVersion as SpImageVersion, RotBootInfo as SpRotBootInfo,
-    RotBootInfoV2 as SpRotBootInfoV2, RotImageDetails as SpRotImageDetails,
-    RotState as SpRotState, SlotId as SpSlotId, SpRot, SprotError,
-    SprotProtocolError, SwitchDuration,
+    RotBootInfoV2 as SpRotBootInfoV2, RotComponent as SpRotComponent,
+    RotImageDetails as SpRotImageDetails, SlotId as SpSlotId, SpRot,
+    SprotError, SprotProtocolError, SwitchDuration,
     VersionedRotBootInfo as SpVersionedRotBootInfo,
 };
 use drv_stm32h7_update_api::Update;
@@ -23,7 +23,7 @@ use gateway_messages::{
     SensorRequestKind, SensorResponse, SpComponent as GmSpComponent,
     SpError as GmSpError, SpPort as GmSpPort, SpStateV2 as GmSpStateV2,
     /* SpStateV3 as GmSpStateV3, */
-    VersionedRotState as GmVersionedRotState,
+    VersionedRotBootInfo as GmVersionedRotBootInfo,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -189,7 +189,27 @@ impl MgsCommon {
                     .map_err(|()| GmSpError::InvalidSlotForComponent)?;
                 let len = self
                     .sprot
-                    .read_caboose_value(slot_id, key, buf)
+                    .read_caboose_value(
+                        SpRotComponent::Hubris,
+                        slot_id,
+                        key,
+                        buf,
+                    )
+                    .map_err(caboose_or_sprot_to_sp_error)?;
+                Ok(len as usize)
+            }
+            GmSpComponent::STAGE0 => {
+                let slot_id = slot
+                    .try_into()
+                    .map_err(|()| GmSpError::InvalidSlotForComponent)?;
+                let len = self
+                    .sprot
+                    .read_caboose_value(
+                        SpRotComponent::Stage0,
+                        slot_id,
+                        key,
+                        buf,
+                    )
                     .map_err(caboose_or_sprot_to_sp_error)?;
                 Ok(len as usize)
             }
@@ -329,6 +349,23 @@ impl MgsCommon {
                 Ok(())
             }
 
+            GmSpComponent::STAGE0 => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| GmSpError::RequestUnsupportedForComponent)?;
+                let duration = if persist {
+                    SwitchDuration::Forever
+                } else {
+                    SwitchDuration::Once
+                };
+                self.sprot.component_switch_default_image(
+                    SpRotComponent::Stage0,
+                    slot,
+                    duration,
+                )?;
+                Ok(())
+            }
+
             // GmSpComponent::SP_ITSELF:
             // update_server for SP needs to decouple finish_update()
             // from swap_banks() for SwitchDuration::Forever to make sense.
@@ -420,22 +457,32 @@ impl MgsCommon {
         }
     }
 
-    pub(crate) fn versioned_rot_state(
+    pub(crate) fn versioned_rot_boot_info(
         &mut self,
         version: u8,
-    ) -> Result<GmVersionedRotState, GmSpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::VersionedRotState {
+    ) -> Result<GmVersionedRotBootInfo, GmSpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::VersionedRotBootInfo {
             version
         }));
 
         match self.sprot.versioned_rot_boot_info(version)? {
             SpVersionedRotBootInfo::V1(v1) => {
-                Ok(GmVersionedRotState::V1(MgsRotState::from(v1).0))
+                ringbuf_entry!(Log::N(version));
+                Ok(GmVersionedRotBootInfo::V1(MgsRotState::from(v1).0))
             }
-            SpVersionedRotBootInfo::V2(v2) => {
-                Ok(GmVersionedRotState::V2(MgsRotStateV2::from(v2).0))
-            }
-            _ => Err(GmSpError::UnknownVariant),
+            SpVersionedRotBootInfo::V2(v2) => match version {
+                2 => {
+                    ringbuf_entry!(Log::N(version));
+                    Ok(GmVersionedRotBootInfo::V2(MgsRotStateV2::from(v2).0))
+                }
+                _ => {
+                    ringbuf_entry!(Log::N(version));
+                    Ok(GmVersionedRotBootInfo::V3(MgsRotStateV3::from(v2).0))
+                } // RoT's V2 is MGS V3 and the highest version that
+                  // we can offer today.
+            },
+            // New variants that this code doesn't know about yet will
+            // result in a deserialization error.
         }
     }
 }
@@ -494,63 +541,31 @@ impl From<SpRotBootInfo> for MgsRotState {
             rot_updates: GmRotUpdateDetails {
                 boot_state: GmRotBootState {
                     active: MgsRotSlotId::from(v1.active).0,
-                    slot_a: match v1.slot_a_sha3_256_digest {
-                        Some(digest) => Some(GmRotImageDetails {
+                    slot_a: v1.slot_a_sha3_256_digest.map(|digest| {
+                        GmRotImageDetails {
                             version: MgsImageVersion::from(SpImageVersion {
                                 version: 0,
                                 epoch: 0,
                             })
                             .0,
                             digest,
-                        }),
-                        None => None,
-                    },
-                    slot_b: match v1.slot_b_sha3_256_digest {
-                        Some(digest) => Some(GmRotImageDetails {
+                        }
+                    }),
+                    slot_b: v1.slot_b_sha3_256_digest.map(|digest| {
+                        GmRotImageDetails {
                             version: MgsImageVersion::from(SpImageVersion {
                                 version: 0,
                                 epoch: 0,
                             })
                             .0,
                             digest,
-                        }),
-                        None => None,
-                    },
+                        }
+                    }),
                 },
             },
         })
     }
 }
-
-/*
-impl From<SpRotBootInfo> for MgsRotState {
-    fn from(boot_info: SpRotBootInfo) -> MgsRotStateV2 {
-        let convert_slot_details = |digest: Option<[u8; 32]>| {
-            digest.map(|d| gateway_messages::RotImageDetails {
-                digest: d,
-                version: gateway_messages::ImageVersion {
-                    version: 0,
-                    epoch: 0,
-                },
-            })
-        };
-
-        MgsRotState(GmRotState {
-            rot_updates: gateway_messages::RotUpdateDetails {
-                boot_state: gateway_messages::RotBootState {
-                    active: MgsRotSlotId::from(boot_info.active).0,
-                    slot_a: convert_slot_details(
-                        boot_info.slot_a_sha3_256_digest,
-                    ),
-                    slot_b: convert_slot_details(
-                        boot_info.slot_b_sha3_256_digest,
-                    ),
-                },
-            },
-        })
-    }
-}
-*/
 
 impl From<SpRotBootInfo> for MgsRotStateV2 {
     fn from(boot_info: SpRotBootInfo) -> MgsRotStateV2 {
@@ -571,71 +586,6 @@ impl From<SpRotBootInfo> for MgsRotStateV2 {
         })
     }
 }
-
-/*
-struct MgsVersionedRotState(GmVersionedRotState);
-
-impl From<SpVersionedRotBootInfo> for MgsVersionedRotState {
-    fn from(boot_info: SpVersionedRotBootInfo) -> MgsVersionedRotState {
-        match boot_info {
-            SpVersionedRotBootInfo::V1(state) => {
-                MgsVersionedRotState(GmVersionedRotState::V2(GmRotStateV2 {
-                    active: MgsRotSlotId::from(state.active).0,
-                    persistent_boot_preference: MgsRotSlotId::from(
-                        state.persistent_boot_preference,
-                    )
-                    .0,
-                    pending_persistent_boot_preference: state
-                        .pending_persistent_boot_preference
-                        .map(|id| MgsRotSlotId::from(id).0),
-                    transient_boot_preference: state
-                        .transient_boot_preference
-                        .map(|id| MgsRotSlotId::from(id).0),
-                    slot_a_sha3_256_digest: state.slot_a_sha3_256_digest,
-                    slot_b_sha3_256_digest: state.slot_b_sha3_256_digest,
-                }))
-            }
-            SpVersionedRotBootInfo::V2(state) => {
-                MgsVersionedRotState(GmVersionedRotState::V3(GmRotStateV3 {
-                    active: MgsRotSlotId::from(state.active).0,
-                    persistent_boot_preference: MgsRotSlotId::from(
-                        state.persistent_boot_preference,
-                    )
-                    .0,
-                    pending_persistent_boot_preference: state
-                        .pending_persistent_boot_preference
-                        .map(|id| MgsRotSlotId::from(id).0),
-                    transient_boot_preference: state
-                        .transient_boot_preference
-                        .map(|id| MgsRotSlotId::from(id).0),
-                    slot_a_sha3_256_digest: state.slot_a_sha3_256_digest,
-                    slot_b_sha3_256_digest: state.slot_b_sha3_256_digest,
-                    stage0_sha3_256_digest: state.stage0_sha3_256_digest,
-                    stage0next_sha3_256_digest: state
-                        .stage0next_sha3_256_digest,
-
-                    slot_a_status: state
-                        .slot_a_status
-                        .map(|s| MgsImageVersion::from(s).0)
-                        .map_err(|e| MgsImageError::from(e).0),
-                    slot_b_status: state
-                        .slot_b_status
-                        .map(|s| MgsImageVersion::from(s).0)
-                        .map_err(|e| MgsImageError::from(e).0),
-                    stage0_status: state
-                        .stage0_status
-                        .map(|s| MgsImageVersion::from(s).0)
-                        .map_err(|e| MgsImageError::from(e).0),
-                    stage0next_status: state
-                        .stage0next_status
-                        .map(|s| MgsImageVersion::from(s).0)
-                        .map_err(|e| MgsImageError::from(e).0),
-                }))
-            }
-        }
-    }
-}
-*/
 
 struct MgsRotStateV2(GmRotStateV2);
 
@@ -746,104 +696,3 @@ impl From<SpImageError> for MgsImageError {
         })
     }
 }
-
-/*
-fn versioned_rot_boot_info(
-    sprot: &SpRot,
-    version: u8,
-) -> Result<SpVersionedRotState, RotError> {
-    match sprot.versioned_rot_boot_info(version)? {
-        /*
-        drv_sprot_api::VersionedRotBootInfo::V1(boot_info) => {
-            Ok(VersionedRotState::V1(MgsRotState::from(boot_info).0))
-        }
-
-        drv_sprot_api::VersionedRotBootInfo::V2(boot_info) => {
-            Ok(VersionedRotState::V2(MgsRotStateV2::from(boot_info).0))
-        }
-        */
-        _ => Err(RotError::MessageError { code: 0 }),
-    }
-}
-*/
-
-/*
-// Conversion between gateway_messages types and hubris types is tedious and
-// confusing because of the similar names and purposes in the Rot handoff
-// area, sprot protocol, and MGS structures.
-
-fn rot_state_verison(
-    sprot: &SpRot,
-    version: u8,
-) -> Result<VersionedRotState, RotError> {
-    match sprot.versioned_rot_boot_info(version) {
-        SpVersionedRotBootInfo::V1(boot_info) => {
-            Ok(gateway_messages::VersionedRotState::V2(RotStateV2 {
-                active: MgsRotSlotId::from(boot_info.active).0,
-                persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                pending_persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                transient_boot_preference: boot_info
-                    .transient_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
-                slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
-            }))
-        }
-        SpVersionedRotBootInfo::V2(boot_info) => {
-            Ok(gateway_messages::VersionedRotState::V3(RotStateV3 {
-                active: MgsRotSlotId::from(boot_info.active).0,
-                persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                pending_persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                transient_boot_preference: boot_info
-                    .transient_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-
-                slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
-                slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
-                stage0_sha3_256_digest: boot_info.stage0_sha3_256_digest,
-                stage0next_sha3_256_digest: boot_info
-                    .stage0next_sha3_256_digest,
-                // Result<ImageVersion, ImageError>,
-                slot_a_status: boot_info.slot_a_status,
-                slot_b_status: boot_info.slot_b_status,
-                stage0_status: boot_info.stage0_status,
-                stage0next_status: boot_info.stage0next_status,
-            }))
-        }
-        gateway_messages::VersionedRotState::V2(boot_info) => {
-            Ok(gateway_messages::VersionedRotState::V2(RotStateV3 {
-                active: MgsRotSlotId::from(boot_info.active).0,
-                persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                pending_persistent_boot_preference: boot_info
-                    .persistent_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-                transient_boot_preference: boot_info
-                    .transient_boot_preference
-                    .map(|s| MgsRotSlotId::from(s).0),
-
-                slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
-                slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
-                stage0_sha3_256_digest: boot_info.stage0_sha3_256_digest,
-                stage0next_sha3_256_digest: boot_info
-                    .stage0next_sha3_256_digest,
-                // Result<ImageVersion, ImageError>,
-                slot_a_status: boot_info.slot_a_status,
-                slot_b_status: boot_info.slot_b_status,
-                stage0_status: boot_info.stage0_status,
-                stage0next_status: boot_info.stage0next_status,
-            }))
-        }
-        Error(e) => Err(e),
-    }
-}
-*/

@@ -66,6 +66,7 @@ enum Log {
     ReadCaboose(u32, usize),
     GotCabooseChunk([u8; 4]),
     ReadRotPage,
+    N(u8),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -151,7 +152,7 @@ enum MgsMessage {
         value_len: usize,
     },
     ReadRotPage,
-    VersionedRotState {
+    VersionedRotBootInfo {
         version: u8,
     },
 }

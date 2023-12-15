@@ -79,7 +79,7 @@ impl ComponentUpdater for RotUpdate {
         let target = match (update.component, update.slot) {
             (SpComponent::ROT, 0) => UpdateTarget::ImageA,
             (SpComponent::ROT, 1) => UpdateTarget::ImageB,
-            (SpComponent::ROT, 3) => UpdateTarget::Bootloader,
+            (SpComponent::STAGE0, 1) => UpdateTarget::Bootloader,
             _ => return Err(SpError::InvalidSlotForComponent),
         };
 

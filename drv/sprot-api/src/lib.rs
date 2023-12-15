@@ -631,11 +631,12 @@ pub struct SprotIoStats {
 impl SpRot {
     pub fn read_caboose_value(
         &self,
+        component: RotComponent,
         slot_id: SlotId,
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let reader = RotCabooseReader::new(slot_id, self)?;
+        let reader = RotCabooseReader::new(component, slot_id, self)?;
         let len = reader.get(key, buf)?;
         Ok(len)
     }
@@ -645,16 +646,27 @@ impl SpRot {
 struct RotCabooseReader<'a> {
     sprot: &'a SpRot,
     size: u32,
+    component: RotComponent,
     slot: SlotId,
 }
 
 impl<'a> RotCabooseReader<'a> {
     fn new(
+        component: RotComponent,
         slot: SlotId,
         sprot: &'a SpRot,
     ) -> Result<Self, CabooseOrSprotError> {
-        let size = sprot.caboose_size(slot)?;
-        Ok(Self { size, slot, sprot })
+        let size = match component {
+            // Use old API for backward compatibility
+            RotComponent::Hubris => sprot.caboose_size(slot)?,
+            _ => sprot.component_caboose_size(component, slot)?,
+        };
+        Ok(Self {
+            size,
+            component,
+            slot,
+            sprot,
+        })
     }
 
     pub fn get(
@@ -738,9 +750,21 @@ impl tlvc::TlvcRead for &RotCabooseReader<'_> {
         let offset = offset
             .try_into()
             .map_err(|_| tlvc::TlvcReadError::Truncated)?;
-        self.sprot
-            .read_caboose_region(offset, self.slot, dest)
-            .map_err(tlvc::TlvcReadError::User)
+        match self.component {
+            RotComponent::Hubris => self
+                .sprot
+                .read_caboose_region(offset, self.slot, dest)
+                .map_err(tlvc::TlvcReadError::User),
+            _ => self
+                .sprot
+                .component_read_caboose_region(
+                    offset,
+                    self.component,
+                    self.slot,
+                    dest,
+                )
+                .map_err(tlvc::TlvcReadError::User),
+        }
     }
 }
 

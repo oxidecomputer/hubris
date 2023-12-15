@@ -8,26 +8,74 @@ fatal() {
     exit 1
 }
 
-hum_sp() {
-    "${HUMILITY}" -a "${HUMILITY_ARCHIVE_SP}" -p "${SP_PROBE}" "$@"
+IMAGE_A_BASE=$(( 0x00010000 ))
+IMAGE_A_END=$(( 0x00050000 ))
+IMAGE_A_LEN=$(( IMAGE_A_END - IMAGE_A_BASE ))
+IMAGE_B_BASE=$(( 0x00050000 ))
+IMAGE_B_END=$(( 0x00090000 ))
+IMAGE_B_LEN=$(( IMAGE_B_END - IMAGE_B_BASE ))
+IMAGE_STAGE0_BASE=$(( 0x00000000 ))
+IMAGE_STAGE0_END=$(( 0x00008000 ))
+IMAGE_STAGE0_LEN=$(( IMAGE_STAGE0_END - IMAGE_STAGE0_BASE ))
+IMAGE_STAGE0NEXT_BASE=$(( 0x00008000 ))
+IMAGE_STAGE0NEXT_END=$(( 0x00010000 ))
+IMAGE_STAGE0NEXT_LEN=$(( IMAGE_STAGE0NEXT_END - IMAGE_STAGE0NEXT_BASE ))
+
+power_state() {
+    "${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+        jq -c -r ".${INTERFACE}.Ok.V2.power_state"
 }
 
-hum_rot_a() {
-    "${HUMILITY}" -a "${HUMILITY_ARCHIVE_ROT_A}" -p "${ROT_A_PROBE}" "$@"
+rot_bankerase() {
+    slot="${1:?Missing slot name}"
+    shift
+    pages="${1:?Missing number of pages or 'all'}"
+    shift
+    # match lower case version of $slot
+    case "${slot,,}" in
+    a)
+        BASE=$IMAGE_A_BASE
+        _END=$IMAGE_A_END
+        LEN=$IMAGE_A_LEN
+        ;;
+    b)
+        BASE=$IMAGE_B_BASE
+        _END=$IMAGE_B_END
+        LEN=$IMAGE_B_LEN
+        ;;
+
+    stage0)
+        BASE=$IMAGE_STAGE0_BASE
+        _END=$IMAGE_STAGE0_END
+        LEN=$IMAGE_STAGE0_LEN
+        ;;
+
+    stage0next)
+        BASE=$IMAGE_STAGE0NEXT_BASE
+        _END=$IMAGE_STAGE0NEXT_END
+        LEN=$IMAGE_STAGE0NEXT_LEN
+        ;;
+    *)
+        fatal "Unknown slot name: $slot. Use a, b, stage0, or stage0next"
+        ;;
+    esac
+    if [[ "${pages,,}" != "all" ]]
+    then
+        if ! [[ "$pages" =~ ^[0-9]+$ ]]
+        then
+            fatal "Non-numeric number of pages: $pages"
+        fi
+        if (( pages * 512 < LEN ))
+        then
+            LEN=$(( pages * 512 ))
+        fi
+    fi
+    # Note that the bankerase command doesn't care about the active bank or
+    # the image contents but humility needs an archive.
+    # We provide the A image from the Hubris master branch.
+    "${HUMILITY}" -p "${ROT_PROBE}" -a "${MASTER_ROT_A_ZIP}" bankerase --address $BASE --len $LEN
 }
 
-hum_rot_b() {
-    "${HUMILITY}" -a "${HUMILITY_ARCHIVE_ROT_B}" -p "${ROT_B_PROBE}" "$@"
-}
-
-hum_rot_a_erase_stage0next() {
-    # This zeros the bank, it does not erase it which causes hash mismatches.
-    hum_rot_a bankerase --address 0x8000 --len 0x1000
-}
-
-hum_rot_b_erase_stage0next() {
-    hum_rot_b bankerase --address 0x8000 --len 0x1000
-}
 
 copy_rot_cmpa() {
     dst="${1:?Missing output file name}"
@@ -70,7 +118,7 @@ check_signatures() {
         fi
         M="$(realpath cmpa.bin)"
         F="$(realpath cfpa.bin)"
-        if ( cd "${HOME}/Oxide/src/lpc55_support" && cargo run --bin lpc55_sign -- verify-signed-image "${M}" "${F}" "${bin}" )
+        if lpc55_sign verify-signed-image "${M}" "${F}" "${bin}"
         then
             PASS+=( "${zip}" )
             green "$(caller) Signature OK $zip"
@@ -87,92 +135,69 @@ check_signatures() {
     fi
 }
 
-# Pass the JSON without "${INTERFACE}"
-# TODO: There are Rot failure cases that are not handled properly.
-extract_rot_from_json() {
-    J="${*:?Missing json}"
-
-    VERSION=None
-    ROT=None
-    ERR=None
-    if [[ "$(echo "${J}" | jq -r -c ". | keys[0]?")" == Ok ]]
-    then
-        VERSION="$(echo "${J}" | jq -r -c 'if ( .Ok? | keys[0]? ) == "V2" then "V2" elif ( .Ok? | keys[0]? ) == "V3" then "V3" else "Unknown" end')"
-        case $VERSION in
-            V2)
-                OK="$(echo "${J}" | jq -r -c ".Ok.V2.rot? | keys[0]?")"
-                if [[ "$OK" == Ok ]]
-                then
-                    ROT="$(echo "${J}" | jq -c -r ".Ok.V2.rot.Ok")"
-                else
-                    ROT=Unknown
-                fi
-                ;;
-            V3)
-                OK="$(echo "${J}" | jq -r -c ".Ok.V3.rot? | keys[0]?")"
-                if [[ "$OK" == Ok ]]
-                then
-                    ROT="$(echo "${J}" | jq -c -r ".Ok.V3.rot.Ok.V3")"
-                else
-                    # Error
-                    ROT="$(echo "${J}" | jq -c -r ".Ok.V3.rot.Err | to_entries[] | "'"\(.key)::\(.value)"')"
-                fi
-                ;;
-            *) 
-                OK=None
-                error "Did not extract ROT info from '${J}'"
-                fatal "JSON processing error"
-                ;;
-        esac
-        echo "OK=$OK"
-        echo "ROT=${ROT}"
-    fi
-    set +x
-    debug "Extracted? VERSION:${VERSION} OK:${OK}"
-}
-
-
-# Test for the two SP APIs
+# Check for rot-boot-info being supported
 # TODO: Extract RoT API as well.
-get_api_versions() {
-    case $(fm state | jq -r -c ".${INTERFACE} | keys[0]") in
-        Ok) SP_V1=true;;
-        *) SP_V1=false;;
-    esac
-
-    case $(fm state | jq -r -c ".${INTERFACE} | keys[0]") in
-        Ok) SP_V2=true;;
-        *) SP_V2=false;;
-    esac
-}
-
-# sprot_version doesn't work this way anymore
-sprot_supports_new_messages() {
-    response="$(fm state -r2 2>/dev/null | jq -r -c ".${INTERFACE} | keys[]")"
-    case "${response}" in
+get_apis_supported() {
+    J="$(fm rot-boot-info -v3 2>/dev/null | jq -r -c ".${INTERFACE}")"
+    echo "$(caller) J=$J"
+    case $(echo "$J"| jq -r -c ". | keys[0]") in
         Ok)
-            true
-            ;;
+            SP_RBI_SUPPORT=true
+            ROT_RBI_SUPPORT=true
+            ;; # SP and RoT support rot-boot-info
         Err)
-            false
-            ;;
+            case "$(echo "$J" | jq -r -c ".Err")" in
+                "Error response from SP: bad request"*) # SP doesn't know the new command
+                    SP_RBI_SUPPORT=false
+                    ROT_RBI_SUPPORT=false # Actually unknown
+                    ;;
+                "Error response from SP: sprot: failed to deserialize"*) # RoT doesn't know the new command
+                    SP_RBI_SUPPORT=true
+                    ROT_RBI_SUPPORT=false
+                ;;
+            esac
+            ;; # SP supports it but RoT does not
         *)
-            fatal "Unexpected response from faux-mgs: ${response}"
-            ;;
+            SP_RBI_SUPPORT=false
+            ROT_RBI_SUPPORT=unknown
+            ;;  # faux-mgs or SP do not support, RoT unknown.
     esac
+    echo "SP_RBI_SUPPORT=$SP_RBI_SUPPORT ROT_RBI_SUPPORT=$ROT_RBI_SUPPORT"
 }
+
+# sprot_supports_new_messages()
 
 # Get V3 state
 get_rot_state() {
-    J="$(fm state -r2 | jq -c ".${INTERFACE}")"
-    extract_rot_from_json "${J}" # sets VERSION, ROT, OK, and ERR
-    if [[ "$ERR" != None ]]
-    then
-        J="$(fm state -r1 | jq -c ".${INTERFACE}")"
-        extract_rot_from_json "${J}" # sets VERSION, ROT, OK, and ERR
-    fi
-    J="${ROT}" # XXX extract_rot_from_json should print this for capture
-
+    J="$(fm rot-boot-info | jq -c ".${INTERFACE}")"
+    # Ok = SP and ROT support it
+    # Err="sprot: failed to deserialze" = Only SP supports
+    # Err="bad request" = No support from SP
+    # no output: faux-mgs is the old version
+    RESPONSE="$(echo "$J" | jq -c -r ". | keys[0] ")"
+    case "${RESPONSE}" in
+        "")
+            fatal "faux-mgs does not support rot-boot-info command"
+            ;;
+        "Err") # No rot-boot-info command support, use state command.
+            J="$(fm state | jq -c ".${INTERFACE}")"
+            ok="$(echo "$J" | jq -c -r "keys[0]")"
+            case "$ok" in
+                Ok)
+                    # Extract the RoT part
+                    J="$(echo "$J" | jq -c ".Ok.V2.rot.Ok")"
+                    VERSION=V2
+                    ;;
+                *)
+                    fatal "Error requesting sp state"
+                    ;;
+            esac
+            ;;
+        "Ok")
+            J="$(echo "$J" | jq -c ".Ok.V3")"
+            VERSION=V3
+            ;;
+    esac
     echo "VERSION=$VERSION"
     echo "J=$J"
 
@@ -183,85 +208,64 @@ get_rot_state() {
     PENDING_PERSISTENT_BOOT_PREFERENCE="$(echo "$J" | jq -c -r ".pending_persistent_boot_preference")"
     # shellcheck disable=SC2046
     TRANSIENT_BOOT_PREFERENCE="$(echo "$J" | jq -c -r ".transient_boot_preference")"
-    # shellcheck disable=SC2046
-    SLOT_A_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_a_sha3_256_digest[]"))"
-    # shellcheck disable=SC2046
-    SLOT_B_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_b_sha3_256_digest[]"))"
     if [[ "$VERSION" = "V3" ]]
     then
         # shellcheck disable=SC2046
-        STAGE0_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0_sha3_256_digest[]"))"
+        SLOT_A_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_a_fwid.Sha3_256[]"))"
         # shellcheck disable=SC2046
-        STAGE0NEXT_SHA3_256_DIGEST="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0next_sha3_256_digest[]"))"
+        SLOT_B_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_b_fwid.Sha3_256[]"))"
+        # shellcheck disable=SC2046
+        STAGE0_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0_fwid.Sha3_256[]"))"
+        # shellcheck disable=SC2046
+        STAGE0NEXT_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".stage0next_fwid.Sha3_256[]"))"
 
         SLOT_A_STATUS="$(echo "$J" | jq -c -r ".slot_a_status | keys[0]")" # Ok or Err
         if [[ "${SLOT_A_STATUS}" = "Ok" ]]
         then
-            SLOT_A_STATUS_EPOCH="$(echo "$J" | jq ".slot_a_status.Ok.epoch")"
-            SLOT_A_STATUS_VERSION="$(echo "$J" | jq ".slot_a_status.Ok.version")"
             SLOT_A_STATUS_ERR=""
         else
-            SLOT_A_STATUS_EPOCH=0
-            SLOT_A_STATUS_VERSION=0
             SLOT_A_STATUS_ERR="$(echo "$J" | jq ".slot_a_status.Err")"
         fi
 
         SLOT_B_STATUS="$(echo "$J" | jq -c -r ".slot_b_status | keys[0]")" # Ok or Err
         if [[ "${SLOT_B_STATUS}" = "Ok" ]]
         then
-            SLOT_B_STATUS_EPOCH="$(echo "$J" | jq ".slot_b_status.Ok.epoch")"
-            SLOT_B_STATUS_VERSION="$(echo "$J" | jq ".slot_b_status.Ok.version")"
             SLOT_B_STATUS_ERR=""
         else
-            SLOT_B_STATUS_EPOCH=0
-            SLOT_B_STATUS_VERSION=0
             SLOT_B_STATUS_ERR="$(echo "$J" | jq ".slot_b_status.Err")"
         fi
 
         STAGE0_STATUS="$(echo "$J" | jq -c -r ".stage0_status | keys[0]")" # Ok or Err
         if [[ "${STAGE0_STATUS}" = "Ok" ]]
         then
-            STAGE0_STATUS_EPOCH="$(echo "$J" | jq ".stage0_status.Ok.epoch")"
-            STAGE0_STATUS_VERSION="$(echo "$J" | jq ".stage0_status.Ok.version")"
             STAGE0_STATUS_ERR=""
         else
-            STAGE0_STATUS_EPOCH=0
-            STAGE0_STATUS_VERSION=0
             STAGE0_STATUS_ERR="$(echo "$J" | jq ".stage0_status.Err")"
         fi
 
         STAGE0NEXT_STATUS="$(echo "$J" | jq -c -r ".stage0next_status | keys[0]")" # Ok or Err
         if [[ "${STAGE0NEXT_STATUS}" = "Ok" ]]
         then
-            STAGE0NEXT_STATUS_EPOCH="$(echo "$J" | jq ".stage0next_status.Ok.epoch")"
-            STAGE0NEXT_STATUS_VERSION="$(echo "$J" | jq ".stage0next_status.Ok.version")"
             STAGE0NEXT_STATUS_ERR=""
         else
-            STAGE0NEXT_STATUS_EPOCH=0
-            STAGE0NEXT_STATUS_VERSION=0
             STAGE0NEXT_STATUS_ERR="$(echo "$J" | jq ".stage0next_status.Err")"
         fi
     else
-        STAGE0_SHA3_256_DIGEST=""
-        STAGE0NEXT_SHA3_256_DIGEST=""
+        # shellcheck disable=SC2046
+        SLOT_A_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_a_sha3_256_digest[]"))"
+        # shellcheck disable=SC2046
+        SLOT_B_FWID="$(printf "%02x" $(echo "$J" | jq -c -r ".slot_b_sha3_256_digest[]"))"
+        STAGE0_FWID=""
+        STAGE0NEXT_FWID=""
         SLOT_A_STATUS=""
         SLOT_B_STATUS=""
         STAGE0NEXT_STATUS=""
         STAGE0_STATUS=""
-        SLOT_A_STATUS_EPOCH=""
-        SLOT_A_STATUS_VERSION=""
         SLOT_A_STATUS_ERR=""
-        SLOT_B_STATUS_EPOCH=""
-        SLOT_B_STATUS_VERSION=""
         SLOT_B_STATUS_ERR=""
-        STAGE0_STATUS_EPOCH=""
-        STAGE0_STATUS_VERSION=""
         STAGE0_STATUS_ERR=""
-        STAGE0NEXT_STATUS_EPOCH=""
-        STAGE0NEXT_STATUS_VERSION=""
         STAGE0NEXT_STATUS_ERR=""
     fi
-    set +x
 }
 
 # Discover the active bank
@@ -275,20 +279,16 @@ print_rot_state() {
         "${ACTIVE}" "${PENDING_PERSISTENT_BOOT_PREFERENCE}" \
         "${PERSISTENT_BOOT_PREFERENCE}" "${TRANSIENT_BOOT_PREFERENCE}"
 
-    printf "A:           %s %s,%s/%s\n" "${SLOT_A_SHA3_256_DIGEST}" \
-        "${SLOT_A_STATUS_EPOCH}" "${SLOT_A_STATUS_VERSION}" \
+    printf "A:           %s %s\n" "${SLOT_A_FWID}" \
         "${SLOT_A_STATUS_ERR}"
 
-    printf "B:           %s %s,%s/%s\n" "${SLOT_B_SHA3_256_DIGEST}" \
-        "${SLOT_B_STATUS_EPOCH}" "${SLOT_B_STATUS_VERSION}" \
+    printf "B:           %s %s\n" "${SLOT_B_FWID}" \
         "${SLOT_B_STATUS_ERR}"
 
-    printf "STAGE0:      %s %s,%s/%s\n" "${STAGE0_SHA3_256_DIGEST}" \
-        "${STAGE0_STATUS_EPOCH}" "${STAGE0_STATUS_VERSION}" \
+    printf "STAGE0:      %s %s\n" "${STAGE0_FWID}" \
         "${STAGE0_STATUS_ERR}"
 
-    printf "STAGE0NEXT: %s %s,%s/%s\n" "${STAGE0NEXT_SHA3_256_DIGEST}" \
-        "${STAGE0NEXT_STATUS_EPOCH}" "${STAGE0NEXT_STATUS_VERSION}" \
+    printf "STAGE0NEXT: %s %s\n" "${STAGE0NEXT_FWID}" \
         "${STAGE0NEXT_STATUS_ERR}"
 }
 
@@ -406,9 +406,9 @@ reset_sp_and_sleep() {
     sleep "${1:-$RESET_SLEEP}"
 }
 
-reset_rot_and_sleep() {
-    fm reset-component rot
-    sleep "${1:-$RESET_SLEEP}"
+reset_rot_and_poll_ready() {
+    fm reset-component rot | jq -c -r ".${INTERFACE}.Ok.ack"
+    poll_rot_ready
 }
 
 fwid_from_zip() {
@@ -431,7 +431,236 @@ reset_sp() {
     fi
 }
 
+# Update and run a new RoT image in the specified bank.
+# The supplied image must match bank layout (0=A, 1=B).
+# Do not optimize to take advantage of an exising matching
+# image in the alternate bank.
+# We will eventually get both banks to the same version to
+# complete an update.
+update_rot_hubris() {
+    IMAGE_ZIP="${1:?Missing ROT Hubris image}"
+    shift
+    IMAGE_BANK="${1:?Missing ROT Hubris image bank number}"
+    shift
+
+    section "Update RoT with update-stage0 branch image."
+    action fm update rot "${IMAGE_BANK}" "${IMAGE_ZIP}"
+    if ! fm update rot "${IMAGE_BANK}" "${IMAGE_ZIP}"
+    then
+        fatal Failed to update RoT Hubris image to "${IMAGE_ZIP}"
+    fi
+
+    # TODO: Use transient boot selection to test new image fitness. Only persist if fit.
+
+    # After fitness test, commit to new version
+    action "fm component-active-slot -s ${IMAGE_BANK}" -p rot
+    fm component-active-slot -s "${IMAGE_BANK}" -p rot
+    action "fm reset-component rot"
+    # RoT is not ready immediately after reset returns.
+    reset_rot_and_poll_ready
+
+    section "Check the RoT version to make sure it worked."
+    ACTIVE=$(get_active_rot_bank)
+    fact "Active RoT bank is ${ACTIVE}"
+    if [[ "${IMAGE_BANK}" == 0 ]]
+    then
+        if [[ "${ACTIVE}" == "A" ]]
+        then
+            true
+        else
+            error "Wrong active RoT bank, IMAGE_BANK=${IMAGE_BANK}, ACTIVE=${ACTIVE}"
+            false
+        fi
+    else
+        if [[ "${ACTIVE}" == "B" ]]
+        then
+            true
+        else
+            error "Wrong active RoT bank, IMAGE_BANK=${IMAGE_BANK}, ACTIVE=${ACTIVE}"
+            false
+        fi
+    fi
+}
+
 
 fm() {
     "${FAUX_MGS}" --log-level=CRITICAL --json pretty "$@"
+}
+
+# Set ACTIVE, US0_ROT_ZIP and ROT_UPDATE_BANK to reflect the US0 image to
+# send to the RoT.
+select_next_rot_image() {
+    IMAGE_A="${1:?Missing RoT Image A path}"
+    shift
+    IMAGE_B="${1:?Missing RoT Image B path}"
+    shift
+    ROT_UPDATE_BANK=999 # Invalid value
+    ROT_ZIP=None
+    ACTIVE=$(get_active_rot_bank)
+    case "${ACTIVE}" in
+        A)
+            # shellcheck disable=SC2153
+            ROT_ZIP="${IMAGE_B}"
+            ROT_UPDATE_BANK=1
+            ;;
+        B)
+            # shellcheck disable=SC2153
+            ROT_ZIP="${IMAGE_A}"
+            ROT_UPDATE_BANK=0
+            ;;
+        *)
+            fatal Bank "${ACTIVE}" is unknown
+            ;;
+    esac
+    case $ROT_UPDATE_BANK in
+        1|0)
+            ;;
+        *) fatal bug
+            ;;
+    esac
+}
+
+# A master branch image will not suport the new status message.
+is_rot_boot_info_supported_by_sp() {
+    get_apis_supported
+    $SP_RBI_SUPPORT
+}
+
+is_rot_boot_info_supported_by_rot() {
+    get_apis_supported
+    $SP_RBI_SUPPORT && $ROT_RBI_SUPPORT
+}
+
+# The Hubris Archive ID is an FNV hash of the output sections of the image,
+# kconfig, and "allocations" for an image. It's not clear on a cursory reading
+# of the code if this hash is reproducable given inputs for two successive
+# builds of Hubris. FNV is a fast hash that is not cryptographically hard
+# for use cases where that is appropriate.
+# False positives and negatives are not likely, but not impossible.
+sp_v2_archive_id() {
+    # shellcheck disable=SC2046
+    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+        jq -c -r ".${INTERFACE}.Ok.V2.hubris_archive_id[]" )
+}
+
+sp_v3_archive_id() {
+    # shellcheck disable=SC2046
+    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+        jq -c -r ".${INTERFACE}.Ok.V3.hubris_archive_id[]" )
+}
+
+update_sp() {
+    OLD_IMAGE="${1:?Missing old image path}"
+    shift
+    NEW_IMAGE="${1:?Missing new image path}"
+    shift
+    [[ -r "${OLD_IMAGE}" ]] || "fatal Cannot read ${OLD_IMAGE}"
+    [[ -r "${NEW_IMAGE}" ]] || "fatal Cannot read ${NEW_IMAGE}"
+    action "${FAUX_MGS} --log-level=DEBUG update sp 0 ${NEW_IMAGE}"
+    if fm update sp 0 "${NEW_IMAGE}"
+    then
+        fact faux-mgs success
+    else
+        error faux-mgs failed
+        fatal "cannot update SP to ${NEW_IMAGE}"
+    fi
+    action "fm reset"
+    if ! reset_sp
+    then
+        error "Failed to reset SP"
+        fatal "Could not reset SP"
+    fi
+
+    section "Check the SP version to make sure it worked."
+
+    (( LIMIT=5 ))
+    while ! SP_GITC="$(fm read-caboose GITC | jq -c -r ".${INTERFACE}.Ok.value")"
+    do
+        (( LIMIT -= 1 ))
+        if (( LIMIT <= 0 ))
+        then
+            fatal Cannot get SP GITC
+        fi
+        sleep 2
+    done
+    fact "SP_GITC=${SP_GITC}"
+
+    OLD_GITC="$(image_gitc "${OLD_IMAGE}")"
+    NEW_GITC="$(image_gitc "${NEW_IMAGE}")"
+    fact OLD_GITC="${OLD_GITC}"
+    fact NEW_GITC="${NEW_GITC}"
+
+    if [[ "${SP_GITC}" == "${NEW_GITC}" ]]
+    then
+        success "SP is running expected version"
+        true
+    else
+        error "SP is not running expected version"
+        false
+    fi
+}
+
+update_stage0next() {
+    local install_zip
+    INSTALL_ZIP="${1:?Missing stage0next install image path}"
+    INSTALL_FWID="$(fwid_from_zip "${INSTALL_ZIP}")"
+
+    section "Installing ${INSTALL_ZIP} to stage0next"
+    action fm update stage0 1 "${INSTALL_ZIP}"
+    if fm update stage0 1 "${INSTALL_ZIP}"
+    then
+        success "Installed in stage0next"
+    else
+        error "Failed to install"
+    fi
+
+    section "Reset RoT to evaluate stage0next"
+    reset_rot_and_poll_ready
+    get_rot_state
+    if [[ "${STAGE0NEXT_FWID}" != "${INSTALL_FWID}" ]]
+    then
+        error "stage0next did not update: reading:${STAGE0NEXT_FWID} != goal:$INSTALL_FWID"
+        set | grep DIGEST
+        false
+    else
+        success "stage0next updated: reading==goal (${INSTALL_FWID})"
+        true
+    fi
+}
+
+persist_to_stage0_reset_and_test() {
+    GOAL_FWID="${1:?Missing goal FWID}"
+    section "Persist stage0next to stage0"
+    if ! fm component-active-slot stage0 --set 1 -p
+    then
+        error Persist operation failed
+        false
+    else
+        success Persist operation succeeded
+        section reboot to new stage0 image
+        reset_rot_and_poll_ready
+        get_rot_state
+        if [[ "${STAGE0NEXT_FWID}" != "${GOAL_FWID}" ]]
+        then
+            error "Intended stage0 image is not present"
+            false
+        else
+            success "Successfully installed $INSTALL_IMAGE_ZIP"
+            true
+        fi
+    fi
+}
+
+poll_rot_ready() {
+    (( limit = 20 ))
+    while :
+    do
+        result="$(fm state | jq -r -c ".${INTERFACE}.Ok.V2.rot | keys[0]")"
+        if [[ "$result" = Ok ]]
+        then
+            break
+        fi
+        (( ( limit -= 1 ) < 0 )) && fatal Timeout
+        sleep 1
+    done
 }

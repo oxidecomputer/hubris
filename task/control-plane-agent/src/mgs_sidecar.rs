@@ -326,7 +326,19 @@ impl SpHandler for MgsHandler {
         }));
 
         match update.component {
-            SpComponent::ROT => self.rot_update.prepare(&UPDATE_MEMORY, update),
+            SpComponent::ROT => self.rot_update.prepare(
+                RotComponent::Hubris,
+                &UPDATE_MEMORY,
+                update,
+            ),
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
+        match update.component {
+            SpComponent::STAGE0 => self.rot_update.prepare(
+                RotComponent::Stage0,
+                &UPDATE_MEMORY,
+                update,
+            ),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -370,7 +382,12 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
-            SpComponent::ROT => Ok(self.rot_update.status()),
+            SpComponent::ROT => {
+                Ok(self.rot_update.status(RotComponent::Hubris))
+            }
+            SpComponent::STAGE0 => {
+                Ok(self.rot_update.status(RotComponent::Stage0))
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -411,7 +428,12 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
-            SpComponent::ROT => self.rot_update.abort(&id),
+            SpComponent::ROT => {
+                self.rot_update.abort(RotComponent::Hubris, &id)
+            }
+            SpComponent::STAGE0 => {
+                self.rot_update.abort(RotComponent::Stage0, &id)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }

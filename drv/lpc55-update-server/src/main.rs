@@ -327,6 +327,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ) = self.boot_preferences()?;
 
         match version {
+            // There are deprecated versions
+            0 => Err(UpdateError::VersionNotSupported.into()),
             1 => Ok(VersionedRotBootInfo::V1(RotBootInfo {
                 active: boot_state.active.into(),
                 persistent_boot_preference,
@@ -335,7 +337,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 slot_a_sha3_256_digest: Some(boot_state.a.digest),
                 slot_b_sha3_256_digest: Some(boot_state.b.digest),
             })),
-            2 => Ok(VersionedRotBootInfo::V2(RotBootInfoV2 {
+            _ => Ok(VersionedRotBootInfo::V2(RotBootInfoV2 {
                 active: boot_state.active.into(),
                 persistent_boot_preference,
                 pending_persistent_boot_preference,
@@ -349,7 +351,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 stage0_status: boot_state.stage0.status,
                 stage0next_status: boot_state.stage0next.status,
             })),
-            _ => Err(UpdateError::VersionNotSupported.into()),
         }
     }
 
