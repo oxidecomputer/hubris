@@ -7,9 +7,58 @@ _PROG=$(basename "$0")
 PROG_DIR="$(dirname "$(realpath "$0")")"
 PATH="${PROG_DIR}:${PATH}"
 
+usage() {
+  ec="${1:?Missing exit code}"
+  shift
+  msg="${*:-}"
+  shift
+  if (( ec != 0 ))
+  then
+    exec 1>&2
+  fi
+  [[ -n "$msg" ]] && echo "$msg"
+  echo "Usage:"
+  echo "$PROG [-p pseudo-tty-path] [-h]"
+  echo "  -p pts # Send flashy section text to pts"
+  echo '  -h # this message'
+  exit $ec
+}
+
+PTS=""
+while getopts "hp:" opt; do
+	case $opt in
+		p) PTS="${OPTARG}";;
+		h) usage 0;;
+		?) usage 1 "Invalid option";;
+	esac
+done
+shift $((OPTIND-1))
+
 source hubris-util.sh
 # set +e
 
+
+if [[ -n "${PTS}" ]]
+then
+  WIDTH="$(stty -a < "${PTS}" | awk '-F;' '/columns/ {n=split($3, A, /\s+/); printf "%s", A[3]}' -)"
+else
+  WIDTH="$(stty -a | awk '-F;' '/columns/ {n=split($3, A, /\s+/); printf "%s", A[3]}' -)"
+fi
+
+pts() {
+  if [[ -n "${PTS}" ]]
+  then
+    date +%H:%M:%S > "${PTS}"
+    if [[ "${1:-}" = color ]]
+    then
+      shift
+      toilet -F gay --width "${WIDTH}" --font small "$*" > "${PTS}"
+    else
+      toilet --width "${WIDTH}" --font mini "$*" > "${PTS}"
+    fi
+
+  fi
+}
 
 # Prove that there is a faux-mgs method from going from master branch to
 # update-stage0 branch and then be able to update stage0.
@@ -121,6 +170,7 @@ check_dependencies() {
 }
 
 section Verify that script dependencies and test images are present.
+pts Check dependencies
 check_dependencies
 
 section Show the FWID and GITC values from each image
@@ -159,6 +209,7 @@ unset HUMILITY_PROBE
 # MGS/lpc55-update-server installed images are present on the RoT.
 initialize_test() {
     section Use humility to install master branch images
+    pts "Init SP & RoT using Humility"
     action "Flash SP with master branch image"
     action "${HUMILITY} --archive ${MASTER_SP_ZIP} -p ${SP_PROBE} flash"
     ${HUMILITY} --archive "${MASTER_SP_ZIP}" -p "${SP_PROBE}" flash 2>&1 |
@@ -254,6 +305,7 @@ fi
 fact "SP image hubris_archive_id: $(sp_v2_archive_id)"
 
 section "Use faux-mgs to update SP with update-stage0 branch image"
+pts "New Image to SP"
 
 if ! update_sp "${MASTER_SP_ZIP}" "${US0_SP_ZIP}"
 then
@@ -268,6 +320,8 @@ else
 fi
 
 
+section "Use faux-mgs to update Rot with update-stage0 branch image"
+pts "New Image to RoT bank ${ROT_UPDATE_BANK}"
 if update_rot_hubris "${ROT_ZIP}" "${ROT_UPDATE_BANK}"
 then
     success RoT Hubris image has been updated.
@@ -278,12 +332,14 @@ fi
 
 if is_rot_boot_info_supported_by_rot
 then
+    pts New messages are supported
     success RoT supports new API
 else
     fatal "RoT does not support new API SP_RBI_SUPPORT=${SP_RBI_SUPPORT} ROT_RBI_SUPPORT=${ROT_RBI_SUPPORT}"
 fi
 
 section Check image signatures against installed RoT CMPA/CFPA.
+pts "Verify all sigs vs RoT"
 
 if check_signatures "${ALL_ROT_IMAGES[@]}"
 then
@@ -297,6 +353,7 @@ else
     fatal "Cannot test with incompatible binaries"
 fi
 section "Get a hash of the installed bootleby version."
+pts "Select next Bootleby"
 get_rot_state
 # These vars are now set/refreshed from V3 state:
 #  ACTIVE, PENDING_PERSISTENT_BOOT_PREFERENCE, PERSISTENT_BOOT_PREFERENCE,
@@ -337,6 +394,12 @@ select_different_stage0() {
 
 select_different_stage0 # fail or set INSTALL_IMAGE_ZIP and INSTALL_IMAGE_FWID
 
+BSF="$(echo "${BEGIN_STAGE0_FWID}" | sed -e 's=^\(....\).*\(....\)$=\1..\2=')"
+IIF="$(echo "${INSTALL_IMAGE_FWID}" | sed -e 's=^\(....\).*\(....\)$=\1..\2=')"
+pts "Try Stage0 from $BSF to $IIF"
+
+section Different Bootleby to Stage0Next
+pts "Update Stage0Next"
 if update_stage0next "${INSTALL_IMAGE_ZIP}"
 then
     success "stage0next updated: reading==goal (${INSTALL_FWID})"
@@ -344,14 +407,20 @@ else
     fatal "update stage0next failed"
 fi
 
-if ! persist_to_stage0_reset_and_test "${INSTALL_IMAGE_FWID}"
+section Different Bootleby to Stage0Next
+pts "Persist Stage0Next"
+if persist_to_stage0_reset_and_test "${INSTALL_IMAGE_FWID}"
 then
+    pts color "Stage0 Success"
+else
+    pts "Fail"
     fatal "failed to install $INSTALL_IMAGE_ZIP"
 fi
 
 section "Update alternate RoT Hubris image to complete the transition to the new image"
 
 select_next_rot_image "${US0_ROT_A_ZIP}" "${US0_ROT_B_ZIP}"
+pts "New Image to RoT Bank ${ROT_UPDATE_BANK}"
 if update_rot_hubris "${ROT_ZIP}" "${ROT_UPDATE_BANK}"
 then
     success RoT Hubris image has been updated.
@@ -361,10 +430,15 @@ else
 fi
 
 section "Rollback everything to previous version using only faux-mgs"
+pts "Perform rollback"
 
 section "Update stage0next to previous image"
+pts "Rollback: Bootleby"
 
 select_different_stage0 # fail or set INSTALL_IMAGE_ZIP and INSTALL_IMAGE_FWID
+BSF="$(echo "${BEGIN_STAGE0_FWID}" | sed -e 's=^\(....\).*\(....\)$=\1..\2=')"
+IIF="$(echo "${INSTALL_IMAGE_FWID}" | sed -e 's=^\(....\).*\(....\)$=\1..\2=')"
+pts "Try Stage0 from $BSF to $IIF"
 if update_stage0next "${INSTALL_IMAGE_ZIP}"
 then
     success "stage0next updated: reading==goal (${INSTALL_FWID})"
@@ -374,14 +448,17 @@ fi
 section "Reset RoT to measure and verify stage0next"
 section "Persist stage0next to stage0"
 section "reset to use the new stage0 image"
-if ! persist_to_stage0_reset_and_test "${INSTALL_IMAGE_FWID}"
+if persist_to_stage0_reset_and_test "${INSTALL_IMAGE_FWID}"
 then
+    success Stage0 updated
+    pts color Success
+else
     fatal "failed to install $INSTALL_IMAGE_ZIP"
 fi
 #------
 section "Update first RoT Hubris master image"
 
-select_next_rot_image "${US0_ROT_A_ZIP}" "${US0_ROT_B_ZIP}"
+select_next_rot_image "${MASTER_ROT_A_ZIP}" "${MASTER_ROT_B_ZIP}"
 if update_rot_hubris "${ROT_ZIP}" "${ROT_UPDATE_BANK}"
 then
     success RoT Hubris image has been updated.
@@ -392,7 +469,7 @@ fi
 
 section "Update second RoT Hubris master image"
 
-select_next_rot_image "${US0_ROT_A_ZIP}" "${US0_ROT_B_ZIP}"
+select_next_rot_image "${MASTER_ROT_A_ZIP}" "${MASTER_ROT_B_ZIP}"
 if update_rot_hubris "${ROT_ZIP}" "${ROT_UPDATE_BANK}"
 then
     success RoT Hubris image has been updated.
@@ -401,4 +478,4 @@ else
     fatal "Failed to activate new RoT image."
 fi
 
-section "Update SP Hubris image to master"
+section "Rollback complete"

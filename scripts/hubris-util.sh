@@ -655,12 +655,12 @@ poll_rot_ready() {
     (( limit = 20 ))
     while :
     do
+        sleep 1
         result="$(fm state | jq -r -c ".${INTERFACE}.Ok.V2.rot | keys[0]")"
         if [[ "$result" = Ok ]]
         then
             break
         fi
         (( ( limit -= 1 ) < 0 )) && fatal Timeout
-        sleep 1
     done
 }
