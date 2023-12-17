@@ -46,18 +46,20 @@ else
 fi
 
 pts() {
+  if [[ "${1:-}" = color ]]
+  then
+      shift
+      cmd="toilet -F gay --width ${WIDTH} --font small $*"
+    else
+      cmd="toilet --width ${WIDTH} --font mini $*"
+  fi
   if [[ -n "${PTS}" ]]
   then
-    date +%H:%M:%S > "${PTS}"
-    if [[ "${1:-}" = color ]]
-    then
-      shift
-      toilet -F gay --width "${WIDTH}" --font small "$*" > "${PTS}"
-    else
-      toilet --width "${WIDTH}" --font mini "$*" > "${PTS}"
-    fi
-
+	date +%H:%M:%S > "${PTS}"
+	$cmd > "${PTS}"
   fi
+  date +%H:%M:%S
+  $cmd
 }
 
 # Prove that there is a faux-mgs method from going from master branch to
@@ -218,23 +220,23 @@ initialize_test() {
     ${HUMILITY} -p "${SP_PROBE}" reset
     sleep 3
 
-    action "Erase RoT flash bank A"
-    rot_bankerase a all
+    # action "Erase RoT flash bank A"
+    # rot_bankerase a all
     action "Flash RoT A with master branch image using Humility"
     action "${HUMILITY} --archive ${MASTER_ROT_A_ZIP} -p ${ROT_PROBE} flash"
     ${HUMILITY} --archive "${MASTER_ROT_A_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
         grep -q 'already flashed' && echo Already Flashed ROT A
     sleep 3 # XXX get rid of the timeout
 
-    action "Erase RoT flash bank B"
-    rot_bankerase b all
+    # action "Erase RoT flash bank B"
+    # rot_bankerase b all
     action "Flash RoT B with master branch image using Humility"
     action "${HUMILITY} --archive ${MASTER_ROT_B_ZIP} -p ${ROT_PROBE} flash"
     ${HUMILITY} --archive "${MASTER_ROT_B_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
        grep -q 'already flashed' && echo Already Flashed ROT B
 
-    action "Erase Stage0Next"
-    rot_bankerase stage0next all
+    # action "Erase Stage0Next"
+    # rot_bankerase stage0next all
 
     action "Reset RoT to ensure that one of the master branch images is active"
     ${HUMILITY} -p "${ROT_PROBE}" reset
