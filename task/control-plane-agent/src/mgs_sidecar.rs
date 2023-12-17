@@ -17,8 +17,8 @@ use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
     RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpPort, SpStateV2, SpStateV3, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus,
+    SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId,
+    UpdateStatus, VersionedRotBootInfo,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -286,16 +286,6 @@ impl SpHandler for MgsHandler {
         self.common.sp_state(power_state)
     }
 
-    fn sp_state_rot_version(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        version: u8,
-    ) -> Result<SpStateV3, SpError> {
-        let power_state = self.power_state_impl()?;
-        self.common.sp_state_rot_version(power_state, version)
-    }
-
     fn sp_update_prepare(
         &mut self,
         _sender: SocketAddrV6,
@@ -326,19 +316,9 @@ impl SpHandler for MgsHandler {
         }));
 
         match update.component {
-            SpComponent::ROT => self.rot_update.prepare(
-                RotComponent::Hubris,
-                &UPDATE_MEMORY,
-                update,
-            ),
-            _ => Err(SpError::RequestUnsupportedForComponent),
-        }
-        match update.component {
-            SpComponent::STAGE0 => self.rot_update.prepare(
-                RotComponent::Stage0,
-                &UPDATE_MEMORY,
-                update,
-            ),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
@@ -382,11 +362,8 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
-            SpComponent::ROT => {
-                Ok(self.rot_update.status(RotComponent::Hubris))
-            }
-            SpComponent::STAGE0 => {
-                Ok(self.rot_update.status(RotComponent::Stage0))
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                Ok(self.rot_update.status())
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
@@ -408,7 +385,7 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
-            SpComponent::ROT => {
+            SpComponent::ROT | SpComponent::STAGE0 => {
                 self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -428,11 +405,8 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
-            SpComponent::ROT => {
-                self.rot_update.abort(RotComponent::Hubris, &id)
-            }
-            SpComponent::STAGE0 => {
-                self.rot_update.abort(RotComponent::Stage0, &id)
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.rot_update.abort(&id)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
@@ -776,6 +750,15 @@ impl SpHandler for MgsHandler {
         buf: &mut [u8],
     ) -> Result<RotResponse, SpError> {
         self.common.read_rot_page(req, buf)
+    }
+
+    fn versioned_rot_boot_info(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        version: u8,
+    ) -> Result<VersionedRotBootInfo, SpError> {
+        self.common.versioned_rot_boot_info(version)
     }
 }
 
