@@ -59,6 +59,12 @@ struct ServerImpl {
     data_value: SensorArray<f32>,
     data_time: SensorArray<u64>,
 
+    min_value: SensorArray<f32>,
+    min_time: SensorArray<u64>,
+
+    max_value: SensorArray<f32>,
+    max_time: SensorArray<u64>,
+
     err_value: SensorArray<NoData>,
     err_time: SensorArray<u64>,
 
@@ -136,6 +142,40 @@ impl idl::InOrderSensorImpl for ServerImpl {
         }
     }
 
+    fn get_min(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
+        Ok((
+            self.min_value
+                .get(id)
+                .cloned()
+                .ok_or(SensorApiError::InvalidSensor)?,
+            self.min_time
+                .get(id)
+                .cloned()
+                .ok_or(SensorApiError::InvalidSensor)?,
+        ))
+    }
+
+    fn get_max(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
+        Ok((
+            self.max_value
+                .get(id)
+                .cloned()
+                .ok_or(SensorApiError::InvalidSensor)?,
+            self.max_time
+                .get(id)
+                .cloned()
+                .ok_or(SensorApiError::InvalidSensor)?,
+        ))
+    }
+
     fn post(
         &mut self,
         _: &RecvMessage,
@@ -153,6 +193,17 @@ impl idl::InOrderSensorImpl for ServerImpl {
         self.last_reading[id] = Some(r);
         self.data_value[id] = value;
         self.data_time[id] = timestamp;
+
+        if value < self.min_value[id] {
+            self.min_value[id] = value;
+            self.min_time[id] = timestamp;
+        }
+
+        if value > self.max_value[id] {
+            self.max_value[id] = value;
+            self.max_time[id] = timestamp;
+        }
+
         Ok(())
     }
 
@@ -238,10 +289,25 @@ fn main() -> ! {
     //
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    let (last_reading, data_value, data_time, err_value, err_time, nerrors) = mutable_statics::mutable_statics! {
+    let (
+        last_reading,
+        data_value,
+        data_time,
+        min_value,
+        min_time,
+        max_value,
+        max_time,
+        err_value,
+        err_time,
+        nerrors,
+    ) = mutable_statics::mutable_statics! {
         static mut LAST_READING: [Option<LastReading>; NUM_SENSORS] = [|| None; _];
         static mut DATA_VALUE: [f32; NUM_SENSORS] = [|| f32::NAN; _];
         static mut DATA_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
+        static mut MIN_VALUE: [f32; NUM_SENSORS] = [|| f32::MAX; _];
+        static mut MIN_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
+        static mut MAX_VALUE: [f32; NUM_SENSORS] = [|| f32::MIN; _];
+        static mut MAX_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
         static mut ERR_VALUE: [NoData; NUM_SENSORS] = [|| NoData::DeviceUnavailable; _];
         static mut ERR_TIME: [u64; NUM_SENSORS] = [|| 0; _];
         static mut NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
@@ -251,6 +317,10 @@ fn main() -> ! {
         last_reading: SensorArray(last_reading),
         data_value: SensorArray(data_value),
         data_time: SensorArray(data_time),
+        min_value: SensorArray(min_value),
+        min_time: SensorArray(min_time),
+        max_value: SensorArray(max_value),
+        max_time: SensorArray(max_time),
         err_value: SensorArray(err_value),
         err_time: SensorArray(err_time),
         nerrors: SensorArray(nerrors),
