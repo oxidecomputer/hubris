@@ -56,6 +56,7 @@ pub enum Functions {
     Sleep(u16, u32),
     Send((Task, u16, Buffer, usize), u32),
     SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    SendLeaseReadWrite((Task, u16, Buffer, usize, usize, usize), u32),
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "i2c")]
     I2cRead(
@@ -525,6 +526,7 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
     crate::common::send,
     crate::common::send_lease_read,
+    crate::common::send_lease_read_write,
     crate::common::send_lease_write,
     #[cfg(feature = "i2c")]
     i2c_read,
