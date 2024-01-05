@@ -1307,6 +1307,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-medusa-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "byteorder",
+ "cfg-if",
+ "cortex-m",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-packrat-vpd-loader",
+ "drv-sidecar-front-io",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-mock-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
