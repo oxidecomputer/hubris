@@ -32,6 +32,8 @@ pub enum Functions {
     Send((Task, u16, Buffer, usize), u32),
     #[cfg(feature = "send")]
     SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    #[cfg(feature = "send-rw")]
+    SendLeaseReadWrite((Task, u16, Buffer, usize, usize, usize), u32),
     #[cfg(feature = "send")]
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "i2c")]
@@ -430,6 +432,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::send,
     #[cfg(feature = "send")]
     crate::common::send_lease_read,
+    #[cfg(feature = "send-rw")]
+    crate::common::send_lease_read_write,
     #[cfg(feature = "send")]
     crate::common::send_lease_write,
     #[cfg(feature = "i2c")]
