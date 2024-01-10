@@ -97,6 +97,9 @@ struct ServerImpl {
     net: task_net_api::Net,
     modules_present: LogicalPortMask,
 
+    /// The Front IO board is not guaranteed to be present and ready
+    check_front_io_status: bool,
+
     /// State around LED management
     led_error: FullErrorSummary,
     leds_initialized: bool,
@@ -599,26 +602,6 @@ fn main() -> ! {
         // before we start doing things with them. A more sophisticated
         // notification system will be put in place.
         let seq = Sequencer::from(SEQ.get_task_id());
-        loop {
-            let ready = seq.front_io_board_ready();
-
-            match ready {
-                Ok(true) => {
-                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
-                    break;
-                }
-                Err(SeqError::NoFrontIOBoard) => {
-                    ringbuf_entry!(Trace::FrontIOSeqErr(
-                        SeqError::NoFrontIOBoard
-                    ));
-                    break;
-                }
-                _ => {
-                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
-                    userlib::hl::sleep_for(100)
-                }
-            }
-        }
 
         let transceivers = Transceivers::new(FRONT_IO.get_task_id());
         let leds = Leds::new(
@@ -635,6 +618,7 @@ fn main() -> ! {
             leds,
             net,
             modules_present: LogicalPortMask(0),
+            check_front_io_status: true,
             led_error: Default::default(),
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
@@ -645,13 +629,6 @@ fn main() -> ! {
             thermal_api,
             sensor_api,
             thermal_models: [None; NUM_PORTS as usize],
-        };
-
-        ringbuf_entry!(Trace::LEDInit);
-
-        match server.transceivers.enable_led_controllers() {
-            Ok(_) => server.led_init(),
-            Err(e) => ringbuf_entry!(Trace::LEDEnableError(e)),
         };
 
         // There are two timers, one for each communication bus:
@@ -689,6 +666,34 @@ fn main() -> ! {
                 match t {
                     Timers::I2C => {
                         server.handle_i2c_loop();
+
+                        // Handle the Front IO status checking as part of this
+                        // loop because the frequency is what we had before and
+                        // the server itself has no knowledge of the sequencer.
+                        if server.check_front_io_status {
+                            let ready = seq.front_io_board_ready();
+            
+                            match ready {
+                                Ok(true) => {
+                                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
+                                    server.check_front_io_status = false;
+                                    ringbuf_entry!(Trace::LEDInit);
+                                    match server.transceivers.enable_led_controllers() {
+                                        Ok(_) => server.led_init(),
+                                        Err(e) => ringbuf_entry!(Trace::LEDEnableError(e)),
+                                    };
+                                }
+                                Err(SeqError::NoFrontIOBoard) => {
+                                    ringbuf_entry!(Trace::FrontIOSeqErr(
+                                        SeqError::NoFrontIOBoard
+                                    ));
+                                    server.check_front_io_status = false;
+                                }
+                                _ => {
+                                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
+                                }
+                            }
+                        }
                     }
                     Timers::SPI => {
                         server.handle_spi_loop();
