@@ -1,4 +1,5 @@
 name = "gimletlet"
+board = "gimletlet-2"
 inherit = "base-gimletlet2.toml"
 
 [kernel]

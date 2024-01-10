@@ -1,4 +1,3 @@
-board = "gimletlet-2"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
