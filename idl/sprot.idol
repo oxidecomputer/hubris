@@ -257,5 +257,27 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "attest": (
+            doc: "Get an attestation",
+            args: {},
+            leases: {
+                "nonce": (type: "[u8]", read: true, max_len: Some(128)),
+                "dest": (type: "[u8]", write: true),
+            },
+             reply: Result(
+                ok: "()",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "attest_len": (
+            doc: "Get length of a serialized attestation",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )

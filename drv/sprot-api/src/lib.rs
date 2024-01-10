@@ -387,6 +387,8 @@ pub enum AttestReq {
     Record { algorithm: HashAlgorithm },
     Log { offset: u32, size: u32 },
     LogLen,
+    Attest { nonce_size: u32, write_size: u32 },
+    AttestLen,
 }
 
 /// A response used for RoT updates
@@ -414,6 +416,8 @@ pub enum AttestRsp {
     Record,
     Log,
     LogLen(u32),
+    Attest,
+    AttestLen(u32),
 }
 
 /// The body of a sprot response.
