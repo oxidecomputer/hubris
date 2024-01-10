@@ -665,8 +665,6 @@ fn main() -> ! {
             for t in multitimer.iter_fired() {
                 match t {
                     Timers::I2C => {
-                        server.handle_i2c_loop();
-
                         // Handle the Front IO status checking as part of this
                         // loop because the frequency is what we had before and
                         // the server itself has no knowledge of the sequencer.
@@ -694,6 +692,8 @@ fn main() -> ! {
                                 }
                             }
                         }
+
+                        server.handle_i2c_loop();
                     }
                     Timers::SPI => {
                         server.handle_spi_loop();
