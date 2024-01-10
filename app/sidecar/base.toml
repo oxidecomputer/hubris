@@ -1024,11 +1024,11 @@ input = {port = "G", pin = 9, af = 5} # SPI_SP_TO_FRONT_IO_MISO
 
 [config.spi.spi1.devices.ecp5_front_io_fpga]
 mux = "port_adg"
-cs = [{port = "G", pin = 10}] # FRONT_IO_CS0
+cs = [{port = "G", pin = 10}] # FRONT_IO_CS_CONFIG_L
 
 [config.spi.spi1.devices.ecp5_front_io_user_design]
 mux = "port_adg"
-cs = [{port = "A", pin = 15}] # FRONT_IO_CS1
+cs = [{port = "A", pin = 15}] # FRONT_IO_CS_USER_L
 
 [config.spi.spi2]
 controller = 2

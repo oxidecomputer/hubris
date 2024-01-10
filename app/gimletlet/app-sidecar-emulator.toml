@@ -1,4 +1,5 @@
 name = "gimletlet-sidecar-emulator"
+board = "gimletlet-2"
 inherit = "base-gimletlet2.toml"
 
 [tasks.jefe.config.allowed-callers]
