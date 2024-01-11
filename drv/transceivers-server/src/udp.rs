@@ -304,15 +304,24 @@ impl ServerImpl {
             HostRequest::Status(modules) => {
                 ringbuf_entry!(Trace::Status(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_status_bytes, result) = self.get_status(mask, out);
+                let (data_len, result) = if self
+                    .front_io_board_present
+                    .unwrap_or_default()
+                {
+                    self.get_status(mask, out)
+                } else {
+                    (
+                        0,
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap(),
+                    )
+                };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (err_len, errored_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    &mut out[num_status_bytes..],
-                );
-                let final_payload_len = num_status_bytes + err_len;
+                let (err_len, errored_modules) =
+                    self.handle_errors(modules, result, &mut out[data_len..]);
+                let final_payload_len = data_len + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Status {
@@ -325,16 +334,24 @@ impl ServerImpl {
             HostRequest::ExtendedStatus(modules) => {
                 ringbuf_entry!(Trace::ExtendedStatus(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_status_bytes, result) =
-                    self.get_extended_status(mask, out);
+                let (data_len, result) = if self
+                    .front_io_board_present
+                    .unwrap_or_default()
+                {
+                    self.get_extended_status(mask, out)
+                } else {
+                    (
+                        0,
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap(),
+                    )
+                };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (err_len, errored_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    &mut out[num_status_bytes..],
-                );
-                let final_payload_len = num_status_bytes + err_len;
+                let (err_len, errored_modules) =
+                    self.handle_errors(modules, result, &mut out[data_len..]);
+                let final_payload_len = data_len + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::ExtendedStatus {
@@ -722,12 +739,17 @@ impl ServerImpl {
             if module <= LogicalPortMask::MAX_PORT_INDEX
                 && result.error().is_set(module)
             {
-                // error: fpga communication issue
-                let err_size = hubpack::serialize(
-                    &mut out[error_idx..],
-                    &HwError::FpgaError,
-                )
-                .unwrap();
+                let err_type = match self.front_io_board_present {
+                    // Front IO is present and ready, so the only other error
+                    // path currently is if we handle an FpgaError.
+                    Some(true) => HwError::FpgaError,
+                    Some(false) => HwError::NoFrontIo,
+                    None => HwError::FrontIoNotReady,
+                };
+
+                let err_size =
+                    hubpack::serialize(&mut out[error_idx..], &err_type)
+                        .unwrap();
                 error_idx += err_size;
             } else if requested_invalid_modules.is_set(module.0).unwrap() {
                 // let the host know it requested unsupported modules

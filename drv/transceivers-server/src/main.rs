@@ -98,7 +98,11 @@ struct ServerImpl {
     modules_present: LogicalPortMask,
 
     /// The Front IO board is not guaranteed to be present and ready
-    check_front_io_status: bool,
+    ///
+    /// None = Front IO is not yet ready
+    /// Some(false) = Front IO is not present
+    /// Some(true) = Front IO is present and ready.
+    front_io_board_present: Option<bool>,
 
     /// State around LED management
     led_error: FullErrorSummary,
@@ -618,7 +622,7 @@ fn main() -> ! {
             leds,
             net,
             modules_present: LogicalPortMask(0),
-            check_front_io_status: true,
+            front_io_board_present: None,
             led_error: Default::default(),
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
@@ -668,37 +672,43 @@ fn main() -> ! {
                         // Handle the Front IO status checking as part of this
                         // loop because the frequency is what we had before and
                         // the server itself has no knowledge of the sequencer.
-                        if server.check_front_io_status {
-                            let ready = seq.front_io_board_ready();
+                        if server.front_io_board_present.is_none() {
+                            server.front_io_board_present =
+                                match seq.front_io_board_ready() {
+                                    Ok(true) => {
+                                        ringbuf_entry!(
+                                            Trace::FrontIOBoardReady(true)
+                                        );
+                                        Some(true)
+                                    }
+                                    Err(SeqError::NoFrontIOBoard) => {
+                                        ringbuf_entry!(Trace::FrontIOSeqErr(
+                                            SeqError::NoFrontIOBoard
+                                        ));
+                                        Some(false)
+                                    }
+                                    _ => {
+                                        ringbuf_entry!(
+                                            Trace::FrontIOBoardReady(false)
+                                        );
+                                        None
+                                    }
+                                };
 
-                            match ready {
-                                Ok(true) => {
-                                    ringbuf_entry!(Trace::FrontIOBoardReady(
-                                        true
-                                    ));
-                                    server.check_front_io_status = false;
-                                    ringbuf_entry!(Trace::LEDInit);
-                                    match server
-                                        .transceivers
-                                        .enable_led_controllers()
-                                    {
-                                        Ok(_) => server.led_init(),
-                                        Err(e) => ringbuf_entry!(
-                                            Trace::LEDEnableError(e)
-                                        ),
-                                    };
-                                }
-                                Err(SeqError::NoFrontIOBoard) => {
-                                    ringbuf_entry!(Trace::FrontIOSeqErr(
-                                        SeqError::NoFrontIOBoard
-                                    ));
-                                    server.check_front_io_status = false;
-                                }
-                                _ => {
-                                    ringbuf_entry!(Trace::FrontIOBoardReady(
-                                        false
-                                    ));
-                                }
+                            // If a board is present, attempt to initialize its
+                            // LED drivers
+                            if server.front_io_board_present.unwrap_or_default()
+                            {
+                                ringbuf_entry!(Trace::LEDInit);
+                                match server
+                                    .transceivers
+                                    .enable_led_controllers()
+                                {
+                                    Ok(_) => server.led_init(),
+                                    Err(e) => {
+                                        ringbuf_entry!(Trace::LEDEnableError(e))
+                                    }
+                                };
                             }
                         }
 
