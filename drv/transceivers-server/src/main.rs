@@ -670,15 +670,22 @@ fn main() -> ! {
                         // the server itself has no knowledge of the sequencer.
                         if server.check_front_io_status {
                             let ready = seq.front_io_board_ready();
-            
+
                             match ready {
                                 Ok(true) => {
-                                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
+                                    ringbuf_entry!(Trace::FrontIOBoardReady(
+                                        true
+                                    ));
                                     server.check_front_io_status = false;
                                     ringbuf_entry!(Trace::LEDInit);
-                                    match server.transceivers.enable_led_controllers() {
+                                    match server
+                                        .transceivers
+                                        .enable_led_controllers()
+                                    {
                                         Ok(_) => server.led_init(),
-                                        Err(e) => ringbuf_entry!(Trace::LEDEnableError(e)),
+                                        Err(e) => ringbuf_entry!(
+                                            Trace::LEDEnableError(e)
+                                        ),
                                     };
                                 }
                                 Err(SeqError::NoFrontIOBoard) => {
@@ -688,7 +695,9 @@ fn main() -> ! {
                                     server.check_front_io_status = false;
                                 }
                                 _ => {
-                                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
+                                    ringbuf_entry!(Trace::FrontIOBoardReady(
+                                        false
+                                    ));
                                 }
                             }
                         }
