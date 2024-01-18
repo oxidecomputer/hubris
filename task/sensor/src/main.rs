@@ -289,43 +289,35 @@ fn main() -> ! {
     //
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    let (
-        last_reading,
-        data_value,
-        data_time,
-        min_value,
-        min_time,
-        max_value,
-        max_time,
-        err_value,
-        err_time,
-        nerrors,
-    ) = mutable_statics::mutable_statics! {
-        static mut LAST_READING: [Option<LastReading>; NUM_SENSORS] = [|| None; _];
-        static mut DATA_VALUE: [f32; NUM_SENSORS] = [|| f32::NAN; _];
-        static mut DATA_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
-        static mut MIN_VALUE: [f32; NUM_SENSORS] = [|| f32::MAX; _];
-        static mut MIN_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
-        static mut MAX_VALUE: [f32; NUM_SENSORS] = [|| f32::MIN; _];
-        static mut MAX_TIME: [u64; NUM_SENSORS] = [|| 0u64; _];
-        static mut ERR_VALUE: [NoData; NUM_SENSORS] = [|| NoData::DeviceUnavailable; _];
-        static mut ERR_TIME: [u64; NUM_SENSORS] = [|| 0; _];
-        static mut NERRORS: [u32; NUM_SENSORS] = [|| 0; _];
-    };
+    macro_rules! declare_server {
+        ($($name:ident: $t:ty = $n:expr;)*) => {{
+            paste::paste! {
+                let ($($name),*) = mutable_statics::mutable_statics! {
+                    $(
+                    static mut [<$name:upper>]: [$t; NUM_SENSORS] = [|| $n; _];
+                    )*
+                };
+                let ($($name),*) = ($(SensorArray($name)),*);
+                ServerImpl {
+                    deadline,
+                    $($name),*
+                }
+            }}
+        };
+    }
 
-    let mut server = ServerImpl {
-        last_reading: SensorArray(last_reading),
-        data_value: SensorArray(data_value),
-        data_time: SensorArray(data_time),
-        min_value: SensorArray(min_value),
-        min_time: SensorArray(min_time),
-        max_value: SensorArray(max_value),
-        max_time: SensorArray(max_time),
-        err_value: SensorArray(err_value),
-        err_time: SensorArray(err_time),
-        nerrors: SensorArray(nerrors),
-        deadline,
-    };
+    let mut server = declare_server!(
+        last_reading: Option<LastReading> = None;
+        data_value: f32 = f32::NAN;
+        data_time: u64 = 0u64;
+        min_value: f32 = f32::MAX;
+        min_time: u64 = 0u64;
+        max_value: f32 = f32::MIN;
+        max_time: u64 = 0u64;
+        err_value: NoData = NoData::DeviceUnavailable;
+        err_time: u64 = 0;
+        nerrors: u32 = 0;
+    );
 
     let mut buffer = [0; idl::INCOMING_SIZE];
 

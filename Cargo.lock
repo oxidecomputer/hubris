@@ -4488,6 +4488,7 @@ dependencies = [
  "idol-runtime",
  "mutable-statics",
  "num-traits",
+ "paste",
  "ringbuf",
  "serde",
  "task-sensor-api",
