@@ -71,6 +71,34 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "get_min": (
+            description: "returns the minimum value recorded and its timestamp",
+            args: {
+                "id": (
+                    type: "SensorId",
+                )
+            },
+            reply: Result(
+                ok: "(f32, u64)",
+                err: CLike("SensorApiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "get_max": (
+            description: "returns the maximum value recorded and its timestamp",
+            args: {
+                "id": (
+                    type: "SensorId",
+                )
+            },
+            reply: Result(
+                ok: "(f32, u64)",
+                err: CLike("SensorApiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
         "post": (
             args: {
                 "id": (
