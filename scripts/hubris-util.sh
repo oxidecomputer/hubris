@@ -22,7 +22,7 @@ IMAGE_STAGE0NEXT_END=$(( 0x00010000 ))
 IMAGE_STAGE0NEXT_LEN=$(( IMAGE_STAGE0NEXT_END - IMAGE_STAGE0NEXT_BASE ))
 
 power_state() {
-    "${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+    ${FAUX_MGS_DEV} --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V2.power_state"
 }
 
@@ -73,7 +73,7 @@ rot_bankerase() {
     # Note that the bankerase command doesn't care about the active bank or
     # the image contents but humility needs an archive.
     # We provide the A image from the Hubris master branch.
-    "${HUMILITY}" -p "${ROT_PROBE}" -a "${MASTER_ROT_A_ZIP}" bankerase --address $BASE --len $LEN
+    ${PFEXEC} "${HUMILITY}" -p "${ROT_PROBE}" -a "${MASTER_ROT_A_ZIP}" bankerase --address $BASE --len $LEN
 }
 
 
@@ -109,15 +109,17 @@ check_signatures() {
     PASS=()
     for zip
     do
-        bin="${BIN_DIR}/$(basename "$zip" .zip).bin"
-        if unzip -l "${zip}" bootleby.bin
+        unset bin
+        if zextract --check "${zip}" bootleby.bin
         then
-            unzip -p "${zip}" bootleby.bin > "${bin}"
+            zextract --dir "${BIN_DIR}" "${zip}" bootleby.bin
+            bin=${BIN_DIR}/bootleby.bin
         else
-            unzip -p "${zip}" img/final.bin > "${bin}"
+            zextract --dir "${BIN_DIR}" "${zip}" img/final.bin
+            bin=${BIN_DIR}/img/final.bin
         fi
-        M="$(realpath cmpa.bin)"
-        F="$(realpath cfpa.bin)"
+        M="$(readlink -f cmpa.bin)"
+        F="$(readlink -f cfpa.bin)"
         if lpc55_sign verify-signed-image "${M}" "${F}" "${bin}"
         then
             PASS+=( "${zip}" )
@@ -147,13 +149,13 @@ get_apis_supported() {
             ;; # SP and RoT support rot-boot-info
         Err)
             case "$(echo "$J" | jq -r -c ".Err")" in
-                "Error response from SP: bad request"*) # SP doesn't know the new command
-                    SP_RBI_SUPPORT=false
-                    ROT_RBI_SUPPORT=false # Actually unknown
-                    ;;
-                "Error response from SP: sprot: failed to deserialize"*) # RoT doesn't know the new command
-                    SP_RBI_SUPPORT=true
-                    ROT_RBI_SUPPORT=false
+            "Error response from SP: bad request"*) # SP doesn't know the new command
+                SP_RBI_SUPPORT=false
+                ROT_RBI_SUPPORT=false # Actually unknown
+                ;;
+            "Error response from SP: sprot: failed to deserialize"*) # RoT doesn't know the new command
+                SP_RBI_SUPPORT=true
+                ROT_RBI_SUPPORT=false
                 ;;
             esac
             ;; # SP supports it but RoT does not
@@ -412,13 +414,12 @@ reset_rot_and_poll_ready() {
 }
 
 fwid_from_zip() {
-	[[ -x "${ROT_FWID}" ]] || fatal 'No rot-fwid executable'
     "${ROT_FWID}" -d sha3-256 "${1:?Missing file}" | cut -d' ' -f3
 }
 
 image_gitc() {
     image="${1:?Missing zip file}"
-    gitc="$(hubedit  --archive "${image}" read-caboose | sed -n -e '/GITC/{N;s/\n//;}' -e 's=[,"(\[]==g' -e '/^.*GITC */s===p' -)"
+    gitc="$(hubedit  --archive "${image}" read-caboose | sed -n -e '/GITC/{N;s/\n//;}' -e 's=[,"(\[]==g' -e '/^.*GITC */s===p')"
     echo "${gitc}"
 }
 
@@ -484,7 +485,7 @@ update_rot_hubris() {
 
 
 fm() {
-    "${FAUX_MGS}" --log-level=CRITICAL --json pretty "$@"
+    ${FAUX_MGS_DEV} --log-level=CRITICAL --json pretty "$@"
 }
 
 # Set ACTIVE, US0_ROT_ZIP and ROT_UPDATE_BANK to reflect the US0 image to
@@ -539,13 +540,13 @@ is_rot_boot_info_supported_by_rot() {
 # False positives and negatives are not likely, but not impossible.
 sp_v2_archive_id() {
     # shellcheck disable=SC2046
-    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+    printf "%02x" $(${FAUX_MGS_DEV} --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V2.hubris_archive_id[]" )
 }
 
 sp_v3_archive_id() {
     # shellcheck disable=SC2046
-    printf "%02x" $("${FAUX_MGS}" --log-level=CRITICAL --json pretty state |
+    printf "%02x" $(${FAUX_MGS_DEV} --log-level=CRITICAL --json pretty state |
         jq -c -r ".${INTERFACE}.Ok.V3.hubris_archive_id[]" )
 }
 
@@ -556,7 +557,7 @@ update_sp() {
     shift
     [[ -r "${OLD_IMAGE}" ]] || "fatal Cannot read ${OLD_IMAGE}"
     [[ -r "${NEW_IMAGE}" ]] || "fatal Cannot read ${NEW_IMAGE}"
-    action "${FAUX_MGS} --log-level=DEBUG update sp 0 ${NEW_IMAGE}"
+    action "${FAUX_MGS_DEV} --log-level=DEBUG update sp 0 ${NEW_IMAGE}"
     if fm update sp 0 "${NEW_IMAGE}"
     then
         fact faux-mgs success
@@ -661,6 +662,6 @@ poll_rot_ready() {
         then
             break
         fi
-        (( ( limit -= 1 ) < 0 )) && fatal Timeout
+        (( ( limit -= 1 ) < 0 )) && fatal "Timeout: $(fm state | jq -c .)"
     done
 }

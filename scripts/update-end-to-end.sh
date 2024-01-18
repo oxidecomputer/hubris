@@ -1,11 +1,44 @@
 #!/bin/bash
 
+
+# An end-to-end test script to prove that we can:
+#   - start with RoT and SP on Hubris master branch images,
+#   - update Hubris on both to new branch,
+#   - update bootleby
+#   - rollback bootleby
+#   - rollback hubris to master branch.
+#
+# Humility is used to reset to initial conditions and to verify successful
+# update.
+# Otherwise, faux-mgs is used for everything else to mimic the control plane.
+#
+# Note: Build all of the needed products in the master branch and branch under
+# test before running this script. Testing on Emeryville test units requires
+# signing images with Staging Development keys.
+
+# Note that most of the functions in this script are executed in the primary
+# shell and as such affect global state. This is a cheap and sloppy way
+# to return values used later.
+#
+# These scripts should be considered as requirements documents for an
+# automated end-to-end test written in rust that we will use to qualify
+# any Hubris or # Bootleby build for production release.
+#
+# TODO: Rewrite this script as a rust program.
+
 set -e
 set -u
+export RUST_BACKTRACE=1
 
-_PROG=$(basename "$0")
-PROG_DIR="$(dirname "$(realpath "$0")")"
+PROG=$(basename "$0")
+PROG_DIR="$(dirname "$(readlink -f "$0")")"
 PATH="${PROG_DIR}:${PATH}"
+if which toilet 2>/dev/null
+then
+	HAS_TOILET=true
+else
+	HAS_TOILET=false
+fi
 
 usage() {
   ec="${1:?Missing exit code}"
@@ -21,7 +54,7 @@ usage() {
   echo "$PROG [-p pseudo-tty-path] [-h]"
   echo "  -p pts # Send flashy section text to pts"
   echo '  -h # this message'
-  exit $ec
+  exit "${ec}"
 }
 
 PTS=""
@@ -37,6 +70,10 @@ shift $((OPTIND-1))
 source hubris-util.sh
 # set +e
 
+case $(uname -s) in
+  SunOS) PFEXEC="pfexec";;
+  *) PFEXEC="";;
+esac
 
 if [[ -n "${PTS}" ]]
 then
@@ -49,9 +86,19 @@ pts() {
   if [[ "${1:-}" = color ]]
   then
       shift
-      cmd="toilet -F gay --width ${WIDTH} --font small $*"
+      if $HAS_TOILET
+      then
+	      cmd="toilet -F gay --width ${WIDTH} --font small $*"
+      else
+	      cmd=": $*"
+      fi
     else
-      cmd="toilet --width ${WIDTH} --font mini $*"
+      if $HAS_TOILET
+      then
+        cmd="toilet --width ${WIDTH} --font mini $*"
+      else
+        cmd=": $*"
+      fi
   fi
   if [[ -n "${PTS}" ]]
   then
@@ -62,90 +109,13 @@ pts() {
   $cmd
 }
 
-# Prove that there is a faux-mgs method from going from master branch to
-# update-stage0 branch and then be able to update stage0.
-#
-# humility is used to reset to initial conditions and to verify successful
-# update.
-# Otherwise, use faux-mgs to mimic the control plane.
-#
-# Note: Build all of the needed products in the mainline and branch under test
-# before running this script.
-
-# A file containing the same variable settings as ${DEFAULT_CONFIG} can be
-# passed as the first argument to this scripe.
-
-# Note that most of the functions in this script are executed in the primary
-# shell and as such affect global state. This is a cheap and sloppy way
-# to return values used later.
-#
-# Shell scripts are requirements documents, not products.
-#
-# TODO: Rewrite this script.
-
-# shellcheck disable=SC2016
-DEFAULT_CONFIG='
-[[ $(uname -n) == "voidstar" ]] ||
-  fatal "Default configuration is not appropriate for this host ($(uname -n))."
-INTERFACE="enp65s0f0"
-SP_PROBE="usb-1"
-ROT_PROBE="usb-0"
-MASTER_TARGET="${HOME}/Oxide/src/hubris/master/target"
-US0_TARGET="${HOME}/Oxide/src/hubris/update-stage0-v2/target"
-FAUX_MGS="${HOME}/bin/faux-mgs-dev"
-HUMILITY="${HOME}/bin/humility"
-ROT_FWID="${HOME}/.cargo/bin/rot-fwid"
-
-# Initial images to be flashed to the SP and RoT.
-MASTER_SP_ZIP="${MASTER_TARGET}/gimletlet/dist/default/build-gimletlet-image-default.zip"
-MASTER_ROT_A_ZIP="${MASTER_TARGET}/rot-carrier/dist/a/build-rot-carrier-image-a.zip"
-MASTER_ROT_B_ZIP="${MASTER_TARGET}/rot-carrier/dist/b/build-rot-carrier-image-b.zip"
-
-# Images for "update-stage0"
-US0_SP_ZIP="${US0_TARGET}/gimletlet/dist/default/build-gimletlet-image-default.zip"
-US0_ROT_A_ZIP="${US0_TARGET}/rot-carrier/dist/a/build-rot-carrier-image-a.zip"
-US0_ROT_B_ZIP="${US0_TARGET}/rot-carrier/dist/b/build-rot-carrier-image-b.zip"
-
-BOOTLEBY_LATEST_ZIP="${HOME}/Oxide/src/embootleby/bundles/rot-carrier-bart-unlocked.zip"
-BOOTLEBY_NEXT_ZIP="${HOME}/Oxide/src/bootleby/board/bootleby-rot-carrier.zip"
-
-BOOTLEBY_OLD1_ZIP="${HOME}/Oxide/src/embootleby/restore/master/bundles/rot-carrier-bart-unlocked.zip"
-BOOTLEBY_OLD2_ZIP="${HOME}/Oxide/src/embootleby/restore/2023-06-02_4ca595d/bundles/rot-carrier-bart-unlocked.zip"
-
-BROKEN_STAGE0=()
-BROKEN_STAGE0+=( "${BOOTLEBY_OLD1_ZIP}" )
-BROKEN_STAGE0+=( "${BOOTLEBY_OLD2_ZIP}" )
-
-WORKING_STAGE0=()
-WORKING_STAGE0+=( "${BOOTLEBY_LATEST_ZIP}" )
-WORKING_STAGE0+=( "${BOOTLEBY_NEXT_ZIP}" )
-
-ALL_ROT_IMAGES=()
-ALL_ROT_IMAGES+=( "${MASTER_ROT_A_ZIP}" )
-ALL_ROT_IMAGES+=( "${MASTER_ROT_B_ZIP}" )
-ALL_ROT_IMAGES+=( "${US0_ROT_A_ZIP}" )
-ALL_ROT_IMAGES+=( "${US0_ROT_B_ZIP}" )
-ALL_ROT_IMAGES+=( "${BOOTLEBY_LATEST_ZIP}" )
-ALL_ROT_IMAGES+=( "${BOOTLEBY_NEXT_ZIP}" )
-ALL_ROT_IMAGES+=( "${BOOTLEBY_OLD1_ZIP}" )
-ALL_ROT_IMAGES+=( "${BOOTLEBY_OLD2_ZIP}" )
-
-ALL_IMAGES=()
-ALL_IMAGES+=( "${ALL_ROT_IMAGES[@]}" )
-ALL_IMAGES+=( "${MASTER_SP_ZIP}" )
-ALL_IMAGES+=( "${US0_SP_ZIP}" )
-'
-
-CONFIG="${1:-$DEFAULT_CONFIG}"
-
-if [[ -r "${CONFIG}" ]]
+CONFIG="${1:-config-$(uname -n).sh}"
+if [[ ! -r "${CONFIG}" ]]
 then
-    #shellcheck disable=SC1090
-    source "${CONFIG}"
-else
-    eval "${CONFIG}"
+  fatal "Cannot read ${CONFIG}. Specify alternate config file as first argument."
 fi
-set | grep "_ZIP=${HOME}"
+
+source "${CONFIG}"
 
 check_dependencies() {
     # shellcheck disable=SC2153
@@ -157,6 +127,8 @@ check_dependencies() {
     DEPEND+=( jq )
     DEPEND+=( unzip )
     DEPEND+=( stat )
+    DEPEND+=( hubedit )
+    DEPEND+=( zextract )
     missing=( )
 
     for prog in "${DEPEND[@]}"
@@ -189,9 +161,10 @@ do
 done
 
 # We don't want to update the SP or RoT when a system is powered up
-if [[ "$(power_state)" != "A2" ]]
+POWER_STATE="$(power_state)"
+if [[ "${POWER_STATE}" != "A2" ]]
 then
-    fatal "Device must be in power_state A2"
+    fatal "Device must be in power_state A2, not '${POWER_STATE}'"
 fi
 
 # No inadvertent humility parameters through env
@@ -214,17 +187,20 @@ initialize_test() {
     pts "Init SP & RoT using Humility"
     action "Flash SP with master branch image"
     action "${HUMILITY} --archive ${MASTER_SP_ZIP} -p ${SP_PROBE} flash"
-    ${HUMILITY} --archive "${MASTER_SP_ZIP}" -p "${SP_PROBE}" flash 2>&1 |
+    # shellcheck disable=SC2086
+    ${PFEXEC} ${HUMILITY} --archive "${MASTER_SP_ZIP}" -p "${SP_PROBE}" flash 2>&1 |
         grep -q 'already flashed' && echo Already Flashed SP
 
-    ${HUMILITY} -p "${SP_PROBE}" reset
+    # shellcheck disable=SC2086
+    ${PFEXEC} ${HUMILITY} -p "${SP_PROBE}" reset
     sleep 3
 
     # action "Erase RoT flash bank A"
     # rot_bankerase a all
     action "Flash RoT A with master branch image using Humility"
     action "${HUMILITY} --archive ${MASTER_ROT_A_ZIP} -p ${ROT_PROBE} flash"
-    ${HUMILITY} --archive "${MASTER_ROT_A_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
+    # shellcheck disable=SC2086
+    ${PFEXEC} ${HUMILITY} --archive "${MASTER_ROT_A_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
         grep -q 'already flashed' && echo Already Flashed ROT A
     sleep 3 # XXX get rid of the timeout
 
@@ -232,14 +208,16 @@ initialize_test() {
     # rot_bankerase b all
     action "Flash RoT B with master branch image using Humility"
     action "${HUMILITY} --archive ${MASTER_ROT_B_ZIP} -p ${ROT_PROBE} flash"
-    ${HUMILITY} --archive "${MASTER_ROT_B_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
+    # shellcheck disable=SC2086
+    ${PFEXEC} ${HUMILITY} --archive "${MASTER_ROT_B_ZIP}" -p "${ROT_PROBE}" flash 2>&1 |
        grep -q 'already flashed' && echo Already Flashed ROT B
 
     # action "Erase Stage0Next"
     # rot_bankerase stage0next all
 
     action "Reset RoT to ensure that one of the master branch images is active"
-    ${HUMILITY} -p "${ROT_PROBE}" reset
+    # shellcheck disable=SC2086
+    ${PFEXEC} ${HUMILITY} -p "${ROT_PROBE}" reset
     poll_rot_ready
 
     action "Use faux-mgs to update the RoT alternate image to Hubris master"

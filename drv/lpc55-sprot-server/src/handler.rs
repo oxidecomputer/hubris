@@ -114,6 +114,10 @@ impl<'a> Handler {
         stats: &mut RotIoStats,
     ) -> usize {
         stats.rx_received = stats.rx_received.wrapping_add(1);
+        ringbuf_entry!(Trace::Msg(
+            rx_buf[0], rx_buf[1], rx_buf[2], rx_buf[3], rx_buf[4], rx_buf[5],
+            rx_buf[6], rx_buf[7],
+        ));
         let (rsp_body, trailer) = match Request::unpack(rx_buf) {
             Ok(request) => match self.handle_request(request, stats) {
                 Ok((v, t)) => (Ok(v), t),
@@ -252,6 +256,7 @@ impl<'a> Handler {
     ) -> Result<(RspBody, Option<TrailingData<'a>>), SprotError> {
         match req.body {
             ReqBody::Status => {
+                ringbuf_entry!(Trace::Line);
                 let status = RotStatus {
                     version: CURRENT_VERSION,
                     min_version: MIN_VERSION,
@@ -263,6 +268,7 @@ impl<'a> Handler {
             ReqBody::IoStats => Ok((RspBody::IoStats(*stats), None)),
             ReqBody::RotState => match self.update.status() {
                 Ok(state) => {
+                    ringbuf_entry!(Trace::Line);
                     let msg = RotState::V1 {
                         bootrom_crc32: self.startup_state.bootrom_crc32,
                         state,
@@ -270,6 +276,7 @@ impl<'a> Handler {
                     Ok((RspBody::RotState(msg), None))
                 }
                 Err(_e) => {
+                    ringbuf_entry!(Trace::Line);
                     stats.rx_invalid = stats.rx_invalid.wrapping_add(1);
                     Err(SprotProtocolError::BadUpdateStatus)?
                 }
@@ -291,6 +298,7 @@ impl<'a> Handler {
                 Ok((RspBody::Dump(DumpRsp::V1 { err }), None))
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
+                ringbuf_entry!(Trace::Line);
                 let size = self.update.block_size()?;
                 // Block size will always fit in a u32 on these MCUs
                 Ok((
@@ -301,18 +309,22 @@ impl<'a> Handler {
                 ))
             }
             ReqBody::Update(UpdateReq::Prep(target)) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.prep_image_update(target)?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::WriteBlock { block_num }) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.write_one_block(block_num as usize, req.blob)?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::Abort) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.abort_update()?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::Finish) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.finish_image_update()?;
                 Ok((RspBody::Ok, None))
             }
@@ -320,15 +332,18 @@ impl<'a> Handler {
                 slot,
                 duration,
             }) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.switch_default_image(slot, duration)?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Update(UpdateReq::Reset) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.reset()?;
                 Ok((RspBody::Ok, None))
             }
             ReqBody::Caboose(c) => match c {
                 CabooseReq::Size { slot } => {
+                    ringbuf_entry!(Trace::Line);
                     let rsp = match self.update.caboose_size(slot) {
                         Ok(v) => Ok(CabooseRsp::Size(v)),
                         Err(e) => Err(e),
@@ -336,6 +351,7 @@ impl<'a> Handler {
                     Ok((RspBody::Caboose(rsp), None))
                 }
                 CabooseReq::Read { slot, start, size } => {
+                    ringbuf_entry!(Trace::Line);
                     // In this case, we're going to be sending back a variable
                     // amount of data in the trailing section of the packet.  We
                     // don't know exactly where that data will be placed, so
@@ -346,6 +362,7 @@ impl<'a> Handler {
                     ))
                 }
                 CabooseReq::ComponentSize { component, slot } => {
+                    ringbuf_entry!(Trace::Line);
                     let rsp = match self
                         .update
                         .component_caboose_size(component, slot)
@@ -361,6 +378,7 @@ impl<'a> Handler {
                     start,
                     size,
                 } => {
+                    ringbuf_entry!(Trace::Line);
                     // In this case, we're going to be sending back a variable
                     // amount of data in the trailing section of the packet.  We
                     // don't know exactly where that data will be placed, so
@@ -377,6 +395,7 @@ impl<'a> Handler {
                 }
             },
             ReqBody::Update(UpdateReq::BootInfo) => {
+                ringbuf_entry!(Trace::Line);
                 let boot_info = self.update.rot_boot_info()?;
                 Ok((RspBody::Update(boot_info.into()), None))
             }
@@ -399,6 +418,7 @@ impl<'a> Handler {
                 ))
             }
             ReqBody::Attest(AttestReq::CertChainLen) => {
+                ringbuf_entry!(Trace::Line);
                 let rsp = match self.attest.cert_chain_len() {
                     Ok(v) => Ok(AttestRsp::CertChainLen(v)),
                     Err(e) => Err(e),
@@ -406,6 +426,7 @@ impl<'a> Handler {
                 Ok((RspBody::Attest(rsp), None))
             }
             ReqBody::Attest(AttestReq::CertLen(i)) => {
+                ringbuf_entry!(Trace::Line);
                 let rsp = match self.attest.cert_len(i) {
                     Ok(v) => Ok(AttestRsp::CertLen(v)),
                     Err(e) => Err(e),
@@ -413,6 +434,7 @@ impl<'a> Handler {
                 Ok((RspBody::Attest(rsp), None))
             }
             ReqBody::Attest(AttestReq::Record { algorithm }) => {
+                ringbuf_entry!(Trace::Line);
                 let rsp = match self.attest.record(algorithm, req.blob) {
                     Ok(()) => Ok(AttestRsp::Record),
                     Err(e) => Err(e),
@@ -420,6 +442,7 @@ impl<'a> Handler {
                 Ok((RspBody::Attest(rsp), None))
             }
             ReqBody::RotPage { page } => {
+                ringbuf_entry!(Trace::Line);
                 // This command returns a variable amount of data that belongs
                 // in the trailing data region of the response. We return a
                 // marker struct with the data necessary retrieve this data so
@@ -434,6 +457,7 @@ impl<'a> Handler {
                 Some(TrailingData::AttestLog { offset, size }),
             )),
             ReqBody::Attest(AttestReq::LogLen) => {
+                ringbuf_entry!(Trace::Line);
                 let rsp = match self.attest.log_len() {
                     Ok(l) => Ok(AttestRsp::LogLen(l)),
                     Err(e) => Err(e),
@@ -458,11 +482,13 @@ impl<'a> Handler {
                 Ok((RspBody::Attest(rsp), None))
             }
             ReqBody::Update(UpdateReq::VersionedBootInfo { version }) => {
+                ringbuf_entry!(Trace::Line);
                 let versioned_boot_info =
                     self.update.versioned_rot_boot_info(version)?;
                 Ok((RspBody::Update(versioned_boot_info.into()), None))
             }
             ReqBody::Update(UpdateReq::ComponentPrep { component, slot }) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.component_prep_image_update(component, slot)?;
                 Ok((RspBody::Ok, None))
             }
@@ -471,6 +497,7 @@ impl<'a> Handler {
                 slot,
                 duration,
             }) => {
+                ringbuf_entry!(Trace::Line);
                 self.update.component_switch_default_image(
                     component, slot, duration,
                 )?;

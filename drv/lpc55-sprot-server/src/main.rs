@@ -76,6 +76,8 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
     Desynchronized,
+    Msg(u8, u8, u8, u8, u8, u8, u8, u8),
+    Line,
 }
 ringbuf!(Trace, 32, Trace::None);
 

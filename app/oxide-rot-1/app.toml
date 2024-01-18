@@ -40,8 +40,8 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 26720, ram = 16384, usbsram = 4096}
-stacksize = 2560
+max-sizes = {flash = 32768, ram = 32769, usbsram = 4096}
+stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
