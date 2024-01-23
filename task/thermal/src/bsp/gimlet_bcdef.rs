@@ -31,7 +31,11 @@ const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
         + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
-#[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+#[cfg(any(
+    target_board = "gimlet-d",
+    target_board = "gimlet-e",
+    target_board = "gimlet-f"
+))]
 const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
@@ -262,7 +266,11 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_a,
             sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
         ),
-        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+        #[cfg(any(
+            target_board = "gimlet-d",
+            target_board = "gimlet-e",
+            target_board = "gimlet-f"
+        ))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_a,
@@ -279,7 +287,11 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_b,
             sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
         ),
-        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+        #[cfg(any(
+            target_board = "gimlet-d",
+            target_board = "gimlet-e",
+            target_board = "gimlet-f"
+        ))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_b,

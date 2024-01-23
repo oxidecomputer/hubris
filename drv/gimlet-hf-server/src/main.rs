@@ -16,8 +16,9 @@
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
+        target_board = "gimlet-f",
     ),
-    path = "bsp/gimlet_bcde.rs"
+    path = "bsp/gimlet_bcdef.rs"
 )]
 #[cfg_attr(target_board = "gemini-bu-1", path = "bsp/gemini_bu_1.rs")]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]

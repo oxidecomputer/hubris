@@ -1,0 +1,7 @@
+name = "gimlet-f"
+board = "gimlet-f"
+
+# Rev F is identical to rev E from a software perspective. Ideally they would
+# be combined into the same image, but the resulting change in board name is not
+# supported by current update methods.
+inherit = "rev-e.toml"
