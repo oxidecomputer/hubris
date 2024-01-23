@@ -11,8 +11,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Ensure the "gimlet" feature is enabled on gimlet boards.
     #[cfg(not(feature = "gimlet"))]
-    if let Some("gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e") =
-        build_util::target_board().as_deref()
+    if let Some(
+        "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f",
+    ) = build_util::target_board().as_deref()
     {
         panic!(concat!(
             "packrat's `gimlet` feature should be enabled when ",

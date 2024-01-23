@@ -18,8 +18,9 @@
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
+        target_board = "gimlet-f",
     ),
-    path = "bsp/gimlet_bcde.rs"
+    path = "bsp/gimlet_bcdef.rs"
 )]
 #[cfg_attr(
     any(target_board = "sidecar-b", target_board = "sidecar-c"),

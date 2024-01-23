@@ -110,7 +110,7 @@ jobs:
     name: build-gimlet
     strategy:
       matrix:
-        build: [gimlet-b, gimlet-b-lab, gimlet-b-dev, gimlet-c, gimlet-c-lab, gimlet-c-dev, gimlet-d, gimlet-d-lab, gimlet-d-dev, gimlet-e, gimlet-e-lab, gimlet-e-dev]
+        build: [gimlet-b, gimlet-b-lab, gimlet-b-dev, gimlet-c, gimlet-c-lab, gimlet-c-dev, gimlet-d, gimlet-d-lab, gimlet-d-dev, gimlet-e, gimlet-e-lab, gimlet-e-dev, gimlet-f, gimlet-f-lab, gimlet-f-dev]
         include:
           - build: gimlet-b
             app_name: gimlet-b
@@ -158,6 +158,18 @@ jobs:
             image: default
           - build: gimlet-e-dev
             app_name: gimlet-e-dev
+            app_toml: app/gimlet/rev-e-dev.toml
+            image: default
+          - build: gimlet-f
+            app_name: gimlet-f
+            app_toml: app/gimlet/rev-e.toml
+            image: default
+          - build: gimlet-f-lab
+            app_name: gimlet-f-lab
+            app_toml: app/gimlet/rev-e-lab.toml
+            image: default
+          - build: gimlet-f-dev
+            app_name: gimlet-f-dev
             app_toml: app/gimlet/rev-e-dev.toml
             image: default
     uses: ./.github/workflows/build-one.yml

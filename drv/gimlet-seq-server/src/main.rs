@@ -38,8 +38,9 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
+        target_board = "gimlet-f",
     ),
-    path = "payload_cde.rs"
+    path = "payload_cdef.rs"
 )]
 mod payload;
 
@@ -434,6 +435,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             target_board = "gimlet-c",
             target_board = "gimlet-d",
             target_board = "gimlet-e",
+            target_board = "gimlet-f",
         ))] {
             //
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:
@@ -1070,6 +1072,7 @@ cfg_if::cfg_if! {
         target_board = "gimlet-c",
         target_board = "gimlet-d",
         target_board = "gimlet-e",
+        target_board = "gimlet-f",
     ))] {
         const A0_TIMEOUT_MILLIS: u64 = 2000;
 

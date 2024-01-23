@@ -120,6 +120,8 @@ fn system_init() {
             let expected_rev = 0b011;
         } else if #[cfg(target_board = "gimlet-e")] {
             let expected_rev = 0b111; // hardware-gimlet#1952
+        } else if #[cfg(target_board = "gimlet-f")] {
+            let expected_rev = 0b101;
         } else {
             compile_error!("not a recognized gimlet board")
         }
