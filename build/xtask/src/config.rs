@@ -461,15 +461,24 @@ impl Config {
     }
 
     /// Suggests an appropriate size for the given task (or "kernel"), given
-    /// its true size.  The size depends on MMU implementation, dispatched
-    /// based on the `target` in the config file.
-    pub fn suggest_memory_region_size(&self, name: &str, size: u64) -> u64 {
+    /// its true size and a number of available regions.  The size depends on
+    /// MMU implementation, dispatched based on the `target` in the config file.
+    ///
+    /// The returned `Vec<u64>` always has the largest value first.
+    pub fn suggest_memory_region_size(
+        &self,
+        name: &str,
+        size: u64,
+        regions: usize,
+    ) -> Vec<u64> {
         match name {
             "kernel" => {
                 // Nearest chunk of 16
-                ((size + 15) / 16) * 16
+                vec![((size + 15) / 16) * 16]
             }
-            _ => self.mpu_alignment().suggest_memory_region_size(size),
+            _ => self
+                .mpu_alignment()
+                .suggest_memory_region_size(size, regions),
         }
     }
 
@@ -525,10 +534,47 @@ enum MpuAlignment {
 
 impl MpuAlignment {
     /// Suggests a minimal memory region size fitting the given number of bytes
-    fn suggest_memory_region_size(&self, size: u64) -> u64 {
+    ///
+    /// If multiple regions are available, then we may use them for efficiency.
+    /// The resulting `Vec` is guaranteed to have the largest value first.
+    fn suggest_memory_region_size(
+        &self,
+        mut size: u64,
+        regions: usize,
+    ) -> Vec<u64> {
         match self {
-            MpuAlignment::PowerOfTwo => size.next_power_of_two(),
-            MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
+            MpuAlignment::PowerOfTwo => {
+                const MIN_MPU_REGION_SIZE: u64 = 32;
+                let mut out = vec![];
+                for _ in 0..regions {
+                    let s =
+                        (size.next_power_of_two() / 2).max(MIN_MPU_REGION_SIZE);
+                    out.push(s);
+                    size = size.saturating_sub(s);
+                    if size == 0 {
+                        break;
+                    }
+                }
+                if size > 0 {
+                    if let Some(s) = out.last_mut() {
+                        *s *= 2;
+                    } else {
+                        out.push(size.next_power_of_two());
+                    }
+                }
+                // Merge duplicate regions at the end
+                while out.len() >= 2 {
+                    let n = out.len();
+                    if out[n - 1] == out[n - 2] {
+                        out.pop();
+                        *out.last_mut().unwrap() *= 2;
+                    } else {
+                        break;
+                    }
+                }
+                out
+            }
+            MpuAlignment::Chunk(c) => vec![((size + c - 1) / c) * c],
         }
     }
     /// Returns the desired alignment for a region of a particular size

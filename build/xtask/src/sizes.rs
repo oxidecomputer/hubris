@@ -8,7 +8,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use colored::*;
 use goblin::Object;
 use indexmap::map::Entry;
@@ -78,7 +78,10 @@ pub fn run(
         }
         let size = toml.kernel.requires[&mem.to_string()];
 
-        let suggestion = toml.suggest_memory_region_size("kernel", used);
+        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
+        assert_eq!(suggestion.len(), 1);
+        let suggestion = suggestion[0];
+
         if suggestion >= size as u64 {
             continue;
         }
@@ -139,7 +142,14 @@ fn build_memory_map<'a>(
             (
                 name.as_str(),
                 task.max_sizes.clone(),
-                allocs.tasks[name].clone(),
+                allocs.tasks[name]
+                    .iter()
+                    .map(|(name, rs)| {
+                        let start = rs.first().unwrap().start;
+                        let end = rs.last().unwrap().end;
+                        (name.clone(), start..end)
+                    })
+                    .collect(),
             )
         })
         .chain(std::iter::once((
@@ -371,25 +381,25 @@ pub fn load_task_size<'a>(
             let r = memory_sizes.entry(region).or_insert_with(|| start..end);
             r.start = r.start.min(start);
             r.end = r.end.max(end);
-            true
+            Ok(())
         } else {
-            false
+            bail!("could not find region at {start}");
         }
     };
     for phdr in &elf.program_headers {
         if phdr.p_type != goblin::elf::program_header::PT_LOAD {
             continue;
         }
-        record_size(phdr.p_vaddr, phdr.p_memsz);
+        record_size(phdr.p_vaddr, phdr.p_memsz)?;
 
         // If the VirtAddr disagrees with the PhysAddr, then this is a
         // section which is relocated into RAM, so we also accumulate
         // its FileSiz in the physical address (which is presumably
         // flash).
-        if phdr.p_vaddr != phdr.p_paddr
-            && !record_size(phdr.p_paddr, phdr.p_filesz)
-        {
-            bail!("Failed to remap relocated section at {}", phdr.p_paddr);
+        if phdr.p_vaddr != phdr.p_paddr {
+            record_size(phdr.p_paddr, phdr.p_filesz).with_context(|| {
+                format!("Failed to remap relocated section at {}", phdr.p_paddr)
+            })?;
         }
     }
 

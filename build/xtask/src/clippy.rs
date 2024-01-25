@@ -5,7 +5,6 @@
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
-use indexmap::IndexMap;
 
 use crate::config::Config;
 
@@ -49,8 +48,10 @@ pub fn run(
 
         let build_config = if name == "kernel" {
             // Build dummy allocations for each task
-            let fake_sizes: IndexMap<_, _> =
-                [("flash", 64), ("ram", 64)].into_iter().collect();
+            let fake_sizes = crate::dist::TaskRequest {
+                memory: [("flash", 64), ("ram", 64)].into_iter().collect(),
+                spare_regions: 0,
+            };
             let task_sizes = toml
                 .tasks
                 .keys()
@@ -71,7 +72,7 @@ pub fn run(
             let mut entry_points: std::collections::HashMap<_, _> = allocs
                 .tasks
                 .iter()
-                .map(|(k, v)| (k.clone(), v["flash"].start))
+                .map(|(k, v)| (k.clone(), v["flash"][0].start))
                 .collect();
 
             // add a dummy caboose point

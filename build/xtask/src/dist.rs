@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs::{self, File};
@@ -279,9 +279,36 @@ pub fn package(
         })
         .collect::<Result<_, _>>()?;
 
+    // Build a set of requests for the memory allocator
+    let mut task_reqs = HashMap::new();
+    for (t, sz) in task_sizes {
+        let n = sz.len()
+            + cfg
+                .toml
+                .extern_regions_for(t, &cfg.toml.image_names[0])
+                .unwrap()
+                .len()
+            + cfg.toml.tasks.get(t).unwrap().uses.len()
+            + cfg
+                .toml
+                .caboose
+                .as_ref()
+                .map(|c| c.tasks.contains(&t.to_string()))
+                .unwrap_or(false) as usize;
+        println!("task {t} has {} spare regions", 7 - n);
+
+        task_reqs.insert(
+            t,
+            TaskRequest {
+                memory: sz,
+                spare_regions: 7 - n,
+            },
+        );
+    }
+
     // Allocate memories.
     let allocated =
-        allocate_all(&cfg.toml, &task_sizes, cfg.toml.caboose.as_ref())?;
+        allocate_all(&cfg.toml, &task_reqs, cfg.toml.caboose.as_ref())?;
 
     for image_name in &cfg.toml.image_names {
         // Build each task.
@@ -330,7 +357,7 @@ pub fn package(
                     task_entry_point(&cfg, name, image_name)
                 } else {
                     // Dummy entry point
-                    Ok(allocs.tasks[name]["flash"].start)
+                    Ok(allocs.tasks[name]["flash"][0].start)
                 };
                 ep.map(|ep| (name.clone(), ep))
             })
@@ -976,6 +1003,7 @@ fn link_dummy_task(
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
+        .map(|(name, r)| (name, vec![r]))
         .collect();
     let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
 
@@ -1290,7 +1318,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
 
 fn generate_task_linker_script(
     name: &str,
-    map: &BTreeMap<String, Range<u32>>,
+    map: &BTreeMap<String, Vec<Range<u32>>>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
@@ -1311,8 +1339,8 @@ fn generate_task_linker_script(
 
     writeln!(linkscr, "MEMORY\n{{")?;
     for (name, range) in map {
-        let mut start = range.start;
-        let end = range.end;
+        let mut start = range[0].start;
+        let end = range.last().unwrap().end;
         let name = name.to_ascii_uppercase();
 
         // Our stack comes out of RAM
@@ -1735,7 +1763,11 @@ pub struct Allocations {
     /// Map from memory-name to address-range
     pub kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
-    pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    ///
+    /// A task may have multiple address ranges in the same memory space for
+    /// efficient packing; if this is the case, the addresses will be contiguous
+    /// and each individual range will respect MPU requirements.
+    pub tasks: BTreeMap<String, BTreeMap<String, Vec<Range<u32>>>>,
     /// Optional trailing caboose, located in the given region
     pub caboose: Option<(String, Range<u32>)>,
 }
@@ -1759,6 +1791,18 @@ impl Allocations {
         }
         out
     }
+}
+
+/// A set of memory requests from a single task
+#[derive(Debug, Clone)]
+pub struct TaskRequest<'a> {
+    /// Memory requests, as a map from memory name -> size
+    pub memory: IndexMap<&'a str, u64>,
+
+    /// Number of extra regions available for more efficient packing
+    ///
+    /// If this is zero, then each request in `memory` can only use 1 region
+    pub spare_regions: usize,
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -1797,7 +1841,7 @@ impl Allocations {
 /// requests per alignment size.
 pub fn allocate_all(
     toml: &Config,
-    task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
+    task_sizes: &HashMap<&str, TaskRequest>,
     caboose: Option<&CabooseConfig>,
 ) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed
@@ -1807,7 +1851,7 @@ pub fn allocate_all(
     // We keep kernel and task requests separate so we can always service the
     // kernel first.
     //
-    // The task map is: memory name -> allocation size -> queue of task name.
+    // The task map is: memory name -> task name -> requested regions
     // The kernel map is: memory name -> allocation size
     let kernel = &toml.kernel;
     let tasks = &toml.tasks;
@@ -1821,105 +1865,50 @@ pub fn allocate_all(
         let mut free = toml.memories(image_name)?;
         let kernel_requests = &kernel.requires;
 
-        let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
+        let mut task_requests: BTreeMap<&str, IndexMap<&str, Vec<u32>>> =
             BTreeMap::new();
 
         for name in tasks.keys() {
-            for (mem, amt) in task_sizes[name.as_str()].iter() {
-                let bytes = toml.suggest_memory_region_size(name, *amt);
+            let req = &task_sizes[name.as_str()];
+            for (&mem, &amt) in req.memory.iter() {
+                // Right now, flash is most limited, so it gets to use all of
+                // our spare regions (if present)
+                let n = if mem == "flash" {
+                    req.spare_regions + 1
+                } else {
+                    1
+                };
+                let bytes = toml.suggest_memory_region_size(name, amt, n);
                 if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
-                    if bytes > *r as u64 {
+                    let total_bytes = bytes.iter().sum::<u64>();
+                    if total_bytes > *r as u64 {
                         bail!(
                         "task {}: needs {} bytes of {} but max-sizes limits it to {}",
-                        name, bytes, mem, r);
+                        name, total_bytes, mem, r);
                     }
                 }
+                let bytes: Vec<u32> =
+                    bytes.into_iter().map(|v| v.try_into().unwrap()).collect();
                 task_requests
                     .entry(mem)
                     .or_default()
-                    .entry(bytes.try_into().unwrap())
-                    .or_default()
-                    .push_back(name.as_str());
+                    .insert(name.as_str(), bytes);
             }
         }
 
         // Okay! Do memory types one by one, fitting kernel first.
         for (region, avail) in &mut free {
             let mut k_req = kernel_requests.get(region.as_str());
-            let mut t_reqs = task_requests.get_mut(region.as_str());
-
-            fn reqs_map_not_empty(
-                om: &Option<&mut BTreeMap<u32, VecDeque<&str>>>,
-            ) -> bool {
-                om.iter()
-                    .flat_map(|map| map.values())
-                    .any(|q| !q.is_empty())
-            }
-
-            'fitloop: while k_req.is_some() || reqs_map_not_empty(&t_reqs) {
-                let align = if avail.start == 0 {
-                    // Lie to keep the masks in range. This could be avoided by
-                    // tracking log2 of masks rather than masks.
-                    1 << 31
-                } else {
-                    1 << avail.start.trailing_zeros()
-                };
-
-                // Search order is:
-                // - Kernel.
-                // - Task requests equal to or smaller than this alignment, in
-                //   descending order of size.
-                // - Task requests larger than this alignment, in ascending
-                //   order of size.
-
-                if let Some(&sz) = k_req.take() {
-                    // The kernel wants in on this.
-                    allocs.kernel.insert(
-                        region.to_string(),
-                        allocate_k(region, sz, avail)?,
-                    );
-                    continue 'fitloop;
-                }
-
-                if let Some(t_reqs) = t_reqs.as_mut() {
-                    for (&sz, q) in t_reqs.range_mut(..=align).rev() {
-                        if let Some(task) = q.pop_front() {
-                            // We can pack an equal or smaller one in.
-                            let align = toml.task_memory_alignment(sz);
-                            allocs
-                                .tasks
-                                .entry(task.to_string())
-                                .or_default()
-                                .insert(
-                                    region.to_string(),
-                                    allocate_one(region, sz, align, avail)?,
-                                );
-                            continue 'fitloop;
-                        }
-                    }
-
-                    for (&sz, q) in t_reqs.range_mut(align + 1..) {
-                        if let Some(task) = q.pop_front() {
-                            // We've gotta use a larger one.
-                            let align = toml.task_memory_alignment(sz);
-                            allocs
-                                .tasks
-                                .entry(task.to_string())
-                                .or_default()
-                                .insert(
-                                    region.to_string(),
-                                    allocate_one(region, sz, align, avail)?,
-                                );
-                            continue 'fitloop;
-                        }
-                    }
-                }
-
-                // If we reach this point, it means our loop condition is wrong,
-                // because one of the above things should really have happened.
-                // Panic here because otherwise it's a hang.
-                panic!("loop iteration without progess made!");
-            }
+            let t_reqs = task_requests.get_mut(region.as_str());
+            let mut t_reqs_empty = IndexMap::new();
+            allocate_region(
+                region,
+                toml,
+                &mut k_req,
+                t_reqs.unwrap_or(&mut t_reqs_empty),
+                avail,
+                &mut allocs,
+            )?;
         }
 
         if let Some(caboose) = caboose {
@@ -1942,6 +1931,140 @@ pub fn allocate_all(
         result.insert(image_name.to_string(), (allocs, free));
     }
     Ok(result)
+}
+
+fn allocate_region(
+    region: &str,
+    toml: &Config,
+    k_req: &mut Option<&u32>,
+    t_reqs: &mut IndexMap<&str, Vec<u32>>,
+    avail: &mut Range<u32>,
+    allocs: &mut Allocations,
+) -> Result<()> {
+    // The kernel gets to go first!
+    if let Some(&sz) = k_req.take() {
+        allocs
+            .kernel
+            .insert(region.to_string(), allocate_k(region, sz, avail)?);
+    }
+
+    println!("PACKING!");
+    for (&task_name, mem) in t_reqs.iter() {
+        println!("  {task_name}, {mem:?}");
+    }
+
+    while !t_reqs.is_empty() {
+        println!("avail: {avail:x?}");
+        // At this point, we need to find a task that fits based on our existing
+        // alignment.  This is tricky, because -- for efficient packing -- we
+        // allow tasks to span multiple regions.  For example, a task could look
+        // like this:
+        //
+        //   4444221
+        //
+        // representing three regions of size 4, 2, 1.
+        //
+        // Such a task could be placed in two ways:
+        //
+        //      |4444221 ("forward")
+        //   122|4444    ("reverse")
+        //      | where this line is the alignment for the largest chunk
+
+        #[derive(Debug)]
+        enum Direction {
+            Forward,
+            Reverse,
+        }
+        #[derive(Debug)]
+        struct Match<'a> {
+            gap: u32,
+            align: u32,
+            name: &'a str,
+            dir: Direction,
+        }
+        impl<'a> Match<'a> {
+            /// Updates our "current best" with new values, if they're better
+            ///
+            /// Our policy is to rank by
+            /// 1) smallest gap required, and then
+            /// 2) largest resulting alignment
+            fn update(
+                &mut self,
+                gap: u32,
+                align: u32,
+                name: &'a str,
+                dir: Direction,
+            ) {
+                if gap < self.gap || (gap == self.gap && align > self.align) {
+                    self.gap = gap;
+                    self.align = align;
+                    self.name = name;
+                    self.dir = dir;
+                }
+            }
+        }
+
+        let mut best = Match {
+            gap: u32::MAX,
+            align: 0,
+            name: "",
+            dir: Direction::Forward,
+        };
+
+        for (&task_name, mem) in t_reqs.iter() {
+            let align = toml.task_memory_alignment(mem[0]);
+
+            let size_mask = align - 1;
+            let base = (avail.start + size_mask) & !size_mask;
+
+            // Memory available before the aligned memory address
+            let bonus_chunk_len = mem[1..].iter().sum();
+            if mem.len() > 1 && base - avail.start >= bonus_chunk_len {
+                // We could place this chunk using reverse orientation
+                let gap_reverse = base - avail.start - bonus_chunk_len;
+                best.update(gap_reverse, align, task_name, Direction::Reverse);
+            }
+
+            // We can always place the chunk using forward orientation, albeit
+            // with padding if it's not aligned.
+            let gap_forward = base - avail.start;
+            best.update(gap_forward, align, task_name, Direction::Forward);
+        }
+        let Some(sizes) = t_reqs.remove(best.name) else {
+            panic!("could not find a task");
+        };
+        match best.dir {
+            Direction::Forward => {
+                for &size in sizes.iter() {
+                    let align = toml.task_memory_alignment(size);
+                    allocs
+                        .tasks
+                        .entry(best.name.to_string())
+                        .or_default()
+                        .entry(region.to_string())
+                        .or_default()
+                        .push(allocate_one(region, size, align, avail)?);
+                }
+            }
+            Direction::Reverse => {
+                avail.start += best.gap;
+                for &size in sizes.iter().rev() {
+                    let align = toml.task_memory_alignment(size);
+                    allocs
+                        .tasks
+                        .entry(best.name.to_string())
+                        .or_default()
+                        .entry(region.to_string())
+                        .or_default()
+                        .push(allocate_one(region, size, align, avail)?);
+                }
+            }
+        }
+        println!("found best: {best:#x?}");
+        println!("{:x?}", allocs.tasks[best.name][region]);
+    }
+
+    Ok(())
 }
 
 fn allocate_k(
@@ -2003,7 +2126,7 @@ fn allocate_one(
 /// system.
 pub fn make_kconfig(
     toml: &Config,
-    task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    task_allocations: &BTreeMap<String, BTreeMap<String, Vec<Range<u32>>>>,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
 ) -> Result<build_kconfig::KernelConfig> {
@@ -2082,7 +2205,7 @@ pub fn make_kconfig(
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
 
-        let flash = &task_allocations[name]["flash"];
+        let flash = &task_allocations[name]["flash"][0];
         let entry_offset = if flash.contains(&entry_points[name]) {
             entry_points[name] - flash.start
         } else {
@@ -2113,6 +2236,7 @@ pub fn make_kconfig(
         let extern_regions = toml.extern_regions_for(name, image_name)?;
         let owned_regions = task_allocations[name]
             .iter()
+            .flat_map(|(name, chunks)| chunks.iter().map(move |c| (name, c)))
             .chain(extern_regions.iter())
             .map(|(out_name, range)| {
                 // Look up region for this image
