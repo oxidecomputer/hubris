@@ -507,10 +507,38 @@ impl From<HubpackError> for DecodeFailureReason {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    FromBytes,
+    AsBytes,
+)]
+#[repr(transparent)]
+pub struct Status(u64);
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    FromBytes,
+    AsBytes,
+)]
+#[repr(transparent)]
+pub struct HostStartupOptions(u64);
+
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
-    #[repr(transparent)]
-    pub struct Status: u64 {
+    impl Status: u64 {
         const SP_TASK_RESTARTED = 1 << 0;
         const ALERTS_AVAILABLE  = 1 << 1;
 
@@ -521,9 +549,7 @@ bitflags::bitflags! {
     // When adding fields to this struct, update the static assertions below to
     // ensure our conversions to/from `gateway_messages::StartupOptions` remain
     // valid!
-    #[derive(Serialize, Deserialize, SerializedSize, FromBytes, AsBytes)]
-    #[repr(transparent)]
-    pub struct HostStartupOptions: u64 {
+    impl HostStartupOptions: u64 {
         const PHASE2_RECOVERY_MODE = 1 << 0;
         const STARTUP_KBM = 1 << 1;
         const STARTUP_BOOTRD = 1 << 2;
