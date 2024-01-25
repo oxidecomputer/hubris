@@ -33,7 +33,7 @@ struct Generated {
 enum RegionKey {
     Null,
     Shared(String),
-    Owned(usize, String),
+    Owned(usize, usize, String),
 }
 
 fn process_config() -> Result<Generated> {
@@ -77,7 +77,16 @@ fn process_config() -> Result<Generated> {
     // Finally, the task-specific regions.
     for (i, task) in kconfig.tasks.iter().enumerate() {
         for (name, region) in &task.owned_regions {
-            region_table.insert(RegionKey::Owned(i, name.clone()), *region);
+            let mut base = region.base;
+            for (j, &size) in region.sizes.iter().enumerate() {
+                let r = RegionConfig {
+                    base,
+                    size,
+                    attributes: region.attributes,
+                };
+                base += size;
+                region_table.insert(RegionKey::Owned(i, j, name.clone()), r);
+            }
         }
     }
 
@@ -95,12 +104,14 @@ fn process_config() -> Result<Generated> {
             region_table.get_index_of(&RegionKey::Null).unwrap(),
         ];
 
-        for name in task.owned_regions.keys() {
-            regions.push(
-                region_table
-                    .get_index_of(&RegionKey::Owned(i, name.clone()))
-                    .unwrap(),
-            );
+        for (name, region) in &task.owned_regions {
+            for j in 0..region.sizes.len() {
+                regions.push(
+                    region_table
+                        .get_index_of(&RegionKey::Owned(i, j, name.clone()))
+                        .unwrap(),
+                );
+            }
         }
 
         for name in &task.shared_regions {
@@ -292,7 +303,7 @@ fn translate_address(
     task_index: usize,
     address: OwnedAddress,
 ) -> u32 {
-    let key = RegionKey::Owned(task_index, address.region_name);
+    let key = RegionKey::Owned(task_index, 0, address.region_name);
     region_table[&key].base + address.offset
 }
 

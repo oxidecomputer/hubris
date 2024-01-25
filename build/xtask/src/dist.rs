@@ -2236,46 +2236,47 @@ pub fn make_kconfig(
         }
 
         let extern_regions = toml.extern_regions_for(name, image_name)?;
-        let owned_regions = task_allocations[name]
+        let mut owned_regions = BTreeMap::new();
+        for (out_name, range) in task_allocations[name]
             .iter()
             .flat_map(|(name, chunks)| chunks.iter().map(move |c| (name, c)))
             .chain(extern_regions.iter())
-            .map(|(out_name, range)| {
-                // Look up region for this image
-                let mut regions = toml.outputs[out_name]
-                    .iter()
-                    .filter(|o| &o.name == image_name);
-                let out = regions.next().expect("no region for name");
-                if regions.next().is_some() {
-                    bail!("multiple {out_name} regions for name {image_name}");
-                }
-                let size = range.end - range.start;
-                if p2_required && !size.is_power_of_two() {
-                    bail!(
-                        "memory region for task '{name}' output '{out_name}' \
+        {
+            // Look up region for this image
+            let mut regions = toml.outputs[out_name]
+                .iter()
+                .filter(|o| &o.name == image_name);
+            let out = regions.next().expect("no region for name");
+            if regions.next().is_some() {
+                bail!("multiple {out_name} regions for name {image_name}");
+            }
+            let size = range.end - range.start;
+            if p2_required && !size.is_power_of_two() {
+                bail!(
+                    "memory region for task '{name}' output '{out_name}' \
                         is required to be a power of two, but has size {size}"
-                    );
-                }
+                );
+            }
 
-                Ok((
-                    out_name.to_string(),
-                    build_kconfig::RegionConfig {
-                        base: range.start,
-                        size,
-                        attributes: build_kconfig::RegionAttributes {
-                            read: out.read,
-                            write: out.write,
-                            execute: out.execute,
-                            special_role: if out.dma {
-                                Some(build_kconfig::SpecialRole::Dma)
-                            } else {
-                                None
-                            },
+            owned_regions
+                .entry(out_name.to_string())
+                .or_insert(build_kconfig::MultiRegionConfig {
+                    base: range.start,
+                    sizes: vec![],
+                    attributes: build_kconfig::RegionAttributes {
+                        read: out.read,
+                        write: out.write,
+                        execute: out.execute,
+                        special_role: if out.dma {
+                            Some(build_kconfig::SpecialRole::Dma)
+                        } else {
+                            None
                         },
                     },
-                ))
-            })
-            .collect::<Result<BTreeMap<_, _>, _>>()?;
+                })
+                .sizes
+                .push(size);
+        }
 
         tasks.push(build_kconfig::TaskConfig {
             owned_regions,
