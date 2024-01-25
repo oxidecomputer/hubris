@@ -2060,8 +2060,20 @@ fn allocate_region(
                 }
             }
         }
+
         println!("found best: {best:#x?}");
         println!("{:x?}", allocs.tasks[best.name][region]);
+
+        // Check that our allocations are all aligned and contiguous
+        let ra = &allocs.tasks[best.name][region];
+        for r in ra {
+            let size = r.end - r.start;
+            let align = toml.task_memory_alignment(size);
+            assert!(r.start.trailing_zeros() >= align.trailing_zeros());
+        }
+        for (a, b) in ra.iter().zip(&ra[1..]) {
+            assert_eq!(a.end, b.start);
+        }
     }
 
     Ok(())
