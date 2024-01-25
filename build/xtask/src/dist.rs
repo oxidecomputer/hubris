@@ -295,7 +295,6 @@ pub fn package(
                 .as_ref()
                 .map(|c| c.tasks.contains(&t.to_string()))
                 .unwrap_or(false) as usize;
-        println!("task {t} has {} spare regions", 7 - n);
 
         task_reqs.insert(
             t,
@@ -1948,13 +1947,7 @@ fn allocate_region(
             .insert(region.to_string(), allocate_k(region, sz, avail)?);
     }
 
-    println!("PACKING!");
-    for (&task_name, mem) in t_reqs.iter() {
-        println!("  {task_name}, {mem:?}");
-    }
-
     while !t_reqs.is_empty() {
-        println!("avail: {avail:x?}");
         // At this point, we need to find a task that fits based on our existing
         // alignment.  This is tricky, because -- for efficient packing -- we
         // allow tasks to span multiple regions.  For example, a task could look
@@ -2060,9 +2053,6 @@ fn allocate_region(
                 }
             }
         }
-
-        println!("found best: {best:#x?}");
-        println!("{:x?}", allocs.tasks[best.name][region]);
 
         // Check that our allocations are all aligned and contiguous
         let ra = &allocs.tasks[best.name][region];

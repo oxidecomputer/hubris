@@ -92,9 +92,9 @@ enum Xtask {
 
     /// Runs `xtask dist` and reports the sizes of resulting tasks
     Sizes {
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
+        /// `-v` shows chunk sizes; `-vv` makes build verbose
+        #[clap(short, action = clap::ArgAction::Count)]
+        verbose: u8,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
 
@@ -248,7 +248,7 @@ fn run(xtask: Xtask) -> Result<()> {
         } => {
             let allocs = dist::package(verbose, edges, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
-                sizes::run(&cfg, &a, true, false, false)?;
+                sizes::run(&cfg, &a, true, false, false, false)?;
             }
         }
         Xtask::Build {
@@ -289,9 +289,9 @@ fn run(xtask: Xtask) -> Result<()> {
             save,
             dirty,
         } => {
-            let allocs = dist::package(verbose, false, &cfg, None, dirty)?;
+            let allocs = dist::package(verbose >= 2, false, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
-                sizes::run(&cfg, &a, false, compare, save)?;
+                sizes::run(&cfg, &a, false, compare, save, verbose >= 1)?;
             }
         }
         Xtask::Humility { args } => {

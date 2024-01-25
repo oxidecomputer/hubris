@@ -34,6 +34,7 @@ pub fn run(
     only_suggest: bool,
     compare: bool,
     save: bool,
+    verbose: bool,
 ) -> Result<()> {
     let toml = Config::from_file(cfg)?;
     let sizes = create_sizes(&toml)?;
@@ -63,7 +64,7 @@ pub fn run(
     // Print detailed sizes relative to usage
     if !only_suggest {
         let map = build_memory_map(&toml, &sizes, allocs)?;
-        print_memory_map(&toml, &map)?;
+        print_memory_map(&toml, &map, verbose)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
     }
@@ -120,10 +121,10 @@ enum Recommended {
     FixedSize(u32),
     MaxSize(u32),
 }
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 struct MemoryChunk<'a> {
     used_size: u64,
-    total_size: u32,
+    total_size: Vec<u32>,
     owner: &'a str,
     recommended: Option<Recommended>,
 }
@@ -142,24 +143,21 @@ fn build_memory_map<'a>(
             (
                 name.as_str(),
                 task.max_sizes.clone(),
-                allocs.tasks[name]
-                    .iter()
-                    .map(|(name, rs)| {
-                        let start = rs.first().unwrap().start;
-                        let end = rs.last().unwrap().end;
-                        (name.clone(), start..end)
-                    })
-                    .collect(),
+                allocs.tasks[name].clone(),
             )
         })
         .chain(std::iter::once((
             "kernel",
             toml.kernel.requires.clone(),
-            allocs.kernel.clone(),
+            allocs
+                .kernel
+                .iter()
+                .map(|(name, v)| (name.to_owned(), vec![v.clone()]))
+                .collect(),
         )))
         .chain(allocs.caboose.iter().map(|(region, size)| {
             let mut alloc = BTreeMap::new();
-            alloc.insert(region.clone(), size.clone());
+            alloc.insert(region.clone(), vec![size.clone()]);
             let mut requires = IndexMap::new();
             requires
                 .insert(region.clone(), toml.caboose.as_ref().unwrap().size);
@@ -174,10 +172,10 @@ fn build_memory_map<'a>(
             }
             let alloc = &alloc[&mem_name.to_string()];
             map.entry(mem_name).or_default().insert(
-                alloc.start,
+                alloc[0].start,
                 MemoryChunk {
                     used_size: used,
-                    total_size: alloc.end - alloc.start,
+                    total_size: alloc.iter().map(|v| v.end - v.start).collect(),
                     owner: name,
                     recommended: requires
                         .get(mem_name.to_owned())
@@ -208,7 +206,7 @@ fn print_task_table(
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
-        .map(|c| format!("{}", c.total_size).len())
+        .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .chain(std::iter::once(4))
         .max()
         .unwrap_or(0) as usize;
@@ -225,7 +223,9 @@ fn print_task_table(
         .map(|(region, map)| {
             (
                 *region,
-                map.iter().map(|(_, chunk)| (chunk.owner, *chunk)).collect(),
+                map.iter()
+                    .map(|(_, chunk)| (chunk.owner, chunk.clone()))
+                    .collect(),
             )
         })
         .collect();
@@ -257,7 +257,7 @@ fn print_task_table(
                 print!(
                     "{:<mem$}  {:<mem$}  ",
                     chunk.used_size,
-                    chunk.total_size,
+                    chunk.total_size.iter().sum::<u32>(),
                     mem = mem_pad,
                 );
                 match chunk.recommended {
@@ -275,6 +275,7 @@ fn print_task_table(
 fn print_memory_map(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    verbose: bool,
 ) -> Result<()> {
     let task_pad = toml
         .tasks
@@ -287,61 +288,133 @@ fn print_memory_map(
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
-        .map(|c| format!("{}", c.total_size).len())
+        .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .max()
         .unwrap_or(0) as usize;
     for (mem_name, map) in map {
         println!("\n{}:", mem_name);
-        println!(
-            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
+        if verbose {
+            println!(
+            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
             "PROGRAM",
             "USED",
             "SIZE",
+            "CHUNKS",
             task = task_pad,
             mem = mem_pad,
         );
+        } else {
+            println!(
+                "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
+                "PROGRAM",
+                "USED",
+                "SIZE",
+                task = task_pad,
+                mem = mem_pad,
+            );
+        }
 
         let next = map.keys().skip(1).map(Some).chain(std::iter::once(None));
         for ((start, chunk), next) in map.iter().zip(next) {
-            print!("    {:#010x} | ", start);
-            print!(
-                "{:<size$} | {:>mem$} | {:>mem$} | ",
-                chunk.owner,
-                chunk.used_size,
-                chunk.total_size,
-                size = task_pad,
-                mem = mem_pad,
-            );
-            match chunk.recommended {
-                None => print!("(auto)"),
-                Some(Recommended::MaxSize(m)) => print!("{}", m),
-                Some(Recommended::FixedSize(_)) => print!("(fixed)"),
-            }
-            println!();
-
-            // Print padding, if relevant
-            if let Some(&next) = next {
-                if next != start + chunk.total_size {
-                    print!("    {:#010x} | ", start + chunk.total_size);
-                    println!(
+            for (i, mem) in chunk.total_size.iter().enumerate() {
+                print!(
+                    "    {:#010x} | ",
+                    start + chunk.total_size[0..i].iter().sum::<u32>()
+                );
+                if verbose {
+                    if i == 0 {
+                        print!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                            chunk.owner,
+                            chunk.used_size,
+                            chunk.total_size.iter().sum::<u32>(),
+                            mem,
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    } else {
+                        print!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                            "",
+                            "",
+                            "",
+                            mem,
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    }
+                } else {
+                    print!(
                         "{:<size$} | {:>mem$} | {:>mem$} | ",
-                        "-padding-",
-                        "--",
-                        next - (start + chunk.total_size),
+                        chunk.owner,
+                        chunk.used_size,
+                        chunk.total_size.iter().sum::<u32>(),
                         size = task_pad,
                         mem = mem_pad,
                     );
                 }
+                if i == 0 {
+                    match chunk.recommended {
+                        None => print!("(auto)"),
+                        Some(Recommended::MaxSize(m)) => print!("{}", m),
+                        Some(Recommended::FixedSize(_)) => print!("(fixed)"),
+                    }
+                }
+                println!();
+                // Only print the header if we're not being verbose
+                if !verbose {
+                    break;
+                }
+            }
+
+            // Print padding, if relevant
+            let chunk_size = chunk.total_size.iter().sum::<u32>();
+            if let Some(&next) = next {
+                if next != start + chunk_size {
+                    print!("    {:#010x} | ", start + chunk_size);
+                    if verbose {
+                        println!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} |",
+                            "-padding-",
+                            "--",
+                            next - (start + chunk_size),
+                            "--",
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    } else {
+                        println!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | ",
+                            "-padding-",
+                            "--",
+                            next - (start + chunk_size),
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    }
+                }
             } else {
-                print!("    {:#010x} | ", start + chunk.total_size);
-                println!(
-                    "{:<size$} | {:>mem$} | {:>mem$} | ",
-                    "--end--",
-                    "",
-                    "",
-                    size = task_pad,
-                    mem = mem_pad,
-                );
+                print!("    {:#010x} | ", start + chunk_size);
+                if verbose {
+                    println!(
+                        "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                        "--end--",
+                        "",
+                        "",
+                        "",
+                        size = task_pad,
+                        mem = mem_pad,
+                    );
+                } else {
+                    println!(
+                        "{:<size$} | {:>mem$} | {:>mem$} | ",
+                        "--end--",
+                        "",
+                        "",
+                        size = task_pad,
+                        mem = mem_pad,
+                    );
+                }
             }
         }
     }
