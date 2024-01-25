@@ -70,6 +70,7 @@ pub struct TaskDesc {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug)]
     #[repr(transparent)]
     pub struct TaskFlags: u8 {
         const START_AT_BOOT = 1 << 0;
@@ -131,10 +132,14 @@ impl RegionDesc {
     }
 }
 
+// This is defined outside the bitflags! macro so that we can write our own
+// const constructor fn, below.
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct RegionAttributes(u32);
+
 bitflags::bitflags! {
-    #[repr(transparent)]
-    #[derive(Serialize, Deserialize)]
-    pub struct RegionAttributes: u32 {
+    impl RegionAttributes: u32 {
         /// Region can be read by tasks that include it.
         const READ = 1 << 0;
         /// Region can be written by tasks that include it.
@@ -153,5 +158,11 @@ bitflags::bitflags! {
         const DMA = 1 << 4;
 
         const RESERVED = !((1 << 5) - 1);
+    }
+}
+
+impl RegionAttributes {
+    pub const unsafe fn from_bits_unchecked(bits: u32) -> Self {
+        Self(bits)
     }
 }

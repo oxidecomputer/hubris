@@ -182,10 +182,12 @@ pub struct ULease {
     pub length: u32,
 }
 
+#[derive(Copy, Clone, Debug, FromBytes)]
+#[repr(transparent)]
+pub struct LeaseAttributes(u32);
+
 bitflags::bitflags! {
-    #[derive(FromBytes)]
-    #[repr(transparent)]
-    pub struct LeaseAttributes: u32 {
+    impl LeaseAttributes: u32 {
         /// Allow the borrower to read this memory.
         const READ = 1 << 0;
         /// Allow the borrower to write this memory.
