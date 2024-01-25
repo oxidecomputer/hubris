@@ -154,6 +154,16 @@ copy-to-archive = ["register_defs"]
 fpga_image = "fpga-b.bin"
 register_defs = "gimlet-regs-b.json"
 
+[tasks.gimlet_inspector]
+name = "task-gimlet-inspector"
+priority = 6
+features = ["vlan"]
+max-sizes = {flash = 16384, ram = 2048 }
+stacksize = 1600
+start = true
+task-slots = ["net", {seq = "gimlet_seq"}]
+notifications = ["socket"]
+
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
@@ -1270,6 +1280,13 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.inspector]
+kind = "udp"
+owner = {name = "gimlet_inspector", notification = "socket"}
+port = 23547
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 512 }
 
 [config.sprot]
 # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
