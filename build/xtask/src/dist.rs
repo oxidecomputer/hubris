@@ -2021,7 +2021,12 @@ fn allocate_region(
             // We can always place the chunk using forward orientation, albeit
             // with padding if it's not aligned.
             let gap_forward = base - avail.start;
-            best.update(gap_forward, align, task_name, Direction::Forward);
+            best.update(
+                gap_forward,
+                *mem.last().unwrap(),
+                task_name,
+                Direction::Forward,
+            );
         }
         let Some(sizes) = t_reqs.remove(best.name) else {
             panic!("could not find a task");
