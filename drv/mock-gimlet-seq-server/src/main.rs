@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_gimlet_seq_api::{PowerState, ReadFpgaRegsError, SeqError};
 use idol_runtime::RequestError;
 use task_jefe_api::Jefe;
 use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
@@ -96,13 +96,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn read_fpga_regs(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 64], RequestError<SeqError>> {
+    ) -> Result<[u8; 64], RequestError<ReadFpgaRegsError>> {
         Ok([0; 64])
     }
 }
 
 mod idl {
-    use super::SeqError;
+    use super::{ReadFpgaRegsError, SeqError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

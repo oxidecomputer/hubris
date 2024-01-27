@@ -10,7 +10,7 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-use drv_gimlet_seq_api::{SeqError, Sequencer};
+use drv_gimlet_seq_api::{ReadFpgaRegsError, Sequencer};
 use gimlet_inspector_protocol::{
     QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
     REQUEST_TRAILER,
@@ -65,11 +65,11 @@ fn main() -> ! {
                                 SequencerRegistersResponseV0::Success,
                                 Some(regs),
                             ),
-                            Err(SeqError::ServerRestarted) => (
+                            Err(ReadFpgaRegsError::ServerRestarted) => (
                                 SequencerRegistersResponseV0::SequencerTaskDead,
                                 None,
                             ),
-                            Err(_) => {
+                            Err(ReadFpgaRegsError::Failed) => {
                                 // The SeqError type represents a mashing
                                 // together of all possible errors for all
                                 // possible sequencer IPC operations. The only

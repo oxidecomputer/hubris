@@ -17,12 +17,20 @@ pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed,
     MuxToSPFailed,
-    ReadRegsFailed,
     CPUNotPresent,
     UnrecognizedCPU,
     A1Timeout,
     A0TimeoutGroupC,
     A0Timeout,
+
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
+/// Errors returned by `read_fpga_regs`.
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+pub enum ReadFpgaRegsError {
+    Failed = 1,
 
     #[idol(server_death)]
     ServerRestarted,
