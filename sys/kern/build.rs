@@ -33,7 +33,20 @@ struct Generated {
 enum RegionKey {
     Null,
     Shared(String),
-    Owned(usize, usize, String),
+    Owned {
+        /// Index of the task, based on ordering in the kconfig
+        task_index: usize,
+
+        /// Index of this particular region within the task
+        ///
+        /// Each task's memory span can be built from multiple contiguous MPU
+        /// regions; if that's the case, then `chunk_index` varies.  The region
+        /// with `chunk_index == 0` is at the base address.
+        chunk_index: usize,
+
+        /// Name of memory which we're using for this region
+        memory_name: String,
+    },
 }
 
 fn process_config() -> Result<Generated> {
@@ -85,7 +98,14 @@ fn process_config() -> Result<Generated> {
                     attributes: region.attributes,
                 };
                 base += size;
-                region_table.insert(RegionKey::Owned(i, j, name.clone()), r);
+                region_table.insert(
+                    RegionKey::Owned {
+                        task_index: i,
+                        chunk_index: j,
+                        memory_name: name.clone(),
+                    },
+                    r,
+                );
             }
         }
     }
@@ -108,7 +128,11 @@ fn process_config() -> Result<Generated> {
             for j in 0..region.sizes.len() {
                 regions.push(
                     region_table
-                        .get_index_of(&RegionKey::Owned(i, j, name.clone()))
+                        .get_index_of(&RegionKey::Owned {
+                            task_index: i,
+                            chunk_index: j,
+                            memory_name: name.clone(),
+                        })
                         .unwrap(),
                 );
             }
@@ -303,7 +327,14 @@ fn translate_address(
     task_index: usize,
     address: OwnedAddress,
 ) -> u32 {
-    let key = RegionKey::Owned(task_index, 0, address.region_name);
+    // Addresses within a particular task's memory span can be calculated from
+    // the base address of the task's first memory region, which has a
+    // chunk_index of 0 (since all chunks within the span are contiguous).
+    let key = RegionKey::Owned {
+        task_index,
+        chunk_index: 0,
+        memory_name: address.region_name,
+    };
     region_table[&key].base + address.offset
 }
 
