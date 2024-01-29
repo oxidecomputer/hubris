@@ -1337,9 +1337,9 @@ fn generate_task_linker_script(
     }
 
     writeln!(linkscr, "MEMORY\n{{")?;
-    for (name, range) in map {
-        let mut start = range[0].start;
-        let end = range.last().unwrap().end;
+    for (name, ranges) in map {
+        let mut start = ranges[0].start;
+        let end = ranges.last().unwrap().end;
         let name = name.to_ascii_uppercase();
 
         // Our stack comes out of RAM
