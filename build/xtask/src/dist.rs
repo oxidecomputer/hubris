@@ -2066,12 +2066,11 @@ fn allocate_region(
         while let Some(mut size) = sizes.pop_front() {
             // When building the size list, we split the largest size to reduce
             // alignment requirements.  Now, we try to merge them again, to
-            // reduce the number of regions stored in the kernel's flash. 
+            // reduce the number of regions stored in the kernel's flash.
             //
             // For example, [256, 256, 64] => [512, 64] if the initial position
             // is aligned for a 512-byte region.
             let mut n = sizes.iter().filter(|s| **s == size).count() + 1;
-            println!("{size}, {sizes:?}");
             if n > 1 {
                 n &= !1; // only consider an even number of regions
                 let possible_align = toml.task_memory_alignment(size * 2);
@@ -2083,7 +2082,6 @@ fn allocate_region(
                     for _ in 0..n / 2 - 1 {
                         sizes.push_front(size);
                     }
-                    println!("   => {size}, {sizes:?}")
                 }
             }
 
