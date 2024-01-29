@@ -2,6 +2,8 @@
 
 ![dist](https://github.com/oxidecomputer/hubris/actions/workflows/dist.yml/badge.svg)
 
+test branch please ignore
+
 Hubris is a microcontroller operating environment designed for deeply-embedded
 systems with reliability requirements. Its design was initially proposed in
 RFD41, but has evolved considerably since then.
