@@ -15,7 +15,7 @@ use indexmap::map::Entry;
 use indexmap::IndexMap;
 
 use crate::{
-    dist::{Allocations, DEFAULT_KERNEL_STACK},
+    dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
     Config,
 };
 
@@ -152,12 +152,14 @@ fn build_memory_map<'a>(
             allocs
                 .kernel
                 .iter()
-                .map(|(name, v)| (name.to_owned(), vec![v.clone()]))
+                .map(|(name, v)| {
+                    (name.to_owned(), ContiguousRanges::new(v.clone()))
+                })
                 .collect(),
         )))
         .chain(allocs.caboose.iter().map(|(region, size)| {
             let mut alloc = BTreeMap::new();
-            alloc.insert(region.clone(), vec![size.clone()]);
+            alloc.insert(region.clone(), ContiguousRanges::new(size.clone()));
             let mut requires = IndexMap::new();
             requires
                 .insert(region.clone(), toml.caboose.as_ref().unwrap().size);
@@ -172,7 +174,7 @@ fn build_memory_map<'a>(
             }
             let alloc = &alloc[&mem_name.to_string()];
             map.entry(mem_name).or_default().insert(
-                alloc[0].start,
+                alloc.start(),
                 MemoryChunk {
                     used_size: used,
                     total_size: alloc.iter().map(|v| v.end - v.start).collect(),

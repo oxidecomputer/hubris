@@ -72,7 +72,7 @@ pub fn run(
             let mut entry_points: std::collections::HashMap<_, _> = allocs
                 .tasks
                 .iter()
-                .map(|(k, v)| (k.clone(), v["flash"][0].start))
+                .map(|(k, v)| (k.clone(), v["flash"].start()))
                 .collect();
 
             // add a dummy caboose point

@@ -210,6 +210,101 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
 /// Represents allocations and free spaces for a particular image
 type AllocationMap = (Allocations, IndexMap<String, Range<u32>>);
 
+/// Simple data structure to store a set of guaranteed-contiguous ranges
+///
+/// This will panic if you violate that constraint!
+#[derive(Debug, Clone, Default, Hash)]
+pub struct ContiguousRanges(Vec<Range<u32>>);
+impl ContiguousRanges {
+    pub fn new(r: Range<u32>) -> Self {
+        Self(vec![r])
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &Range<u32>> {
+        self.0.iter()
+    }
+    pub fn start(&self) -> u32 {
+        self.0.first().unwrap().start
+    }
+    pub fn end(&self) -> u32 {
+        self.0.last().unwrap().end
+    }
+    pub fn contains(&self, v: &u32) -> bool {
+        (self.start()..self.end()).contains(v)
+    }
+    pub fn push(&mut self, r: Range<u32>) {
+        if let Some(t) = &self.0.last() {
+            assert_eq!(t.end, r.start, "ranges must be contiguous");
+        }
+        self.0.push(r)
+    }
+}
+
+impl<'a> IntoIterator for &'a ContiguousRanges {
+    type Item = &'a Range<u32>;
+    type IntoIter = std::slice::Iter<'a, Range<u32>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+/// Simple wrapper data structure that enforces that values are ordered
+///
+/// Values must be monotonically increasing or decreasing based on the value of
+/// `self.increasing`.  For example, in the **increasing** mode, each item must
+/// be the same or larger than the previous item.
+struct OrderedVecDeque {
+    data: VecDeque<u32>,
+    increasing: bool,
+}
+impl OrderedVecDeque {
+    /// Build a new `VecDeque` with a decreasing constraint
+    fn decreasing() -> Self {
+        Self {
+            data: VecDeque::new(),
+            increasing: false,
+        }
+    }
+    /// Flip the data and constraint
+    fn reverse(self) -> Self {
+        Self {
+            data: self.data.into_iter().rev().collect(),
+            increasing: !self.increasing,
+        }
+    }
+    fn iter(&self) -> impl Iterator<Item = &u32> {
+        self.data.iter()
+    }
+    fn front(&self) -> Option<&u32> {
+        self.data.front()
+    }
+    fn pop_front(&mut self) -> Option<u32> {
+        self.data.pop_front()
+    }
+    fn push_front(&mut self, v: u32) {
+        if let Some(f) = self.front() {
+            if self.increasing {
+                assert!(v >= *f);
+            } else {
+                assert!(v <= *f);
+            }
+        }
+        self.data.push_front(v)
+    }
+    fn back(&self) -> Option<&u32> {
+        self.data.back()
+    }
+    fn push_back(&mut self, v: u32) {
+        if let Some(f) = self.back() {
+            if self.increasing {
+                assert!(v >= *f);
+            } else {
+                assert!(v <= *f);
+            }
+        }
+        self.data.push_back(v)
+    }
+}
+
 pub fn package(
     verbose: bool,
     edges: bool,
@@ -356,7 +451,7 @@ pub fn package(
                     task_entry_point(&cfg, name, image_name)
                 } else {
                     // Dummy entry point
-                    Ok(allocs.tasks[name]["flash"][0].start)
+                    Ok(allocs.tasks[name]["flash"].start())
                 };
                 ep.map(|ep| (name.clone(), ep))
             })
@@ -1002,7 +1097,7 @@ fn link_dummy_task(
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
-        .map(|(name, r)| (name, vec![r]))
+        .map(|(name, r)| (name, ContiguousRanges::new(r)))
         .collect();
     let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
 
@@ -1317,7 +1412,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
 
 fn generate_task_linker_script(
     name: &str,
-    map: &BTreeMap<String, Vec<Range<u32>>>,
+    map: &BTreeMap<String, ContiguousRanges>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
@@ -1338,8 +1433,8 @@ fn generate_task_linker_script(
 
     writeln!(linkscr, "MEMORY\n{{")?;
     for (name, ranges) in map {
-        let mut start = ranges[0].start;
-        let end = ranges.last().unwrap().end;
+        let mut start = ranges.start();
+        let end = ranges.end();
         let name = name.to_ascii_uppercase();
 
         // Our stack comes out of RAM
@@ -1766,7 +1861,7 @@ pub struct Allocations {
     /// A task may have multiple address ranges in the same memory space for
     /// efficient packing; if this is the case, the addresses will be contiguous
     /// and each individual range will respect MPU requirements.
-    pub tasks: BTreeMap<String, BTreeMap<String, Vec<Range<u32>>>>,
+    pub tasks: BTreeMap<String, BTreeMap<String, ContiguousRanges>>,
     /// Optional trailing caboose, located in the given region
     pub caboose: Option<(String, Range<u32>)>,
 }
@@ -1864,7 +1959,7 @@ pub fn allocate_all(
         let mut free = toml.memories(image_name)?;
         let kernel_requests = &kernel.requires;
 
-        let mut task_requests: BTreeMap<&str, IndexMap<&str, VecDeque<u32>>> =
+        let mut task_requests: BTreeMap<&str, IndexMap<&str, OrderedVecDeque>> =
             BTreeMap::new();
 
         for name in tasks.keys() {
@@ -1886,12 +1981,15 @@ pub fn allocate_all(
                         name, total_bytes, mem, r);
                     }
                 }
-                let bytes: VecDeque<u32> =
-                    bytes.into_iter().map(|v| v.try_into().unwrap()).collect();
+                // Convert from u64 -> u32
+                let mut bs = OrderedVecDeque::decreasing();
+                for b in bytes {
+                    bs.push_back(b.try_into().unwrap());
+                }
                 task_requests
                     .entry(mem)
                     .or_default()
-                    .insert(name.as_str(), bytes);
+                    .insert(name.as_str(), bs);
             }
         }
 
@@ -1936,7 +2034,7 @@ fn allocate_region(
     region: &str,
     toml: &Config,
     k_req: &mut Option<&u32>,
-    t_reqs: &mut IndexMap<&str, VecDeque<u32>>,
+    t_reqs: &mut IndexMap<&str, OrderedVecDeque>,
     avail: &mut Range<u32>,
     allocs: &mut Allocations,
 ) -> Result<()> {
@@ -2021,7 +2119,7 @@ fn allocate_region(
         };
 
         for (&task_name, mem) in t_reqs.iter() {
-            let align = toml.task_memory_alignment(mem[0]);
+            let align = toml.task_memory_alignment(*mem.front().unwrap());
             let size_mask = align - 1;
 
             // Place the chunk using reverse orientation, with padding if it's
@@ -2059,7 +2157,7 @@ fn allocate_region(
             Direction::Forward => sizes,
             Direction::Reverse => {
                 avail.start += best.gap;
-                sizes.into_iter().rev().collect()
+                sizes.reverse()
             }
         };
 
@@ -2096,14 +2194,10 @@ fn allocate_region(
         }
 
         // Check that our allocations are all aligned and contiguous
-        let ra = &allocs.tasks[best.name][region];
-        for r in ra {
+        for r in &allocs.tasks[best.name][region] {
             let size = r.end - r.start;
             let align = toml.task_memory_alignment(size);
             assert!(r.start.trailing_zeros() >= align.trailing_zeros());
-        }
-        for (a, b) in ra.iter().zip(&ra[1..]) {
-            assert_eq!(a.end, b.start);
         }
     }
 
@@ -2169,7 +2263,7 @@ fn allocate_one(
 /// system.
 pub fn make_kconfig(
     toml: &Config,
-    task_allocations: &BTreeMap<String, BTreeMap<String, Vec<Range<u32>>>>,
+    task_allocations: &BTreeMap<String, BTreeMap<String, ContiguousRanges>>,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
 ) -> Result<build_kconfig::KernelConfig> {
@@ -2248,9 +2342,9 @@ pub fn make_kconfig(
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
 
-        let flash = &task_allocations[name]["flash"][0];
+        let flash = &task_allocations[name]["flash"];
         let entry_offset = if flash.contains(&entry_points[name]) {
-            entry_points[name] - flash.start
+            entry_points[name] - flash.start()
         } else {
             bail!(
                 "entry point {:#x} is not in flash range {:#x?}",
