@@ -572,6 +572,23 @@ impl MpuAlignment {
                         break;
                     }
                 }
+                // Split the initial (largest) region into as many smaller
+                // regions as we can fit.  This doesn't change total size, but
+                // can make alignment more flexible, since smaller regions have
+                // less stringent alignment requirements.
+                while out[0] > MIN_MPU_REGION_SIZE {
+                    let largest = out[0];
+                    let n = out.iter().filter(|c| **c == largest).count();
+                    if out.len() + n > regions {
+                        break;
+                    }
+                    // Replace `n` instances of `largest` at the start of `out`
+                    // with `n * 2` instances of `largest / 2`
+                    out[0..n].fill(largest / 2);
+                    for _ in 0..n {
+                        out.insert(0, largest / 2);
+                    }
+                }
                 out
             }
             MpuAlignment::Chunk(c) => vec![((size + c - 1) / c) * c],

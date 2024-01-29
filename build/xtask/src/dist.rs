@@ -1972,6 +1972,7 @@ fn allocate_region(
         struct Match<'a> {
             gap: u32,
             align: u32,
+            size: u32,
             name: &'a str,
             dir: Direction,
         }
@@ -1981,16 +1982,24 @@ fn allocate_region(
             /// Our policy is to rank by
             /// 1) smallest gap required, and then
             /// 2) largest resulting alignment
+            /// 3) smallest task size (for backwards compatibility)
             fn update(
                 &mut self,
                 gap: u32,
                 align: u32,
+                size: u32,
                 name: &'a str,
                 dir: Direction,
             ) {
-                if gap < self.gap || (gap == self.gap && align > self.align) {
+                if gap < self.gap
+                    || (gap == self.gap && align > self.align)
+                    || (gap == self.gap
+                        && align == self.align
+                        && size < self.size)
+                {
                     self.gap = gap;
                     self.align = align;
+                    self.size = size;
                     self.name = name;
                     self.dir = dir;
                 }
@@ -2000,30 +2009,39 @@ fn allocate_region(
         let mut best = Match {
             gap: u32::MAX,
             align: 0,
+            size: u32::MAX,
             name: "",
             dir: Direction::Forward,
         };
 
         for (&task_name, mem) in t_reqs.iter() {
             let align = toml.task_memory_alignment(mem[0]);
-
             let size_mask = align - 1;
+
+            // Place the chunk using reverse orientation, with padding if it's
+            // not aligned.  The alignment (for scoring purposes) is the
+            // alignment of the largest region, since that's last in memory.
+            let total_size: u32 = mem.iter().sum();
+            let base = (avail.start + total_size + size_mask) & !size_mask;
+            let gap_reverse = base - avail.start - total_size;
+            best.update(
+                gap_reverse,
+                align,
+                total_size,
+                task_name,
+                Direction::Reverse,
+            );
+
+            // Place the chunk using forward orientation, with padding if it's
+            // not aligned.  The alignment (for scoring purposes) is the
+            // alignment of the last region, since that may be worse than the
+            // starting alignment.
             let base = (avail.start + size_mask) & !size_mask;
-
-            // Memory available before the aligned memory address
-            let bonus_chunk_len = mem[1..].iter().sum();
-            if mem.len() > 1 && base - avail.start >= bonus_chunk_len {
-                // We could place this chunk using reverse orientation
-                let gap_reverse = base - avail.start - bonus_chunk_len;
-                best.update(gap_reverse, align, task_name, Direction::Reverse);
-            }
-
-            // We can always place the chunk using forward orientation, albeit
-            // with padding if it's not aligned.
             let gap_forward = base - avail.start;
             best.update(
                 gap_forward,
-                *mem.last().unwrap(),
+                toml.task_memory_alignment(*mem.last().unwrap()),
+                total_size,
                 task_name,
                 Direction::Forward,
             );
