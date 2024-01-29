@@ -1880,7 +1880,7 @@ pub fn allocate_all(
                 let bytes = toml.suggest_memory_region_size(name, amt, n);
                 if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
                     let total_bytes = bytes.iter().sum::<u64>();
-                    if total_bytes > *r as u64 {
+                    if total_bytes > u64::from(*r) {
                         bail!(
                         "task {}: needs {} bytes of {} but max-sizes limits it to {}",
                         name, total_bytes, mem, r);
