@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, VecDeque};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -470,11 +470,11 @@ impl Config {
         name: &str,
         size: u64,
         regions: usize,
-    ) -> Vec<u64> {
+    ) -> VecDeque<u64> {
         match name {
             "kernel" => {
                 // Nearest chunk of 16
-                vec![((size + 15) / 16) * 16]
+                [((size + 15) / 16) * 16].into_iter().collect()
             }
             _ => self
                 .mpu_alignment()
@@ -541,33 +541,33 @@ impl MpuAlignment {
         &self,
         mut size: u64,
         regions: usize,
-    ) -> Vec<u64> {
+    ) -> VecDeque<u64> {
         match self {
             MpuAlignment::PowerOfTwo => {
                 const MIN_MPU_REGION_SIZE: u64 = 32;
-                let mut out = vec![];
+                let mut out = VecDeque::new();
                 for _ in 0..regions {
                     let s =
                         (size.next_power_of_two() / 2).max(MIN_MPU_REGION_SIZE);
-                    out.push(s);
+                    out.push_back(s);
                     size = size.saturating_sub(s);
                     if size == 0 {
                         break;
                     }
                 }
                 if size > 0 {
-                    if let Some(s) = out.last_mut() {
+                    if let Some(s) = out.back_mut() {
                         *s *= 2;
                     } else {
-                        out.push(size.next_power_of_two());
+                        out.push_back(size.next_power_of_two());
                     }
                 }
                 // Merge duplicate regions at the end
                 while out.len() >= 2 {
                     let n = out.len();
                     if out[n - 1] == out[n - 2] {
-                        out.pop();
-                        *out.last_mut().unwrap() *= 2;
+                        out.pop_back();
+                        *out.back_mut().unwrap() *= 2;
                     } else {
                         break;
                     }
@@ -584,14 +584,18 @@ impl MpuAlignment {
                     }
                     // Replace `n` instances of `largest` at the start of `out`
                     // with `n * 2` instances of `largest / 2`
-                    out[0..n].fill(largest / 2);
                     for _ in 0..n {
-                        out.insert(0, largest / 2);
+                        out.pop_front();
+                    }
+                    for _ in 0..n * 2 {
+                        out.push_front(largest / 2);
                     }
                 }
                 out
             }
-            MpuAlignment::Chunk(c) => vec![((size + c - 1) / c) * c],
+            MpuAlignment::Chunk(c) => {
+                [((size + c - 1) / c) * c].into_iter().collect()
+            }
         }
     }
     /// Returns the desired alignment for a region of a particular size

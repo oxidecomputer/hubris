@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs::{self, File};
@@ -1864,7 +1864,7 @@ pub fn allocate_all(
         let mut free = toml.memories(image_name)?;
         let kernel_requests = &kernel.requires;
 
-        let mut task_requests: BTreeMap<&str, IndexMap<&str, Vec<u32>>> =
+        let mut task_requests: BTreeMap<&str, IndexMap<&str, VecDeque<u32>>> =
             BTreeMap::new();
 
         for name in tasks.keys() {
@@ -1886,7 +1886,7 @@ pub fn allocate_all(
                         name, total_bytes, mem, r);
                     }
                 }
-                let bytes: Vec<u32> =
+                let bytes: VecDeque<u32> =
                     bytes.into_iter().map(|v| v.try_into().unwrap()).collect();
                 task_requests
                     .entry(mem)
@@ -1936,7 +1936,7 @@ fn allocate_region(
     region: &str,
     toml: &Config,
     k_req: &mut Option<&u32>,
-    t_reqs: &mut IndexMap<&str, Vec<u32>>,
+    t_reqs: &mut IndexMap<&str, VecDeque<u32>>,
     avail: &mut Range<u32>,
     allocs: &mut Allocations,
 ) -> Result<()> {
@@ -2046,7 +2046,7 @@ fn allocate_region(
             let gap_forward = base - avail.start;
             best.update(
                 gap_forward,
-                toml.task_memory_alignment(*mem.last().unwrap()),
+                toml.task_memory_alignment(*mem.back().unwrap()),
                 total_size,
                 task_name,
                 Direction::Forward,
@@ -2055,32 +2055,46 @@ fn allocate_region(
         let Some(sizes) = t_reqs.remove(best.name) else {
             panic!("could not find a task");
         };
-        match best.dir {
-            Direction::Forward => {
-                for &size in sizes.iter() {
-                    let align = toml.task_memory_alignment(size);
-                    allocs
-                        .tasks
-                        .entry(best.name.to_string())
-                        .or_default()
-                        .entry(region.to_string())
-                        .or_default()
-                        .push(allocate_one(region, size, align, avail)?);
-                }
-            }
+        let mut sizes = match best.dir {
+            Direction::Forward => sizes,
             Direction::Reverse => {
                 avail.start += best.gap;
-                for &size in sizes.iter().rev() {
-                    let align = toml.task_memory_alignment(size);
-                    allocs
-                        .tasks
-                        .entry(best.name.to_string())
-                        .or_default()
-                        .entry(region.to_string())
-                        .or_default()
-                        .push(allocate_one(region, size, align, avail)?);
+                sizes.into_iter().rev().collect()
+            }
+        };
+
+        while let Some(mut size) = sizes.pop_front() {
+            // When building the size list, we split the largest size to reduce
+            // alignment requirements.  Now, we try to merge them again, to
+            // reduce the number of regions stored in the kernel's flash. 
+            //
+            // For example, [256, 256, 64] => [512, 64] if the initial position
+            // is aligned for a 512-byte region.
+            let mut n = sizes.iter().filter(|s| **s == size).count() + 1;
+            println!("{size}, {sizes:?}");
+            if n > 1 {
+                n &= !1; // only consider an even number of regions
+                let possible_align = toml.task_memory_alignment(size * 2);
+                if avail.start & (possible_align - 1) == 0 {
+                    size *= 2;
+                    for _ in 0..n - 1 {
+                        sizes.pop_front();
+                    }
+                    for _ in 0..n / 2 - 1 {
+                        sizes.push_front(size);
+                    }
+                    println!("   => {size}, {sizes:?}")
                 }
             }
+
+            let align = toml.task_memory_alignment(size);
+            allocs
+                .tasks
+                .entry(best.name.to_string())
+                .or_default()
+                .entry(region.to_string())
+                .or_default()
+                .push(allocate_one(region, size, align, avail)?);
         }
 
         // Check that our allocations are all aligned and contiguous
