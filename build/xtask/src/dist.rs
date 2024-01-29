@@ -283,9 +283,9 @@ impl OrderedVecDeque {
     fn push_front(&mut self, v: u32) {
         if let Some(f) = self.front() {
             if self.increasing {
-                assert!(v >= *f);
-            } else {
                 assert!(v <= *f);
+            } else {
+                assert!(v >= *f);
             }
         }
         self.data.push_front(v)
