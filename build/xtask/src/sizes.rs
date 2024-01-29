@@ -80,7 +80,7 @@ pub fn run(
         let size = toml.kernel.requires[&mem.to_string()];
 
         let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
-        assert_eq!(suggestion.len(), 1);
+        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
         let suggestion = suggestion[0];
 
         if suggestion >= size as u64 {
