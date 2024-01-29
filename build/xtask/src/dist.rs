@@ -1991,7 +1991,13 @@ fn allocate_region(
                 name: &'a str,
                 dir: Direction,
             ) {
-                if gap < self.gap
+                // Ignore any gap that's < 1/8 of final alignment, since that's
+                // "close enough"
+                let gap_m = gap.saturating_sub(align / 8);
+                let our_gap_m = self.gap.saturating_sub(self.align / 8);
+                if gap_m < our_gap_m
+                    || (gap_m == our_gap_m && align > self.align)
+                    || gap < self.gap
                     || (gap == self.gap && align > self.align)
                     || (gap == self.gap
                         && align == self.align
