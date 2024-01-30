@@ -251,32 +251,26 @@ mod checked_types {
         }
     }
 
-    /// Simple wrapper data structure that enforces that values are ordered
+    /// Simple wrapper data structure that enforces that values are decreasing
     ///
-    /// Values must be monotonically increasing or decreasing based on the value of
-    /// `self.increasing`.  For example, in the **increasing** mode, each item must
-    /// be the same or larger than the previous item.
+    /// Each value must be the same or smaller than the previous value
+    #[derive(Debug)]
     pub struct OrderedVecDeque {
         data: VecDeque<u32>,
-        increasing: bool,
     }
     impl OrderedVecDeque {
-        /// Build a new `VecDeque` with a decreasing constraint
-        pub fn decreasing() -> Self {
+        pub fn new() -> Self {
             Self {
                 data: VecDeque::new(),
-                increasing: false,
-            }
-        }
-        /// Flip the data and constraint
-        pub fn reversed(self) -> Self {
-            Self {
-                data: self.data.into_iter().rev().collect(),
-                increasing: !self.increasing,
             }
         }
         pub fn iter(&self) -> impl Iterator<Item = &u32> {
             self.data.iter()
+        }
+        pub fn into_iter(
+            self,
+        ) -> impl Iterator<Item = u32> + DoubleEndedIterator {
+            self.data.into_iter()
         }
         pub fn front(&self) -> Option<&u32> {
             self.data.front()
@@ -286,11 +280,7 @@ mod checked_types {
         }
         pub fn push_front(&mut self, v: u32) {
             if let Some(f) = self.front() {
-                if self.increasing {
-                    assert!(v <= *f);
-                } else {
-                    assert!(v >= *f);
-                }
+                assert!(v >= *f);
             }
             self.data.push_front(v)
         }
@@ -299,13 +289,14 @@ mod checked_types {
         }
         pub fn push_back(&mut self, v: u32) {
             if let Some(f) = self.back() {
-                if self.increasing {
-                    assert!(v >= *f);
-                } else {
-                    assert!(v <= *f);
-                }
+                assert!(v <= *f);
             }
             self.data.push_back(v)
+        }
+    }
+    impl From<OrderedVecDeque> for VecDeque<u32> {
+        fn from(v: OrderedVecDeque) -> Self {
+            v.data
         }
     }
 }
@@ -1989,7 +1980,7 @@ pub fn allocate_all(
                     }
                 }
                 // Convert from u64 -> u32
-                let mut bs = OrderedVecDeque::decreasing();
+                let mut bs = OrderedVecDeque::new();
                 for b in bytes {
                     bs.push_back(b.try_into().unwrap());
                 }
@@ -2160,13 +2151,18 @@ fn allocate_region(
         let Some(sizes) = t_reqs.remove(best.name) else {
             panic!("could not find a task");
         };
-        let mut sizes = match best.dir {
-            Direction::Forward => sizes,
-            Direction::Reverse => {
-                avail.start += best.gap;
-                sizes.reversed()
-            }
+
+        // Prepare to pack values either forward or reverse
+        //
+        // At this point, we drop the "values must be ordered" constraint,
+        // because we may combine adjacent regions to reduce the total region
+        // count.  This could violate the ordering constraint, but is still
+        // valid from the MPU's perspective.
+        let mut sizes: VecDeque<u32> = match best.dir {
+            Direction::Forward => sizes.into(),
+            Direction::Reverse => sizes.into_iter().rev().collect(),
         };
+        avail.start += best.gap;
 
         while let Some(mut size) = sizes.pop_front() {
             // When building the size list, we split the largest size to reduce
@@ -2190,7 +2186,11 @@ fn allocate_region(
                 }
             }
 
+            // We do our own alignment management, so assert that we haven't
+            // messed it up:
             let align = toml.task_memory_alignment(size);
+            assert!(avail.start & (align - 1) == 0);
+
             allocs
                 .tasks
                 .entry(best.name.to_string())
