@@ -210,100 +210,107 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
 /// Represents allocations and free spaces for a particular image
 type AllocationMap = (Allocations, IndexMap<String, Range<u32>>);
 
-/// Simple data structure to store a set of guaranteed-contiguous ranges
-///
-/// This will panic if you violate that constraint!
-#[derive(Debug, Clone, Default, Hash)]
-pub struct ContiguousRanges(Vec<Range<u32>>);
-impl ContiguousRanges {
-    pub fn new(r: Range<u32>) -> Self {
-        Self(vec![r])
-    }
-    pub fn iter(&self) -> impl Iterator<Item = &Range<u32>> {
-        self.0.iter()
-    }
-    pub fn start(&self) -> u32 {
-        self.0.first().unwrap().start
-    }
-    pub fn end(&self) -> u32 {
-        self.0.last().unwrap().end
-    }
-    pub fn contains(&self, v: &u32) -> bool {
-        (self.start()..self.end()).contains(v)
-    }
-    pub fn push(&mut self, r: Range<u32>) {
-        if let Some(t) = &self.0.last() {
-            assert_eq!(t.end, r.start, "ranges must be contiguous");
-        }
-        self.0.push(r)
-    }
-}
+/// Module to prevent people from messing with invariants of checked types
+mod checked_types {
+    use super::*;
 
-impl<'a> IntoIterator for &'a ContiguousRanges {
-    type Item = &'a Range<u32>;
-    type IntoIter = std::slice::Iter<'a, Range<u32>>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+    /// Simple data structure to store a set of guaranteed-contiguous ranges
+    ///
+    /// This will panic if you violate that constraint!
+    #[derive(Debug, Clone, Default, Hash)]
+    pub struct ContiguousRanges(Vec<Range<u32>>);
+    impl ContiguousRanges {
+        pub fn new(r: Range<u32>) -> Self {
+            Self(vec![r])
+        }
+        pub fn iter(&self) -> impl Iterator<Item = &Range<u32>> {
+            self.0.iter()
+        }
+        pub fn start(&self) -> u32 {
+            self.0.first().unwrap().start
+        }
+        pub fn end(&self) -> u32 {
+            self.0.last().unwrap().end
+        }
+        pub fn contains(&self, v: &u32) -> bool {
+            (self.start()..self.end()).contains(v)
+        }
+        pub fn push(&mut self, r: Range<u32>) {
+            if let Some(t) = &self.0.last() {
+                assert_eq!(t.end, r.start, "ranges must be contiguous");
+            }
+            self.0.push(r)
+        }
     }
-}
 
-/// Simple wrapper data structure that enforces that values are ordered
-///
-/// Values must be monotonically increasing or decreasing based on the value of
-/// `self.increasing`.  For example, in the **increasing** mode, each item must
-/// be the same or larger than the previous item.
-struct OrderedVecDeque {
-    data: VecDeque<u32>,
-    increasing: bool,
-}
-impl OrderedVecDeque {
-    /// Build a new `VecDeque` with a decreasing constraint
-    fn decreasing() -> Self {
-        Self {
-            data: VecDeque::new(),
-            increasing: false,
+    impl<'a> IntoIterator for &'a ContiguousRanges {
+        type Item = &'a Range<u32>;
+        type IntoIter = std::slice::Iter<'a, Range<u32>>;
+        fn into_iter(self) -> Self::IntoIter {
+            self.0.iter()
         }
     }
-    /// Flip the data and constraint
-    fn reverse(self) -> Self {
-        Self {
-            data: self.data.into_iter().rev().collect(),
-            increasing: !self.increasing,
-        }
+
+    /// Simple wrapper data structure that enforces that values are ordered
+    ///
+    /// Values must be monotonically increasing or decreasing based on the value of
+    /// `self.increasing`.  For example, in the **increasing** mode, each item must
+    /// be the same or larger than the previous item.
+    pub struct OrderedVecDeque {
+        data: VecDeque<u32>,
+        increasing: bool,
     }
-    fn iter(&self) -> impl Iterator<Item = &u32> {
-        self.data.iter()
-    }
-    fn front(&self) -> Option<&u32> {
-        self.data.front()
-    }
-    fn pop_front(&mut self) -> Option<u32> {
-        self.data.pop_front()
-    }
-    fn push_front(&mut self, v: u32) {
-        if let Some(f) = self.front() {
-            if self.increasing {
-                assert!(v <= *f);
-            } else {
-                assert!(v >= *f);
+    impl OrderedVecDeque {
+        /// Build a new `VecDeque` with a decreasing constraint
+        pub fn decreasing() -> Self {
+            Self {
+                data: VecDeque::new(),
+                increasing: false,
             }
         }
-        self.data.push_front(v)
-    }
-    fn back(&self) -> Option<&u32> {
-        self.data.back()
-    }
-    fn push_back(&mut self, v: u32) {
-        if let Some(f) = self.back() {
-            if self.increasing {
-                assert!(v >= *f);
-            } else {
-                assert!(v <= *f);
+        /// Flip the data and constraint
+        pub fn reversed(self) -> Self {
+            Self {
+                data: self.data.into_iter().rev().collect(),
+                increasing: !self.increasing,
             }
         }
-        self.data.push_back(v)
+        pub fn iter(&self) -> impl Iterator<Item = &u32> {
+            self.data.iter()
+        }
+        pub fn front(&self) -> Option<&u32> {
+            self.data.front()
+        }
+        pub fn pop_front(&mut self) -> Option<u32> {
+            self.data.pop_front()
+        }
+        pub fn push_front(&mut self, v: u32) {
+            if let Some(f) = self.front() {
+                if self.increasing {
+                    assert!(v <= *f);
+                } else {
+                    assert!(v >= *f);
+                }
+            }
+            self.data.push_front(v)
+        }
+        pub fn back(&self) -> Option<&u32> {
+            self.data.back()
+        }
+        pub fn push_back(&mut self, v: u32) {
+            if let Some(f) = self.back() {
+                if self.increasing {
+                    assert!(v >= *f);
+                } else {
+                    assert!(v <= *f);
+                }
+            }
+            self.data.push_back(v)
+        }
     }
 }
+// Republish these types for widespread availability
+pub use checked_types::{ContiguousRanges, OrderedVecDeque};
 
 pub fn package(
     verbose: bool,
@@ -2157,7 +2164,7 @@ fn allocate_region(
             Direction::Forward => sizes,
             Direction::Reverse => {
                 avail.start += best.gap;
-                sizes.reverse()
+                sizes.reversed()
             }
         };
 
