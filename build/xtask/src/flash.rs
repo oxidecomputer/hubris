@@ -175,7 +175,7 @@ pub fn config(
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e"
         | "gimlet-f" | "psc-a" | "psc-b" | "psc-c" | "sidecar-b"
-        | "sidecar-c" | "stm32g031-nucleo" | "donglet-g030"
+        | "sidecar-c" | "sidecar-d" | "stm32g031-nucleo" | "donglet-g030"
         | "donglet-g031" | "oxcon2023g0" | "stm32g070" | "stm32g0b1" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
@@ -213,7 +213,9 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "stm32h7b3i-dk" => "STM32H7B3IITx",
         "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-b"
         | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f" | "psc-a"
-        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" => "STM32H753ZITx",
+        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d" => {
+            "STM32H753ZITx"
+        }
         "donglet-g030" => "STM32G030F6Px",
         "donglet-g031" => "STM32G031F8Px",
         "stm32g031-nucleo" => "STM32G031Y8Yx",

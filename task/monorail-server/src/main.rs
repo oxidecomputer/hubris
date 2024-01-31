@@ -5,8 +5,14 @@
 #![no_std]
 #![no_main]
 
-#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
-#[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
+#[cfg_attr(
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d"
+    ),
+    path = "bsp/sidecar_bcd.rs"
+)]
 mod bsp;
 mod server;
 

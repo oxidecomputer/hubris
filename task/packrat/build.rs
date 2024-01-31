@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "packrat's `gimlet` feature should not be enabled when ",
             "building for PSCs",
         )),
-        Some("sidecar-b" | "sidecar-c") => panic!(concat!(
+        Some("sidecar-b" | "sidecar-c" | "sidecar-d") => panic!(concat!(
             "packrat's `gimlet` feature should not be enabled when ",
             "building for sidecars",
         )),

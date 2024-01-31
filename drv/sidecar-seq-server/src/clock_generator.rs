@@ -5,8 +5,12 @@
 use crate::*;
 
 #[cfg_attr(
-    any(target_board = "sidecar-b", target_board = "sidecar-c"),
-    path = "clock_generator_payload_bc.rs"
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d"
+    ),
+    path = "clock_generator_payload_bcd.rs"
 )]
 mod payload;
 
