@@ -14,12 +14,12 @@ The `net` task is responsible for maintaining system network state. It includes:
 
 1. The Ethernet MAC and PHY drivers.
 2. Ethernet DMA support and buffer management.
-3. The IP stack itself (`smoltcp`).
+3. The IP stack itself (_smoltcp_).
 4. Buffers for each socket defined in the system.
 
 The `net` task itself is designed to manage network interface events as quickly
 as possible, without blocking on other tasks. It sends no IPCs during its normal
-operation.
+operation after configuring any switches or PHYs.
 
 It exposes an IPC interface that other tasks can use to request services, like
 sending or receiving packets.
@@ -27,20 +27,30 @@ sending or receiving packets.
 ## Global configuration
 
 One useful property of our application is that we can predict the full set of
-required network resources -- buffers, sockets, and the like -- at compile time,
-and allocate them statically.
+required network resources --- buffers, sockets, and the like --- at compile
+time, and allocate them statically.
 
 This information is defined in the `app.toml` file's `config.net` section. Here
-is an example of a UDP echo service (port 7) in an early version of the
+is an example of a UDP echo service (port 7) in the current version of the
 netstack:
 
 ```toml
 [config.net.sockets.echo]
 kind = "udp"
-owner = {name = "udpecho", notification = 1}
+owner = {name = "udpecho", notification = "socket"}
 port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+```
+
+and the corresponding task gets configured with the following relevant bits
+(normal task stuff omitted):
+
+```toml
+[tasks.udpecho]
+# other stuff omitted
+task-slots = ["net"]
+notifications = ["socket"]
 ```
 
 Sockets have a system-wide unique name (here, `echo`) and an "owner" task (here,
@@ -54,10 +64,10 @@ those packets' payloads.
 
 ## IPC interface
 
-From the perspective of a client task such as `udpecho` above, the network stack
-implements two IPC operations, both of which are _prompt_ -- the netstack will
-process the request when it's received, and then return, rather than blocking
-the caller until some event occurs.
+From the perspective of a client task, such as `udpecho` above, the network
+stack implements two IPC operations, both of which are _prompt_ -- the netstack
+will process the request when it's received, and then return, rather than
+blocking the caller until some event occurs.
 
 `send_packet` takes a socket identifier, information about the destination of
 the packet (address and port, for UDP) and the payload of the packet as a lease.
@@ -103,7 +113,7 @@ DMA.
 4. The Hubris kernel handles the interrupt and notifies the `net` task.
 
 5. Once anything higher-priority has yielded the CPU, the `net` task gets the
-notification and inspects the packet in-place in DMA memory using `smoltcp`.
+notification and inspects the packet in-place in DMA memory using _smoltcp_.
 Some packets, such as neighbor discovery and ICMP echo, are handled at this
 stage without a further copy. UDP packets are matched to a socket; if no
 matching socket exists, they are discarded with a Destination Port Unreachable
@@ -118,11 +128,12 @@ performed to ensure that a task that fails to read its socket in a timely
 fashion only stalls packets to _that socket,_ rather than starving the Ethernet
 DMA engine of buffers.)
 
-7. Once the `net` task and anything else higher priority has yielded, the owning
-task wakes up and sends a `recv_packet` message to `net`, loaning a writable
-buffer. The `net` task consults the socket, and, if the packet fits, copies it
-into the loaned memory, freeing the corresponding socket buffer to receive more
-packets.
+7. Assuming the owning task had blocked waiting for a socket event, it will wake
+up due to the notification once the `net` task and anything else higher priority
+have yielded. It asks for details of the event that woke it by sending a
+`recv_packet` message to `net`, loaning a writable buffer. The `net` task
+consults the socket, and, if the packet fits, copies it into the loaned memory,
+freeing the corresponding socket buffer to receive more packets.
 
 8. The owning task inspects the packet and does whatever it needs to. Let's
 assume that it generates a reply into a buffer.
@@ -136,7 +147,7 @@ space, the `net` task returns an error to the caller. (This copy is important
 to ensure that `net` has timely access to the packet contents when it becomes
 time to transmit.)
 
-11. `net` polls `smoltcp` to trigger transmission. If there is an Ethernet DMA
+11. `net` polls _smoltcp_ to trigger transmission. If there is an Ethernet DMA
 buffer available, we copy it into the DMA buffer and send it to the hardware.
 (If not, we wait until a buffer is freed by the transmission of a different
 packet.) (This copy is important to ensure that a task sending packets faster
