@@ -17,8 +17,14 @@ mod server;
     any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
     path = "bsp/nucleo_h7.rs"
 )]
-#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
-#[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
+#[cfg_attr(
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d",
+    ),
+    path = "bsp/sidecar_bcd.rs"
+)]
 #[cfg_attr(
     any(
         target_board = "gimlet-b",

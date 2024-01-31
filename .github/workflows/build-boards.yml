@@ -17,7 +17,7 @@ jobs:
     name: build-sidecar
     strategy:
       matrix:
-        build: [sidecar-b, sidecar-b-lab, sidecar-b-dev, sidecar-c, sidecar-c-lab, sidecar-c-dev]
+        build: [sidecar-b, sidecar-b-lab, sidecar-b-dev, sidecar-c, sidecar-c-lab, sidecar-c-dev, sidecar-d, sidecar-d-lab, sidecar-d-dev]
         include:
           - build: sidecar-b
             app_name: sidecar-b
@@ -42,6 +42,18 @@ jobs:
           - build: sidecar-c-dev
             app_name: sidecar-c-dev
             app_toml: app/sidecar/rev-c-dev.toml
+            image: default
+          - build: sidecar-d
+            app_name: sidecar-d
+            app_toml: app/sidecar/rev-d.toml
+            image: default
+          - build: sidecar-d-lab
+            app_name: sidecar-d-lab
+            app_toml: app/sidecar/rev-d-lab.toml
+            image: default
+          - build: sidecar-d-dev
+            app_name: sidecar-d-dev
+            app_toml: app/sidecar/rev-d-dev.toml
             image: default
     uses: ./.github/workflows/build-one.yml
     with:
@@ -234,4 +246,3 @@ jobs:
       app_toml: ${{ matrix.app_toml }}
       image: ${{ matrix.image }}
       os: ${{ inputs.os }}
- 

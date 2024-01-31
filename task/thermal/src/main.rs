@@ -23,8 +23,12 @@
     path = "bsp/gimlet_bcdef.rs"
 )]
 #[cfg_attr(
-    any(target_board = "sidecar-b", target_board = "sidecar-c"),
-    path = "bsp/sidecar_bc.rs"
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d"
+    ),
+    path = "bsp/sidecar_bcd.rs"
 )]
 mod bsp;
 mod control;
