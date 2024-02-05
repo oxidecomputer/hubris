@@ -2201,10 +2201,16 @@ fn allocate_region(
         }
 
         // Check that our allocations are all aligned and contiguous
+        let mut prev = None;
         for r in &allocs.tasks[best.name][region] {
+            if let Some(prev) = prev {
+                assert_eq!(prev.end, r.start);
+            }
             let size = r.end - r.start;
+            assert!(size >= 32); // minimum MPU size
             let align = toml.task_memory_alignment(size);
             assert!(r.start.trailing_zeros() >= align.trailing_zeros());
+            prev = Some(r.clone());
         }
     }
 
