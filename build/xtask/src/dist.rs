@@ -2201,7 +2201,7 @@ fn allocate_region(
         }
 
         // Check that our allocations are all aligned and contiguous
-        let mut prev = None;
+        let mut prev: Option<Range<u32>> = None;
         for r in &allocs.tasks[best.name][region] {
             if let Some(prev) = prev {
                 assert_eq!(prev.end, r.start);
@@ -2402,7 +2402,7 @@ pub fn make_kconfig(
             if p2_required && !size.is_power_of_two() {
                 bail!(
                     "memory region for task '{name}' output '{out_name}' \
-                        is required to be a power of two, but has size {size}"
+                     is required to be a power of two, but has size {size}"
                 );
             }
 
