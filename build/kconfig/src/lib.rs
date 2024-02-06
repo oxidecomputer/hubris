@@ -51,7 +51,7 @@ pub struct TaskConfig {
     ///
     /// The name is the "output" assignment that generated this region,
     /// typically (but not necessarily!) either `"ram"` or `"flash"`.
-    pub owned_regions: BTreeMap<String, RegionConfig>,
+    pub owned_regions: BTreeMap<String, MultiRegionConfig>,
 
     /// Names of regions (in the app-level `shared_regions`) that this task
     /// needs access to.
@@ -113,6 +113,24 @@ pub struct RegionConfig {
     /// for this; it must meet them. (For example, on ARMv7-M, it must be a
     /// power of two greater than 16.)
     pub size: u32,
+    /// Flags describing what can be done with this region.
+    pub attributes: RegionAttributes,
+}
+
+/// Description of one memory span containing multiple adjacent regions
+///
+/// This is equivalent to [`RegionConfig`], but represents a single memory span
+/// that should be configured as multiple regions in the MPU.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MultiRegionConfig {
+    /// Address of start of region. The platform likely has alignment
+    /// requirements for this; it must meet them. (For example, on ARMv7-M, it
+    /// must be naturally aligned for the size.)
+    pub base: u32,
+    /// Size of region, in bytes for each chunk. The platform likely has
+    /// alignment requirements for this; it must meet them. (For example, on
+    /// ARMv7-M, it must be a power of two greater than 16.)
+    pub sizes: Vec<u32>,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
 }

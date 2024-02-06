@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, VecDeque};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -461,15 +461,24 @@ impl Config {
     }
 
     /// Suggests an appropriate size for the given task (or "kernel"), given
-    /// its true size.  The size depends on MMU implementation, dispatched
-    /// based on the `target` in the config file.
-    pub fn suggest_memory_region_size(&self, name: &str, size: u64) -> u64 {
+    /// its true size and a number of available regions.  The size depends on
+    /// MMU implementation, dispatched based on the `target` in the config file.
+    ///
+    /// The returned `Vec<u64>` always has the largest value first.
+    pub fn suggest_memory_region_size(
+        &self,
+        name: &str,
+        size: u64,
+        regions: usize,
+    ) -> VecDeque<u64> {
         match name {
             "kernel" => {
                 // Nearest chunk of 16
-                ((size + 15) / 16) * 16
+                [((size + 15) / 16) * 16].into_iter().collect()
             }
-            _ => self.mpu_alignment().suggest_memory_region_size(size),
+            _ => self
+                .mpu_alignment()
+                .suggest_memory_region_size(size, regions),
         }
     }
 
@@ -525,10 +534,68 @@ enum MpuAlignment {
 
 impl MpuAlignment {
     /// Suggests a minimal memory region size fitting the given number of bytes
-    fn suggest_memory_region_size(&self, size: u64) -> u64 {
+    ///
+    /// If multiple regions are available, then we may use them for efficiency.
+    /// The resulting `Vec` is guaranteed to have the largest value first.
+    fn suggest_memory_region_size(
+        &self,
+        mut size: u64,
+        regions: usize,
+    ) -> VecDeque<u64> {
         match self {
-            MpuAlignment::PowerOfTwo => size.next_power_of_two(),
-            MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
+            MpuAlignment::PowerOfTwo => {
+                const MIN_MPU_REGION_SIZE: u64 = 32;
+                let mut out = VecDeque::new();
+                for _ in 0..regions {
+                    let s =
+                        (size.next_power_of_two() / 2).max(MIN_MPU_REGION_SIZE);
+                    out.push_back(s);
+                    size = size.saturating_sub(s);
+                    if size == 0 {
+                        break;
+                    }
+                }
+                if size > 0 {
+                    if let Some(s) = out.back_mut() {
+                        *s *= 2;
+                    } else {
+                        out.push_back(size.next_power_of_two());
+                    }
+                }
+                // Merge duplicate regions at the end
+                while out.len() >= 2 {
+                    let n = out.len();
+                    if out[n - 1] == out[n - 2] {
+                        out.pop_back();
+                        *out.back_mut().unwrap() *= 2;
+                    } else {
+                        break;
+                    }
+                }
+                // Split the initial (largest) region into as many smaller
+                // regions as we can fit.  This doesn't change total size, but
+                // can make alignment more flexible, since smaller regions have
+                // less stringent alignment requirements.
+                while out[0] > MIN_MPU_REGION_SIZE {
+                    let largest = out[0];
+                    let n = out.iter().filter(|c| **c == largest).count();
+                    if out.len() + n > regions {
+                        break;
+                    }
+                    // Replace `n` instances of `largest` at the start of `out`
+                    // with `n * 2` instances of `largest / 2`
+                    for _ in 0..n {
+                        out.pop_front();
+                    }
+                    for _ in 0..n * 2 {
+                        out.push_front(largest / 2);
+                    }
+                }
+                out
+            }
+            MpuAlignment::Chunk(c) => {
+                [((size + c - 1) / c) * c].into_iter().collect()
+            }
         }
     }
     /// Returns the desired alignment for a region of a particular size
