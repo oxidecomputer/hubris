@@ -14,6 +14,7 @@ use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
@@ -103,7 +104,11 @@ enum Trace {
     SpdBankAbsent(u8),
     SpdAbsent(u8, u8, u8),
     SpdDimmsFound(usize),
-
+    I2cFault {
+        retries_remaining: u8,
+        code: i2c::ResponseCode,
+    },
+    StartFailed(SeqError),
     None,
 }
 
@@ -111,11 +116,43 @@ ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
+    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
+    match init(&sys, &jefe, spi, hf) {
+        // Set up everything nicely, time to start serving incoming messages.
+        Ok(mut server) => {
+            let mut buffer = [0; idl::INCOMING_SIZE];
+            loop {
+                idol_runtime::dispatch(&mut buffer, &mut server);
+            }
+        }
 
+        // Initializing the sequencer failed.
+        Err(_) => {
+            // Tell everyone that something's broken, as loudly as possible.
+            ringbuf_entry!(Trace::StartFailed(SeqError::I2cFault));
+            sys.gpio_set(FAULT_PIN_L);
+
+            // All these moments will be lost in time, like tears in rain...
+            // Time to die.
+            loop {
+                hl::sleep_for(100);
+            }
+        }
+    }
+}
+
+fn init<S>(
+    sys: &sys_api::Sys,
+    jefe: &Jefe,
+    spi: S,
+    hf: hf_api::HostFlash,
+) -> Result<ServerImpl<S>, i2c::ResponseCode>
+where
+    S: SpiServer + Clone,
+{
     // Ensure the SP fault pin is configured as an open-drain output, and pull
     // it low to make the sequencer restart externally visible.
     sys.gpio_configure_output(
@@ -175,7 +212,7 @@ fn main() -> ! {
     // the SPI and CS lines are separately managed by the SPI server; the ice40
     // crate handles the CRESETB and CDONE signals, and takes care not to
     // generate surprise resets.
-    ice40::configure_pins(&sys, &ICE40_CONFIG);
+    ice40::configure_pins(sys, &ICE40_CONFIG);
 
     let pg = sys.gpio_read_input(PGS_PORT);
     let v1p2 = pg & PG_V1P2_MASK != 0;
@@ -294,7 +331,7 @@ fn main() -> ! {
         loop {
             let prog = spi.device(drv_spi_api::devices::ICE40);
             ringbuf_entry!(Trace::Programming);
-            match reprogram_fpga(&prog, &sys, &ICE40_CONFIG) {
+            match reprogram_fpga(&prog, sys, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
                     break;
@@ -324,7 +361,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Programmed);
 
-    vcore_soc_off();
+    vcore_soc_off()?;
+
     ringbuf_entry!(Trace::RailsOff);
 
     let ident = seq.read_ident().unwrap_lite();
@@ -360,8 +398,7 @@ fn main() -> ! {
             ringbuf_entry!(Trace::ClockConfigWrite);
             Ok(())
         }
-    })
-    .unwrap_lite();
+    })?;
 
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -380,17 +417,16 @@ fn main() -> ! {
     // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
     // sending the first SPD command.
     hl::sleep_for(10);
-    read_spd_data_and_load_packrat(&packrat, I2C.get_task_id());
+    read_spd_data_and_load_packrat(&packrat, I2C.get_task_id())?;
 
     // Turn on the chassis LED once we reach A2
     sys.gpio_set(CHASSIS_LED);
 
-    let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
         sys: sys.clone(),
         seq,
-        jefe,
+        jefe: jefe.clone(),
         hf,
         deadline: 0,
     };
@@ -418,12 +454,13 @@ fn main() -> ! {
     // and fewer things can go wrong.
     sys.gpio_set(FAULT_PIN_L);
 
-    loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
-    }
+    Ok(server)
 }
 
-fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
+fn read_spd_data_and_load_packrat(
+    packrat: &Packrat,
+    i2c_task: TaskId,
+) -> Result<(), i2c::ResponseCode> {
     use drv_gimlet_seq_api::NUM_SPD_BANKS;
     use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
 
@@ -499,7 +536,7 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
 
-            spd.read_into(&mut tmp[1..]).unwrap_lite();
+            retry_i2c_txn(|| spd.read_into(&mut tmp[1..]))?;
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
         }
@@ -526,15 +563,16 @@ fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap_lite();
+            retry_i2c_txn(|| spd.read_reg_into::<u8>(0, &mut tmp[..chunk]))?;
 
-            spd.read_into(&mut tmp[chunk..]).unwrap_lite();
+            retry_i2c_txn(|| spd.read_into(&mut tmp[chunk..]))?;
 
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
     }
 
     ringbuf_entry!(Trace::SpdDimmsFound(npresent));
+    Ok(())
 }
 
 struct ServerImpl<S: SpiServer> {
@@ -629,6 +667,34 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         if let Some(interval) = self.poll_interval() {
             self.deadline += interval;
             sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        }
+    }
+}
+
+fn retry_i2c_txn<T, E>(
+    mut txn: impl FnMut() -> Result<T, E>,
+) -> Result<T, i2c::ResponseCode>
+where
+    i2c::ResponseCode: From<E>,
+{
+    // Chosen by fair dice roll, seems reasonable-ish?
+    let mut retries_remaining = 3;
+    loop {
+        match txn() {
+            Ok(x) => return Ok(x),
+            Err(e) => {
+                let code = e.into();
+                ringbuf_entry!(Trace::I2cFault {
+                    retries_remaining,
+                    code,
+                });
+
+                if retries_remaining == 0 {
+                    return Err(code);
+                }
+
+                retries_remaining -= 1;
+            }
         }
     }
 }
@@ -771,7 +837,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 // And power up!
                 //
-                vcore_soc_on();
+                if vcore_soc_on().is_err() {
+                    // Uh-oh, the I2C write failed a bunch of times. Guess I'll
+                    // die!
+                    return Err(self.a0_failure(SeqError::I2cFault));
+                }
                 ringbuf_entry!(Trace::RailsOn);
 
                 //
@@ -847,7 +917,9 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 hl::sleep_for(1);
 
-                vcore_soc_off();
+                if vcore_soc_off().is_err() {
+                    return Err(SeqError::I2cFault);
+                }
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
                     return Err(SeqError::MuxToSPFailed);
@@ -902,7 +974,8 @@ impl<S: SpiServer> ServerImpl<S> {
 
         hl::sleep_for(1);
 
-        vcore_soc_off();
+        // If this I2C write fails, that's bad news, but we're already dying...
+        let _ = vcore_soc_off();
         _ = self.hf.set_mux(hf_api::HfMuxState::SP);
 
         err
@@ -1175,7 +1248,7 @@ cfg_if::cfg_if! {
         const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
         const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
 
-        fn vcore_soc_off() {
+        fn vcore_soc_off() -> Result<(), i2c::ResponseCode> {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
@@ -1185,11 +1258,12 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_off().unwrap_lite();
-            vddcr_soc.turn_off().unwrap_lite();
+            retry_i2c_txn(|| vdd_vcore.turn_off())?;
+            retry_i2c_txn(|| vddcr_soc.turn_off())?;
+            Ok(())
         }
 
-        fn vcore_soc_on() {
+        fn vcore_soc_on() -> Result<(), i2c::ResponseCode> {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
@@ -1199,8 +1273,9 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_on().unwrap_lite();
-            vddcr_soc.turn_on().unwrap_lite();
+            retry_i2c_txn(|| vdd_vcore.turn_on())?;
+            retry_i2c_txn(|| vddcr_soc.turn_on())?;
+            Ok(())
         }
 
         //

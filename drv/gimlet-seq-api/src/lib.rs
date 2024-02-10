@@ -23,6 +23,7 @@ pub enum SeqError {
     A1Timeout,
     A0TimeoutGroupC,
     A0Timeout,
+    I2cFault,
 
     #[idol(server_death)]
     ServerRestarted,
