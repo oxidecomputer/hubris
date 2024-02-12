@@ -120,7 +120,7 @@ fn main() -> ! {
     let jefe = Jefe::from(JEFE.get_task_id());
     let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
-    match ServerImpl::init(&sys, &jefe, spi, hf) {
+    match ServerImpl::init(&sys, jefe, spi, hf) {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             let mut buffer = [0; idl::INCOMING_SIZE];
@@ -138,7 +138,16 @@ fn main() -> ! {
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
             loop {
-                hl::sleep_for(100);
+                // Sleeping with all bits in the notification mask clear means
+                // we should never be notified --- and if one never wakes up,
+                // the difference between sleeping and dying seems kind of
+                // irrelevant. But, `rustc` doesn't realize that this should
+                // never return, we'll stick it in a `loop` anyway so the main
+                // function can return `!`
+                //
+                // We don't care if this returns an error, because we're just
+                // doing it to die as politely as possible.
+                let _ = sys_recv_closed(&mut [], 0, TaskId::KERNEL);
             }
         }
     }
@@ -158,7 +167,7 @@ const TIMER_INTERVAL: u64 = 10;
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
         sys: &sys_api::Sys,
-        jefe: &Jefe,
+        jefe: Jefe,
         spi: S,
         hf: hf_api::HostFlash,
     ) -> Result<Self, i2c::ResponseCode> {
@@ -435,7 +444,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             state: PowerState::A2,
             sys: sys.clone(),
             seq,
-            jefe: jefe.clone(),
+            jefe,
             hf,
             deadline: 0,
         };
