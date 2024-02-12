@@ -31,7 +31,11 @@ const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS
         + sensors::NUM_M2_HP_ONLY_TEMPERATURE_SENSORS;
 
-#[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+#[cfg(any(
+    target_board = "gimlet-d",
+    target_board = "gimlet-e",
+    target_board = "gimlet-f"
+))]
 const NUM_NVME_BMC_TEMPERATURE_SENSORS: usize =
     sensors::NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
@@ -72,12 +76,13 @@ pub(crate) struct Bsp {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub struct PowerBitmask: u32 {
         // As far as I know, we don't have any devices which are active only
         // in A2; you probably want to use `A0_OR_A2` instead.
         const A2 = 0b00000001;
         const A0 = 0b00000010;
-        const A0_OR_A2 = Self::A0.bits | Self::A2.bits;
+        const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
 
         // Bonus bits for M.2 power, which is switched separately.  We *cannot*
         // read the M.2 drives when they are unpowered; otherwise, we risk
@@ -262,7 +267,11 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_a,
             sensors::M2_HP_ONLY_M2_A_TEMPERATURE_SENSOR,
         ),
-        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+        #[cfg(any(
+            target_board = "gimlet-d",
+            target_board = "gimlet-e",
+            target_board = "gimlet-f"
+        ))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_a,
@@ -279,7 +288,11 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             devices::m2_hp_only_m2_b,
             sensors::M2_HP_ONLY_M2_B_TEMPERATURE_SENSOR,
         ),
-        #[cfg(any(target_board = "gimlet-d", target_board = "gimlet-e"))]
+        #[cfg(any(
+            target_board = "gimlet-d",
+            target_board = "gimlet-e",
+            target_board = "gimlet-f"
+        ))]
         TemperatureSensor::new(
             Device::M2,
             devices::nvme_bmc_m2_b,

@@ -16,7 +16,7 @@ binary file", because we can read arbitrary memory.
 
 The motivating example of this data is a component-level version: after building
 an image, a separate release engineering process wants to assign it a
-user-facing version (e.g. `1.2.3`) and store that informatio _somewhere_ in the
+user-facing version (e.g. `1.2.3`) and store that information _somewhere_ in the
 image.
 
 The "caboose" is a region of flash allocated for this purpose. It is declared

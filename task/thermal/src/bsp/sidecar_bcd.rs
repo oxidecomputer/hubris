@@ -47,12 +47,13 @@ pub const USE_CONTROLLER: bool = true;
 ////////////////////////////////////////////////////////////////////////////////
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub struct PowerBitmask: u32 {
         // As far as I know, we don't have any devices which are active only
         // in A2; you probably want to use `POWER_STATE_A0_OR_A2` instead
         const A2 = 0b00000001;
         const A0 = 0b00000010;
-        const A0_OR_A2 = Self::A0.bits | Self::A2.bits;
+        const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
     }
 }
 

@@ -3,6 +3,6 @@ board = "sidecar-c"
 inherit = "base.toml"
 
 [[auxflash.blobs]]
-file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_c.bit"
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller_rev_c_d.bit"
 compress = true
 tag = "FPGA"

@@ -77,7 +77,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 46592, ram = 32768}
+max-sizes = {flash = 47360, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
@@ -158,8 +158,8 @@ binary_path = "../../target/gimlet-c/dist/default/final.bin"
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 14800, ram = 16384}
-stacksize = 11264
+max-sizes = {flash = 33904, ram = 16384}
+stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 

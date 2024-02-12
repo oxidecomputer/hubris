@@ -389,6 +389,7 @@ cfg_if::cfg_if! {
         ) -> Option<ResetReason> {
             bitflags::bitflags! {
                 // See RM0433 section 8.7.39 (RCC_RSR).
+                #[derive(Copy, Clone, Debug, Eq, PartialEq)]
                 #[repr(transparent)]
                 pub struct ResetFlags: u32 {
                     const LPWR = 1 << 30;

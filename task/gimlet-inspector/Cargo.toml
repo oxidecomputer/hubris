@@ -1,0 +1,28 @@
+[package]
+name = "task-gimlet-inspector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+hubpack = { workspace = true }
+gimlet-inspector-protocol = { workspace = true }
+
+task-net-api = { path = "../net-api" }
+drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-gimlet-inspector"
+test = false
+doctest = false
+bench = false

@@ -8,14 +8,14 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use colored::*;
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
 
 use crate::{
-    dist::{Allocations, DEFAULT_KERNEL_STACK},
+    dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
     Config,
 };
 
@@ -34,6 +34,7 @@ pub fn run(
     only_suggest: bool,
     compare: bool,
     save: bool,
+    verbose: bool,
 ) -> Result<()> {
     let toml = Config::from_file(cfg)?;
     let sizes = create_sizes(&toml)?;
@@ -63,7 +64,7 @@ pub fn run(
     // Print detailed sizes relative to usage
     if !only_suggest {
         let map = build_memory_map(&toml, &sizes, allocs)?;
-        print_memory_map(&toml, &map)?;
+        print_memory_map(&toml, &map, verbose)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
     }
@@ -78,7 +79,10 @@ pub fn run(
         }
         let size = toml.kernel.requires[&mem.to_string()];
 
-        let suggestion = toml.suggest_memory_region_size("kernel", used);
+        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
+        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
+        let suggestion = suggestion[0];
+
         if suggestion >= size as u64 {
             continue;
         }
@@ -117,10 +121,10 @@ enum Recommended {
     FixedSize(u32),
     MaxSize(u32),
 }
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 struct MemoryChunk<'a> {
     used_size: u64,
-    total_size: u32,
+    total_size: Vec<u32>,
     owner: &'a str,
     recommended: Option<Recommended>,
 }
@@ -145,11 +149,17 @@ fn build_memory_map<'a>(
         .chain(std::iter::once((
             "kernel",
             toml.kernel.requires.clone(),
-            allocs.kernel.clone(),
+            allocs
+                .kernel
+                .iter()
+                .map(|(name, v)| {
+                    (name.to_owned(), ContiguousRanges::new(v.clone()))
+                })
+                .collect(),
         )))
         .chain(allocs.caboose.iter().map(|(region, size)| {
             let mut alloc = BTreeMap::new();
-            alloc.insert(region.clone(), size.clone());
+            alloc.insert(region.clone(), ContiguousRanges::new(size.clone()));
             let mut requires = IndexMap::new();
             requires
                 .insert(region.clone(), toml.caboose.as_ref().unwrap().size);
@@ -164,10 +174,10 @@ fn build_memory_map<'a>(
             }
             let alloc = &alloc[&mem_name.to_string()];
             map.entry(mem_name).or_default().insert(
-                alloc.start,
+                alloc.start(),
                 MemoryChunk {
                     used_size: used,
-                    total_size: alloc.end - alloc.start,
+                    total_size: alloc.iter().map(|v| v.end - v.start).collect(),
                     owner: name,
                     recommended: requires
                         .get(mem_name.to_owned())
@@ -198,7 +208,7 @@ fn print_task_table(
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
-        .map(|c| format!("{}", c.total_size).len())
+        .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .chain(std::iter::once(4))
         .max()
         .unwrap_or(0) as usize;
@@ -215,7 +225,9 @@ fn print_task_table(
         .map(|(region, map)| {
             (
                 *region,
-                map.iter().map(|(_, chunk)| (chunk.owner, *chunk)).collect(),
+                map.iter()
+                    .map(|(_, chunk)| (chunk.owner, chunk.clone()))
+                    .collect(),
             )
         })
         .collect();
@@ -247,7 +259,7 @@ fn print_task_table(
                 print!(
                     "{:<mem$}  {:<mem$}  ",
                     chunk.used_size,
-                    chunk.total_size,
+                    chunk.total_size.iter().sum::<u32>(),
                     mem = mem_pad,
                 );
                 match chunk.recommended {
@@ -265,6 +277,7 @@ fn print_task_table(
 fn print_memory_map(
     toml: &Config,
     map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    verbose: bool,
 ) -> Result<()> {
     let task_pad = toml
         .tasks
@@ -277,61 +290,133 @@ fn print_memory_map(
     let mem_pad = map
         .values()
         .flat_map(|m| m.values())
-        .map(|c| format!("{}", c.total_size).len())
+        .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .max()
         .unwrap_or(0) as usize;
     for (mem_name, map) in map {
         println!("\n{}:", mem_name);
-        println!(
-            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
+        if verbose {
+            println!(
+            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
             "PROGRAM",
             "USED",
             "SIZE",
+            "CHUNKS",
             task = task_pad,
             mem = mem_pad,
         );
+        } else {
+            println!(
+                "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
+                "PROGRAM",
+                "USED",
+                "SIZE",
+                task = task_pad,
+                mem = mem_pad,
+            );
+        }
 
         let next = map.keys().skip(1).map(Some).chain(std::iter::once(None));
         for ((start, chunk), next) in map.iter().zip(next) {
-            print!("    {:#010x} | ", start);
-            print!(
-                "{:<size$} | {:>mem$} | {:>mem$} | ",
-                chunk.owner,
-                chunk.used_size,
-                chunk.total_size,
-                size = task_pad,
-                mem = mem_pad,
-            );
-            match chunk.recommended {
-                None => print!("(auto)"),
-                Some(Recommended::MaxSize(m)) => print!("{}", m),
-                Some(Recommended::FixedSize(_)) => print!("(fixed)"),
-            }
-            println!();
-
-            // Print padding, if relevant
-            if let Some(&next) = next {
-                if next != start + chunk.total_size {
-                    print!("    {:#010x} | ", start + chunk.total_size);
-                    println!(
+            for (i, mem) in chunk.total_size.iter().enumerate() {
+                print!(
+                    "    {:#010x} | ",
+                    start + chunk.total_size[0..i].iter().sum::<u32>()
+                );
+                if verbose {
+                    if i == 0 {
+                        print!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                            chunk.owner,
+                            chunk.used_size,
+                            chunk.total_size.iter().sum::<u32>(),
+                            mem,
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    } else {
+                        print!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                            "",
+                            "",
+                            "",
+                            mem,
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    }
+                } else {
+                    print!(
                         "{:<size$} | {:>mem$} | {:>mem$} | ",
-                        "-padding-",
-                        "--",
-                        next - (start + chunk.total_size),
+                        chunk.owner,
+                        chunk.used_size,
+                        chunk.total_size.iter().sum::<u32>(),
                         size = task_pad,
                         mem = mem_pad,
                     );
                 }
+                if i == 0 {
+                    match chunk.recommended {
+                        None => print!("(auto)"),
+                        Some(Recommended::MaxSize(m)) => print!("{}", m),
+                        Some(Recommended::FixedSize(_)) => print!("(fixed)"),
+                    }
+                }
+                println!();
+                // Only print the header if we're not being verbose
+                if !verbose {
+                    break;
+                }
+            }
+
+            // Print padding, if relevant
+            let chunk_size = chunk.total_size.iter().sum::<u32>();
+            if let Some(&next) = next {
+                if next != start + chunk_size {
+                    print!("    {:#010x} | ", start + chunk_size);
+                    if verbose {
+                        println!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} |",
+                            "-padding-",
+                            "--",
+                            next - (start + chunk_size),
+                            "--",
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    } else {
+                        println!(
+                            "{:<size$} | {:>mem$} | {:>mem$} | ",
+                            "-padding-",
+                            "--",
+                            next - (start + chunk_size),
+                            size = task_pad,
+                            mem = mem_pad,
+                        );
+                    }
+                }
             } else {
-                print!("    {:#010x} | ", start + chunk.total_size);
-                println!(
-                    "{:<size$} | {:>mem$} | {:>mem$} | ",
-                    "--end--",
-                    "",
-                    "",
-                    size = task_pad,
-                    mem = mem_pad,
-                );
+                print!("    {:#010x} | ", start + chunk_size);
+                if verbose {
+                    println!(
+                        "{:<size$} | {:>mem$} | {:>mem$} | {:>mem$} | ",
+                        "--end--",
+                        "",
+                        "",
+                        "",
+                        size = task_pad,
+                        mem = mem_pad,
+                    );
+                } else {
+                    println!(
+                        "{:<size$} | {:>mem$} | {:>mem$} | ",
+                        "--end--",
+                        "",
+                        "",
+                        size = task_pad,
+                        mem = mem_pad,
+                    );
+                }
             }
         }
     }
@@ -371,25 +456,25 @@ pub fn load_task_size<'a>(
             let r = memory_sizes.entry(region).or_insert_with(|| start..end);
             r.start = r.start.min(start);
             r.end = r.end.max(end);
-            true
+            Ok(())
         } else {
-            false
+            bail!("could not find region at {start}");
         }
     };
     for phdr in &elf.program_headers {
         if phdr.p_type != goblin::elf::program_header::PT_LOAD {
             continue;
         }
-        record_size(phdr.p_vaddr, phdr.p_memsz);
+        record_size(phdr.p_vaddr, phdr.p_memsz)?;
 
         // If the VirtAddr disagrees with the PhysAddr, then this is a
         // section which is relocated into RAM, so we also accumulate
         // its FileSiz in the physical address (which is presumably
         // flash).
-        if phdr.p_vaddr != phdr.p_paddr
-            && !record_size(phdr.p_paddr, phdr.p_filesz)
-        {
-            bail!("Failed to remap relocated section at {}", phdr.p_paddr);
+        if phdr.p_vaddr != phdr.p_paddr {
+            record_size(phdr.p_paddr, phdr.p_filesz).with_context(|| {
+                format!("Failed to remap relocated section at {}", phdr.p_paddr)
+            })?;
         }
     }
 

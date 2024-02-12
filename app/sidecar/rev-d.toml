@@ -1,0 +1,7 @@
+name = "sidecar-d"
+board = "sidecar-d"
+
+# Rev D is identical to rev C from a software perspective. Ideally they would
+# be combined into the same image, but the resulting change in board name is not
+# supported by current update methods.
+inherit = "rev-c.toml"

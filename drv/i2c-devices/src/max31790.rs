@@ -8,6 +8,7 @@ use crate::Validate;
 use bitfield::bitfield;
 use core::convert::TryFrom;
 use drv_i2c_api::*;
+use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
 
@@ -250,6 +251,14 @@ fn write_reg16(
     device.write(&[register as u8, (val >> 8) as u8, (val & 0xff) as u8])
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    ZeroTach(Fan),
+    None,
+}
+
+ringbuf!(Trace, 6, Trace::None);
+
 impl Max31790 {
     pub fn new(device: &I2cDevice) -> Self {
         Self { device: *device }
@@ -311,7 +320,18 @@ impl Max31790 {
         const NP: u32 = 2;
         const FREQ: u32 = 8192;
 
-        if count == TACH_POR_VALUE {
+        if count == 0 {
+            //
+            // We don't really expect this:  generally, if a fan is off (or is
+            // otherwise emiting non-detectable tach input pulses), the
+            // controller will report the power-on-reset value for the tach
+            // count, not 0.  So if we see a zero count, we will assume that
+            // this is an error rather than a 0 RPM reading, and record it to
+            // a (small) ring buffer and return accordingly.
+            //
+            ringbuf_entry!(Trace::ZeroTach(fan));
+            Err(ResponseCode::BadDeviceState)
+        } else if count == TACH_POR_VALUE {
             Ok(Rpm(0))
         } else {
             let rpm = (60 * FREQ * SR) / (count * NP);

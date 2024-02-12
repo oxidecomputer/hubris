@@ -67,7 +67,8 @@ fn main() -> ! {
         if #[cfg(all(feature = "mainboard", feature = "front_io"))] {
             compile_error!("Cannot enable both mainboard and front_io simultaneously");
         } else if #[cfg(all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c"),
+                                target_board = "sidecar-c",
+                                target_board = "sidecar-d"),
                             feature = "mainboard"))] {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_MAINBOARD_FPGA);
@@ -88,7 +89,8 @@ fn main() -> ! {
 
             let devices = [ecp5::Ecp5::new(driver)];
         } else if #[cfg(all(any(target_board = "sidecar-b",
-                                target_board = "sidecar-c"),
+                                target_board = "sidecar-c",
+                                target_board = "sidecar-d"),
                             feature = "front_io"))] {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
