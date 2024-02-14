@@ -155,6 +155,24 @@ enum MgsMessage {
 
 ringbuf!(Log, 16, Log::Empty);
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum CriticalEvent {
+    Empty,
+    /// We have received a network request to change power states. This record
+    /// logs the sender, in case the request was unexpected, and the target
+    /// state.
+    SetPowerState {
+        sender: sp_impl::SocketAddrV6,
+        port: SpPort,
+        power_state: PowerState,
+        ticks_since_boot: u64,
+    },
+}
+
+// This ringbuf exists to record critical events _only_ and thus not get
+// overwritten by chatter in the debug/trace-style messages.
+ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
+
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
 #[export_name = "main"]

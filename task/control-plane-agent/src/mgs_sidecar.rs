@@ -4,7 +4,7 @@
 
 use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, Log, MgsMessage,
+    update::ComponentUpdater, CriticalEvent, Log, MgsMessage,
 };
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
@@ -423,10 +423,19 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
+        sender: SocketAddrV6,
+        port: SpPort,
         power_state: PowerState,
     ) -> Result<(), SpError> {
+        ringbuf_entry_root!(
+            CRITICAL,
+            CriticalEvent::SetPowerState {
+                sender,
+                port,
+                power_state,
+                ticks_since_boot: sys_get_timer().now,
+            }
+        );
         use drv_sidecar_seq_api::TofinoSequencerPolicy;
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
             power_state

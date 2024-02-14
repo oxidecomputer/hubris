@@ -5,7 +5,7 @@
 use crate::{
     mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
-    usize_max, vlan_id_from_sp_port, Log, MgsMessage, SYS,
+    usize_max, vlan_id_from_sp_port, CriticalEvent, Log, MgsMessage, SYS,
 };
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
@@ -703,11 +703,20 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
+        sender: SocketAddrV6,
+        port: SpPort,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
+        ringbuf_entry_root!(
+            CRITICAL,
+            CriticalEvent::SetPowerState {
+                sender,
+                port,
+                power_state,
+                ticks_since_boot: sys_get_timer().now,
+            }
+        );
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
             power_state
         )));
