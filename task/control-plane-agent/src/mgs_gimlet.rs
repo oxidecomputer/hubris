@@ -26,7 +26,7 @@ use gateway_messages::{
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
-use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
@@ -287,7 +287,7 @@ impl MgsHandler {
         };
 
         // We have data we want to flush and an attached MGS; build our packet.
-        ringbuf_entry!(Log::SerialConsoleSend {
+        ringbuf_entry_root!(Log::SerialConsoleSend {
             buffered: self.usart.from_rx.len(),
         });
 
@@ -468,7 +468,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
+            target
+        }));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -478,7 +480,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionStateIter, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
         Err(SpError::RequestUnsupportedForSp)
@@ -490,7 +492,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<ignition::LinkEvents, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
         Err(SpError::RequestUnsupportedForSp)
@@ -502,9 +504,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionLinkEventsIter, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
-            offset
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::BulkIgnitionLinkEvents { offset }
+        ));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -515,7 +517,9 @@ impl SpHandler for MgsHandler {
         _target: Option<u8>,
         _transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ClearIgnitionLinkEvents
+        ));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -526,7 +530,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -548,7 +552,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.aux_flash_size + update.sp_image_size,
             component: SpComponent::SP_ITSELF,
             id: update.id,
@@ -564,7 +568,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
             id: update.id,
@@ -612,7 +616,7 @@ impl SpHandler for MgsHandler {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
         }));
@@ -637,7 +641,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<UpdateStatus, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateStatus { component }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
+            component
+        }));
 
         let status = match component {
             // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
@@ -663,7 +669,9 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         id: UpdateId,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateAbort { component }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
+            component
+        }));
 
         match component {
             // Unlike `update_chunk()`, we only need to match on `SP_ITSELF`
@@ -689,7 +697,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
         self.power_state_impl()
     }
 
@@ -700,7 +708,9 @@ impl SpHandler for MgsHandler {
         power_state: PowerState,
     ) -> Result<(), SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetPowerState(power_state)));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
+            power_state
+        )));
 
         let power_state = match power_state {
             PowerState::A0 => DrvPowerState::A0,
@@ -719,7 +729,7 @@ impl SpHandler for MgsHandler {
         port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
 
         // Including a component in the serial console messages is half-baked at
         // the moment; we can at least check that it's the one component we
@@ -758,7 +768,7 @@ impl SpHandler for MgsHandler {
         mut offset: u64,
         mut data: &[u8],
     ) -> Result<u64, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -800,7 +810,9 @@ impl SpHandler for MgsHandler {
         sender: SocketAddrV6,
         port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleKeepAlive));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::SerialConsoleKeepAlive
+        ));
         self.attached_serial_console_mgs
             .as_mut()
             .ok_or(SpError::SerialConsoleNotAttached)?
@@ -813,7 +825,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
         Ok(())
     }
@@ -823,7 +835,7 @@ impl SpHandler for MgsHandler {
         sender: SocketAddrV6,
         port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         // TODO: same caveats as above!
         self.attached_serial_console_mgs
             .as_mut()
@@ -834,7 +846,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32
     }
 
@@ -850,7 +862,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<gateway_messages::StartupOptions, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
 
         // Our `startup_options_impl` never fails, so is safe to unwrap.
         Ok(self.startup_options_impl().unwrap_lite().into())
@@ -862,7 +874,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         options: gateway_messages::StartupOptions,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetStartupOptions(options)));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
 
         // Our `set_startup_options_impl` never fails, so is safe to unwrap.
         self.set_startup_options_impl(options.into()).unwrap_lite();
@@ -876,7 +890,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<u32, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentDetails {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
             component
         }));
 
@@ -897,9 +911,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<u16, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetActiveSlot {
-            component
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetActiveSlot { component }
+        ));
 
         match component {
             SpComponent::HOST_CPU_BOOT_FLASH => {
@@ -917,11 +931,13 @@ impl SpHandler for MgsHandler {
         slot: u16,
         persist: bool,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
-            component,
-            slot,
-            persist,
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentSetActiveSlot {
+                component,
+                slot,
+                persist,
+            }
+        ));
         match component {
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.set_active_slot(slot, persist)
@@ -938,9 +954,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentClearStatus {
-            component
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentClearStatus { component }
+        ));
         Err(SpError::RequestUnsupportedForComponent)
     }
 
@@ -951,7 +967,7 @@ impl SpHandler for MgsHandler {
         message_id: u32,
         err: MgsError,
     ) {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::MgsError {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
             message_id,
             err
         }));
@@ -966,7 +982,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::HostPhase2Data {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::HostPhase2Data {
             hash,
             offset,
             data_len: data.len(),
@@ -983,7 +999,7 @@ impl SpHandler for MgsHandler {
     ) -> Result<(), SpError> {
         // This can only fail if the `gimlet-seq` server is dead; in that
         // case, send `Busy` because it should be rebooting.
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SendHostNmi));
         self.sequencer
             .send_hardware_nmi()
             .map_err(|_| SpError::Busy)?;
@@ -1000,7 +1016,7 @@ impl SpHandler for MgsHandler {
         use gateway_messages::IpccKeyLookupValueError;
         use host_sp_messages::Key;
 
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
             key,
             value_len: value.len(),
         }));
@@ -1215,14 +1231,14 @@ impl UsartHandler {
         if self.to_tx.is_empty() {
             self.usart.disable_tx_fifo_empty_interrupt();
         } else {
-            ringbuf_entry!(Log::UsartTxFull {
+            ringbuf_entry_root!(Log::UsartTxFull {
                 remaining: self.to_tx.len()
             });
         }
 
         // Clear any errors.
         if self.usart.check_and_clear_rx_overrun() {
-            ringbuf_entry!(Log::UsartRxOverrun);
+            ringbuf_entry_root!(Log::UsartRxOverrun);
             // TODO-correctness Should we notify MGS of dropped data here? We
             // could increment `self.from_rx_offset`, but (a) we don't know how
             // much data we lost, and (b) it would indicate lost data in the
@@ -1289,7 +1305,7 @@ impl UsartHandler {
         // and log that fact locally via ringbuf.
         self.from_rx_offset += discarded_data;
         if discarded_data > 0 {
-            ringbuf_entry!(Log::UsartRxBufferDataDropped {
+            ringbuf_entry_root!(Log::UsartRxBufferDataDropped {
                 num_bytes: discarded_data
             });
         }
