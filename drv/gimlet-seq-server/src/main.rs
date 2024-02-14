@@ -14,6 +14,7 @@ use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
@@ -103,7 +104,11 @@ enum Trace {
     SpdBankAbsent(u8),
     SpdAbsent(u8, u8, u8),
     SpdDimmsFound(usize),
-
+    I2cFault {
+        retries_remaining: u8,
+        code: i2c::ResponseCode,
+    },
+    StartFailed(SeqError),
     None,
 }
 
@@ -111,430 +116,41 @@ ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
+    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
-
-    // Ensure the SP fault pin is configured as an open-drain output, and pull
-    // it low to make the sequencer restart externally visible.
-    sys.gpio_configure_output(
-        FAULT_PIN_L,
-        sys_api::OutputType::OpenDrain,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-    sys.gpio_reset(FAULT_PIN_L);
-
-    // Turn off the chassis LED, in case this is a task restart (and not a
-    // full chip restart, which would leave the GPIO unconfigured).
-    sys.gpio_configure_output(
-        CHASSIS_LED,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-    sys.gpio_reset(CHASSIS_LED);
-
-    // To allow for the possibility that we are restarting, rather than
-    // starting, we take care during early sequencing to _not turn anything
-    // off,_ only on. This means if it was _already_ on, the outputs should not
-    // glitch.
-
-    // Unconditionally set our power-good detects as inputs.
-    //
-    // This is the expected reset state, but, good to be sure.
-    sys.gpio_configure_input(PGS_PINS, PGS_PULL);
-
-    // Set SP3_TO_SP_NIC_PWREN_L to be an input
-    sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL);
-
-    // Set all of the presence-related pins to be inputs
-    sys.gpio_configure_input(CORETYPE, CORETYPE_PULL);
-    sys.gpio_configure_input(CPU_PRESENT_L, CPU_PRESENT_L_PULL);
-    sys.gpio_configure_input(SP3R1, SP3R1_PULL);
-    sys.gpio_configure_input(SP3R2, SP3R2_PULL);
-
-    // Unconditionally set our sequencing-related GPIOs to outputs.
-    //
-    // If the processor has reset, these will start out low. Since neither rail
-    // has external pullups, this puts the regulators into a well-defined "off"
-    // state instead of leaving them floating, which is the state when A2 power
-    // starts coming up.
-    //
-    // If it's just our driver that has reset, this will have no effect, and
-    // will continue driving the lines at whatever level we left them in.
-    sys.gpio_configure_output(
-        ENABLES,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::High,
-        sys_api::Pull::None,
-    );
-
-    // To talk to the sequencer we need to configure its pins, obvs. Note that
-    // the SPI and CS lines are separately managed by the SPI server; the ice40
-    // crate handles the CRESETB and CDONE signals, and takes care not to
-    // generate surprise resets.
-    ice40::configure_pins(&sys, &ICE40_CONFIG);
-
-    let pg = sys.gpio_read_input(PGS_PORT);
-    let v1p2 = pg & PG_V1P2_MASK != 0;
-    let v3p3 = pg & PG_V3P3_MASK != 0;
-
-    ringbuf_entry!(Trace::Ice40Rails(v1p2, v3p3));
-
-    // Force iCE40 CRESETB low before turning power on. This is nice because it
-    // prevents the iCE40 from racing us and deciding it should try to load from
-    // Flash. TODO: this may cause trouble with hot restarts, test.
-    sys.gpio_reset(ICE40_CONFIG.creset);
-
-    // Begin, or resume, the power supply sequencing process for the FPGA. We're
-    // going to be reading back our enable line states to get the real state
-    // being seen by the regulators, etc.
-
-    // The V1P2 regulator comes up first. It may already be on from a past life
-    // of ours. Ensuring that it's on by writing the pin is just as cheap as
-    // sensing its current state, and less code than _conditionally_ writing the
-    // pin, so:
-    sys.gpio_set(ENABLE_V1P2);
-
-    // We don't actually know how long ago the regulator turned on. Could have
-    // been _just now_ (above) or may have already been on. We'll use the PG pin
-    // to detect when it's stable. But -- the PG pin on the LT3072 is initially
-    // high when you turn the regulator on, and then takes time to drop if
-    // there's a problem. So, to ensure that there has been at least 1ms since
-    // regulator-on, we will delay for 2.
-    hl::sleep_for(2);
-
-    // Now, monitor the PG pin.
-    loop {
-        // active high
-        let pg = sys.gpio_read_input(PGS_PORT) & PG_V1P2_MASK != 0;
-        ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
-        if pg {
-            break;
-        }
-
-        // Do _not_ burn CPU constantly polling, it's rude. We could also set up
-        // pin-change interrupts but we only do this once per power on, so it
-        // seems like a lot of work.
-        hl::sleep_for(2);
-    }
-
-    // We believe V1P2 is good. Now, for V3P3! Set it active (high).
-    sys.gpio_set(ENABLE_V3P3);
-
-    // Delay to be sure.
-    hl::sleep_for(2);
-
-    // Now, monitor the PG pin.
-    loop {
-        // active high
-        let pg = sys.gpio_read_input(PGS_PORT) & PG_V3P3_MASK != 0;
-        ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
-        if pg {
-            break;
-        }
-
-        // Do _not_ burn CPU constantly polling, it's rude.
-        hl::sleep_for(2);
-    }
-
-    // Now, V2P5 is chained off V3P3 and comes up on its own with no
-    // synchronization. It takes about 500us in practice. We'll delay for 1ms,
-    // plus give the iCE40 a good 10ms to come out of power-down.
-    hl::sleep_for(1 + 10);
-
-    // Sequencer FPGA power supply sequencing (meta-sequencing?) is complete.
-
-    // Now, let's find out if we need to program the sequencer.
-    if let Some(pin) = GLOBAL_RESET {
-        // Also configure our design reset net -- the signal that resets the
-        // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
-        // push-pull because all our boards with reset nets are lacking pullups
-        // right now. It's active low, so, set up the pin before exposing the
-        // output to ensure we don't glitch.
-        sys.gpio_set(pin);
-        sys.gpio_configure_output(
-            pin,
-            sys_api::OutputType::PushPull,
-            sys_api::Speed::High,
-            sys_api::Pull::None,
-        );
-    }
-
-    // If the sequencer is already loaded and operational, the design loaded
-    // into it should be willing to talk to us over SPI, and should be able to
-    // serve up a recognizable ident code.
-    let seq = seq_spi::SequencerFpga::new(
-        spi.device(drv_spi_api::devices::SEQUENCER),
-    );
-
-    // If the image announces the correct identifier and has a matching
-    // bitstream checksum, then we can skip reprogramming;
-    let ident_valid = seq.valid_ident();
-    ringbuf_entry!(Trace::IdentValid(ident_valid));
-
-    let checksum_valid = seq.valid_checksum();
-    ringbuf_entry!(Trace::ChecksumValid(checksum_valid));
-
-    let reprogram = !ident_valid || !checksum_valid;
-    ringbuf_entry!(Trace::Reprogram(reprogram));
-
-    // We only want to reset and reprogram the FPGA when absolutely required.
-    if reprogram {
-        if let Some(pin) = GLOBAL_RESET {
-            // Assert the design reset signal (not the same as the FPGA
-            // programming logic reset signal). We do this during reprogramming
-            // to avoid weird races that make our brains hurt.
-            sys.gpio_reset(pin);
-        }
-
-        // Reprogramming will continue until morale improves -- to a point.
-        loop {
-            let prog = spi.device(drv_spi_api::devices::ICE40);
-            ringbuf_entry!(Trace::Programming);
-            match reprogram_fpga(&prog, &sys, &ICE40_CONFIG) {
-                Ok(()) => {
-                    // yay
-                    break;
-                }
-                Err(_) => {
-                    // Try and put state back to something reasonable.  We
-                    // don't know if we're still locked, so ignore the
-                    // complaint if we're not.
-                    let _ = prog.release();
-                }
+    match ServerImpl::init(&sys, jefe, spi, hf) {
+        // Set up everything nicely, time to start serving incoming messages.
+        Ok(mut server) => {
+            let mut buffer = [0; idl::INCOMING_SIZE];
+            loop {
+                idol_runtime::dispatch(&mut buffer, &mut server);
             }
         }
 
-        if let Some(pin) = GLOBAL_RESET {
-            // Deassert design reset signal. We set the pin, as it's
-            // active low.
-            sys.gpio_set(pin);
-        }
+        // Initializing the sequencer failed.
+        Err(_) => {
+            // Tell everyone that something's broken, as loudly as possible.
+            ringbuf_entry!(Trace::StartFailed(SeqError::I2cFault));
+            sys.gpio_set(FAULT_PIN_L);
 
-        // Store our bitstream checksum in the FPGA's checksum registers
-        // (which are initialized to zero).  This value is read back before
-        // programming the FPGA image (e.g. if this task restarts or the SP
-        // itself is reflashed), and used to decide whether FPGA programming
-        // is required.
-        seq.write_checksum().unwrap_lite();
-    }
-
-    ringbuf_entry!(Trace::Programmed);
-
-    vcore_soc_off();
-    ringbuf_entry!(Trace::RailsOff);
-
-    let ident = seq.read_ident().unwrap_lite();
-    ringbuf_entry!(Trace::Ident(ident));
-
-    loop {
-        let mut status = [0u8];
-
-        seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap_lite();
-        ringbuf_entry!(Trace::A2Status(status[0]));
-
-        if status[0] == 0 {
-            break;
-        }
-
-        hl::sleep_for(1);
-    }
-
-    //
-    // If our clock generator is configured to load from external EEPROM,
-    // we need to wait for up to 150 ms here (!).
-    //
-    hl::sleep_for(150);
-
-    //
-    // And now load our clock configuration
-    //
-    let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
-
-    payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
-        Err(err) => Err(err),
-        Ok(_) => {
-            ringbuf_entry!(Trace::ClockConfigWrite);
-            Ok(())
-        }
-    })
-    .unwrap_lite();
-
-    // Populate packrat with our mac address and identity.
-    let packrat = Packrat::from(PACKRAT.get_task_id());
-    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
-
-    jefe.set_state(PowerState::A2 as u32);
-
-    ringbuf_entry!(Trace::ClockConfigSuccess);
-    ringbuf_entry_v3p3_sys_a0_vout();
-    ringbuf_entry!(Trace::A2);
-
-    // After declaring A2 but before transitioning to A0 (either automatically
-    // or in response to an IPC), populate packrat with EEPROM contents for use
-    // by the SPD task.
-    //
-    // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
-    // sending the first SPD command.
-    hl::sleep_for(10);
-    read_spd_data_and_load_packrat(&packrat, I2C.get_task_id());
-
-    // Turn on the chassis LED once we reach A2
-    sys.gpio_set(CHASSIS_LED);
-
-    let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl {
-        state: PowerState::A2,
-        sys: sys.clone(),
-        seq,
-        jefe,
-        hf,
-        deadline: 0,
-    };
-
-    // Power on, unless suppressed by the `stay-in-a2` feature
-    if !cfg!(feature = "stay-in-a2") {
-        _ = server.set_state_internal(PowerState::A0);
-    }
-
-    //
-    // Configure the NMI pin. Note that this needs to be configured as open
-    // drain rather than push/pull:  SP_TO_SP3_NMI_SYNC_FLOOD_L is pulled up
-    // to V3P3_SYS_A0 (by R5583) and we do not want to backdrive it when in
-    // A2, lest we prevent the PCA9535 GPIO expander (U307) from resetting!
-    //
-    sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
-    sys.gpio_configure_output(
-        SP_TO_SP3_NMI_SYNC_FLOOD_L,
-        sys_api::OutputType::OpenDrain,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-
-    // Clear the external fault now that we're about to start serving messages
-    // and fewer things can go wrong.
-    sys.gpio_set(FAULT_PIN_L);
-
-    loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
-    }
-}
-
-fn read_spd_data_and_load_packrat(packrat: &Packrat, i2c_task: TaskId) {
-    use drv_gimlet_seq_api::NUM_SPD_BANKS;
-    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
-
-    type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
-
-    cfg_if::cfg_if! {
-        if #[cfg(any(
-            target_board = "gimlet-b",
-            target_board = "gimlet-c",
-            target_board = "gimlet-d",
-            target_board = "gimlet-e",
-            target_board = "gimlet-f",
-        ))] {
-            //
-            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
-            //
-            // - ABCD DIMMs are on the mid bus (I2C3, port H)
-            // - EFGH DIMMS are on the rear bus (I2C4, port F)
-            //
-            // It should go without saying that the ordering here is essential
-            // to assure that the SPD data that we return for a DIMM corresponds
-            // to the correct DIMM from the SoC's perspective.
-            //
-            const BANKS: [SpdBank; NUM_SPD_BANKS] = [
-                (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
-                (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
-            ];
-        } else {
-            compile_error!("I2C target unsupported for this board");
-        }
-    }
-
-    let mut npresent = 0;
-    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
-    let mut tmp = [0u8; 256];
-
-    // For each bank, we're going to iterate over each device, reading all 512
-    // bytes of SPD data from each.
-    for nbank in 0..BANKS.len() as u8 {
-        let (controller, port, mux) = BANKS[nbank as usize];
-
-        let addr = spd::Function::PageAddress(spd::Page(0))
-            .to_device_code()
-            .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
-
-        if page.write(&[0]).is_err() {
-            // If our operation fails, we are going to assume that there
-            // are no DIMMs on this bank.
-            ringbuf_entry!(Trace::SpdBankAbsent(nbank));
-            continue;
-        }
-
-        for i in 0..spd::MAX_DEVICES {
-            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
-            let ndx = (nbank * spd::MAX_DEVICES) + i;
-
-            // Try reading the first byte; if this fails, we will assume
-            // the device isn't present.
-            let first = match spd.read_reg::<u8, u8>(0) {
-                Ok(val) => {
-                    present[usize::from(ndx)] = true;
-                    npresent += 1;
-                    val
-                }
-                Err(_) => {
-                    ringbuf_entry!(Trace::SpdAbsent(nbank, i, ndx));
-                    continue;
-                }
-            };
-
-            // We'll store that byte and then read 255 more.
-            tmp[0] = first;
-
-            spd.read_into(&mut tmp[1..]).unwrap_lite();
-
-            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
-        }
-
-        // Now flip over to the top page.
-        let addr = spd::Function::PageAddress(spd::Page(1))
-            .to_device_code()
-            .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
-
-        // We really don't expect this to fail, and if it does, tossing here
-        // seems to be best option:  things are pretty wrong.
-        page.write(&[0]).unwrap_lite();
-
-        // ...and two more reads for each (present) device.
-        for i in 0..spd::MAX_DEVICES {
-            let ndx = (nbank * spd::MAX_DEVICES) + i;
-
-            if !present[usize::from(ndx)] {
-                continue;
+            // All these moments will be lost in time, like tears in rain...
+            // Time to die.
+            loop {
+                // Sleeping with all bits in the notification mask clear means
+                // we should never be notified --- and if one never wakes up,
+                // the difference between sleeping and dying seems kind of
+                // irrelevant. But, `rustc` doesn't realize that this should
+                // never return, we'll stick it in a `loop` anyway so the main
+                // function can return `!`
+                //
+                // We don't care if this returns an error, because we're just
+                // doing it to die as politely as possible.
+                let _ = sys_recv_closed(&mut [], 0, TaskId::KERNEL);
             }
-
-            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
-
-            let chunk = 128;
-            spd.read_reg_into::<u8>(0, &mut tmp[..chunk]).unwrap_lite();
-
-            spd.read_into(&mut tmp[chunk..]).unwrap_lite();
-
-            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
     }
-
-    ringbuf_entry!(Trace::SpdDimmsFound(npresent));
 }
 
 struct ServerImpl<S: SpiServer> {
@@ -547,6 +163,318 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u64 = 10;
+
+impl<S: SpiServer + Clone> ServerImpl<S> {
+    fn init(
+        sys: &sys_api::Sys,
+        jefe: Jefe,
+        spi: S,
+        hf: hf_api::HostFlash,
+    ) -> Result<Self, i2c::ResponseCode> {
+        // Ensure the SP fault pin is configured as an open-drain output, and pull
+        // it low to make the sequencer restart externally visible.
+        sys.gpio_configure_output(
+            FAULT_PIN_L,
+            sys_api::OutputType::OpenDrain,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
+        sys.gpio_reset(FAULT_PIN_L);
+
+        // Turn off the chassis LED, in case this is a task restart (and not a
+        // full chip restart, which would leave the GPIO unconfigured).
+        sys.gpio_configure_output(
+            CHASSIS_LED,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
+        sys.gpio_reset(CHASSIS_LED);
+
+        // To allow for the possibility that we are restarting, rather than
+        // starting, we take care during early sequencing to _not turn anything
+        // off,_ only on. This means if it was _already_ on, the outputs should not
+        // glitch.
+
+        // Unconditionally set our power-good detects as inputs.
+        //
+        // This is the expected reset state, but, good to be sure.
+        sys.gpio_configure_input(PGS_PINS, PGS_PULL);
+
+        // Set SP3_TO_SP_NIC_PWREN_L to be an input
+        sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL);
+
+        // Set all of the presence-related pins to be inputs
+        sys.gpio_configure_input(CORETYPE, CORETYPE_PULL);
+        sys.gpio_configure_input(CPU_PRESENT_L, CPU_PRESENT_L_PULL);
+        sys.gpio_configure_input(SP3R1, SP3R1_PULL);
+        sys.gpio_configure_input(SP3R2, SP3R2_PULL);
+
+        // Unconditionally set our sequencing-related GPIOs to outputs.
+        //
+        // If the processor has reset, these will start out low. Since neither rail
+        // has external pullups, this puts the regulators into a well-defined "off"
+        // state instead of leaving them floating, which is the state when A2 power
+        // starts coming up.
+        //
+        // If it's just our driver that has reset, this will have no effect, and
+        // will continue driving the lines at whatever level we left them in.
+        sys.gpio_configure_output(
+            ENABLES,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::High,
+            sys_api::Pull::None,
+        );
+
+        // To talk to the sequencer we need to configure its pins, obvs. Note that
+        // the SPI and CS lines are separately managed by the SPI server; the ice40
+        // crate handles the CRESETB and CDONE signals, and takes care not to
+        // generate surprise resets.
+        ice40::configure_pins(sys, &ICE40_CONFIG);
+
+        let pg = sys.gpio_read_input(PGS_PORT);
+        let v1p2 = pg & PG_V1P2_MASK != 0;
+        let v3p3 = pg & PG_V3P3_MASK != 0;
+
+        ringbuf_entry!(Trace::Ice40Rails(v1p2, v3p3));
+
+        // Force iCE40 CRESETB low before turning power on. This is nice because it
+        // prevents the iCE40 from racing us and deciding it should try to load from
+        // Flash. TODO: this may cause trouble with hot restarts, test.
+        sys.gpio_reset(ICE40_CONFIG.creset);
+
+        // Begin, or resume, the power supply sequencing process for the FPGA. We're
+        // going to be reading back our enable line states to get the real state
+        // being seen by the regulators, etc.
+
+        // The V1P2 regulator comes up first. It may already be on from a past life
+        // of ours. Ensuring that it's on by writing the pin is just as cheap as
+        // sensing its current state, and less code than _conditionally_ writing the
+        // pin, so:
+        sys.gpio_set(ENABLE_V1P2);
+
+        // We don't actually know how long ago the regulator turned on. Could have
+        // been _just now_ (above) or may have already been on. We'll use the PG pin
+        // to detect when it's stable. But -- the PG pin on the LT3072 is initially
+        // high when you turn the regulator on, and then takes time to drop if
+        // there's a problem. So, to ensure that there has been at least 1ms since
+        // regulator-on, we will delay for 2.
+        hl::sleep_for(2);
+
+        // Now, monitor the PG pin.
+        loop {
+            // active high
+            let pg = sys.gpio_read_input(PGS_PORT) & PG_V1P2_MASK != 0;
+            ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
+            if pg {
+                break;
+            }
+
+            // Do _not_ burn CPU constantly polling, it's rude. We could also set up
+            // pin-change interrupts but we only do this once per power on, so it
+            // seems like a lot of work.
+            hl::sleep_for(2);
+        }
+
+        // We believe V1P2 is good. Now, for V3P3! Set it active (high).
+        sys.gpio_set(ENABLE_V3P3);
+
+        // Delay to be sure.
+        hl::sleep_for(2);
+
+        // Now, monitor the PG pin.
+        loop {
+            // active high
+            let pg = sys.gpio_read_input(PGS_PORT) & PG_V3P3_MASK != 0;
+            ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
+            if pg {
+                break;
+            }
+
+            // Do _not_ burn CPU constantly polling, it's rude.
+            hl::sleep_for(2);
+        }
+
+        // Now, V2P5 is chained off V3P3 and comes up on its own with no
+        // synchronization. It takes about 500us in practice. We'll delay for 1ms,
+        // plus give the iCE40 a good 10ms to come out of power-down.
+        hl::sleep_for(1 + 10);
+
+        // Sequencer FPGA power supply sequencing (meta-sequencing?) is complete.
+
+        // Now, let's find out if we need to program the sequencer.
+        if let Some(pin) = GLOBAL_RESET {
+            // Also configure our design reset net -- the signal that resets the
+            // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
+            // push-pull because all our boards with reset nets are lacking pullups
+            // right now. It's active low, so, set up the pin before exposing the
+            // output to ensure we don't glitch.
+            sys.gpio_set(pin);
+            sys.gpio_configure_output(
+                pin,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
+            );
+        }
+
+        // If the sequencer is already loaded and operational, the design loaded
+        // into it should be willing to talk to us over SPI, and should be able to
+        // serve up a recognizable ident code.
+        let seq = seq_spi::SequencerFpga::new(
+            spi.device(drv_spi_api::devices::SEQUENCER),
+        );
+
+        // If the image announces the correct identifier and has a matching
+        // bitstream checksum, then we can skip reprogramming;
+        let ident_valid = seq.valid_ident();
+        ringbuf_entry!(Trace::IdentValid(ident_valid));
+
+        let checksum_valid = seq.valid_checksum();
+        ringbuf_entry!(Trace::ChecksumValid(checksum_valid));
+
+        let reprogram = !ident_valid || !checksum_valid;
+        ringbuf_entry!(Trace::Reprogram(reprogram));
+
+        // We only want to reset and reprogram the FPGA when absolutely required.
+        if reprogram {
+            if let Some(pin) = GLOBAL_RESET {
+                // Assert the design reset signal (not the same as the FPGA
+                // programming logic reset signal). We do this during reprogramming
+                // to avoid weird races that make our brains hurt.
+                sys.gpio_reset(pin);
+            }
+
+            // Reprogramming will continue until morale improves -- to a point.
+            loop {
+                let prog = spi.device(drv_spi_api::devices::ICE40);
+                ringbuf_entry!(Trace::Programming);
+                match reprogram_fpga(&prog, sys, &ICE40_CONFIG) {
+                    Ok(()) => {
+                        // yay
+                        break;
+                    }
+                    Err(_) => {
+                        // Try and put state back to something reasonable.  We
+                        // don't know if we're still locked, so ignore the
+                        // complaint if we're not.
+                        let _ = prog.release();
+                    }
+                }
+            }
+
+            if let Some(pin) = GLOBAL_RESET {
+                // Deassert design reset signal. We set the pin, as it's
+                // active low.
+                sys.gpio_set(pin);
+            }
+
+            // Store our bitstream checksum in the FPGA's checksum registers
+            // (which are initialized to zero).  This value is read back before
+            // programming the FPGA image (e.g. if this task restarts or the SP
+            // itself is reflashed), and used to decide whether FPGA programming
+            // is required.
+            seq.write_checksum().unwrap_lite();
+        }
+
+        ringbuf_entry!(Trace::Programmed);
+
+        vcore_soc_off()?;
+
+        ringbuf_entry!(Trace::RailsOff);
+
+        let ident = seq.read_ident().unwrap_lite();
+        ringbuf_entry!(Trace::Ident(ident));
+
+        loop {
+            let mut status = [0u8];
+
+            seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap_lite();
+            ringbuf_entry!(Trace::A2Status(status[0]));
+
+            if status[0] == 0 {
+                break;
+            }
+
+            hl::sleep_for(1);
+        }
+
+        //
+        // If our clock generator is configured to load from external EEPROM,
+        // we need to wait for up to 150 ms here (!).
+        //
+        hl::sleep_for(150);
+
+        //
+        // And now load our clock configuration
+        //
+        let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+
+        payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
+            Err(err) => Err(err),
+            Ok(_) => {
+                ringbuf_entry!(Trace::ClockConfigWrite);
+                Ok(())
+            }
+        })?;
+
+        // Populate packrat with our mac address and identity.
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+        read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
+
+        jefe.set_state(PowerState::A2 as u32);
+
+        ringbuf_entry!(Trace::ClockConfigSuccess);
+        ringbuf_entry_v3p3_sys_a0_vout();
+        ringbuf_entry!(Trace::A2);
+
+        // After declaring A2 but before transitioning to A0 (either automatically
+        // or in response to an IPC), populate packrat with EEPROM contents for use
+        // by the SPD task.
+        //
+        // Per JEDEC 1791.12a, we must wait for tINIT (10ms) between power on and
+        // sending the first SPD command.
+        hl::sleep_for(10);
+        read_spd_data_and_load_packrat(&packrat, I2C.get_task_id())?;
+
+        // Turn on the chassis LED once we reach A2
+        sys.gpio_set(CHASSIS_LED);
+
+        let mut server = Self {
+            state: PowerState::A2,
+            sys: sys.clone(),
+            seq,
+            jefe,
+            hf,
+            deadline: 0,
+        };
+
+        // Power on, unless suppressed by the `stay-in-a2` feature
+        if !cfg!(feature = "stay-in-a2") {
+            _ = server.set_state_internal(PowerState::A0);
+        }
+
+        //
+        // Configure the NMI pin. Note that this needs to be configured as open
+        // drain rather than push/pull:  SP_TO_SP3_NMI_SYNC_FLOOD_L is pulled up
+        // to V3P3_SYS_A0 (by R5583) and we do not want to backdrive it when in
+        // A2, lest we prevent the PCA9535 GPIO expander (U307) from resetting!
+        //
+        sys.gpio_set(SP_TO_SP3_NMI_SYNC_FLOOD_L);
+        sys.gpio_configure_output(
+            SP_TO_SP3_NMI_SYNC_FLOOD_L,
+            sys_api::OutputType::OpenDrain,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
+
+        // Clear the external fault now that we're about to start serving messages
+        // and fewer things can go wrong.
+        sys.gpio_set(FAULT_PIN_L);
+
+        Ok(server)
+    }
+}
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
@@ -629,6 +557,34 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         if let Some(interval) = self.poll_interval() {
             self.deadline += interval;
             sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        }
+    }
+}
+
+fn retry_i2c_txn<T, E>(
+    mut txn: impl FnMut() -> Result<T, E>,
+) -> Result<T, i2c::ResponseCode>
+where
+    i2c::ResponseCode: From<E>,
+{
+    // Chosen by fair dice roll, seems reasonable-ish?
+    let mut retries_remaining = 3;
+    loop {
+        match txn() {
+            Ok(x) => return Ok(x),
+            Err(e) => {
+                let code = e.into();
+                ringbuf_entry!(Trace::I2cFault {
+                    retries_remaining,
+                    code,
+                });
+
+                if retries_remaining == 0 {
+                    return Err(code);
+                }
+
+                retries_remaining -= 1;
+            }
         }
     }
 }
@@ -771,7 +727,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 // And power up!
                 //
-                vcore_soc_on();
+                if vcore_soc_on().is_err() {
+                    // Uh-oh, the I2C write failed a bunch of times. Guess I'll
+                    // die!
+                    return Err(self.a0_failure(SeqError::I2cFault));
+                }
                 ringbuf_entry!(Trace::RailsOn);
 
                 //
@@ -847,7 +807,9 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 hl::sleep_for(1);
 
-                vcore_soc_off();
+                if vcore_soc_off().is_err() {
+                    return Err(SeqError::I2cFault);
+                }
 
                 if self.hf.set_mux(hf_api::HfMuxState::SP).is_err() {
                     return Err(SeqError::MuxToSPFailed);
@@ -902,7 +864,8 @@ impl<S: SpiServer> ServerImpl<S> {
 
         hl::sleep_for(1);
 
-        vcore_soc_off();
+        // If this I2C write fails, that's bad news, but we're already dying...
+        let _ = vcore_soc_off();
         _ = self.hf.set_mux(hf_api::HfMuxState::SP);
 
         err
@@ -1041,6 +1004,124 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     }
 }
 
+fn read_spd_data_and_load_packrat(
+    packrat: &Packrat,
+    i2c_task: TaskId,
+) -> Result<(), i2c::ResponseCode> {
+    use drv_gimlet_seq_api::NUM_SPD_BANKS;
+    use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
+
+    type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);
+
+    cfg_if::cfg_if! {
+        if #[cfg(any(
+            target_board = "gimlet-b",
+            target_board = "gimlet-c",
+            target_board = "gimlet-d",
+            target_board = "gimlet-e",
+            target_board = "gimlet-f",
+        ))] {
+            //
+            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+            //
+            // - ABCD DIMMs are on the mid bus (I2C3, port H)
+            // - EFGH DIMMS are on the rear bus (I2C4, port F)
+            //
+            // It should go without saying that the ordering here is essential
+            // to assure that the SPD data that we return for a DIMM corresponds
+            // to the correct DIMM from the SoC's perspective.
+            //
+            const BANKS: [SpdBank; NUM_SPD_BANKS] = [
+                (Controller::I2C3, i2c_config::ports::i2c3_h(), None),
+                (Controller::I2C4, i2c_config::ports::i2c4_f(), None),
+            ];
+        } else {
+            compile_error!("I2C target unsupported for this board");
+        }
+    }
+
+    let mut npresent = 0;
+    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
+    let mut tmp = [0u8; 256];
+
+    // For each bank, we're going to iterate over each device, reading all 512
+    // bytes of SPD data from each.
+    for nbank in 0..BANKS.len() as u8 {
+        let (controller, port, mux) = BANKS[nbank as usize];
+
+        let addr = spd::Function::PageAddress(spd::Page(0))
+            .to_device_code()
+            .unwrap_lite();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        if page.write(&[0]).is_err() {
+            // If our operation fails, we are going to assume that there
+            // are no DIMMs on this bank.
+            ringbuf_entry!(Trace::SpdBankAbsent(nbank));
+            continue;
+        }
+
+        for i in 0..spd::MAX_DEVICES {
+            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            // Try reading the first byte; if this fails, we will assume
+            // the device isn't present.
+            let first = match spd.read_reg::<u8, u8>(0) {
+                Ok(val) => {
+                    present[usize::from(ndx)] = true;
+                    npresent += 1;
+                    val
+                }
+                Err(_) => {
+                    ringbuf_entry!(Trace::SpdAbsent(nbank, i, ndx));
+                    continue;
+                }
+            };
+
+            // We'll store that byte and then read 255 more.
+            tmp[0] = first;
+
+            retry_i2c_txn(|| spd.read_into(&mut tmp[1..]))?;
+
+            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+        }
+
+        // Now flip over to the top page.
+        let addr = spd::Function::PageAddress(spd::Page(1))
+            .to_device_code()
+            .unwrap_lite();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        // We really don't expect this to fail, and if it does, tossing here
+        // seems to be best option:  things are pretty wrong.
+        page.write(&[0]).unwrap_lite();
+
+        // ...and two more reads for each (present) device.
+        for i in 0..spd::MAX_DEVICES {
+            let ndx = (nbank * spd::MAX_DEVICES) + i;
+
+            if !present[usize::from(ndx)] {
+                continue;
+            }
+
+            let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+
+            let chunk = 128;
+            retry_i2c_txn(|| spd.read_reg_into::<u8>(0, &mut tmp[..chunk]))?;
+
+            retry_i2c_txn(|| spd.read_into(&mut tmp[chunk..]))?;
+
+            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
+        }
+    }
+
+    ringbuf_entry!(Trace::SpdDimmsFound(npresent));
+    Ok(())
+}
+
 fn reprogram_fpga<S: SpiServer>(
     spi: &SpiDevice<S>,
     sys: &sys_api::Sys,
@@ -1175,7 +1256,7 @@ cfg_if::cfg_if! {
         const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
         const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
 
-        fn vcore_soc_off() {
+        fn vcore_soc_off() -> Result<(), i2c::ResponseCode> {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
@@ -1185,11 +1266,12 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_off().unwrap_lite();
-            vddcr_soc.turn_off().unwrap_lite();
+            retry_i2c_txn(|| vdd_vcore.turn_off())?;
+            retry_i2c_txn(|| vddcr_soc.turn_off())?;
+            Ok(())
         }
 
-        fn vcore_soc_on() {
+        fn vcore_soc_on() -> Result<(), i2c::ResponseCode> {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
 
@@ -1199,8 +1281,9 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            vdd_vcore.turn_on().unwrap_lite();
-            vddcr_soc.turn_on().unwrap_lite();
+            retry_i2c_txn(|| vdd_vcore.turn_on())?;
+            retry_i2c_txn(|| vddcr_soc.turn_on())?;
+            Ok(())
         }
 
         //
