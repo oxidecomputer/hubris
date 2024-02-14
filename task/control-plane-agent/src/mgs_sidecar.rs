@@ -22,7 +22,7 @@ use gateway_messages::{
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
-use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
 use task_net_api::{MacAddress, UdpMetadata};
 use userlib::sys_get_timer;
@@ -196,7 +196,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
+            target
+        }));
         self.ignition
             .target_state(target)
             .map_err(sp_error_from_ignition_error)
@@ -208,7 +210,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionStateIter, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
         self.ignition
@@ -222,7 +224,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<ignition::LinkEvents, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
         self.ignition
@@ -236,9 +238,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionLinkEventsIter, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionLinkEvents {
-            offset
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::BulkIgnitionLinkEvents { offset }
+        ));
         self.ignition
             .bulk_link_events(offset)
             .map_err(sp_error_from_ignition_error)
@@ -251,7 +253,9 @@ impl SpHandler for MgsHandler {
         target: Option<u8>,
         transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ClearIgnitionLinkEvents));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ClearIgnitionLinkEvents
+        ));
         self.ignition
             .clear_link_events(target, transceiver_select)
             .map_err(sp_error_from_ignition_error)
@@ -264,7 +268,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -288,7 +292,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.aux_flash_size + update.sp_image_size,
             component: SpComponent::SP_ITSELF,
             id: update.id,
@@ -304,7 +308,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
             length: update.total_size,
             component: update.component,
             id: update.id,
@@ -352,7 +356,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<UpdateStatus, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateStatus { component }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
+            component
+        }));
 
         match component {
             SpComponent::SP_ITSELF => Ok(self.sp_update.status()),
@@ -370,7 +376,7 @@ impl SpHandler for MgsHandler {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
         }));
@@ -393,7 +399,9 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         id: UpdateId,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateAbort { component }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
+            component
+        }));
 
         match component {
             SpComponent::SP_ITSELF => self.sp_update.abort(&id),
@@ -409,7 +417,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<PowerState, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetPowerState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
         self.power_state_impl()
     }
 
@@ -420,7 +428,9 @@ impl SpHandler for MgsHandler {
         power_state: PowerState,
     ) -> Result<(), SpError> {
         use drv_sidecar_seq_api::TofinoSequencerPolicy;
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetPowerState(power_state)));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetPowerState(
+            power_state
+        )));
 
         let policy = match power_state {
             PowerState::A0 => TofinoSequencerPolicy::LatchOffOnFault,
@@ -449,7 +459,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         _component: SpComponent,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -460,7 +470,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) -> Result<u64, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -472,7 +482,9 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleKeepAlive));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::SerialConsoleKeepAlive
+        ));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -481,7 +493,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -490,12 +502,12 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
     }
 
     fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::Inventory));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32
     }
 
@@ -514,7 +526,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<u32, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentDetails {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
             component
         }));
 
@@ -546,9 +558,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<u16, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentGetActiveSlot {
-            component
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetActiveSlot { component }
+        ));
 
         self.common.component_get_active_slot(component)
     }
@@ -561,11 +573,13 @@ impl SpHandler for MgsHandler {
         slot: u16,
         persist: bool,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentSetActiveSlot {
-            component,
-            slot,
-            persist,
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentSetActiveSlot {
+                component,
+                slot,
+                persist,
+            }
+        ));
 
         self.common
             .component_set_active_slot(component, slot, persist)
@@ -577,9 +591,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::ComponentClearStatus {
-            component
-        }));
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentClearStatus { component }
+        ));
 
         // Below we assume we can cast the port count to a u8; const assert that
         // that cast is valid.
@@ -613,7 +627,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<gateway_messages::StartupOptions, SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::GetStartupOptions));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -623,7 +637,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         options: gateway_messages::StartupOptions,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetStartupOptions(options)));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
+            options
+        )));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -634,7 +650,7 @@ impl SpHandler for MgsHandler {
         message_id: u32,
         err: MgsError,
     ) {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::MgsError {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
             message_id,
             err
         }));
@@ -649,7 +665,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::HostPhase2Data {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::HostPhase2Data {
             hash,
             offset,
             data_len: data.len(),
@@ -661,7 +677,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SendHostNmi));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SendHostNmi));
         Err(SpError::RequestUnsupportedForSp)
     }
 
@@ -672,7 +688,7 @@ impl SpHandler for MgsHandler {
         key: u8,
         value: &[u8],
     ) -> Result<(), SpError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetIpccKeyValue {
             key,
             value_len: value.len(),
         }));
