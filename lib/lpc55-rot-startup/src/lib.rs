@@ -192,12 +192,6 @@ pub fn startup(
 
     // Use the address of the current function to determine which image
     // is running.
-    //
-    // It would be unusual if we don't consider ourselves to be valid
-    // yet the bootloader has selected us to run.
-    // However, if we are in the midst of changing to some new policy, that
-    // may happen. So, compare against the entire flash slot instead of the
-    // (possibly invalid) image when determining the active slot.
     let here = startup as *const u8 as u32;
     let active = if slot_a.contains(&here) {
         RotSlot::A

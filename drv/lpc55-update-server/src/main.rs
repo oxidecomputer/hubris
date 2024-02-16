@@ -276,9 +276,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootState, RequestError<HandoffDataLoadError>> {
-        bootstate()
-            .map(|state| RotBootState::from(state))
-            .map_err(|e| e.into())
+        bootstate().map(RotBootState::from).map_err(|e| e.into())
     }
 
     fn rot_boot_info(
@@ -675,8 +673,7 @@ impl ServerImpl<'_> {
         // Read stage0next contents into RAM.
         let staged = image_range(RotComponent::Stage0, SlotId::B);
         let len = self.read_flash_image_to_cache(staged.0)?;
-        let bootloader =
-            &self.fw_cache[..len as usize / core::mem::size_of::<u32>()];
+        let bootloader = &self.fw_cache[..len / core::mem::size_of::<u32>()];
 
         let mut hash = Sha3_256::new();
         for page_start in (0..(bootloader.len() * 4)).step_by(512) {
