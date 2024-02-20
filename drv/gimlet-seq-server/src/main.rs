@@ -45,7 +45,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 )]
 mod payload;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, ringbuf::Event)]
 enum Trace {
     Ice40Rails(bool, bool),
     IdentValid(bool),
@@ -112,7 +112,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 128, Trace::None);
+counted_ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -132,7 +132,7 @@ fn main() -> ! {
         // Initializing the sequencer failed.
         Err(_) => {
             // Tell everyone that something's broken, as loudly as possible.
-            ringbuf_entry!(Trace::StartFailed(SeqError::I2cFault));
+            event!(Trace::StartFailed(SeqError::I2cFault));
             sys.gpio_set(FAULT_PIN_L);
 
             // All these moments will be lost in time, like tears in rain...
@@ -236,7 +236,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         let v1p2 = pg & PG_V1P2_MASK != 0;
         let v3p3 = pg & PG_V3P3_MASK != 0;
 
-        ringbuf_entry!(Trace::Ice40Rails(v1p2, v3p3));
+        event!(Trace::Ice40Rails(v1p2, v3p3));
 
         // Force iCE40 CRESETB low before turning power on. This is nice because it
         // prevents the iCE40 from racing us and deciding it should try to load from
@@ -265,7 +265,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         loop {
             // active high
             let pg = sys.gpio_read_input(PGS_PORT) & PG_V1P2_MASK != 0;
-            ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
+            event!(Trace::Ice40PowerGoodV1P2(pg));
             if pg {
                 break;
             }
@@ -286,7 +286,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         loop {
             // active high
             let pg = sys.gpio_read_input(PGS_PORT) & PG_V3P3_MASK != 0;
-            ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
+            event!(Trace::Ice40PowerGoodV3P3(pg));
             if pg {
                 break;
             }
@@ -328,13 +328,13 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // If the image announces the correct identifier and has a matching
         // bitstream checksum, then we can skip reprogramming;
         let ident_valid = seq.valid_ident();
-        ringbuf_entry!(Trace::IdentValid(ident_valid));
+        event!(Trace::IdentValid(ident_valid));
 
         let checksum_valid = seq.valid_checksum();
-        ringbuf_entry!(Trace::ChecksumValid(checksum_valid));
+        event!(Trace::ChecksumValid(checksum_valid));
 
         let reprogram = !ident_valid || !checksum_valid;
-        ringbuf_entry!(Trace::Reprogram(reprogram));
+        event!(Trace::Reprogram(reprogram));
 
         // We only want to reset and reprogram the FPGA when absolutely required.
         if reprogram {
@@ -348,7 +348,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             // Reprogramming will continue until morale improves -- to a point.
             loop {
                 let prog = spi.device(drv_spi_api::devices::ICE40);
-                ringbuf_entry!(Trace::Programming);
+                event!(Trace::Programming);
                 match reprogram_fpga(&prog, sys, &ICE40_CONFIG) {
                     Ok(()) => {
                         // yay
@@ -377,20 +377,20 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             seq.write_checksum().unwrap_lite();
         }
 
-        ringbuf_entry!(Trace::Programmed);
+        event!(Trace::Programmed);
 
         vcore_soc_off()?;
 
-        ringbuf_entry!(Trace::RailsOff);
+        event!(Trace::RailsOff);
 
         let ident = seq.read_ident().unwrap_lite();
-        ringbuf_entry!(Trace::Ident(ident));
+        event!(Trace::Ident(ident));
 
         loop {
             let mut status = [0u8];
 
             seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap_lite();
-            ringbuf_entry!(Trace::A2Status(status[0]));
+            event!(Trace::A2Status(status[0]));
 
             if status[0] == 0 {
                 break;
@@ -413,7 +413,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
             Err(err) => Err(err),
             Ok(_) => {
-                ringbuf_entry!(Trace::ClockConfigWrite);
+                event!(Trace::ClockConfigWrite);
                 Ok(())
             }
         })?;
@@ -424,9 +424,9 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         jefe.set_state(PowerState::A2 as u32);
 
-        ringbuf_entry!(Trace::ClockConfigSuccess);
+        event!(Trace::ClockConfigSuccess);
         ringbuf_entry_v3p3_sys_a0_vout();
-        ringbuf_entry!(Trace::A2);
+        event!(Trace::A2);
 
         // After declaring A2 but before transitioning to A0 (either automatically
         // or in response to an IPC), populate packrat with EEPROM contents for use
@@ -482,7 +482,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        ringbuf_entry!(Trace::Status {
+        event!(Trace::Status {
             ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
             ifr: self.seq.read_byte(Addr::IFR).unwrap_lite(),
             amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap_lite(),
@@ -513,7 +513,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
-                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+                    event!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq
                         .clear_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
@@ -521,7 +521,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                 }
 
                 (PowerState::A0PlusHP, true) => {
-                    ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+                    event!(Trace::NICPowerEnableLow(pwren_l));
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
@@ -574,7 +574,7 @@ where
             Ok(x) => return Ok(x),
             Err(e) => {
                 let code = e.into();
-                ringbuf_entry!(Trace::I2cFault {
+                event!(Trace::I2cFault {
                     retries_remaining,
                     code,
                 });
@@ -591,7 +591,7 @@ where
 
 impl<S: SpiServer> ServerImpl<S> {
     fn update_state_internal(&mut self, state: PowerState) {
-        ringbuf_entry!(Trace::UpdateState(state));
+        event!(Trace::UpdateState(state));
         self.state = state;
         self.jefe.set_state(state as u32);
     }
@@ -603,26 +603,26 @@ impl<S: SpiServer> ServerImpl<S> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::SetState(self.state, state, now));
+        event!(Trace::SetState(self.state, state, now));
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
-        ringbuf_entry!(Trace::PGStatus {
+        event!(Trace::PGStatus {
             b_pg: self.seq.read_byte(Addr::GROUPB_PG).unwrap_lite(),
             c_pg: self.seq.read_byte(Addr::GROUPC_PG).unwrap_lite(),
             nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap_lite(),
         });
 
-        ringbuf_entry!(Trace::SMStatus {
+        event!(Trace::SMStatus {
             a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite(),
             a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite(),
         });
 
-        ringbuf_entry!(Trace::PowerControl(
+        event!(Trace::PowerControl(
             self.seq.read_byte(Addr::PWR_CTRL).unwrap_lite(),
         ));
 
-        ringbuf_entry!(Trace::InterruptFlags(
+        event!(Trace::InterruptFlags(
             self.seq.read_byte(Addr::IFR).unwrap_lite(),
         ));
 
@@ -655,7 +655,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A1SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A1Status(status[0]));
+                    event!(Trace::A1Status(status[0]));
 
                     if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
                         break;
@@ -673,7 +673,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // failure.
                 //
                 let present = sys.gpio_read(CPU_PRESENT_L) == 0;
-                ringbuf_entry!(Trace::CPUPresent(present));
+                event!(Trace::CPUPresent(present));
 
                 if !present {
                     return Err(self.a0_failure(SeqError::CPUNotPresent));
@@ -683,7 +683,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 let sp3r1 = sys.gpio_read(SP3R1) != 0;
                 let sp3r2 = sys.gpio_read(SP3R2) != 0;
 
-                ringbuf_entry!(Trace::Coretype {
+                event!(Trace::Coretype {
                     coretype,
                     sp3r1,
                     sp3r2
@@ -711,7 +711,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A0SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A0Status(status[0]));
+                    event!(Trace::A0Status(status[0]));
 
                     if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
                         break;
@@ -732,7 +732,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     // die!
                     return Err(self.a0_failure(SeqError::I2cFault));
                 }
-                ringbuf_entry!(Trace::RailsOn);
+                event!(Trace::RailsOn);
 
                 //
                 // Now wait for the end of Group C.
@@ -743,7 +743,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A0SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A0Power(status[0]));
+                    event!(Trace::A0Power(status[0]));
 
                     if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
                         break;
@@ -766,8 +766,8 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Finally, enable transmission to the SP3's UART
                 //
                 uart_sp_to_sp3_enable();
-                ringbuf_entry!(Trace::UartEnabled);
-                ringbuf_entry!(Trace::A0((sys_get_timer().now - start) as u16));
+                event!(Trace::UartEnabled);
+                event!(Trace::A0((sys_get_timer().now - start) as u16));
 
                 self.update_state_internal(PowerState::A0);
                 Ok(())
@@ -817,7 +817,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
                 self.update_state_internal(PowerState::A2);
                 ringbuf_entry_v3p3_sys_a0_vout();
-                ringbuf_entry!(Trace::A2);
+                event!(Trace::A2);
 
                 //
                 // Our rails should be draining.  We'll take two additional
@@ -837,7 +837,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
     fn a0_failure(&mut self, err: SeqError) -> SeqError {
         let record_reg = |addr| {
-            ringbuf_entry!(Trace::A0FailureDetails(
+            event!(Trace::A0FailureDetails(
                 addr,
                 self.seq.read_byte(addr).unwrap_lite(),
             ));
@@ -847,7 +847,7 @@ impl<S: SpiServer> ServerImpl<S> {
         // We are not going to space today.  Record information in our ring
         // buffer to allow this to be debugged.
         //
-        ringbuf_entry!(Trace::A0Failed(err));
+        event!(Trace::A0Failed(err));
         record_reg(Addr::IFR);
         record_reg(Addr::DBG_MAX_A0SMSTATUS);
         record_reg(Addr::MAX_GROUPB_PG);
@@ -905,7 +905,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 .unwrap_lite();
 
             let (rstn, pwrokn) = (cnts[0], cnts[1]);
-            ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+            event!(Trace::ResetCounts { rstn, pwrokn });
 
             //
             // Clear the counts to denote that we wish to re-latch any
@@ -1057,7 +1057,7 @@ fn read_spd_data_and_load_packrat(
         if page.write(&[0]).is_err() {
             // If our operation fails, we are going to assume that there
             // are no DIMMs on this bank.
-            ringbuf_entry!(Trace::SpdBankAbsent(nbank));
+            event!(Trace::SpdBankAbsent(nbank));
             continue;
         }
 
@@ -1075,7 +1075,7 @@ fn read_spd_data_and_load_packrat(
                     val
                 }
                 Err(_) => {
-                    ringbuf_entry!(Trace::SpdAbsent(nbank, i, ndx));
+                    event!(Trace::SpdAbsent(nbank, i, ndx));
                     continue;
                 }
             };
@@ -1118,7 +1118,7 @@ fn read_spd_data_and_load_packrat(
         }
     }
 
-    ringbuf_entry!(Trace::SpdDimmsFound(npresent));
+    event!(Trace::SpdDimmsFound(npresent));
     Ok(())
 }
 
@@ -1305,7 +1305,7 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::v3p3_sys_a0(i2c);
             let v3p3_sys_a0 = Tps546B24A::new(&device, rail);
 
-            ringbuf_entry!(
+            event!(
                 Trace::V3P3SysA0VOut(v3p3_sys_a0.read_vout().unwrap_lite())
             );
         }
