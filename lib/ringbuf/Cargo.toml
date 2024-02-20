@@ -10,6 +10,7 @@ disabled = []
 
 [dependencies]
 static-cell = { path = "../static-cell" }
+ringbuf-macros = { path = "macros" }
 
 [lib]
 test = false

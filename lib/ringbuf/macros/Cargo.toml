@@ -1,0 +1,17 @@
+[package]
+name = "ringbuf-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[features]
+# To disable a ring buffer (but leave it otherwise present), enable the
+# "disabled" feature
+disabled = []
+
+[dependencies]
+proc-macro2 = "1.0.78"
+quote = "1.0.35"
+syn = "2.0.48"
