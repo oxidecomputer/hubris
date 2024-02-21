@@ -11,6 +11,7 @@ disabled = []
 [dependencies]
 static-cell = { path = "../static-cell" }
 ringbuf-macros = { path = "macros" }
+armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
 
 [lib]
 test = false
