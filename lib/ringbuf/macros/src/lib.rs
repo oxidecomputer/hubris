@@ -54,7 +54,6 @@ fn gen_count_event_impl(
     let counts_ty = counts_ty(name);
     let code = quote! {
         #[doc = concat!(" Ringbuf event counts for [`", stringify!(#name), "`].")]
-        #[derive(Debug)]
         #[allow(nonstandard_style)]
         pub struct #counts_ty {
             #(
