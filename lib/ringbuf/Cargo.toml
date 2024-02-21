@@ -11,6 +11,8 @@ disabled = []
 [dependencies]
 static-cell = { path = "../static-cell" }
 ringbuf-macros = { path = "macros" }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
 armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
 
 [lib]

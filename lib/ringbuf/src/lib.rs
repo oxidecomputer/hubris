@@ -137,6 +137,7 @@
 //! ```
 
 #![no_std]
+#[cfg(target_arch = "arm")]
 pub use armv6m_atomic_hack;
 pub use ringbuf_macros::Count;
 #[doc(hidden)]

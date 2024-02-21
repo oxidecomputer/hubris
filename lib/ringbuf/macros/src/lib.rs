@@ -147,7 +147,7 @@ fn gen_count_event_impl(
             };
 
             fn count(&self, counters: &Self::Counters) {
-                #[cfg(armv6m)]
+                #[cfg(all(target_arch = "arm", armv6m))]
                 use ringbuf::rmv6m_atomic_hack::AtomicU32Ext;
 
                 let counter = match self {
