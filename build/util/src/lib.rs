@@ -56,7 +56,7 @@ pub fn has_feature(s: &str) -> bool {
 ///
 /// This will set one of `cfg(armv6m)`, `cfg(armv7m)`, or `cfg(armv8m)`
 /// depending on the value of the `TARGET` environment variable.
-pub fn expose_m_profile() {
+pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
 
     if target.starts_with("thumbv6m") {
@@ -67,9 +67,9 @@ pub fn expose_m_profile() {
     } else if target.starts_with("thumbv8m") {
         println!("cargo:rustc-cfg=armv8m");
     } else {
-        println!("Don't know the target {}", target);
-        std::process::exit(1);
+        bail!("Don't know the target {target}");
     }
+    Ok(())
 }
 
 /// Returns the `HUBRIS_BOARD` envvar, if set.

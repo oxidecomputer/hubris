@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    build_util::expose_m_profile();
+    build_util::expose_m_profile().unwrap();
     build_util::expose_target_board();
     build_util::build_notifications()?;
 

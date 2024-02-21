@@ -5,9 +5,7 @@
 //! Demonstrates the use of `counted_ringbuf!` and friends.
 //!
 //! This example is primarily intended to be used with `cargo expand` to show
-//! the macro-generated code for `#[derive(ringbuf::Count)]` and friends.`
-#![no_std]
-#![no_main]
+//! the macro-generated code for `#[derive(ringbuf::Count)]` and friends.
 use ringbuf::*;
 
 #[derive(ringbuf::Count, Debug, Copy, Clone, PartialEq, Eq)]
@@ -47,12 +45,4 @@ pub mod nested {
     }
 }
 
-pub fn example_nested() {
-    ringbuf_entry!(nested::__RINGBUF, Event::SomethingHappened);
-}
-
-// This is just necessary to make the example compile.
-#[panic_handler]
-fn _die(_: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+fn main() {}
