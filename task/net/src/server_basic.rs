@@ -14,7 +14,6 @@ use crate::{
     server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
 };
-use core::cell::Cell;
 use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;
 
@@ -55,15 +54,11 @@ where
 
 pub struct Smol<'d> {
     eth: &'d eth::Ethernet,
-    mac_rx: Cell<bool>,
 }
 
 impl<'d> From<&'d eth::Ethernet> for Smol<'d> {
     fn from(eth: &'d eth::Ethernet) -> Self {
-        Self {
-            eth,
-            mac_rx: Cell::new(false),
-        }
+        Self { eth }
     }
 }
 
@@ -105,12 +100,6 @@ impl<'a> smoltcp::phy::Device for Smol<'a> {
         // Note that the can_recv and can_send checks remain valid because
         // the token mutably borrows the phy.
         if self.eth.can_recv() && self.eth.can_send() {
-            // We record this as "data available from the MAC" because it's
-            // sufficient to catch the bug we're defending against with the
-            // watchdog, even if the IP stack decides not to consume the token
-            // for some reason (that'd be a software bug instead).
-            self.mac_rx.set(true);
-
             Some((OurRxToken(self.eth), OurTxToken(self.eth)))
         } else {
             None
@@ -134,10 +123,6 @@ impl<'a> smoltcp::phy::Device for Smol<'a> {
 }
 
 impl DeviceExt for Smol<'_> {
-    fn read_and_clear_activity_flag(&self) -> bool {
-        self.mac_rx.take()
-    }
-
     fn make_meta(
         &self,
         port: u16,
