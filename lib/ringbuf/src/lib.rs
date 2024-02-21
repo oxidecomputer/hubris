@@ -175,37 +175,20 @@ macro_rules! ringbuf {
                     payload: $init,
                 }; $n],
             });
+
+        pub(crate) mod $name {
+            #[inline(always)]
+            pub(crate) fn record(payload: $t, line: u16) {
+                $crate::Ringbuf::entry(
+                    &mut *$crate::StaticCell::borrow_mut(&super::$name),
+                    line,
+                    payload,
+                );
+            }
+        }
     };
     ($t:ty, $n:expr, $init:expr) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-}
-
-/// Declares a ringbuffer and set of event counts in the current module or
-/// context.
-///
-/// `counted_ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
-/// containing entries of type `Type`, with room for `N` such entries, all of
-/// which are initialized to `expr`. In addition, this macro also generates a
-/// static set of [`EventCounts`] for the same type, named `NAME_COUNTS`.
-///
-/// The resulting ringbuffer will be static, so `NAME` should be uppercase. If
-/// you want your ringbuffer to be detected by Humility's automatic scan, its
-/// name should end in `RINGBUF`.
-///
-/// To support the common case of having one quickly-installed ringbuffer per
-/// module, if you omit the name, it will default to `__RINGBUF` and
-/// `__RINGBUF_COUNTS`.
-///
-/// Events in a counted ringbuf should be recorded using the [`count_entry!`] macro.
-#[macro_export]
-macro_rules! counted_ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {
-        $crate::ringbuf!($name, $t, $n, $init);
-        $crate::declare_counts!($name, $t);
-    };
-    ($t:ty, $n:expr, $init:expr) => {
-        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
 
@@ -215,113 +198,115 @@ macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[allow(dead_code)]
         const _: $t = $init;
+        pub(crate) mod $name {
+            // Hopefully the compiler is smart enough to totally eliminate this...
+            #[inline(always)]
+            pub(crate) fn record(_: $t, _: u16) {}
+        }
     };
     ($t:ty, $n:expr, $init:expr) => {
-        #[allow(dead_code)]
-        const _: $t = $init;
+        $crate::ringbuf(__RINGBUF, $t, $n, $init);
+    };
+}
+
+/// Declares a ringbuffer and set of event counts in the current module or
+/// context.
+///
+/// `counted_ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
+/// containing entries of type `Type`, with room for `N` such entries, all of
+/// which are initialized to `expr`. In addition, this macro also generates a
+/// static set of event counts for the same type, named `NAME_COUNTS`.
+///
+/// The resulting ringbuffer will be static, so `NAME` should be uppercase. If
+/// you want your ringbuffer to be detected by Humility's automatic scan, its
+/// name should end in `RINGBUF`.
+///
+/// To support the common case of having one quickly-installed ringbuffer per
+/// module, if you omit the name, it will default to `__RINGBUF` and
+/// `__RINGBUF_COUNTS`.
+///
+#[macro_export]
+macro_rules! counted_ringbuf {
+    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+        $crate::declare_counts!($name, $t);
+
+        #[used]
+        static $name: $crate::StaticCell<$crate::Ringbuf<$t, $n>> =
+            $crate::StaticCell::new($crate::Ringbuf {
+                last: None,
+                buffer: [$crate::RingbufEntry {
+                    line: 0,
+                    generation: 0,
+                    count: 0,
+                    payload: $init,
+                }; $n],
+            });
+
+        pub(crate) mod $name {
+            #[inline(always)]
+            pub(crate) fn record(payload: $t, line: u16) {
+                $crate::incr_count!(super::$name, payload);
+                $crate::Ringbuf::entry(
+                    &mut *$crate::StaticCell::borrow_mut(&super::$name),
+                    line,
+                    payload,
+                );
+            }
+        }
+    };
+    ($t:ty, $n:expr, $init:expr) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
+    };
+}
+
+#[cfg(feature = "disabled")]
+#[macro_export]
+macro_rules! counted_ringbuf {
+    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+        $crate::declare_counts!($name, $t);
+
+        pub(crate) mod $name {
+            #[inline(always)]
+            pub(crate) fn record(payload: $t, _: u16) {
+                $crate::incr_count!(super::$name, payload);
+            }
+        }
+    };
+    ($t:ty, $n:expr, $init:expr) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
 
 /// Inserts data into a named ringbuffer (which should have been declared with
-/// the `ringbuf!` macro).
+/// the [`ringbuf!`] or [`counted_ringbuf!`] macro).
 ///
 /// `ringbuf_entry!(NAME, expr)` will insert `expr` into the ringbuffer called
 /// `NAME`.
 ///
 /// If you declared your ringbuffer without a name, you can also use this
 /// without a name, and it will default to `__RINGBUF`.
-#[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf_entry {
-    ($buf:expr, $payload:expr) => {{
-        // Evaluate both buf and payload, without letting them access each
-        // other, by evaluating them in a tuple where each cannot
-        // accidentally use the other's binding.
-        let (p, buf) = ($payload, &$buf);
-        // Invoke these functions using slightly weird syntax to avoid
-        // accidentally calling a _different_ routine called borrow_mut or
-        // entry.
-        $crate::Ringbuf::entry(
-            &mut *$crate::StaticCell::borrow_mut(buf),
-            line!() as u16,
-            p,
-        );
-    }};
     ($payload:expr) => {
         $crate::ringbuf_entry!(__RINGBUF, $payload);
     };
-}
-
-/// Inserts data into a named, counted ringbuffer (which should have been declared with
-/// the [`counted_ringbuf!`] macro).
-///
-/// `count_entry!(NAME, event)` will insert `event` into the ringbuffer called
-/// `NAME`. `event` must be a value implementing the [`Event`] trait.
-///
-/// If you declared your ringbuffer without a name, you can also use this
-/// without a name, and it will default to `__RINGBUF`.
-#[macro_export]
-macro_rules! count_entry {
-    ($buf:expr, $event:expr) => {{
-        let event = $event;
-        $crate::incr_count!($buf, &event);
-        $crate::ringbuf_entry!($buf, event);
-    }};
-    ($event:expr) => {
-        $crate::count_entry!(__RINGBUF, $event);
-    };
-}
-
-/// Inserts data into a counted ringbuffer at the root of this crate (which
-/// should have been declared with the [`counted_ringbuf!`] macro).
-///
-/// `event` must be a value implementing the [`Event`] trait.
-#[cfg(not(feature = "disabled"))]
-#[allow(clippy::crate_in_macro_def)]
-#[macro_export]
-macro_rules! count_entry_root {
-    ($buf:ident, $event:expr) => {
-        $crate::count_entry!(crate::$buf, $event);
-    };
-    ($event:expr) => {
-        $crate::count_entry!(crate::__RINGBUF, $event);
-    };
-}
-
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf_entry {
-    ($buf:expr, $payload:expr) => {{
-        let _ = &$buf;
-        let _ = &$payload;
-    }};
-    ($payload:expr) => {{
-        let _ = &$payload;
+    ($($path_part:ident)::+, $payload:expr) => {{
+        $($path_part)::+::record($payload, line!());
     }};
 }
 
-/// Inserts data into a ringbuffer at the root of this crate.
-#[cfg(not(feature = "disabled"))]
+/// Inserts data into a ringbuffer at the root of this crate (which should have
+/// been declared with the [`ringbuf!`] or [`counted_ringbuf!`] macro).
+///
 #[allow(clippy::crate_in_macro_def)]
 #[macro_export]
 macro_rules! ringbuf_entry_root {
-    ($buf:ident, $payload:expr) => {
-        $crate::ringbuf_entry!(crate::$buf, $payload);
-    };
     ($payload:expr) => {
         $crate::ringbuf_entry!(crate::__RINGBUF, $payload);
     };
-}
-
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf_entry_root {
-    ($buf:ident, $payload:expr) => {{
-        let _ = &$payload;
-    }};
-    ($payload:expr) => {{
-        let _ = &$payload;
-    }};
+    ($buf:ident, $payload:expr) => {
+        $crate::ringbuf_entry!(crate::$buf, $payload);
+    };
 }
 
 ///

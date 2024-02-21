@@ -8,6 +8,7 @@
 //! the macro-generated code for `#[derive(ringbuf::Count)]` and friends.`
 #![no_std]
 #![no_main]
+use ringbuf::*;
 
 #[derive(ringbuf::Count, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Event {
@@ -17,16 +18,36 @@ pub enum Event {
     SecretThirdThing { secret: () },
 }
 
-ringbuf::counted_ringbuf!(Event, 16, Event::NothingHappened);
-ringbuf::counted_ringbuf!(MY_NAMED_RINGBUF, Event, 16, Event::NothingHappened);
+counted_ringbuf!(Event, 16, Event::NothingHappened);
+counted_ringbuf!(MY_NAMED_RINGBUF, Event, 16, Event::NothingHappened);
 
 pub fn example() {
-    ringbuf::count_entry!(Event::SomethingHappened);
+    ringbuf::ringbuf_entry!(Event::SomethingHappened);
 }
 
 pub fn example_named() {
-    ringbuf::count_entry!(MY_NAMED_RINGBUF, Event::SomethingElse(420));
+    ringbuf::ringbuf_entry!(MY_NAMED_RINGBUF, Event::SomethingElse(420));
 }
+
+
+mod nested {
+    use super::Event;
+
+    ringbuf::counted_ringbuf!(Event, 16, Event::NothingHappened);
+
+    pub fn example() {
+        ringbuf::ringbuf_entry!(Event::SomethingHappened);
+        ringbuf::ringbuf_entry_root!(Event::SomethingElse(666));
+        ringbuf::ringbuf_entry_root!(MY_NAMED_RINGBUF, Event::SecretThirdThing{ secret: () });
+    }
+}
+
+
+pub fn example_nested() {
+    ringbuf_entry!(nested::__RINGBUF, Event::SomethingHappened);
+}
+
+
 
 // This is just necessary to make the example compile.
 #[panic_handler]
