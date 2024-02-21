@@ -12,7 +12,7 @@ pub use registers::{MIBCounter, Register};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Error {
     SpiError(SpiError),
     WrongChipId(u16),
@@ -50,7 +50,7 @@ pub enum Mode {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     None,
     Read(Register, u16),

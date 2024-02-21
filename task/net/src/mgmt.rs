@@ -10,7 +10,7 @@ use ringbuf::*;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::hl::sleep_for;
+use userlib::{hl::sleep_for, UnwrapLite};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
 
@@ -26,7 +26,7 @@ pub enum Ksz8463ResetSpeed {
     Normal,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
@@ -94,7 +94,7 @@ impl Config {
         // VSC8552 over 100-BASE FX
         self.ksz8463
             .configure(ksz8463::Mode::Fiber, self.ksz8463_vlan_mode)
-            .unwrap();
+            .unwrap_lite();
         self.ksz8463
     }
 
@@ -153,7 +153,7 @@ impl Config {
             sys.gpio_reset(coma_mode);
         }
 
-        vsc85x2.unwrap() // TODO
+        vsc85x2.unwrap_lite() // TODO
     }
 }
 
