@@ -411,7 +411,6 @@ impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
 impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
     for StaticCell<Ringbuf<T, { N }>>
 {
-    #[inline]
     fn record_entry(&self, line: u16, payload: T) {
         let mut ringbuf = self.borrow_mut();
         ringbuf.entry(line, payload);
@@ -422,7 +421,6 @@ impl<T, const N: usize> RecordEntry<T> for CountedRingbuf<T, { N }>
 where
     T: Count + Copy + PartialEq,
 {
-    #[inline]
     fn record_entry(&self, _line: u16, payload: T) {
         payload.count(&self.counters);
 
@@ -435,6 +433,5 @@ impl<T> RecordEntry<T> for ()
 where
     T: Copy + PartialEq,
 {
-    #[inline]
     fn record_entry(&self, _: u16, _: T) {}
 }
