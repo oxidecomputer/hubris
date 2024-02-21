@@ -282,33 +282,58 @@ pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
 
 impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
     pub fn entry(&mut self, line: u16, payload: T) {
-        let ndx = match self.last {
-            None => 0,
-            Some(last) => {
-                let ent = &mut self.buffer[last];
+        // If this is the first time this ringbuf has been poked, last will be
+        // None. In this specific case we want to make sure we don't add to the
+        // count of an existing entry, and also that we deposit the first entry
+        // in slot 0. From a code generation perspective, the cheapest thing to
+        // do is to treat None as an out-of-range value:
+        let last = self.last.unwrap_or(usize::MAX);
 
-                if ent.line == line && ent.payload == payload {
-                    // Only reuse this entry if we don't overflow the
-                    // count.
-                    if let Some(new_count) = ent.count.checked_add(1) {
-                        ent.count = new_count;
-                        return;
-                    }
+        // Check to see if we can reuse the most recent entry. This uses get_mut
+        // both to avoid checking an entry on the first insertion (see above),
+        // and also to handle the case where last is somehow corrupted to point
+        // out-of-range. This avoids a bounds check panic. In the event that
+        // last _is_ corrupted, the behavior below will just start us over at 0.
+        if let Some(ent) = self.buffer.get_mut(last) {
+            if ent.line == line && ent.payload == payload {
+                // Only reuse this entry if we don't overflow the
+                // count.
+                if let Some(new_count) = ent.count.checked_add(1) {
+                    ent.count = new_count;
+                    return;
                 }
+            }
+        }
 
-                if last + 1 >= self.buffer.len() {
-                    0
-                } else {
-                    last + 1
-                }
+        // Either we were unable to reuse the entry, or the last index was out
+        // of range (perhaps because this is the first insertion). We're going
+        // to advance last and wrap if required. This uses a wrapping_add
+        // because if last is usize::MAX already, we want it to wrap to zero
+        // regardless -- and this avoids a checked arithmetic panic on the +1.
+        let ndx = {
+            let last_plus_1 = last.wrapping_add(1);
+            // You're probably wondering why this isn't a remainder operation.
+            // This is for two reasons:
+            // 1. None of our target platforms currently have hardware modulus,
+            //    and many of them don't even have hardware divide, making
+            //    remainder quite expensive.
+            // 2. The code as written here correctly turns usize::MAX into 0 for
+            //    our starting condition. Otherwise we'd have to be cleverer
+            //    about our starting number.
+            if last_plus_1 >= self.buffer.len() {
+                0
+            } else {
+                last_plus_1
             }
         };
 
         let ent = &mut self.buffer[ndx];
-        ent.line = line;
-        ent.payload = payload;
-        ent.count = 1;
-        ent.generation = ent.generation.wrapping_add(1);
+        *ent = RingbufEntry {
+            line,
+            payload,
+            count: 1,
+            generation: ent.generation.wrapping_add(1),
+        };
 
         self.last = Some(ndx);
     }
