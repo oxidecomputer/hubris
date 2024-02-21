@@ -7,6 +7,7 @@ use crate::pins;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::PhyError;
+use userlib::UnwrapLite;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::PhyRw;
 
@@ -50,12 +51,12 @@ impl crate::bsp_support::Bsp for BspImpl {
         let phy = MiimBridge::new(eth);
         let mut r = phy::standard::MODE_CONTROL::from(
             phy.read_raw(PHYADDR, phy::STANDARD::MODE_CONTROL().addr)
-                .unwrap(),
+                .unwrap_lite(),
         );
         r.set_auto_neg_ena(1);
         r.set_restart_auto_neg(1);
         phy.write_raw(PHYADDR, phy::STANDARD::MODE_CONTROL().addr, r.into())
-            .unwrap();
+            .unwrap_lite();
 
         Self {}
     }

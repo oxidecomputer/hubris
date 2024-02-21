@@ -5,7 +5,7 @@
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::Sequencer;
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot};
+use userlib::{hl::sleep_for, task_slot, UnwrapLite};
 use vsc7448::{
     config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
 };
@@ -367,7 +367,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.
-        self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
+        self.vsc8504.set_sigdet_polarity(rw, true).unwrap_lite();
 
         // Switch the GPIO to an output.  Since the output register is low
         // by default, this pulls COMA_MODE low, bringing the VSC8504 into

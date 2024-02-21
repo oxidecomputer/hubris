@@ -103,7 +103,7 @@ fn main() -> ! {
             // will ensure that any errors are available for inspection (which
             // `Jefe::restart_me` would not) while making the restart cheaper.
             ringbuf_entry!(Trace::BspInitFailed(e));
-            panic!("Could not initialize BSP: {:?}", e);
+            panic!();
         }
     };
 
