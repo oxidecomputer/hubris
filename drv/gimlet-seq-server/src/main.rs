@@ -45,7 +45,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 )]
 mod payload;
 
-#[derive(Copy, Clone, PartialEq, ringbuf::Event)]
+#[derive(Copy, Clone, PartialEq, ringbuf::Count)]
 enum Trace {
     Ice40Rails(bool, bool),
     IdentValid(bool),

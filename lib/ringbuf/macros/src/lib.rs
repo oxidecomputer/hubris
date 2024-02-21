@@ -71,6 +71,14 @@ fn gen_count_event_impl(
         #[automatically_derived]
         impl ringbuf::Count for #name {
             type Counters = #counts_ty;
+
+            // This is intended for use in a static initializer, so the fact that every
+            // time the constant is used it will be a different instance is not a
+            // problem --- in fact, it's the desired behavior.
+            //
+            // `declare_interior_mutable_const` is really Not My Favorite Clippy
+            // Lint...
+            #[allow(clippy::declare_interior_mutable_const)]
             const NEW_COUNTERS: #counts_ty = #counts_ty {
                 #(#variant_names: core::sync::atomic::AtomicU32::new(0)),*
             };
@@ -90,5 +98,5 @@ fn gen_count_event_impl(
 }
 
 fn counts_ty(ident: &Ident) -> Ident {
-    Ident::new(&format!("{}Counts", ident), Span::call_site())
+    Ident::new(&format!("{ident}Counts"), Span::call_site())
 }

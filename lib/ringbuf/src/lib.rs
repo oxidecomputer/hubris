@@ -162,7 +162,7 @@ pub use static_cell::StaticCell;
 #[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+    ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[used]
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
@@ -174,22 +174,8 @@ macro_rules! ringbuf {
                     payload: $init,
                 }; $n],
             });
-
-        #[allow(non_snake_case)]
-        mod $name {
-            use super::$t;
-
-            #[inline(always)]
-            pub(super) fn record(payload: $t, line: u16) {
-                $crate::Ringbuf::entry(
-                    &mut *$crate::StaticCell::borrow_mut(&super::$name),
-                    line,
-                    payload,
-                );
-            }
-        }
     };
-    ($t:ident, $n:expr, $init:expr) => {
+    ($t:ty, $n:expr, $init:expr) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -200,42 +186,35 @@ macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[allow(dead_code)]
         const _: $t = $init;
-        mod $name {
-            // Hopefully the compiler is smart enough to totally eliminate this...
-            #[inline(always)]
-            pub(super) fn record(_: $t, _: u16) {}
-        }
+        static $name: () = ();
     };
     ($t:ty, $n:expr, $init:expr) => {
-        $crate::ringbuf(__RINGBUF, $t, $n, $init);
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
 
 /// Declares a ringbuffer and set of event counts in the current module or
 /// context.
 ///
-/// `counted_ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
+/// `counted_ringbuf!(NAME, Type, N, expr)` makes a [`CountedRingbuf`] named `NAME`,
 /// containing entries of type `Type`, with room for `N` such entries, all of
-/// which are initialized to `expr`. In addition, this macro also generates a
-/// submodule named `NAME`, containing a static set of event counters named
-/// `COUNTERS`.  The type of `COUNTERS` is determined by the [`Count`] trait
-/// implementation for `Type`.
+/// which are initialized to `expr`. `Type` must implement the [`Count`] trait,
+/// which defines how to count occurences of each ringbuf entry variant.
 ///
 /// The resulting ringbuffer will be static, so `NAME` should be uppercase. If
 /// you want your ringbuffer to be detected by Humility's automatic scan, its
 /// name should end in `RINGBUF`.
 ///
 /// To support the common case of having one quickly-installed ringbuffer per
-/// module, if you omit the name, it will default to `__RINGBUF` and
-/// `__RINGBUF::COUNTS`.
+/// module, if you omit the name, it will default to `__RINGBUF`.
 ///
 #[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, $n>> =
-            $crate::StaticCell::new($crate::Ringbuf {
+        static $name: $crate::CountedRingbuf<$t, $n> = $crate::CountedRingbuf {
+            ringbuf: $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
                 buffer: [$crate::RingbufEntry {
                     line: 0,
@@ -243,26 +222,9 @@ macro_rules! counted_ringbuf {
                     count: 0,
                     payload: $init,
                 }; $n],
-            });
-
-        #[allow(non_snake_case)]
-        mod $name {
-            use super::$t;
-
-            #[used]
-            static COUNTERS: <$t as $crate::Count>::Counters =
-                <$t as $crate::Count>::NEW_COUNTERS;
-
-            #[inline(always)]
-            pub(super) fn record(payload: $t, line: u16) {
-                <$t as $crate::Count>::count(&payload, &COUNTERS);
-                $crate::Ringbuf::entry(
-                    &mut *$crate::StaticCell::borrow_mut(&super::$name),
-                    line,
-                    payload,
-                );
-            }
-        }
+            }),
+            counters: <$t as $crate::Count>::NEW_COUNTERS,
+        };
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -273,18 +235,10 @@ macro_rules! counted_ringbuf {
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[allow(non_snake_case)]
-        mod $name {
-            use super::$t;
-            #[used]
-            static COUNTERS: <$t as $crate::Count>::Counters =
-                <$t as $crate::Count>::NEW_COUNTERS;
-
-            #[inline(always)]
-            pub(super) fn record(payload: $t, _: u16) {
-                <$t as $crate::Count>::count(&payload, &COUNTERS);
-            }
-        }
+        #[used]
+        static $name: $crate::CountedRingbuf<$t, $n> = $crate::CountedRingbuf {
+            counters: <$t as $crate::Count>::NEW_COUNTERS,
+        };
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -301,12 +255,18 @@ macro_rules! counted_ringbuf {
 /// without a name, and it will default to `__RINGBUF`.
 #[macro_export]
 macro_rules! ringbuf_entry {
+    ($buf:expr, $payload:expr) => {{
+        // Evaluate both buf and payload, without letting them access each
+        // other, by evaluating them in a tuple where each cannot
+        // accidentally use the other's binding.
+        let (p, buf) = ($payload, &$buf);
+        // Invoke these functions using slightly weird syntax to avoid
+        // accidentally calling a _different_ routine called record_entry.
+        $crate::RecordEntry::record_entry(buf, line!() as u16, p);
+    }};
     ($payload:expr) => {
         $crate::ringbuf_entry!(__RINGBUF, $payload);
     };
-    ($($path_part:ident)::+, $payload:expr) => {{
-        $($path_part)::+::record($payload, line!() as u16);
-    }};
 }
 
 /// Inserts data into a ringbuffer at the root of this crate (which should have
@@ -348,6 +308,28 @@ pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
 }
 
 ///
+/// A ring buffer of parametrized type and size, plus counters tracking the
+/// total number of times each entry variant has been recorded.
+///
+/// Event counts are incremented each time an entry is added to this ring
+/// buffer. Counts are still tracked when the `disabled` feature is enabled. In
+/// order to be counted, the entry type must implement the [`Count`] trait.
+///
+/// In practice, instantiating this directly is strange -- see the
+/// [`counted_ringbuf!`] macro.
+///
+pub struct CountedRingbuf<T: Count + Copy + PartialEq, const N: usize> {
+    /// A ring buffer of the `N` most recent entries recorded by this
+    /// `CountedRingbuf`.
+    #[cfg(not(feature = "disabled"))]
+    pub ringbuf: StaticCell<Ringbuf<T, N>>,
+
+    /// Counts of the total number of times each variant of `T` has been
+    /// recorded, as defined by `T`'s [`Count`] impl.
+    pub counters: T::Counters,
+}
+
+///
 /// A countable ringbuf event.
 ///
 /// This trait can (and generally should) be derived for an `enum`
@@ -361,6 +343,10 @@ pub trait Count {
 
     /// Increment the counter for this event.
     fn count(&self, counters: &Self::Counters);
+}
+
+pub trait RecordEntry<T: Copy + PartialEq> {
+    fn record_entry(&self, line: u16, payload: T);
 }
 
 impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
@@ -420,4 +406,35 @@ impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
 
         self.last = Some(ndx);
     }
+}
+
+impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
+    for StaticCell<Ringbuf<T, { N }>>
+{
+    #[inline]
+    fn record_entry(&self, line: u16, payload: T) {
+        let mut ringbuf = self.borrow_mut();
+        ringbuf.entry(line, payload);
+    }
+}
+
+impl<T, const N: usize> RecordEntry<T> for CountedRingbuf<T, { N }>
+where
+    T: Count + Copy + PartialEq,
+{
+    #[inline]
+    fn record_entry(&self, _line: u16, payload: T) {
+        payload.count(&self.counters);
+
+        #[cfg(not(feature = "disabled"))]
+        self.ringbuf.record_entry(_line, payload)
+    }
+}
+
+impl<T> RecordEntry<T> for ()
+where
+    T: Copy + PartialEq,
+{
+    #[inline]
+    fn record_entry(&self, _: u16, _: T) {}
 }
