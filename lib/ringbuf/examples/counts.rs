@@ -21,16 +21,18 @@ pub enum Event {
 counted_ringbuf!(Event, 16, Event::NothingHappened);
 counted_ringbuf!(MY_NAMED_RINGBUF, Event, 16, Event::NothingHappened);
 
+ringbuf!(NON_COUNTED_RINGBUF, Event, 16, Event::NothingHappened);
+
 pub fn example() {
-    ringbuf::ringbuf_entry!(Event::SomethingHappened);
+    ringbuf_entry!(Event::SomethingHappened);
+    ringbuf_entry!(NON_COUNTED_RINGBUF, Event::SomethingHappened);
 }
 
 pub fn example_named() {
-    ringbuf::ringbuf_entry!(MY_NAMED_RINGBUF, Event::SomethingElse(420));
+    ringbuf_entry!(MY_NAMED_RINGBUF, Event::SomethingElse(420));
 }
 
-
-mod nested {
+pub mod nested {
     use super::Event;
 
     ringbuf::counted_ringbuf!(Event, 16, Event::NothingHappened);
@@ -38,19 +40,19 @@ mod nested {
     pub fn example() {
         ringbuf::ringbuf_entry!(Event::SomethingHappened);
         ringbuf::ringbuf_entry_root!(Event::SomethingElse(666));
-        ringbuf::ringbuf_entry_root!(MY_NAMED_RINGBUF, Event::SecretThirdThing{ secret: () });
+        ringbuf::ringbuf_entry_root!(
+            MY_NAMED_RINGBUF,
+            Event::SecretThirdThing { secret: () }
+        );
     }
 }
-
 
 pub fn example_nested() {
     ringbuf_entry!(nested::__RINGBUF, Event::SomethingHappened);
 }
 
-
-
 // This is just necessary to make the example compile.
 #[panic_handler]
-fn _die() -> ! {
+fn _die(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }

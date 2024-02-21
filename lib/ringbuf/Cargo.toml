@@ -7,10 +7,13 @@ edition = "2021"
 # To disable a ring buffer (but leave it otherwise present), enable the
 # "disabled" feature
 disabled = []
+# Enable deriving the `Count` trait
+derive = ["ringbuf-macros"]
+default = ["derive"]
 
 [dependencies]
 static-cell = { path = "../static-cell" }
-ringbuf-macros = { path = "macros" }
+ringbuf-macros = { path = "macros", optional = true }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
