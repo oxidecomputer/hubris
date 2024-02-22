@@ -1397,6 +1397,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-medusa-seq-api"
+version = "0.1.0"
+
+[[package]]
 name = "drv-medusa-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1418,7 +1422,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy",
+ "zerocopy 0.6.4",
 ]
 
 [[package]]
