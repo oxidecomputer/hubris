@@ -38,14 +38,11 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[export_name = "main"]
 fn main() -> ! {
-
     //
     // This will put our timer in the past, and should immediately kick us.
     //
     // let deadline = sys_get_timer().now;
     // sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    loop {
-        
-    }
+    loop {}
 }

@@ -24,7 +24,6 @@ task_slot!(SEQUENCER, sequencer);
 ////////////////////////////////////////////////////////////////////////////////
 // Constants!
 
-
 // Air temperature sensors, which aren't used in the control loop
 const NUM_TEMPERATURE_SENSORS: usize = 0;
 

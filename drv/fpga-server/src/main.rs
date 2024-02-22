@@ -90,7 +90,7 @@ fn main() -> ! {
             let devices = [ecp5::Ecp5::new(driver)];
         } else if #[cfg(all(any(target_board = "sidecar-b",
                                 target_board = "sidecar-c",
-                                target_board = "sidecar-d"),
+                                target_board = "sidecar-d",
                                 target_board = "medusa-a"),
                             feature = "front_io"))] {
             let configuration_port =
