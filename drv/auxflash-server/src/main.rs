@@ -10,7 +10,9 @@ use drv_auxflash_api::{
     TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
     SLOT_SIZE,
 };
-use idol_runtime::{ClientError, Leased, RequestError, R, W};
+use idol_runtime::{
+    ClientError, Leased, NotificationHandler, RequestError, R, W,
+};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
@@ -432,6 +434,17 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         handle
             .get_blob_by_tag(active_slot, tag)
             .map_err(RequestError::from)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

@@ -18,7 +18,9 @@ use attest_data::{
 use config::DataRegion;
 use core::slice;
 use hubpack::SerializedSize;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+};
 use lib_dice::{AliasData, CertData, SeedBuf};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -377,6 +379,17 @@ impl idl::InOrderAttestImpl for AttestServer {
         })?;
 
         Ok(len)
+    }
+}
+
+impl NotificationHandler for AttestServer {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

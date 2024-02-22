@@ -113,7 +113,7 @@ fn main() -> ! {
             ringbuf_entry!(Trace::WakeErr(e));
         }
         let mut msgbuf = [0u8; server::INCOMING_SIZE];
-        idol_runtime::dispatch_n(&mut msgbuf, &mut server);
+        idol_runtime::dispatch(&mut msgbuf, &mut server);
     }
 }
 

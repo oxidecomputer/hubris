@@ -702,7 +702,7 @@ fn main() -> ! {
                 tx_data_buf.as_mut_slice(),
                 rx_data_buf.as_mut_slice(),
             );
-            idol_runtime::dispatch_n(&mut buffer, &mut server);
+            idol_runtime::dispatch(&mut buffer, &mut server);
         }
     }
 }

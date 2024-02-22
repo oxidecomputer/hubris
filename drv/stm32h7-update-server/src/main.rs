@@ -15,7 +15,9 @@ use drv_stm32h7_update_api::{
     ImageVersion, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
 };
 use drv_update_api::UpdateError;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R,
+};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
 use userlib::*;
@@ -504,6 +506,17 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
 
         Ok(chunk.len() as u32)
+    }
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

@@ -12,7 +12,9 @@
 
 use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState, PAGE_SIZE_BYTES};
 use drv_hash_api::SHA256_SZ;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+};
 use userlib::RecvMessage;
 
 #[export_name = "main"]
@@ -152,6 +154,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     }
 }
 
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
+    }
+}
 mod idl {
     use super::{HfDevSelect, HfError, HfMuxState};
 

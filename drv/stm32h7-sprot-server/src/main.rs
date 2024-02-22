@@ -15,7 +15,7 @@ use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
 use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
 
@@ -1093,6 +1093,17 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             .into()),
             Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
         }
+    }
+}
+
+impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

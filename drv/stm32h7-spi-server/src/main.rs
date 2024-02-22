@@ -12,7 +12,8 @@
 
 use drv_spi_api::*;
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, RequestError, R, W,
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
+    RequestError, R, W,
 };
 use userlib::*;
 
@@ -113,6 +114,17 @@ impl InOrderSpiImpl for ServerImpl {
         rm: &RecvMessage,
     ) -> Result<(), RequestError<SpiError>> {
         self.core.release(rm.sender).map_err(RequestError::from)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

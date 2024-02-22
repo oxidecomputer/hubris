@@ -6,7 +6,7 @@
 #![no_main]
 
 use drv_caboose::{CabooseError, CabooseReader};
-use idol_runtime::{ClientError, Leased, RequestError, W};
+use idol_runtime::{ClientError, Leased, NotificationHandler, RequestError, W};
 use userlib::*;
 
 #[export_name = "main"]
@@ -59,6 +59,17 @@ impl idl::InOrderCabooseImpl for ServerImpl {
         data.write_range(0..chunk.len(), chunk)
             .map_err(|_| RequestError::Fail(ClientError::BadLease))?;
         Ok(chunk.len() as u32)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

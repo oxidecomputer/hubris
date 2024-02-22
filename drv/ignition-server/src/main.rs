@@ -84,7 +84,7 @@ fn main() -> ! {
     sys_set_timer(Some(sys_get_timer().now), notifications::TIMER_MASK);
 
     loop {
-        idol_runtime::dispatch_n(&mut incoming, &mut server);
+        idol_runtime::dispatch(&mut incoming, &mut server);
     }
 }
 

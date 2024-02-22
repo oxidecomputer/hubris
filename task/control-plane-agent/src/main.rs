@@ -182,7 +182,7 @@ fn main() {
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         sys_set_timer(server.timer_deadline(), notifications::TIMER_MASK);
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 

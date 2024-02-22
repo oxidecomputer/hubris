@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
 use drv_stm32xx_sys_api::{Group, RccError};
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
 
@@ -247,6 +247,17 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
     ) -> Result<[u32; 3], RequestError<core::convert::Infallible>> {
         Ok(drv_stm32xx_uid::read_uid())
+    }
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

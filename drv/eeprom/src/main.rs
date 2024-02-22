@@ -16,7 +16,7 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_devices::at24csw080::*;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use userlib::*;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -88,6 +88,17 @@ impl idl::InOrderEepromImpl for EepromServer {
         self.dev
             .write_byte(addr, value)
             .map_err(|e| EepromError::from(e).into())
+    }
+}
+
+impl NotificationHandler for EepromServer {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

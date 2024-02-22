@@ -11,7 +11,7 @@
 
 use drv_rng_api::RngError;
 use drv_stm32xx_sys_api::{Peripheral, Sys};
-use idol_runtime::{ClientError, RequestError};
+use idol_runtime::{ClientError, NotificationHandler, RequestError};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -129,6 +129,17 @@ impl idl::InOrderRngImpl for Stm32h7RngServer {
         }
 
         Ok(cnt)
+    }
+}
+
+impl NotificationHandler for Stm32h7RngServer {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

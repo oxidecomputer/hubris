@@ -163,7 +163,7 @@ fn main() -> ! {
 
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     loop {
-        idol_runtime::dispatch_n(&mut incoming, &mut serverimpl);
+        idol_runtime::dispatch(&mut incoming, &mut serverimpl);
     }
 }
 

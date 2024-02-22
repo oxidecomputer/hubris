@@ -595,6 +595,19 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
     }
 }
 
+impl<'a, Device: Fpga<'a> + FpgaUserDesign> idol_runtime::NotificationHandler
+    for ServerImpl<'a, Device>
+{
+    fn current_notification_mask(&self) -> u32 {
+        // We do not expect notifications.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
+    }
+}
+
 #[derive(AsBytes, Unaligned)]
 #[repr(C)]
 struct UserDesignRequestHeader {

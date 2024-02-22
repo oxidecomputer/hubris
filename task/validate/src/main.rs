@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_validate_api::{ValidateError, ValidateOk};
 use userlib::*;
@@ -50,6 +50,17 @@ impl idl::InOrderValidateImpl for ServerImpl {
                 I2cValidation::Bad => Err(ValidateError::BadValidation.into()),
             },
         }
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 
