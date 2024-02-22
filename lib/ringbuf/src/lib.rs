@@ -406,6 +406,8 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
             count: 1,
             generation: ent.generation.wrapping_add(1),
         };
+
+        ring.last = Some(ndx);
     }
 }
 
