@@ -44,7 +44,7 @@ use lpc55_pac as device;
 
 use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::*;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use userlib::*;
 
 task_slot!(SYSCON, syscon_driver);
@@ -138,6 +138,17 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         }
 
         Ok(())
+    }
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

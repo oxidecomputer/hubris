@@ -16,7 +16,9 @@ use drv_lpc55_update_api::{
     RawCabooseError, RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_update_api::UpdateError;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+};
 use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
 };
@@ -463,6 +465,17 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             dest,
         )?;
         Ok(())
+    }
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

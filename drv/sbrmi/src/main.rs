@@ -9,7 +9,7 @@
 
 use drv_i2c_devices::sbrmi::{CpuidResult, Sbrmi};
 use drv_sbrmi_api::SbrmiError;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
 use zerocopy::FromBytes;
@@ -137,6 +137,17 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
         msr: u32,
     ) -> Result<u64, RequestError<SbrmiError>> {
         self.rdmsr::<u64>(thread, msr)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

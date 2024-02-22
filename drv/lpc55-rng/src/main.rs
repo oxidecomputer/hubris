@@ -12,7 +12,7 @@
 use core::mem::size_of;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_rng_api::RngError;
-use idol_runtime::{ClientError, RequestError};
+use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use rand_chacha::ChaCha20Rng;
 use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{impls, Error, RngCore, SeedableRng};
@@ -183,6 +183,17 @@ impl idl::InOrderRngImpl for Lpc55RngServer {
             cnt += remain;
         }
         Ok(cnt)
+    }
+}
+
+impl NotificationHandler for Lpc55RngServer {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

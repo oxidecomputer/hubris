@@ -65,7 +65,8 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sp_ctrl_api::SpCtrlError;
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, RequestError, R, W,
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
+    RequestError, R, W,
 };
 use lpc55_pac as device;
 use ringbuf::*;
@@ -482,6 +483,17 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             Ok(val) => Ok(val),
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

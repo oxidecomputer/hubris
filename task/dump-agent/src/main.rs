@@ -196,6 +196,17 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 }
 
+// If we are not built with net support, we expect no notifications.
+#[cfg(not(feature = "net"))]
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        0
+    }
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
+    }
+}
+
 impl idl::InOrderDumpAgentImpl for ServerImpl {
     fn get_dump_area(
         &mut self,
@@ -288,7 +299,7 @@ fn main() -> ! {
                 rx_data_buf.as_mut_slice(),
                 tx_data_buf.as_mut_slice(),
             );
-            idol_runtime::dispatch_n(&mut buffer, &mut server);
+            idol_runtime::dispatch(&mut buffer, &mut server);
         }
     }
 

@@ -201,7 +201,7 @@ fn main() -> ! {
     }
     let mut server = ServerImpl { blinking };
     loop {
-        idol_runtime::dispatch_n(&mut incoming, &mut server);
+        idol_runtime::dispatch(&mut incoming, &mut server);
     }
 }
 

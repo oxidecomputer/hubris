@@ -158,7 +158,7 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 

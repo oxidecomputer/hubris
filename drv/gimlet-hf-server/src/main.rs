@@ -33,7 +33,9 @@ use userlib::*;
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+};
 use zerocopy::{AsBytes, FromBytes};
 
 #[cfg(feature = "h743")]
@@ -790,6 +792,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
         Ok(())
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

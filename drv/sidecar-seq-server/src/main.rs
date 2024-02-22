@@ -1010,7 +1010,7 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
