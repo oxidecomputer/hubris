@@ -11,6 +11,7 @@ gimlet-inspector-protocol = { workspace = true }
 task-net-api = { path = "../net-api" }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+ringbuf = { path = "../../lib/ringbuf" }
 
 
 [build-dependencies]

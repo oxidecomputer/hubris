@@ -9,7 +9,6 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
 use drv_gimlet_seq_api::{SeqError, Sequencer};
 use gimlet_inspector_protocol::{
     QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
@@ -18,16 +17,24 @@ use gimlet_inspector_protocol::{
 use hubpack::SerializedSize;
 use task_net_api::*;
 use userlib::*;
+use ringbuf::ringbuf_entry;
 
 task_slot!(NET, net);
 task_slot!(SEQ, seq);
 
-#[no_mangle]
-static CTR_RECVD: AtomicUsize = AtomicUsize::new(0);
-#[no_mangle]
-static CTR_REJECTED: AtomicUsize = AtomicUsize::new(0);
-#[no_mangle]
-static CTR_RESPONSES: AtomicUsize = AtomicUsize::new(0);
+#[derive(ringbuf::Count, Copy, Clone, PartialEq, Eq)]
+pub enum Event {
+    /// A packet was received.
+    Recv,
+    /// A malformed packet was rejected.
+    Reject,
+    /// A response packet was sent.
+    Response,
+    /// Empty event to populate the ringbuf on initialization. 
+    None,
+}
+
+ringbuf::counted_ringbuf!(Event, 8, Event::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -49,11 +56,11 @@ fn main() -> ! {
             &mut rx_data_buf,
         ) {
             Ok(mut meta) => {
-                CTR_RECVD.fetch_add(1, Ordering::Relaxed);
+                ringbuf_entry!(Event::Recv);
 
                 let Ok((request, _trailer)) = hubpack::deserialize::<Request>(&rx_data_buf) else {
                     // We ignore malformatted, truncated, etc. packets.
-                    CTR_REJECTED.fetch_add(1, Ordering::Relaxed);
+                    ringbuf_entry!(Event::Reject);
                     continue;
                 };
 
@@ -97,7 +104,7 @@ fn main() -> ! {
                         &tx_data_buf[0..(meta.size as usize)],
                     ) {
                         Ok(()) => {
-                            CTR_RESPONSES.fetch_add(1, Ordering::Relaxed);
+                            ringbuf_entry!(Event::Response);
                             break;
                         }
                         // If `net` just restarted, immediately retry our send.
