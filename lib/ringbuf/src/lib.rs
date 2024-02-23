@@ -474,14 +474,10 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
         let ndx = {
             let last_plus_1 = last.wrapping_add(1);
             // You're probably wondering why this isn't a remainder operation.
-            // This is for two reasons:
-            // 1. None of our target platforms currently have hardware modulus,
-            //    and many of them don't even have hardware divide, making
-            //    remainder quite expensive.
-            // 2. The code as written here correctly turns usize::MAX into 0 for
-            //    our starting condition. Otherwise we'd have to be cleverer
-            //    about our starting number.
-            if last_plus_1 >= ring.buffer.len() {
+            // This is because none of our target platforms currently have
+            // hardware modulus, and many of them don't even have hardware
+            // divide, making remainder quite expensive.
+            if last_plus_1 >= self.buffer.len() {
                 0
             } else {
                 last_plus_1
