@@ -15,7 +15,7 @@ use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError,
 };
 use mutable_statics::mutable_statics;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
     BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
@@ -48,18 +48,30 @@ task_slot!(SYS, sys);
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
 enum Log {
+    #[count(skip)]
     Empty,
     BarcodeParseError(BarcodeParseError),
     Rx(UdpMetadata),
     SendError(SendError),
+    #[count(children)]
     MgsMessage(MgsMessage),
-    UsartTxFull { remaining: usize },
+    UsartTxFull {
+        remaining: usize,
+    },
     UsartRxOverrun,
-    UsartRxBufferDataDropped { num_bytes: u64 },
-    SerialConsoleSend { buffered: usize },
-    UpdatePartial { bytes_written: u32 },
+    UsartRxBufferDataDropped {
+        num_bytes: u64,
+    },
+    SerialConsoleSend {
+        buffered: usize,
+    },
+    UpdatePartial {
+        bytes_written: u32,
+    },
     UpdateComplete,
-    HostFlashSectorsErased { num_sectors: usize },
+    HostFlashSectorsErased {
+        num_sectors: usize,
+    },
     ExpectedRspTimeout,
     RotReset(SprotError),
     SprotCabooseSize(u32),
@@ -72,7 +84,7 @@ enum Log {
 // `Log` enum above (which itself is only used by our ringbuf logs). The MGS
 // protocol is defined in the `gateway-messages` crate (which is shared with
 // MGS proper and other tools like `sp-sim` in the omicron repository).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
 enum MgsMessage {
     Discovery,
     IgnitionState {
