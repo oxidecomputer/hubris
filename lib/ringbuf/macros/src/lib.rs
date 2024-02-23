@@ -8,7 +8,7 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 
-/// Derives an implementation of the [`ringbuf::Count`] trait for the annotated
+/// Derives an implementation of the `ringbuf::Count` trait for the annotated
 /// `enum` type.
 ///
 /// Note that this macro can currently only be used on `enum` types.

@@ -62,6 +62,63 @@
 //! ringbuf_entry!((temp, Some(Register::TempMSB)));
 //! ```
 //!
+//! ### Counted ring buffers
+//!
+//! One limitation of ring buffers for recording diagnostic data is that, when a
+//! very large number of entries have been recorded, historical data may not be
+//! available, as the earliest entries may have have "fallen off" the end of the
+//! ring buffer and been overwritten. Therefore, to preserve historical data in
+//! ring buffers that record a large number of events, or where the size of the
+//! ring buffer is small, this crate also provides a [`counted_ringbuf!] macro.
+//!
+//! The [`counted_ringbuf!`] macro is used to declare a ring buffer that records
+//! a total count of each entry variant that has been recorded, in addition to
+//! storing the last `N` entries. This way, some information about entries that
+//! have been overwritten is still preserved, making it possible to determine
+//! whether an entry variant has *ever* been recorded, even if it has been
+//! overwritten. The data recorded by counters is less granular than the ringbuf
+//! itself, as entry variants that hold data are collapsed into a single
+//! counter, regardless of their field values, and the order in which entries
+//! have occurred is not preserved by a counter.
+//!
+//! Entry variant counts are recorded even when this crate is compiled with the
+//! "disabled" feature flag set. This allows targets which lack the memory for
+//! an entire ring buffer to still record event counts.
+//!
+//! To use the [`counted_ringbuf!`] macro, the entry type must be
+//! an `enum`, and it must implement the [`Count`] trait, which defines a
+//! mechanism for counting occurences of each entry variant. Typically, the
+//! [`Count`] trait is implemented using the `#[derive(Count)]` attribute. The
+//! same [`ringbuf_entry!`] and [`ringbuf_entry_root!`] macros can be used to
+//! record an entry in a counted ring buffer.
+//!
+//! For example:
+//!
+//! ```
+//! // Declare an enum type and derive the `Count` trait for it:
+//! #[derive(Copy, Clone, Debug, PartialEq, Eq, ringbuf::Count)]
+//! pub enum MyEvent {
+//!     NothingHappened,
+//!     SomethingHappened,
+//!     SomethingElseHappened(u32),
+//!     // ...
+//! }
+//!
+//! // Declare a counted ring buffer of `MyEvent` entries:
+//! counted_ringbuf!(MyEvent, 16, MyEvent::NothingHappened);
+//!
+//! // Record an entry in the counted ring buffer, incrementing the counter
+//! // for the `MyEvent::SomethingHappened` variant:
+//! ringbuf_entry!(MyEvent::SomethingHappened);
+//!
+//! // Record an entry variant with data. Note that both of these entries will
+//! // increment the *same* counter (`SomethingElseHappened`), despite having
+//! // different values:
+//! ringbuf_entry!(MyEvent::SomethingElseHappened(42));
+//! ringbuf_entry!(MyEvent::SomethingElseHappened(666));
+//! ```
+//!
+//!
 //! ## Inspecting a ring buffer via Humility
 //!
 //! Humility has built-in support for dumping a ring buffer, and will (by
@@ -135,7 +192,6 @@
 //!      )
 //!    },...
 //! ```
-
 #![no_std]
 #[cfg(target_arch = "arm")]
 pub use armv6m_atomic_hack;
@@ -199,7 +255,9 @@ macro_rules! ringbuf {
 /// `counted_ringbuf!(NAME, Type, N, expr)` makes a [`CountedRingbuf`] named `NAME`,
 /// containing entries of type `Type`, with room for `N` such entries, all of
 /// which are initialized to `expr`. `Type` must implement the [`Count`] trait,
-/// which defines how to count occurences of each ringbuf entry variant.
+/// which defines how to count occurences of each ringbuf entry variant. See
+/// [the crate-level documentation](crate#counted-ring-buffers) for more
+/// details on recording entry counts.
 ///
 /// The resulting ringbuffer will be static, so `NAME` should be uppercase. If
 /// you want your ringbuffer to be detected by Humility's automatic scan, its
@@ -313,7 +371,9 @@ pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
 ///
 /// Event counts are incremented each time an entry is added to this ring
 /// buffer. Counts are still tracked when the `disabled` feature is enabled. In
-/// order to be counted, the entry type must implement the [`Count`] trait.
+/// order to be counted, the entry type must implement the [`Count`] trait. See
+/// [the crate-level documentation](crate#counted-ring-buffers) for more
+/// details on recording entry counts.
 ///
 /// In practice, instantiating this directly is strange -- see the
 /// [`counted_ringbuf!`] macro.
@@ -330,22 +390,51 @@ pub struct CountedRingbuf<T: Count + Copy + PartialEq, const N: usize> {
 }
 
 ///
-/// A countable ringbuf event.
+/// A countable ringbuf entry..
 ///
 /// This trait can (and generally should) be derived for an `enum`
 /// type using the [`#[derive(Count)]`][drv] attribute.
 ///
 /// [drv]: ringbuf_macros::Count
 pub trait Count {
+    /// A type that counts occurances of this ringbuf entry.
     type Counters;
 
+    /// Initializer for a new set of counters.
+    ///
+    /// The value of each counter in this constant should be 0.
     const NEW_COUNTERS: Self::Counters;
 
     /// Increment the counter for this event.
     fn count(&self, counters: &Self::Counters);
 }
 
+///
+/// An abstraction over types in which ring buffer entries can be recorded.
+///
+/// This trait allows the [`ringbuf_entry!] and [`ringbuf_entry_root!`] macros
+/// to record entries in both [`CountedRingbuf`]s and [`Ringbuf`]s without entry
+/// total counters. It is implemented for the following types:
+///
+/// - [`CountedRingbuf`]`<T, N>`: used by ringbufs declared using the
+///   [`counted_ringbuf!`] macro. This implementation increments the count of
+///   the recorded entry variant, and (if the "disabled") feature flag is not
+///   set, records the entry in the ringbuf.
+/// - [`StaticCell`]`<`[`Ringbuf`]`<T, N>>`: used by ringbufs declared using the
+///   [`ringbuf!`] macro, when the "disabled" feature flag is not enabled.
+/// - `()`: used by ringbufs declared using the [`ringbuf!`] macro, when the
+///   "disabled" feature flag is enabled. This implementation is a no-op.
+///
+/// It's typically unnecessary to implement this trait for other types, as its
+/// only purpose is to allow the [`ringbuf_entry!`] and [`ringbuf_entry_root!`]
+/// macros to dispatch based on which ringbuf type is being used.
 pub trait RecordEntry<T: Copy + PartialEq> {
+    /// Record a `T`-typed entry in this ringbuf. The `line` parameter should be
+    /// the source code line on which the entry was recorded.
+    ///
+    /// This method is typically called by the [`ringbuf_entry!`] and
+    /// [`ringbuf_entry_root!`] macros. While you could also call this method
+    /// directly, [`ringbuf_entry!`] will capture the line number for you.
     fn record_entry(&self, line: u16, payload: T);
 }
 
