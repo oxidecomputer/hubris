@@ -15,22 +15,20 @@ use syn::{parse_macro_input, DeriveInput};
 #[proc_macro_derive(Count)]
 pub fn derive_count(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match gen_count_event_impl(input) {
+    match gen_count_impl(input) {
         Ok(tokens) => tokens.to_token_stream().into(),
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn gen_count_event_impl(
-    input: DeriveInput,
-) -> Result<impl ToTokens, syn::Error> {
+fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
     let name = &input.ident;
     let data_enum = match input.data {
         syn::Data::Enum(ref data_enum) => data_enum,
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "Event can only be derived for enums",
+                "`ringbuf::Count` can only be derived for enums",
             ));
         }
     };
@@ -53,14 +51,14 @@ fn gen_count_event_impl(
     }
     let counts_ty = counts_ty(name);
     let code = quote! {
-        #[doc = concat!(" Ringbuf event counts for [`", stringify!(#name), "`].")]
+        #[doc = concat!(" Ringbuf entry total counts for [`", stringify!(#name), "`].")]
         #[allow(nonstandard_style)]
         pub struct #counts_ty {
             #(
                 #[doc = concat!(
                     " The total number of times a [`",
                     stringify!(#name), "::", stringify!(#variant_names),
-                    "`] event"
+                    "`] entry"
                 )]
                 #[doc = " has been recorded by this ringbuf."]
                 pub #variant_names: core::sync::atomic::AtomicU32
